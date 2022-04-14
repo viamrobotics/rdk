@@ -38,7 +38,7 @@ var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name, framesystem.Name, metadata.Name}
+	defaultSvc = []resource.Name{metadata.Name, sensors.Name, status.Name, web.Name, datamanager.Name, framesystem.Name}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most

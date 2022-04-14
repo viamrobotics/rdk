@@ -233,7 +233,7 @@ type Service interface {
 
 // New returns a new web service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	webSvc := &serviceImpl{
+	webSvc := &webService{
 		r:        r,
 		logger:   logger,
 		server:   nil,
@@ -242,42 +242,39 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return webSvc, nil
 }
 
-// serviceImpl is the type implementation of a web service. It is exposed for
-// use in testing to avoid a dependency cycle and should not be accessed
-// directly. Instead, make use of the [New] function.
-type serviceImpl struct {
+type webService struct {
 	mu       sync.Mutex
 	r        robot.Robot
 	server   rpc.Server
 	services map[resource.Subtype]subtype.Service
 
 	logger                  golog.Logger
-	CancelFunc              func()
+	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
 // Start starts the web server, will return an error if server is already up.
-func (svc *serviceImpl) Start(ctx context.Context, o Options) error {
+func (svc *webService) Start(ctx context.Context, o Options) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if svc.CancelFunc != nil {
+	if svc.cancelFunc != nil {
 		return errors.New("web server already started")
 	}
-	cancelCtx, CancelFunc := context.WithCancel(ctx)
-	svc.CancelFunc = CancelFunc
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	svc.cancelFunc = cancelFunc
 
 	return svc.runWeb(cancelCtx, o)
 }
 
 // Update updates the web service when the robot has changed. Not Reconfigure because this should happen at a different point in the
 // lifecycle.
-func (svc *serviceImpl) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+func (svc *webService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	return svc.update(resources)
 }
 
-func (svc *serviceImpl) update(resources map[resource.Name]interface{}) error {
+func (svc *webService) update(resources map[resource.Name]interface{}) error {
 	// so group resources by subtype
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
 	for n, v := range resources {
@@ -307,19 +304,19 @@ func (svc *serviceImpl) update(resources map[resource.Name]interface{}) error {
 	return nil
 }
 
-// Close closes a serviceImpl via calls to its Cancel func.
-func (svc *serviceImpl) Close(ctx context.Context) error {
+// Close closes a webService via calls to its Cancel func.
+func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if svc.CancelFunc != nil {
-		svc.CancelFunc()
-		svc.CancelFunc = nil
+	if svc.cancelFunc != nil {
+		svc.cancelFunc()
+		svc.cancelFunc = nil
 	}
 	svc.activeBackgroundWorkers.Wait()
 	return nil
 }
 
-func (svc *serviceImpl) makeStreamServer(ctx context.Context, theRobot robot.Robot) (gostream.StreamServer, bool, error) {
+func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (gostream.StreamServer, bool, error) {
 	displaySources, displayNames := allSourcesToDisplay(theRobot)
 	var streams []gostream.Stream
 
@@ -367,7 +364,7 @@ func (w ssStreamContextWrapper) Context() context.Context {
 }
 
 // installWeb prepares the given mux to be able to serve the UI for the robot.
-func (svc *serviceImpl) installWeb(mux *goji.Mux, theRobot robot.Robot, options Options) error {
+func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options Options) error {
 	app := &robotWebApp{theRobot: theRobot, logger: svc.logger, options: options}
 	if err := app.Init(); err != nil {
 		return err
@@ -396,7 +393,7 @@ func (svc *serviceImpl) installWeb(mux *goji.Mux, theRobot robot.Robot, options 
 // TODO(ethan) (rsdk-290): this function is really big and pretty annoying to navigate.
 // It'd be nice if we broke out chunks into helper functions, for easier
 // navigation and clearer reading of the workflow.
-func (svc *serviceImpl) runWeb(ctx context.Context, options Options) (err error) {
+func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
 	secure := options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
 	if err != nil {

@@ -21,13 +21,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var clientNewResource = resource.NewName(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	arm.SubtypeName,
-	"",
-)
-
+var clientNewResource = arm.Named("")
 var clientOneResourceResponse = []resource.Name{protoutils.ResourceNameFromProto(
 	&commonpb.ResourceName{
 		Uuid:      clientNewResource.UUID,

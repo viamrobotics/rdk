@@ -9,6 +9,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/metadata"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -28,7 +29,11 @@ func newServer(injectMetadata *inject.Metadata) (pb.MetadataServiceServer, error
 		metadata.Name: injectMetadata,
 	}
 
-	return metadata.NewServerFromMap(subtypeSvcMap)
+	subtypeSvc, err := subtype.New(subtypeSvcMap)
+	if err != nil {
+		return nil, err
+	}
+	return metadata.NewServer(subtypeSvc), nil
 }
 
 func setupInjectRobot() (*inject.Robot, *mock) {
