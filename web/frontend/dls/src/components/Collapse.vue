@@ -7,16 +7,19 @@
     <div
       class="flex items-center border border-black p-2"
       :class="{
-        'cursor-pointer': !disabled,
         'flex-row-reverse': iconLeft,
       }"
-      @click="toggleExpand()"
     >
       <div class="flex-1">
         <slot />
       </div>
 
-      <div>
+      <div
+        :class="{
+          'cursor-pointer': !disabled,
+        }"
+        @click="toggleExpand()"
+      >
         <svg
           width="24"
           height="24"

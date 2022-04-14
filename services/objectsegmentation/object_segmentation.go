@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
@@ -94,7 +93,7 @@ func (seg *objectSegService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	segmenter, err := segmentation.SegmenterLookup(segmenterName)
+	segmenter, err := SegmenterLookup(segmenterName)
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +101,11 @@ func (seg *objectSegService) GetObjectPointClouds(
 }
 
 func (seg *objectSegService) GetSegmenters(ctx context.Context) ([]string, error) {
-	return segmentation.SegmenterNames(), nil
+	return SegmenterNames(), nil
 }
 
 func (seg *objectSegService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	segmenter, err := segmentation.SegmenterLookup(segmenterName)
+	segmenter, err := SegmenterLookup(segmenterName)
 	if err != nil {
 		return nil, err
 	}
