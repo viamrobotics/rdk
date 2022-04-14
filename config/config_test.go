@@ -11,7 +11,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
@@ -24,8 +23,6 @@ import (
 	// motor attribute converters.
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
-	functionvm "go.viam.com/rdk/function/vm"
-	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -202,40 +199,6 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidProcesses.Processes[0].Name = "foo"
 	test.That(t, invalidProcesses.Ensure(false), test.ShouldBeNil)
-
-	invalidFunctions := config.Config{
-		Functions: []functionvm.FunctionConfig{{}},
-	}
-	err = invalidFunctions.Ensure(false)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `functions.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-
-	engName1 := utils.RandomAlphaString(64)
-	injectEngine1 := &inject.Engine{}
-	functionvm.RegisterEngine(functionvm.EngineName(engName1), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-
-	injectEngine1.ValidateSourceFunc = func(_ string) error {
-		return errors.New("whoops")
-	}
-
-	invalidFunctions.Functions[0] = functionvm.FunctionConfig{
-		Name: "one",
-		AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-			Engine: functionvm.EngineName(engName1),
-			Source: "three",
-		},
-	}
-	err = invalidFunctions.Ensure(false)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `whoops`)
-
-	injectEngine1.ValidateSourceFunc = func(_ string) error {
-		return nil
-	}
-	test.That(t, invalidFunctions.Ensure(false), test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{

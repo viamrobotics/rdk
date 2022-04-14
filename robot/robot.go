@@ -24,9 +24,6 @@ type Robot interface {
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
-	// FunctionNames returns the name of all known functions.
-	FunctionNames() []string
-
 	// ResourceNames returns a list of all known resource names
 	ResourceNames() []resource.Name
 
