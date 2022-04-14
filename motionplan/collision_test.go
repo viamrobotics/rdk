@@ -60,14 +60,21 @@ func TestCheckCollisions(t *testing.T) {
 	interactionSpaces := make(map[string]spatial.Geometry)
 	interactionSpaces["iSCube000"] = bc1.NewGeometry(spatial.NewZeroPose())
 	interactionSpaces["iSCube222"] = bc1.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{3, 3, 3}))
-	cg, err := CheckCollisions(robot, obstacles, interactionSpaces)
+	robotEntities, err := NewObjectCollisionEntities(robot)
+	test.That(t, err, test.ShouldBeNil)
+	obstacleEntities, err := NewObjectCollisionEntities(obstacles)
+	test.That(t, err, test.ShouldBeNil)
+	spaceEntities, err := NewSpaceCollisionEntities(interactionSpaces)
+	test.That(t, err, test.ShouldBeNil)
+	cs, err := NewCollisionSystem(robotEntities, []CollisionEntities{obstacleEntities, spaceEntities})
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"robotCube222", "robotCube333", 1},
 		{"obstacleCube000", "robotCube000", 2},
-		{"interaction space", "robotCube333", 1},
+		{"iSCube000", "robotCube333", 1},
+		{"iSCube222", "robotCube333", 1},
 	}
-	test.That(t, collisionListsAlmostEqual(cg.Collisions(), expectedCollisions), test.ShouldBeTrue)
+	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 
 	// case 2: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
 	// no external geometries considered, self collision only
@@ -75,9 +82,11 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	robot, _ = m.Geometries(make([]frame.Input, len(m.DoF())))
 	test.That(t, robot, test.ShouldNotBeNil)
-	cg, err = CheckCollisions(robot, map[string]spatial.Geometry{}, map[string]spatial.Geometry{})
+	robotEntities, err = NewObjectCollisionEntities(robot)
+	test.That(t, robot, test.ShouldNotBeNil)
+	cs, err = NewCollisionSystem(robotEntities, []CollisionEntities{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cg.Collisions()), test.ShouldEqual, len(cg.indices)-1)
+	test.That(t, len(cs.Collisions()), test.ShouldEqual, 4)
 }
 
 func TestUniqueCollisions(t *testing.T) {
@@ -88,23 +97,29 @@ func TestUniqueCollisions(t *testing.T) {
 	input := make([]frame.Input, len(m.DoF()))
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	zeroPositionCG, err := CheckCollisions(internalGeometries, map[string]spatial.Geometry{}, map[string]spatial.Geometry{})
+	internalEntities, err := NewObjectCollisionEntities(internalGeometries)
+	test.That(t, internalGeometries, test.ShouldNotBeNil)
+	zeroPositionCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
-	input[0] = frame.Input{1}
+	input[0] = frame.Input{0}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	cg, err := CheckUniqueCollisions(internalGeometries, map[string]spatial.Geometry{}, map[string]spatial.Geometry{}, zeroPositionCG)
+	internalEntities, err = NewObjectCollisionEntities(internalGeometries)
+	test.That(t, internalGeometries, test.ShouldNotBeNil)
+	cs, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cg.Collisions()), test.ShouldEqual, 0)
+	test.That(t, len(cs.Collisions()), test.ShouldEqual, 0)
 
 	// case 2: self collision - check only new collisions are returned
 	input[4] = frame.Input{2}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	cg, err = CheckUniqueCollisions(internalGeometries, map[string]spatial.Geometry{}, map[string]spatial.Geometry{}, zeroPositionCG)
+	internalEntities, err = NewObjectCollisionEntities(internalGeometries)
+	test.That(t, internalGeometries, test.ShouldNotBeNil)
+	cs, err = NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG)
 	test.That(t, err, test.ShouldBeNil)
-	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 0}, {"xArm6:wrist_link", "xArm6:upper_arm", 0}}
-	test.That(t, collisionListsAlmostEqual(cg.Collisions(), expectedCollisions), test.ShouldBeTrue)
+	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 041.61}, {"xArm6:wrist_link", "xArm6:upper_arm", 48.18}}
+	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 }
