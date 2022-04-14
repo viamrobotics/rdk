@@ -7,7 +7,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -21,16 +20,6 @@ type server struct {
 // NewServer constructs a gRPC metadata server.
 func NewServer(s subtype.Service) pb.MetadataServiceServer {
 	return &server{subtypeSvc: s}
-}
-
-// NewServerFromMap constructs a subtype.Service from the provided map and uses
-// that to construct a gRPC metadata server.
-func NewServerFromMap(subtypeSvcMap map[resource.Name]interface{}) (pb.MetadataServiceServer, error) {
-	subtypeSvc, err := subtype.New(subtypeSvcMap)
-	if err != nil {
-		return nil, err
-	}
-	return NewServer(subtypeSvc), nil
 }
 
 func (server *server) service() (Service, error) {

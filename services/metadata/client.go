@@ -13,27 +13,25 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// serviceClient is a client satisfies the metadata.proto contract.
-type serviceClient struct {
-	Service
+// client is a client satisfies the MetadataServiceClient.
+type client struct {
 	conn   rpc.ClientConn
 	client pb.MetadataServiceClient
 
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
+// newSvcClientFromConn constructs a new client using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) Service {
-	client := pb.NewMetadataServiceClient(conn)
-	mc := &serviceClient{
+	mc := &client{
 		conn:   conn,
-		client: client,
+		client: pb.NewMetadataServiceClient(conn),
 		logger: logger,
 	}
 	return mc
 }
 
-// NewClient constructs a new serviceClient that is served at the given address.
+// NewClient constructs a new client that is served at the given address.
 func NewClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (Service, error) {
 	conn, err := grpc.Dial(ctx, address, logger, opts...)
 	if err != nil {
@@ -50,12 +48,12 @@ func NewClientFromConn(_ctx context.Context, conn rpc.ClientConn, _name string, 
 }
 
 // Close cleanly closes the underlying connections.
-func (mc *serviceClient) Close() error {
+func (mc *client) Close() error {
 	return mc.conn.Close()
 }
 
 // Resources gets the latest version of the list of resources for the remote robot.
-func (mc *serviceClient) Resources(ctx context.Context) ([]resource.Name, error) {
+func (mc *client) Resources(ctx context.Context) ([]resource.Name, error) {
 	resp, err := mc.client.Resources(ctx, &pb.ResourcesRequest{})
 	if err != nil {
 		return nil, err

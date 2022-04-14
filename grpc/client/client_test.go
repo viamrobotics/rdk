@@ -429,7 +429,13 @@ func TestClient(t *testing.T) {
 
 func getMetadataServer(injectMetadata *inject.Metadata) (metadatapb.MetadataServiceServer, error) {
 	subtypeSvcMap := map[resource.Name]interface{}{metadata.Name: injectMetadata}
-	return metadata.NewServerFromMap(subtypeSvcMap)
+
+	subtypeSvc, err := subtype.New(subtypeSvcMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return metadata.NewServer(subtypeSvc), nil
 }
 
 func TestClientRefresh(t *testing.T) {

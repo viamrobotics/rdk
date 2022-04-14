@@ -45,7 +45,7 @@ func FromRobot(robot robot.Robot) (Service, error) {
 	return svc, nil
 }
 
-// Service defines what a metadataService should be able to do.
+// Service defines what a metadata service should be able to do.
 type Service interface {
 	// Resources returns the list of resources.
 	Resources(ctx context.Context) ([]resource.Name, error)
