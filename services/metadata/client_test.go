@@ -21,16 +21,18 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var clientNewResource = arm.Named("")
-var clientOneResourceResponse = []resource.Name{protoutils.ResourceNameFromProto(
-	&commonpb.ResourceName{
-		Uuid:      clientNewResource.UUID,
-		Namespace: string(clientNewResource.Namespace),
-		Type:      string(clientNewResource.ResourceType),
-		Subtype:   string(clientNewResource.ResourceSubtype),
-		Name:      clientNewResource.Name,
-	},
-)}
+var (
+	clientNewResource         = arm.Named("")
+	clientOneResourceResponse = []resource.Name{protoutils.ResourceNameFromProto(
+		&commonpb.ResourceName{
+			Uuid:      clientNewResource.UUID,
+			Namespace: string(clientNewResource.Namespace),
+			Type:      string(clientNewResource.ResourceType),
+			Subtype:   string(clientNewResource.ResourceSubtype),
+			Name:      clientNewResource.Name,
+		},
+	)}
+)
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
