@@ -8,6 +8,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
@@ -47,7 +49,7 @@ func TestDiffConfigs(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "arm1",
-				Type:  config.ComponentTypeArm,
+				Type:  arm.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"one": float64(1),
@@ -55,7 +57,7 @@ func TestDiffConfigs(t *testing.T) {
 			},
 			{
 				Name:  "base1",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"two": float64(2),
@@ -64,7 +66,7 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:  "board1",
 				Model: "fake",
-				Type:  config.ComponentTypeBoard,
+				Type:  board.SubtypeName,
 				ConvertedAttributes: &board.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -128,7 +130,7 @@ func TestDiffConfigs(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "arm1",
-				Type:  config.ComponentTypeArm,
+				Type:  arm.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"two": float64(2),
@@ -136,7 +138,7 @@ func TestDiffConfigs(t *testing.T) {
 			},
 			{
 				Name:  "base1",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"three": float64(3),
@@ -145,7 +147,7 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:  "board1",
 				Model: "fake",
-				Type:  config.ComponentTypeBoard,
+				Type:  board.SubtypeName,
 				ConvertedAttributes: &board.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -263,12 +265,12 @@ func TestDiffConfigs(t *testing.T) {
 					Components: []config.Component{
 						{
 							Name:  "base2",
-							Type:  config.ComponentTypeBase,
+							Type:  base.SubtypeName,
 							Model: "fake",
 						},
 						{
 							Name:  "board2",
-							Type:  config.ComponentTypeBoard,
+							Type:  board.SubtypeName,
 							Model: "fake",
 							ConvertedAttributes: &board.Config{
 								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
@@ -307,7 +309,7 @@ func TestDiffConfigs(t *testing.T) {
 					Components: []config.Component{
 						{
 							Name:  "arm1",
-							Type:  config.ComponentTypeArm,
+							Type:  arm.SubtypeName,
 							Model: "fake",
 							Attributes: config.AttributeMap{
 								"two": float64(2),
@@ -315,7 +317,7 @@ func TestDiffConfigs(t *testing.T) {
 						},
 						{
 							Name:  "board1",
-							Type:  config.ComponentTypeBoard,
+							Type:  board.SubtypeName,
 							Model: "fake",
 							ConvertedAttributes: &board.Config{
 								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
@@ -344,7 +346,7 @@ func TestDiffConfigs(t *testing.T) {
 					Components: []config.Component{
 						{
 							Name:  "base1",
-							Type:  config.ComponentTypeBase,
+							Type:  base.SubtypeName,
 							Model: "fake",
 							Attributes: config.AttributeMap{
 								"two": float64(2),

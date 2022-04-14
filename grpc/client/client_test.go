@@ -240,7 +240,7 @@ func TestClient(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name: "a",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 				Frame: &config.Frame{
 					Parent:      "b",
 					Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
@@ -249,7 +249,7 @@ func TestClient(t *testing.T) {
 			},
 			{
 				Name: "b",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 		},
 	}
