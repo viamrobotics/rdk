@@ -8,6 +8,7 @@ require (
 	github.com/adrianmo/go-nmea v1.3.0
 	github.com/alessio/shellescape v1.4.1
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
+	github.com/bep/debounce v1.2.0
 	github.com/bufbuild/buf v1.1.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
@@ -89,7 +90,6 @@ require (
 	github.com/ashanbrown/makezero v0.0.0-20210520155254-b6261585ddde // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bep/debounce v1.2.0 // indirect
 	github.com/bkielbasa/cyclop v1.2.0 // indirect
 	github.com/blackjack/webcam v0.0.0-20200313125108-10ed912a8539 // indirect
 	github.com/blizzy78/varnamelen v0.3.0 // indirect
