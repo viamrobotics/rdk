@@ -35,11 +35,8 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	grpcmetadata "go.viam.com/rdk/grpc/metadata/server"
 	grpcserver "go.viam.com/rdk/grpc/server"
-	"go.viam.com/rdk/metadata/service"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
-	metadatapb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -307,6 +304,7 @@ func (svc *webService) update(resources map[resource.Name]interface{}) error {
 	return nil
 }
 
+// Close closes a webService via calls to its Cancel func.
 func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
@@ -389,8 +387,12 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 	return nil
 }
 
-// RunWeb takes the given robot and options and runs the web server. This function will block
+// runWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
+
+// TODO(ethan) (rsdk-290): this function is really big and pretty annoying to navigate.
+// It'd be nice if we broke out chunks into helper functions, for easier
+// navigation and clearer reading of the workflow.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
 	secure := options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
@@ -601,24 +603,13 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	// if metadata service is in the context, register it
-	if s := service.ContextService(ctx); s != nil {
-		if err := rpcServer.RegisterServiceServer(
-			ctx,
-			&metadatapb.MetadataService_ServiceDesc,
-			grpcmetadata.New(s),
-			metadatapb.RegisterMetadataServiceHandlerFromEndpoint,
-		); err != nil {
-			return err
-		}
-	}
-
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
 		resource, err := svc.r.ResourceByName(name)
 		if err != nil {
 			continue
 		}
+
 		resources[name] = resource
 	}
 	if err := svc.update(resources); err != nil {

@@ -18,13 +18,13 @@ import (
 
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
-	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/metadata"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
@@ -38,7 +38,7 @@ var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name, framesystem.Name}
+	defaultSvc = []resource.Name{metadata.Name, sensors.Name, status.Name, web.Name, datamanager.Name, framesystem.Name}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -152,12 +152,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 		return nil, err
 	}
 
-	// if metadata exists, update it
-	if svc := service.ContextService(ctx); svc != nil {
-		if err := r.UpdateMetadata(svc); err != nil {
-			return nil, err
-		}
-	}
 	successful = true
 	return r, nil
 }
@@ -207,7 +201,30 @@ func getServiceConfig(cfg *config.Config, name resource.Name) (config.Service, e
 func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
-	for _, n := range r.ResourceNames() {
+
+	var functionAndRemoteNames []resource.Name
+
+	for _, name := range r.FunctionNames() {
+		res := resource.NewName(
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeFunction,
+			resource.ResourceSubtypeFunction,
+			name,
+		)
+		functionAndRemoteNames = append(functionAndRemoteNames, res)
+	}
+
+	for _, name := range r.RemoteNames() {
+		res := resource.NewName(
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeRemote,
+			name,
+		)
+		functionAndRemoteNames = append(functionAndRemoteNames, res)
+	}
+
+	for _, n := range append(functionAndRemoteNames, r.ResourceNames()...) {
 		// TODO(RDK-119) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
@@ -240,42 +257,6 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 // Refresh does nothing for now.
 func (r *localRobot) Refresh(ctx context.Context) error {
 	return nil
-}
-
-// UpdateMetadata updates metadata service using the currently registered parts of the robot.
-func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
-	var resources []resource.Name
-
-	metadata := resource.NameFromSubtype(service.Subtype, "")
-	resources = append(resources, metadata)
-
-	for _, name := range r.FunctionNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeFunction,
-			resource.ResourceSubtypeFunction,
-			name,
-		)
-		resources = append(resources, res)
-	}
-	for _, name := range r.RemoteNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeRemote,
-			name,
-		)
-		resources = append(resources, res)
-	}
-
-	for _, n := range r.ResourceNames() {
-		// skip web so it doesn't show up over grpc
-		if n == web.Name {
-			continue
-		}
-		resources = append(resources, n)
-	}
-	return svc.Replace(resources)
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
