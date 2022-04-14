@@ -90,17 +90,6 @@ func (rr *remoteRobot) unprefixName(name string) string {
 	return name
 }
 
-func (rr *remoteRobot) prefixNames(names []string) []string {
-	if !rr.conf.Prefix {
-		return names
-	}
-	newNames := make([]string, 0, len(names))
-	for _, name := range names {
-		newNames = append(newNames, rr.prefixName(name))
-	}
-	return newNames
-}
-
 func (rr *remoteRobot) prefixResourceName(name resource.Name) resource.Name {
 	if !rr.conf.Prefix {
 		return name
@@ -123,12 +112,6 @@ func (rr *remoteRobot) unprefixResourceName(name resource.Name) resource.Name {
 
 func (rr *remoteRobot) RemoteNames() []string {
 	return nil
-}
-
-func (rr *remoteRobot) FunctionNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.manager.FunctionNames())
 }
 
 func (rr *remoteRobot) ResourceNames() []resource.Name {
@@ -176,9 +159,6 @@ func (rr *remoteRobot) Close(ctx context.Context) error {
 // Be sure to update this function if resourceManager grows.
 func managerForRemoteRobot(robot robot.Robot) *resourceManager {
 	manager := newResourceManager(resourceManagerOptions{}, robot.Logger().Named("manager"))
-	for _, name := range robot.FunctionNames() {
-		manager.addFunction(name)
-	}
 
 	for _, name := range robot.ResourceNames() {
 		part, err := robot.ResourceByName(name)
@@ -193,15 +173,7 @@ func managerForRemoteRobot(robot robot.Robot) *resourceManager {
 
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (manager *resourceManager) replaceForRemote(ctx context.Context, newManager *resourceManager) {
-	var oldFunctionNames map[string]struct{}
 	var oldResources *resource.Graph
-
-	if len(manager.functions) != 0 {
-		oldFunctionNames = make(map[string]struct{}, len(manager.functions))
-		for name := range manager.functions {
-			oldFunctionNames[name] = struct{}{}
-		}
-	}
 
 	if len(manager.resources.Nodes) != 0 {
 		oldResources = resource.NewGraph()
@@ -210,14 +182,6 @@ func (manager *resourceManager) replaceForRemote(ctx context.Context, newManager
 		}
 	}
 
-	for name, newPart := range newManager.functions {
-		_, ok := manager.functions[name]
-		delete(oldFunctionNames, name)
-		if ok {
-			continue
-		}
-		manager.functions[name] = newPart
-	}
 	for name, newR := range newManager.resources.Nodes {
 		old, ok := manager.resources.Nodes[name]
 		if ok {
@@ -257,9 +221,6 @@ func (manager *resourceManager) replaceForRemote(ctx context.Context, newManager
 		manager.resources.Nodes[name] = newR
 	}
 
-	for name := range oldFunctionNames {
-		delete(manager.functions, name)
-	}
 	for name := range oldResources.Nodes {
 		manager.resources.Remove(name)
 	}

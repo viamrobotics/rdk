@@ -76,18 +76,5 @@
             ],
             "log": true
         }
-    ],
-    "functions":
-    [
-        {
-            "name": "func1",
-            "engine": "foo",
-            "source": "1"
-        },
-        {
-            "name": "func2",
-            "engine": "bar",
-            "source": "2"
-        }
     ]
 }
