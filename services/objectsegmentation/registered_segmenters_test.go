@@ -1,4 +1,4 @@
-package segmentation
+package objectsegmentation
 
 import (
 	"context"
@@ -22,9 +22,9 @@ func TestSegmenterRegistry(t *testing.T) {
 	}{}
 	fnName := "x"
 	// no segmenter
-	test.That(t, func() { RegisterSegmenter(fnName, Registration{nil, []utils.TypedName{}}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterSegmenter(fnName, SegmenterRegistration{nil, []utils.TypedName{}}) }, test.ShouldPanic)
 	// success
-	RegisterSegmenter(fnName, Registration{fn, utils.JSONTags(params)})
+	RegisterSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)})
 	// segmenter names
 	names := SegmenterNames()
 	test.That(t, names, test.ShouldNotBeNil)
@@ -38,5 +38,5 @@ func TestSegmenterRegistry(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
 	test.That(t, creator, test.ShouldBeNil)
 	// duplicate
-	test.That(t, func() { RegisterSegmenter(fnName, Registration{fn, utils.JSONTags(params)}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)}) }, test.ShouldPanic)
 }

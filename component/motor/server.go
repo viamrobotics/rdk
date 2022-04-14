@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/subtype"
 )
@@ -52,6 +53,7 @@ func (server *subtypeServer) GoFor(
 	ctx context.Context,
 	req *pb.GoForRequest,
 ) (*pb.GoForResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
@@ -144,6 +146,7 @@ func (server *subtypeServer) GoTo(
 	ctx context.Context,
 	req *pb.GoToRequest,
 ) (*pb.GoToResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
