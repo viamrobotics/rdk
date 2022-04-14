@@ -737,11 +737,11 @@ func TestMetadataUpdate(t *testing.T) {
 	resources, err := svc.Resources(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 12)
+	test.That(t, len(resources), test.ShouldEqual, 10)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 8 declared resources + default web, sensors, status, and metadata service
+	// 10 declared resources + default web, sensors, status, and metadata service
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
@@ -752,6 +752,7 @@ func TestMetadataUpdate(t *testing.T) {
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
+		metadata.Name,
 	}
 
 	svcResources, err := svc.Resources(ctx)
