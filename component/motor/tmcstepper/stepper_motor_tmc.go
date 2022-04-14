@@ -50,7 +50,7 @@ func init() {
 	registry.RegisterComponent(motor.Subtype, modelname, _motor)
 
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeMotor,
+		motor.SubtypeName,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf TMC5072Config

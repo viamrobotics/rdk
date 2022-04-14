@@ -38,7 +38,7 @@ func init() {
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeMotor,
+		motor.SubtypeName,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
