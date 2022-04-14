@@ -18,6 +18,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
@@ -182,6 +183,11 @@ func (rc *RobotClient) FunctionNames() []string {
 // of the interface!
 func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
+}
+
+// OperationManager returns nil.
+func (rc *RobotClient) OperationManager() *operation.Manager {
+	return nil
 }
 
 // ResourceNames returns all resource names.

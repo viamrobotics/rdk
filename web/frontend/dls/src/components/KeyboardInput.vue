@@ -20,7 +20,7 @@
         }"
       >
         <template v-slot:icon>
-          <ViamIcon :path="mdiRestore">Check</ViamIcon>
+          <ViamIcon :path="keyIcons[key]">Check</ViamIcon>
         </template>
         <span class="text-3xl">{{ keyLetters[key] }}</span>
       </ViamButton>
@@ -30,7 +30,7 @@
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
 import { debounce } from "lodash";
-import { mdiRestore } from "@mdi/js";
+import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
 import ViamButton from "./Button.vue";
 
@@ -58,13 +58,22 @@ export default class KeyboardInput extends Vue {
   };
 
   mdiRestore = mdiRestore;
-  mdiReload = mdiRestore;
+  mdiReload = mdiReload;
+  mdiArrowUp = mdiArrowUp;
+  mdiArrowDown = mdiArrowDown;
 
   keyLetters = {
     forward: "W",
     left: "A",
     backward: "S",
     right: "D",
+  };
+
+  keyIcons = {
+    forward: mdiArrowUp,
+    left: mdiRestore,
+    backward: mdiArrowDown,
+    right: mdiReload,
   };
 
   //for template section
