@@ -81,13 +81,13 @@ func TestClient(t *testing.T) {
 			return segments, nil
 		}
 		injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
-			return []string{segmentation.RadiusClusteringSegmenter}, nil
+			return []string{objectsegmentation.RadiusClusteringSegmenter}, nil
 		}
 
 		segNames, err := client.GetSegmenters(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segNames, test.ShouldHaveLength, 1)
-		test.That(t, segNames[0], test.ShouldEqual, segmentation.RadiusClusteringSegmenter)
+		test.That(t, segNames[0], test.ShouldEqual, objectsegmentation.RadiusClusteringSegmenter)
 
 		paramNames, err := client.GetSegmenterParameters(context.Background(), segNames[0])
 		test.That(t, err, test.ShouldBeNil)

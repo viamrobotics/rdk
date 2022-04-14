@@ -99,8 +99,8 @@ func getPortMutex(port string) *sync.Mutex {
 
 // NewArm TODO.
 func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
-	usbPort := attributes.String("usbPort")
-	servos, err := findServos(usbPort, attributes.String("baudRate"), attributes.String("armServoCount"))
+	usbPort := attributes.String("usb_port")
+	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
 		return nil, err
 	}

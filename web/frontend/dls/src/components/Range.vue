@@ -17,11 +17,12 @@
             :step="step"
           />
         </div>
-        <div class="pl-3 pr-2">{{ max }}mm</div>
+        <div class="pl-3 pr-2">{{ max }}<span v-html="unit"></span></div>
         <ViamInput
           class="w-12"
           color="primary"
           group="False"
+          :id="id"
           variant="primary"
           v-model="value"
         ></ViamInput>
@@ -43,7 +44,9 @@ export default class ViamRange extends Vue {
   @Prop({ default: 0 }) min?: number;
   @Prop({ default: 10 }) step?: number;
   @Prop({ default: null }) name?: string;
+  @Prop({ default: "DefaultId" }) id?: string;
   @Prop({ default: 0 }) percentage?: number | undefined = 0;
+  @Prop({ default: "mm" }) unit?: string;
 
   value: number | undefined = this.percentage;
 }

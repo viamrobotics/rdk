@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/metadata/service"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -35,6 +34,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/web"
@@ -81,9 +81,7 @@ func TestConfigRemote(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	metadataSvc, err := service.New()
-	test.That(t, err, test.ShouldBeNil)
-	ctx := service.ContextWithService(context.Background(), metadataSvc)
+	ctx := context.Background()
 
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -93,14 +91,14 @@ func TestConfigRemote(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
+	addr := fmt.Sprintf("localhost:%d", port)
 	options := web.NewOptions()
-	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
 	svc, err := web.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	addr := fmt.Sprintf("localhost:%d", port)
 	remoteConfig := &config.Config{
 		Components: []config.Component{
 			{
@@ -154,14 +152,15 @@ func TestConfigRemote(t *testing.T) {
 		},
 	}
 
-	metadataSvc2, err := service.New()
 	test.That(t, err, test.ShouldBeNil)
-	ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
+	ctx2 := context.Background()
 	r2, err := robotimpl.New(ctx2, remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	metadataSvc2, err := metadata.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		resource.NameFromSubtype(service.Subtype, ""),
+		metadata.Name,
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
@@ -193,9 +192,13 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("foo.pieceGripper"),
 		gripper.Named("bar.pieceGripper"),
 	}
+
+	resources2, err := metadataSvc2.Resources(ctx2)
+	test.That(t, err, test.ShouldBeNil)
+
 	test.That(
 		t,
-		rtestutils.NewResourceNameSet(metadataSvc2.All()...),
+		rtestutils.NewResourceNameSet(resources2...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
@@ -267,10 +270,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
-			metadataSvc, err := service.New()
-			test.That(t, err, test.ShouldBeNil)
-			ctx := service.ContextWithService(context.Background(), metadataSvc)
-
+			ctx := context.Background()
 			r, err := robotimpl.New(ctx, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer func() {
@@ -352,7 +352,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			}
 
 			var r2 robot.LocalRobot
-			var metadataSvc2 service.Metadata
+			var metadataSvc2 metadata.Service
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
@@ -371,9 +371,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
-				metadataSvc2, err = service.New()
+				metadataSvc2, err = metadata.FromRobot(r2)
 				test.That(t, err, test.ShouldBeNil)
-				ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
+				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
 				if tc.EntityName != "" {
 					remoteConfig.Remotes[1].Address = options.FQDN
@@ -391,9 +391,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
-				metadataSvc2, err = service.New()
+				metadataSvc2, err = metadata.FromRobot(r2)
 				test.That(t, err, test.ShouldBeNil)
-				ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
+				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
 				r2, err = robotimpl.New(ctx2, remoteConfig, logger)
 				test.That(t, err, test.ShouldBeNil)
@@ -402,7 +402,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				resource.NameFromSubtype(service.Subtype, ""),
+				metadata.Name,
 				framesystem.Name,
 				sensors.Name,
 				status.Name,
@@ -424,9 +424,13 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				gripper.Named("pieceGripper"),
 				gripper.Named("foo.pieceGripper"),
 			}
+
+			resources2, err := metadataSvc2.Resources(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
 			test.That(
 				t,
-				rtestutils.NewResourceNameSet(metadataSvc2.All()...),
+				rtestutils.NewResourceNameSet(resources2...),
 				test.ShouldResemble,
 				rtestutils.NewResourceNameSet(expected...),
 			)
@@ -470,9 +474,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	metadataSvc, err := service.New()
-	test.That(t, err, test.ShouldBeNil)
-	ctx := service.ContextWithService(context.Background(), metadataSvc)
+	ctx := context.Background()
 
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -590,9 +592,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
 	// use cert with mDNS while signaling present
-	metadataSvc2, err := service.New()
 	test.That(t, err, test.ShouldBeNil)
-	ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
+	ctx2 := context.Background()
 	remoteConfig.Remotes[0].Auth.SignalingCreds = &rpc.Credentials{
 		Type:    rutils.CredentialsTypeRobotLocationSecret,
 		Payload: locationSecret + "bad",
@@ -600,9 +601,11 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	remoteConfig.Remotes[0].Address = options.FQDN
 	r2, err = robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
+	metadataSvc2, err := metadata.FromRobot(r2)
+	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		resource.NameFromSubtype(service.Subtype, ""),
+		metadata.Name,
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
@@ -616,9 +619,13 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		gps.Named("gps2"),
 		gripper.Named("pieceGripper"),
 	}
+
+	resources2, err := metadataSvc2.Resources(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
 	test.That(
 		t,
-		rtestutils.NewResourceNameSet(metadataSvc2.All()...),
+		rtestutils.NewResourceNameSet(resources2...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
@@ -733,22 +740,21 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	svc, err := service.New()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(svc.All()), test.ShouldEqual, 1)
-	ctx = service.ContextWithService(ctx, svc)
 
 	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	svc, err := metadata.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+
+	resources, err := svc.Resources(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(resources), test.ShouldEqual, 12)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
 	// 8 declared resources + default web, sensors, status, and metadata service
 	resourceNames := []resource.Name{
-		{
-			UUID:    "00db7188-edaa-5ea9-b573-80ce7d2cee61",
-			Subtype: service.Subtype,
-			Name:    "",
-		},
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
 		gripper.Named("pieceGripper"),
@@ -758,6 +764,7 @@ func TestMetadataUpdate(t *testing.T) {
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
+		metadata.Name,
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{
@@ -781,9 +788,11 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "func2",
 		},
 	}
-	test.That(t, len(svc.All()), test.ShouldEqual, len(resourceNames))
 
-	svcResources := svc.All()
+	svcResources, err := svc.Resources(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(svcResources), test.ShouldEqual, len(resourceNames))
+
 	test.That(t, rtestutils.NewResourceNameSet(svcResources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
 }
 

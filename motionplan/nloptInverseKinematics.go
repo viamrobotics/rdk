@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/go-nlopt/nlopt"
@@ -93,12 +94,15 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	nloptMinFunc := func(x, gradient []float64) float64 {
 		iterations++
 
-		// TODO(pl): Might need to check if any of x is +/- Inf
+		// Requesting an out-of-bounds transform will result in a non-nil error but will optionally return a correct if invalid pose.
+		// Thus we check if eePos is nil, and if not, continue as normal and ignore errors.
+		// As confirmation, the "input out of bounds" string is checked for in the error text.
 		eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(x))
-		if eePos == nil {
+		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 			ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 			err = opt.ForceStop()
 			ik.logger.Errorw("forcestop error", "error", err)
+			return 0
 		}
 
 		dist := m(eePos, newGoal)
@@ -109,10 +113,11 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				xBak[i] += ik.jump
 				eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(xBak))
 				xBak[i] -= ik.jump
-				if eePos == nil {
+				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 					err = opt.ForceStop()
 					ik.logger.Errorw("forcestop error", "error", err)
+					return 0
 				}
 				dist2 := m(eePos, newGoal)
 
