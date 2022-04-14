@@ -13,7 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
@@ -46,23 +45,6 @@ func New(r robot.Robot) pb.RobotServiceServer {
 func (s *Server) Close() {
 	s.cancel()
 	s.activeBackgroundWorkers.Wait()
-}
-
-// DoAction runs an action on the underlying robot.
-func (s *Server) DoAction(
-	ctx context.Context,
-	req *pb.DoActionRequest,
-) (*pb.DoActionResponse, error) {
-	act := action.LookupAction(req.Name)
-	if act == nil {
-		return nil, errors.Errorf("unknown action name [%s]", req.Name)
-	}
-	s.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer s.activeBackgroundWorkers.Done()
-		act(s.cancelCtx, s.r)
-	})
-	return &pb.DoActionResponse{}, nil
 }
 
 type runCommander interface {
@@ -158,4 +140,3 @@ func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperatio
 		}
 	}
 }
-
