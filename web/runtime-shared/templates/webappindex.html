@@ -1831,45 +1831,45 @@
             </table>
     
             <div style="display: flex; margin-bottom: 1em">
-              <table border="1" v-if="resourceStatusByName(arm)" style="margin-right: 1em">
+              <table border="1" v-if="resourceStatusByName(arm)" style="margin-right: 1em" class="border border-slate-300">
                 <tr>
-                  <th colspan="3"><h5>END POSITION (mms)</h5></th>
+                  <th colspan="3" class="border border-slate-300"><h5>END POSITION (mms)</h5></th>
                 </tr>
                 <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.joint">
-                  <th>${aa.endPosition[1]}</th>
-                  <td>
-                    <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</button>
-                    <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</button>
-                    <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</button>
-                    <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</button>
+                  <th class="border border-slate-300">${aa.endPosition[1]}</th>
+                  <td class="border border-slate-300">
+                    <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
+                    <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
+                    <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
+                    <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
                   </td>
-                  <td>${aa.endPositionValue.toFixed(2)}</td>
+                  <td class="border border-slate-300">${aa.endPositionValue.toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <th colspan="8">
-                    <button v-on:click="armHome(arm)">Home</button>
-                    <button v-on:click="armModifyAll(arm)">Modify All</button>
+                  <th class="border border-slate-300" colspan="8">
+                    <viam-button v-on:click="armHome(arm)">Home</viam-button>
+                    <viam-button v-on:click="armModifyAll(arm)">Modify All</viam-button>
                   </th>
                 </tr>
               </table> <!-- end main table -->
-              <table border="1" v-if="resourceStatusByName(arm)">
+              <table border="1" v-if="resourceStatusByName(arm)" class="border border-slate-300">
                 <tr>
-                  <th colspan="3"><h5>JOINTS (degrees)</h5></th>
+                  <th colspan="3" class="border border-slate-300"><h5>JOINTS (degrees)</h5></th>
                 </tr>
                 <tr v-for="aa in resourceStatusByName(arm).joint_pieces" :key="aa.joint">          
-                  <th>Joint ${aa.joint}</th>
-                  <td>
-                    <button v-on:click="armJointInc( arm, aa.joint, -10 )">--</button>
-                    <button v-on:click="armJointInc( arm, aa.joint, -1 )">-</button>
-                    <button v-on:click="armJointInc( arm, aa.joint, 1 )">+</button>
-                    <button v-on:click="armJointInc( arm, aa.joint, 10 )">++</button>
+                  <th class="border border-slate-300">Joint ${aa.joint}</th>
+                  <td class="border border-slate-300">
+                    <viam-button v-on:click="armJointInc( arm, aa.joint, -10 )">--</viam-button>
+                    <viam-button v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
+                    <viam-button v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
+                    <viam-button v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
                   </td>
-                  <td>${aa.jointValue.toFixed(2)}</td>
+                  <td class="border border-slate-300">${aa.jointValue.toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <th colspan="8">
-                    <button v-on:click="armHome(arm)">Home</button>
-                    <button v-on:click="armModifyAll(arm)">Modify All</button>
+                  <th class="border border-slate-300" colspan="8">
+                    <viam-button v-on:click="armHome(arm)">Home</viam-button>
+                    <viam-button v-on:click="armModifyAll(arm)">Modify All</viam-button>
                   </th>
                 </tr>
               </table> <!-- end main table -->
