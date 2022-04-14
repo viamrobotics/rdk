@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/services/metadata"
 
 	// registers all services.
+	"go.viam.com/rdk/services/metadata"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"

@@ -469,6 +469,7 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
+	// CR erodkin: this is part of artificial metadata add
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return injectArm, nil
 	}
