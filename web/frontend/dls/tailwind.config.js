@@ -66,8 +66,8 @@ module.exports = {
         form: borderRadius.md,
       },
       fontFamily: {
-        sans: ["Source Sans Pro", "sans-serif"],
-        serif: ["Source Sans Pro", "serif"],
+        sans: ["Space Mono", "sans-serif"],
+        serif: ["Space Mono", "serif"],
       },
       fontWeight: {
         button: fontWeight.medium,

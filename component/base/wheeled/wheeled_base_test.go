@@ -28,12 +28,12 @@ func TestFourWheelBase1(t *testing.T) {
 
 	cfg := config.Component{
 		Attributes: config.AttributeMap{
-			"widthMm":              100,
-			"wheelCircumferenceMm": 1000,
-			"frontRight":           "fr-m",
-			"frontLeft":            "fl-m",
-			"backRight":            "br-m",
-			"backLeft":             "bl-m",
+			"width_mm":               100,
+			"wheel_circumference_mm": 1000,
+			"front_right":            "fr-m",
+			"front_left":             "fl-m",
+			"back_right":             "br-m",
+			"back_left":              "bl-m",
 		},
 	}
 	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)

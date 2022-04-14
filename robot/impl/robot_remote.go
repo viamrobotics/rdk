@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -155,6 +156,10 @@ func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, error) {
 
 func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
+}
+
+func (rr *remoteRobot) OperationManager() *operation.Manager {
+	return rr.robot.OperationManager()
 }
 
 func (rr *remoteRobot) Logger() golog.Logger {

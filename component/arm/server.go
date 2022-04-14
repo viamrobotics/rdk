@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/subtype"
@@ -73,6 +74,7 @@ func (s *subtypeServer) GetJointPositions(
 
 // MoveToPosition returns the position of the arm specified.
 func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositionRequest) (*pb.MoveToPositionResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.Name)
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
@@ -85,6 +87,7 @@ func (s *subtypeServer) MoveToJointPositions(
 	ctx context.Context,
 	req *pb.MoveToJointPositionsRequest,
 ) (*pb.MoveToJointPositionsResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.Name)
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
