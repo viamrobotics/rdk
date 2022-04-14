@@ -65,7 +65,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				mapConv = conv.RetType
 				break
 			}
-		case resource.ResourceTypeService, resource.ResourceTypeFunction:
+		case resource.ResourceTypeService:
 			for _, conv := range svcAttrMapConvs {
 				if conv.SvcType != config.ServiceType(res.ResourceSubtype) {
 					continue
