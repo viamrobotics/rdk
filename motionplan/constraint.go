@@ -3,6 +3,7 @@ package motionplan
 import (
 	"errors"
 	"math"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 
@@ -221,6 +222,10 @@ func NewOrientationConstraint(orientFunc func(o spatial.Orientation) bool) Const
 	return f
 }
 
+func orientDist(o1, o2 spatial.Orientation) float64 {
+	return spatial.QuatToR3AA(spatial.OrientationBetween(o1, o2).Quaternion()).Norm2()
+}
+
 // orientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
 // vector is from a region defined by a point and an arclength around it. The theta value of OV is disregarded.
 // This is useful, for example, in defining the set of acceptable angles of attack for writing on a whiteboard.
@@ -252,6 +257,48 @@ func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) Metric {
 		oDist := oDistFunc(from.Orientation())
 		return pDist*pDist + oDist*oDist
 	}
+}
+
+// NewSlerpOrientationConstraint will provide a distance function 
+func NewSlerpOrientationConstraint(start, goal spatial.Pose, epsilon float64) (Constraint, Metric) {
+	var orientWaypoints []spatial.Orientation
+	
+	orientSteps := 100.0
+	
+	for by := 0.0; by <= 1.0; by += 1.0/orientSteps {
+		orientWaypoints = append(orientWaypoints, spatial.Interpolate(start, goal, by).Orientation())
+	}
+	
+	origDist := orientDist(start.Orientation(), orientWaypoints[1])
+	
+	validDist := math.Max(0.000001, (origDist*origDist) / 2)
+	fmt.Println("valid dist", validDist)
+	
+	gradFunc := func(from, _ spatial.Pose) float64 {
+		minDist := math.Inf(1)
+		for _, pathPoint := range orientWaypoints {
+			oDist := orientDist(pathPoint, from.Orientation())
+			oDist *= oDist
+			if oDist < minDist {
+				minDist = oDist
+			}
+		}
+		return minDist
+	}
+	
+	validFunc := func(cInput *ConstraintInput) (bool, float64) {
+		err := resolveInputsToPositions(cInput)
+		if err != nil {
+			return false, 0
+		}
+		dist := gradFunc(cInput.StartPos, cInput.EndPos)
+		if dist < validDist {
+			return true, 0
+		}
+		return false, 0
+	}
+
+	return validFunc, gradFunc
 }
 
 // NewPlaneConstraint is used to define a constraint space for a plane, and will return 1) a constraint

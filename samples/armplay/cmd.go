@@ -234,23 +234,23 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 
 	pathD := 0.05
 	// orientation distance wiggle allowable
-	pathO := 0.3
+	//~ pathO := 0.3
 	destO := 0.2
 	// No orientation wiggle for eraser
 	if moveFrameName == "eraser" {
-		pathO = 0.01
+		//~ pathO = 0.01
 		destO = 0.
 	}
 
 	done := make(chan struct{})
 	waypoints := make(chan map[string][]referenceframe.Input, 9999)
 
-	validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
+	//~ validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
 
 	goToGoal := func(seedMap map[string][]referenceframe.Input, goal spatial.Pose) map[string][]referenceframe.Input {
 		curPos, err = fs.TransformFrame(seedMap, moveFrameName, referenceframe.World)
 
-		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.Pose().Point(), goal.Point(), validOV, pathO, pathD)
+		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.Pose().Point(), goal.Point(), pathD)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, destO)
 
 		// update constraints

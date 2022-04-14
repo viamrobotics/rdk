@@ -87,21 +87,48 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
-	solutionChan := make(chan *planReturn, 1)
-	utils.PanicCapturingGo(func() {
-		// TODO(rb) fix me
-		mp.planRunner(ctx, goal, seed, map[string]spatial.Geometry{}, opt, nil, solutionChan)
-	})
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case plan := <-solutionChan:
-		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
-		for _, step := range plan.steps {
-			finalSteps = append(finalSteps, step.inputs)
+	if opt != nil {
+		solutionChan := make(chan *planReturn, 1)
+		utils.PanicCapturingGo(func() {
+			// TODO(rb) fix me
+			mp.planRunner(ctx, goal, seed, map[string]spatial.Geometry{}, opt, nil, solutionChan)
+		})
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case plan := <-solutionChan:
+			finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
+			for _, step := range plan.steps {
+				finalSteps = append(finalSteps, step.inputs)
+			}
+			return finalSteps, plan.err
 		}
-		return finalSteps, plan.err
 	}
+	
+	seedPos, err := mp.frame.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+	goalPos := spatial.NewPoseFromProtobuf(goal)
+	
+	numSteps := getSteps(seedPos, goalPos, 10.0)
+	goals := make([]spatial.Pose, 0, numSteps)
+	for i := 1; i < numSteps; i++ {
+		by := float64(i)/float64(numSteps)
+		goals = append(goals, spatial.Interpolate(seedPos, goalPos, by))
+	}
+	goals = append(goals, goalPos)
+	
+	opts := make([]*PlannerOptions, len(goals))
+	results, err := plannerRunner(ctx, mp, goals, seed, opts, 0)
+	if err != nil {
+		return nil, err
+	}
+	inputResults := make([][]referenceframe.Input, 0, len(results))
+	for _, result := range results {
+		inputResults = append(inputResults, result.inputs)
+	}
+	return inputResults, nil
 }
 
 // planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
@@ -124,7 +151,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			solutionChan <- &planReturn{err: err}
 			return
 		}
-		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
+		goalPos := spatial.NewPoseFromProtobuf(goal)
 		if len(obstacles) == 0 {
 			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
 		} else {
