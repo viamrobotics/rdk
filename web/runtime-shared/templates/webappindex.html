@@ -69,7 +69,7 @@
       }
 
       function fixArmStatus(old) {
-        var newStatus = { pos_pieces : [], joint_pieces : []};
+        var newStatus = { pos_pieces : [], joint_pieces : [] };
         var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["o_x", "OX"], ["o_y", "OY"], ["o_z", "OZ"]];
         for (var j=0; j<fieldSetters.length; j++ ){
             let endPositionField = fieldSetters[j][0];
@@ -81,9 +81,10 @@
             );
         }
         for (var j=0; j<old["joint_positions"]["degrees"].length; j++ ){
+            let endPositionField = fieldSetters[j][0];
             newStatus.joint_pieces.push(
               { 
-                joint : old["joint_positions"]["degrees"].length,
+                joint : j,
                 jointValue : old["joint_positions"]["degrees"][j] || 0,
               }
             );
@@ -371,12 +372,12 @@
                   },
                   armModifyAllDoEndPosition : function(name) {
                     var newPose = new commonApi.Pose()
-                    var newPosPieces = theData.armToggle[name.name].pos_pieces;
+                    var newPieces = theData.armToggle[name.name].pos_pieces;
 
-                    for (var i=0; i < newPosPieces.length; i++) {
-                        var getterSetter = newPosPieces[i].endPosition[1];
+                    for (var i=0; i < newPieces.length; i++) {
+                        var getterSetter = newPieces[i].endPosition[1];
                         const setter = `set${getterSetter}`;
-                        newPose[setter](newPosPieces[i].endPositionValue);
+                        newPose[setter](newPieces[i].endPositionValue);
                     }
 
                     const req = new armApi.MoveToPositionRequest();
@@ -390,9 +391,9 @@
                     var newPositionDegs = new armApi.JointPositions()
                     var newList = arm["joint_positions"]["degrees"]
 
-                    var newjointPieces = theData.armToggle[name.name].joint_pieces;
-                    for (var i=0; i < newjointPieces.length && i < newList.length; i++) {
-                        newList[newjointPieces[i].joint] = newjointPieces[i].jointValue;
+                    var newPieces = theData.armToggle[name.name].joint_pieces;
+                    for (var i=0; i < newPieces.length && i < newList.length; i++) {
+                        newList[newPieces[i].joint] = newPieces[i].jointValue;
                     }
 
                     newPositionDegs.setDegreesList(newList);
@@ -1670,38 +1671,51 @@
             </th>
           </tr>
         </table>
-        <table border="1" v-if="resourceStatusByName(arm)">
-          <tr>
-            <th colspan="3"><h5>END POSITION (mms)</h5></th>
-            <th colspan="3"><h5>JOINTS (degrees)</h5></th>
-          </tr>
-          <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.joint">
-            <th>${aa.endPosition[1]}</th>
-            <td>
-              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</button>
-              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</button>
-              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</button>
-              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</button>
-            </td>
-            <td>${aa.endPositionValue.toFixed(2)}</td>
-          </tr>
-          <tr v-for="aa in resourceStatusByName(arm).joint_pieces" :key="aa.joint"></tr>
-            <th>Joint ${aa.joint}</th>
-            <td>
-              <button v-on:click="armJointInc( arm, aa.joint, -10 )">--</button>
-              <button v-on:click="armJointInc( arm, aa.joint, -1 )">-</button>
-              <button v-on:click="armJointInc( arm, aa.joint, 1 )">+</button>
-              <button v-on:click="armJointInc( arm, aa.joint, 10 )">++</button>
-            </td>
-            <td>${aa.jointValue.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <th colspan="8">
-              <button v-on:click="armHome(arm)">Home</button>
-              <button v-on:click="armModifyAll(arm)">Modify All</button>
-            </th>
-          </tr>
-        </table> <!-- end main table -->
+
+        <div style="display: flex; margin-bottom: 1em">
+          <table border="1" v-if="resourceStatusByName(arm)" style="margin-right: 1em">
+            <tr>
+              <th colspan="3"><h5>END POSITION (mms)</h5></th>
+            </tr>
+            <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.joint">
+              <th>${aa.endPosition[1]}</th>
+              <td>
+                <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</button>
+                <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</button>
+                <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</button>
+                <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</button>
+              </td>
+              <td>${aa.endPositionValue.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <th colspan="8">
+                <button v-on:click="armHome(arm)">Home</button>
+                <button v-on:click="armModifyAll(arm)">Modify All</button>
+              </th>
+            </tr>
+          </table> <!-- end main table -->
+          <table border="1" v-if="resourceStatusByName(arm)">
+            <tr>
+              <th colspan="3"><h5>JOINTS (degrees)</h5></th>
+            </tr>
+            <tr v-for="aa in resourceStatusByName(arm).joint_pieces" :key="aa.joint">          
+              <th>Joint ${aa.joint}</th>
+              <td>
+                <button v-on:click="armJointInc( arm, aa.joint, -10 )">--</button>
+                <button v-on:click="armJointInc( arm, aa.joint, -1 )">-</button>
+                <button v-on:click="armJointInc( arm, aa.joint, 1 )">+</button>
+                <button v-on:click="armJointInc( arm, aa.joint, 10 )">++</button>
+              </td>
+              <td>${aa.jointValue.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <th colspan="8">
+                <button v-on:click="armHome(arm)">Home</button>
+                <button v-on:click="armModifyAll(arm)">Modify All</button>
+              </th>
+            </tr>
+          </table> <!-- end main table -->
+        </div>
       </div>
 
       <!-- ******* GRIPPER *******  -->
