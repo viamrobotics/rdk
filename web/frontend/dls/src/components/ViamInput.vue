@@ -66,6 +66,7 @@
           :readonly="readonly"
           :type="type"
           :value="value"
+          :id="inputId"
           v-bind="$attrs"
           v-on="listeners"
         />
@@ -136,6 +137,10 @@ export default Vue.extend({
     disabled: {
       default: false,
       type: Boolean,
+    },
+    inputId: {
+      type: String,
+      default: null,
     },
     max: {
       type: Number,

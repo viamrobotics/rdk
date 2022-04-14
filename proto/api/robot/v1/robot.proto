@@ -5,9 +5,9 @@ option java_package = "com.viam.rdk.proto.api.robot.v1";
 package proto.api.robot.v1;
 
 import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
-
 
 // A RobotService encompasses all functionality of some robot comprised of parts, local and remote.
 service RobotService {
@@ -23,6 +23,24 @@ service RobotService {
     option (google.api.http) = {
       post: "/viam/api/v1/resource/{resource_name}/run_command"
     };
+  }
+
+  rpc GetOperations(GetOperationsRequest) returns (GetOperationsResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/operations/list"
+    };    
+  }
+
+  rpc CancelOperation(CancelOperationRequest) returns (CancelOperationResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/operations/cancel"
+    };    
+  }
+  
+  rpc BlockForOperation(BlockForOperationRequest) returns (BlockForOperationResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/operations/block"
+    };    
   }
 
 }
@@ -43,3 +61,28 @@ message ResourceRunCommandRequest {
 message ResourceRunCommandResponse {
   google.protobuf.Struct result = 1;
 }
+
+message Operation {
+  string id = 1;
+  string method = 2;
+  google.protobuf.Struct arguments = 3;
+  google.protobuf.Timestamp started = 4;
+};
+
+message GetOperationsRequest { }
+
+message GetOperationsResponse {
+  repeated Operation operations = 1;
+}
+
+message CancelOperationRequest {
+  string id = 1;
+}
+
+message CancelOperationResponse {}
+
+message BlockForOperationRequest {
+    string id = 1;
+}
+
+message BlockForOperationResponse {}

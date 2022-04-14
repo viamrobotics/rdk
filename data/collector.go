@@ -13,6 +13,7 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.viam.com/utils"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -86,7 +87,8 @@ func (c *collector) Close() {
 	}
 }
 
-// Collect starts the Collector, causing it to run c.capture every c.interval, and write the results to c.target.
+// Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
+// c.target.
 func (c *collector) Collect() error {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
@@ -99,10 +101,21 @@ func (c *collector) Collect() error {
 	return errs.Wait()
 }
 
+// Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
+// when the configured capture interval is below 2ms. A Ticker based approach is kept for longer capture intervals to
+// avoid wasting CPU on a thread that's idling for the vast majority of the time.
+// [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
 func (c *collector) capture() {
+	if c.interval < time.Millisecond*2 {
+		c.sleepBasedCapture()
+	} else {
+		c.tickerBasedCapture()
+	}
+}
+
+func (c *collector) sleepBasedCapture() {
 	var wg sync.WaitGroup
-	lastTick := time.Now()
-	next := lastTick.Add(c.interval)
+	next := time.Now()
 	for {
 		time.Sleep(time.Until(next))
 		select {
@@ -111,16 +124,32 @@ func (c *collector) capture() {
 			close(c.queue)
 			return
 		default:
-			currTick := time.Now()
-			diff := currTick.Sub(lastTick).Microseconds()
-			if diff > 1800 {
-				c.logger.Debugf("took %d microseconds between ticks", diff)
-			}
-			lastTick = currTick
 			wg.Add(1)
-			go c.getAndPushNextReading(&wg)
+			utils.PanicCapturingGo(func() {
+				c.getAndPushNextReading(&wg)
+			})
 		}
 		next = next.Add(c.interval)
+	}
+}
+
+func (c *collector) tickerBasedCapture() {
+	ticker := time.NewTicker(c.interval)
+	defer ticker.Stop()
+	var wg sync.WaitGroup
+
+	for {
+		select {
+		case <-c.cancelCtx.Done():
+			wg.Wait()
+			close(c.queue)
+			return
+		case <-ticker.C:
+			wg.Add(1)
+			utils.PanicCapturingGo(func() {
+				c.getAndPushNextReading(&wg)
+			})
+		}
 	}
 }
 

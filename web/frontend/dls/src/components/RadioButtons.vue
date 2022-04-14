@@ -1,16 +1,24 @@
 <template>
-  <div class="component">
-    <div class="radio-buttons">
-      <button
+  <div>
+    <div class="inline-flex">
+      <ViamButton
+        group
+        variant="primary"
         v-for="option in options"
         v-bind:key="option"
-        :class="[selected === option ? 'black' : 'clear']"
+        :color="selected === option ? 'black' : 'primary'"
         v-on:click="selectOption(option)"
         :disabled="isDisabled(option)"
       >
-        <i v-if="selected === option" class="fas fa-check"></i>
+        <template v-slot:icon v-if="selected === option"
+          ><ViamIcon
+            :color="selected === option ? 'white' : 'black'"
+            :path="mdiCheck"
+            >Check</ViamIcon
+          ></template
+        >
         {{ option }}
-      </button>
+      </ViamButton>
     </div>
   </div>
 </template>
@@ -18,23 +26,33 @@
 <script lang="ts">
 import { Component, Prop, Vue, Watch } from "vue-property-decorator";
 import "vue-class-component/hooks";
-
-@Component
-export default class MotorDetail extends Vue {
+import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { mdiCheck } from "@mdi/js";
+import ViamButton from "./Button.vue";
+import ViamIcon from "./ViamIcon.vue";
+@Component({
+  components: {
+    FontAwesomeIcon,
+    ViamButton,
+    ViamIcon,
+  },
+})
+export default class RadioButtons extends Vue {
   @Prop() options!: [string];
   @Prop() defaultOption?: string;
   @Prop() disabledOptions?: [string];
-
   selected: string | undefined = "";
-
+  mdiCheck = mdiCheck;
   mounted(): void {
     this.selected = this.defaultOption;
   }
-
   isDisabled(option: string): boolean {
-    return !!this.disabledOptions?.includes(option);
+    if (this.disabledOptions) {
+      return !!this.disabledOptions.includes(option);
+    } else {
+      return false;
+    }
   }
-
   @Watch("defaultOption")
   selectOption(option: string): void {
     this.selected = option;
@@ -43,12 +61,4 @@ export default class MotorDetail extends Vue {
 }
 </script>
 
-<style scoped>
-.radio-buttons {
-  display: flex;
-  flex-direction: row;
-}
-.radio-buttons button {
-  margin: 0;
-}
-</style>
+<style scoped></style>
