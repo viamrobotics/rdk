@@ -116,8 +116,8 @@ func TestLineFollow(t *testing.T) {
 		OY: -1,
 	})
 
-	validOV := &spatial.OrientationVector{OY: -1}
-	validFunc, gradFunc := NewLineConstraint(p1.Point(), p2.Point(), validOV, 0., 0.001)
+	//~ validOV := &spatial.OrientationVector{OY: -1}
+	validFunc, gradFunc := NewLineConstraint(p1.Point(), p2.Point(), 0.001)
 
 	pointGrad := gradFunc(query, query)
 	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
