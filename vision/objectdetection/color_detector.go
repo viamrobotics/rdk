@@ -45,7 +45,7 @@ func hueToString(hue float64) string {
 	case hueInt >= 45 && hueInt < 75:
 		return "yellow"
 	case hueInt >= 75 && hueInt < 105:
-		return "yellow-green"
+		return "lime-green"
 	case hueInt >= 105 && hueInt < 135:
 		return "green"
 	case hueInt >= 135 && hueInt < 165:
@@ -63,7 +63,7 @@ func hueToString(hue float64) string {
 	case hueInt >= 315 && hueInt < 345:
 		return "rose"
 	default:
-		return "unknown color"
+		return "impossible"
 	}
 }
 
