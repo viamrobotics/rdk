@@ -320,34 +320,6 @@ func TestResourceNameValidate(t *testing.T) {
 		Err         string
 	}{
 		{
-			"missing uuid",
-			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
-					},
-					ResourceSubtype: arm.SubtypeName,
-				},
-				Name: "arm1",
-			},
-			"uuid field for resource missing or invalid",
-		},
-		{
-			"invalid uuid",
-			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
-					},
-					ResourceSubtype: arm.SubtypeName,
-				},
-				Name: "arm1",
-			},
-			"uuid field for resource missing or invalid",
-		},
-		{
 			"missing namespace",
 			resource.Name{
 				Subtype: resource.Subtype{
