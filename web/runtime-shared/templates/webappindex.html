@@ -205,6 +205,7 @@
           resources: [],
           sensorNames: [],
           streamNames: [],
+          intervalId: null,
           segmenterNames: [],
           segmenterParameterNames: [],
           segmenterParameters: {},
@@ -247,6 +248,7 @@
               });
             },
             getSegmenterParameters: function (name) {
+              this.segmentAlgo = name;
               let req = new objectSegmentationApi.GetSegmenterParametersRequest();
               req.setSegmenterName(name);
               objectSegmentationService.getSegmenterParameters(req, {}, (err, resp) => {
@@ -654,24 +656,85 @@
                 window.open(URL.createObjectURL(blob), "_blank");
               });
             },
-            renderPCD: function (cameraName) {
-              theData.pcdClick.pcdloaded = false;
-              theData.pcdClick.foundSegments = false;
-              initPCDIfNeeded();
-              pcdGlobal.cameraName = cameraName;
-
-              req = new cameraApi.GetPointCloudRequest();
+            viewCameraFrame: function (time) {
+                clearInterval(this.intervalId);
+                let cameraName = this.streamNames[0];
+                if (time === 'manual' ) {
+                    this.viewManualFrame(cameraName);
+                } else if (time === 'live') {
+                    this.viewCamera(cameraName)
+                } else {
+                    this.viewIntervalFrame(cameraName, time);
+                }
+            },
+            viewManualFrame: function (cameraName) {
+              req = new cameraApi.RenderFrameRequest();
               req.setName(cameraName);
-              const mimeType = "pointcloud/pcd";
+              const mimeType = "image/jpeg";
               req.setMimeType(mimeType);
-              cameraService.getPointCloud(req, {}, (err, resp) => {
+              cameraService.renderFrame(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
                   return;
                 }
-                console.log("loading pcd");
-                theData.fullcloud = resp.getPointCloud_asB64();
-                pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
+                const streamContainer = document.getElementById(`stream-${cameraName}`);
+                if (streamContainer && streamContainer.getElementsByTagName("video").length > 0) {
+                    streamContainer.getElementsByTagName("video")[0].remove();
+                }
+                if (streamContainer && streamContainer.getElementsByTagName("img").length > 0) {
+                    streamContainer.getElementsByTagName("img")[0].remove();
+                }
+                const image = new Image();
+                let blob = new Blob([resp.getData_asU8()], { type: mimeType });
+                image.src = URL.createObjectURL(blob);
+                streamContainer.appendChild(image);
+              });
+            },
+            viewIntervalFrame: function (cameraName, time) {
+                this.intervalId = setInterval(() => {
+                  req = new cameraApi.RenderFrameRequest();
+                  req.setName(cameraName);
+                  const mimeType = "image/jpeg";
+                  req.setMimeType(mimeType);
+                  cameraService.renderFrame(req, {}, (err, resp) => {
+                    grpcCallback(err, resp, false);
+                    if (err) {
+                      return;
+                    }
+                    const streamContainer = document.getElementById(`stream-${cameraName}`);
+                    if (streamContainer && streamContainer.getElementsByTagName("video").length > 0) {
+                        streamContainer.getElementsByTagName("video")[0].remove();
+                    }
+                    if (streamContainer && streamContainer.getElementsByTagName("img").length > 0) {
+                        streamContainer.getElementsByTagName("img")[0].remove();
+                    }
+                    const image = new Image();
+                    let blob = new Blob([resp.getData_asU8()], { type: mimeType });
+                    image.src = URL.createObjectURL(blob);
+                    streamContainer.appendChild(image);
+                  });
+                }, +time * 1000);
+            },
+            renderPCD: function (cameraName) {
+              this.$nextTick(function () {
+                  theData.pcdClick.pcdloaded = false;
+                  theData.pcdClick.foundSegments = false;
+                  initPCDIfNeeded();
+                  pcdGlobal.cameraName = cameraName;
+
+                  req = new cameraApi.GetPointCloudRequest();
+                  req.setName(cameraName);
+                  const mimeType = "pointcloud/pcd";
+                  req.setMimeType(mimeType);
+                  cameraService.getPointCloud(req, {}, (err, resp) => {
+                    grpcCallback(err, resp, false);
+                    if (err) {
+                      return;
+                    }
+                    console.log("loading pcd");
+                    theData.fullcloud = resp.getPointCloud_asB64();
+                    pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
+                  });
               });
             },
             getReadings: function (sensorNames) {
@@ -946,6 +1009,9 @@
               const mimeType = "pointcloud/pcd";
               pcdLoad(`data:${mimeType};base64,${data}`);
             },
+            doSelectObject: function (selection) {
+                console.log(selection);
+            },
             setNavigationMode: function (mode) {
               let pbMode = navigationApi.Mode.MODE_UNSPECIFIED;
               switch (mode) {
@@ -986,16 +1052,29 @@
               );
               robotService.resourceRunCommand(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            viewCamera: function (name) {
+            viewCamera : function(name) {
               const streamContainer = document.getElementById(`stream-${name}`);
-              const button = streamContainer.getElementsByTagName("button")[0];
-              button.disabled = true;
+              const req = new streamApi.AddStreamRequest();
+              req.setName(name);
+              streamService.addStream(req, {}, (err, resp) => {
+                grpcCallback(err, resp, false)
+                if (streamContainer && streamContainer.getElementsByTagName("img").length > 0) {
+                    streamContainer.getElementsByTagName("img")[0].remove();
+                }
+                if (err) {
+                  theData.error = "no live camera device found";
+                  return;
+                }
+              });
+            },
+            viewPreviewCamera : function(name) {
+              const streamPreviewContainer = document.getElementById(`stream-preview-${name}`);
               const req = new streamApi.AddStreamRequest();
               req.setName(name);
               streamService.addStream(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
-                  button.disabled = false;
+                  theData.error = "no live camera device found";
                   return;
                 }
               });
@@ -1721,7 +1800,7 @@
                         @back-arc-left="baseAction(base.name,'arc', -1)"
                         @base-run="handleBaseAction"
                         @base-stop="handleBaseActionStop(base.name)"
-                        @show-base-camera="viewCamera(streamName)"
+                        @show-base-camera="viewPreviewCamera(streamName)"
                     ></viam-base>
                 </div>
             </div>
@@ -1911,15 +1990,7 @@
           <!-- ******* WEB CONTROLS *******  -->
           <web-gamepad v-if="hasWebGamepad()" v-on:execute="inputInject($event)" style="max-width: 1080px;"> </web-gamepad>
 
-          <!-- ******* CAMERAS *******  -->
-          <div class="camera" v-for="streamName in streamNames" :key="streamName">
-            <h3>Camera Stream ${streamName}</h3>
-            <div :id="'stream-' + streamName">
-              <viam-button group v-on:click="viewCamera(streamName)">View</viam-button>
-            </div>
-          </div>
-
-          <!-- ******* BOARD *******  -->
+                    <!-- ******* BOARD *******  -->
           <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
             <h3>Board ${board.name}</h3>
             <table  class="table-auto border-collapse border border-slate-400">
@@ -1959,25 +2030,6 @@
           </div>
           <!-- end boards -->
 
-          <!-- cameras -->
-          <table  class="table-auto border-collapse border border-slate-400" v-if="nonEmpty(filterResources('rdk', 'component', 'camera'))">
-            <tr>
-               <th class="border border-slate-300" colspan="3">
-                Camera frames
-              </th>
-            </tr>
-            <tr>
-               <th class="border border-slate-300">Name</th>
-               <th class="border border-slate-300">2D img</th>
-               <th class="border border-slate-300">3D img</th>
-            </tr>
-            <tr v-for="camera in filterResources('rdk', 'component', 'camera')">
-               <td class="border border-slate-300">${camera.name}</td>
-               <td class="border border-slate-300"><a href="#" v-on:click.prevent="renderFrame(camera.name)">GO</a></td>
-               <td class="border border-slate-300"><viam-button group v-on:click="renderPCD(camera.name); getSegmenterNames()">GO</viam-button></td>
-            </tr>
-          </table>
-
           <table  class="table-auto border-collapse border border-slate-400" border=1 v-if="nonEmpty(sensorNames)">
             <tr>
                <th class="border border-slate-300" colspan="2">Sensors</th>
@@ -1997,88 +2049,7 @@
                <td class="border border-slate-300"> <viam-button group v-on:click="getReadings([name])">Get Readings</viam-button></td>
             </tr>
           </table>
-
-          <div id="pcd_wrapper">
-            <table  class="table-auto border-collapse border border-slate-400">
-              <tr>
-                 <td class="border border-slate-300"><div id="pcd" v-on:click="grabClick" /></td>
-                 <td class="border border-slate-300" v-if="pcdClick.enable">
-                  <table  class="table-auto border-collapse border border-slate-400">
-                    <tr>
-                       <th class="border border-slate-300" colspan="2">
-                        Clicked On
-                      </th>
-                    </tr>
-                    <tr>
-                       <th class="border border-slate-300">X</th>
-                       <td class="border border-slate-300">${pcdClick.x}</td>
-                    </tr>
-                    <tr>
-                       <th class="border border-slate-300">Y</th>
-                       <td class="border border-slate-300">${pcdClick.y}</td>
-                    </tr>
-                    <tr>
-                       <th class="border border-slate-300">Z</th>
-                       <td class="border border-slate-300">${pcdClick.z}</td>
-                    </tr>
-                    <tr>
-                       <td class="border border-slate-300" colspan="2">
-                        <viam-button group v-on:click="doPCDMove">Move</viam-button>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </div>
-          <!-- end pcd wrapper -->
           <!-- get segments -->
-          <table  class="table-auto border-collapse border border-slate-400" v-if="pcdClick.pcdloaded">
-              <tr>
-             <th class="border border-slate-300" colspan="3">Object Segmentation</th>
-            </tr>
-            <tr>
-                <td class="border border-slate-300">
-                    Select Segmenter
-                </td>
-                <td class="border border-slate-300">
-                    <select v-model="segmentAlgo" @change="getSegmenterParameters(segmentAlgo)">
-                        <option value="" selected disabled>Choose</option>
-                        <option v-for="segmenter in segmenterNames" :value="segmenter">${ segmenter }</option>
-                    </select>
-                </td>
-             <td class="border border-slate-300"> ${ segmentAlgo } </td>
-            </tr>
-            <tr v-for="param in segmenterParameterNames">
-               <td class="border border-slate-300">${param.getName()}</td>
-           <td class="border border-slate-300"><viam-input :type="parameterType(param.getType())" id="param.getName()" v-model.number="segmenterParameters[param.getName()]"></td>
-            </tr>
-            <tr>
-                 <td class="border border-slate-300" v-if="!pcdClick.calculatingSegments">
-                    <viam-button group v-on:click="findSegments(segmentAlgo, segmenterParameters)">Find Segments</viam-button>
-                </td>
-                 <td class="border border-slate-300" v-else>Finding Objects In Scene...</td>
-            </tr>
-          </table>
-          <table  class="table-auto border-collapse border border-slate-400" v-if="pcdClick.foundSegments">
-            <tr>
-               <th class="border border-slate-300">Object</th>
-               <th class="border border-slate-300">PCD</th>
-               <th class="border border-slate-300">Point</th>
-               <th class="border border-slate-300">Bounding Box</th>
-            </tr>
-            <tr>
-               <td class="border border-slate-300">Full Image</td>
-               <td class="border border-slate-300"><viam-button group v-on:click="doPCDLoad(fullcloud)">GO</viam-button></td>
-               <td class="border border-slate-300">--</td>
-            </tr>
-            <tr v-for="(seg, i) in objects">
-                 <td class="border border-slate-300">Object ${i}</td>
-                 <td class="border border-slate-300"><viam-button group v-on:click="doSegmentLoad(i)">GO</viam-button></td>
-                 <td class="border border-slate-300"><viam-button group v-on:click="doPointLoad(i)">GO</viam-button></td>
-                 <td class="border border-slate-300"><viam-button group v-on:click="doBoundingBoxLoad(i)">GO</viam-button></td>
-            </tr>
-          </table>
           <div id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
             <br />
             <br />
@@ -2105,6 +2076,39 @@
               <td class="border border-slate-300"><button v-on:click="killOp(o.id)">Kill</button></td>
             </tr>
           </table>
+
+          <!-- ******* CAMERAS *******  -->
+          <div class="camera" v-for="streamName in streamNames" :key="streamName">
+              <camera
+                      :stream-name="streamName"
+                      :crumbs="[streamName]"
+                      :x="pcdClick.x"
+                      :y="pcdClick.y"
+                      :z="pcdClick.z"
+                      :pcd-click="pcdClick"
+                      :segmenter-names="segmenterNames"
+                      :segmenter-parameters="segmenterParameters"
+                      :segmenter-parameter-names="segmenterParameterNames"
+                      :parameter-type="parameterType"
+                      :segment-algo="segmentAlgo"
+                      :segment-objects="objects"
+                      @full-image="doPCDLoad(fullcloud)"
+                      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
+                      @change-segmenter="getSegmenterParameters"
+                      @toggle-camera="viewManualFrame(streamName)"
+                      @refresh-camera="viewCameraFrame"
+                      @selected-camera-view="viewCameraFrame"
+                      @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
+                      @pcd-click="grabClick"
+                      @pcd-move="doPCDMove"
+                      @point-load="doPointLoad"
+                      @segment-load="doSegmentLoad"
+                      @bounding-box-load="doBoundingBoxLoad"
+                      @download-screenshot="renderFrame(streamName)"
+                      @download-raw-data="doPCDLoad(fullcloud)"
+                      @select-object="doSelectObject"
+              ></camera>
+          </div>
       </container>
     </div>
     <!-- end vue app -->
