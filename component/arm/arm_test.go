@@ -154,7 +154,6 @@ func TestArmName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "a5b161b9-dfa9-5eef-93d1-58431fd91212",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,
@@ -166,7 +165,6 @@ func TestArmName(t *testing.T) {
 			"all fields included",
 			testArmName,
 			resource.Name{
-				UUID: "ded8a90b-0c77-5bda-baf5-b7e79bbdb28a",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,

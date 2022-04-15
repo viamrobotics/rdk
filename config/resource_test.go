@@ -81,7 +81,6 @@ func TestComponentResourceName(t *testing.T) {
 				ResourceSubtype: resource.SubtypeName(""),
 			},
 			resource.Name{
-				UUID: "51782993-c1f4-5e87-9fd8-be561f2444a2",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.SubtypeName(""),
@@ -100,7 +99,6 @@ func TestComponentResourceName(t *testing.T) {
 				ResourceSubtype: sensor.SubtypeName,
 			},
 			resource.Name{
-				UUID: "e36e9d80-c608-5b27-9f5f-11f735c60242",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: sensor.SubtypeName,
@@ -119,7 +117,6 @@ func TestComponentResourceName(t *testing.T) {
 				ResourceSubtype: gps.SubtypeName,
 			},
 			resource.Name{
-				UUID: "dc913831-ca57-5b12-a8ae-1813cf2cd0d9",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gps.SubtypeName,
@@ -138,7 +135,6 @@ func TestComponentResourceName(t *testing.T) {
 				ResourceSubtype: gps.SubtypeName,
 			},
 			resource.Name{
-				UUID: "047fe0db-e1e8-5b26-b7a6-6e5814eaf4b3",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gps.SubtypeName,
