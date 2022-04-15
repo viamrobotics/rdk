@@ -8,7 +8,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/metadata/service"
 )
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
@@ -27,13 +26,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	err = draft.ProcessAndCommit(ctx)
 	if err != nil {
 		return err
-	}
-
-	// if metadata exists, update it
-	if svc := service.ContextService(ctx); svc != nil {
-		if err := r.UpdateMetadata(svc); err != nil {
-			return err
-		}
 	}
 
 	// update default services
