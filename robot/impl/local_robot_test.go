@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
+	"go.viam.com/rdk/services/objectsegmentation"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/web"
@@ -162,6 +163,7 @@ func TestConfigRemote(t *testing.T) {
 	expected := []resource.Name{
 		metadata.Name,
 		framesystem.Name,
+		objectsegmentation.Name,
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
@@ -398,6 +400,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			expected := []resource.Name{
 				metadata.Name,
 				framesystem.Name,
+				objectsegmentation.Name,
 				sensors.Name,
 				status.Name,
 				datamanager.Name,
@@ -597,6 +600,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	expected := []resource.Name{
 		metadata.Name,
 		framesystem.Name,
+		objectsegmentation.Name,
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
@@ -737,11 +741,11 @@ func TestMetadataUpdate(t *testing.T) {
 	resources, err := svc.Resources(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 10)
+	test.That(t, len(resources), test.ShouldEqual, 11)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 10 declared resources + default web, sensors, status, and metadata service
+	// 11 declared resources + default web, sensors, status, and metadata service
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
@@ -749,6 +753,7 @@ func TestMetadataUpdate(t *testing.T) {
 		gps.Named("gps1"),
 		gps.Named("gps2"),
 		framesystem.Name,
+		objectsegmentation.Name,
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
