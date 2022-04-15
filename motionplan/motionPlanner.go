@@ -91,7 +91,7 @@ func DefaultConstraint(
 	//~ opt.pathDist = pathDist
 	//~ opt.AddConstraint(defaultMotionConstraint, validFunc)
 	
-	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, 0.01)
+	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, 0.1)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), 0.1)
 	opt.pathDist = CombineMetrics(orientMetric, lineMetric)
 	

@@ -3,7 +3,7 @@ package motionplan
 import (
 	"errors"
 	"math"
-	"fmt"
+	//~ "fmt"
 
 	"github.com/golang/geo/r3"
 
@@ -222,8 +222,9 @@ func NewOrientationConstraint(orientFunc func(o spatial.Orientation) bool) Const
 	return f
 }
 
+// orientDist returns the arclength between two orientations
 func orientDist(o1, o2 spatial.Orientation) float64 {
-	return spatial.QuatToR3AA(spatial.OrientationBetween(o1, o2).Quaternion()).Norm2()
+	return math.Sqrt(spatial.QuatToR3AA(spatial.OrientationBetween(o1, o2).Quaternion()).Norm2())
 }
 
 // orientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
@@ -261,30 +262,25 @@ func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) Metric {
 
 // NewSlerpOrientationConstraint will provide a distance function 
 func NewSlerpOrientationConstraint(start, goal spatial.Pose, epsilon float64) (Constraint, Metric) {
-	var orientWaypoints []spatial.Orientation
 	
-	orientSteps := 100.0
+	var gradFunc func(from, _ spatial.Pose) float64
+	origDist := orientDist(start.Orientation(), goal.Orientation())
 	
-	for by := 0.0; by <= 1.0; by += 1.0/orientSteps {
-		orientWaypoints = append(orientWaypoints, spatial.Interpolate(start, goal, by).Orientation())
-	}
-	
-	origDist := orientDist(start.Orientation(), orientWaypoints[1])
-	
-	validDist := math.Max(0.000001, (origDist*origDist) / 2)
-	fmt.Println("valid dist", validDist)
-	
-	gradFunc := func(from, _ spatial.Pose) float64 {
-		minDist := math.Inf(1)
-		for _, pathPoint := range orientWaypoints {
-			oDist := orientDist(pathPoint, from.Orientation())
-			oDist *= oDist
-			if oDist < minDist {
-				minDist = oDist
-			}
+	if origDist < epsilon * epsilon {
+		gradFunc = func(from, _ spatial.Pose) float64 {
+			oDist := orientDist(start.Orientation(), from.Orientation())
+			return oDist
 		}
-		return minDist
+	}else{
+		gradFunc = func(from, _ spatial.Pose) float64 {
+			sDist := orientDist(start.Orientation(), from.Orientation())
+			gDist := orientDist(goal.Orientation(), from.Orientation())
+			return (sDist + gDist) - origDist
+		}
 	}
+	
+	validDist := epsilon*epsilon
+	
 	
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
 		err := resolveInputsToPositions(cInput)
