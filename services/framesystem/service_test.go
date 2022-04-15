@@ -224,6 +224,18 @@ func TestWrongFrameSystems(t *testing.T) {
 	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transformMsgs)
 	test.That(t, err, test.ShouldBeError, framesystem.NewMissingParentError("frame2", "noParent"))
 	test.That(t, fs, test.ShouldBeNil)
+
+	transformMsgs = []*commonpb.Transform{
+		{
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "pieceArm",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+	}
+	fs, err = framesystem.RobotFrameSystem(context.Background(), r, transformMsgs)
+	test.That(t, err, test.ShouldBeError, config.NewMissingReferenceFrameError(&commonpb.Transform{}))
+	test.That(t, fs, test.ShouldBeNil)
 }
 
 func TestServiceWithRemote(t *testing.T) {
