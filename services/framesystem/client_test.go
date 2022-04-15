@@ -132,7 +132,7 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client test config for working frame service", func(t *testing.T) {
-		frameSystemParts, err := workingFSClient.Config(context.Background(), []*commonpb.Transform{})
+		frameSystemParts, err := workingFSClient.Config(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
 		test.That(t, err, test.ShouldBeNil)
@@ -144,7 +144,7 @@ func TestClientConfig(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		workingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
-		frameSystemParts, err := workingDialedClient.Config(context.Background(), []*commonpb.Transform{})
+		frameSystemParts, err := workingDialedClient.Config(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
 		test.That(t, err, test.ShouldBeNil)
@@ -158,7 +158,7 @@ func TestClientConfig(t *testing.T) {
 		workingDialedClient := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
 		fsClient, ok := workingDialedClient.(framesystem.Service)
 		test.That(t, ok, test.ShouldBeTrue)
-		frameSystemParts, err := fsClient.Config(context.Background(), []*commonpb.Transform{})
+		frameSystemParts, err := fsClient.Config(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
 		test.That(t, err, test.ShouldBeNil)
@@ -176,7 +176,7 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client test config for failing frame service", func(t *testing.T) {
-		frameSystemParts, err := failingFSClient.Config(context.Background(), []*commonpb.Transform{})
+		frameSystemParts, err := failingFSClient.Config(context.Background(), nil)
 		test.That(t, frameSystemParts, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -185,7 +185,7 @@ func TestClientConfig(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		failingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
-		parts, err := failingDialedClient.Config(context.Background(), []*commonpb.Transform{})
+		parts, err := failingDialedClient.Config(context.Background(), nil)
 		test.That(t, parts, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})

@@ -95,20 +95,12 @@ func ConvertTransformProtobufToFrameSystemPart(transformMsg *commonpb.Transform)
 	poseInObserverFrame := transformMsg.GetPoseInObserverFrame()
 	parentFrame := poseInObserverFrame.GetReferenceFrame()
 	poseMsg := poseInObserverFrame.GetPose()
-	pose := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{
-		X:     poseMsg.X,
-		Y:     poseMsg.Y,
-		Z:     poseMsg.Z,
-		OX:    poseMsg.OX,
-		OY:    poseMsg.OY,
-		OZ:    poseMsg.OZ,
-		Theta: poseMsg.Theta,
-	})
+	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
 	point := pose.Point()
-	translation := spatialmath.TranslationConfig{X: point.X, Y: point.Y, Z: point.Z}
+	translation := spatialmath.NewTranslationConfig(point)
 	frameConfig := &Frame{
 		Parent:      parentFrame,
-		Translation: translation,
+		Translation: *translation,
 		Orientation: pose.Orientation(),
 	}
 	part := &FrameSystemPart{
