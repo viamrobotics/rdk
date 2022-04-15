@@ -51,4 +51,11 @@ export default class ViamRange extends Vue {
   value: number | undefined = this.percentage;
 }
 </script>
-<style scoped></style>
+<style scoped>
+input[type="range"] {
+  height: 2px;
+  -webkit-appearance: none;
+  margin: 10px 0;
+  width: 100%;
+}
+</style>

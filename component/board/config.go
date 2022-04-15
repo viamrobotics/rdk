@@ -6,7 +6,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
-	functionvm "go.viam.com/rdk/function/vm"
 )
 
 // RegisterConfigAttributeConverter registers a board.Config converter.
@@ -106,20 +105,16 @@ func (config *AnalogConfig) Validate(path string) error {
 
 // DigitalInterruptConfig describes the configuration of digital interrupt for a board.
 type DigitalInterruptConfig struct {
-	Name     string                              `json:"name"`
-	Pin      string                              `json:"pin"`
-	Type     string                              `json:"type"` // e.g. basic, servo
-	Formula  string                              `json:"formula"`
-	Function *functionvm.AnonymousFunctionConfig `json:"function,omitempty"`
+	Name    string `json:"name"`
+	Pin     string `json:"pin"`
+	Type    string `json:"type"` // e.g. basic, servo
+	Formula string `json:"formula"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *DigitalInterruptConfig) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
-	}
-	if config.Function != nil {
-		return config.Function.Validate(fmt.Sprintf("%s.%s", path, "function"))
 	}
 	return nil
 }

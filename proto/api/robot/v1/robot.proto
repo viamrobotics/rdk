@@ -11,13 +11,6 @@ import "proto/api/common/v1/common.proto";
 
 // A RobotService encompasses all functionality of some robot comprised of parts, local and remote.
 service RobotService {
-  // DoAction runs an action on the underlying robot.
-  rpc DoAction(DoActionRequest) returns (DoActionResponse) {
-    option (google.api.http) = {
-      post: "/viam/api/v1/do_action"
-    };  
-  }
-
   // ResourceRunCommand runs an arbitrary command on a resource if it supports it.
   rpc ResourceRunCommand(ResourceRunCommandRequest) returns (ResourceRunCommandResponse) {
     option (google.api.http) = {
