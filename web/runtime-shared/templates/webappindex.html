@@ -83,7 +83,7 @@
       }
 
       function fixArmStatus(old) {
-        var newStatus = { pieces: [] };
+        var newStatus = { pos_pieces : [], joint_pieces : [] };
         var fieldSetters = [
           ["x", "X"],
           ["y", "Y"],
@@ -93,14 +93,23 @@
           ["o_y", "OY"],
           ["o_z", "OZ"],
         ];
-        for (var j = 0; j < fieldSetters.length; j++) {
-          let endPositionField = fieldSetters[j][0];
-          newStatus.pieces.push({
-            endPosition: fieldSetters[j],
-            endPositionValue: old["end_position"][endPositionField] || 0,
-            joint: j,
-            jointValue: old["joint_positions"]["degrees"][j] || 0,
-          });
+        for (var j=0; j<fieldSetters.length; j++ ){
+            let endPositionField = fieldSetters[j][0];
+            newStatus.pos_pieces.push(
+              { 
+                endPosition : fieldSetters[j],
+                endPositionValue : old["end_position"][endPositionField] || 0,
+              }
+            );
+        }
+        for (var j=0; j<old["joint_positions"]["degrees"].length; j++ ){
+            let endPositionField = fieldSetters[j][0];
+            newStatus.joint_pieces.push(
+              { 
+                joint : j,
+                jointValue : old["joint_positions"]["degrees"][j] || 0,
+              }
+            );
         }
         return newStatus;
       }
@@ -1867,58 +1876,72 @@
           <!-- ******* ARM *******  -->
           <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
             <h3>Arm ${arm.name}</h3>
-            <table  class="table-auto border-collapse border border-slate-400" v-if="armToggle[arm.name]">
+            <table v-if="armToggle[arm.name]" border="1">
               <tr>
-                 <th class="border border-slate-300" colspan="2"><h5>END POSITION (mms)</h5></th>
-                 <th class="border border-slate-300" colspan="2"><h5>JOINTS (degrees)</h5></th>
+                <th colspan="2"><h5>END POSITION (mms)</h5></th>
+                <th colspan="2"><h5>JOINTS (degrees)</h5></th>
               </tr>
-              <tr v-for="aa in armToggle[arm.name].pieces" :key="aa.joint">
-                 <th class="border border-slate-300">${aa.endPosition[0]}</th>
-                 <td class="border border-slate-300"><viam-input v-model="aa.endPositionValue" /></td>
-
-                 <th class="border border-slate-300">Joint ${aa.joint}</th>
-                 <td class="border border-slate-300"><viam-input v-model="aa.jointValue" /></td>
+              <tr v-for="aa in armToggle[arm.name].pos_pieces" :key="aa.joint">
+                <th>${aa.endPosition[0]}</th>
+                <td><input v-model="aa.endPositionValue"></td>
+              </tr>
+              <tr v-for="aa in armToggle[arm.name].joint_pieces" :key="aa.joint"></tr>
+                <th>Joint ${aa.joint}</th>
+                <td><input v-model="aa.jointValue"></td>
               </tr>
               <tr>
-                 <th class="border border-slate-300" colspan="6">
-                  <viam-button group v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</viam-button>
-                  <viam-button group v-on:click="armModifyAllDoJoint(arm)">Go To Joints</viam-button>
-                  <viam-button group v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
+                <th colspan="6">
+                  <button v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</button>
+                  <button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</button>
+                  <button v-on:click="armModifyAllCancel(arm)">Cancel</button>
                 </th>
               </tr>
             </table>
-            <table  class="table-auto border-collapse border border-slate-400" v-if="resourceStatusByName(arm)">
-              <tr>
-                 <th class="border border-slate-300" colspan="3"><h5>END POSITION (mms)</h5></th>
-                 <th class="border border-slate-300" colspan="3"><h5>JOINTS (degrees)</h5></th>
-              </tr>
-              <tr v-for="aa in resourceStatusByName(arm).pieces" :key="aa.joint">
-                 <th class="border border-slate-300">${aa.endPosition[1]}</th>
-                 <td class="border border-slate-300">
-                  <viam-button group v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
-                  <viam-button group v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
-                  <viam-button group v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
-                  <viam-button group v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
-                </td>
-                 <td class="border border-slate-300">${aa.endPositionValue.toFixed(2)}</td>
-
-                 <th class="border border-slate-300">Joint ${aa.joint}</th>
-                 <td class="border border-slate-300">
-                  <viam-button group v-on:click="armJointInc( arm, aa.joint, -10 )">--</viam-button>
-                  <viam-button group v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
-                  <viam-button group v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
-                  <viam-button group v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
-                </td>
-                 <td class="border border-slate-300">${aa.jointValue.toFixed(2)}</td>
-              </tr>
-              <tr>
-                 <th class="border border-slate-300" colspan="8">
-                  <viam-button group v-on:click="armHome(arm)">Home</viam-button>
-                  <viam-button group v-on:click="armModifyAll(arm)">Modify All</viam-button>
-                </th>
-              </tr>
-            </table>
-            <!-- end main table -->
+    
+            <div style="display: flex; margin-bottom: 1em">
+              <table border="1" v-if="resourceStatusByName(arm)" style="margin-right: 1em" class="border border-slate-300">
+                <tr>
+                  <th colspan="3" class="border border-slate-300"><h5>END POSITION (mms)</h5></th>
+                </tr>
+                <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.joint">
+                  <th class="border border-slate-300">${aa.endPosition[1]}</th>
+                  <td class="border border-slate-300">
+                    <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
+                    <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
+                    <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
+                    <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
+                  </td>
+                  <td class="border border-slate-300">${aa.endPositionValue.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <th class="border border-slate-300" colspan="8">
+                    <viam-button v-on:click="armHome(arm)">Home</viam-button>
+                    <viam-button v-on:click="armModifyAll(arm)">Modify All</viam-button>
+                  </th>
+                </tr>
+              </table> <!-- end main table -->
+              <table border="1" v-if="resourceStatusByName(arm)" class="border border-slate-300">
+                <tr>
+                  <th colspan="3" class="border border-slate-300"><h5>JOINTS (degrees)</h5></th>
+                </tr>
+                <tr v-for="aa in resourceStatusByName(arm).joint_pieces" :key="aa.joint">          
+                  <th class="border border-slate-300">Joint ${aa.joint}</th>
+                  <td class="border border-slate-300">
+                    <viam-button v-on:click="armJointInc( arm, aa.joint, -10 )">--</viam-button>
+                    <viam-button v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
+                    <viam-button v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
+                    <viam-button v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
+                  </td>
+                  <td class="border border-slate-300">${aa.jointValue.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <th class="border border-slate-300" colspan="8">
+                    <viam-button v-on:click="armHome(arm)">Home</viam-button>
+                    <viam-button v-on:click="armModifyAll(arm)">Modify All</viam-button>
+                  </th>
+                </tr>
+              </table> <!-- end main table -->
+            </div>
           </div>
 
           <!-- ******* GRIPPER *******  -->
