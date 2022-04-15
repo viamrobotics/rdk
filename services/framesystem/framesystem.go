@@ -141,9 +141,11 @@ func (svc *frameSystemService) Config(ctx context.Context, additionalTransforms 
 	// build the config
 	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
 	for _, transformMsg := range additionalTransforms {
-		allParts = append(
-			allParts, config.ConvertTransformProtobufToFrameSystemPart(transformMsg),
-		)
+		newPart, err := config.ConvertTransformProtobufToFrameSystemPart(transformMsg)
+		if err != nil {
+			return nil, err
+		}
+		allParts = append(allParts, newPart)
 	}
 	sortedParts, err := TopologicallySortParts(allParts)
 	if err != nil {

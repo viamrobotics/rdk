@@ -2,15 +2,18 @@ package config
 
 import (
 	"io/ioutil"
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	servicepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -132,4 +135,56 @@ func TestFramesFromPart(t *testing.T) {
 	test.That(t, modelFrame.DoF(), test.ShouldResemble, part.ModelFrame.DoF())
 	test.That(t, offsetFrame.Name(), test.ShouldEqual, part.Name+"_offset")
 	test.That(t, offsetFrame.DoF(), test.ShouldHaveLength, 0)
+}
+
+func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
+	zeroPose := spatialmath.PoseToProtobuf(spatialmath.NewZeroPose())
+	t.Run("fails on missing reference frame name", func(t *testing.T) {
+		transform := &commonpb.Transform{
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "parent",
+				Pose:           zeroPose,
+			},
+		}
+		part, err := ConvertTransformProtobufToFrameSystemPart(transform)
+		test.That(t, err, test.ShouldBeError, NewMissingReferenceFrameError(&commonpb.Transform{}))
+		test.That(t, part, test.ShouldBeNil)
+	})
+	t.Run("fails on missing reference frame name", func(t *testing.T) {
+		transform := &commonpb.Transform{
+			ReferenceFrame: "child",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				Pose: zeroPose,
+			},
+		}
+		part, err := ConvertTransformProtobufToFrameSystemPart(transform)
+		test.That(t, err, test.ShouldBeError, NewMissingReferenceFrameError(&commonpb.PoseInFrame{}))
+		test.That(t, part, test.ShouldBeNil)
+	})
+	t.Run("converts to frame system part", func(t *testing.T) {
+		testPose := spatialmath.NewPoseFromAxisAngle(
+			r3.Vector{X: 1., Y: 2., Z: 3.},
+			r3.Vector{X: 0., Y: 1., Z: 0.},
+			math.Pi/2,
+		)
+		transform := &commonpb.Transform{
+			ReferenceFrame: "child",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "parent",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		}
+		transformPOF := transform.GetPoseInObserverFrame()
+		posePt := testPose.Point()
+		part, err := ConvertTransformProtobufToFrameSystemPart(transform)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, part.Name, test.ShouldEqual, transform.GetReferenceFrame())
+		test.That(t, part.FrameConfig.Parent, test.ShouldEqual, transformPOF.GetReferenceFrame())
+		partTrans := part.FrameConfig.Translation
+		partOrient := part.FrameConfig.Orientation
+		test.That(t, partTrans.X, test.ShouldAlmostEqual, posePt.X)
+		test.That(t, partTrans.Y, test.ShouldAlmostEqual, posePt.Y)
+		test.That(t, partTrans.Z, test.ShouldAlmostEqual, posePt.Z)
+		test.That(t, spatialmath.OrientationAlmostEqual(partOrient, testPose.Orientation()), test.ShouldBeTrue)
+	})
 }
