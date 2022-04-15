@@ -24,7 +24,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/rlog"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
@@ -318,12 +317,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
-
-	metadataSvc, err := service.New()
-	if err != nil {
-		return err
-	}
-	ctx = service.ContextWithService(ctx, metadataSvc)
 
 	processConfig := func(in *config.Config) (*config.Config, error) {
 		tlsCfg := config.NewTLSConfig(cfg)

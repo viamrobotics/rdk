@@ -7,6 +7,7 @@ import (
 	_ "go.viam.com/rdk/services/baseremotecontrol"
 	_ "go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/framesystem"
+	_ "go.viam.com/rdk/services/metadata"
 	_ "go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/objectsegmentation"

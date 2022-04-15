@@ -36,7 +36,6 @@ AppDir:
     include:
     - bash
     - libnlopt0
-    - libwasmer2
     - libx264-160
   files:
     include: []

@@ -480,11 +480,6 @@
               req.setId(id);
               robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            doAction: function (name) {
-              const req = new robotApi.DoActionRequest();
-              req.setName(name);
-              robotService.doAction(req, {}, (err, resp) => grpcCallback(err, resp));
-            },
             baseAction: function (name, action, amount) {
               let req;
               switch (action) {
@@ -1776,12 +1771,6 @@
     </div>
     <div id="app" v-cloak>
       <container class="p-2">
-          <div id="actions">
-            {{range $r := .Actions}}
-            <viam-button group v-on:click="doAction('{{$r}}')">{{$r}}</viam-button>
-            {{end}}
-          </div>
-
           <div style="color: red;">${ error }</div>
           <!-- ******* BASE *******  -->
           <div class="base" v-for="base in filterResources('rdk', 'component', 'base')" :key="base.name">

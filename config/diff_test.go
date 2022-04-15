@@ -10,25 +10,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	functionvm "go.viam.com/rdk/function/vm"
-	"go.viam.com/rdk/testutils/inject"
 )
-
-func init() {
-	injectEngine1 := &inject.Engine{}
-	injectEngine1.ValidateSourceFunc = func(_ string) error {
-		return nil
-	}
-	functionvm.RegisterEngine(functionvm.EngineName("foo"), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-	functionvm.RegisterEngine(functionvm.EngineName("bar"), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-	functionvm.RegisterEngine(functionvm.EngineName("baz"), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-}
 
 func TestDiffConfigs(t *testing.T) {
 	config1 := config.Config{
@@ -94,22 +76,6 @@ func TestDiffConfigs(t *testing.T) {
 				Log:  true,
 			},
 		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func1",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "foo",
-					Source: "1",
-				},
-			},
-			{
-				Name: "func2",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "bar",
-					Source: "2",
-				},
-			},
-		},
 	}
 
 	config2 := config.ModifiedConfigDiff{
@@ -173,22 +139,6 @@ func TestDiffConfigs(t *testing.T) {
 				Name: "bash",
 				Args: []string{"-c", "trap \"exit 0\" SIGINT; while true; do echo hello; sleep 2; done"},
 				Log:  true,
-			},
-		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func1",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "foo",
-					Source: "1+1",
-				},
-			},
-			{
-				Name: "func2",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "bar",
-					Source: "2+2",
-				},
 			},
 		},
 	}
@@ -283,15 +233,6 @@ func TestDiffConfigs(t *testing.T) {
 							Log:  true,
 						},
 					},
-					Functions: []functionvm.FunctionConfig{
-						{
-							Name: "func3",
-							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-								Engine: "baz",
-								Source: "3",
-							},
-						},
-					},
 				},
 				Modified: &config.ModifiedConfigDiff{
 					Remotes: []config.Remote{
@@ -330,15 +271,6 @@ func TestDiffConfigs(t *testing.T) {
 							OneShot: true,
 						},
 					},
-					Functions: []functionvm.FunctionConfig{
-						{
-							Name: "func1",
-							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-								Engine: "foo",
-								Source: "1+1",
-							},
-						},
-					},
 				},
 				Removed: &config.Config{
 					Components: []config.Component{
@@ -357,15 +289,6 @@ func TestDiffConfigs(t *testing.T) {
 							Name: "bash",
 							Args: []string{"-c", "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"},
 							Log:  true,
-						},
-					},
-					Functions: []functionvm.FunctionConfig{
-						{
-							Name: "func2",
-							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-								Engine: "bar",
-								Source: "2",
-							},
 						},
 					},
 				},

@@ -21,7 +21,6 @@ type Robot struct {
 	RemoteByNameFunc   func(name string) (robot.Robot, bool)
 	ResourceByNameFunc func(name resource.Name) (interface{}, error)
 	RemoteNamesFunc    func() []string
-	FunctionNamesFunc  func() []string
 	ResourceNamesFunc  func() []resource.Name
 	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
@@ -55,14 +54,6 @@ func (r *Robot) RemoteNames() []string {
 		return r.LocalRobot.RemoteNames()
 	}
 	return r.RemoteNamesFunc()
-}
-
-// FunctionNames calls the injected FunctionNames or the real version.
-func (r *Robot) FunctionNames() []string {
-	if r.FunctionNamesFunc == nil {
-		return r.LocalRobot.FunctionNames()
-	}
-	return r.FunctionNamesFunc()
 }
 
 // ResourceNames calls the injected ResourceNames or the real version.

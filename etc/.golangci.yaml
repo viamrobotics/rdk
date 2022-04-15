@@ -50,7 +50,6 @@ linters-settings:
     replace-allow-list:
       - github.com/jblindsay/lidario
       - github.com/starship-technologies/gobag
-      - github.com/wasmerio/wasmer-go
       - github.com/grandcat/zeroconf
       - github.com/pion/ice/v2
   govet:

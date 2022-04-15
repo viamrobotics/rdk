@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
-	functionvm "go.viam.com/rdk/function/vm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -48,12 +47,6 @@ func TestManagerForRemoteRobot(t *testing.T) {
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 
 	test.That(t, manager.RemoteNames(), test.ShouldBeEmpty)
-	test.That(
-		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2"),
-	)
 	test.That(
 		t,
 		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
@@ -136,12 +129,6 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 		utils.NewStringSet(manager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 	)
 	test.That(
 		t,
@@ -370,12 +357,6 @@ func TestManagerMergeNamesWithRemotesDedupe(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1"),
-	)
-	test.That(
-		t,
 		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -414,8 +395,6 @@ func TestManagerClone(t *testing.T) {
 	// remove and delete manager to prove clone
 	delete(manager.remotes, "remote1")
 	manager.remotes = nil
-	delete(manager.functions, "func1")
-	manager.functions = nil
 	manager.resources.Remove(arm.Named("arm1"))
 	manager.resources.Remove(camera.Named("camera1"))
 	manager.resources.Remove(gripper.Named("gripper1"))
@@ -448,12 +427,6 @@ func TestManagerClone(t *testing.T) {
 		utils.NewStringSet(newManager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(newManager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 	)
 	test.That(
 		t,
@@ -841,7 +814,6 @@ func TestManagerMergeAdd(t *testing.T) {
 	checkEmpty := func(toCheck *resourceManager) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, toCheck.ResourceNames(), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
@@ -875,12 +847,6 @@ func TestManagerMergeAdd(t *testing.T) {
 			utils.NewStringSet(toCheck.RemoteNames()...),
 			test.ShouldResemble,
 			utils.NewStringSet("remote1", "remote2"),
-		)
-		test.That(
-			t,
-			utils.NewStringSet(toCheck.FunctionNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 		)
 		test.That(
 			t,
@@ -962,23 +928,6 @@ func TestManagerMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(
-			"func1",
-			"func2",
-			"func1_r1",
-			"func2_r1",
-			"func1_r2",
-			"func2_r2",
-			"func1_other",
-			"func2_other",
-			"func1_other1",
-			"func2_other1",
-		),
-	)
-	test.That(
-		t,
 		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -1028,23 +977,6 @@ func TestManagerMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(
-			"func1",
-			"func2",
-			"func1_r1",
-			"func2_r1",
-			"func1_r2",
-			"func2_r2",
-			"func1_other",
-			"func2_other",
-			"func1_other1",
-			"func2_other1",
-		),
-	)
-	test.That(
-		t,
 		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -1068,7 +1000,6 @@ func TestManagerMergeAdd(t *testing.T) {
 	emptyManager = newResourceManager(resourceManagerOptions{}, logger)
 	test.That(t, result.Process(context.Background(), emptyManager), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyManager.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyManager.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, emptyManager.ResourceNames(), test.ShouldBeEmpty)
 	test.That(
 		t,
@@ -1132,12 +1063,6 @@ func TestManagerMergeModify(t *testing.T) {
 		)
 		test.That(
 			t,
-			utils.NewStringSet(toCheck.FunctionNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
-		)
-		test.That(
-			t,
 			rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 			test.ShouldResemble,
 			rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -1198,7 +1123,6 @@ func TestManagerMergeModify(t *testing.T) {
 	emptyManager := newResourceManager(resourceManagerOptions{}, logger)
 	test.That(t, result.Process(context.Background(), emptyManager), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyManager.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyManager.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, emptyManager.ResourceNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyManager.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 
@@ -1206,8 +1130,6 @@ func TestManagerMergeModify(t *testing.T) {
 
 	replacementManager := newResourceManager(resourceManagerOptions{}, logger)
 	robotForRemote := &localRobot{manager: newResourceManager(resourceManagerOptions{}, logger), logger: logger}
-
-	robotForRemote.manager.addFunction("func2_r1")
 
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
 	rName := cfg.ResourceName()
@@ -1332,12 +1254,6 @@ func TestManagerMergeRemove(t *testing.T) {
 		)
 		test.That(
 			t,
-			utils.NewStringSet(toCheck.FunctionNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
-		)
-		test.That(
-			t,
 			rdktestutils.NewResourceNameSet(toCheck.ResourceNames()...),
 			test.ShouldResemble,
 			rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -1388,7 +1304,6 @@ func TestManagerMergeRemove(t *testing.T) {
 	manager.MergeRemove(sameManager)
 	checkSame(sameManager)
 	test.That(t, utils.NewStringSet(manager.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(manager.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, manager.ResourceNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(manager.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 }
@@ -1414,7 +1329,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	checkEmpty := func(toCheck *resourceManager) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, toCheck.ResourceNames(), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
@@ -1467,11 +1381,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 			{
 				ID:   "what",
 				Name: "echo",
-			},
-		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "what",
 			},
 		},
 	}, logger)
@@ -1535,11 +1444,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func2",
-			},
-		},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1553,12 +1457,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	servoNames := []resource.Name{servo.Named("servo2")}
 
 	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(
-		t,
-		utils.NewStringSet(filtered.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func2"),
-	)
 	test.That(
 		t,
 		rdktestutils.NewResourceNameSet(filtered.ResourceNames()...),
@@ -1631,11 +1529,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func2",
-			},
-		},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1681,12 +1574,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		utils.NewStringSet(filtered.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote2"),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(filtered.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func2", "func1_r2", "func2_r2"),
 	)
 	test.That(
 		t,
@@ -1846,17 +1733,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func1",
-			},
-			{
-				Name: "func2",
-			},
-			{
-				Name: "func3",
-			},
-		},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1882,12 +1758,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		utils.NewStringSet(filtered.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(filtered.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 	)
 	test.That(
 		t,
