@@ -1,20 +1,22 @@
 package inject
 
 import (
-	"go.viam.com/rdk/metadata/service"
+	"context"
+
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/metadata"
 )
 
 // Metadata is an injected metadata.
 type Metadata struct {
-	service.Service
-	AllFunc func() []resource.Name
+	metadata.Service
+	ResourcesFunc func() ([]resource.Name, error)
 }
 
-// All calls the injected All or the real version.
-func (m *Metadata) All() []resource.Name {
-	if m.AllFunc == nil {
-		return m.All()
+// Resources calls the injected Resources or the real version.
+func (m *Metadata) Resources(ctx context.Context) ([]resource.Name, error) {
+	if m.ResourcesFunc == nil {
+		return m.Resources(ctx)
 	}
-	return m.AllFunc()
+	return m.ResourcesFunc()
 }
