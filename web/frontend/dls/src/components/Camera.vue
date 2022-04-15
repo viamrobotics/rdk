@@ -511,7 +511,7 @@ export default class Base extends Vue {
     this.resizeContent();
   }
   resizeContent(): void {
-    debugger;
+    // TODO: revisit resize logic, remove static numbers
     if (this.camera && this.pcd) {
       this.maxHeight = 2250;
     } else if (this.camera && !this.pcd) {
