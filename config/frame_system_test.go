@@ -13,7 +13,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	servicepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -138,7 +137,7 @@ func TestFramesFromPart(t *testing.T) {
 }
 
 func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
-	zeroPose := spatialmath.PoseToProtobuf(spatialmath.NewZeroPose())
+	zeroPose := spatial.PoseToProtobuf(spatial.NewZeroPose())
 	t.Run("fails on missing reference frame name", func(t *testing.T) {
 		transform := &commonpb.Transform{
 			PoseInObserverFrame: &commonpb.PoseInFrame{
@@ -162,7 +161,7 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		test.That(t, part, test.ShouldBeNil)
 	})
 	t.Run("converts to frame system part", func(t *testing.T) {
-		testPose := spatialmath.NewPoseFromAxisAngle(
+		testPose := spatial.NewPoseFromAxisAngle(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			r3.Vector{X: 0., Y: 1., Z: 0.},
 			math.Pi/2,
@@ -171,7 +170,7 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 			ReferenceFrame: "child",
 			PoseInObserverFrame: &commonpb.PoseInFrame{
 				ReferenceFrame: "parent",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
+				Pose:           spatial.PoseToProtobuf(testPose),
 			},
 		}
 		transformPOF := transform.GetPoseInObserverFrame()
@@ -185,6 +184,6 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		test.That(t, partTrans.X, test.ShouldAlmostEqual, posePt.X)
 		test.That(t, partTrans.Y, test.ShouldAlmostEqual, posePt.Y)
 		test.That(t, partTrans.Z, test.ShouldAlmostEqual, posePt.Z)
-		test.That(t, spatialmath.OrientationAlmostEqual(partOrient, testPose.Orientation()), test.ShouldBeTrue)
+		test.That(t, spatial.OrientationAlmostEqual(partOrient, testPose.Orientation()), test.ShouldBeTrue)
 	})
 }
