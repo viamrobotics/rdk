@@ -23,6 +23,7 @@ import ViamIcon from "./components/ViamIcon.vue";
 import ViamInput from "./components/ViamInput.vue";
 import ViamBase from "./components/Base.vue";
 import KeyboardInput from "./components/KeyboardInput.vue";
+import Camera from "./components/Camera.vue";
 
 const Components: { [key: string]: VueConstructor<Vue> } = {
   MotorDetail,
@@ -43,6 +44,7 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   ViamInput,
   ViamBase,
   KeyboardInput,
+  Camera,
 };
 
 Object.keys(Components).forEach((name) => {
