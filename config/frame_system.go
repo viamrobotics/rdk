@@ -88,6 +88,8 @@ func ProtobufToFrameSystemPart(fsc *pb.Config) (*FrameSystemPart, error) {
 	return part, nil
 }
 
+// NewMissingReferenceFrameError returns an error indicating that a particular
+// protobuf message is missing necessary information for its ReferenceFrame key.
 func NewMissingReferenceFrameError(msg interface{}) error {
 	return errors.Errorf("missing reference frame in protobuf message of type %T", msg)
 }
