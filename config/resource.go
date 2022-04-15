@@ -24,26 +24,6 @@ type ResourceConfig interface {
 	Set(val string) error
 }
 
-// CR erodkin: delete me
-// A ComponentType defines a type of component.
-// type ComponentType string
-
-// The set of known component types.
-// CR erodkin: delete me
-//const (
-//ComponentTypeBase            = ComponentType("base")
-//ComponentTypeArm             = ComponentType("arm")
-//ComponentTypeGantry          = ComponentType("gantry")
-//ComponentTypeGripper         = ComponentType("gripper")
-//ComponentTypeGPS             = ComponentType("gps")
-//ComponentTypeCamera          = ComponentType("camera")
-//ComponentTypeSensor          = ComponentType("sensor")
-//ComponentTypeBoard           = ComponentType("board")
-//ComponentTypeServo           = ComponentType("servo")
-//ComponentTypeMotor           = ComponentType("motor")
-//ComponentTypeInputController = ComponentType("input_controller")
-//)
-
 // A Component describes the configuration of a component.
 type Component struct {
 	Name string `json:"name"`
