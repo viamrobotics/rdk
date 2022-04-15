@@ -77,8 +77,9 @@ func (c *client) GetPose(
 	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
-		ComponentName:    protoutils.ResourceNameToProto(componentName),
-		DestinationFrame: destinationFrame,
+		ComponentName:          protoutils.ResourceNameToProto(componentName),
+		DestinationFrame:       destinationFrame,
+		SupplementalTransforms: supplementalTransforms,
 	})
 	if err != nil {
 		return nil, err

@@ -2,6 +2,7 @@ package motion_test
 
 import (
 	"context"
+	"math"
 	"net"
 	"testing"
 
@@ -64,6 +65,7 @@ func TestClient(t *testing.T) {
 		client, err := motion.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
+		receivedTransforms := make(map[string]*commonpb.Transform)
 		success := true
 		injectMS.MoveFunc = func(
 			ctx context.Context,
@@ -77,8 +79,11 @@ func TestClient(t *testing.T) {
 			ctx context.Context,
 			componentName resource.Name,
 			destinationFrame string,
-			supplementalTransform []*commonpb.Transform,
+			supplementalTransforms []*commonpb.Transform,
 		) (*referenceframe.PoseInFrame, error) {
+			for _, msg := range supplementalTransforms {
+				receivedTransforms[msg.GetReferenceFrame()] = msg
+			}
 			return referenceframe.NewPoseInFrame(
 				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
 		}
@@ -90,13 +95,54 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
-		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", nil)
+		testPose := spatialmath.NewPoseFromAxisAngle(
+			r3.Vector{X: 1., Y: 2., Z: 3.},
+			r3.Vector{X: 0., Y: 1., Z: 0.},
+			math.Pi/2,
+		)
+		transformMsgs := []*commonpb.Transform{
+			{
+				ReferenceFrame: "frame1",
+				PoseInObserverFrame: &commonpb.PoseInFrame{
+					ReferenceFrame: "arm1",
+					Pose:           spatialmath.PoseToProtobuf(testPose),
+				},
+			},
+			{
+				ReferenceFrame: "frame2",
+				PoseInObserverFrame: &commonpb.PoseInFrame{
+					ReferenceFrame: "frame1",
+					Pose:           spatialmath.PoseToProtobuf(testPose),
+				},
+			},
+		}
+		msgMap := make(map[string]*commonpb.Transform)
+		for _, msg := range transformMsgs {
+			msgMap[msg.GetReferenceFrame()] = msg
+		}
+		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transformMsgs)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, poseResult.FrameName(), test.ShouldEqual, "fooarm1")
 		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
 		test.That(t, poseResult.Pose().Point().Y, test.ShouldEqual, 2)
 		test.That(t, poseResult.Pose().Point().Z, test.ShouldEqual, 3)
-
+		for key, msg := range msgMap {
+			receivedMsg := receivedTransforms[key]
+			receivedPF := receivedMsg.GetPoseInObserverFrame()
+			msgPF := msg.GetPoseInObserverFrame()
+			test.That(t, receivedMsg.GetReferenceFrame(), test.ShouldEqual, msg.GetReferenceFrame())
+			test.That(t, receivedPF.GetReferenceFrame(), test.ShouldEqual, msgPF.GetReferenceFrame())
+			receivedPose := receivedPF.GetPose()
+			msgPose := msgPF.GetPose()
+			test.That(t, receivedPose.X, test.ShouldAlmostEqual, msgPose.X)
+			test.That(t, receivedPose.Y, test.ShouldAlmostEqual, msgPose.Y)
+			test.That(t, receivedPose.Z, test.ShouldAlmostEqual, msgPose.Z)
+			test.That(t, receivedPose.OX, test.ShouldAlmostEqual, msgPose.OX)
+			test.That(t, receivedPose.OY, test.ShouldAlmostEqual, msgPose.OY)
+			test.That(t, receivedPose.OZ, test.ShouldAlmostEqual, msgPose.OZ)
+			test.That(t, receivedPose.Theta, test.ShouldAlmostEqual, msgPose.Theta)
+		}
+		test.That(t, receivedTransforms, test.ShouldNotBeNil)
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
 
