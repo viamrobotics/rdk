@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
@@ -106,7 +105,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
-	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, []*commonpb.Transform{})
+	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
 	if err != nil {
 		return nil, err
 	}

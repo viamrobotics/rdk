@@ -90,7 +90,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
-		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", []*commonpb.Transform{})
+		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, poseResult.FrameName(), test.ShouldEqual, "fooarm1")
 		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
@@ -130,7 +130,7 @@ func TestClient(t *testing.T) {
 		resp, err := client2.Move(context.Background(), resourceName, grabPose, &commonpb.WorldState{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
-		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", []*commonpb.Transform{})
+		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
 	})

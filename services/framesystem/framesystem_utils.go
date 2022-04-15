@@ -125,7 +125,7 @@ func robotFrameSystemConfig(ctx context.Context, r robot.Robot) (Parts, error) {
 	if err != nil {
 		return nil, err
 	}
-	parts, err := fsSrv.Config(ctx, []*commonpb.Transform{})
+	parts, err := fsSrv.Config(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
