@@ -19,8 +19,9 @@ import (
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/resource"
 )
 
 // RDK versioning variables which are replaced by LD flags.
