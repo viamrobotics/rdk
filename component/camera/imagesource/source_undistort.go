@@ -41,7 +41,7 @@ func init() {
 			return newUndistortSource(source, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "undistort",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "undistort",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

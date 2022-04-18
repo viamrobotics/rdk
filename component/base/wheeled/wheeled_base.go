@@ -39,7 +39,7 @@ func init() {
 
 	registry.RegisterComponent(base.Subtype, "wheeled", wheeledBaseComp)
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeBase,
+		base.SubtypeName,
 		"wheeled",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
