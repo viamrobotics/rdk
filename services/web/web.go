@@ -31,7 +31,6 @@ import (
 	"golang.org/x/net/http2/h2c"
 	googlegrpc "google.golang.org/grpc"
 
-	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -168,14 +167,11 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WebRTCHost                 string
 		WebRTCSignalingAddress     string
 		WebRTCAdditionalICEServers []map[string]interface{}
-		Actions                    []string
 		SupportedAuthTypes         []string
 		BakedAuth                  map[string]interface{}
 	}
 
-	temp := Temp{
-		Actions: action.AllActionNames(),
-	}
+	var temp Temp
 
 	if err := r.ParseForm(); err != nil {
 		app.logger.Debugw("failed to parse form", "error", err)

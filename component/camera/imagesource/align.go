@@ -45,7 +45,7 @@ func init() {
 			return newAlignColorDepth(color, depth, attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "align_color_depth",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "align_color_depth",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -64,7 +64,7 @@ func init() {
 			return result, nil
 		}, &alignAttrs{})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "align_color_depth", "warp",
+	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth", "warp",
 		func(val interface{}) (interface{}, error) {
 			warp := &transform.AlignConfig{}
 			err := mapstructure.Decode(val, warp)
@@ -74,7 +74,7 @@ func init() {
 			return warp, err
 		})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "align_color_depth", "intrinsic_extrinsic",
+	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth", "intrinsic_extrinsic",
 		func(val interface{}) (interface{}, error) {
 			matrices := &transform.DepthColorIntrinsicsExtrinsics{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
@@ -88,7 +88,7 @@ func init() {
 			return matrices, err
 		})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "align_color_depth", "homography",
+	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth", "homography",
 		func(val interface{}) (interface{}, error) {
 			homography := &transform.RawDepthColorHomography{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: homography})
