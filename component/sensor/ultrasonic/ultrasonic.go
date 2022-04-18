@@ -40,7 +40,7 @@ func init() {
 			return newSensor(ctx, r, config.Name, config.ConvertedAttributes.(*AttrConfig))
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor, modelname,
+	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

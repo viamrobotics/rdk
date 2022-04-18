@@ -58,6 +58,7 @@ type Service interface {
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
+		supplementalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
 }
 
@@ -124,7 +125,7 @@ func (ms *motionService) Move(
 	}
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r)
+	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
 	if err != nil {
 		return false, err
 	}
@@ -197,6 +198,7 @@ func (ms *motionService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
+	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {
 		destinationFrame = referenceframe.World
@@ -208,5 +210,6 @@ func (ms *motionService) GetPose(
 			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
 		),
 		destinationFrame,
+		supplementalTransforms,
 	)
 }

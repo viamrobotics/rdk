@@ -3,6 +3,7 @@ package picommon
 
 import (
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 )
 
@@ -20,7 +21,7 @@ func init() {
 	board.RegisterConfigAttributeConverter(ModelName)
 
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeServo,
+		servo.SubtypeName,
 		ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf ServoConfig

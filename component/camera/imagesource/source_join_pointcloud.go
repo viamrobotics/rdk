@@ -43,7 +43,7 @@ func init() {
 			return newJoinPointCloudSource(r, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "join_pointclouds",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_pointclouds",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf JoinAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
@@ -105,7 +105,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
-	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot)
+	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
 	if err != nil {
 		return nil, err
 	}
