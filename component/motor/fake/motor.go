@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -36,6 +37,22 @@ func init() {
 							return nil, err
 						}
 					}
+					if mcfg.EncoderA != "" && mcfg.EncoderB != "" {
+						m.EncA, ok = b.DigitalInterruptByName(mcfg.EncoderA)
+						if !ok {
+							return nil, errors.Errorf("couldn't acquire digital interrupt %q", mcfg.EncoderA)
+						}
+						m.EncB, ok = b.DigitalInterruptByName(mcfg.EncoderB)
+						if !ok {
+							return nil, errors.Errorf("couldn't acquire digital interrupt %q", mcfg.EncoderB)
+						}
+						m2, err := gpio.WrapMotorWithEncoder(ctx, b, config, *mcfg, m, logger)
+						if err != nil {
+							return nil, err
+						}
+						return m2, nil
+
+					}
 				}
 			}
 			return m, nil
@@ -56,6 +73,8 @@ type Motor struct {
 	PositionSupported bool
 	Board             string
 	PWM               board.GPIOPin
+	EncA              board.DigitalInterrupt
+	EncB              board.DigitalInterrupt
 }
 
 // GetPosition always returns 0.
