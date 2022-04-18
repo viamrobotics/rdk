@@ -10,6 +10,8 @@ on:
         required: true
       CODECOV_TOKEN:
         required: true
+      REPO_READ_TOKEN:
+        required: true
 
 env:
   GITHUB_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
