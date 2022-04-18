@@ -8,6 +8,7 @@ require (
 	github.com/adrianmo/go-nmea v1.3.0
 	github.com/alessio/shellescape v1.4.1
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
+	github.com/bep/debounce v1.2.0
 	github.com/bufbuild/buf v1.1.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
@@ -46,7 +47,6 @@ require (
 	github.com/starship-technologies/gobag v1.0.6
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/viamrobotics/evdev v0.1.3
-	github.com/wasmerio/wasmer-go v1.0.4
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.28.5
 	go.einride.tech/vlp16 v0.7.0
@@ -89,7 +89,6 @@ require (
 	github.com/ashanbrown/makezero v0.0.0-20210520155254-b6261585ddde // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bep/debounce v1.2.0 // indirect
 	github.com/bkielbasa/cyclop v1.2.0 // indirect
 	github.com/blackjack/webcam v0.0.0-20200313125108-10ed912a8539 // indirect
 	github.com/blizzy78/varnamelen v0.3.0 // indirect
@@ -313,8 +312,6 @@ require (
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
 
 replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0.0-20210528190924-d8b19286f98e
-
-replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20210817103436-19ec68f8bfe2
 
 replace github.com/grandcat/zeroconf => github.com/edaniels/zeroconf v1.0.1
 

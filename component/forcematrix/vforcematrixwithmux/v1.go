@@ -74,7 +74,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentType(forcematrix.SubtypeName),
+	config.RegisterComponentAttributeMapConverter(forcematrix.SubtypeName,
 		model, func(attributes config.AttributeMap) (interface{}, error) {
 			var conf ForceMatrixConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

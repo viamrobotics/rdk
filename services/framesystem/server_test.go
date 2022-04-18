@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -47,7 +48,9 @@ func TestServerConfig(t *testing.T) {
 			},
 		}
 
-		injectSvc.ConfigFunc = func(ctx context.Context) (framesystem.Parts, error) {
+		injectSvc.ConfigFunc = func(
+			ctx context.Context, additionalTransforms []*commonpb.Transform,
+		) (framesystem.Parts, error) {
 			return framesystem.Parts(fsConfigs), nil
 		}
 		req := &pb.ConfigRequest{}
@@ -95,7 +98,9 @@ func TestServerConfig(t *testing.T) {
 
 	t.Run("test failing config function", func(t *testing.T) {
 		expectedErr := errors.New("failed to retrieve config")
-		injectSvc.ConfigFunc = func(ctx context.Context) (framesystem.Parts, error) {
+		injectSvc.ConfigFunc = func(
+			ctx context.Context, additionalTransforms []*commonpb.Transform,
+		) (framesystem.Parts, error) {
 			return nil, expectedErr
 		}
 		req := &pb.ConfigRequest{}

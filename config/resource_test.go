@@ -167,14 +167,14 @@ func TestComponentFlag(t *testing.T) {
 
 	err = utils.ParseFlags([]string{"main", "--comp=type=foo,attr=wee:woo"}, &myStruct)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, myStruct.Comp.Type, test.ShouldEqual, config.ComponentType("foo"))
+	test.That(t, myStruct.Comp.Type, test.ShouldEqual, resource.SubtypeName("foo"))
 	test.That(t, myStruct.Comp.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 	})
 
 	err = utils.ParseFlags([]string{"main", "type=foo,attr=wee:woo"}, &myStruct)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, myStruct.Comp2.Type, test.ShouldEqual, config.ComponentType("foo"))
+	test.That(t, myStruct.Comp2.Type, test.ShouldEqual, resource.SubtypeName("foo"))
 	test.That(t, myStruct.Comp2.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 	})
@@ -208,7 +208,7 @@ func TestParseComponentFlag(t *testing.T) {
 	comp, err = config.ParseComponentFlag("type=foo,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
-	test.That(t, comp.Type, test.ShouldEqual, config.ComponentType("foo"))
+	test.That(t, comp.Type, test.ShouldEqual, resource.SubtypeName("foo"))
 	test.That(t, comp.SubType, test.ShouldEqual, "who")
 	test.That(t, comp.Model, test.ShouldEqual, "bar")
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo", "bar"})

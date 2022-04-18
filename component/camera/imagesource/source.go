@@ -43,7 +43,7 @@ func init() {
 			return NewServerSource(attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "single_stream",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "single_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -73,7 +73,7 @@ func init() {
 			return newDualServerSource(attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "dual_stream",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "dual_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -104,7 +104,7 @@ func init() {
 			return camera.New(imgSrc, attrs.AttrConfig, nil)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "file",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
