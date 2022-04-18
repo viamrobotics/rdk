@@ -49,7 +49,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 		fmt.Fprint(os.Stdout, "\nAttributes:")
 		for _, conv := range compAttrConvs {
-			if !(conv.Model == res.Name && conv.CompType == config.ComponentType(res.ResourceSubtype)) {
+			if !(conv.Model == res.Name && conv.Subtype == res.ResourceSubtype) {
 				continue
 			}
 			fmt.Fprintf(os.Stdout, "\n\tConverted Attribute: %s", conv.Attr)
@@ -59,13 +59,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		switch res.ResourceType {
 		case resource.ResourceTypeComponent:
 			for _, conv := range compAttrMapConvs {
-				if !(conv.Model == res.Name && conv.CompType == config.ComponentType(res.ResourceSubtype)) {
+				if !(conv.Model == res.Name && conv.Subtype == res.ResourceSubtype) {
 					continue
 				}
 				mapConv = conv.RetType
 				break
 			}
-		case resource.ResourceTypeService, resource.ResourceTypeFunction:
+		case resource.ResourceTypeService:
 			for _, conv := range svcAttrMapConvs {
 				if conv.SvcType != config.ServiceType(res.ResourceSubtype) {
 					continue

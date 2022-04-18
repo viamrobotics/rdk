@@ -15,9 +15,6 @@ import (
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
-
-	// register vm engines.
-	_ "go.viam.com/rdk/function/vm/engines/javascript"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -25,6 +22,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
+	"go.viam.com/rdk/services/objectsegmentation"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
@@ -38,7 +36,15 @@ var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{metadata.Name, sensors.Name, status.Name, web.Name, datamanager.Name, framesystem.Name}
+	defaultSvc = []resource.Name{
+		metadata.Name,
+		sensors.Name,
+		status.Name,
+		web.Name,
+		datamanager.Name,
+		framesystem.Name,
+		objectsegmentation.Name,
+	}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -66,11 +72,6 @@ func (r *localRobot) ResourceByName(name resource.Name) (interface{}, error) {
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
 	return r.manager.RemoteNames()
-}
-
-// FunctionNames returns the name of all known functions.
-func (r *localRobot) FunctionNames() []string {
-	return r.manager.FunctionNames()
 }
 
 // ResourceNames returns the name of all known resources.
@@ -202,17 +203,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
 
-	var functionAndRemoteNames []resource.Name
-
-	for _, name := range r.FunctionNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeFunction,
-			resource.ResourceSubtypeFunction,
-			name,
-		)
-		functionAndRemoteNames = append(functionAndRemoteNames, res)
-	}
+	var remoteNames []resource.Name
 
 	for _, name := range r.RemoteNames() {
 		res := resource.NewName(
@@ -221,10 +212,10 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 			resource.ResourceSubtypeRemote,
 			name,
 		)
-		functionAndRemoteNames = append(functionAndRemoteNames, res)
+		remoteNames = append(remoteNames, res)
 	}
 
-	for _, n := range append(functionAndRemoteNames, r.ResourceNames()...) {
+	for _, n := range append(remoteNames, r.ResourceNames()...) {
 		// TODO(RDK-119) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
