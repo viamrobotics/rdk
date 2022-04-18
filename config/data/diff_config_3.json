@@ -80,18 +80,5 @@
             ],
             "log": true
         }
-    ],
-    "functions":
-    [
-        {
-            "name": "func1",
-            "engine": "foo",
-            "source": "1+1"
-        },
-        {
-            "name": "func3",
-            "engine": "baz",
-            "source": "3"
-        }
     ]
 }

@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
 
@@ -23,14 +24,14 @@ type Robot interface {
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
-	// FunctionNames returns the name of all known functions.
-	FunctionNames() []string
-
 	// ResourceNames returns a list of all known resource names
 	ResourceNames() []resource.Name
 
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
+
+	// OperationManager returns the operation manager the robot is using.
+	OperationManager() *operation.Manager
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
