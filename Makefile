@@ -1,13 +1,5 @@
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
-# Linux always needs custom_wasmer_runtime for portability in packaging
-ifeq ("$(shell uname -s)", "Linux")
-	ifneq ("$(shell uname -m)", "armv6l")
-		CGO_LDFLAGS = -lwasmer
-		TAGS = -tags="custom_wasmer_runtime"
-	endif
-endif
-
 PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
 
 VERSION := $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)

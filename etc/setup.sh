@@ -27,7 +27,7 @@ do_bullseye(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_16.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev protobuf-compiler protoc-gen-grpc-web wasmer-dev && apt-get clean
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev protobuf-compiler protoc-gen-grpc-web && apt-get clean
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
@@ -158,7 +158,6 @@ do_brew(){
 	brew "protobuf@3.19"
 	# viam tap
 	tap  "viamrobotics/brews"
-	brew "libwasmer@2.1"
 
 	EOS
 
