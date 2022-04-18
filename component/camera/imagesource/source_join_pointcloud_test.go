@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -61,7 +62,9 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 			FrameConfig: &config.Frame{Parent: "cam2", Translation: spatialmath.TranslationConfig{0, 100, 0}},
 		},
 	}
-	fss.ConfigFunc = func(ctx context.Context) (framesystem.Parts, error) {
+	fss.ConfigFunc = func(
+		ctx context.Context, additionalTransforms []*commonpb.Transform,
+	) (framesystem.Parts, error) {
 		return fsParts, nil
 	}
 
