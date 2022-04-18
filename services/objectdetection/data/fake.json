@@ -1,0 +1,20 @@
+{  
+  "services": [
+    {
+      "type": "object_detection",
+      "attributes": {
+        "detector_registry": [
+          {
+             "name": "detector_3", 
+             "type": "color",
+             "parameters": {
+                "color" : "#A3E2FF",
+                "tolerance": 0.06,
+                "segment_size": 100
+             }
+          }
+        ]
+      }
+    }
+  ]
+}
