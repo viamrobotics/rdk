@@ -75,9 +75,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return []string{fmt.Sprintf("remote1%s", suffix), fmt.Sprintf("remote2%s", suffix)}
 	}
 
-	injectRobot.FunctionNamesFunc = func() []string {
-		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
-	}
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return rdktestutils.ConcatResourceNames(
 			armNames,
@@ -309,11 +306,6 @@ func TestRemoteRobot(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(prefixedServoNames...)...),
 	)
-
-	robot.conf.Prefix = false
-	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
-	robot.conf.Prefix = true
-	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("one.func1", "one.func2"))
 
 	robot.conf.Prefix = false
 	test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(

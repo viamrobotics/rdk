@@ -36,12 +36,19 @@ func Build(prep Preprocessor, det Detector, post Postprocessor) (Detector, error
 type Detection interface {
 	BoundingBox() *image.Rectangle
 	Score() float64
+	Label() string
+}
+
+// NewDetection creates a simple 2D detection.
+func NewDetection(boundingBox image.Rectangle, score float64, label string) Detection {
+	return &detection2D{boundingBox, score, label}
 }
 
 // detection2D is a simple struct for storing 2D detections.
 type detection2D struct {
 	boundingBox image.Rectangle
 	score       float64
+	label       string
 }
 
 // BoundingBox returns a bounding box around the detected object.
@@ -52,4 +59,9 @@ func (d *detection2D) BoundingBox() *image.Rectangle {
 // Score returns a confidence score of the detection between 0.0 and 1.0.
 func (d *detection2D) Score() float64 {
 	return d.score
+}
+
+// Label returns the class label of the object in the bounding box.
+func (d *detection2D) Label() string {
+	return d.label
 }

@@ -25,7 +25,6 @@ import (
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
 	remotes        map[string]*remoteRobot
-	functions      map[string]struct{}
 	resources      *resource.Graph
 	processManager pexec.ProcessManager
 	opts           resourceManagerOptions
@@ -45,7 +44,6 @@ func newResourceManager(
 ) *resourceManager {
 	return &resourceManager{
 		remotes:        map[string]*remoteRobot{},
-		functions:      map[string]struct{}{},
 		resources:      resource.NewGraph(),
 		processManager: pexec.NewProcessManager(logger),
 		opts:           opts,
@@ -55,11 +53,6 @@ func newResourceManager(
 // addRemote adds a remote to the manager.
 func (manager *resourceManager) addRemote(r *remoteRobot, c config.Remote) {
 	manager.remotes[c.Name] = r
-}
-
-// addFunction adds a function to the manager.
-func (manager *resourceManager) addFunction(name string) {
-	manager.functions[name] = struct{}{}
 }
 
 // addResource adds a resource to the manager.
@@ -72,27 +65,6 @@ func (manager *resourceManager) RemoteNames() []string {
 	names := []string{}
 	for k := range manager.remotes {
 		names = append(names, k)
-	}
-	return names
-}
-
-// mergeNamesWithRemotes merges names from the manager itself as well as its
-// remotes.
-func (manager *resourceManager) mergeNamesWithRemotes(names []string, namesFunc func(remote robot.Robot) []string) []string {
-	// use this to filter out seen names and preserve order
-	seen := utils.NewStringSet()
-	for _, name := range names {
-		seen[name] = struct{}{}
-	}
-	for _, r := range manager.remotes {
-		remoteNames := namesFunc(r)
-		for _, name := range remoteNames {
-			if _, ok := seen[name]; ok {
-				continue
-			}
-			names = append(names, name)
-			seen[name] = struct{}{}
-		}
 	}
 	return names
 }
@@ -118,15 +90,6 @@ func (manager *resourceManager) mergeResourceNamesWithRemotes(names []resource.N
 	return names
 }
 
-// FunctionNames returns the names of all functions in the manager.
-func (manager *resourceManager) FunctionNames() []string {
-	names := []string{}
-	for k := range manager.functions {
-		names = append(names, k)
-	}
-	return manager.mergeNamesWithRemotes(names, robot.Robot.FunctionNames)
-}
-
 // ResourceNames returns the names of all resources in the manager.
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
@@ -143,12 +106,6 @@ func (manager *resourceManager) Clone() *resourceManager {
 		clonedManager.remotes = make(map[string]*remoteRobot, len(manager.remotes))
 		for k, v := range manager.remotes {
 			clonedManager.remotes[k] = v
-		}
-	}
-	if len(manager.functions) != 0 {
-		clonedManager.functions = make(map[string]struct{}, len(manager.functions))
-		for k, v := range manager.functions {
-			clonedManager.functions[k] = v
 		}
 	}
 	if len(manager.resources.Nodes) != 0 {
@@ -206,10 +163,6 @@ func (manager *resourceManager) processConfig(
 		return err
 	}
 
-	for _, f := range config.Functions {
-		manager.addFunction(f.Name)
-	}
-
 	return nil
 }
 
@@ -234,10 +187,6 @@ func (manager *resourceManager) processModifiedConfig(
 
 	if err := manager.newServices(ctx, config.Services, robot); err != nil {
 		return err
-	}
-
-	for _, f := range config.Functions {
-		manager.addFunction(f.Name)
 	}
 
 	return nil
@@ -464,15 +413,6 @@ func (manager *resourceManager) MergeAdd(toAdd *resourceManager) (*PartsMergeRes
 		}
 	}
 
-	if len(toAdd.functions) != 0 {
-		if manager.functions == nil {
-			manager.functions = make(map[string]struct{}, len(toAdd.functions))
-		}
-		for k, v := range toAdd.functions {
-			manager.functions[k] = v
-		}
-	}
-
 	err := manager.resources.MergeAdd(toAdd.resources)
 	if err != nil {
 		return nil, err
@@ -578,11 +518,6 @@ func (manager *resourceManager) MergeRemove(toRemove *resourceManager) {
 		}
 	}
 
-	if len(toRemove.functions) != 0 {
-		for k := range toRemove.functions {
-			delete(manager.functions, k)
-		}
-	}
 	manager.resources.MergeRemove(toRemove.resources)
 
 	if toRemove.processManager != nil {
@@ -633,14 +568,6 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		}
 		// Assuming dependencies will be added later
 		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
-	}
-
-	for _, conf := range conf.Functions {
-		_, ok := manager.functions[conf.Name]
-		if !ok {
-			continue
-		}
-		filtered.addFunction(conf.Name)
 	}
 
 	return filtered, nil

@@ -168,12 +168,6 @@ func TestConfigRemote(t *testing.T) {
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "squee"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "foo.func1"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "foo.func2"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "bar.func1"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "bar.func2"),
 		arm.Named("pieceArm"),
 		arm.Named("foo.pieceArm"),
 		arm.Named("bar.pieceArm"),
@@ -246,7 +240,7 @@ func TestConfigRemote(t *testing.T) {
 
 	frameService, err := framesystem.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
-	fsConfig, err := frameService.Config(context.Background())
+	fsConfig, err := frameService.Config(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsConfig, test.ShouldHaveLength, 12)
 
@@ -409,10 +403,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				datamanager.Name,
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "foo.func1"),
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "foo.func2"),
 				arm.Named("pieceArm"),
 				arm.Named("foo.pieceArm"),
 				camera.Named("cameraOver"),
@@ -611,8 +601,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		status.Name,
 		datamanager.Name,
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
 		gps.Named("gps1"),
@@ -749,11 +737,11 @@ func TestMetadataUpdate(t *testing.T) {
 	resources, err := svc.Resources(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 12)
+	test.That(t, len(resources), test.ShouldEqual, 10)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 8 declared resources + default web, sensors, status, and metadata service
+	// 10 declared resources + default web, sensors, status, and metadata service
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
@@ -765,28 +753,6 @@ func TestMetadataUpdate(t *testing.T) {
 		status.Name,
 		datamanager.Name,
 		metadata.Name,
-		{
-			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeFunction,
-				},
-				ResourceSubtype: resource.ResourceSubtypeFunction,
-			},
-			Name: "func1",
-		},
-		{
-			UUID: "9ba51a01-26a3-5e12-8b83-219076150c74",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeFunction,
-				},
-				ResourceSubtype: resource.ResourceSubtypeFunction,
-			},
-			Name: "func2",
-		},
 	}
 
 	svcResources, err := svc.Resources(ctx)
