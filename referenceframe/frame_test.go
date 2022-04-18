@@ -70,9 +70,15 @@ func TestPrismaticFrame(t *testing.T) {
 	frameLimits := frame.DoF()
 	test.That(t, frameLimits[0], test.ShouldResemble, limit)
 
-	randomInputs := RandomFrameInputs(frame, nil)
+	inputUnits := make([]Units, len(frame.DoF()))
+	for i := 0; i < len(frame.DoF()); i++ {
+		inputUnits[i] = Radians
+	}
+	randomInputs, err := RandomFrameInputs(frame, nil, inputUnits)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, len(randomInputs), test.ShouldEqual, len(frame.DoF()))
-	restrictRandomInputs := RestrictedRandomFrameInputs(frame, nil, 0.001)
+	restrictRandomInputs, err := RestrictedRandomFrameInputs(frame, nil, 0.001, inputUnits)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, len(restrictRandomInputs), test.ShouldEqual, len(frame.DoF()))
 	test.That(t, restrictRandomInputs[0].Value, test.ShouldBeLessThan, 0.03)
 	test.That(t, restrictRandomInputs[0].Value, test.ShouldBeGreaterThan, -0.03)
@@ -84,21 +90,48 @@ func TestRevoluteFrame(t *testing.T) {
 	// expected output
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
-	input := JointPosToInputs(&pb.JointPositions{Degrees: []float64{45}})
+	jps := []*pb.JointPosition{
+		{
+			Parameters: []float64{45},
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	input, err := JointPosToInputs(jps)
+	test.That(t, err, test.ShouldBeNil)
 	pose, err := frame.Transform(input)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{45, 55}})
+	jps = []*pb.JointPosition{
+		{
+			Parameters: []float64{45},
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{55},
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	input, err = JointPosToInputs(jps)
+	test.That(t, err, test.ShouldBeNil)
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in empty input, should get errr back
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
+	jps = []*pb.JointPosition{}
+	input, err = JointPosToInputs(jps)
+	test.That(t, err, test.ShouldBeNil)
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
 	overLimit := 100.0 // degrees
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
+	jps = []*pb.JointPosition{
+		{
+			Parameters: []float64{overLimit},
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	input, err = JointPosToInputs(jps)
+	test.That(t, err, test.ShouldBeNil)
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %.5f", utils.DegToRad(overLimit), OOBErrString, frame.DoF()[0]))
 	// gets the correct limits back

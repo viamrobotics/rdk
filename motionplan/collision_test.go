@@ -57,7 +57,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
-	input[0] = frame.Input{1}
+	input[0] = frame.Input{Value: 1, Units: frame.Radians}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	cg, err := CheckUniqueCollisions(internalGeometries, map[string]spatial.Geometry{}, zeroPositionCG)
@@ -65,7 +65,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, len(cg.Collisions()), test.ShouldEqual, 0)
 
 	// case 2: self collision - check only new collisions are returned
-	input[4] = frame.Input{2}
+	input[4] = frame.Input{Value: 2, Units: frame.Radians}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	cg, err = CheckUniqueCollisions(internalGeometries, map[string]spatial.Geometry{}, zeroPositionCG)

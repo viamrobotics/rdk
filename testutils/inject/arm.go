@@ -15,8 +15,8 @@ type Arm struct {
 	arm.Arm
 	GetEndPositionFunc       func(ctx context.Context) (*commonpb.Pose, error)
 	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState) error
-	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions) error
-	GetJointPositionsFunc    func(ctx context.Context) (*pb.JointPositions, error)
+	MoveToJointPositionsFunc func(ctx context.Context, pos []*pb.JointPosition) error
+	GetJointPositionsFunc    func(ctx context.Context) ([]*pb.JointPosition, error)
 	CloseFunc                func(ctx context.Context) error
 }
 
@@ -37,7 +37,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, to *commonpb.Pose, worldState 
 }
 
 // MoveToJointPositions calls the injected MoveToJointPositions or the real version.
-func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, jp []*pb.JointPosition) error {
 	if a.MoveToJointPositionsFunc == nil {
 		return a.Arm.MoveToJointPositions(ctx, jp)
 	}
@@ -45,7 +45,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 }
 
 // GetJointPositions calls the injected GetJointPositions or the real version.
-func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *Arm) GetJointPositions(ctx context.Context) ([]*pb.JointPosition, error) {
 	if a.GetJointPositionsFunc == nil {
 		return a.Arm.GetJointPositions(ctx)
 	}

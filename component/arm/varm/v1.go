@@ -235,7 +235,11 @@ func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSta
 	}
 	opt := motionplan.NewDefaultPlannerOptions()
 	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), opt)
+	inputs, err := referenceframe.JointPosToInputs(joints)
+	if err != nil {
+		return err
+	}
+	solution, err := a.mp.Plan(ctx, pos, inputs, opt)
 	if err != nil {
 		return err
 	}
@@ -256,8 +260,8 @@ func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, 
 }
 
 // MoveToJointPositions TODO.
-func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
-	if len(pos.Degrees) != 2 {
+func (a *armV1) MoveToJointPositions(ctx context.Context, jointPositions []*componentpb.JointPosition) error {
+	if len(jointPositions) != 2 {
 		return errors.New("need exactly 2 joints")
 	}
 
@@ -266,9 +270,13 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.Joint
 		return err
 	}
 
+	cur0Val := cur[0].GetParameters()[0]
+	cur1Val := cur[1].GetParameters()[0]
+	jp0Val := jointPositions[0].GetParameters()[0]
+	jp1Val := jointPositions[1].GetParameters()[0]
 	err = multierr.Combine(
-		a.moveJointToDegrees(ctx, a.j0Motor, a.j0, cur.Degrees[0], pos.Degrees[0]),
-		a.moveJointToDegrees(ctx, a.j1Motor, a.j1, cur.Degrees[1], pos.Degrees[1]),
+		a.moveJointToDegrees(ctx, a.j0Motor, a.j0, cur0Val, jp0Val),
+		a.moveJointToDegrees(ctx, a.j1Motor, a.j1, cur1Val, jp1Val),
 	)
 	if err != nil {
 		return err
@@ -289,7 +297,7 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.Joint
 		}
 	}
 
-	return errors.Errorf("arm moved timed out, wanted: %v", pos)
+	return errors.Errorf("arm moved timed out, wanted: %v", jointPositions)
 }
 
 // IsOn TODO.
@@ -310,14 +318,22 @@ func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error
 }
 
 // GetJointPositions TODO.
-func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.JointPositions, error) {
+func (a *armV1) GetJointPositions(ctx context.Context) ([]*componentpb.JointPosition, error) {
 	var e1, e2 error
-	joints := &componentpb.JointPositions{Degrees: make([]float64, 2)}
-	joints.Degrees[0], e1 = jointToDegrees(ctx, a.j0Motor, a.j0)
-	joints.Degrees[1], e2 = jointToDegrees(ctx, a.j1Motor, a.j1)
 
-	joints.Degrees[1] = (joints.Degrees[1] - joints.Degrees[0])
-	return joints, multierr.Combine(e1, e2)
+	jointPositions := make([]*componentpb.JointPosition, 2)
+	j0Pos, e1 := jointToDegrees(ctx, a.j0Motor, a.j0)
+	j1Pos, e2 := jointToDegrees(ctx, a.j0Motor, a.j0)
+	jointPositions[0] = &componentpb.JointPosition{
+		JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		Parameters: []float64{j0Pos},
+	}
+	jointPositions[1] = &componentpb.JointPosition{
+		JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		Parameters: []float64{j1Pos},
+	}
+
+	return jointPositions, multierr.Combine(e1, e2)
 }
 
 func (a *armV1) ModelFrame() referenceframe.Model {
@@ -329,7 +345,7 @@ func (a *armV1) CurrentInputs(ctx context.Context) ([]referenceframe.Input, erro
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res)
 }
 
 func (a *armV1) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {

@@ -126,7 +126,7 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res)
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {

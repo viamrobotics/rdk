@@ -31,16 +31,30 @@ func TestClient(t *testing.T) {
 
 	var (
 		capArmPos      *commonpb.Pose
-		capArmJointPos *componentpb.JointPositions
+		capArmJointPos []*componentpb.JointPosition
 	)
 
 	pos1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
-	jointPos1 := &componentpb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
+	// jointPos1 := &componentpb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
+	jointPos1 := []*componentpb.JointPosition{
+		{
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{1.0},
+		},
+		{
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{2.0},
+		},
+		{
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{3.0},
+		},
+	}
 	injectArm := &inject.Arm{}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos1, nil
 	}
-	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.JointPositions, error) {
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) ([]*componentpb.JointPosition, error) {
 		return jointPos1, nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, worldState *commonpb.WorldState) error {
@@ -48,18 +62,31 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions) error {
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp []*componentpb.JointPosition) error {
 		capArmJointPos = jp
 		return nil
 	}
 
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
-	jointPos2 := &componentpb.JointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
+	jointPos2 := []*componentpb.JointPosition{
+		{
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{1.0},
+		},
+		{
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{2.0},
+		},
+		{
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{3.0},
+		},
+	}
 	injectArm2 := &inject.Arm{}
 	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos2, nil
 	}
-	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.JointPositions, error) {
+	injectArm2.GetJointPositionsFunc = func(ctx context.Context) ([]*componentpb.JointPosition, error) {
 		return jointPos2, nil
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, worldState *commonpb.WorldState) error {
@@ -67,7 +94,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions) error {
+	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp []*componentpb.JointPosition) error {
 		capArmJointPos = jp
 		return nil
 	}
@@ -100,7 +127,10 @@ func TestClient(t *testing.T) {
 
 		jointPos, err := arm1Client.GetJointPositions(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, jointPos.String(), test.ShouldResemble, jointPos1.String())
+		for idx, jp := range jointPos {
+			test.That(t, jp.JointType, test.ShouldEqual, jointPos1[idx].JointType)
+			test.That(t, jp.GetParameters(), test.ShouldResemble, jointPos1[idx].GetParameters())
+		}
 
 		err = arm1Client.MoveToPosition(context.Background(), pos2, &commonpb.WorldState{})
 		test.That(t, err, test.ShouldBeNil)
@@ -108,7 +138,10 @@ func TestClient(t *testing.T) {
 
 		err = arm1Client.MoveToJointPositions(context.Background(), jointPos2)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
+		for idx, jp := range capArmJointPos {
+			test.That(t, jp.JointType, test.ShouldEqual, jointPos2[idx].JointType)
+			test.That(t, jp.GetParameters(), test.ShouldResemble, jointPos2[idx].GetParameters())
+		}
 
 		test.That(t, utils.TryClose(context.Background(), arm1Client), test.ShouldBeNil)
 	})

@@ -44,16 +44,24 @@ func limitsAlmostEqual(a, b []Limit) bool {
 	return true
 }
 
+func NewDoFInputUnitMismatchError() error {
+	return errors.New(
+		"number of supplied input units does not match degrees of freedom of frame")
+}
+
 // RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame, restricting the range to
 // `lim` percent of the limits.
-func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input {
+func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64, inputUnits []Units) ([]Input, error) {
 	if rSeed == nil {
 		//nolint:gosec
 		rSeed = rand.New(rand.NewSource(1))
 	}
 	dof := m.DoF()
+	if len(dof) != len(inputUnits) {
+		return nil, NewDoFInputUnitMismatchError()
+	}
 	pos := make([]Input, 0, len(dof))
-	for _, limit := range dof {
+	for i, limit := range dof {
 		l, u := limit.Min, limit.Max
 
 		// Default to [-999,999] as range if limits are infinite
@@ -65,20 +73,26 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input
 		}
 
 		jRange := math.Abs(u - l)
-		pos = append(pos, Input{lim * (rSeed.Float64()*jRange + l)})
+		pos = append(pos, Input{
+			Value: lim * (rSeed.Float64()*jRange + l),
+			Units: inputUnits[i],
+		})
 	}
-	return pos
+	return pos, nil
 }
 
 // RandomFrameInputs will produce a list of valid, in-bounds inputs for the referenceframe.
-func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
+func RandomFrameInputs(m Frame, rSeed *rand.Rand, inputUnits []Units) ([]Input, error) {
 	if rSeed == nil {
 		//nolint:gosec
 		rSeed = rand.New(rand.NewSource(1))
 	}
 	dof := m.DoF()
+	if len(dof) != len(inputUnits) {
+		return nil, NewDoFInputUnitMismatchError()
+	}
 	pos := make([]Input, 0, len(dof))
-	for _, lim := range dof {
+	for i, lim := range dof {
 		l, u := lim.Min, lim.Max
 
 		// Default to [-999,999] as range if limits are infinite
@@ -90,9 +104,12 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 		}
 
 		jRange := math.Abs(u - l)
-		pos = append(pos, Input{rSeed.Float64()*jRange + l})
+		pos = append(pos, Input{
+			Value: rSeed.Float64()*jRange + l,
+			Units: inputUnits[i],
+		})
 	}
-	return pos
+	return pos, nil
 }
 
 // Frame represents a reference frame, e.g. an arm, a joint, a gripper, a board, etc.

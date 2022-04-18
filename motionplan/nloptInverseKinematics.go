@@ -234,7 +234,10 @@ func (ik *NloptIK) GenerateRandomPositions() []referenceframe.Input {
 		jRange := math.Abs(u - l)
 		// Note that rand is unseeded and so will produce the same sequence of floats every time
 		// However, since this will presumably happen at different positions to different joints, this shouldn't matter
-		pos[i] = referenceframe.Input{ik.randSeed.Float64()*jRange + l}
+		pos[i] = referenceframe.Input{
+			Value: ik.randSeed.Float64()*jRange + l,
+			Units: referenceframe.Radians,
+		}
 	}
 	return pos
 }

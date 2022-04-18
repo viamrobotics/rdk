@@ -29,7 +29,34 @@ func TestCreateNloptIKSolver(t *testing.T) {
 
 	pos = &commonpb.Pose{X: -46, Y: -23, Z: 372, Theta: utils.RadToDeg(3.92), OX: -0.46, OY: 0.84, OZ: 0.28}
 
-	seed = referenceframe.JointPosToInputs(&pb.JointPositions{Degrees: []float64{49, 28, -101, 0, -73, 0}})
+	jointPos := []*pb.JointPosition{
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{49},
+		},
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{28},
+		},
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{-101},
+		},
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{0},
+		},
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{-73},
+		},
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{0},
+		},
+	}
+	seed, err = referenceframe.JointPosToInputs(jointPos)
+	test.That(t, err, test.ShouldBeNil)
 
 	_, err = solveTest(context.Background(), ik, pos, seed)
 	test.That(t, err, test.ShouldBeNil)

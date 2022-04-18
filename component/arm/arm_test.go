@@ -115,8 +115,15 @@ func TestCreateStatus(t *testing.T) {
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pose, nil
 	}
-	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return &pb.JointPositions{Degrees: status.JointPositions.Degrees}, nil
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) ([]*pb.JointPosition, error) {
+		result := make([]*pb.JointPosition, len(status.JointPositions.Degrees))
+		for i, deg := range status.JointPositions.Degrees {
+			result[i] = &pb.JointPosition{
+				JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+				Parameters: []float64{deg},
+			}
+		}
+		return result, nil
 	}
 
 	t.Run("working", func(t *testing.T) {
@@ -127,7 +134,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on GetJointPositions", func(t *testing.T) {
 		errFail := errors.New("can't get joint positions")
-		injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+		injectArm.GetJointPositionsFunc = func(ctx context.Context) ([]*pb.JointPosition, error) {
 			return nil, errFail
 		}
 		_, err = arm.CreateStatus(context.Background(), injectArm)

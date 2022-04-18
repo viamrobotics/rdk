@@ -33,7 +33,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 	test.That(t, transformPoint1.Z, test.ShouldAlmostEqual, expectP1.Z)
 
 	// Rotate 90 degrees one way
-	positions["joint"] = []Input{{math.Pi / 2}}
+	positions["joint"] = []Input{{Value: math.Pi / 2, Units: Radians}}
 	transformPoint2, err := fs.TransformPoint(positions, point, "joint", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.X, test.ShouldAlmostEqual, expectP2.X)
@@ -41,7 +41,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 	test.That(t, transformPoint2.Z, test.ShouldAlmostEqual, expectP2.Z)
 
 	// Rotate 90 degrees the other way
-	positions["joint"] = []Input{{-math.Pi / 2}}
+	positions["joint"] = []Input{{Value: -math.Pi / 2, Units: Radians}}
 	transformPoint3, err := fs.TransformPoint(positions, point, "joint", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint3.X, test.ShouldAlmostEqual, expectP3.X)
@@ -70,7 +70,7 @@ func TestSimpleTranslationalFrame(t *testing.T) {
 	test.That(t, transformPoint1.Z, test.ShouldAlmostEqual, 0)
 
 	// Slide gantry by 45
-	positions["gantry"] = []Input{{45.}}
+	positions["gantry"] = []Input{{Value: 45., Units: Millimeters}}
 	transformPoint2, err := fs.TransformPoint(positions, startPoint, "gantry", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.X, test.ShouldAlmostEqual, endPoint.X)
