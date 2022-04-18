@@ -13,6 +13,7 @@ type validPixelFunc func(*rimage.ImageWithDepth, image.Point) bool
 // Based on some valid criteria, it will group the pixel into the current segment.
 type connectedComponentDetector struct {
 	valid validPixelFunc
+	label string
 }
 
 // Inference takes in an image frame and returns the Detections found in the image.
@@ -55,7 +56,7 @@ func (ccd *connectedComponentDetector) Inference(img image.Image) ([]Detection, 
 				neighbors := ccd.getNeighbors(newPt, iwd, seen)
 				queue = append(queue, neighbors...)
 			}
-			d := &detection2D{image.Rect(x0, y0, x1, y1), 1.0}
+			d := &detection2D{image.Rect(x0, y0, x1, y1), 1.0, ccd.label}
 			detections = append(detections, d)
 		}
 	}
