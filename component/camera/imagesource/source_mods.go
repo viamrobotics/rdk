@@ -42,7 +42,7 @@ func init() {
 			return camera.New(source, attrs, source)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "identity",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "identity",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -71,7 +71,7 @@ func init() {
 			return camera.New(imgSrc, attrs, source)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "rotate",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "rotate",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -110,7 +110,7 @@ func init() {
 			return camera.New(imgSrc, attrs, nil) // camera parameters from source camera do not work for resized images
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "resize",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "resize",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

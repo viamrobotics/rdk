@@ -43,7 +43,7 @@ func init() {
 			return newJoinPointCloudSource(r, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "join_pointclouds",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_pointclouds",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf JoinAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
