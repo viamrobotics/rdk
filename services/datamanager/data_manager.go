@@ -3,7 +3,10 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -47,6 +50,10 @@ type DataManager interface { // TODO: Add synchronize.
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
 
+// TODO: think of a good sync queue name
+// TODO: create this at start up if it doesn't exist
+const SyncQueue = "/tmp/sync_queue/"
+
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
@@ -79,6 +86,8 @@ type componentAttributes struct {
 // Config describes how to configure the service.
 type Config struct {
 	CaptureDir          string                         `json:"capture_dir"`
+	AdditionalSyncPaths []string                       `json:"additional_sync_paths"`
+	SyncIntervalMins    int                            `json:"sync_interval_mins"`
 	ComponentAttributes map[string]componentAttributes `json:"component_attributes"`
 }
 
@@ -102,6 +111,9 @@ type Service struct {
 	logger     golog.Logger
 	captureDir string
 	collectors map[componentMethodMetadata]collectorParams
+
+	cancelCtx  context.Context
+	cancelFunc func()
 }
 
 // Parameters stored for each collector.
@@ -139,6 +151,20 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 	return os.Create(fileName)
 }
 
+func getDataSyncDir(subtypeName string, componentName string) string {
+	return filepath.Join(SyncQueue, subtypeName, componentName)
+}
+
+// Create a timestamped file within the given capture directory.
+func createDataSyncDir(subtypeName string, componentName string) error {
+	fileDir := filepath.Join(SyncQueue, subtypeName, componentName)
+	//
+	if err := os.MkdirAll(fileDir, 0o700); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *Service) initializeOrUpdateCollector(componentName string, attributes componentAttributes, updateCaptureDir bool) (
@@ -161,6 +187,10 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
 				targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
+				err = createDataSyncDir(attributes.Type, componentName)
+				if err != nil {
+					return nil, err
+				}
 				if err != nil {
 					return nil, err
 				}
@@ -193,6 +223,10 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
 	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
+	err = createDataSyncDir(attributes.Type, componentName)
+	if err != nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -255,6 +289,80 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 			delete(svc.collectors, componentMetadata)
 		}
 	}
+	go svc.moveToSyncQueue(svcConfig.SyncIntervalMins)
 
 	return nil
+}
+
+// Sync syncs data to the backing storage system.
+func (svc *Service) moveToSyncQueue(syncIntervalMins int) error {
+	// TODO: clean up
+	fmt.Println(SyncQueue)
+	if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
+		fmt.Printf("%v", err)
+		return err
+	}
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	fmt.Println("made ticker")
+
+	for {
+		select {
+		//case <-svc.cancelCtx.Done():
+		//	return nil
+		case <-ticker.C:
+			fmt.Println("tick")
+			for component, collector := range svc.collectors {
+				curr := collector.Collector.GetTarget()
+				next, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
+				// TODO: wrap error
+				if err != nil {
+					fmt.Printf(fmt.Errorf("%w", err).Error())
+					return err
+				}
+				collector.Collector.SetTarget(next)
+
+				// Move curr to SYNC_QUEUE
+				err = curr.Close()
+				// TODO: wrap error
+				if err != nil {
+					fmt.Printf("%v", err)
+					return err
+				}
+
+				err = os.Rename(curr.Name(),
+					path.Join(
+						getDataSyncDir(collector.Attributes.Type, component.ComponentName),
+						filepath.Base(curr.Name())))
+				if err != nil {
+					// TODO: wrap error
+					fmt.Println("here")
+					fmt.Printf(fmt.Errorf("%w", err).Error())
+					return err
+				}
+			}
+		}
+	}
+}
+
+func uploadQueuedFile(path string, di fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if di.IsDir() {
+		return nil
+	}
+	fmt.Printf("Visited: %s\n", path)
+	return nil
+}
+
+// Sync syncs data to the backing storage system.
+func (svc *Service) upload() error {
+	for {
+		err := filepath.WalkDir(SyncQueue, uploadQueuedFile)
+		if err != nil {
+			// TODO: something
+		}
+	}
 }
