@@ -1885,7 +1885,7 @@
                 <th colspan="2"><h5>END POSITION (mms)</h5></th>
                 <th colspan="2"><h5>JOINTS (degrees)</h5></th>
               </tr>
-              <tr v-for="aa in armToggle[arm.name].pos_pieces" :key="aa.joint">
+              <tr v-for="aa in armToggle[arm.name].pos_pieces" :key="aa.endPosition">
                 <th>${aa.endPosition[0]}</th>
                 <td><input v-model="aa.endPositionValue"></td>
               </tr>
@@ -1907,7 +1907,7 @@
                 <tr>
                   <th colspan="3" class="border border-slate-300"><h5>END POSITION (mms)</h5></th>
                 </tr>
-                <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.joint">
+                <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.endPosition">
                   <th class="border border-slate-300">${aa.endPosition[1]}</th>
                   <td class="border border-slate-300">
                     <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
