@@ -33,8 +33,8 @@ jobs:
 
     - name: Verify no uncommitted changes from "make build lint"
       run: |
-        sudo -u testbot bash -lc 'git config --global --unset-all url.ssh://git@github.com/.insteadOf || true'
-        sudo -u testbot bash -lc "git config --global url.\"https://${GITHUB_TOKEN}@github.com\".insteadOf \"https://github.com\""
+        git config --global --unset-all url.ssh://git@github.com/.insteadOf || true
+        git config --global url."https://${GITHUB_TOKEN}@github.com".insteadOf "https://github.com"
 
         git init
         git add .
