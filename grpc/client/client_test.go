@@ -274,7 +274,13 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToJointPositions(context.Background(), &armpb.JointPositions{Degrees: []float64{1}})
+	jps := []*armpb.JointPosition{
+		{
+			Parameters: []float64{1.0},
+			JointType:  armpb.JointPosition_JOINT_TYPE_PRISMATIC,
+		},
+	}
+	err = arm1.MoveToJointPositions(context.Background(), jps)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -343,7 +349,13 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &armpb.JointPositions{Degrees: []float64{1}})
+	jps = []*armpb.JointPosition{
+		{
+			Parameters: []float64{1.0},
+			JointType:  armpb.JointPosition_JOINT_TYPE_PRISMATIC,
+		},
+	}
+	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), jps)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 

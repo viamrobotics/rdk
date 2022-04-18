@@ -49,6 +49,21 @@ message GetEndPositionResponse {
   common.v1.Pose pose = 1;
 }
 
+message JointPosition {
+  // the raw number parameters for the position.
+  repeated double parameters = 1;
+  // JointType indicates the type of joint represented by this position,
+  // and consequently, both the number of parameters and their units. 
+  // REVOLUTE -> [degrees]
+  // PRISMATIC -> [millimeters]
+  enum JointType {
+    JOINT_TYPE_UNSPECIFIED = 0;
+    JOINT_TYPE_REVOLUTE = 1;
+    JOINT_TYPE_PRISMATIC = 2;
+  }
+  JointType joint_type = 2;
+}
+
 message JointPositions {
   // A list of joint positions represented in degrees
   // The numbers are ordered spatially from the base toward the end effector
@@ -64,6 +79,8 @@ message GetJointPositionsRequest {
 message GetJointPositionsResponse {
   //a list JointPositions
   JointPositions position_degs = 1;
+  // A list of joint positions ordered spatially from the base toward the end effector
+  repeated JointPosition joint_positions = 2;
 }
 
 message MoveToPositionRequest {
@@ -81,6 +98,8 @@ message MoveToJointPositionsRequest {
   // A list of joint positions represented in degrees
   // There should be 1 entry in the list per joint, ordered spatially from the base toward the end effector
   JointPositions position_degs = 2;
+  // A list of joint positions ordered spatially from the base toward the end effector
+  repeated JointPosition joint_positions = 3;
 }
 
 message MoveToJointPositionsResponse {}

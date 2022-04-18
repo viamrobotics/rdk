@@ -99,10 +99,10 @@ type eva struct {
 	frameJSON []byte
 }
 
-func (e *eva) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (e *eva) GetJointPositions(ctx context.Context) ([]*pb.JointPosition, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
-		return &pb.JointPositions{}, err
+		return nil, err
 	}
 	return referenceframe.JointPositionsFromRadians(data.ServosPosition), nil
 }
@@ -122,14 +122,18 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState
 	if err != nil {
 		return err
 	}
-	solution, err := e.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
+	inputs, err := referenceframe.JointPosToInputs(joints)
+	if err != nil {
+		return err
+	}
+	solution, err := e.mp.Plan(ctx, pos, inputs, nil)
 	if err != nil {
 		return err
 	}
 	return arm.GoToWaypoints(ctx, e, solution)
 }
 
-func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+func (e *eva) MoveToJointPositions(ctx context.Context, newPositions []*pb.JointPosition) error {
 	radians := referenceframe.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)
@@ -337,7 +341,7 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res)
 }
 
 func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {

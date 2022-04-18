@@ -399,7 +399,11 @@ func resolveInputsToPositions(ci *ConstraintInput) error {
 }
 
 func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
-	iPos, err := cInput.Frame.Transform(referenceframe.InterpolateInputs(cInput.StartInput, cInput.EndInput, by))
+	interpolatedInputs, err := referenceframe.InterpolateInputs(cInput.StartInput, cInput.EndInput, by)
+	if err != nil {
+		return false
+	}
+	iPos, err := cInput.Frame.Transform(interpolatedInputs)
 	if err != nil {
 		return false
 	}
@@ -416,11 +420,15 @@ func cachedInterpolateInput(
 	startInput []referenceframe.Input,
 	startPos spatial.Pose,
 ) (*ConstraintInput, error) {
+	interpolatedInputs, err := referenceframe.InterpolateInputs(ci.StartInput, ci.EndInput, by)
+	if err != nil {
+		return nil, err
+	}
 	input := &ConstraintInput{}
 	input.Frame = ci.Frame
 	input.StartInput = startInput
 	input.StartPos = startPos
-	input.EndInput = referenceframe.InterpolateInputs(ci.StartInput, ci.EndInput, by)
+	input.EndInput = interpolatedInputs
 
 	return input, resolveInputsToPositions(input)
 }

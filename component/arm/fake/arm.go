@@ -40,10 +40,17 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 	if err != nil {
 		return nil, err
 	}
+	jointPositions := make([]*pb.JointPosition, 6)
+	for i := 0; i < 6; i++ {
+		jointPositions[i] = &pb.JointPosition{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{0.0},
+		}
+	}
 	return &Arm{
 		Name:     name,
 		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   jointPositions,
 		model:    model,
 	}, nil
 }
@@ -52,7 +59,7 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 type Arm struct {
 	Name       string
 	position   *commonpb.Pose
-	joints     *pb.JointPositions
+	joints     []*pb.JointPosition
 	CloseCount int
 	model      referenceframe.Model
 }
@@ -74,13 +81,13 @@ func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose, worldState *
 }
 
 // MoveToJointPositions sets the joints.
-func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, joints []*pb.JointPosition) error {
 	a.joints = joints
 	return nil
 }
 
 // GetJointPositions returns the set joints.
-func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *Arm) GetJointPositions(ctx context.Context) ([]*pb.JointPosition, error) {
 	return a.joints, nil
 }
 
@@ -90,7 +97,7 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res)
 }
 
 // GoToInputs TODO.

@@ -52,13 +52,13 @@ func TestTransform(t *testing.T) {
 		}
 	}
 	test.That(t, len(joints), test.ShouldEqual, 6)
-	pose, err := joints[0].Transform([]Input{{0}})
+	pose, err := joints[0].Transform([]Input{{Value: 0, Units: Radians}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov := pose.Orientation().OrientationVectorRadians()
 	firstJovExpect := &spatial.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
 	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
 
-	pose, err = joints[0].Transform([]Input{{1.5708}})
+	pose, err = joints[0].Transform([]Input{{Value: 1.5708, Units: Radians}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov = pose.Orientation().OrientationVectorRadians()
 	firstJovExpect = &spatial.OrientationVector{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}

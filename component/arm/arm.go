@@ -76,10 +76,10 @@ type Arm interface {
 	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
-	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error
+	MoveToJointPositions(ctx context.Context, jointPositions []*pb.JointPosition) error
 
 	// GetJointPositions returns the current joint positions of the arm.
-	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
+	GetJointPositions(ctx context.Context) ([]*pb.JointPosition, error)
 
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -122,8 +122,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
+	jointPositionRawValues := make([]float64, len(jointPositions))
+	for idx, jp := range jointPositions {
+		jointPositionRawValues[idx] = jp.GetParameters()[0]
+	}
 
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions}, nil
+	return &pb.Status{EndPosition: endPosition, JointPositions: &pb.JointPositions{Degrees: jointPositionRawValues}}, nil
 }
 
 type reconfigurableArm struct {
@@ -149,13 +153,13 @@ func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.P
 	return r.actual.MoveToPosition(ctx, pose, worldState)
 }
 
-func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error {
+func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, jointPositions []*pb.JointPosition) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToJointPositions(ctx, positionDegs)
+	return r.actual.MoveToJointPositions(ctx, jointPositions)
 }
 
-func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (r *reconfigurableArm) GetJointPositions(ctx context.Context) ([]*pb.JointPosition, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetJointPositions(ctx)

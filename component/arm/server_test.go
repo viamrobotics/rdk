@@ -36,33 +36,59 @@ func TestServer(t *testing.T) {
 
 	var (
 		capArmPos      *commonpb.Pose
-		capArmJointPos *pb.JointPositions
+		capArmJointPos []*pb.JointPosition
 	)
 
 	pose1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
-	positionDegs1 := &pb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
+	jointPositions1 := []*pb.JointPosition{
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{1.0},
+		},
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{2.0},
+		},
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{3.0},
+		},
+	}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pose1, nil
 	}
-	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return positionDegs1, nil
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) ([]*pb.JointPosition, error) {
+		return jointPositions1, nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, worldState *commonpb.WorldState) error {
 		capArmPos = ap
 		return nil
 	}
 
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp []*pb.JointPosition) error {
 		capArmJointPos = jp
 		return nil
 	}
 
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
-	positionDegs2 := &pb.JointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
+	jointPositions2 := []*pb.JointPosition{
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{1.0},
+		},
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{2.0},
+		},
+		{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{3.0},
+		},
+	}
 	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return nil, errors.New("can't get pose")
 	}
-	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+	injectArm2.GetJointPositionsFunc = func(ctx context.Context) ([]*pb.JointPosition, error) {
 		return nil, errors.New("can't get joint positions")
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, worldState *commonpb.WorldState) error {
@@ -70,7 +96,7 @@ func TestServer(t *testing.T) {
 		return errors.New("can't move to pose")
 	}
 
-	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
+	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp []*pb.JointPosition) error {
 		capArmJointPos = jp
 		return errors.New("can't move to joint positions")
 	}
@@ -116,7 +142,11 @@ func TestServer(t *testing.T) {
 
 		resp, err := armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: testArmName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.PositionDegs.String(), test.ShouldResemble, positionDegs1.String())
+		respJointPositions := resp.GetJointPositions()
+		for idx, jp := range jointPositions1 {
+			test.That(t, respJointPositions[idx].JointType, test.ShouldEqual, jp.JointType)
+			test.That(t, respJointPositions[idx].GetParameters(), test.ShouldResemble, jp.GetParameters())
+		}
 
 		_, err = armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -127,24 +157,26 @@ func TestServer(t *testing.T) {
 	t.Run("move to joint position", func(t *testing.T) {
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),
-			&pb.MoveToJointPositionsRequest{Name: missingArmName, PositionDegs: positionDegs2},
+			&pb.MoveToJointPositionsRequest{Name: missingArmName, JointPositions: jointPositions2},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
 		_, err := armServer.MoveToJointPositions(
 			context.Background(),
-			&pb.MoveToJointPositionsRequest{Name: testArmName, PositionDegs: positionDegs2},
+			&pb.MoveToJointPositionsRequest{Name: testArmName, JointPositions: jointPositions2},
 		)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs2.String())
+		for idx, jp := range jointPositions2 {
+			test.That(t, capArmJointPos[idx].JointType, test.ShouldEqual, jp.JointType)
+			test.That(t, capArmJointPos[idx].GetParameters(), test.ShouldResemble, jp.GetParameters())
+		}
 
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),
-			&pb.MoveToJointPositionsRequest{Name: failArmName, PositionDegs: positionDegs1},
+			&pb.MoveToJointPositionsRequest{Name: failArmName, JointPositions: jointPositions1},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to joint positions")
-		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs1.String())
 	})
 }

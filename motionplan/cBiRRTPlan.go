@@ -113,7 +113,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	opt *PlannerOptions,
 	endpointPreview chan *configuration,
 	solutionChan chan *planReturn,
-) {
+) error {
 	defer close(solutionChan)
 	inputSteps := []*configuration{}
 
@@ -122,7 +122,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		seedPos, err := mp.frame.Transform(seed)
 		if err != nil {
 			solutionChan <- &planReturn{err: err}
-			return
+			return nil
 		}
 		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
 		if len(obstacles) == 0 {
@@ -149,7 +149,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
-		return
+		return nil
 	}
 
 	// Get the N best solutions
@@ -179,7 +179,11 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	seedMap[&configuration{seed}] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := &configuration{referenceframe.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
+	interpolatedInputs, err := referenceframe.InterpolateInputs(seed, solutions[keys[0]], 0.5)
+	if err != nil {
+		return err
+	}
+	target := &configuration{interpolatedInputs}
 
 	var rSeed *configuration
 
@@ -192,7 +196,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		select {
 		case <-ctx.Done():
 			solutionChan <- &planReturn{err: ctx.Err()}
-			return
+			return nil
 		default:
 		}
 
@@ -244,16 +248,28 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 			finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
 			solutionChan <- &planReturn{steps: finalSteps}
-			return
+			return nil
 		}
 
 		// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 		// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
+		seedInputUnits := make([]referenceframe.Units, len(rSeed.inputs))
+		for i := 0; i < len(rSeed.inputs); i++ {
+			seedInputUnits[i] = rSeed.inputs[i].Units
+		}
 		if i >= iterBeforeRand && i%4 >= 2 {
-			target = &configuration{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+			inputs, err := referenceframe.RandomFrameInputs(mp.frame, mp.randseed, seedInputUnits)
+			if err != nil {
+				return err
+			}
+			target = &configuration{inputs}
 		} else {
 			// Seeding nearby to valid points results in much faster convergence in less constrained space
-			target = &configuration{referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
+			inputs, err := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2, seedInputUnits)
+			if err != nil {
+				return err
+			}
+			target = &configuration{inputs}
 			for j, v := range rSeed.inputs {
 				target.inputs[j].Value += v.Value
 			}
@@ -264,6 +280,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
+	return nil
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
@@ -299,7 +316,10 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 				newVal := math.Min(mp.qstep[j], math.Abs(v2-v1))
 				// get correct sign
 				newVal *= (v2 - v1) / math.Abs(v2-v1)
-				newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
+				newNear = append(newNear, referenceframe.Input{
+					Value: nearInput.Value + newVal,
+					Units: nearInput.Units,
+				})
 			}
 		}
 		// if we are not meeting a constraint, gradient descend to the constraint

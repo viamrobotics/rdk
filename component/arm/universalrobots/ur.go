@@ -212,7 +212,7 @@ func (ua *URArm) State() (RobotState, error) {
 }
 
 // GetJointPositions TODO.
-func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (ua *URArm) GetJointPositions(ctx context.Context) ([]*pb.JointPosition, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -240,7 +240,11 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSt
 		return err
 	}
 	start := time.Now()
-	solution, err := ua.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
+	inputs, err := referenceframe.JointPosToInputs(joints)
+	if err != nil {
+		return err
+	}
+	solution, err := ua.mp.Plan(ctx, pos, inputs, nil)
 	if err != nil {
 		return err
 	}
@@ -253,7 +257,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSt
 }
 
 // MoveToJointPositions TODO.
-func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (ua *URArm) MoveToJointPositions(ctx context.Context, joints []*pb.JointPosition) error {
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 
@@ -339,7 +343,7 @@ func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res)
 }
 
 // GoToInputs TODO.

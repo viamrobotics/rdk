@@ -151,10 +151,14 @@ func TestLineFollow(t *testing.T) {
 	opt := NewDefaultPlannerOptions()
 	opt.SetPathDist(gradFunc)
 	opt.AddConstraint("whiteboard", validFunc)
+	startInput, err := frame.JointPosToInputs(mp1)
+	test.That(t, err, test.ShouldBeNil)
+	endInput, err := frame.JointPosToInputs(mp2)
+	test.That(t, err, test.ShouldBeNil)
 	ok, lastGood := opt.CheckConstraintPath(
 		&ConstraintInput{
-			StartInput: frame.JointPosToInputs(mp1),
-			EndInput:   frame.JointPosToInputs(mp2),
+			StartInput: startInput,
+			EndInput:   endInput,
 			Frame:      sf,
 		},
 		1,

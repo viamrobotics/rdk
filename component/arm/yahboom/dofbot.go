@@ -148,7 +148,11 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSt
 	// dofbot las limited dof
 	opt := motionplan.NewDefaultPlannerOptions()
 	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), opt)
+	inputs, err := referenceframe.JointPosToInputs(joints)
+	if err != nil {
+		return err
+	}
+	solution, err := a.mp.Plan(ctx, pos, inputs, opt)
 	if err != nil {
 		return err
 	}
@@ -156,11 +160,11 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSt
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.
-func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
+func (a *dofBot) MoveToJointPositions(ctx context.Context, jointPositions []*componentpb.JointPosition) error {
 	a.muMove.Lock()
 	defer a.muMove.Unlock()
-	if len(pos.Degrees) > 5 {
-		return fmt.Errorf("yahboom wrong number of degrees got %d, need at most 5", len(pos.Degrees))
+	if len(jointPositions) > 5 {
+		return fmt.Errorf("yahboom wrong number of degrees got %d, need at most 5", len(jointPositions))
 	}
 
 	for j := 0; j < 100; j++ {
@@ -175,8 +179,9 @@ func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.Join
 
 			movedAny := false
 
-			for i, d := range pos.Degrees {
-				delta := math.Abs(current.Degrees[i] - d)
+			for i, jp := range jointPositions {
+				degPos := jp.GetParameters()[0]
+				delta := math.Abs(current[i].GetParameters()[0] - degPos)
 
 				if delta < .5 {
 					continue
@@ -189,7 +194,7 @@ func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.Join
 
 				movedAny = true
 
-				err := a.moveJointInLock(ctx, i+1, d)
+				err := a.moveJointInLock(ctx, i+1, degPos)
 				if err != nil {
 					return false, fmt.Errorf("error moving joint %d: %w", i+1, err)
 				}
@@ -229,24 +234,27 @@ func (a *dofBot) moveJointInLock(ctx context.Context, joint int, degrees float64
 }
 
 // GetJointPositions returns the current joint positions of the arm.
-func (a *dofBot) GetJointPositions(ctx context.Context) (*componentpb.JointPositions, error) {
+func (a *dofBot) GetJointPositions(ctx context.Context) ([]*componentpb.JointPosition, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	return a.GetJointPositionsInLock(ctx)
 }
 
-func (a *dofBot) GetJointPositionsInLock(ctx context.Context) (*componentpb.JointPositions, error) {
-	pos := componentpb.JointPositions{}
+func (a *dofBot) GetJointPositionsInLock(ctx context.Context) ([]*componentpb.JointPosition, error) {
+	pos := make([]*componentpb.JointPosition, 5)
 	for i := 1; i <= 5; i++ {
 		x, err := a.readJointInLock(ctx, i)
 		if err != nil {
 			return nil, err
 		}
-		pos.Degrees = append(pos.Degrees, x)
+		pos[i-1] = &componentpb.JointPosition{
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{x},
+		}
 	}
 
-	return &pos, nil
+	return pos, nil
 }
 
 func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error) {
@@ -351,7 +359,7 @@ func (a *dofBot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res)
 }
 
 func (a *dofBot) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {

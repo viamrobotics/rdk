@@ -119,25 +119,29 @@ func TestNearestNeighbor(t *testing.T) {
 	nm := &neighborManager{nCPU: 2}
 	rrtMap := map[*configuration]*configuration{}
 
-	j := &configuration{[]referenceframe.Input{{0.0}}}
+	j := &configuration{
+		[]referenceframe.Input{{Value: 0.0, Units: referenceframe.Radians}},
+	}
 	for i := 1.0; i < 110.0; i++ {
-		iSol := &configuration{[]referenceframe.Input{{i}}}
+		iSol := &configuration{
+			[]referenceframe.Input{{Value: i, Units: referenceframe.Radians}},
+		}
 		rrtMap[iSol] = j
 		j = iSol
 	}
 	ctx := context.Background()
 
-	seed := &configuration{[]referenceframe.Input{{23.1}}}
+	seed := &configuration{[]referenceframe.Input{{Value: 23.1, Units: referenceframe.Radians}}}
 	// test serial NN
 	nn := nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 23.0)
 
 	for i := 120.0; i < 1100.0; i++ {
-		iSol := &configuration{[]referenceframe.Input{{i}}}
+		iSol := &configuration{[]referenceframe.Input{{Value: i, Units: referenceframe.Radians}}}
 		rrtMap[iSol] = j
 		j = iSol
 	}
-	seed = &configuration{[]referenceframe.Input{{723.6}}}
+	seed = &configuration{[]referenceframe.Input{{Value: 723.6, Units: referenceframe.Radians}}}
 	// test parallel NN
 	nn = nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 724.0)

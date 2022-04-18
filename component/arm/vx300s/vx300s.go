@@ -143,7 +143,11 @@ func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSta
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
+	inputs, err := referenceframe.JointPosToInputs(joints)
+	if err != nil {
+		return err
+	}
+	solution, err := a.mp.Plan(ctx, pos, inputs, nil)
 	if err != nil {
 		return err
 	}
@@ -151,8 +155,8 @@ func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSta
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
-func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
-	if len(jp.Degrees) > len(a.JointOrder()) {
+func (a *myArm) MoveToJointPositions(ctx context.Context, jp []*pb.JointPosition) error {
+	if len(jp) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
 	}
 
@@ -160,8 +164,9 @@ func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions)
 
 	// TODO(pl): make block configurable
 	block := false
-	for i, pos := range jp.Degrees {
-		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
+	for i, pos := range jp {
+		deg := pos.GetParameters()[0]
+		a.JointTo(a.JointOrder()[i], degreeToServoPos(deg), block)
 	}
 
 	a.moveLock.Unlock()
@@ -169,18 +174,23 @@ func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions)
 }
 
 // GetJointPositions returns an empty struct, because the vx300s should use joint angles from kinematics.
-func (a *myArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *myArm) GetJointPositions(ctx context.Context) ([]*pb.JointPosition, error) {
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
-		return &pb.JointPositions{}, err
+		return nil, err
 	}
 
-	positions := make([]float64, 0, len(a.JointOrder()))
+	positions := make([]*pb.JointPosition, 0, len(a.JointOrder()))
 	for i, jointName := range a.JointOrder() {
-		positions[i] = servoPosToDegrees(angleMap[jointName])
+		servoDeg := servoPosToDegrees(angleMap[jointName])
+		positions[i] = &pb.JointPosition{
+			Parameters: []float64{servoDeg},
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+		}
+
 	}
 
-	return &pb.JointPositions{Degrees: positions}, nil
+	return positions, nil
 }
 
 // Close will get the arm ready to be turned off.
@@ -402,7 +412,7 @@ func (a *myArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, erro
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res)
 }
 
 func (a *myArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {

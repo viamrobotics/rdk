@@ -22,20 +22,320 @@ import (
 )
 
 var (
-	logger         = golog.NewDevelopmentLogger("resetbox1")
-	startPos       = &componentpb.JointPositions{Degrees: []float64{0, -13, -42, 0, 45, 0}}
-	safeDumpPos    = &componentpb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
-	grabReadyPos   = &componentpb.JointPositions{Degrees: []float64{-180, -26.8, -33, 0.2, 51, 0}}
-	cube1grab      = &componentpb.JointPositions{Degrees: []float64{-183, 16.9, -41.1, 2, 26.75, 0}}
-	cube2grab      = &componentpb.JointPositions{Degrees: []float64{-184.8, 20, -30.2, -5.7, -5.7, -0.2}}
-	cube1place     = &componentpb.JointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -23.27, -2.75}}
-	cube1placePost = &componentpb.JointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -32.27, -2.75}}
-	cube2place     = &componentpb.JointPositions{Degrees: []float64{21.4, 41.3, -30.35, -5.7, -53.27, -0.2}}
+	logger   = golog.NewDevelopmentLogger("resetbox1")
+	startPos = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{0},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{13},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-42},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{0},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{45},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{0},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	safeDumpPos = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{0},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-43},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-71},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{0},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{98},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{0},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	grabReadyPos = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{-180},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-26.8},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-33},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{0.2},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{51},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{0},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	cube1grab = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{-183},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{16.9},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-41.1},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{2},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{26.75},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{0},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	cube2grab = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{-184.8},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{20},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-30.2},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-5.7},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-5.2},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-0.2},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	cube1place = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{-84.75},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{26.5},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-29.9},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-80.3},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-23.27},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-2.75},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	cube1placePost = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{-84.75},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{26.5},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-29.9},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-80.3},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-32.27},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-2.75},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	cube2place = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{21.4},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{41.3},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-30.35},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-5.7},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-53.27},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-0.2},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
 
-	duckgrabFW   = &componentpb.JointPositions{Degrees: []float64{-181.9, 20.45, -53.85, -3.5, 44.4, -0.08}}
-	duckplaceFW  = &componentpb.JointPositions{Degrees: []float64{-3.2, 32.8, -70.65, -9.3, 49, 165.12}}
-	duckgrabREV  = &componentpb.JointPositions{Degrees: []float64{-181.4, 18.15, -40.1, -3.5, 15.5, -0.08}}
-	duckplaceREV = &componentpb.JointPositions{Degrees: []float64{-14.6, 27.3, -24.04, -11.8, -34.35, -9.7}}
+	duckgrabFW = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{-181.9},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{20.45},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-53.85},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-3.5},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{44.4},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-0.08},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	duckplaceFW = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{-3.2},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{32.8},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-70.65},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-9.3},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{49},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{165.12},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	duckgrabREV = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{-181.4},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{18.15},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-40.1},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-3.5},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{15.5},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-0.08},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
+	duckplaceREV = []*componentpb.JointPosition{
+		{
+			Parameters: []float64{-14.6},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{27.3},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-24.04},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-11.8},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-34.35},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+		{
+			Parameters: []float64{-9.7},
+			JointType:  componentpb.JointPosition_JOINT_TYPE_REVOLUTE,
+		},
+	}
 
 	armName     = "xArm6"
 	gripperName = "vg1"

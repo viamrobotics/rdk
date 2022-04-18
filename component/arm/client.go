@@ -90,22 +90,22 @@ func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldS
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error {
+func (c *client) MoveToJointPositions(ctx context.Context, jointPositions []*pb.JointPosition) error {
 	_, err := c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
-		Name:         c.name,
-		PositionDegs: positionDegs,
+		Name:           c.name,
+		JointPositions: jointPositions,
 	})
 	return err
 }
 
-func (c *client) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (c *client) GetJointPositions(ctx context.Context) ([]*pb.JointPosition, error) {
 	resp, err := c.client.GetJointPositions(ctx, &pb.GetJointPositionsRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.PositionDegs, nil
+	return resp.GetJointPositions(), nil
 }
 
 func (c *client) ModelFrame() referenceframe.Model {
@@ -118,7 +118,7 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res)
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {

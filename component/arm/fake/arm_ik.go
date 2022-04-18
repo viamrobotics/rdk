@@ -50,10 +50,17 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 		return nil, err
 	}
 
+	jointPositions := make([]*pb.JointPosition, 6)
+	for i := 0; i < 6; i++ {
+		jointPositions[i] = &pb.JointPosition{
+			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
+			Parameters: []float64{0.0},
+		}
+	}
 	return &ArmIK{
 		Name:     name,
 		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   jointPositions,
 		mp:       mp,
 		model:    model,
 	}, nil
@@ -63,7 +70,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 type ArmIK struct {
 	Name       string
 	position   *commonpb.Pose
-	joints     *pb.JointPositions
+	joints     []*pb.JointPosition
 	mp         motionplan.MotionPlanner
 	CloseCount int
 	model      referenceframe.Model
@@ -89,7 +96,11 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSta
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
+	inputs, err := referenceframe.JointPosToInputs(joints)
+	if err != nil {
+		return err
+	}
+	solution, err := a.mp.Plan(ctx, pos, inputs, nil)
 	if err != nil {
 		return err
 	}
@@ -97,13 +108,13 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSta
 }
 
 // MoveToJointPositions sets the joints.
-func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints []*pb.JointPosition) error {
 	a.joints = joints
 	return nil
 }
 
 // GetJointPositions returns the set joints.
-func (a *ArmIK) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *ArmIK) GetJointPositions(ctx context.Context) ([]*pb.JointPosition, error) {
 	return a.joints, nil
 }
 
@@ -113,7 +124,7 @@ func (a *ArmIK) CurrentInputs(ctx context.Context) ([]referenceframe.Input, erro
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res)
 }
 
 // GoToInputs TODO.
