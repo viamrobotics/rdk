@@ -381,14 +381,18 @@
             },
             armModifyAll: function (name) {
               const arm = theApp.resourceStatusByName(name);
-              var n = { pieces: [] };
+              var n = { pos_pieces: [], joint_pieces: [] };
+              for (var i = 0; i < arm.pos_pieces.length; i++) {
+                n.pos_pieces.push({
+                  endPosition: arm.pos_pieces[i].endPosition,
+                  endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
 
-              for (var i = 0; i < arm.pieces.length; i++) {
-                n.pieces.push({
-                  endPosition: arm.pieces[i].endPosition,
-                  endPositionValue: roundTo2Decimals(arm.pieces[i].endPositionValue),
-                  joint: arm.pieces[i].joint,
-                  jointValue: roundTo2Decimals(arm.pieces[i].jointValue),
+                });
+              }
+              for (var i = 0; i < arm.joint_pieces.length; i++) {
+                n.joint_pieces.push({
+                  joint: arm.joint_pieces[i].joint,
+                  jointValue: roundTo2Decimals(arm.joint_pieces[i].jointValue),
                 });
               }
               theData.armToggle[name.name] = n;
@@ -398,7 +402,7 @@
             },
             armModifyAllDoEndPosition: function (name) {
               var newPose = new commonApi.Pose();
-              var newPieces = theData.armToggle[name.name].pieces;
+              var newPieces = theData.armToggle[name.name].pos_pieces;
 
               for (var i = 0; i < newPieces.length; i++) {
                 var getterSetter = newPieces[i].endPosition[1];
@@ -417,7 +421,7 @@
               var newPositionDegs = new armApi.JointPositions();
               var newList = arm["joint_positions"]["degrees"];
 
-              var newPieces = theData.armToggle[name.name].pieces;
+              var newPieces = theData.armToggle[name.name].joint_pieces;
               for (var i = 0; i < newPieces.length && i < newList.length; i++) {
                 newList[newPieces[i].joint] = newPieces[i].jointValue;
               }
