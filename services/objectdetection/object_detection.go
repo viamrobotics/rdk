@@ -36,6 +36,13 @@ func init() {
 			return New(ctx, r, c, logger)
 		},
 	})
+	cType := config.ServiceType(SubtypeName)
+	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf ObjectDetectionConfig
+		return config.TransformAttributeMapToStruct(&conf, attributes)
+	},
+		&ObjectDetectionConfig{},
+	)
 }
 
 // A Service that returns  list of 2D bounding boxes and labels around objects in a 2D image.
@@ -71,7 +78,11 @@ func FromRobot(r robot.Robot) (Service, error) {
 
 // New registers new detectors from the config and returns a new object detection service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	err := registerNewDetectors(config, logger)
+	attrs, ok := config.ConvertedAttributes.(*ObjectDetectionConfig)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+	}
+	err := registerNewDetectors(attrs, logger)
 	if err != nil {
 		return nil, err
 	}
