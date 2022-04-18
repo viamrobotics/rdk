@@ -242,7 +242,7 @@ func TestConfigRemote(t *testing.T) {
 
 	frameService, err := framesystem.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
-	fsConfig, err := frameService.Config(context.Background())
+	fsConfig, err := frameService.Config(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsConfig, test.ShouldHaveLength, 12)
 
