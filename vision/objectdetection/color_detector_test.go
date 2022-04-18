@@ -15,16 +15,17 @@ func TestColorDetector(t *testing.T) {
 	// make the original source
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-	theColor := rimage.NewColor(79, 56, 21) // an orange color
-	hue, _, _ := theColor.HsvNormal()
 	// detector with error
-	_, err = NewColorDetector(8., hue)
+	cfg := &ColorDetectorConfig{
+		SegmentSize:       150000,
+		Tolerance:         8.0,
+		DetectColorString: "#4F3815", // an orange color
+	}
+	_, err = NewColorDetector(cfg)
 	test.That(t, err, test.ShouldBeError, errors.New("tolerance must be between 0.0 and 1.0. Got 8.00000"))
 	// detector with 100% tolerance
-	d, err := NewColorDetector(1., hue)
-	test.That(t, err, test.ShouldBeNil)
-	f := NewAreaFilter(150000)
-	det, err := Build(nil, d, f)
+	cfg.Tolerance = 1.
+	det, err := NewColorDetector(cfg)
 	test.That(t, err, test.ShouldBeNil)
 	result, err := det(img)
 	test.That(t, err, test.ShouldBeNil)
