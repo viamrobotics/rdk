@@ -1,20 +1,17 @@
-// Package detection is the service that allows you to access registered detectors and cameras
-// and return bounding boxes and streams of detections. Also allows you to register new
-// object detectors.
-package detection
+package objectdetection
 
 import (
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/vision/objectdetection"
+	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
 // The detector registry.
-var detectorRegistry = make(map[string]objectdetection.Detector)
+var detectorRegistry = make(map[string]objdet.Detector)
 
 // RegisterDetector registers a Detector type to a registration.
-func RegisterDetector(name string, det objectdetection.Detector) {
+func RegisterDetector(name string, det objdet.Detector) {
 	if _, old := detectorRegistry[name]; old {
 		panic(errors.Errorf("trying to register two detectors with the same name: %s", name))
 	}
@@ -26,7 +23,7 @@ func RegisterDetector(name string, det objectdetection.Detector) {
 
 // DetectorLookup looks up a detector registration by name. An error is returned if
 // there is no registration.
-func DetectorLookup(name string) (objectdetection.Detector, error) {
+func DetectorLookup(name string) (objdet.Detector, error) {
 	registration, ok := RegisteredDetectors()[name]
 	if ok {
 		return registration, nil
@@ -35,12 +32,12 @@ func DetectorLookup(name string) (objectdetection.Detector, error) {
 }
 
 // RegisteredDetectors returns a copy of the registered detectors.
-func RegisteredDetectors() map[string]objectdetection.Detector {
+func RegisteredDetectors() map[string]objdet.Detector {
 	copied, err := copystructure.Copy(detectorRegistry)
 	if err != nil {
 		panic(err)
 	}
-	return copied.(map[string]objectdetection.Detector)
+	return copied.(map[string]objdet.Detector)
 }
 
 // DetectorNames returns a slice of all the segmenter names in the registry.
