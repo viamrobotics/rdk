@@ -745,7 +745,6 @@
               var req = new sensorsApi.GetReadingsRequest();
               let names = sensorNames.map((name) => {
                 let resourceName = new commonApi.ResourceName();
-                resourceName.setUuid(name.uuid);
                 resourceName.setNamespace(name.namespace);
                 resourceName.setType(name.type);
                 resourceName.setSubtype(name.subtype);
@@ -1271,7 +1270,6 @@
           relevantSubtypesForStatus.forEach((subtype) => (resourceNames = resourceNames.concat(theApp.filterResources("rdk", "component", subtype))));
           let names = resourceNames.map((name) => {
             let resourceName = new commonApi.ResourceName();
-            resourceName.setUuid(name.uuid);
             resourceName.setNamespace(name.namespace);
             resourceName.setType(name.type);
             resourceName.setSubtype(name.subtype);

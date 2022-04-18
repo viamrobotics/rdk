@@ -78,7 +78,6 @@ func TestForceMatrixName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "b98d67b7-1798-519e-9371-f85ce4ec6afa",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: forcematrix.SubtypeName,
@@ -90,7 +89,6 @@ func TestForceMatrixName(t *testing.T) {
 			"all fields included",
 			testForceMatrixName,
 			resource.Name{
-				UUID: "66d86686-ff79-5562-bf09-4e1253523d51",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: forcematrix.SubtypeName,
