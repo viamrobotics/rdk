@@ -43,12 +43,29 @@ func (fsp Parts) String() string {
 	return t.Render()
 }
 
+// NewMissingParentError returns an error for when a part has named a parent
+// whose part is missing from the collection of FrameSystemParts that are undergoing
+// topological sorting.
+func NewMissingParentError(partName, parentName string) error {
+	return fmt.Errorf("part with name %s references non-existent parent %s", partName, parentName)
+}
+
 // TopologicallySortParts takes a potentially un-ordered slice of frame system parts and
 // sorts them, beginning at the world node.
 func TopologicallySortParts(parts Parts) (Parts, error) {
+	// set up directory to check existence of parents
+	existingParts := make(map[string]bool, len(parts))
+	existingParts[referenceframe.World] = true
+	for _, part := range parts {
+		existingParts[part.Name] = true
+	}
 	// make map of children
 	children := make(map[string]Parts)
 	for _, part := range parts {
+		parent := part.FrameConfig.Parent
+		if !existingParts[parent] {
+			return nil, NewMissingParentError(part.Name, parent)
+		}
 		children[part.FrameConfig.Parent] = append(children[part.FrameConfig.Parent], part)
 	}
 	topoSortedParts := Parts{} // keep track of tree structure
