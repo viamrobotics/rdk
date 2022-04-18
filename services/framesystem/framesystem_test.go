@@ -32,7 +32,7 @@ func TestEmptyConfigFrameService(t *testing.T) {
 	ctx := context.Background()
 	service, err := framesystem.New(ctx, injectRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	parts, err := service.Config(ctx)
+	parts, err := service.Config(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, parts, test.ShouldHaveLength, 0)
 	fs, err := framesystem.NewFrameSystemFromParts("test", "", parts, logger)
