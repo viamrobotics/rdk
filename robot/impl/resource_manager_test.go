@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/input/fake"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -528,7 +529,7 @@ func TestManagerAdd(t *testing.T) {
 	manager := newResourceManager(resourceManagerOptions{}, logger)
 
 	injectArm := &inject.Arm{}
-	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
+	cfg := &config.Component{Type: arm.SubtypeName, Name: "arm1"}
 	rName := cfg.ResourceName()
 	manager.addResource(rName, injectArm)
 	arm1, err := manager.ResourceByName(rName)
@@ -561,7 +562,7 @@ func TestManagerAdd(t *testing.T) {
 		return &board.BasicDigitalInterrupt{}, true
 	}
 
-	cfg = &config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
+	cfg = &config.Component{Type: board.SubtypeName, Name: "board1"}
 	rName = cfg.ResourceName()
 	manager.addResource(rName, injectBoard)
 	board1, err := manager.ResourceByName(board.Named("board1"))
@@ -606,172 +607,172 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:      "arm1",
 				Model:     "fake",
-				Type:      config.ComponentTypeArm,
+				Type:      arm.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "arm2",
 				Model:     "fake",
-				Type:      config.ComponentTypeArm,
+				Type:      arm.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "arm3",
 				Model:     "fake",
-				Type:      config.ComponentTypeArm,
+				Type:      arm.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "base1",
 				Model:     "fake",
-				Type:      config.ComponentTypeBase,
+				Type:      base.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "base2",
 				Model:     "fake",
-				Type:      config.ComponentTypeBase,
+				Type:      base.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "base3",
 				Model:     "fake",
-				Type:      config.ComponentTypeBase,
+				Type:      base.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:                "board1",
 				Model:               "fake",
-				Type:                config.ComponentTypeBoard,
+				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
 			},
 			{
 				Name:                "board2",
 				Model:               "fake",
-				Type:                config.ComponentTypeBoard,
+				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
 			},
 			{
 				Name:                "board3",
 				Model:               "fake",
-				Type:                config.ComponentTypeBoard,
+				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
 			},
 			{
 				Name:      "camera1",
 				Model:     "fake",
-				Type:      config.ComponentTypeCamera,
+				Type:      camera.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "camera2",
 				Model:     "fake",
-				Type:      config.ComponentTypeCamera,
+				Type:      camera.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "camera3",
 				Model:     "fake",
-				Type:      config.ComponentTypeCamera,
+				Type:      camera.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "gripper1",
 				Model:     "fake",
-				Type:      config.ComponentTypeGripper,
+				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm1", "camera1"},
 			},
 			{
 				Name:      "gripper2",
 				Model:     "fake",
-				Type:      config.ComponentTypeGripper,
+				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm2", "camera2"},
 			},
 			{
 				Name:      "gripper3",
 				Model:     "fake",
-				Type:      config.ComponentTypeGripper,
+				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm3", "camera3"},
 			},
 			{
 				Name:                "inputController1",
 				Model:               "fake",
-				Type:                config.ComponentTypeInputController,
+				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
 				Name:                "inputController2",
 				Model:               "fake",
-				Type:                config.ComponentTypeInputController,
+				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
 				Name:                "inputController3",
 				Model:               "fake",
-				Type:                config.ComponentTypeInputController,
+				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{
 				Name:                "motor1",
 				Model:               "fake",
-				Type:                config.ComponentTypeMotor,
+				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
 				Name:                "motor2",
 				Model:               "fake",
-				Type:                config.ComponentTypeMotor,
+				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
 				Name:                "motor3",
 				Model:               "fake",
-				Type:                config.ComponentTypeMotor,
+				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{
 				Name:      "sensor1",
 				Model:     "fake",
-				Type:      config.ComponentTypeSensor,
+				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "sensor2",
 				Model:     "fake",
-				Type:      config.ComponentTypeSensor,
+				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "sensor3",
 				Model:     "fake",
-				Type:      config.ComponentTypeSensor,
+				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "servo1",
 				Model:     "fake",
-				Type:      config.ComponentTypeServo,
+				Type:      servo.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "servo2",
 				Model:     "fake",
-				Type:      config.ComponentTypeServo,
+				Type:      servo.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "servo3",
 				Model:     "fake",
-				Type:      config.ComponentTypeServo,
+				Type:      servo.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 		},
@@ -1131,70 +1132,70 @@ func TestManagerMergeModify(t *testing.T) {
 	replacementManager := newResourceManager(resourceManagerOptions{}, logger)
 	robotForRemote := &localRobot{manager: newResourceManager(resourceManagerOptions{}, logger), logger: logger}
 
-	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
+	cfg := config.Component{Type: arm.SubtypeName, Name: "arm2_r1"}
 	rName := cfg.ResourceName()
 	robotForRemote.manager.addResource(rName, &inject.Arm{})
 
-	cfg = config.Component{Type: config.ComponentTypeBase, Name: "base2_r1"}
+	cfg = config.Component{Type: base.SubtypeName, Name: "base2_r1"}
 	rName = cfg.ResourceName()
 	robotForRemote.manager.addResource(rName, &inject.Base{})
 
-	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board2_r1"}
+	cfg = config.Component{Type: board.SubtypeName, Name: "board2_r1"}
 	rName = cfg.ResourceName()
 	robotForRemote.manager.addResource(rName, &inject.Board{})
 
-	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera2_r1"}
+	cfg = config.Component{Type: camera.SubtypeName, Name: "camera2_r1"}
 	rName = cfg.ResourceName()
 	robotForRemote.manager.addResource(rName, &inject.Camera{})
 
-	cfg = config.Component{Type: config.ComponentTypeGripper, Name: "gripper2_r1"}
+	cfg = config.Component{Type: gripper.SubtypeName, Name: "gripper2_r1"}
 	rName = cfg.ResourceName()
 	robotForRemote.manager.addResource(rName, &inject.Gripper{})
 
-	cfg = config.Component{Type: config.ComponentTypeMotor, Name: "motor2_r1"}
+	cfg = config.Component{Type: motor.SubtypeName, Name: "motor2_r1"}
 	rName = cfg.ResourceName()
 	replacementManager.addResource(rName, &inject.Motor{})
 
-	cfg = config.Component{Type: config.ComponentTypeServo, Name: "servo2_r1"}
+	cfg = config.Component{Type: servo.SubtypeName, Name: "servo2_r1"}
 	rName = cfg.ResourceName()
 	robotForRemote.manager.addResource(rName, &inject.Servo{})
 
-	cfg = config.Component{Type: config.ComponentTypeInputController, Name: "inputController2_r1"}
+	cfg = config.Component{Type: input.SubtypeName, Name: "inputController2_r1"}
 	rName = cfg.ResourceName()
 	robotForRemote.manager.addResource(rName, &inject.InputController{})
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementManager.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
-	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
+	cfg = config.Component{Type: arm.SubtypeName, Name: "arm1"}
 	rName = cfg.ResourceName()
 	replacementManager.addResource(rName, &inject.Arm{})
 
-	cfg = config.Component{Type: config.ComponentTypeBase, Name: "base1"}
+	cfg = config.Component{Type: base.SubtypeName, Name: "base1"}
 	rName = cfg.ResourceName()
 	replacementManager.addResource(rName, &inject.Base{})
 
-	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
+	cfg = config.Component{Type: board.SubtypeName, Name: "board1"}
 	rName = cfg.ResourceName()
 	replacementManager.addResource(rName, &inject.Board{})
 
-	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera1"}
+	cfg = config.Component{Type: camera.SubtypeName, Name: "camera1"}
 	rName = cfg.ResourceName()
 	replacementManager.addResource(rName, &inject.Camera{})
 
-	cfg = config.Component{Type: config.ComponentTypeGripper, Name: "gripper1"}
+	cfg = config.Component{Type: gripper.SubtypeName, Name: "gripper1"}
 	rName = cfg.ResourceName()
 	replacementManager.addResource(rName, &inject.Gripper{})
 
-	cfg = config.Component{Type: config.ComponentTypeInputController, Name: "inputController1"}
+	cfg = config.Component{Type: input.SubtypeName, Name: "inputController1"}
 	rName = cfg.ResourceName()
 	replacementManager.addResource(rName, &inject.InputController{})
 
-	cfg = config.Component{Type: config.ComponentTypeMotor, Name: "motor1"}
+	cfg = config.Component{Type: motor.SubtypeName, Name: "motor1"}
 	rName = cfg.ResourceName()
 	replacementManager.addResource(rName, &inject.Motor{})
 
-	cfg = config.Component{Type: config.ComponentTypeServo, Name: "servo1"}
+	cfg = config.Component{Type: servo.SubtypeName, Name: "servo1"}
 	rName = cfg.ResourceName()
 	replacementManager.addResource(rName, &inject.Servo{})
 
@@ -1346,35 +1347,35 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name: "what1",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "what5",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "what3",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "what4",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "what5",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "what6",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "what7",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "what8",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1402,40 +1403,40 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name: "arm2",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "base2",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "board2",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "camera2",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "gripper2",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "inputController2",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "motor2",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "sensor2",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 
 			{
 				Name: "servo2",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1488,39 +1489,39 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name: "arm2",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "base2",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "board2",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "camera2",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "gripper2",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "inputController2",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "motor2",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "sensor2",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "servo2",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1612,111 +1613,111 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name: "arm1",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "arm2",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "arm3",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "base1",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "base2",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "base3",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "board1",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "board2",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "board3",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "camera1",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "camera2",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "camera3",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "gripper1",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "gripper2",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "gripper3",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "inputController1",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "inputController2",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "inputController3",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "motor1",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "motor2",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "motor3",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "sensor1",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "sensor2",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "sensor3",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "servo1",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 			{
 				Name: "servo2",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 			{
 				Name: "servo3",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
