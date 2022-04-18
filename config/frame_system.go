@@ -88,6 +88,40 @@ func ProtobufToFrameSystemPart(fsc *pb.Config) (*FrameSystemPart, error) {
 	return part, nil
 }
 
+// NewMissingReferenceFrameError returns an error indicating that a particular
+// protobuf message is missing necessary information for its ReferenceFrame key.
+func NewMissingReferenceFrameError(msg interface{}) error {
+	return errors.Errorf("missing reference frame in protobuf message of type %T", msg)
+}
+
+// ConvertTransformProtobufToFrameSystemPart creates a FrameSystem part out of a
+// transform protobuf message.
+func ConvertTransformProtobufToFrameSystemPart(transformMsg *commonpb.Transform) (*FrameSystemPart, error) {
+	frameName := transformMsg.GetReferenceFrame()
+	if frameName == "" {
+		return nil, NewMissingReferenceFrameError(transformMsg)
+	}
+	poseInObserverFrame := transformMsg.GetPoseInObserverFrame()
+	parentFrame := poseInObserverFrame.GetReferenceFrame()
+	if parentFrame == "" {
+		return nil, NewMissingReferenceFrameError(poseInObserverFrame)
+	}
+	poseMsg := poseInObserverFrame.GetPose()
+	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
+	point := pose.Point()
+	translation := spatialmath.NewTranslationConfig(point)
+	frameConfig := &Frame{
+		Parent:      parentFrame,
+		Translation: *translation,
+		Orientation: pose.Orientation(),
+	}
+	part := &FrameSystemPart{
+		Name:        frameName,
+		FrameConfig: frameConfig,
+	}
+	return part, nil
+}
+
 // CreateFramesFromPart will gather the frame information and build the frames from the given robot part.
 func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (referenceframe.Frame, referenceframe.Frame, error) {
 	if part == nil || part.FrameConfig == nil {
