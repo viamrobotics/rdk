@@ -1,4 +1,4 @@
-package detection
+package objectdetection
 
 import (
 	"image"
