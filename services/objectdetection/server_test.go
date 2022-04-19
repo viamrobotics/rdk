@@ -5,13 +5,14 @@ import (
 	"errors"
 	"testing"
 
+	"go.viam.com/test"
+
 	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectdetection"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 func newServer(m map[resource.Name]interface{}) (pb.ObjectDetectionServiceServer, error) {
