@@ -23,6 +23,7 @@ type MotionService struct {
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
+		supplementalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
 }
 
@@ -44,9 +45,10 @@ func (mgs *MotionService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
+	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	if mgs.GetPoseFunc == nil {
-		return mgs.Service.GetPose(ctx, componentName, destinationFrame)
+		return mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms)
 	}
-	return mgs.GetPoseFunc(ctx, componentName, destinationFrame)
+	return mgs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms)
 }

@@ -10,6 +10,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -17,7 +18,11 @@ import (
 )
 
 // RobotFrameSystem returns the frame system of the robot.
-func RobotFrameSystem(ctx context.Context, r robot.Robot) (referenceframe.FrameSystem, error) {
+func RobotFrameSystem(
+	ctx context.Context,
+	r robot.Robot,
+	additionalTransforms []*commonpb.Transform,
+) (referenceframe.FrameSystem, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystem")
 	defer span.End()
 	frameService, err := FromRobot(r)
@@ -25,7 +30,7 @@ func RobotFrameSystem(ctx context.Context, r robot.Robot) (referenceframe.FrameS
 		return nil, err
 	}
 	// create the frame system
-	allParts, err := frameService.Config(ctx)
+	allParts, err := frameService.Config(ctx, additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +125,7 @@ func robotFrameSystemConfig(ctx context.Context, r robot.Robot) (Parts, error) {
 	if err != nil {
 		return nil, err
 	}
-	parts, err := fsSrv.Config(ctx)
+	parts, err := fsSrv.Config(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

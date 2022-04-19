@@ -31,8 +31,40 @@ func NewColorDetector(tol, hue float64) (Detector, error) {
 		}
 		valid = makeValidColorFunction(loValid, hiValid)
 	}
-	cd := connectedComponentDetector{valid}
+	cd := connectedComponentDetector{valid, hueToString(hue)}
 	return cd.Inference, nil
+}
+
+func hueToString(hue float64) string {
+	hueInt := int(hue) % 360
+	switch {
+	case hueInt < 15 || hueInt >= 345:
+		return "red"
+	case hueInt >= 15 && hueInt < 45:
+		return "orange"
+	case hueInt >= 45 && hueInt < 75:
+		return "yellow"
+	case hueInt >= 75 && hueInt < 105:
+		return "lime-green"
+	case hueInt >= 105 && hueInt < 135:
+		return "green"
+	case hueInt >= 135 && hueInt < 165:
+		return "green-blue"
+	case hueInt >= 165 && hueInt < 195:
+		return "cyan"
+	case hueInt >= 195 && hueInt < 225:
+		return "light-blue"
+	case hueInt >= 225 && hueInt < 255:
+		return "blue"
+	case hueInt >= 255 && hueInt < 285:
+		return "violet"
+	case hueInt >= 285 && hueInt < 315:
+		return "magenta"
+	case hueInt >= 315 && hueInt < 345:
+		return "rose"
+	default:
+		return "impossible"
+	}
 }
 
 func makeValidColorFunction(loValid, hiValid float64) validPixelFunc {
