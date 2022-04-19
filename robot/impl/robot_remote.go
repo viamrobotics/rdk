@@ -6,19 +6,92 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 var errUnimplemented = errors.New("unimplemented")
+
+func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.DialOption {
+	var dialOpts []rpc.DialOption
+	if opts.debug {
+		dialOpts = append(dialOpts, rpc.WithDialDebug())
+	}
+	if config.Insecure {
+		dialOpts = append(dialOpts, rpc.WithInsecure())
+	}
+	if opts.allowInsecureCreds {
+		dialOpts = append(dialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
+	}
+	if opts.tlsConfig != nil {
+		dialOpts = append(dialOpts, rpc.WithTLSConfig(opts.tlsConfig))
+	}
+	if config.Auth.Credentials != nil {
+		if config.Auth.Entity == "" {
+			dialOpts = append(dialOpts, rpc.WithCredentials(*config.Auth.Credentials))
+		} else {
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials(config.Auth.Entity, *config.Auth.Credentials))
+		}
+	} else {
+		// explicitly unset credentials so they are not fed to remotes unintentionally.
+		dialOpts = append(dialOpts, rpc.WithEntityCredentials("", rpc.Credentials{}))
+	}
+
+	if config.Auth.ExternalAuthAddress != "" {
+		dialOpts = append(dialOpts, rpc.WithExternalAuth(
+			config.Auth.ExternalAuthAddress,
+			config.Auth.ExternalAuthToEntity,
+		))
+	}
+
+	if config.Auth.ExternalAuthInsecure {
+		dialOpts = append(dialOpts, rpc.WithExternalAuthInsecure())
+	}
+
+	if config.Auth.SignalingServerAddress != "" {
+		wrtcOpts := rpc.DialWebRTCOptions{
+			Config:                 &rpc.DefaultWebRTCConfiguration,
+			SignalingServerAddress: config.Auth.SignalingServerAddress,
+			SignalingAuthEntity:    config.Auth.SignalingAuthEntity,
+		}
+		if config.Auth.SignalingCreds != nil {
+			wrtcOpts.SignalingCreds = *config.Auth.SignalingCreds
+		}
+		dialOpts = append(dialOpts, rpc.WithWebRTCOptions(wrtcOpts))
+
+		if config.Auth.Managed {
+			// managed robots use TLS authN/Z
+			dialOpts = append(dialOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
+				RemoveAuthCredentials: true,
+			}))
+		}
+	}
+	return dialOpts
+}
+
+func dialRemote(ctx context.Context, address string, logger golog.Logger, dialOpts ...rpc.DialOption) (robot.Robot, error) {
+	var outerError error
+	for attempt := 0; attempt < 3; attempt++ {
+		robotClient, err := client.New(ctx, address, logger, client.WithDialOptions(dialOpts...))
+		if err != nil {
+			outerError = err
+			continue
+		}
+		return robotClient, nil
+	}
+	return nil, outerError
+}
 
 // A remoteRobot implements wraps an robot.Robot. It
 // assists in the un/prefixing of part names for RemoteRobots that
@@ -27,23 +100,34 @@ var errUnimplemented = errors.New("unimplemented")
 // so that any future changes are forced to consider un/prefixing
 // of names.
 type remoteRobot struct {
-	mu      sync.Mutex
-	robot   robot.Robot
-	conf    config.Remote
-	manager *resourceManager
+	mu       sync.Mutex
+	robot    robot.Robot
+	conf     config.Remote
+	manager  *resourceManager
+	dialOpts []rpc.DialOption
+
+	disconnected            bool
+	reconnectInterval       time.Duration
+	cancelBackgroundWorkers func()
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 // newRemoteRobot returns a new remote robot wrapping a given robot.Robot
 // and its configuration.
-func newRemoteRobot(robot robot.Robot, config config.Remote) *remoteRobot {
+func newRemoteRobot(ctx context.Context, robot robot.Robot, config config.Remote, dialOpts ...rpc.DialOption) *remoteRobot {
 	// We pull the manager out here such that we correctly return nil for
 	// when parts are accessed. This is because a networked robot client
 	// may just return a non-nil wrapper for a part they may not exist.
 	remoteManager := managerForRemoteRobot(robot)
-	return &remoteRobot{
-		robot:   robot,
-		conf:    config,
-		manager: remoteManager,
+
+	remote := &remoteRobot{
+		robot:    robot,
+		conf:     config,
+		manager:  remoteManager,
+		dialOpts: dialOpts,
+
+		reconnectInterval: config.ReconnectInterval,
+	}
 	}
 }
 

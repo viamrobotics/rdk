@@ -100,11 +100,11 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 
@@ -216,11 +216,11 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote1", Prefix: false}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote1", Prefix: false}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote2", Prefix: false}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote2", Prefix: false}),
 		config.Remote{Name: "remote2"},
 	)
 
@@ -237,7 +237,7 @@ func TestManagerWithSameNameInRemoteOneWithPrefix(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote1",
 			Prefix: true,
 		}),
@@ -247,7 +247,7 @@ func TestManagerWithSameNameInRemoteOneWithPrefix(t *testing.T) {
 		},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 
@@ -269,7 +269,7 @@ func TestManagerWithSameNameInRemoteBothWithPrefix(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote1",
 			Prefix: true,
 		}),
@@ -279,7 +279,7 @@ func TestManagerWithSameNameInRemoteBothWithPrefix(t *testing.T) {
 		},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote2",
 			Prefix: true,
 		}),
@@ -309,7 +309,7 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, ""), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, ""), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 
@@ -325,11 +325,11 @@ func TestManagerMergeNamesWithRemotesDedupe(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 
@@ -379,11 +379,11 @@ func TestManagerClone(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -801,11 +801,11 @@ func TestManagerMergeAdd(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -883,7 +883,7 @@ func TestManagerMergeAdd(t *testing.T) {
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
 	otherManager := managerForRemoteRobot(otherRobot)
 	otherManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
 		config.Remote{Name: "other1"},
 	)
 	result, err = manager.MergeAdd(otherManager)
@@ -956,11 +956,11 @@ func TestManagerMergeAdd(t *testing.T) {
 
 	sameManager := managerForRemoteRobot(injectRobot)
 	sameManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	sameManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err = sameManager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -1021,11 +1021,11 @@ func TestManagerMergeModify(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -1165,7 +1165,7 @@ func TestManagerMergeModify(t *testing.T) {
 	rName = cfg.ResourceName()
 	robotForRemote.manager.addResource(rName, &inject.InputController{})
 
-	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
+	remote1Replacemenet := newRemoteRobot(context.Background(), robotForRemote, config.Remote{Name: "remote1"})
 	replacementManager.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
 	cfg = config.Component{Type: arm.SubtypeName, Name: "arm1"}
@@ -1211,11 +1211,11 @@ func TestManagerMergeRemove(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -1283,7 +1283,7 @@ func TestManagerMergeRemove(t *testing.T) {
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
 	otherManager := managerForRemoteRobot(otherRobot)
 	otherManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
 		config.Remote{Name: "other1"},
 	)
 	manager.MergeRemove(otherManager)
@@ -1291,11 +1291,11 @@ func TestManagerMergeRemove(t *testing.T) {
 
 	sameManager := managerForRemoteRobot(injectRobot)
 	sameManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	sameManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err = sameManager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -1316,11 +1316,11 @@ func TestManagerFilterFromConfig(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
