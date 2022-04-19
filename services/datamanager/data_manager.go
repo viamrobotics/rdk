@@ -296,13 +296,13 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 		}
 	}
 	// TODO: handle error
-	go svc.moveToSyncQueueLong(svcConfig.SyncIntervalMins)
+	go svc.queue(svcConfig.SyncIntervalMins)
 
 	return nil
 }
 
 // Sync syncs data to the backing storage system.
-func (svc *Service) moveToSyncQueueLong(syncIntervalMins int) error {
+func (svc *Service) queue(syncIntervalMins int) error {
 	if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
 		return err
 	}
@@ -312,13 +312,13 @@ func (svc *Service) moveToSyncQueueLong(syncIntervalMins int) error {
 	for {
 		select {
 		case <-svc.cancelCtx.Done():
-			err := svc.moveToSyncQueue()
+			err := svc.moveToSyncQueue(false)
 			if err != nil {
 				return err
 			}
 			return nil
 		case <-ticker.C:
-			err := svc.moveToSyncQueue()
+			err := svc.moveToSyncQueue(true)
 			if err != nil {
 				svc.logger.Errorf("failed to move files to sync queue: %v", err)
 			}
@@ -326,25 +326,29 @@ func (svc *Service) moveToSyncQueueLong(syncIntervalMins int) error {
 	}
 }
 
-func (svc *Service) moveToSyncQueue() error {
+func (svc *Service) moveToSyncQueue(createNewTargets bool) error {
 	for component, collector := range svc.collectors {
+		oldTarget := collector.Collector.GetTarget()
 		// Create new target and set it.
-		curr := collector.Collector.GetTarget()
-		next, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
-		if err != nil {
-			return errors.Errorf("failed to create new data capture file: %v", err)
+		if createNewTargets {
+			nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
+			if err != nil {
+				return errors.Errorf("failed to create new data capture file: %v", err)
+			}
+			collector.Collector.SetTarget(nextTarget)
+		} else {
+			collector.Collector.Close()
 		}
-		collector.Collector.SetTarget(next)
 
-		// Move curr to SYNC_QUEUE
-		err = curr.Close()
+		// Move collector file to SYNC_QUEUE
+		err := oldTarget.Close()
 		if err != nil {
 			return errors.Errorf("failed to close old data capture file: %v", err)
 		}
-		err = os.Rename(curr.Name(),
+		err = os.Rename(oldTarget.Name(),
 			path.Join(
 				getDataSyncDir(collector.Attributes.Type, component.ComponentName),
-				filepath.Base(curr.Name())))
+				filepath.Base(oldTarget.Name())))
 		if err != nil {
 			return errors.Errorf("failed to move file to sync queue: %v", err)
 		}
