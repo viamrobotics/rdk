@@ -1,6 +1,7 @@
 package odometry
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r2"
@@ -38,6 +39,7 @@ func getPlaneInliers(pts3d []r3.Vector, normal r3.Vector, offset, threshold floa
 	inliers := make([]int, 0, len(pts3d))
 	for i, pt := range pts3d {
 		dist := distToPlane(pt, normal, offset)
+		fmt.Println("dist : ", dist)
 		if dist < threshold {
 			inliers = append(inliers, i)
 		}
@@ -54,6 +56,7 @@ func getAverageHeightGroundPoints(groundPoints []r3.Vector, pitch float64) float
 	height := 0.
 	for _, pt := range groundPoints {
 		height += getCameraHeightFromGroundPoint(pt, pitch)
+		//height += pt.Y
 	}
 	return height / float64(len(groundPoints))
 }
@@ -135,7 +138,10 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	groundFound := false
 	for _, triangle := range triangles3D {
 		normal, offset := estimatePlaneFrom3Points(triangle[0], triangle[1], triangle[2])
-		angularDiff := math.Abs(normal.Dot(r3.Vector{0, 1, 0})) / normal.Norm()
+		normalNorm := normal.Norm()
+		fmt.Println("normal : ", normal.Mul(1./normalNorm))
+		angularDiff := math.Abs(normal.Dot(r3.Vector{0, 0, 1})) / normal.Norm()
+		fmt.Println(angularDiff)
 		// if current normal vector is almost collinear with Y unit vector
 		if angularDiff > thresholdNormalAngle {
 			inliers := getPlaneInliers(p3d, normal, offset, thresholdPlaneInlier)
@@ -149,7 +155,7 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	}
 	// if found ground plane, get ground plane 3d points in original reference
 	if groundFound {
-		pointsGround := getSelected3DFeatures(f3d, inliersGround)
+		pointsGround := getSelected3DFeatures(p3d, inliersGround)
 		return pointsGround, nil
 	}
 	return nil, nil
