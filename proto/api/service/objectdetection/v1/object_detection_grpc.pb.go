@@ -18,8 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ObjectDetectionServiceClient interface {
-	// GetDetectors returns the list of detectors in the registry.
-	GetDetectors(ctx context.Context, in *GetDetectorsRequest, opts ...grpc.CallOption) (*GetDetectorsResponse, error)
+	// DetectorsNames returns the list of detectors in the registry.
+	DetectorNames(ctx context.Context, in *DetectorNamesRequest, opts ...grpc.CallOption) (*DetectorNamesResponse, error)
 }
 
 type objectDetectionServiceClient struct {
@@ -30,9 +30,9 @@ func NewObjectDetectionServiceClient(cc grpc.ClientConnInterface) ObjectDetectio
 	return &objectDetectionServiceClient{cc}
 }
 
-func (c *objectDetectionServiceClient) GetDetectors(ctx context.Context, in *GetDetectorsRequest, opts ...grpc.CallOption) (*GetDetectorsResponse, error) {
-	out := new(GetDetectorsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.service.objectdetection.v1.ObjectDetectionService/GetDetectors", in, out, opts...)
+func (c *objectDetectionServiceClient) DetectorNames(ctx context.Context, in *DetectorNamesRequest, opts ...grpc.CallOption) (*DetectorNamesResponse, error) {
+	out := new(DetectorNamesResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.objectdetection.v1.ObjectDetectionService/DetectorNames", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -43,8 +43,8 @@ func (c *objectDetectionServiceClient) GetDetectors(ctx context.Context, in *Get
 // All implementations must embed UnimplementedObjectDetectionServiceServer
 // for forward compatibility
 type ObjectDetectionServiceServer interface {
-	// GetDetectors returns the list of detectors in the registry.
-	GetDetectors(context.Context, *GetDetectorsRequest) (*GetDetectorsResponse, error)
+	// DetectorsNames returns the list of detectors in the registry.
+	DetectorNames(context.Context, *DetectorNamesRequest) (*DetectorNamesResponse, error)
 	mustEmbedUnimplementedObjectDetectionServiceServer()
 }
 
@@ -52,8 +52,8 @@ type ObjectDetectionServiceServer interface {
 type UnimplementedObjectDetectionServiceServer struct {
 }
 
-func (UnimplementedObjectDetectionServiceServer) GetDetectors(context.Context, *GetDetectorsRequest) (*GetDetectorsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDetectors not implemented")
+func (UnimplementedObjectDetectionServiceServer) DetectorNames(context.Context, *DetectorNamesRequest) (*DetectorNamesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DetectorNames not implemented")
 }
 func (UnimplementedObjectDetectionServiceServer) mustEmbedUnimplementedObjectDetectionServiceServer() {
 }
@@ -69,20 +69,20 @@ func RegisterObjectDetectionServiceServer(s grpc.ServiceRegistrar, srv ObjectDet
 	s.RegisterService(&ObjectDetectionService_ServiceDesc, srv)
 }
 
-func _ObjectDetectionService_GetDetectors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetDetectorsRequest)
+func _ObjectDetectionService_DetectorNames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DetectorNamesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ObjectDetectionServiceServer).GetDetectors(ctx, in)
+		return srv.(ObjectDetectionServiceServer).DetectorNames(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.service.objectdetection.v1.ObjectDetectionService/GetDetectors",
+		FullMethod: "/proto.api.service.objectdetection.v1.ObjectDetectionService/DetectorNames",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ObjectDetectionServiceServer).GetDetectors(ctx, req.(*GetDetectorsRequest))
+		return srv.(ObjectDetectionServiceServer).DetectorNames(ctx, req.(*DetectorNamesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -95,8 +95,8 @@ var ObjectDetectionService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ObjectDetectionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetDetectors",
-			Handler:    _ObjectDetectionService_GetDetectors_Handler,
+			MethodName: "DetectorNames",
+			Handler:    _ObjectDetectionService_DetectorNames_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

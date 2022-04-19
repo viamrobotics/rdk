@@ -20,7 +20,7 @@ func TestObjectDetection(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	srv, err := objectdetection.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
-	names, err := srv.GetDetectors(context.Background())
+	names, err := srv.DetectorNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldContain, "detector_3")
 }

@@ -10,17 +10,17 @@ import "proto/api/common/v1/common.proto";
 
 // ObjectDetectionService declares the gRPC contract for an object detection service
 service ObjectDetectionService {
-  // GetDetectors returns the list of detectors in the registry.
-  rpc GetDetectors(GetDetectorsRequest) returns (GetDetectorsResponse) {
+  // DetectorsNames returns the list of detectors in the registry.
+  rpc DetectorNames(DetectorNamesRequest) returns (DetectorNamesResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/object_detection/detectors"
+      get: "/viam/api/v1/service/object_detection/detector_names"
     };
   }
 }
 
-message GetDetectorsRequest {}
+message DetectorNamesRequest {}
 
-message GetDetectorsResponse {
+message DetectorNamesResponse {
   // detectors in the registry
-  repeated string detectors = 1;
+  repeated string detector_names = 1;
 }
