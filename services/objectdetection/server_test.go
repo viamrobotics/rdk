@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectdetection"
@@ -40,13 +42,14 @@ func TestDetectionServer(t *testing.T) {
 	_, err = server.DetectorNames(context.Background(), nameRequest)
 	test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("objectdetection.Service", "string"))
 
-	// error
+	// correct server
 	injectODS := &inject.ObjectDetectionService{}
 	m = map[resource.Name]interface{}{
 		objectdetection.Name: injectODS,
 	}
 	server, err = newServer(m)
 	test.That(t, err, test.ShouldBeNil)
+	// error
 	passedErr := errors.New("fake error")
 	injectODS.DetectorNamesFunc = func(ctx context.Context) ([]string, error) {
 		return nil, passedErr
@@ -63,4 +66,35 @@ func TestDetectionServer(t *testing.T) {
 	resp, err := server.DetectorNames(context.Background(), nameRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetDetectorNames(), test.ShouldResemble, expSlice)
+}
+
+func TestServerAddDetector(t *testing.T) {
+	srv := createService(t, "data/empty.json")
+	m := map[resource.Name]interface{}{
+		objectdetection.Name: srv,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+	params, err := structpb.NewStruct(config.AttributeMap{
+		"detect_color": "#112233",
+		"tolerance":    0.4,
+		"segment_size": 200,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// success
+	resp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+		DetectorName:       "test",
+		DetectorModelType:  "color",
+		DetectorParameters: params,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Success, test.ShouldBeTrue)
+	// failure
+	resp, err = server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+		DetectorName:       "failing",
+		DetectorModelType:  "no_such_type",
+		DetectorParameters: params,
+	})
+	test.That(t, err, test.ShouldBeError, objectdetection.NewDetectorTypeNotImplemented("no_such_type"))
+	test.That(t, resp, test.ShouldBeNil)
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
@@ -54,4 +55,20 @@ func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	return resp.DetectorNames, nil
+}
+
+func (c *client) AddDetector(ctx context.Context, cfg RegistryConfig) (bool, error) {
+	params, err := structpb.NewStruct(cfg.Parameters)
+	if err != nil {
+		return false, err
+	}
+	resp, err := c.client.AddDetector(ctx, &pb.AddDetectorRequest{
+		DetectorName:       cfg.Name,
+		DetectorModelType:  cfg.Type,
+		DetectorParameters: params,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.Success, nil
 }

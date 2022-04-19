@@ -3,6 +3,7 @@ package objectdetection
 import (
 	"context"
 
+	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -45,5 +46,28 @@ func (server *subtypeServer) DetectorNames(
 	}
 	return &pb.DetectorNamesResponse{
 		DetectorNames: names,
+	}, nil
+}
+
+func (server *subtypeServer) AddDetector(
+	ctx context.Context,
+	req *pb.AddDetectorRequest,
+) (*pb.AddDetectorResponse, error) {
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	params := config.AttributeMap(req.DetectorParameters.AsMap())
+	cfg := RegistryConfig{
+		Name:       req.DetectorName,
+		Type:       req.DetectorModelType,
+		Parameters: params,
+	}
+	success, err := svc.AddDetector(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.AddDetectorResponse{
+		Success: success,
 	}, nil
 }
