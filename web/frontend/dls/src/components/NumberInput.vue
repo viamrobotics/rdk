@@ -12,31 +12,15 @@
     />
     <div
       v-show="!hideControls"
-      class="
-        flex
-        justify-between
-        flex-col
-        h-full
-        items-stretch
-        border border-black
-      "
-    >
-      <img
-        @click="arrowClicked(increase)"
-        class="viam-control-arrow cursor-pointer"
-        :src="require('../assets/arrow-up.svg')"
-      />
-      <img
-        @click="arrowClicked(decrease)"
-        class="viam-control-arrow rotated-180 cursor-pointer"
-        :src="require('../assets/arrow-up.svg')"
-      />
+      class="flex justify-between flex-col h-full items-stretch border border-black">
+        <ViamIcon @click.native="arrowClicked(increase)" class="cursor-pointer" :path="mdiChevronUp"></ViamIcon>
+        <ViamIcon @click.native="arrowClicked(decrease)" class="cursor-pointer" :path="mdiChevronDown"></ViamIcon>
     </div>
   </div>
 </template>
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
-
+import { mdiChevronDown, mdiChevronUp } from '@mdi/js'
 const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
 
 @Component({
@@ -62,6 +46,9 @@ export default class NumberInput extends Vue {
   @Prop({ default: '' })
   public placeholder!: string
 
+  mdiChevronDown = mdiChevronDown
+  mdiChevronUp = mdiChevronUp
+
   get innerValue(): number {
     return this.value;
   }
@@ -72,10 +59,11 @@ export default class NumberInput extends Vue {
     }
     this.$emit("input", result);
   }
-
+  
   arrowClicked(handler: Function): void {
     //for arrows up and down working
     (this.$refs.input as HTMLInputElement).focus();
+    console.log('aa arrowClicked')
     handler();
   }
   handleArrows(event: KeyboardEvent): void {
@@ -135,11 +123,5 @@ export default class NumberInput extends Vue {
 .viam-number-input {
   padding: 6px 4px;
   border-right: 0;
-}
-.rotated-180 {
-  transform: rotate(180deg);
-}
-.viam-control-arrow {
-  padding: 5px 4px;
 }
 </style>
