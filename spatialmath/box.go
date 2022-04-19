@@ -33,9 +33,7 @@ func NewBoxCreator(dims r3.Vector, offset Pose) (GeometryCreator, error) {
 
 // NewGeometry instantiates a new box from a BoxCreator class.
 func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
-	b := &box{bc.offset, [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z}}
-	b.Transform(pose)
-	return b
+	return &box{Compose(bc.offset, pose), [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z}}
 }
 
 func (bc *boxCreator) MarshalJSON() ([]byte, error) {
@@ -92,8 +90,8 @@ func (b *box) AlmostEqual(g Geometry) bool {
 }
 
 // Transform premultiplies the box pose with a transform, allowing the box to be moved in space.
-func (b *box) Transform(toPremultiply Pose) {
-	b.pose = Compose(toPremultiply, b.pose)
+func (b *box) Transform(toPremultiply Pose) Geometry {
+	return &box{Compose(toPremultiply, b.pose), b.halfSize}
 }
 
 // ToProto converts the box to a Geometry proto message.

@@ -171,8 +171,19 @@ func (ms *motionService) Move(
 		return false, err
 	}
 
+	// add constraints to motion planning query
+	// for _, obstaclesInFrame := range worldState.GetObstacles() {
+	// 	obstacles, err := referenceframe.ProtobufToGeometriesInFrame(obstaclesInFrame)
+	// 	if err != nil {
+	// 		return false, err
+	// 	}
+	// }
+
+	// for _, obstacle := range obstacles.Geometries() {
+	// 	frameSys.TransformGeometry
+	// }
+
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	_ = worldState // TODO(rb) incorporate obstacles into motion planning
 	output, err := solver.SolvePose(ctx, input, goalPose.Pose(), componentName.Name, solvingFrame)
 	if err != nil {
 		return false, err

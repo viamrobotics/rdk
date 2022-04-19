@@ -29,6 +29,7 @@ type FrameSystem interface {
 	TransformFrame(positions map[string][]Input, src, dst string) (*PoseInFrame, error)
 	GeometriesOfFrame(positions map[string][]Input, src, dst string) (map[string]spatial.Geometry, error)
 	TransformPoint(positions map[string][]Input, point r3.Vector, src, dst string) (r3.Vector, error)
+	TransformGeometry(positions map[string][]Input, geometry spatial.Geometry, src, dst string) (spatial.Geometry, error)
 
 	// TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target referenceframe.
 	// Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
@@ -37,6 +38,10 @@ type FrameSystem interface {
 
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
+}
+
+type Transformable interface {
+	Transform()
 }
 
 // simpleFrameSystem implements FrameSystem. It is a simple tree graph.
@@ -209,6 +214,19 @@ func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose s
 
 	tf, err := sfs.transformFromParent(positions, poseFrame, sfs.GetFrame(src), sfs.GetFrame(dst))
 	return tf, err
+}
+
+func (sfs *simpleFrameSystem) TransformGeometry(
+	positions map[string][]Input,
+	geometry spatial.Geometry,
+	src,
+	dst string,
+) (spatial.Geometry, error) {
+	tf, err := sfs.TransformPose(positions, geometry.Pose(), src, dst)
+	if err != nil {
+		return nil, err
+	}
+	geometry.Transform(tf.pose)
 }
 
 // Name returns the name of the simpleFrameSystem.
