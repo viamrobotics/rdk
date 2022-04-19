@@ -9,7 +9,7 @@ import (
 )
 
 func TestColorDetector(t *testing.T) {
-	inp := &DetectorRegistryConfig{
+	inp := &RegistryConfig{
 		Name: "my_color_detector",
 		Type: "color",
 		Parameters: config.AttributeMap{

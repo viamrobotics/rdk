@@ -8,9 +8,9 @@ import (
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
-// registerColorDetector parses the Parameter field from the config into ColorDetectorConfig,
+// registerColorDetector parses the Parameter field from the registry config into ColorDetectorConfig,
 // creates the ColorDetector, and registers it to the detector registry.
-func registerColorDetector(conf *DetectorRegistryConfig) error {
+func registerColorDetector(conf *RegistryConfig) error {
 	if conf == nil {
 		return errors.New("object detection registry config cannot be nil")
 	}
