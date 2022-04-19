@@ -172,7 +172,7 @@
                 color="primary"
                 group="False"
                 variant="primary"
-                value="300"
+                v-model="speed"
                 inputId="speed"
                 class="text-xs pr-2 w-32"
                 >Speed (mm/sec)
@@ -183,7 +183,7 @@
                 color="primary"
                 group="False"
                 variant="primary"
-                value="500"
+                v-model="increment"
                 inputId="distance"
                 :disabled="movementType === 'Continous'"
                 class="text-xs pr-2 w-32"

@@ -41,7 +41,7 @@ const PressedKeysMap: { [index: string]: string } = {
   "68": "right",
 };
 
-const inputDelay = 50;
+const inputDelay = 100;
 const eventsDelay = 500;
 
 
