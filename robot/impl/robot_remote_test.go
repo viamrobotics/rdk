@@ -156,10 +156,14 @@ func TestRemoteRobot(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false}
-	robot := newRemoteRobot(wrapped, config.Remote{
-		Name:   "one",
-		Prefix: true,
-	})
+	robot := newRemoteRobot(
+		context.Background(),
+		wrapped,
+		config.Remote{
+			Name:   "one",
+			Prefix: true,
+		},
+	)
 
 	robot.conf.Prefix = false
 	test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
