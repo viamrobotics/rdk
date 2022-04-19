@@ -68,7 +68,6 @@ func Named(name string) resource.Name {
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
-
 	// GetEndPosition returns the current position of the arm.
 	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
 

@@ -164,20 +164,6 @@ func (rc *RobotClient) RemoteNames() []string {
 	return nil
 }
 
-// FunctionNames returns the names of all known functions.
-func (rc *RobotClient) FunctionNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-
-	names := []string{}
-	for _, v := range rc.resourceNames {
-		if v.ResourceType == resource.ResourceTypeFunction {
-			names = append(names, v.Name)
-		}
-	}
-	return names
-}
-
 // ProcessManager returns a useless process manager for the sake of
 // satisfying the robot.Robot interface. Maybe it should not be part
 // of the interface!

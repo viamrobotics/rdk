@@ -64,7 +64,8 @@ func TestServerObjectSegmentation(t *testing.T) {
 	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
 		cameraName string,
 		segmenterName string,
-		params config.AttributeMap) ([]*vision.Object, error) {
+		params config.AttributeMap,
+	) ([]*vision.Object, error) {
 		return nil, passedErr
 	}
 	params, err := structpb.NewStruct(config.AttributeMap{})
