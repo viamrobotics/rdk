@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/config"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/config"
 )
 
 func TestRegisterTFLiteDetector(t *testing.T) {
-	conf := &ObjectDetectionConfig{
+	conf := &Config{
 		Registry: []DetectorRegistryConfig{
 			{
 				Name:       "my_tflite_det",
@@ -23,7 +24,7 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 }
 
 func TestRegisterTensorFlowDetector(t *testing.T) {
-	conf := &ObjectDetectionConfig{
+	conf := &Config{
 		Registry: []DetectorRegistryConfig{
 			{
 				Name:       "my_tensorflow_det",
@@ -37,7 +38,7 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 }
 
 func TestRegisterColorDetector(t *testing.T) {
-	conf := &ObjectDetectionConfig{
+	conf := &Config{
 		Registry: []DetectorRegistryConfig{
 			{
 				Name: "my_color_det",
@@ -62,7 +63,7 @@ func TestRegisterColorDetector(t *testing.T) {
 }
 
 func TestRegisterUnknownDetector(t *testing.T) {
-	conf := &ObjectDetectionConfig{
+	conf := &Config{
 		Registry: []DetectorRegistryConfig{
 			{
 				Name:       "my_random_det",

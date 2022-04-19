@@ -3,8 +3,9 @@ package objectdetection
 import (
 	"testing"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/config"
 )
 
 func TestColorDetector(t *testing.T) {
@@ -37,5 +38,4 @@ func TestColorDetector(t *testing.T) {
 	inp.Parameters = nil
 	err = registerColorDetector(inp)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
-
 }

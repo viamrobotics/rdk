@@ -3,6 +3,7 @@ package objectdetection
 import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/config"
 )
 
@@ -21,8 +22,8 @@ func NewDetectorTypeNotImplemented(name string) error {
 	return errors.Errorf("detector type %q is not implemented", name)
 }
 
-// ObjectDetectionConfig contains a list of the user-provided details necessary to register a new detector.
-type ObjectDetectionConfig struct {
+// Config contains a list of the user-provided details necessary to register a new detector.
+type Config struct {
 	Registry []DetectorRegistryConfig `json:"detector_registry"`
 }
 
@@ -34,10 +35,11 @@ type DetectorRegistryConfig struct {
 	Parameters config.AttributeMap `json:"parameters"`
 }
 
-// registerNewDetectors take an ObjectDetectionConfig and parses each element by type to create an RDK Detector
+// registerNewDetectors take a Config and parses each element by type to create an RDK Detector
 // and register it to the detector registry.
-func registerNewDetectors(attrs *ObjectDetectionConfig, logger golog.Logger) error {
+func registerNewDetectors(attrs *Config, logger golog.Logger) error {
 	for _, attr := range attrs.Registry {
+		logger.Debugf("adding detector %q of type %s", attr.Name, attr.Type)
 		switch DetectorType(attr.Type) {
 		case TFLiteType:
 			return NewDetectorTypeNotImplemented(attr.Type)

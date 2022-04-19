@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
 	"go.viam.com/rdk/registry"
@@ -14,7 +16,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/utils/rpc"
 )
 
 func init() {
@@ -38,10 +39,10 @@ func init() {
 	})
 	cType := config.ServiceType(SubtypeName)
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf ObjectDetectionConfig
+		var conf Config
 		return config.TransformAttributeMapToStruct(&conf, attributes)
 	},
-		&ObjectDetectionConfig{},
+		&Config{},
 	)
 }
 
@@ -78,7 +79,7 @@ func FromRobot(r robot.Robot) (Service, error) {
 
 // New registers new detectors from the config and returns a new object detection service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	attrs, ok := config.ConvertedAttributes.(*ObjectDetectionConfig)
+	attrs, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 	}

@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/config"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/objectdetection"
-	"go.viam.com/test"
 )
 
 func TestObjectDetection(t *testing.T) {
