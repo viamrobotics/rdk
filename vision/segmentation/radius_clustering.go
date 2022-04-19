@@ -10,20 +10,8 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
-
-// RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
-const RadiusClusteringSegmenter = "radius_clustering"
-
-func init() {
-	RegisterSegmenter(RadiusClusteringSegmenter,
-		Registration{
-			Segmenter(RadiusClustering),
-			utils.JSONTags(RadiusClusteringConfig{}),
-		})
-}
 
 // RadiusClusteringConfig specifies the necessary parameters for 3D object finding.
 type RadiusClusteringConfig struct {

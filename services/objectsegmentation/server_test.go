@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 func newServer(osMap map[resource.Name]interface{}) (pb.ObjectSegmentationServiceServer, error) {
@@ -65,14 +64,15 @@ func TestServerObjectSegmentation(t *testing.T) {
 	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
 		cameraName string,
 		segmenterName string,
-		params config.AttributeMap) ([]*vision.Object, error) {
+		params config.AttributeMap,
+	) ([]*vision.Object, error) {
 		return nil, passedErr
 	}
 	params, err := structpb.NewStruct(config.AttributeMap{})
 	test.That(t, err, test.ShouldBeNil)
 	req := &pb.GetObjectPointCloudsRequest{
 		CameraName:    "fakeCamera",
-		SegmenterName: segmentation.RadiusClusteringSegmenter,
+		SegmenterName: objectsegmentation.RadiusClusteringSegmenter,
 		MimeType:      utils.MimeTypePCD,
 		Parameters:    params,
 	}
@@ -93,27 +93,27 @@ func TestServerObjectSegmentation(t *testing.T) {
 		cameraName string,
 		segmenterName string,
 		params config.AttributeMap) ([]*vision.Object, error) {
-		segmenter, err := segmentation.SegmenterLookup(segmenterName)
+		segmenter, err := objectsegmentation.SegmenterLookup(segmenterName)
 		if err != nil {
 			return nil, err
 		}
 		return segmenter.Segmenter(ctx, injCam, params)
 	}
 	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-		segmenter, err := segmentation.SegmenterLookup(segmenterName)
+		segmenter, err := objectsegmentation.SegmenterLookup(segmenterName)
 		if err != nil {
 			return nil, err
 		}
 		return segmenter.Parameters, nil
 	}
 	injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
-		return []string{segmentation.RadiusClusteringSegmenter}, nil
+		return []string{objectsegmentation.RadiusClusteringSegmenter}, nil
 	}
 	// request segmenters
 	segResp, err := server.GetSegmenters(context.Background(), segReq)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segResp.Segmenters, test.ShouldHaveLength, 1)
-	test.That(t, segResp.Segmenters[0], test.ShouldEqual, segmentation.RadiusClusteringSegmenter)
+	test.That(t, segResp.Segmenters[0], test.ShouldEqual, objectsegmentation.RadiusClusteringSegmenter)
 
 	// no such segmenter in registry
 	_, err = server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
@@ -131,7 +131,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 
 	// successful request
 	paramNamesResp, err := server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
-		SegmenterName: segmentation.RadiusClusteringSegmenter,
+		SegmenterName: objectsegmentation.RadiusClusteringSegmenter,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	paramNames := paramNamesResp.Parameters
@@ -149,7 +149,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		CameraName:    "fakeCamera",
-		SegmenterName: segmentation.RadiusClusteringSegmenter,
+		SegmenterName: objectsegmentation.RadiusClusteringSegmenter,
 		MimeType:      utils.MimeTypePCD,
 		Parameters:    params,
 	})

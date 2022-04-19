@@ -19,6 +19,7 @@ import Tab from '../src/components/Tab';
 import Tabs from '../src/components/Tabs';
 import Base from '../src/components/Base';
 import RadioButtons from '../src/components/RadioButtons';
+import Camera from '../src/components/Camera';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { faCheckSquare } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
@@ -43,6 +44,7 @@ Vue.component('Tab', Tab);
 Vue.component('Tabs', Tabs);
 Vue.component('Base', Base);
 Vue.component('RadioButtons', RadioButtons);
+Vue.component('Camera', Camera);
 
 const req = require.context('../src/stories', true, /.stories.js$/);
 function loadStories() {

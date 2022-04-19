@@ -35,7 +35,8 @@ import (
 func init() {
 	registry.RegisterComponent(camera.Subtype, "single_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
-			config config.Component, logger golog.Logger) (interface{}, error) {
+			config config.Component, logger golog.Logger,
+		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*ServerAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
@@ -43,7 +44,7 @@ func init() {
 			return NewServerSource(attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "single_stream",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "single_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -65,7 +66,8 @@ func init() {
 
 	registry.RegisterComponent(camera.Subtype, "dual_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
-			config config.Component, logger golog.Logger) (interface{}, error) {
+			config config.Component, logger golog.Logger,
+		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*dualServerAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
@@ -73,7 +75,7 @@ func init() {
 			return newDualServerSource(attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "dual_stream",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "dual_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -95,7 +97,8 @@ func init() {
 
 	registry.RegisterComponent(camera.Subtype, "file",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
-			config config.Component, logger golog.Logger) (interface{}, error) {
+			config config.Component, logger golog.Logger,
+		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*fileSourceAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
@@ -104,7 +107,7 @@ func init() {
 			return camera.New(imgSrc, attrs.AttrConfig, nil)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "file",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {

@@ -176,11 +176,9 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 	test.That(t, transformPoint1.Pose().Point().Z, test.ShouldAlmostEqual, pointWorld1.Z)
 
 	// Test ability to calculate hypothetical out-of-bounds positions for the arm, but still return an error
-	positions["xArm6"] =
-		frame.FloatsToInputs(
-			[]float64{math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2})
-	transformPoint2, err :=
-		fs.TransformFrame(positions, "xArm6", frame.World)
+	positions["xArm6"] = frame.FloatsToInputs(
+		[]float64{math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2})
+	transformPoint2, err := fs.TransformFrame(positions, "xArm6", frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.Pose().Point().X, test.ShouldAlmostEqual, pointWorld2.X)
 	test.That(t, transformPoint2.Pose().Point().Y, test.ShouldAlmostEqual, pointWorld2.Y)

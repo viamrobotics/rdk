@@ -22,7 +22,7 @@ func init() {
 	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewInputController})
 
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeInputController,
+		input.SubtypeName,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

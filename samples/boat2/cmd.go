@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -523,13 +522,7 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	metadataSvc, err := service.New()
-	if err != nil {
-		return err
-	}
-	ctx = service.ContextWithService(ctx, metadataSvc)
 	// register boat as base properly
-
 	registry.RegisterComponent(base.Subtype, "viam-boat2", registry.Component{
 		Constructor: func(
 			ctx context.Context,
