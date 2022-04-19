@@ -6,14 +6,15 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectdetection"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 )
 
 func TestClient(t *testing.T) {
