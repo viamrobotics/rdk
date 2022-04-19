@@ -10,8 +10,8 @@ import (
 )
 
 func TestRegisterTFLiteDetector(t *testing.T) {
-	conf := &Config{
-		Registry: []DetectorRegistryConfig{
+	conf := &Attributes{
+		Registry: []RegistryConfig{
 			{
 				Name:       "my_tflite_det",
 				Type:       "tflite",
@@ -24,8 +24,8 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 }
 
 func TestRegisterTensorFlowDetector(t *testing.T) {
-	conf := &Config{
-		Registry: []DetectorRegistryConfig{
+	conf := &Attributes{
+		Registry: []RegistryConfig{
 			{
 				Name:       "my_tensorflow_det",
 				Type:       "tensorflow",
@@ -38,8 +38,8 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 }
 
 func TestRegisterColorDetector(t *testing.T) {
-	conf := &Config{
-		Registry: []DetectorRegistryConfig{
+	conf := &Attributes{
+		Registry: []RegistryConfig{
 			{
 				Name: "my_color_det",
 				Type: "color",
@@ -63,8 +63,8 @@ func TestRegisterColorDetector(t *testing.T) {
 }
 
 func TestRegisterUnknownDetector(t *testing.T) {
-	conf := &Config{
-		Registry: []DetectorRegistryConfig{
+	conf := &Attributes{
+		Registry: []RegistryConfig{
 			{
 				Name:       "my_random_det",
 				Type:       "not_real",

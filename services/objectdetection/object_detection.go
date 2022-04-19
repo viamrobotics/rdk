@@ -39,10 +39,10 @@ func init() {
 	})
 	cType := config.ServiceType(SubtypeName)
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf Config
-		return config.TransformAttributeMapToStruct(&conf, attributes)
+		var attrs Attributes
+		return config.TransformAttributeMapToStruct(&attrs, attributes)
 	},
-		&Config{},
+		&Attributes{},
 	)
 }
 
@@ -79,7 +79,7 @@ func FromRobot(r robot.Robot) (Service, error) {
 
 // New registers new detectors from the config and returns a new object detection service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	attrs, ok := config.ConvertedAttributes.(*Config)
+	attrs, ok := config.ConvertedAttributes.(*Attributes)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 	}
