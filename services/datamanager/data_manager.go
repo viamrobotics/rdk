@@ -3,9 +3,7 @@ package datamanager
 
 import (
 	"context"
-	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -95,14 +93,18 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	collectors := make(map[componentMethodMetadata]collectorParams)
+
+	syncManager := NewSyncManager(cancelCtx, SyncQueue, &collectors, logger, viamCaptureDotDir)
 
 	dataManagerSvc := &Service{
-		r:          r,
-		logger:     logger,
-		captureDir: viamCaptureDotDir,
-		collectors: make(map[componentMethodMetadata]collectorParams),
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		r:           r,
+		logger:      logger,
+		captureDir:  viamCaptureDotDir,
+		collectors:  make(map[componentMethodMetadata]collectorParams),
+		syncManager: syncManager,
+		cancelCtx:   cancelCtx,
+		cancelFunc:  cancelFunc,
 	}
 
 	return dataManagerSvc, nil
@@ -115,10 +117,11 @@ func (svc *Service) Close(ctx context.Context) error {
 
 // Service initializes and orchestrates data capture collectors for registered component/methods.
 type Service struct {
-	r          robot.Robot
-	logger     golog.Logger
-	captureDir string
-	collectors map[componentMethodMetadata]collectorParams
+	r           robot.Robot
+	logger      golog.Logger
+	captureDir  string
+	collectors  map[componentMethodMetadata]collectorParams
+	syncManager SyncManager
 
 	cancelCtx  context.Context
 	cancelFunc func()
@@ -156,19 +159,6 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 	}
 	fileName := filepath.Join(fileDir, getFileTimestampName())
 	return os.Create(fileName)
-}
-
-func getDataSyncDir(subtypeName string, componentName string) string {
-	return filepath.Join(SyncQueue, subtypeName, componentName)
-}
-
-// Create the data sync queue subdirectory containing a given component's data.
-func createDataSyncDir(subtypeName string, componentName string) error {
-	fileDir := getDataSyncDir(subtypeName, componentName)
-	if err := os.MkdirAll(fileDir, 0o700); err != nil {
-		return err
-	}
-	return nil
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -295,93 +285,16 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 			delete(svc.collectors, componentMetadata)
 		}
 	}
+
 	// TODO: handle error
 	// TODO: handle updates correctly. Need to kill old goroutine. Maybe have as separate "sync_manager" with its own
 	//       close func?
-	go svc.queue(svcConfig.SyncIntervalMins)
+	//svc.syncManager.Close()
+	svc.syncManager = NewSyncManager(svc.cancelCtx, SyncQueue, &svc.collectors, svc.logger, svc.captureDir)
+	if svcConfig.SyncIntervalMins > 0 {
+		go svc.syncManager.Queue(svcConfig.SyncIntervalMins)
+		go svc.syncManager.Upload()
+	}
 
 	return nil
-}
-
-// Sync syncs data to the backing storage system.
-func (svc *Service) queue(syncIntervalMins int) {
-	if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
-		svc.logger.Errorf("failed to make sync queue: %v", err)
-	}
-	ticker := time.NewTicker(time.Minute * time.Duration(syncIntervalMins))
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-svc.cancelCtx.Done():
-			err := svc.moveToSyncQueue(false)
-			if err != nil {
-				svc.logger.Errorf("failed to move files to sync queue: %v", err)
-			}
-			return
-		case <-ticker.C:
-			err := svc.moveToSyncQueue(true)
-			if err != nil {
-				svc.logger.Errorf("failed to move files to sync queue: %v", err)
-			}
-		}
-	}
-}
-
-func (svc *Service) moveToSyncQueue(createNewTargets bool) error {
-	for component, collector := range svc.collectors {
-		oldTarget := collector.Collector.GetTarget()
-		// Create new target and set it.
-		if createNewTargets {
-			nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
-			if err != nil {
-				return errors.Errorf("failed to create new data capture file: %v", err)
-			}
-			collector.Collector.SetTarget(nextTarget)
-		} else {
-			collector.Collector.Close()
-		}
-
-		// Move collector file to SYNC_QUEUE
-		err := oldTarget.Close()
-		if err != nil {
-			return errors.Errorf("failed to close old data capture file: %v", err)
-		}
-		err = os.Rename(oldTarget.Name(),
-			path.Join(
-				getDataSyncDir(collector.Attributes.Type, component.ComponentName),
-				filepath.Base(oldTarget.Name())))
-		if err != nil {
-			return errors.Errorf("failed to move file to sync queue: %v", err)
-		}
-	}
-	return nil
-}
-
-// TODO: implement
-func (svc *Service) uploadQueuedFile(path string, di fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-
-	if di.IsDir() {
-		return nil
-	}
-	svc.logger.Debugf("Visited: %s\n", path)
-	return nil
-}
-
-// Sync syncs data to the backing storage system.
-func (svc *Service) upload() error {
-	for {
-		select {
-		case <-svc.cancelCtx.Done():
-			return nil
-		default:
-			err := filepath.WalkDir(SyncQueue, svc.uploadQueuedFile)
-			if err != nil {
-				svc.logger.Errorf("failed to upload queued file: %v", err)
-			}
-		}
-	}
 }
