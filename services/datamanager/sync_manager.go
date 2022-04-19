@@ -2,12 +2,14 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -15,28 +17,25 @@ type SyncManager interface {
 	Queue(syncIntervalMins int) error
 	Upload()
 	Close() error
+	SetCaptureDir(dir string)
 }
 
 type SyncManagerImpl struct {
-	syncQueue  string
-	collectors *map[componentMethodMetadata]collectorParams
-	logger     golog.Logger
-	// TODO: don't think the Sync Manager should be aware of this... think of way to extract
 	captureDir string
+	syncQueue  string
+	logger     golog.Logger
 
 	cancelCtx  context.Context
 	cancelFunc func()
 }
 
 // New returns a new data manager service for the given robot.
-func NewSyncManager(ctx context.Context, queuePath string, collectors *map[componentMethodMetadata]collectorParams,
-	logger golog.Logger, captureDir string) SyncManager {
+func NewSyncManager(ctx context.Context, queuePath string, logger golog.Logger, captureDir string) SyncManager {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	ret := &SyncManagerImpl{
 		syncQueue:  queuePath,
 		logger:     logger,
-		collectors: collectors,
 		captureDir: captureDir,
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
@@ -56,48 +55,19 @@ func (s *SyncManagerImpl) Queue(syncIntervalMins int) error {
 	for {
 		select {
 		case <-s.cancelCtx.Done():
-			err := s.moveToSyncQueue(false)
+			err := filepath.WalkDir(s.captureDir, s.queue)
 			if err != nil {
-				return errors.Errorf("failed to move files to sync queue: %v", err)
+				s.logger.Errorf("failed to move files to sync queue: %v", err)
 			}
 			return nil
 		case <-ticker.C:
-			err := s.moveToSyncQueue(true)
+			s.logger.Info(s.captureDir)
+			err := filepath.WalkDir(s.captureDir, s.queue)
 			if err != nil {
-				return errors.Errorf("failed to move files to sync queue: %v", err)
+				s.logger.Errorf("failed to move files to sync queue: %v", err)
 			}
 		}
 	}
-}
-
-func (s *SyncManagerImpl) moveToSyncQueue(createNewTargets bool) error {
-	for component, collector := range *s.collectors {
-		oldTarget := collector.Collector.GetTarget()
-		// Create new target and set it.
-		if createNewTargets {
-			nextTarget, err := createDataCaptureFile(s.captureDir, collector.Attributes.Type, component.ComponentName)
-			if err != nil {
-				return errors.Errorf("failed to create new data capture file: %v", err)
-			}
-			collector.Collector.SetTarget(nextTarget)
-		} else {
-			collector.Collector.Close()
-		}
-
-		// Move collector file to SYNC_QUEUE
-		err := oldTarget.Close()
-		if err != nil {
-			return errors.Errorf("failed to close old data capture file: %v", err)
-		}
-		err = os.Rename(oldTarget.Name(),
-			path.Join(
-				getDataSyncDir(collector.Attributes.Type, component.ComponentName),
-				filepath.Base(oldTarget.Name())))
-		if err != nil {
-			return errors.Errorf("failed to move file to sync queue: %v", err)
-		}
-	}
-	return nil
 }
 
 // Upload syncs data to the backing storage system.
@@ -115,6 +85,10 @@ func (s *SyncManagerImpl) Upload() {
 	}
 }
 
+func (s *SyncManagerImpl) SetCaptureDir(dir string) {
+	s.captureDir = dir
+}
+
 // TODO: implement
 func (s *SyncManagerImpl) uploadQueuedFile(path string, di fs.DirEntry, err error) error {
 	if err != nil {
@@ -126,6 +100,50 @@ func (s *SyncManagerImpl) uploadQueuedFile(path string, di fs.DirEntry, err erro
 	}
 	//s.logger.Debugf("Visited: %s\n", path)
 	return nil
+}
+
+// TODO: implement
+func (s *SyncManagerImpl) queue(filePath string, di fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if di.IsDir() {
+		return nil
+	}
+
+	fileInfo, err := di.Info()
+	if err != nil {
+		return err
+	}
+
+	// If it's been written to in the last minute, it's still active and shouldn't be queued.
+	if time.Now().Sub(fileInfo.ModTime()) < time.Minute {
+		fmt.Println(filePath + " " + string(time.Now().Sub(fileInfo.ModTime())))
+		return nil
+	}
+
+	subPath, err := s.getPathUnderCaptureDir(filePath)
+	if err != nil {
+		return err
+	}
+
+	// TODO: create all necessary directories under sync queue before moving
+	err = os.Rename(filePath, path.Join(SyncQueue, subPath))
+	if err != nil {
+		s.logger.Info(filePath + "\n")
+		s.logger.Info(path.Join(SyncQueue, subPath) + "\n")
+		return errors.Errorf("failed to move file to sync queue: %v", err)
+	}
+	return nil
+}
+
+func (s *SyncManagerImpl) getPathUnderCaptureDir(filePath string) (string, error) {
+	if idx := strings.Index(filePath, s.captureDir); idx != -1 {
+		return filePath[idx+len(s.captureDir):], nil
+	} else {
+		return "", errors.Errorf("file path %s is not under capture directory %s", filePath, s.captureDir)
+	}
 }
 
 func getDataSyncDir(subtypeName string, componentName string) string {
