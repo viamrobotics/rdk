@@ -54,7 +54,7 @@ type Service interface {
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("object_detection")
 
-// Subtype is a constant that identifies the object segmentation service resource subtype.
+// Subtype is a constant that identifies the object detection service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
@@ -64,7 +64,7 @@ var Subtype = resource.NewSubtype(
 // Name is the ObjectSegmentationService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// FromRobot retrieves the object segmentation service of a robot.
+// FromRobot retrieves the object detection service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
 	resource, err := r.ResourceByName(Name)
 	if err != nil {

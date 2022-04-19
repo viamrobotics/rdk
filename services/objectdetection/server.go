@@ -14,7 +14,7 @@ type subtypeServer struct {
 	subtypeSvc subtype.Service
 }
 
-// NewServer constructs a object segmentation gRPC service server.
+// NewServer constructs a object detection gRPC service server.
 func NewServer(s subtype.Service) pb.ObjectDetectionServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
