@@ -296,15 +296,17 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 		}
 	}
 	// TODO: handle error
+	// TODO: handle updates correctly. Need to kill old goroutine. Maybe have as separate "sync_manager" with its own
+	//       close func?
 	go svc.queue(svcConfig.SyncIntervalMins)
 
 	return nil
 }
 
 // Sync syncs data to the backing storage system.
-func (svc *Service) queue(syncIntervalMins int) error {
+func (svc *Service) queue(syncIntervalMins int) {
 	if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
-		return err
+		svc.logger.Errorf("failed to make sync queue: %v", err)
 	}
 	ticker := time.NewTicker(time.Minute * time.Duration(syncIntervalMins))
 	defer ticker.Stop()
@@ -314,9 +316,9 @@ func (svc *Service) queue(syncIntervalMins int) error {
 		case <-svc.cancelCtx.Done():
 			err := svc.moveToSyncQueue(false)
 			if err != nil {
-				return err
+				svc.logger.Errorf("failed to move files to sync queue: %v", err)
 			}
-			return nil
+			return
 		case <-ticker.C:
 			err := svc.moveToSyncQueue(true)
 			if err != nil {
