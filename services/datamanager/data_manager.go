@@ -155,10 +155,11 @@ func getDataSyncDir(subtypeName string, componentName string) string {
 	return filepath.Join(SyncQueue, subtypeName, componentName)
 }
 
-// Create a timestamped file within the given capture directory.
+//TODO: move file to sync_queue on cancel
+
+// Create the data sync queue subdirectory containing a given component's data.
 func createDataSyncDir(subtypeName string, componentName string) error {
-	fileDir := filepath.Join(SyncQueue, subtypeName, componentName)
-	//
+	fileDir := getDataSyncDir(subtypeName, componentName)
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return err
 	}
@@ -187,10 +188,10 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
 				targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
-				err = createDataSyncDir(attributes.Type, componentName)
 				if err != nil {
 					return nil, err
 				}
+				err = createDataSyncDir(attributes.Type, componentName)
 				if err != nil {
 					return nil, err
 				}
@@ -223,10 +224,10 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
 	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
-	err = createDataSyncDir(attributes.Type, componentName)
 	if err != nil {
 		return nil, err
 	}
+	err = createDataSyncDir(attributes.Type, componentName)
 	if err != nil {
 		return nil, err
 	}
@@ -297,14 +298,11 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 // Sync syncs data to the backing storage system.
 func (svc *Service) moveToSyncQueue(syncIntervalMins int) error {
 	// TODO: clean up
-	fmt.Println(SyncQueue)
 	if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
-		fmt.Printf("%v", err)
 		return err
 	}
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(time.Minute * time.Duration(syncIntervalMins))
 	defer ticker.Stop()
-	fmt.Println("made ticker")
 
 	for {
 		select {
@@ -317,7 +315,6 @@ func (svc *Service) moveToSyncQueue(syncIntervalMins int) error {
 				next, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
 				// TODO: wrap error
 				if err != nil {
-					fmt.Printf(fmt.Errorf("%w", err).Error())
 					return err
 				}
 				collector.Collector.SetTarget(next)
@@ -326,7 +323,6 @@ func (svc *Service) moveToSyncQueue(syncIntervalMins int) error {
 				err = curr.Close()
 				// TODO: wrap error
 				if err != nil {
-					fmt.Printf("%v", err)
 					return err
 				}
 
@@ -336,8 +332,6 @@ func (svc *Service) moveToSyncQueue(syncIntervalMins int) error {
 						filepath.Base(curr.Name())))
 				if err != nil {
 					// TODO: wrap error
-					fmt.Println("here")
-					fmt.Printf(fmt.Errorf("%w", err).Error())
 					return err
 				}
 			}
@@ -345,6 +339,7 @@ func (svc *Service) moveToSyncQueue(syncIntervalMins int) error {
 	}
 }
 
+// TODO: implement
 func uploadQueuedFile(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		return err
