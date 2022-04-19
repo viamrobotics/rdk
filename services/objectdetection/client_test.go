@@ -49,11 +49,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		expSlice := []string{"client_test"}
-		injectODS.GetDetectorsFunc = func(ctx context.Context) ([]string, error) {
+		injectODS.DetectorNamesFunc = func(ctx context.Context) ([]string, error) {
 			return expSlice, nil
 		}
 
-		names, err := client.GetDetectors(context.Background())
+		names, err := client.DetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldResemble, expSlice)
 

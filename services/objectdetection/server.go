@@ -31,19 +31,19 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) GetDetectors(
+func (server *subtypeServer) DetectorNames(
 	ctx context.Context,
-	req *pb.GetDetectorsRequest,
-) (*pb.GetDetectorsResponse, error) {
+	req *pb.DetectorNamesRequest,
+) (*pb.DetectorNamesResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetDetectors(ctx)
+	names, err := svc.DetectorNames(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetDetectorsResponse{
-		Detectors: names,
+	return &pb.DetectorNamesResponse{
+		DetectorNames: names,
 	}, nil
 }

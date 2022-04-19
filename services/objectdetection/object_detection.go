@@ -48,7 +48,7 @@ func init() {
 
 // A Service that returns  list of 2D bounding boxes and labels around objects in a 2D image.
 type Service interface {
-	GetDetectors(ctx context.Context) ([]string, error)
+	DetectorNames(ctx context.Context) ([]string, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -98,6 +98,7 @@ type objDetService struct {
 	logger golog.Logger
 }
 
-func (srv *objDetService) GetDetectors(ctx context.Context) ([]string, error) {
+// DetectorNames returns a list of the all the names of the detectors in the registry.
+func (srv *objDetService) DetectorNames(ctx context.Context) ([]string, error) {
 	return DetectorNames(), nil
 }

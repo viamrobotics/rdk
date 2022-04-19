@@ -48,10 +48,10 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) GetDetectors(ctx context.Context) ([]string, error) {
-	resp, err := c.client.GetDetectors(ctx, &pb.GetDetectorsRequest{})
+func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
+	resp, err := c.client.DetectorNames(ctx, &pb.DetectorNamesRequest{})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Detectors, nil
+	return resp.DetectorNames, nil
 }
