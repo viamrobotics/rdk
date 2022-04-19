@@ -93,9 +93,8 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	collectors := make(map[componentMethodMetadata]collectorParams)
 
-	syncManager := NewSyncManager(cancelCtx, SyncQueue, &collectors, logger, viamCaptureDotDir)
+	syncManager := NewSyncManager(cancelCtx, SyncQueue, logger, viamCaptureDotDir)
 
 	dataManagerSvc := &Service{
 		r:           r,
@@ -265,6 +264,7 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
+	svc.syncManager.SetCaptureDir(svc.captureDir)
 
 	// Initialize or add a collector based on changes to the config.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -290,11 +290,38 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	// TODO: handle updates correctly. Need to kill old goroutine. Maybe have as separate "sync_manager" with its own
 	//       close func?
 	//svc.syncManager.Close()
-	svc.syncManager = NewSyncManager(svc.cancelCtx, SyncQueue, &svc.collectors, svc.logger, svc.captureDir)
+	//svc.syncManager = NewSyncManager(svc.cancelCtx, SyncQueue, &svc.collectors, svc.logger, svc.captureDir)
+	//if svcConfig.SyncIntervalMins > 0 {
+	//	go svc.syncManager.Queue(svcConfig.SyncIntervalMins)
+	//	go svc.syncManager.Upload()
+	//}
 	if svcConfig.SyncIntervalMins > 0 {
+		go svc.updateCollectors(svcConfig.SyncIntervalMins)
 		go svc.syncManager.Queue(svcConfig.SyncIntervalMins)
 		go svc.syncManager.Upload()
 	}
 
 	return nil
+}
+
+// TODO: handle updates. Should it have its own cancelfunc/context? But then where to store...
+func (svc *Service) updateCollectors(frequencyMins int) {
+	ticker := time.NewTicker(time.Minute * time.Duration(frequencyMins))
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-svc.cancelCtx.Done():
+			return
+		case <-ticker.C:
+			for component, collector := range svc.collectors {
+				// Create new target and set it.
+				nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
+				if err != nil {
+					svc.logger.Error(errors.Errorf("failed to create new data capture file: %v", err))
+				}
+				collector.Collector.SetTarget(nextTarget)
+			}
+		}
+	}
 }
