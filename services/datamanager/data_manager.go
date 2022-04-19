@@ -3,7 +3,6 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -95,14 +94,23 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
 	dataManagerSvc := &Service{
 		r:          r,
 		logger:     logger,
 		captureDir: viamCaptureDotDir,
 		collectors: make(map[componentMethodMetadata]collectorParams),
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
 	}
 
 	return dataManagerSvc, nil
+}
+
+func (svc *Service) Close(ctx context.Context) error {
+	svc.cancelFunc()
+	return nil
 }
 
 // Service initializes and orchestrates data capture collectors for registered component/methods.
@@ -143,7 +151,6 @@ func getFileTimestampName() string {
 // Create a timestamped file within the given capture directory.
 func createDataCaptureFile(captureDir string, subtypeName string, componentName string) (*os.File, error) {
 	fileDir := filepath.Join(captureDir, subtypeName, componentName)
-	//
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
@@ -154,8 +161,6 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 func getDataSyncDir(subtypeName string, componentName string) string {
 	return filepath.Join(SyncQueue, subtypeName, componentName)
 }
-
-//TODO: move file to sync_queue on cancel
 
 // Create the data sync queue subdirectory containing a given component's data.
 func createDataSyncDir(subtypeName string, componentName string) error {
@@ -290,14 +295,14 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 			delete(svc.collectors, componentMetadata)
 		}
 	}
-	go svc.moveToSyncQueue(svcConfig.SyncIntervalMins)
+	// TODO: handle error
+	go svc.moveToSyncQueueLong(svcConfig.SyncIntervalMins)
 
 	return nil
 }
 
 // Sync syncs data to the backing storage system.
-func (svc *Service) moveToSyncQueue(syncIntervalMins int) error {
-	// TODO: clean up
+func (svc *Service) moveToSyncQueueLong(syncIntervalMins int) error {
 	if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
 		return err
 	}
@@ -306,41 +311,49 @@ func (svc *Service) moveToSyncQueue(syncIntervalMins int) error {
 
 	for {
 		select {
-		//case <-svc.cancelCtx.Done():
-		//	return nil
+		case <-svc.cancelCtx.Done():
+			err := svc.moveToSyncQueue()
+			if err != nil {
+				return err
+			}
+			return nil
 		case <-ticker.C:
-			fmt.Println("tick")
-			for component, collector := range svc.collectors {
-				curr := collector.Collector.GetTarget()
-				next, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
-				// TODO: wrap error
-				if err != nil {
-					return err
-				}
-				collector.Collector.SetTarget(next)
-
-				// Move curr to SYNC_QUEUE
-				err = curr.Close()
-				// TODO: wrap error
-				if err != nil {
-					return err
-				}
-
-				err = os.Rename(curr.Name(),
-					path.Join(
-						getDataSyncDir(collector.Attributes.Type, component.ComponentName),
-						filepath.Base(curr.Name())))
-				if err != nil {
-					// TODO: wrap error
-					return err
-				}
+			err := svc.moveToSyncQueue()
+			if err != nil {
+				svc.logger.Errorf("failed to move files to sync queue: %v", err)
 			}
 		}
 	}
 }
 
+func (svc *Service) moveToSyncQueue() error {
+	for component, collector := range svc.collectors {
+		// Create new target and set it.
+		curr := collector.Collector.GetTarget()
+		next, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
+		if err != nil {
+			return errors.Errorf("failed to create new data capture file: %v", err)
+		}
+		collector.Collector.SetTarget(next)
+
+		// Move curr to SYNC_QUEUE
+		err = curr.Close()
+		if err != nil {
+			return errors.Errorf("failed to close old data capture file: %v", err)
+		}
+		err = os.Rename(curr.Name(),
+			path.Join(
+				getDataSyncDir(collector.Attributes.Type, component.ComponentName),
+				filepath.Base(curr.Name())))
+		if err != nil {
+			return errors.Errorf("failed to move file to sync queue: %v", err)
+		}
+	}
+	return nil
+}
+
 // TODO: implement
-func uploadQueuedFile(path string, di fs.DirEntry, err error) error {
+func (svc *Service) uploadQueuedFile(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -348,16 +361,21 @@ func uploadQueuedFile(path string, di fs.DirEntry, err error) error {
 	if di.IsDir() {
 		return nil
 	}
-	fmt.Printf("Visited: %s\n", path)
+	svc.logger.Debugf("Visited: %s\n", path)
 	return nil
 }
 
 // Sync syncs data to the backing storage system.
 func (svc *Service) upload() error {
 	for {
-		err := filepath.WalkDir(SyncQueue, uploadQueuedFile)
-		if err != nil {
-			// TODO: something
+		select {
+		case <-svc.cancelCtx.Done():
+			return nil
+		default:
+			err := filepath.WalkDir(SyncQueue, svc.uploadQueuedFile)
+			if err != nil {
+				svc.logger.Errorf("failed to upload queued file: %v", err)
+			}
 		}
 	}
 }
