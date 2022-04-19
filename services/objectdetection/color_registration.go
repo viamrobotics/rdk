@@ -2,7 +2,8 @@ package objectdetection
 
 import (
 	"context"
-	"errors"
+
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/utils"
@@ -13,20 +14,21 @@ import (
 // creates the ColorDetector, and registers it to the detector registry.
 func registerColorDetector(ctx context.Context, r detRegistry, conf *RegistryConfig) error {
 	if conf == nil {
-		return errors.New("object detection registry config cannot be nil")
+		return errors.New("object detection registry config for color detector cannot be nil")
 	}
 	var p objdet.ColorDetectorConfig
 	attrs, err := config.TransformAttributeMapToStruct(&p, conf.Parameters)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}
 	params, ok := attrs.(*objdet.ColorDetectorConfig)
 	if !ok {
-		return utils.NewUnexpectedTypeError(params, attrs)
+		err := utils.NewUnexpectedTypeError(params, attrs)
+		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}
 	detector, err := objdet.NewColorDetector(params)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}
 	return r.RegisterDetector(ctx, conf.Name, detector)
 }
