@@ -202,7 +202,12 @@ func (svc *frameSystemService) TransformPose(
 		input[name] = pos
 	}
 
-	return fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
+	tf, err := fs.Transform(input, referenceframe.NewPoseInFrame(pose.FrameName(), pose.Pose()), dst)
+	if err != nil {
+		return nil, err
+	}
+	pose, _ = tf.(*referenceframe.PoseInFrame)
+	return pose, nil
 }
 
 // updateLocalParts collects the physical parts of the robot that may have frame info,
@@ -225,7 +230,6 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 			continue
 		}
 		if _, ok := seen[c.Name]; ok {
-			return errors.Errorf("more than one component with name %q in config file", c.Name)
 		}
 		if c.Name == referenceframe.World {
 			return errors.Errorf("cannot give frame system part the name %s", referenceframe.World)

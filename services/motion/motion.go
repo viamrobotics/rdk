@@ -166,10 +166,11 @@ func (ms *motionService) Move(
 
 	// re-evaluate goalPose to be in the frame we're going to move in
 	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	goalPose, err := solver.TransformPose(input, destination.Pose(), goalFrameName, solvingFrame)
+	tf, err := solver.Transform(input, destination, solvingFrame)
 	if err != nil {
 		return false, err
 	}
+	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// add constraints to motion planning query
 	// for _, obstaclesInFrame := range worldState.GetObstacles() {
