@@ -23,7 +23,7 @@
         </div>
         <div class="pl-3 pr-2">{{ max }}{{unit}}</div>
         <number-input
-          class="w-8"
+          class="w-12"
           :hideControls="true"
           v-model="innerValue"
           :readonly="true"
