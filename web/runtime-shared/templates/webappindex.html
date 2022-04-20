@@ -1882,14 +1882,14 @@
             <div style="display: flex; margin-bottom: 1em">
               <table v-if="armToggle[arm.name]" border="1" style="margin-right: 1em" class="border border-slate-300">
                 <tr>
-                  <th colspan="3" class="border border-slate-300"><h5>END POSITION (mms)</h5></th>
+                  <th colspan="2" class="border border-slate-300"><h5>END POSITION (mms)</h5></th>
                 </tr>
                 <tr v-for="cc in armToggle[arm.name].pos_pieces" :key="cc.endPosition[0]">
                   <th class="border border-slate-300">${cc.endPosition[1]}</th>
                   <td class="border border-slate-300"><input v-model="cc.endPositionValue"></td>
                 </tr>
                 <tr>
-                  <th class="border border-slate-300" colspan="8">
+                  <th class="border border-slate-300" colspan="2">
                     <viam-button v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</viam-button>
                     <viam-button v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
                   </th>
@@ -1897,14 +1897,14 @@
               </table>
               <table v-if="armToggle[arm.name]" border="1" class="border border-slate-300">
                 <tr>
-                  <th colspan="3" class="border border-slate-300"><h5>JOINTS (degrees)</h5></th>
+                  <th colspan="2" class="border border-slate-300"><h5>JOINTS (degrees)</h5></th>
                 </tr>
                 <tr v-for="bb in armToggle[arm.name].joint_pieces" :key="bb.joint">
                   <th class="border border-slate-300">Joint ${bb.joint}</th>
                   <td class="border border-slate-300"><input v-model="bb.jointValue"></td>
                 </tr>
                 <tr>
-                  <th class="border border-slate-300" colspan="8">
+                  <th class="border border-slate-300" colspan="2">
                     <viam-button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</viam-button>
                     <viam-button v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
                   </th>
