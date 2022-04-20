@@ -2,6 +2,7 @@ package objectdetection
 
 import (
 	"context"
+	"image"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -9,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
+	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
 // client is a client that implements the Object Detection Service.
@@ -71,4 +73,21 @@ func (c *client) AddDetector(ctx context.Context, cfg Config) (bool, error) {
 		return false, err
 	}
 	return resp.Success, nil
+}
+
+func (c *client) Detect(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	resp, err := c.client.Detect(ctx, &pb.DetectRequest{
+		CameraName:   cameraName,
+		DetectorName: detectorName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	detections := make([]objdet.Detection, 0, len(resp.Detections))
+	for _, d := range resp.Detections {
+		box := image.Rect(int(d.XMin), int(d.YMin), int(d.XMax), int(d.YMax))
+		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
+		detections = append(detections, det)
+	}
+	return detections, nil
 }
