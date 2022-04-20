@@ -222,7 +222,8 @@ type mock struct {
 func (m *mock) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
 	segmenterName string,
-	params config.AttributeMap) ([]*vision.Object, error) {
+	params config.AttributeMap,
+) ([]*vision.Object, error) {
 	m.timesCalled++
 	return []*vision.Object{vision.NewEmptyObject(), vision.NewEmptyObject()}, nil
 }

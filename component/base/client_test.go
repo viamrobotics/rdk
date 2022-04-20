@@ -65,7 +65,8 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	brokenBase.MoveStraightFunc = func(
 		ctx context.Context,
 		distanceMm int, mmPerSec float64,
-		block bool) error {
+		block bool,
+	) error {
 		return errors.New(errMsg)
 	}
 	brokenBase.MoveArcFunc = func(

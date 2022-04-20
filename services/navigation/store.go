@@ -190,12 +190,11 @@ func (store *mongoDBNavigationStore) Close(ctx context.Context) error {
 
 func (store *mongoDBNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, error) {
 	filter := bson.D{{"visited", false}}
-	cursor, err :=
-		store.waypointsColl.Find(
-			ctx,
-			filter,
-			options.Find().SetSort(bson.D{{"order", -1}, {"_id", 1}}),
-		)
+	cursor, err := store.waypointsColl.Find(
+		ctx,
+		filter,
+		options.Find().SetSort(bson.D{{"order", -1}, {"_id", 1}}),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -226,12 +225,11 @@ func (store *mongoDBNavigationStore) RemoveWaypoint(ctx context.Context, id prim
 
 func (store *mongoDBNavigationStore) NextWaypoint(ctx context.Context) (Waypoint, error) {
 	filter := bson.D{{"visited", false}}
-	result :=
-		store.waypointsColl.FindOne(
-			ctx,
-			filter,
-			options.FindOne().SetSort(bson.D{{"order", -1}, {"_id", 1}}),
-		)
+	result := store.waypointsColl.FindOne(
+		ctx,
+		filter,
+		options.FindOne().SetSort(bson.D{{"order", -1}, {"_id", 1}}),
+	)
 	var wp Waypoint
 	if err := result.Decode(&wp); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
