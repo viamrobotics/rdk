@@ -33,7 +33,7 @@ describe("ViamButton", () => {
       template: '<div> <number-input v-model="value"></number-input> </div>',
       components: { NumberInput }
     });
-    wrapper.findAll('img').at(0).trigger('click')
+    wrapper.findAll('.arrow-icon').at(0).trigger('click')
     
     // input.setValue("154");
     expect(wrapper.vm.$data.value).toBe(13)
@@ -44,7 +44,7 @@ describe("ViamButton", () => {
       template: '<div> <number-input v-model="value"></number-input> </div>',
       components: { NumberInput }
     });
-    wrapper.findAll('img').at(1).trigger('click')
+    wrapper.findAll('.arrow-icon').at(1).trigger('click')
     
     // input.setValue("154");
     expect(wrapper.vm.$data.value).toBe(11)
@@ -56,7 +56,7 @@ describe("ViamButton", () => {
       template: '<div> <number-input v-model="value" :step="2"></number-input> </div>',
       components: { NumberInput }
     });
-    wrapper.findAll('img').at(0).trigger('click')
+    wrapper.findAll('.arrow-icon').at(0).trigger('click')
     
     expect(wrapper.vm.$data.value).toBe(14)
   });
