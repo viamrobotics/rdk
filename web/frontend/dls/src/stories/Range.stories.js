@@ -7,5 +7,5 @@ storiesOf("Range", module).add("Default Range", () => ({
       name: "Test Range:",
     };
   },
-  template: '<div><Range :percentage=percentage :name="name"></Range></div>',
+  template: '<div><Range :percentage="percentage" :name="name"></Range></div>',
 }));
