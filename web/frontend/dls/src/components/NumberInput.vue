@@ -68,7 +68,6 @@ export default class NumberInput extends Vue {
   arrowClicked(handler: Function): void {
     //for arrows up and down working
     (this.$refs.input as HTMLInputElement).focus();
-    console.log('aa arrowClicked')
     handler();
   }
   handleArrows(event: KeyboardEvent): void {
