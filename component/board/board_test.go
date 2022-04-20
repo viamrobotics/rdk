@@ -81,7 +81,6 @@ func TestBoardName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "9596b6cc-dc7f-52b6-a050-0a9a09e3f90d",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: board.SubtypeName,
@@ -93,7 +92,6 @@ func TestBoardName(t *testing.T) {
 			"all fields included",
 			testBoardName,
 			resource.Name{
-				UUID: "211f7735-3e34-563e-a01b-420c58b5a974",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: board.SubtypeName,
