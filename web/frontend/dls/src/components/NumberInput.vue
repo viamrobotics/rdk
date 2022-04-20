@@ -2,14 +2,15 @@
   <div class="flex viam-number-input-root h-8">
     <input
       ref="input"
-      class="viam-number-input border-black outline-none h-full"
+      class="viam-number-input border-black outline-none h-full w-full"
       type="tel"
       :value="innerValue"
       :placeholder="placeholder"
+      :readonly="readonly"
       @keydown="handleArrows"
       @input="inputEventHandler"
       @paste="pasteEventHandler"
-      :class="{'border-r': readonly}"
+      :class="{'border-r': readonly, 'text-center': readonly}"
     />
     <div
       v-show="!readonly"
