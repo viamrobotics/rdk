@@ -51,7 +51,6 @@ var Subtype = resource.NewSubtype(
 
 // A Motor represents a physical motor connected to a board.
 type Motor interface {
-
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational
 	SetPower(ctx context.Context, powerPct float64) error

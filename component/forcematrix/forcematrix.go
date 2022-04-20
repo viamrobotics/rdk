@@ -149,7 +149,8 @@ func (r *reconfigurableForceMatrix) Close(ctx context.Context) error {
 }
 
 func (r *reconfigurableForceMatrix) Reconfigure(ctx context.Context,
-	newForceMatrix resource.Reconfigurable) error {
+	newForceMatrix resource.Reconfigurable,
+) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newForceMatrix.(*reconfigurableForceMatrix)
