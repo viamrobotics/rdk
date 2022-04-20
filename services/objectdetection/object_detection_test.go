@@ -34,7 +34,7 @@ func TestDetectorNames(t *testing.T) {
 func TestAddDetector(t *testing.T) {
 	srv := createService(t, "data/empty.json")
 	// success
-	cfg := objectdetection.RegistryConfig{
+	cfg := objectdetection.Config{
 		Name: "test",
 		Type: "color",
 		Parameters: config.AttributeMap{
@@ -53,7 +53,7 @@ func TestAddDetector(t *testing.T) {
 	cfg.Name = "will_fail"
 	cfg.Type = "wrong_type"
 	ok, err = srv.AddDetector(context.Background(), cfg)
-	test.That(t, err, test.ShouldBeError, objectdetection.NewDetectorTypeNotImplemented("wrong_type"))
+	test.That(t, err.Error(), test.ShouldContainSubstring, "is not implemented")
 	test.That(t, ok, test.ShouldBeFalse)
 	names, err = srv.DetectorNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)

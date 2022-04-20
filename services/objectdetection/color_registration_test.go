@@ -1,7 +1,6 @@
 package objectdetection
 
 import (
-	"context"
 	"testing"
 
 	"go.viam.com/test"
@@ -10,7 +9,7 @@ import (
 )
 
 func TestColorDetector(t *testing.T) {
-	inp := &RegistryConfig{
+	inp := &Config{
 		Name: "my_color_detector",
 		Type: "color",
 		Parameters: config.AttributeMap{
@@ -20,24 +19,24 @@ func TestColorDetector(t *testing.T) {
 			"extraneous":   "whatever",
 		},
 	}
-	reg := make(detRegistry)
-	err := registerColorDetector(context.Background(), reg, inp)
+	reg := make(detectorMap)
+	err := registerColorDetector(reg, inp)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = reg.DetectorLookup("my_color_detector")
+	_, err = reg.detectorLookup("my_color_detector")
 	test.That(t, err, test.ShouldBeNil)
 
 	// with error - bad parameters
 	inp.Name = "will_fail"
 	inp.Parameters["tolerance"] = 4.0 // value out of range
-	err = registerColorDetector(context.Background(), reg, inp)
+	err = registerColorDetector(reg, inp)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "tolerance must be between")
 
 	// with error - nil entry
-	err = registerColorDetector(context.Background(), reg, nil)
+	err = registerColorDetector(reg, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 
 	// with error - nil parameters
 	inp.Parameters = nil
-	err = registerColorDetector(context.Background(), reg, inp)
+	err = registerColorDetector(reg, inp)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
 }

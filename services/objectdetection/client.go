@@ -57,7 +57,7 @@ func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
 	return resp.DetectorNames, nil
 }
 
-func (c *client) AddDetector(ctx context.Context, cfg RegistryConfig) (bool, error) {
+func (c *client) AddDetector(ctx context.Context, cfg Config) (bool, error) {
 	params, err := structpb.NewStruct(cfg.Parameters)
 	if err != nil {
 		return false, err

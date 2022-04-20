@@ -52,10 +52,9 @@ func TestClient(t *testing.T) {
 		client, err := objectdetection.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		expSlice := []string{"detector_3"}
 		names, err := client.DetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, names, test.ShouldResemble, expSlice)
+		test.That(t, names, test.ShouldContain, "detector_3")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
@@ -64,7 +63,7 @@ func TestClient(t *testing.T) {
 		client, err := objectdetection.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		cfg := objectdetection.RegistryConfig{
+		cfg := objectdetection.Config{
 			Name: "new_detector",
 			Type: "color",
 			Parameters: config.AttributeMap{
@@ -78,10 +77,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		expSlice := []string{"detector_3", "new_detector"}
 		names, err := client.DetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, names, test.ShouldResemble, expSlice)
+		test.That(t, names, test.ShouldContain, "detector_3")
+		test.That(t, names, test.ShouldContain, "new_detector")
 		// failure - tries to add a detector again
 		ok, err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "trying to register two detectors with the same name")

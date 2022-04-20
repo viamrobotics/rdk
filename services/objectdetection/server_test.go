@@ -95,6 +95,6 @@ func TestServerAddDetector(t *testing.T) {
 		DetectorModelType:  "no_such_type",
 		DetectorParameters: params,
 	})
-	test.That(t, err, test.ShouldBeError, objectdetection.NewDetectorTypeNotImplemented("no_such_type"))
+	test.That(t, err.Error(), test.ShouldContainSubstring, "is not implemented")
 	test.That(t, resp, test.ShouldBeNil)
 }

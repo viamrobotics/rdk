@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -39,18 +40,18 @@ func init() {
 		},
 	})
 	cType := config.ServiceType(SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
-		var attrs Attributes
-		return config.TransformAttributeMapToStruct(&attrs, attributes)
+	config.RegisterServiceAttributeMapConverter(cType, func(attributeMap config.AttributeMap) (interface{}, error) {
+		var attrs attributes
+		return config.TransformAttributeMapToStruct(&attrs, attributeMap)
 	},
-		&Attributes{},
+		&attributes{},
 	)
 }
 
 // A Service that returns  list of 2D bounding boxes and labels around objects in a 2D image.
 type Service interface {
 	DetectorNames(ctx context.Context) ([]string, error)
-	AddDetector(ctx context.Context, cfg RegistryConfig) (bool, error)
+	AddDetector(ctx context.Context, cfg Config) (bool, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -89,41 +90,43 @@ const (
 	ColorType      = DetectorType("color")
 )
 
-// NewDetectorTypeNotImplemented is used when the detector type is not implemented.
-func NewDetectorTypeNotImplemented(name string) error {
-	return errors.Errorf("detector type %q is not implemented", name)
-}
-
-// Attributes contains a list of the user-provided details necessary to register a new detector.
-type Attributes struct {
-	Registry []RegistryConfig `json:"detector_registry"`
-}
-
-// RegistryConfig specifies the name of the detector, the type of detector,
+// Config specifies the name of the detector, the type of detector,
 // and the necessary parameters needed to build the detector.
-type RegistryConfig struct {
+type Config struct {
 	Name       string              `json:"name"`
 	Type       string              `json:"type"`
 	Parameters config.AttributeMap `json:"parameters"`
 }
 
-// RegisterNewDetectors take an Attributes struct and parses each element by type to create an RDK Detector
-// and register it to the detector registry.
-func RegisterNewDetectors(ctx context.Context, r detRegistry, attrs *Attributes, logger golog.Logger) error {
+// attributes contains a list of the user-provided details necessary to register a new detector.
+type attributes struct {
+	Registry []Config `json:"register_detectors"`
+}
+
+// newDetectorTypeNotImplemented is used when the detector type is not implemented.
+func newDetectorTypeNotImplemented(name string) error {
+	return errors.Errorf("detector type %q is not implemented", name)
+}
+
+// registerNewDetectors take an attributes struct and parses each element by type to create an RDK Detector
+// and register it to the detector map.
+func registerNewDetectors(ctx context.Context, dm detectorMap, attrs *attributes, logger golog.Logger) error {
+	_, span := trace.StartSpan(ctx, "service::objectdetection::registerNewDetectors")
+	defer span.End()
 	for _, attr := range attrs.Registry {
 		logger.Debugf("adding detector %q of type %s", attr.Name, attr.Type)
 		switch DetectorType(attr.Type) {
 		case TFLiteType:
-			return NewDetectorTypeNotImplemented(attr.Type)
+			return newDetectorTypeNotImplemented(attr.Type)
 		case TensorFlowType:
-			return NewDetectorTypeNotImplemented(attr.Type)
+			return newDetectorTypeNotImplemented(attr.Type)
 		case ColorType:
-			err := registerColorDetector(ctx, r, &attr)
+			err := registerColorDetector(dm, &attr)
 			if err != nil {
 				return err
 			}
 		default:
-			return NewDetectorTypeNotImplemented(attr.Type)
+			return newDetectorTypeNotImplemented(attr.Type)
 		}
 	}
 	return nil
@@ -131,37 +134,41 @@ func RegisterNewDetectors(ctx context.Context, r detRegistry, attrs *Attributes,
 
 // New registers new detectors from the config and returns a new object detection service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	attrs, ok := config.ConvertedAttributes.(*Attributes)
+	attrs, ok := config.ConvertedAttributes.(*attributes)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 	}
-	detectorRegistry := make(detRegistry)
-	err := RegisterNewDetectors(ctx, detectorRegistry, attrs, logger)
+	detMap := make(detectorMap)
+	err := registerNewDetectors(ctx, detMap, attrs, logger)
 	if err != nil {
 		return nil, err
 	}
 	return &objDetService{
 		r:      r,
-		reg:    detectorRegistry,
+		reg:    detMap,
 		logger: logger,
 	}, nil
 }
 
 type objDetService struct {
 	r      robot.Robot
-	reg    detRegistry
+	reg    detectorMap
 	logger golog.Logger
 }
 
-// DetectorNames returns a list of the all the names of the detectors in the registry.
+// DetectorNames returns a list of the all the names of the detectors in the detector map.
 func (srv *objDetService) DetectorNames(ctx context.Context) ([]string, error) {
-	return srv.reg.DetectorNames(), nil
+	_, span := trace.StartSpan(ctx, "service::objectdetection::DetectorNames")
+	defer span.End()
+	return srv.reg.detectorNames(), nil
 }
 
 // AddDetector adds a new detector from an Attribute config struct.
-func (srv *objDetService) AddDetector(ctx context.Context, cfg RegistryConfig) (bool, error) {
-	attrs := &Attributes{Registry: []RegistryConfig{cfg}}
-	err := RegisterNewDetectors(ctx, srv.reg, attrs, srv.logger)
+func (srv *objDetService) AddDetector(ctx context.Context, cfg Config) (bool, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::AddDetector")
+	defer span.End()
+	attrs := &attributes{Registry: []Config{cfg}}
+	err := registerNewDetectors(ctx, srv.reg, attrs, srv.logger)
 	if err != nil {
 		return false, err
 	}

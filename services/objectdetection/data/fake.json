@@ -3,7 +3,7 @@
     {
       "type": "object_detection",
       "attributes": {
-        "detector_registry": [
+        "register_detectors": [
           {
              "name": "detector_3", 
              "type": "color",
