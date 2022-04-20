@@ -16,4 +16,12 @@ storiesOf("NumberInput", module)
     };
   },
   template: `<div><number-input v-model="value" :min="5" :max="10"></number-input></div>`,
+}))
+.add("NumberInput readonly", () => ({
+  data() {
+    return {
+      value: 7,
+    };
+  },
+  template: `<div><number-input v-model="value" :readonly="true"></number-input></div>`,
 }));

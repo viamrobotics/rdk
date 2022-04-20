@@ -2,25 +2,27 @@
   <div class="flex viam-number-input-root h-8">
     <input
       ref="input"
-      class="viam-number-input border border-black outline-none h-full"
+      class="viam-number-input border-black outline-none h-full"
       type="tel"
       :value="innerValue"
       :placeholder="placeholder"
       @keydown="handleArrows"
       @input="inputEventHandler"
       @paste="pasteEventHandler"
+      :class="{'border-r': readonly}"
     />
     <div
-      v-show="!hideControls"
+      v-show="!readonly"
       class="flex justify-between flex-col h-full items-stretch border border-black">
-        <ViamIcon @click.native="arrowClicked(increase)" class="cursor-pointer" :path="mdiChevronUp"></ViamIcon>
-        <ViamIcon @click.native="arrowClicked(decrease)" class="cursor-pointer" :path="mdiChevronDown"></ViamIcon>
+        <ViamIcon @click.native="arrowClicked(increase)" class="arrow-icon cursor-pointer" :path="mdiChevronUp"></ViamIcon>
+        <ViamIcon @click.native="arrowClicked(decrease)" class="arrow-icon cursor-pointer" :path="mdiChevronDown"></ViamIcon>
     </div>
   </div>
 </template>
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
 import { mdiChevronDown, mdiChevronUp } from '@mdi/js'
+import ViamIcon from './ViamIcon.vue'
 const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
 
 @Component({
@@ -29,6 +31,9 @@ const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
     prop: "value",
     event: "input",
   },
+  components: {
+    ViamIcon
+  }
 })
 export default class NumberInput extends Vue {
   @Prop({ default: -Infinity })
@@ -40,7 +45,7 @@ export default class NumberInput extends Vue {
   @Prop({ default: 1 })
   public step!: number
   @Prop({ default: false })
-  public hideControls!: Boolean
+  public readonly!: Boolean
   @Prop({ required: true })
   public value!: number;
   @Prop({ default: '' })
@@ -63,10 +68,11 @@ export default class NumberInput extends Vue {
   arrowClicked(handler: Function): void {
     //for arrows up and down working
     (this.$refs.input as HTMLInputElement).focus();
-    console.log('aa arrowClicked')
     handler();
   }
   handleArrows(event: KeyboardEvent): void {
+    if (this.readonly)
+      return
     if (event.key === "ArrowUp") this.increase();
     else if (event.key === "ArrowDown") this.decrease();
   }
@@ -122,6 +128,8 @@ export default class NumberInput extends Vue {
 <style scoped>
 .viam-number-input {
   padding: 6px 4px;
-  border-right: 0;
+  border-left-width: 1px;
+  border-top-width: 1px;
+  border-bottom-width: 1px;
 }
 </style>

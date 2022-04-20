@@ -78,7 +78,6 @@ func TestSensorName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "0434a3a1-3bf4-5f98-8ca7-3bee0487f970",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: sensor.SubtypeName,
@@ -90,7 +89,6 @@ func TestSensorName(t *testing.T) {
 			"all fields included",
 			testSensorName,
 			resource.Name{
-				UUID: "abfe61a0-61ed-523e-9793-f0d5dded2915",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: sensor.SubtypeName,
