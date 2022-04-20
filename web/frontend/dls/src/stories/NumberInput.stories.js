@@ -7,15 +7,15 @@ storiesOf("NumberInput", module)
       value: 12.3,
     };
   },
-  template: `<div><number-input v-model="value" float></number-input></div>`,
+  template: `<div><number-input v-model="value" :float="true"></number-input></div>`,
 }))
-.add("NumberInput without floats and min/max", () => ({
+.add("NumberInput without floats but with min=5 and max=1000", () => ({
   data() {
     return {
       value: 7,
     };
   },
-  template: `<div><number-input v-model="value" :min="5" :max="10"></number-input></div>`,
+  template: `<div><number-input v-model="value" :min="5" :max="1000"></number-input></div>`,
 }))
 .add("NumberInput readonly", () => ({
   data() {

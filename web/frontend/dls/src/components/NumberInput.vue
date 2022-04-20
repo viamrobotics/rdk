@@ -88,8 +88,12 @@ export default class NumberInput extends Vue {
     if (!this.float) value = input.value.replace(/\./g, "");
     if (!this.isNumber(value)) input.value = `${this.innerValue}`;
     else {
-      const newValue = this.calcValueWithRestrictions(Number(value));
-      input.value = `${newValue}`;
+      let newValue = this.calcValueWithRestrictions(Number(value));
+      if (value.indexOf('.') === value.length - 1)
+        input.value = `${newValue}.0`;
+      else
+        input.value = `${newValue}`;
+
       this.innerValue = newValue;
     }
   }
