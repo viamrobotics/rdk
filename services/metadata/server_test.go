@@ -26,7 +26,6 @@ var serverNewResource = resource.NewName(
 
 var serverOneResourceResponse = []*commonpb.ResourceName{
 	{
-		Uuid:      serverNewResource.UUID,
 		Namespace: string(serverNewResource.Namespace),
 		Type:      string(serverNewResource.ResourceType),
 		Subtype:   string(serverNewResource.ResourceSubtype),
