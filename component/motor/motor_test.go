@@ -174,7 +174,6 @@ func TestMotorName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "a5ec0320-f103-5dd8-b56c-e9f363fb792a",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: motor.SubtypeName,
@@ -186,7 +185,6 @@ func TestMotorName(t *testing.T) {
 			"all fields included",
 			testMotorName,
 			resource.Name{
-				UUID: "e0fbfb5f-147a-5e4d-b209-ca362547c8cf",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: motor.SubtypeName,
