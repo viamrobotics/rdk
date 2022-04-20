@@ -58,7 +58,7 @@ func (server *subtypeServer) AddDetector(
 		return nil, err
 	}
 	params := config.AttributeMap(req.DetectorParameters.AsMap())
-	cfg := RegistryConfig{
+	cfg := Config{
 		Name:       req.DetectorName,
 		Type:       req.DetectorModelType,
 		Parameters: params,

@@ -10,7 +10,7 @@ import (
 type ObjectDetectionService struct {
 	objectdetection.Service
 	DetectorNamesFunc func(ctx context.Context) ([]string, error)
-	AddDetectorFunc   func(ctx context.Context, cfg objectdetection.RegistryConfig) (bool, error)
+	AddDetectorFunc   func(ctx context.Context, cfg objectdetection.Config) (bool, error)
 }
 
 // DetectorNames calls the injected DetectorNames or the real variant.
@@ -22,7 +22,7 @@ func (seg *ObjectDetectionService) DetectorNames(ctx context.Context) ([]string,
 }
 
 // AddDetector calls the injected AddDetector or the real variant.
-func (seg *ObjectDetectionService) AddDetector(ctx context.Context, cfg objectdetection.RegistryConfig) (bool, error) {
+func (seg *ObjectDetectionService) AddDetector(ctx context.Context, cfg objectdetection.Config) (bool, error) {
 	if seg.DetectorNamesFunc == nil {
 		return seg.Service.AddDetector(ctx, cfg)
 	}
