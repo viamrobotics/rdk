@@ -150,7 +150,6 @@ func TestInputControllerName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "48d8bd5e-629b-51c1-8bf8-f2f308942012",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: input.SubtypeName,
@@ -162,7 +161,6 @@ func TestInputControllerName(t *testing.T) {
 			"all fields included",
 			testInputControllerName,
 			resource.Name{
-				UUID: "6a00798b-dab4-5abc-b3d9-7fc45f9cfea0",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: input.SubtypeName,

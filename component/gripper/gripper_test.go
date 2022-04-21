@@ -77,7 +77,6 @@ func TestGripperName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "e2b52bce-800b-56b7-904c-2f8372ce4623",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gripper.SubtypeName,
@@ -89,7 +88,6 @@ func TestGripperName(t *testing.T) {
 			"all fields included",
 			testGripperName,
 			resource.Name{
-				UUID: "f3e34221-62ec-5951-b112-d4cccb47bf61",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gripper.SubtypeName,
