@@ -369,6 +369,9 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions []*pb.Join
 	nSteps := int((diff / float64(x.speed)) * x.moveHZ)
 	for i := 1; i <= nSteps; i++ {
 		interpolatedInputs, err := referenceframe.InterpolateInputs(from, to, float64(i)/float64(nSteps))
+		if err != nil {
+			return err
+		}
 		step := referenceframe.InputsToFloats(interpolatedInputs)
 
 		c := x.newCmd(regMap["MoveJoints"])

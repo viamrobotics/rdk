@@ -44,6 +44,9 @@ func limitsAlmostEqual(a, b []Limit) bool {
 	return true
 }
 
+// NewDoFInputUnitMismatchError returns an error representing the scenario when
+// the number of supplied input units does not match the degrees of freedom of
+// the supplied frame.
 func NewDoFInputUnitMismatchError() error {
 	return errors.New(
 		"number of supplied input units does not match degrees of freedom of frame")

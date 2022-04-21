@@ -9,8 +9,12 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Units is an enumerated type indicating the units of the Value
+// for an Input.
 type Units int
 
+// These are the currently supported Units for Inputs. When more
+// sophisticated Input types are supported, add any new units here.
 const (
 	Radians Units = iota
 	Millimeters
@@ -87,7 +91,7 @@ func JointPosToInputs(jointPositions []*pb.JointPosition) ([]Input, error) {
 }
 
 // JointPositionsToRadians converts the given joint positions into a slice
-// of radians. NOTE: Zeroes are inserted for joints that are not revolute
+// of radians. NOTE: Zeroes are inserted for joints that are not revolute.
 func JointPositionsToRadians(jointPositions []*pb.JointPosition) []float64 {
 	n := make([]float64, len(jointPositions))
 	for idx, jp := range jointPositions {

@@ -137,10 +137,18 @@ func plannerRunner(ctx context.Context,
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
 		endpointPreview := make(chan *configuration, 1)
 		solutionChan := make(chan *planReturn, 1)
+		var planRunnerErr error
 		utils.PanicCapturingGo(func() {
 			// TODO(rb) fix me
-			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, map[string]spatial.Geometry{}, opt, endpointPreview, solutionChan)
+			planRunnerErr = cbert.planRunner(
+				ctx,
+				spatial.PoseToProtobuf(goal), seed, map[string]spatial.Geometry{},
+				opt, endpointPreview, solutionChan,
+			)
 		})
+		if planRunnerErr != nil {
+			return nil, planRunnerErr
+		}
 		for {
 			select {
 			case <-ctx.Done():

@@ -88,10 +88,14 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	opt *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *planReturn, 1)
+	var planRunnerErr error
 	utils.PanicCapturingGo(func() {
 		// TODO(rb) fix me
-		mp.planRunner(ctx, goal, seed, map[string]spatial.Geometry{}, opt, nil, solutionChan)
+		planRunnerErr = mp.planRunner(ctx, goal, seed, map[string]spatial.Geometry{}, opt, nil, solutionChan)
 	})
+	if planRunnerErr != nil {
+		return nil, planRunnerErr
+	}
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -122,7 +126,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		seedPos, err := mp.frame.Transform(seed)
 		if err != nil {
 			solutionChan <- &planReturn{err: err}
-			return nil
+			return err
 		}
 		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
 		if len(obstacles) == 0 {
@@ -149,7 +153,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
-		return nil
+		return err
 	}
 
 	// Get the N best solutions
