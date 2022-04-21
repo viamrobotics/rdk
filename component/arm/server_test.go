@@ -119,7 +119,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get pose")
 	})
 
-	//nolint:dupl
 	t.Run("move to position", func(t *testing.T) {
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, To: pose2})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -153,7 +152,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get joint positions")
 	})
 
-	//nolint:dupl
 	t.Run("move to joint position", func(t *testing.T) {
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),

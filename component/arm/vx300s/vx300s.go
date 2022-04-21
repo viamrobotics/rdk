@@ -187,7 +187,6 @@ func (a *myArm) GetJointPositions(ctx context.Context) ([]*pb.JointPosition, err
 			Parameters: []float64{servoDeg},
 			JointType:  pb.JointPosition_JOINT_TYPE_REVOLUTE,
 		}
-
 	}
 
 	return positions, nil

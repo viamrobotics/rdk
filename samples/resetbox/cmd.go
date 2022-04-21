@@ -80,7 +80,7 @@ var (
 		},
 	}
 	//nolint:unused
-	// cubeReadyPos = &componentpb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
+	// cubeReadyPos = &componentpb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}.
 	cubeReadyPos = []*componentpb.JointPosition{
 		{
 			Parameters: []float64{-182.6},
