@@ -425,6 +425,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if err != nil {
 		return err
 	}
+
 	if options.SignalingAddress == "" {
 		options.SignalingAddress = listenerAddr
 	}
@@ -438,40 +439,12 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	// CONFIGURE RESOURCES
-
-	resources := make(map[resource.Name]interface{})
-	for _, name := range svc.r.ResourceNames() {
-		resource, err := svc.r.ResourceByName(name)
-		if err != nil {
-			continue
-		}
-
-		resources[name] = resource
-	}
-	if err := svc.update(resources); err != nil {
+	if err := svc.initResources(); err != nil {
 		return err
 	}
 
-	// register every subtype resource grpc service here
-	// TODO: only register necessary services (#272)
-	subtypeConstructors := registry.RegisteredResourceSubtypes()
-	for s, rs := range subtypeConstructors {
-		if rs.RegisterRPCService == nil {
-			continue
-		}
-		subtypeSvc, ok := svc.services[s]
-		if !ok {
-			newSvc, err := subtype.New(make(map[resource.Name]interface{}))
-			if err != nil {
-				return err
-			}
-			subtypeSvc = newSvc
-			svc.services[s] = newSvc
-		}
-		if err := rs.RegisterRPCService(ctx, svc.server, subtypeSvc); err != nil {
-			return err
-		}
+	if err := svc.initSubtypeServices(ctx); err != nil {
+		return err
 	}
 
 	// CONFIGURE STREAMS
@@ -710,7 +683,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, ctx context.
 		}),
 	)
 
-    return rpcOpts, nil
+	return rpcOpts, nil
 }
 
 // Initialize authentication handler options
@@ -779,4 +752,47 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, ctx contex
 	}
 
 	return rpcOpts, nil
+}
+
+// Initialize robot resources
+func (svc *webService) initResources() error {
+	resources := make(map[resource.Name]interface{})
+	for _, name := range svc.r.ResourceNames() {
+		resource, err := svc.r.ResourceByName(name)
+		if err != nil {
+			continue
+		}
+
+		resources[name] = resource
+	}
+	if err := svc.update(resources); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Register every subtype resource grpc service here
+func (svc *webService) initSubtypeServices(ctx context.Context) error {
+	// TODO: only register necessary services (#272)
+	subtypeConstructors := registry.RegisteredResourceSubtypes()
+	for s, rs := range subtypeConstructors {
+		if rs.RegisterRPCService == nil {
+			continue
+		}
+		subtypeSvc, ok := svc.services[s]
+		if !ok {
+			newSvc, err := subtype.New(make(map[resource.Name]interface{}))
+			if err != nil {
+				return err
+			}
+			subtypeSvc = newSvc
+			svc.services[s] = newSvc
+		}
+		if err := rs.RegisterRPCService(ctx, svc.server, subtypeSvc); err != nil {
+			return err
+		}
+	}
+
+    return nil
 }
