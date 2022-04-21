@@ -74,11 +74,10 @@ func ColorObjects(ctx context.Context, cam camera.Camera, params config.Attribut
 	if err != nil {
 		return nil, err
 	}
-	proj := camera.Projector(cam)
 	// turn the detector into a segmentor
-	segmenter, err := DetectionSegmenter(detector, proj, cfg.MeanK, cfg.Sigma)
+	segmenter, _, err := DetectionSegmenter(detector)
 	if err != nil {
 		return nil, err
 	}
-	return segmenter(ctx, cam, nil)
+	return segmenter(ctx, cam, config.AttributeMap{"mean_k": cfg.MeanK, "sigma": cfg.Sigma})
 }

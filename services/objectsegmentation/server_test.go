@@ -2,8 +2,9 @@ package objectsegmentation_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 func newServer(osMap map[resource.Name]interface{}) (pb.ObjectSegmentationServiceServer, error) {
@@ -93,18 +95,20 @@ func TestServerObjectSegmentation(t *testing.T) {
 		cameraName string,
 		segmenterName string,
 		params config.AttributeMap) ([]*vision.Object, error) {
-		segmenter, err := objectsegmentation.SegmenterLookup(segmenterName)
-		if err != nil {
-			return nil, err
+		switch segmenterName {
+		case objectsegmentation.RadiusClusteringSegmenter:
+			return segmentation.RadiusClustering(ctx, injCam, params)
+		default:
+			return nil, errors.Errorf("no Segmenter with name %q", segmenterName)
 		}
-		return segmenter.Segmenter(ctx, injCam, params)
 	}
 	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-		segmenter, err := objectsegmentation.SegmenterLookup(segmenterName)
-		if err != nil {
-			return nil, err
+		switch segmenterName {
+		case objectsegmentation.RadiusClusteringSegmenter:
+			return utils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
+		default:
+			return nil, errors.Errorf("no Segmenter with name %q", segmenterName)
 		}
-		return segmenter.Parameters, nil
 	}
 	injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
 		return []string{objectsegmentation.RadiusClusteringSegmenter}, nil
