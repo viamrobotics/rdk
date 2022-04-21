@@ -3,24 +3,26 @@
     <div class="flex-auto grid">
       <label class="text-xs">{{ name }}</label>
       <div class="flex items-center pt-1">
-        <div class="text-xs px-2 text-center">
-          {{ min }}{{unit}}
-        </div>
+        <div class="text-xs px-2 text-center">{{ min }}{{ unit }}</div>
         <div class="pt-1 w-64">
-           <vue-slide-bar v-model="innerValue"
-                          :line-height="2"
-                          :icon-width="16"
-                          paddingless
-                          :data="possibleValues"
-                          :range="rangeLabels"
-                          :labelStyles="{ color: '#9d9d9d', backgroundColor: '#9d9d9d' }"
-                          :processStyle="processStyle">
+          <vue-slide-bar
+            v-model="innerValue"
+            :line-height="2"
+            :icon-width="16"
+            paddingless
+            :data="possibleValues"
+            :range="rangeLabels"
+            :labelStyles="{ color: '#9d9d9d', backgroundColor: '#9d9d9d' }"
+            :processStyle="processStyle"
+          >
             <div slot="tooltip" class="w-4 h-4">
-              <div class="border border-black rounded-full w-4 h-4 mt-5	bg-white range-tooltip"></div>
+              <div
+                class="border border-black rounded-full w-4 h-4 mt-5 bg-white range-tooltip"
+              ></div>
             </div>
           </vue-slide-bar>
         </div>
-        <div class="px-2 text-xs text-center">{{ max }}{{unit}}</div>
+        <div class="px-2 text-xs text-center">{{ max }}{{ unit }}</div>
         <number-input
           class="w-12"
           :hideControls="true"
@@ -36,23 +38,23 @@
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
 import NumberInput from "./NumberInput.vue";
-import VueSlideBar from 'vue-slide-bar'
+import VueSlideBar from "vue-slide-bar";
 
 @Component({
   components: {
-    NumberInput, VueSlideBar
+    NumberInput,
+    VueSlideBar,
   },
 })
 export default class ViamRange extends Vue {
-  @Prop({ default: 100 }) max?: number;
-  @Prop({ default: 0 }) min?: number;
-  @Prop({ default: 10 }) step?: number;
-  @Prop({ default: null }) name?: string;
-  @Prop({ default: "DefaultId" }) id?: string;
-  @Prop({ default: "" }) unit?: string;
+  @Prop({ default: 100 }) max = 100;
+  @Prop({ default: 0 }) min = 0;
+  @Prop({ default: 10 }) step = 10;
+  @Prop({ default: "" }) name = ""
+  @Prop({ default: "DefaultId" }) id = 'DefaultId';
+  @Prop({ default: "" }) unit = "";
   @Prop({ required: true }) value!: number;
-  @Prop({default: false}) hideTickLabels!: boolean;
-
+  @Prop({ default: false }) hideTickLabels = false;
 
   get innerValue(): number {
     return this.value;
@@ -61,42 +63,45 @@ export default class ViamRange extends Vue {
     this.$emit("input", value);
   }
 
-  get rangeLabels(): object[] {
-    if (!this.possibleValues)
-      return null
-    return this.possibleValues.map(el=>({
+  get rangeLabels(): { label: number; isHide: boolean }[] | null {
+    if (!this.possibleValues) return null;
+    return this.possibleValues.map((el) => ({
       label: el,
       isHide: true,
-    }))
+    }));
   }
   get possibleValues(): number[] | null {
-    if (this.hideTickLabels)
-      return null
-    
-    let count = Math.floor((this.max - this.min + 1) / this.step)
-    let result = []
-    for (let i = 0; i < count; i++){
-      result.push(this.min + i * this.step)
+    if (this.hideTickLabels) return null;
+
+    let count = Math.floor((this.max - this.min + 1) / this.step) + 1;
+    let result = [];
+    for (let i = 0; i < count; i++) {
+      result.push(this.min + i * this.step);
     }
-    return result
+    return result;
   }
-  get processStyle(): object {
-    return { backgroundColor: '#000000', 'height': '4px',  'border-radius': '0', 'top': '-2px'}
+  get processStyle(): { [key: string]: string } {
+    return {
+      backgroundColor: "#000000",
+      height: "4px",
+      "border-radius": "0",
+      top: "-2px",
+    };
   }
 }
 </script>
 <style>
-  .vue-slide-bar-range {
-    position: absolute;
-    width: 100%;
-    top: -10px;
-  }
-  .vue-slide-bar {
-    background-color: #9D9D9D !important; 
-    border-radius: 0 !important;
-  }
-  .vue-slide-bar-separate {
-    width: 1px !important;
-    height: 4px !important;
-  }
+.vue-slide-bar-range {
+  position: absolute;
+  width: 100%;
+  top: -10px;
+}
+.vue-slide-bar {
+  background-color: #9d9d9d !important;
+  border-radius: 0 !important;
+}
+.vue-slide-bar-separate {
+  width: 1px !important;
+  height: 4px !important;
+}
 </style>

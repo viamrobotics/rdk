@@ -10,20 +10,33 @@
       @keydown="handleArrows"
       @input="inputEventHandler"
       @paste="pasteEventHandler"
-      :class="{'border-r': readonly, 'text-center': readonly, 'text-xs': this.small}"
+      :class="{
+        'border-r': readonly,
+        'text-center': readonly,
+        'text-xs': this.small,
+      }"
     />
     <div
       v-show="!readonly"
-      class="flex justify-between flex-col h-full items-stretch border border-black">
-        <ViamIcon @click.native="arrowClicked(increase)" class="arrow-icon cursor-pointer" :path="mdiChevronUp"></ViamIcon>
-        <ViamIcon @click.native="arrowClicked(decrease)" class="arrow-icon cursor-pointer" :path="mdiChevronDown"></ViamIcon>
+      class="flex justify-between flex-col h-full items-stretch border border-black"
+    >
+      <ViamIcon
+        @click.native="arrowClicked(increase)"
+        class="arrow-icon cursor-pointer"
+        :path="mdiChevronUp"
+      ></ViamIcon>
+      <ViamIcon
+        @click.native="arrowClicked(decrease)"
+        class="arrow-icon cursor-pointer"
+        :path="mdiChevronDown"
+      ></ViamIcon>
     </div>
   </div>
 </template>
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
-import { mdiChevronDown, mdiChevronUp } from '@mdi/js'
-import ViamIcon from './ViamIcon.vue'
+import { mdiChevronDown, mdiChevronUp } from "@mdi/js";
+import ViamIcon from "./ViamIcon.vue";
 const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
 
 @Component({
@@ -33,29 +46,29 @@ const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
     event: "input",
   },
   components: {
-    ViamIcon
-  }
+    ViamIcon,
+  },
 })
 export default class NumberInput extends Vue {
   @Prop({ default: -Infinity })
-  public min!: number
+  public min!: number;
   @Prop({ default: Infinity })
-  public max!: number
+  public max!: number;
   @Prop({ default: false })
-  public float!: Boolean
+  public float!: boolean;
   @Prop({ default: 1 })
-  public step!: number
+  public step!: number;
   @Prop({ default: false })
-  public readonly!: Boolean
+  public readonly!: boolean;
   @Prop({ required: true })
   public value!: number;
-  @Prop({ default: '' })
-  public placeholder!: string
+  @Prop({ default: "" })
+  public placeholder!: string;
   @Prop({ default: false })
-  public small!: boolean
+  public small!: boolean;
 
-  mdiChevronDown = mdiChevronDown
-  mdiChevronUp = mdiChevronUp
+  mdiChevronDown = mdiChevronDown;
+  mdiChevronUp = mdiChevronUp;
 
   get innerValue(): number {
     return this.value;
@@ -67,15 +80,14 @@ export default class NumberInput extends Vue {
     }
     this.$emit("input", result);
   }
-  
-  arrowClicked(handler: Function): void {
+
+  arrowClicked(handler: () => void): void {
     //for arrows up and down working
     (this.$refs.input as HTMLInputElement).focus();
     handler();
   }
   handleArrows(event: KeyboardEvent): void {
-    if (this.readonly)
-      return
+    if (this.readonly) return;
     if (event.key === "ArrowUp") this.increase();
     else if (event.key === "ArrowDown") this.decrease();
   }
@@ -86,7 +98,7 @@ export default class NumberInput extends Vue {
 
   inputEventHandler(event: InputEvent): void {
     const input = event.target as HTMLInputElement;
-    let value = input.value.replace(/\,/g, ".");
+    let value = input.value.replace(/,/g, ".");
     if (!this.float) value = input.value.replace(/\./g, "");
     if (!this.isNumber(value)) input.value = `${this.innerValue}`;
     else {
@@ -117,7 +129,7 @@ export default class NumberInput extends Vue {
   increase(): void {
     this.changeValue(+this.step);
   }
-  isNumber(stringVal: any): Boolean {
+  isNumber(stringVal: any): boolean {
     if (!this.float && !REGEXP_NUMBER.test(stringVal)) return false;
 
     const parsedNumber = Number(stringVal);
