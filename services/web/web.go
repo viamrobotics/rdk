@@ -447,8 +447,6 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	// CONFIGURE STREAMS
-
 	streamServer, hasStreams, err := svc.makeStreamServer(ctx, svc.r)
 	if err != nil {
 		return err
@@ -477,35 +475,12 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
-	// CONFIGURE MUX/API ROUTES
-
-	mux, err := svc.initMux(ctx, options)
+	httpServer, err := svc.initHttpServer(listenerTCPAddr, ctx, options)
 	if err != nil {
 		return err
 	}
 
-	// CONFIGURE SERVER (put it all together?)
-
-	httpServer := &http.Server{
-		ReadTimeout:    10 * time.Second,
-		MaxHeaderBytes: rpc.MaxMessageSize,
-		TLSConfig:      options.Network.TLSConfig.Clone(),
-	}
-	httpServer.Addr = listenerAddr
-	httpServer.Handler = mux
-
-	if !options.secure {
-		http2Server, err := utils.NewHTTP2Server()
-		if err != nil {
-			return err
-		}
-		httpServer.RegisterOnShutdown(func() {
-			utils.UncheckedErrorFunc(http2Server.Close)
-		})
-		httpServer.Handler = h2c.NewHandler(httpServer.Handler, http2Server.HTTP2)
-	}
-
-	// START BACKGROUND WORKERS (maybe part of server)?
+	// Serve
 
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -568,47 +543,6 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	})
 	return err
-}
-
-// Initialize multiplexer between http handlers
-func (svc *webService) initMux(ctx context.Context, options Options) (*goji.Mux, error) {
-	mux := goji.NewMux()
-	if err := svc.installWeb(mux, svc.r, options); err != nil {
-		return nil, err
-	}
-
-	if options.Pprof {
-		mux.HandleFunc(pat.New("/debug/pprof/"), pprof.Index)
-		mux.HandleFunc(pat.New("/debug/pprof/cmdline"), pprof.Cmdline)
-		mux.HandleFunc(pat.New("/debug/pprof/profile"), pprof.Profile)
-		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
-		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
-	}
-
-	prefix := "/viam"
-	addPrefix := func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			p := prefix + r.URL.Path
-			rp := prefix + r.URL.RawPath
-			if len(p) > len(r.URL.Path) && (r.URL.RawPath == "" || len(rp) > len(r.URL.RawPath)) {
-				r2 := new(http.Request)
-				*r2 = *r
-				r2.URL = new(url.URL)
-				*r2.URL = *r.URL
-				r2.URL.Path = p
-				r2.URL.RawPath = rp
-				h.ServeHTTP(w, r2)
-			} else {
-				http.NotFound(w, r)
-			}
-		})
-	}
-
-	// for urls with /api, add /viam to the path so that it matches with the paths defined in protobuf.
-	mux.Handle(pat.New("/api/*"), addPrefix(svc.server.GatewayHandler()))
-	mux.Handle(pat.New("/*"), svc.server.GRPCHandler())
-
-	return mux, nil
 }
 
 // Initialize RPC Server options
@@ -794,5 +728,75 @@ func (svc *webService) initSubtypeServices(ctx context.Context) error {
 		}
 	}
 
-    return nil
+	return nil
+}
+
+// Initialize HTTP server
+func (svc *webService) initHttpServer(listenerTCPAddr *net.TCPAddr, ctx context.Context, options Options) (*http.Server, error) {
+	mux, err := svc.initMux(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+
+	httpServer := &http.Server{
+		ReadTimeout:    10 * time.Second,
+		MaxHeaderBytes: rpc.MaxMessageSize,
+		TLSConfig:      options.Network.TLSConfig.Clone(),
+	}
+	httpServer.Addr = listenerTCPAddr.String()
+	httpServer.Handler = mux
+
+	if !options.secure {
+		http2Server, err := utils.NewHTTP2Server()
+		if err != nil {
+			return nil, err
+		}
+		httpServer.RegisterOnShutdown(func() {
+			utils.UncheckedErrorFunc(http2Server.Close)
+		})
+		httpServer.Handler = h2c.NewHandler(httpServer.Handler, http2Server.HTTP2)
+	}
+
+	return httpServer, nil
+}
+
+// Initialize multiplexer between http handlers
+func (svc *webService) initMux(ctx context.Context, options Options) (*goji.Mux, error) {
+	mux := goji.NewMux()
+	if err := svc.installWeb(mux, svc.r, options); err != nil {
+		return nil, err
+	}
+
+	if options.Pprof {
+		mux.HandleFunc(pat.New("/debug/pprof/"), pprof.Index)
+		mux.HandleFunc(pat.New("/debug/pprof/cmdline"), pprof.Cmdline)
+		mux.HandleFunc(pat.New("/debug/pprof/profile"), pprof.Profile)
+		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
+		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
+	}
+
+	prefix := "/viam"
+	addPrefix := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p := prefix + r.URL.Path
+			rp := prefix + r.URL.RawPath
+			if len(p) > len(r.URL.Path) && (r.URL.RawPath == "" || len(rp) > len(r.URL.RawPath)) {
+				r2 := new(http.Request)
+				*r2 = *r
+				r2.URL = new(url.URL)
+				*r2.URL = *r.URL
+				r2.URL.Path = p
+				r2.URL.RawPath = rp
+				h.ServeHTTP(w, r2)
+			} else {
+				http.NotFound(w, r)
+			}
+		})
+	}
+
+	// for urls with /api, add /viam to the path so that it matches with the paths defined in protobuf.
+	mux.Handle(pat.New("/api/*"), addPrefix(svc.server.GatewayHandler()))
+	mux.Handle(pat.New("/*"), svc.server.GRPCHandler())
+
+	return mux, nil
 }
