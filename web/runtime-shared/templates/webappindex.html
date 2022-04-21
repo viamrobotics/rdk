@@ -229,6 +229,7 @@
           value: 0,
           imuData: {},
           currentOps: [],
+          baseRunStatus: false
         };
         theApp = new Vue({
           el: "#app",
@@ -489,7 +490,7 @@
               req.setId(id);
               robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            baseAction: function (name, action, amount) {
+            baseAction: function (name, action, amount, angle) {
               let req;
               switch (action) {
                 case "straight":
@@ -504,14 +505,14 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value);
                   req.setDistanceMm(document.getElementById("distance").value * amount);
-                  req.setAngleDeg(document.getElementById("angle").value);
+                  req.setAngleDeg(angle);
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
                   break;
                 case "angle":
                   req = new baseApi.SpinRequest();
                   req.setName(name);
                   req.setDegsPerSec(document.getElementById("speed").value);
-                  req.setAngleDeg(document.getElementById("angle").value * amount);
+                  req.setAngleDeg(angle);
                   baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
                   break;
               }
@@ -521,8 +522,10 @@
               let req = new baseApi.StopRequest();
               req.setName(name);
               baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
+              this.baseRunStatus = false;
           },
           handleBaseAction : function(movementMode, movementType, spinType, direction) {
+              this.baseRunStatus = true;
               console.log('baseActionHandler');
               console.log(movementMode);
               console.log(movementType);
@@ -533,7 +536,6 @@
               if (
                   movementMode === "Straight" &&
                   movementType === "Continous" &&
-                  spinType === "" &&
                   direction === "Forwards"
               ) {
                   req = new baseApi.MoveStraightRequest();
@@ -544,7 +546,6 @@
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
-                  spinType === "" &&
                   direction === "Forwards"
               ) {
                   req = new baseApi.MoveStraightRequest();
@@ -555,7 +556,6 @@
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Continous" &&
-                  spinType === "" &&
                   direction === "Backwards"
               ) {
                   req = new baseApi.MoveStraightRequest();
@@ -566,7 +566,6 @@
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
-                  spinType === "" &&
                   direction === "Backwards"
               ) {
                   req = new baseApi.MoveStraightRequest();
@@ -576,7 +575,6 @@
                   baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Arc" &&
-                  movementType === "Continous" &&
                   spinType === "Clockwise" &&
                   direction === "Forwards"
               ) {
@@ -588,7 +586,6 @@
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Arc" &&
-                  movementType === "Continous" &&
                   spinType === "Counterclockwise" &&
                   direction === "Forwards"
               ) {
@@ -600,7 +597,6 @@
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Arc" &&
-                  movementType === "Continous" &&
                   spinType === "Clockwise" &&
                   direction === "Backwards"
               ) {
@@ -612,7 +608,6 @@
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Arc" &&
-                  movementType === "Continous" &&
                   spinType === "Counterclockwise" &&
                   direction === "Backwards"
               ) {
@@ -624,9 +619,7 @@
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Spin" &&
-                  movementType === "Continous" &&
-                  spinType === "Clockwise" &&
-                  direction === "Forwards"
+                  spinType === "Clockwise"
               ) {
                   req = new baseApi.SpinRequest();
                   req.setName(name);
@@ -635,9 +628,7 @@
                   baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Spin" &&
-                  movementType === "Continous" &&
-                  spinType === "Counterclockwise" &&
-                  direction === "Forwards"
+                  spinType === "Counterclockwise"
               ) {
                   req = new baseApi.SpinRequest();
                   req.setName(name);
@@ -1785,15 +1776,17 @@
                     <viam-base
                         :base-name="base.name"
                         :stream-name="streamName"
-                        :crumbs="['base']"
-                        @forward="baseAction(base.name,'straight', 1)"
-                        @backward="baseAction(base.name,'straight', -1)"
-                        @spin-clockwise="baseAction(base.name,'angle', -1)"
-                        @spin-counter-clockwise="baseAction(base.name,'angle', 1)"
-                        @arc-right="baseAction(base.name,'arc', -1)"
-                        @arc-left="baseAction(base.name,'arc', 1)"
-                        @back-arc-right="baseAction(base.name,'arc', 1)"
-                        @back-arc-left="baseAction(base.name,'arc', -1)"
+                        :crumbs="['base', base.name]"
+                        :base-status="baseRunStatus"
+                        @base-change-tab="viewPreviewCamera(streamName)"
+                        @forward="baseAction(base.name,'straight', 1, null)"
+                        @backward="baseAction(base.name,'straight', -1, null)"
+                        @spin-clockwise="baseAction(base.name,'angle', 1, 135)"
+                        @spin-counter-clockwise="baseAction(base.name,'angle', 1, 45)"
+                        @arc-right="baseAction(base.name,'arc', 1, 135)"
+                        @arc-left="baseAction(base.name,'arc', 1, 45)"
+                        @back-arc-right="baseAction(base.name,'arc', -1, 225)"
+                        @back-arc-left="baseAction(base.name,'arc', -1, 315)"
                         @base-run="handleBaseAction"
                         @base-stop="handleBaseActionStop(base.name)"
                         @show-base-camera="viewPreviewCamera(streamName)"
