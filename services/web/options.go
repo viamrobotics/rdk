@@ -151,7 +151,7 @@ type Hosts struct {
 }
 
 // Derive host configurations from options
-func (options Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
+func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
 	var hosts = Hosts{
 		names:    []string{options.FQDN},
 		external: []string{options.FQDN},
