@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -52,6 +53,8 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::client::DetectorNames")
+	defer span.End()
 	resp, err := c.client.DetectorNames(ctx, &pb.DetectorNamesRequest{})
 	if err != nil {
 		return nil, err
@@ -60,6 +63,8 @@ func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
 }
 
 func (c *client) AddDetector(ctx context.Context, cfg Config) (bool, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::client::AddDetector")
+	defer span.End()
 	params, err := structpb.NewStruct(cfg.Parameters)
 	if err != nil {
 		return false, err
@@ -76,6 +81,8 @@ func (c *client) AddDetector(ctx context.Context, cfg Config) (bool, error) {
 }
 
 func (c *client) Detect(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::client::Detect")
+	defer span.End()
 	resp, err := c.client.Detect(ctx, &pb.DetectRequest{
 		CameraName:   cameraName,
 		DetectorName: detectorName,
