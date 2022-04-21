@@ -185,10 +185,6 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 				if err != nil {
 					return nil, err
 				}
-				err = createDataSyncDir(attributes.Type, componentName)
-				if err != nil {
-					return nil, err
-				}
 				collector.SetTarget(targetFile)
 			}
 			return &componentMetadata, nil
@@ -221,10 +217,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	if err != nil {
 		return nil, err
 	}
-	err = createDataSyncDir(attributes.Type, componentName)
-	if err != nil {
-		return nil, err
-	}
+
 	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
 	captureQueueSize := attributes.CaptureQueueSize
 	if captureQueueSize == 0 {
@@ -296,7 +289,7 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	//	go svc.syncManager.Upload()
 	//}
 	if svcConfig.SyncIntervalMins > 0 {
-		go svc.updateCollectors(svcConfig.SyncIntervalMins)
+		//go svc.updateCollectors(svcConfig.SyncIntervalMins)
 		go svc.syncManager.Queue(svcConfig.SyncIntervalMins)
 		go svc.syncManager.Upload()
 	}
