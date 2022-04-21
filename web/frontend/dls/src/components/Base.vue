@@ -17,7 +17,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-black p-2 h-72"
+          class="border border-t-0 border-black h-72 pt-2 pb-4"
           :style="{ maxHeight: maxHeight + 'px' }"
         >
           <div>
@@ -36,7 +36,7 @@
           </div>
           <div
             v-if="selectedItem === 'keyboard'"
-            class="border border-black p-4"
+            class="p-4"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div>
@@ -134,7 +134,7 @@
           </div>
           <div
             v-if="selectedItem === 'discrete'"
-            class="border border-black p-4 grid grid-cols-1"
+            class="p-4 grid grid-cols-1"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div>
