@@ -20,7 +20,10 @@
     v-on="$listeners"
   >
   <div><slot></slot></div>
-  <div v-show="selected" class="tab-white-line"></div>
+  <div v-show="selected" class="tab-white-horizontal-line"></div>
+  <div v-show="selected" class="tab-vertical-line right-one bg-gray-100 z-10"></div>
+  <div v-show="selected" class="tab-vertical-line left-one bg-gray-100 z-10"></div>
+
   </component>
 </template>
 
@@ -37,12 +40,24 @@ export default class ViamTabs extends Vue {
 }
 </script>
 <style>
-  .tab-white-line {
+  .tab-white-horizontal-line {
     position: absolute;
     background-color: white;
-    height: 1px;
+    height: 3px;
     left: 0;
     right: 0px;
-    bottom: -1px;
+    bottom: -2px;
+  }
+  .tab-vertical-line {
+    position: absolute;
+    width: 2px;
+    top: 0;
+    bottom: 0;
+  }
+  .tab-vertical-line.right-one {
+    right: -3px;
+  }
+  .tab-vertical-line.left-one {
+    left: -3px;
   }
 </style>
