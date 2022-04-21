@@ -393,7 +393,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 
 	// CONFIGURE NETWORK LISTENER / DNS
 
-	secure := options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
+	options.secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
 	if err != nil {
 		return err
@@ -405,11 +405,10 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 	listenerAddr := listenerTCPAddr.String()
 	listenerPort := listenerTCPAddr.Port
-	options.secure = secure
 
 	signalingOpts := options.SignalingDialOpts
 	if options.SignalingAddress == "" {
-		if !secure {
+		if !options.secure {
 			signalingOpts = append(signalingOpts, rpc.WithInsecure())
 		}
 	}
@@ -530,7 +529,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 				authEntities = addIfNotFound(localhostWithPort)
 			}
 		}
-		if secure && len(options.Auth.TLSAuthEntities) != 0 {
+		if options.secure && len(options.Auth.TLSAuthEntities) != 0 {
 			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities, nil))
 		}
 		for _, handler := range options.Auth.Handlers {
@@ -687,8 +686,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	httpServer.Addr = listenerAddr
 	httpServer.Handler = mux
 
-	if !secure {
-		secure = false
+	if !options.secure {
 		http2Server, err := utils.NewHTTP2Server()
 		if err != nil {
 			return err
@@ -730,7 +728,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	})
 
 	var scheme string
-	if secure {
+	if options.secure {
 		scheme = "https"
 	} else {
 		scheme = "http"
@@ -752,7 +750,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		var serveErr error
-		if secure {
+		if options.secure {
 			serveErr = httpServer.ServeTLS(listener, options.Network.TLSCertFile, options.Network.TLSKeyFile)
 		} else {
 			serveErr = httpServer.Serve(listener)
