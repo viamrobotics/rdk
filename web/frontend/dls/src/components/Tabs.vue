@@ -22,11 +22,6 @@ import { Component, Prop, Vue } from "vue-property-decorator";
 })
 export default class ViamTabs extends Vue {
   @Prop({ default: "nav" }) tag?: string;
-
-  mounted(): void {
-    console.log('mm', this.$children)
-
-  }
 }
 </script>
 <style>
