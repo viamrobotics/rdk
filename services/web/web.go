@@ -390,7 +390,6 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 // It'd be nice if we broke out chunks into helper functions, for easier
 // navigation and clearer reading of the workflow.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
-	// CONFIGURE NETWORK LISTENER
 	options.secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
 
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
@@ -416,7 +415,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
-	rpcOpts, err := svc.initRPCOptions(listenerTCPAddr, ctx, options)
+	rpcOpts, err := svc.initRpcOptions(listenerTCPAddr, ctx, options)
 	if err != nil {
 		return err
 	}
@@ -546,7 +545,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 }
 
 // Initialize RPC Server options
-func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, ctx context.Context, options Options) ([]rpc.ServerOption, error) {
+func (svc *webService) initRpcOptions(listenerTCPAddr *net.TCPAddr, ctx context.Context, options Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
 	rpcOpts := []rpc.ServerOption{
 		rpc.WithInstanceNames(hosts.names...),
