@@ -81,6 +81,12 @@ export default class NumberInput extends Vue {
   calcValueWithRestrictions(possibleValue: number): number {
     return Math.min(this.max, Math.max(this.min, possibleValue));
   }
+  setCaretePositionAfterDot(input: HTMLInputElement) : void {
+    const requiredIndex = String(input.value).indexOf('.')
+    if (requiredIndex >= 0){
+      input.setSelectionRange(requiredIndex + 1, requiredIndex + 1)
+    }
+  }
 
   inputEventHandler(event: InputEvent): void {
     const input = event.target as HTMLInputElement;
@@ -89,10 +95,12 @@ export default class NumberInput extends Vue {
     if (!this.isNumber(value)) input.value = `${this.innerValue}`;
     else {
       let newValue = this.calcValueWithRestrictions(Number(value));
-      if (value.indexOf('.') === value.length - 1)
+      if (value.indexOf('.') === value.length - 1) {
         input.value = `${newValue}.0`;
-      else
+        this.$nextTick(()=>this.setCaretePositionAfterDot(input))
+      } else {
         input.value = `${newValue}`;
+      }
 
       this.innerValue = newValue;
     }
