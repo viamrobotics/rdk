@@ -144,22 +144,23 @@ func OptionsFromConfig(cfg *config.Config) (Options, error) {
 	return options, nil
 }
 
+// Hosts configurations.
 type Hosts struct {
 	names    []string
 	internal []string
 	external []string
 }
 
-// Derive host configurations from options
+// GetHosts derives host configurations from options.
 func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
-	var hosts = Hosts{
+	hosts := Hosts{
 		names:    []string{options.FQDN},
 		external: []string{options.FQDN},
 		internal: []string{options.FQDN},
 	}
 
 	listenerAddr := listenerTCPAddr.String()
-	localhostWithPort := LocalHostWithPort(listenerTCPAddr)
+	localhostWithPort := localHostWithPort(listenerTCPAddr)
 
 	addSignalingHost := func(host string, set []string, seen map[string]bool) []string {
 		if _, ok := seen[host]; ok {
@@ -198,7 +199,7 @@ func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
 	return hosts
 }
 
-func LocalHostWithPort(listenerTCPAddr *net.TCPAddr) string {
+func localHostWithPort(listenerTCPAddr *net.TCPAddr) string {
 	return fmt.Sprintf("localhost%s", listenerPortStr(listenerTCPAddr))
 }
 
