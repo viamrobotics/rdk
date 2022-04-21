@@ -229,6 +229,7 @@
           value: 0,
           imuData: {},
           currentOps: [],
+          baseRunStatus: false
         };
         theApp = new Vue({
           el: "#app",
@@ -381,14 +382,18 @@
             },
             armModifyAll: function (name) {
               const arm = theApp.resourceStatusByName(name);
-              var n = { pieces: [] };
+              var n = { pos_pieces: [], joint_pieces: [] };
+              for (var i = 0; i < arm.pos_pieces.length; i++) {
+                n.pos_pieces.push({
+                  endPosition: arm.pos_pieces[i].endPosition,
+                  endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
 
-              for (var i = 0; i < arm.pieces.length; i++) {
-                n.pieces.push({
-                  endPosition: arm.pieces[i].endPosition,
-                  endPositionValue: roundTo2Decimals(arm.pieces[i].endPositionValue),
-                  joint: arm.pieces[i].joint,
-                  jointValue: roundTo2Decimals(arm.pieces[i].jointValue),
+                });
+              }
+              for (var i = 0; i < arm.joint_pieces.length; i++) {
+                n.joint_pieces.push({
+                  joint: arm.joint_pieces[i].joint,
+                  jointValue: roundTo2Decimals(arm.joint_pieces[i].jointValue),
                 });
               }
               theData.armToggle[name.name] = n;
@@ -398,7 +403,7 @@
             },
             armModifyAllDoEndPosition: function (name) {
               var newPose = new commonApi.Pose();
-              var newPieces = theData.armToggle[name.name].pieces;
+              var newPieces = theData.armToggle[name.name].pos_pieces;
 
               for (var i = 0; i < newPieces.length; i++) {
                 var getterSetter = newPieces[i].endPosition[1];
@@ -416,8 +421,7 @@
               const arm = theApp.rawResourceStatusByName(name);
               var newPositionDegs = new armApi.JointPositions();
               var newList = arm["joint_positions"]["degrees"];
-
-              var newPieces = theData.armToggle[name.name].pieces;
+              var newPieces = theData.armToggle[name.name].joint_pieces;
               for (var i = 0; i < newPieces.length && i < newList.length; i++) {
                 newList[newPieces[i].joint] = newPieces[i].jointValue;
               }
@@ -489,7 +493,7 @@
               req.setId(id);
               robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            baseAction: function (name, action, amount) {
+            baseAction: function (name, action, amount, angle) {
               let req;
               switch (action) {
                 case "straight":
@@ -504,14 +508,14 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value);
                   req.setDistanceMm(document.getElementById("distance").value * amount);
-                  req.setAngleDeg(document.getElementById("angle").value);
+                  req.setAngleDeg(angle);
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
                   break;
                 case "angle":
                   req = new baseApi.SpinRequest();
                   req.setName(name);
                   req.setDegsPerSec(document.getElementById("speed").value);
-                  req.setAngleDeg(document.getElementById("angle").value * amount);
+                  req.setAngleDeg(angle);
                   baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
                   break;
               }
@@ -521,8 +525,10 @@
               let req = new baseApi.StopRequest();
               req.setName(name);
               baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
+              this.baseRunStatus = false;
           },
           handleBaseAction : function(movementMode, movementType, spinType, direction) {
+              this.baseRunStatus = true;
               console.log('baseActionHandler');
               console.log(movementMode);
               console.log(movementType);
@@ -533,7 +539,6 @@
               if (
                   movementMode === "Straight" &&
                   movementType === "Continous" &&
-                  spinType === "" &&
                   direction === "Forwards"
               ) {
                   req = new baseApi.MoveStraightRequest();
@@ -544,7 +549,6 @@
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
-                  spinType === "" &&
                   direction === "Forwards"
               ) {
                   req = new baseApi.MoveStraightRequest();
@@ -555,7 +559,6 @@
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Continous" &&
-                  spinType === "" &&
                   direction === "Backwards"
               ) {
                   req = new baseApi.MoveStraightRequest();
@@ -566,7 +569,6 @@
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
-                  spinType === "" &&
                   direction === "Backwards"
               ) {
                   req = new baseApi.MoveStraightRequest();
@@ -576,7 +578,6 @@
                   baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Arc" &&
-                  movementType === "Continous" &&
                   spinType === "Clockwise" &&
                   direction === "Forwards"
               ) {
@@ -588,7 +589,6 @@
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Arc" &&
-                  movementType === "Continous" &&
                   spinType === "Counterclockwise" &&
                   direction === "Forwards"
               ) {
@@ -600,7 +600,6 @@
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Arc" &&
-                  movementType === "Continous" &&
                   spinType === "Clockwise" &&
                   direction === "Backwards"
               ) {
@@ -612,7 +611,6 @@
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Arc" &&
-                  movementType === "Continous" &&
                   spinType === "Counterclockwise" &&
                   direction === "Backwards"
               ) {
@@ -624,9 +622,7 @@
                   baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Spin" &&
-                  movementType === "Continous" &&
-                  spinType === "Clockwise" &&
-                  direction === "Forwards"
+                  spinType === "Clockwise"
               ) {
                   req = new baseApi.SpinRequest();
                   req.setName(name);
@@ -635,9 +631,7 @@
                   baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
               } else if (
                   movementMode === "Spin" &&
-                  movementType === "Continous" &&
-                  spinType === "Counterclockwise" &&
-                  direction === "Forwards"
+                  spinType === "Counterclockwise"
               ) {
                   req = new baseApi.SpinRequest();
                   req.setName(name);
@@ -782,109 +776,6 @@
               resultStr += `StdOut: ${resp.getStdOut()}\n`;
               resultStr += `StdErr: ${resp.getStdErr()}\n`;
               document.getElementById("function_results").value = resultStr;
-            },
-            visualizeForceMatrix: function (name, id) {
-              document.getElementById("force-button-id-" + id).style.display = "none";
-
-              // 2D animation stuff
-              let canvas2D = document.getElementById("force-2d-id-" + id);
-              var animation_stuff_2D = {
-                ctx: canvas2D.getContext("2d"),
-                squareWidth: 50,
-                maxPressure: 1,
-                canvasId: "force-2d-id-" + id,
-              };
-
-              // 3D animation stuff
-              var canvas3DWidth = 500;
-              var canvas3DHeight = 500;
-
-              const scene = new THREE.Scene();
-              scene.background = new THREE.Color(0xfbe7c6);
-              const camera = new THREE.PerspectiveCamera(75, canvas3DWidth / canvas3DHeight, 0.1, 1000);
-
-              const renderer = new THREE.WebGLRenderer();
-              renderer.setSize(canvas3DWidth, canvas3DHeight);
-              var div_3d = document.getElementById("force-3d-id-" + id);
-              div_3d.appendChild(renderer.domElement);
-              camera.position.z = 6;
-              camera.position.y = -6;
-
-              var animation_stuff_3D = {
-                cubes: [],
-                scene: scene,
-                canvas3DHeight: canvas3DHeight,
-                canvas3DWidth: canvas3DWidth,
-              };
-
-              // Slip detection stuff
-              let slipCanvas = document.getElementById("slip-id-" + id);
-              var slip_animation_stuff = {
-                ctx: slipCanvas.getContext("2d"),
-              };
-
-              // Allows moving the 3D scene using the mouse
-              controls = new trackLib.TrackballControls(camera, renderer.domElement);
-              controls.target.set(0, 0, 0);
-              controls.rotateSpeed = 1.0;
-
-              let startedForceAnimation = false;
-              const timeInterval = 10; // in milliseconds
-              let req = new forceMatrixApi.ReadMatrixRequest();
-              req.setName(name);
-
-              let slipReq = new forceMatrixApi.DetectSlipRequest();
-              slipReq.setName(name);
-
-              isFirstRender = true;
-              // Loop through grabbing data & visualizing it
-              setTimeout(
-                async function getDataAndVisualizeIt(isFirstRender) {
-                  let pResolve1;
-                  let pReject1;
-                  let p1 = new Promise((resolve, reject) => {
-                    pResolve1 = resolve;
-                    pReject1 = reject;
-                  });
-                  let pReject2;
-                  let pResolve2;
-                  let p2 = new Promise((resolve, reject) => {
-                    pResolve2 = resolve;
-                    pReject2 = reject;
-                  });
-                  forceMatrixService.readMatrix(req, {}, (err, resp) => {
-                    if (err) {
-                      pReject1(err);
-                    }
-                    pResolve1(null);
-                    animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D, isFirstRender);
-                  });
-                  forceMatrixService.detectSlip(slipReq, {}, (err, resp) => {
-                    if (err) {
-                      pReject2(err);
-                    }
-                    pResolve2(null);
-                    updateDetectSlipResult(err, resp, slip_animation_stuff);
-                  });
-                  await p1;
-                  await p2;
-
-                  // Start the 3D game engine animation if it hasn't been started yet
-                  if (!startedForceAnimation) {
-                    startedForceAnimation = true;
-                    function animate() {
-                      requestAnimationFrame(animate);
-                      controls.update();
-                      renderer.render(scene, camera);
-                    }
-                    animate();
-                  }
-
-                  setTimeout(getDataAndVisualizeIt, timeInterval, false);
-                },
-                timeInterval,
-                isFirstRender
-              );
             },
             nonEmpty: function (d) {
               for (var k in d) {
@@ -1131,8 +1022,8 @@
         const relevantSubtypesForStatus = ["arm", "gantry", "board", "servo", "motor", "input_controller"];
 
         const loadCurrentOps = async function () {
-          var req = new robotApi.ListOperationsRequest();
-          robotService.listOperations(req, {}, (err, resp) => {
+          var req = new robotApi.GetOperationsRequest();
+          robotService.getOperations(req, {}, (err, resp) => {
             var lst = resp.toObject().operationsList;
             theData.currentOps = lst;
           });
@@ -1410,144 +1301,6 @@
         pcdGlobal.scene.add(cube);
       }
 
-      function animateForceMatrix(err, resp, anim_2D, anim_3D, isFirstRender) {
-        grpcCallback(err, resp);
-        if (err) {
-          console.log("error getting force sensor readings: ", err);
-          return;
-        }
-        var [numRows, numCols, data] = resp.getMatrix().array;
-        if (data.length !== numRows * numCols || numRows === 0 || numCols === 0) {
-          console.log("corrupt force sensor data");
-          return;
-        }
-
-        const gradientRate = 10;
-        const gradientHeight = 20;
-        const gradientWidth = 40;
-        const spaceBetweenTextAndGradient = 35;
-        const offsetToLeftMatrix = 120;
-        const offsetBetweenMatrices = 30;
-        const squareSize = anim_2D.squareWidth;
-
-        let canvas2D = document.getElementById(anim_2D.canvasId);
-        // if this is the first render, initialize the 2D and 3D scene
-        if (isFirstRender || anim_3D.cubes.length == 0) {
-          // let's add cubes to the 3D view
-          for (let row = 0; row < numRows; row++) {
-            cubeRow = [];
-            for (let col = 0; col < numCols; col++) {
-              const geometry = new THREE.BoxGeometry(1, 1, 0.1);
-              const material = new THREE.MeshBasicMaterial({ color: 0xffaebc });
-              const cube = new THREE.Mesh(geometry, material);
-              cube.translateX((col - (numCols - 1) / 2) * 1.1);
-              cube.translateY((-row + (numRows - 1) / 2) * 1.1);
-              cubeRow.push(cube);
-              anim_3D.scene.add(cube);
-            }
-            anim_3D.cubes.push(cubeRow);
-
-            // [Debug] This helps for debugging & understanding the 3D space:
-            // var axesHelper = new THREE.AxesHelper( 5 );
-            // anim_3D.scene.add( axesHelper );
-          }
-          // resize the canvas to fit any size of matrix
-          canvas2D.height = Math.max(squareSize * numRows + 20, gradientRate * gradientHeight + 20);
-          canvas2D.width = Math.max(2 * squareSize * numCols + offsetToLeftMatrix + offsetBetweenMatrices, anim_3D.canvas3DWidth + 100);
-        }
-
-        for (let row = 0; row < numRows; row++) {
-          for (let col = 0; col < numCols; col++) {
-            let pressure = data[row * numCols + col];
-            if (pressure > anim_2D.maxPressure) {
-              anim_2D.maxPressure = pressure;
-            }
-
-            // --- 2D animation stuff ---
-            // Visualize gradient to the left of 2D animation stuff
-            for (let g = 0; g < gradientRate; g++) {
-              // Create colored boxes
-              let greenShadeGradient = (255 / gradientRate) * g;
-              anim_2D.ctx.fillStyle = "rgb(0, " + greenShadeGradient + ", 0)"; // old version with just green color
-              anim_2D.ctx.fillRect(spaceBetweenTextAndGradient, g * gradientHeight, gradientWidth, gradientHeight);
-
-              // Label the boxes
-              anim_2D.ctx.fillStyle = "white";
-              anim_2D.ctx.fillRect(0, g * gradientHeight, spaceBetweenTextAndGradient, gradientHeight);
-              anim_2D.ctx.fillStyle = "black";
-              anim_2D.ctx.font = "15px sans-serif";
-              anim_2D.ctx.fillText(Math.floor((anim_2D.maxPressure / (gradientRate - 1)) * g), 0, gradientHeight * (g + 1));
-            }
-
-            // greenShade is the color used to represent the pressure in both the 2D and 3D visualization
-            let greenShade = (255 / anim_2D.maxPressure) * pressure;
-
-            let xPos = offsetToLeftMatrix + col * squareSize;
-            let yPos = row * squareSize;
-            let yTextOffset = 0.6 * squareSize;
-            // Visualize black box with green colors indicating the pressure
-            anim_2D.ctx.fillStyle = "rgb(0, " + greenShade + ", 0)";
-            anim_2D.ctx.fillRect(xPos, yPos, squareSize, squareSize);
-
-            // Inscribe raw pressure values in white
-            anim_2D.ctx.fillStyle = "white";
-            anim_2D.ctx.font = "20px sans-serif";
-            anim_2D.ctx.fillText(pressure, xPos, yPos + yTextOffset);
-
-            let offsetToRightMatrix = offsetBetweenMatrices + numCols * squareSize;
-            // Visualize pressure values only in a separate matrix for better reading of raw values
-            anim_2D.ctx.fillStyle = "white";
-            anim_2D.ctx.fillRect(xPos + offsetToRightMatrix, yPos, squareSize, squareSize);
-            anim_2D.ctx.fillStyle = "black";
-            anim_2D.ctx.strokeRect(xPos + offsetToRightMatrix, yPos, squareSize, squareSize);
-
-            // Inscribe raw pressure values in black
-            anim_2D.ctx.font = "20px sans-serif";
-            anim_2D.ctx.fillText(pressure, xPos + offsetToRightMatrix, yPos + yTextOffset);
-
-            // --- 3D animation stuff ---
-            anim_3D.cubes[row][col].material.color.setRGB(0, greenShade / 255, 0);
-            anim_3D.cubes[row][col].scale.setZ((pressure / anim_2D.maxPressure) * 14);
-            anim_3D.cubes[row][col].position.setZ(0);
-            anim_3D.cubes[row][col].translateZ((pressure / anim_2D.maxPressure) * 7 * 0.1);
-          }
-        }
-      }
-
-      function updateDetectSlipResult(err, resp, slip_animation_stuff) {
-        grpcCallback(err, resp);
-        if (err) {
-          console.log("error getting slip detection readings: ", err);
-          return;
-        }
-
-        if (resp === null) {
-          slip_animation_stuff.ctx.fillStyle = "orange";
-          slip_animation_stuff.ctx.fillRect(0, 0, 200, 50);
-
-          slip_animation_stuff.ctx.fillStyle = "black";
-          slip_animation_stuff.ctx.font = "20px sans-serif";
-          slip_animation_stuff.ctx.fillText("response is invalid", 0, 0);
-          console.log("response is null - this is an issue when running this in the cloud, but not on a device locally");
-        }
-
-        let isSlipping = resp.getSlipDetected();
-        if (isSlipping) {
-          slip_animation_stuff.ctx.fillStyle = "red";
-          slip_animation_stuff.ctx.fillRect(0, 0, 150, 50);
-
-          slip_animation_stuff.ctx.fillStyle = "white";
-          slip_animation_stuff.ctx.font = "20px sans-serif";
-          slip_animation_stuff.ctx.fillText("SLIPPING", 5, 25);
-        } else {
-          slip_animation_stuff.ctx.fillStyle = "green";
-          slip_animation_stuff.ctx.fillRect(0, 0, 150, 50);
-          slip_animation_stuff.ctx.fillStyle = "white";
-          slip_animation_stuff.ctx.font = "20px sans-serif";
-          slip_animation_stuff.ctx.fillText("NOT SLIPPING", 5, 25);
-        }
-      }
-
       async function doConnect(authEntity, creds, onError) {
         console.debug("connecting");
         document.getElementById("connecting-error").innerHTML = "";
@@ -1785,15 +1538,17 @@
                     <viam-base
                         :base-name="base.name"
                         :stream-name="streamName"
-                        :crumbs="['base']"
-                        @forward="baseAction(base.name,'straight', 1)"
-                        @backward="baseAction(base.name,'straight', -1)"
-                        @spin-clockwise="baseAction(base.name,'angle', -1)"
-                        @spin-counter-clockwise="baseAction(base.name,'angle', 1)"
-                        @arc-right="baseAction(base.name,'arc', -1)"
-                        @arc-left="baseAction(base.name,'arc', 1)"
-                        @back-arc-right="baseAction(base.name,'arc', 1)"
-                        @back-arc-left="baseAction(base.name,'arc', -1)"
+                        :crumbs="['base', base.name]"
+                        :base-status="baseRunStatus"
+                        @base-change-tab="viewPreviewCamera(streamName)"
+                        @forward="baseAction(base.name,'straight', 1, null)"
+                        @backward="baseAction(base.name,'straight', -1, null)"
+                        @spin-clockwise="baseAction(base.name,'angle', 1, 135)"
+                        @spin-counter-clockwise="baseAction(base.name,'angle', 1, 45)"
+                        @arc-right="baseAction(base.name,'arc', 1, 135)"
+                        @arc-left="baseAction(base.name,'arc', 1, 45)"
+                        @back-arc-right="baseAction(base.name,'arc', -1, 225)"
+                        @back-arc-left="baseAction(base.name,'arc', -1, 315)"
                         @base-run="handleBaseAction"
                         @base-stop="handleBaseActionStop(base.name)"
                         @show-base-camera="viewPreviewCamera(streamName)"
@@ -1828,22 +1583,6 @@
             </table>
           </div>
 
-          <!-- ******* ForceMatrix *******  -->
-          <div>
-            <div v-for="(forceMatrix, x) in filterResources('rdk', 'component', 'force_matrix').entries()" :key="forceMatrix[1].name">
-              <hr />
-              <h2>ForceMatrix: ${forceMatrix[1].name}</h2>
-              <template>
-                <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forceMatrix[1].name, x)">Visualize Force Matrix</button>
-                <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
-                <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
-                <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
-                <div :id="'force-3d-id-' + x"></div>
-              </template>
-            </div>
-            <hr />
-          </div>
-
           <!-- ******* IMU *******  -->
           <div>
             <div v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()" :key="imu[1].name">
@@ -1874,34 +1613,45 @@
           <!-- ******* ARM *******  -->
           <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
             <h3>Arm ${arm.name}</h3>
-            <table v-if="armToggle[arm.name]" border="1">
-              <tr>
-                <th colspan="2"><h5>END POSITION (mms)</h5></th>
-                <th colspan="2"><h5>JOINTS (degrees)</h5></th>
-              </tr>
-              <tr v-for="aa in armToggle[arm.name].pos_pieces" :key="aa.joint">
-                <th>${aa.endPosition[0]}</th>
-                <td><input v-model="aa.endPositionValue"></td>
-              </tr>
-              <tr v-for="aa in armToggle[arm.name].joint_pieces" :key="aa.joint"></tr>
-                <th>Joint ${aa.joint}</th>
-                <td><input v-model="aa.jointValue"></td>
-              </tr>
-              <tr>
-                <th colspan="6">
-                  <button v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</button>
-                  <button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</button>
-                  <button v-on:click="armModifyAllCancel(arm)">Cancel</button>
-                </th>
-              </tr>
-            </table>
+            <div style="display: flex; margin-bottom: 1em">
+              <table v-if="armToggle[arm.name]" border="1" style="margin-right: 1em" class="border border-slate-300">
+                <tr>
+                  <th colspan="2" class="border border-slate-300"><h5>END POSITION (mms)</h5></th>
+                </tr>
+                <tr v-for="cc in armToggle[arm.name].pos_pieces" :key="cc.endPosition[0]">
+                  <th class="border border-slate-300">${cc.endPosition[1]}</th>
+                  <td class="border border-slate-300"><input v-model="cc.endPositionValue"></td>
+                </tr>
+                <tr>
+                  <th class="border border-slate-300" colspan="2">
+                    <viam-button v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</viam-button>
+                    <viam-button v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
+                  </th>
+                </tr>
+              </table>
+              <table v-if="armToggle[arm.name]" border="1" class="border border-slate-300">
+                <tr>
+                  <th colspan="2" class="border border-slate-300"><h5>JOINTS (degrees)</h5></th>
+                </tr>
+                <tr v-for="bb in armToggle[arm.name].joint_pieces" :key="bb.joint">
+                  <th class="border border-slate-300">Joint ${bb.joint}</th>
+                  <td class="border border-slate-300"><input v-model="bb.jointValue"></td>
+                </tr>
+                <tr>
+                  <th class="border border-slate-300" colspan="2">
+                    <viam-button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</viam-button>
+                    <viam-button v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
+                  </th>
+                </tr>
+              </table>
+            </div>
     
             <div style="display: flex; margin-bottom: 1em">
               <table border="1" v-if="resourceStatusByName(arm)" style="margin-right: 1em" class="border border-slate-300">
                 <tr>
                   <th colspan="3" class="border border-slate-300"><h5>END POSITION (mms)</h5></th>
                 </tr>
-                <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.joint">
+                <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.endPosition[0]">
                   <th class="border border-slate-300">${aa.endPosition[1]}</th>
                   <td class="border border-slate-300">
                     <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
