@@ -3,8 +3,10 @@ package config
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -20,6 +22,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/resource"
 )
@@ -261,17 +264,38 @@ func openFromCache(id string) (io.ReadCloser, error) {
 }
 
 func storeToCache(id string, cfg *Config) error {
-	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
-		return err
-	}
-	md, err := json.MarshalIndent(cfg, "", "  ")
+	cfgFilePath := cfg.ConfigFilePath
+	buf, err := envsubst.ReadFile(cfgFilePath)
 	if err != nil {
 		return err
 	}
-	//nolint:gosec
-	return ioutil.WriteFile(getCloudCacheFilePath(id), md, 0o640)
+	reader := bytes.NewReader(buf)
+
+	data := []byte(id)
+	hasher := fnv.New128a()
+	if _, err := hasher.Write(data); err != nil {
+		return err
+	}
+	hash := hex.EncodeToString(hasher.Sum(nil))
+
+	path := getCloudCacheFilePath(id)
+
+	return artifact.AtomicStore(path, reader, hash)
+
+	// CR erodkin: delete me
+	//if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
+	//return err
+	//}
+	//md, err := json.MarshalIndent(cfg, "", "  ")
+	//if err != nil {
+	//return err
+	//}
+	////nolint:gosec
+	//return ioutil.WriteFile(getCloudCacheFilePath(id), md, 0o640)
 }
 
+// CR erodkin: make ReadFromCloud private, look into updating return val so
+// we stop returning the unprocessed config
 // ReadFromCloud fetches a robot config from the cloud based
 // on the given config.
 func ReadFromCloud(
