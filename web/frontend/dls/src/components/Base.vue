@@ -6,7 +6,13 @@
         <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
       </div>
       <div class="p-2 float-right">
-        <ViamButton color="danger" group variant="primary" @click="baseStop()">
+        <ViamButton
+          color="danger"
+          group
+          variant="primary"
+          :disabled="!baseStatus"
+          @click="baseStop()"
+        >
           <template v-slot:icon>
             <ViamIcon color="white" :path="mdiCloseOctagonOutline"
               >STOP</ViamIcon
@@ -25,6 +31,7 @@
               <Tab
                 :selected="selectedItem === 'keyboard'"
                 @select="selectedItem = 'keyboard'"
+                @click="$emit('base-change-tab', selectedItem)"
                 >Keyboard</Tab
               >
               <Tab
@@ -142,6 +149,7 @@
                 <p class="text-xs">Movement Mode</p>
                 <RadioButtons
                   :options="['Straight', 'Arc', 'Spin']"
+                  defaultOption="Straight"
                   :disabledOptions="[]"
                   v-on:selectOption="setMovementMode($event)"
                 />
@@ -152,6 +160,7 @@
                 <p class="text-xs">Movement Type</p>
                 <RadioButtons
                   :options="['Continous', 'Discrete']"
+                  defaultOption="Continous"
                   :disabledOptions="[]"
                   v-on:selectOption="setMovementType($event)"
                 />
@@ -163,6 +172,7 @@
                 <p class="text-xs">Direction</p>
                 <RadioButtons
                   :options="['Forwards', 'Backwards']"
+                  defaultOption="Forwards"
                   :disabledOptions="[]"
                   v-on:selectOption="setDirection($event)"
                 />
@@ -172,7 +182,7 @@
                 color="primary"
                 group="False"
                 variant="primary"
-                value="300"
+                v-model="speed"
                 inputId="speed"
                 class="text-xs pr-2 w-32"
                 >Speed (mm/sec)
@@ -183,7 +193,7 @@
                 color="primary"
                 group="False"
                 variant="primary"
-                value="500"
+                v-model="increment"
                 inputId="distance"
                 :disabled="movementType === 'Continous'"
                 class="text-xs pr-2 w-32"
@@ -207,6 +217,7 @@
                 v-if="movementMode === 'Spin' || movementMode === 'Arc'"
               >
                 <Range
+                  id="angle"
                   min="0"
                   max="360"
                   unit="<sup class='text-xs'>O</sup>"
@@ -220,6 +231,7 @@
                   color="success"
                   group
                   variant="primary"
+                  :disabled="baseStatus"
                   @click="baseRun()"
                 >
                   <template v-slot:icon>
@@ -271,6 +283,7 @@ export default class Base extends Vue {
   @Prop({ default: null }) baseName!: string;
   @Prop({ default: null }) crumbs!: [string];
   @Prop({ default: true }) connectedCamera!: boolean;
+  @Prop({ default: false }) baseStatus!: boolean;
 
   mdiRestore = mdiRestore;
   mdiPlayCircleOutline = mdiPlayCircleOutline;
@@ -283,9 +296,9 @@ export default class Base extends Vue {
   streamId = "stream-preview-" + this.streamName;
   selectedItem = "keyboard";
   pressedKey = 0;
-  movementMode = "";
-  movementType = "";
-  direction = "";
+  movementMode = "Straight";
+  movementType = "Continous";
+  direction = "Forwards";
   spinType = "";
   increment = 500;
   speed = 300;

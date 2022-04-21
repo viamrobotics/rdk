@@ -22,6 +22,8 @@ type ObjectDetectionServiceClient interface {
 	DetectorNames(ctx context.Context, in *DetectorNamesRequest, opts ...grpc.CallOption) (*DetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
 	AddDetector(ctx context.Context, in *AddDetectorRequest, opts ...grpc.CallOption) (*AddDetectorResponse, error)
+	// Detect will return a list of detections in the next image given a camera and a detector
+	Detect(ctx context.Context, in *DetectRequest, opts ...grpc.CallOption) (*DetectResponse, error)
 }
 
 type objectDetectionServiceClient struct {
@@ -50,6 +52,15 @@ func (c *objectDetectionServiceClient) AddDetector(ctx context.Context, in *AddD
 	return out, nil
 }
 
+func (c *objectDetectionServiceClient) Detect(ctx context.Context, in *DetectRequest, opts ...grpc.CallOption) (*DetectResponse, error) {
+	out := new(DetectResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.objectdetection.v1.ObjectDetectionService/Detect", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ObjectDetectionServiceServer is the server API for ObjectDetectionService service.
 // All implementations must embed UnimplementedObjectDetectionServiceServer
 // for forward compatibility
@@ -58,6 +69,8 @@ type ObjectDetectionServiceServer interface {
 	DetectorNames(context.Context, *DetectorNamesRequest) (*DetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
 	AddDetector(context.Context, *AddDetectorRequest) (*AddDetectorResponse, error)
+	// Detect will return a list of detections in the next image given a camera and a detector
+	Detect(context.Context, *DetectRequest) (*DetectResponse, error)
 	mustEmbedUnimplementedObjectDetectionServiceServer()
 }
 
@@ -70,6 +83,9 @@ func (UnimplementedObjectDetectionServiceServer) DetectorNames(context.Context, 
 }
 func (UnimplementedObjectDetectionServiceServer) AddDetector(context.Context, *AddDetectorRequest) (*AddDetectorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddDetector not implemented")
+}
+func (UnimplementedObjectDetectionServiceServer) Detect(context.Context, *DetectRequest) (*DetectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Detect not implemented")
 }
 func (UnimplementedObjectDetectionServiceServer) mustEmbedUnimplementedObjectDetectionServiceServer() {
 }
@@ -121,6 +137,24 @@ func _ObjectDetectionService_AddDetector_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ObjectDetectionService_Detect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DetectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObjectDetectionServiceServer).Detect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.objectdetection.v1.ObjectDetectionService/Detect",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObjectDetectionServiceServer).Detect(ctx, req.(*DetectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ObjectDetectionService_ServiceDesc is the grpc.ServiceDesc for ObjectDetectionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -135,6 +169,10 @@ var ObjectDetectionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddDetector",
 			Handler:    _ObjectDetectionService_AddDetector_Handler,
+		},
+		{
+			MethodName: "Detect",
+			Handler:    _ObjectDetectionService_Detect_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
