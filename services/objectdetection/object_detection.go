@@ -180,6 +180,8 @@ func (srv *objDetService) AddDetector(ctx context.Context, cfg Config) (bool, er
 
 // Detect returns the detections of the next image from the given camera and the given detector.
 func (srv *objDetService) Detect(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::Detect")
+	defer span.End()
 	cam, err := camera.FromRobot(srv.r, cameraName)
 	if err != nil {
 		return nil, err

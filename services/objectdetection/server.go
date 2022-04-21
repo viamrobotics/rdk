@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
@@ -38,6 +39,8 @@ func (server *subtypeServer) DetectorNames(
 	ctx context.Context,
 	req *pb.DetectorNamesRequest,
 ) (*pb.DetectorNamesResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::server::DetectorNames")
+	defer span.End()
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -55,6 +58,8 @@ func (server *subtypeServer) AddDetector(
 	ctx context.Context,
 	req *pb.AddDetectorRequest,
 ) (*pb.AddDetectorResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::server::AddDetector")
+	defer span.End()
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -78,6 +83,8 @@ func (server *subtypeServer) Detect(
 	ctx context.Context,
 	req *pb.DetectRequest,
 ) (*pb.DetectResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::server::Detect")
+	defer span.End()
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
