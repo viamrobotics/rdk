@@ -409,7 +409,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
-	rpcOpts, err := svc.initRpcOptions(listenerTCPAddr, ctx, options)
+	rpcOpts, err := svc.initRPCOptions(listenerTCPAddr, options)
 	if err != nil {
 		return err
 	}
@@ -468,7 +468,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
-	httpServer, err := svc.initHttpServer(listenerTCPAddr, ctx, options)
+	httpServer, err := svc.initHTTPServer(listenerTCPAddr, options)
 	if err != nil {
 		return err
 	}
@@ -538,8 +538,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	return err
 }
 
-// Initialize RPC Server options
-func (svc *webService) initRpcOptions(listenerTCPAddr *net.TCPAddr, ctx context.Context, options Options) ([]rpc.ServerOption, error) {
+// Initialize RPC Server options.
+func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
 	rpcOpts := []rpc.ServerOption{
 		rpc.WithInstanceNames(hosts.names...),
@@ -576,7 +576,7 @@ func (svc *webService) initRpcOptions(listenerTCPAddr *net.TCPAddr, ctx context.
 		rpcOpts = append(rpcOpts, rpc.WithInternalTLSConfig(options.Network.TLSConfig))
 	}
 
-	authOpts, err := svc.initAuthHandlers(listenerTCPAddr, ctx, options)
+	authOpts, err := svc.initAuthHandlers(listenerTCPAddr, options)
 	if err != nil {
 		return nil, err
 	}
@@ -613,8 +613,8 @@ func (svc *webService) initRpcOptions(listenerTCPAddr *net.TCPAddr, ctx context.
 	return rpcOpts, nil
 }
 
-// Initialize authentication handler options
-func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, ctx context.Context, options Options) ([]rpc.ServerOption, error) {
+// Initialize authentication handler options.
+func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options Options) ([]rpc.ServerOption, error) {
 	rpcOpts := []rpc.ServerOption{}
 
 	if options.Managed && len(options.Auth.Handlers) == 1 {
@@ -646,7 +646,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, ctx contex
 			}
 			if listenerTCPAddr.IP.IsLoopback() {
 				// plus localhost alias
-				authEntities = addIfNotFound(LocalHostWithPort(listenerTCPAddr))
+				authEntities = addIfNotFound(localHostWithPort(listenerTCPAddr))
 			}
 		}
 		if options.secure && len(options.Auth.TLSAuthEntities) != 0 {
@@ -681,7 +681,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, ctx contex
 	return rpcOpts, nil
 }
 
-// Initialize robot resources
+// Initialize robot resources.
 func (svc *webService) initResources() error {
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
@@ -699,7 +699,7 @@ func (svc *webService) initResources() error {
 	return nil
 }
 
-// Register every subtype resource grpc service here
+// Register every subtype resource grpc service here.
 func (svc *webService) initSubtypeServices(ctx context.Context) error {
 	// TODO: only register necessary services (#272)
 	subtypeConstructors := registry.RegisteredResourceSubtypes()
@@ -724,9 +724,9 @@ func (svc *webService) initSubtypeServices(ctx context.Context) error {
 	return nil
 }
 
-// Initialize HTTP server
-func (svc *webService) initHttpServer(listenerTCPAddr *net.TCPAddr, ctx context.Context, options Options) (*http.Server, error) {
-	mux, err := svc.initMux(ctx, options)
+// Initialize HTTP server.
+func (svc *webService) initHTTPServer(listenerTCPAddr *net.TCPAddr, options Options) (*http.Server, error) {
+	mux, err := svc.initMux(options)
 	if err != nil {
 		return nil, err
 	}
@@ -753,8 +753,8 @@ func (svc *webService) initHttpServer(listenerTCPAddr *net.TCPAddr, ctx context.
 	return httpServer, nil
 }
 
-// Initialize multiplexer between http handlers
-func (svc *webService) initMux(ctx context.Context, options Options) (*goji.Mux, error) {
+// Initialize multiplexer between http handlers.
+func (svc *webService) initMux(options Options) (*goji.Mux, error) {
 	mux := goji.NewMux()
 	if err := svc.installWeb(mux, svc.r, options); err != nil {
 		return nil, err
