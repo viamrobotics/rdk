@@ -390,6 +390,9 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 // It'd be nice if we broke out chunks into helper functions, for easier
 // navigation and clearer reading of the workflow.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
+
+	// CONFIGURE NETWORK LISTENER / DNS
+
 	secure := options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
 	if err != nil {
@@ -459,6 +462,9 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		localFQDNWithPort := fmt.Sprintf("%s%s", options.LocalFQDN, listenerPortStr)
 		internalSignalingHosts = addSignalingHost(localFQDNWithPort, internalSignalingHosts, seenInternalSignalingHosts)
 	}
+
+	// CONFIGURE RPC
+
 	rpcOpts := []rpc.ServerOption{
 		rpc.WithInstanceNames(instanceNames...),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
@@ -599,6 +605,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
+	// CONFIGURE RESOURCES
+
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
 		resource, err := svc.r.ResourceByName(name)
@@ -633,6 +641,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
+	// CONFIGURE STREAMS
+
 	streamServer, hasStreams, err := svc.makeStreamServer(ctx, svc.r)
 	if err != nil {
 		return err
@@ -660,6 +670,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			return err
 		}
 	}
+
+	// CONFIGURE MUX/API ROUTES
 
 	mux := goji.NewMux()
 	if err := svc.installWeb(mux, svc.r, options); err != nil {
@@ -697,6 +709,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	mux.Handle(pat.New("/api/*"), addPrefix(rpcServer.GatewayHandler()))
 	mux.Handle(pat.New("/*"), rpcServer.GRPCHandler())
 
+	// CONFIGURE SERVER (put it all together?)
+
 	httpServer := &http.Server{
 		ReadTimeout:    10 * time.Second,
 		MaxHeaderBytes: rpc.MaxMessageSize,
@@ -716,6 +730,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		})
 		httpServer.Handler = h2c.NewHandler(httpServer.Handler, http2Server.HTTP2)
 	}
+
+	// START BACKGROUND WORKERS (maybe part of server)?
 
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
