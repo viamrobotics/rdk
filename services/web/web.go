@@ -413,66 +413,26 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
-	var instanceNames []string
 	if options.FQDN == "" {
 		options.FQDN, err = rpc.InstanceNameFromAddress(listenerAddr)
 		if err != nil {
 			return err
 		}
 	}
-	var listenerPortStr string
-	if listenerPort != 443 {
-		listenerPortStr = fmt.Sprintf(":%d", listenerPort)
-	}
-	localhostWithPort := fmt.Sprintf("localhost%s", listenerPortStr)
 
-	instanceNames = append(instanceNames, options.FQDN)
-	externalSignalingHosts := []string{options.FQDN}
-	internalSignalingHosts := []string{options.FQDN}
-	addSignalingHost := func(host string, set []string, seen map[string]bool) []string {
-		if _, ok := seen[host]; ok {
-			return set
-		}
-		seen[host] = true
-		return append(set, host)
-	}
-	seenExternalSignalingHosts := map[string]bool{options.FQDN: true}
-	seenInternalSignalingHosts := map[string]bool{options.FQDN: true}
-	if !options.Managed {
-		// allow signaling for non-unique entities.
-		// This eases WebRTC connections.
-		if options.FQDN != listenerAddr {
-			externalSignalingHosts = addSignalingHost(listenerAddr, externalSignalingHosts, seenExternalSignalingHosts)
-			internalSignalingHosts = addSignalingHost(listenerAddr, internalSignalingHosts, seenInternalSignalingHosts)
-		}
-		if listenerTCPAddr.IP.IsLoopback() {
-			// plus localhost alias
-			externalSignalingHosts = addSignalingHost(localhostWithPort, externalSignalingHosts, seenExternalSignalingHosts)
-			internalSignalingHosts = addSignalingHost(localhostWithPort, internalSignalingHosts, seenInternalSignalingHosts)
-		}
-	}
-
-	if options.LocalFQDN != "" {
-		// only add the local FQDN here since we will already have DefaultFQDN
-		// in the case that FQDNs was empty, avoiding a duplicate host. If FQDNs
-		// is non-empty, we don't care about having a default for signaling/naming.
-		instanceNames = append(instanceNames, options.LocalFQDN)
-		internalSignalingHosts = addSignalingHost(options.LocalFQDN, internalSignalingHosts, seenInternalSignalingHosts)
-		localFQDNWithPort := fmt.Sprintf("%s%s", options.LocalFQDN, listenerPortStr)
-		internalSignalingHosts = addSignalingHost(localFQDNWithPort, internalSignalingHosts, seenInternalSignalingHosts)
-	}
+	hosts := options.GetHosts(listenerTCPAddr)
 
 	// CONFIGURE RPC
 
 	rpcOpts := []rpc.ServerOption{
-		rpc.WithInstanceNames(instanceNames...),
+		rpc.WithInstanceNames(hosts.names...),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
 			EnableInternalSignaling:   true,
 			ExternalSignalingDialOpts: signalingOpts,
 			ExternalSignalingAddress:  options.SignalingAddress,
-			ExternalSignalingHosts:    externalSignalingHosts,
-			InternalSignalingHosts:    internalSignalingHosts,
+			ExternalSignalingHosts:    hosts.external,
+			InternalSignalingHosts:    hosts.internal,
 			Config:                    &grpc.DefaultWebRTCConfiguration,
 		}),
 	}
@@ -508,8 +468,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if len(options.Auth.Handlers) == 0 {
 		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
 	} else {
-		authEntities := make([]string, len(internalSignalingHosts))
-		copy(authEntities, internalSignalingHosts)
+		authEntities := make([]string, len(hosts.internal))
+		copy(authEntities, hosts.internal)
 		if !options.Managed {
 			// allow authentication for non-unique entities.
 			// This eases direct connections via address.
@@ -526,7 +486,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			}
 			if listenerTCPAddr.IP.IsLoopback() {
 				// plus localhost alias
-				authEntities = addIfNotFound(localhostWithPort)
+				authEntities = addIfNotFound(LocalHostWithPort(listenerTCPAddr))
 			}
 		}
 		if options.secure && len(options.Auth.TLSAuthEntities) != 0 {
