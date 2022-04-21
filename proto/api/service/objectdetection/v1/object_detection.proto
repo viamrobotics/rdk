@@ -19,13 +19,13 @@ service ObjectDetectionService {
   // AddDetector adds a new detector to the registry.
   rpc AddDetector(AddDetectorRequest) returns (AddDetectorResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/object_detection/add_detector"
+      post: "/viam/api/v1/service/object_detection/add_detector"
     };
   }
   // Detect will return a list of detections in the next image given a camera and a detector
   rpc Detect(DetectRequest) returns (DetectResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/object_detection/detect"
+      post: "/viam/api/v1/service/object_detection/detect"
     };
   }
 }
