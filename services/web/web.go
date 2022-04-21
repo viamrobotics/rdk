@@ -416,78 +416,10 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
-	hosts := options.GetHosts(listenerTCPAddr)
-
-	// CONFIGURE RPC
-
-	rpcOpts := []rpc.ServerOption{
-		rpc.WithInstanceNames(hosts.names...),
-		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
-			Enable:                    true,
-			EnableInternalSignaling:   true,
-			ExternalSignalingDialOpts: options.SignalingDialOpts,
-			ExternalSignalingAddress:  options.SignalingAddress,
-			ExternalSignalingHosts:    hosts.external,
-			InternalSignalingHosts:    hosts.internal,
-			Config:                    &grpc.DefaultWebRTCConfiguration,
-		}),
-	}
-	if options.Debug {
-		trace.RegisterExporter(perf.NewNiceLoggingSpanExporter())
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-
-		rpcOpts = append(rpcOpts,
-			rpc.WithDebug(),
-			rpc.WithUnaryServerInterceptor(func(
-				ctx context.Context,
-				req interface{},
-				info *googlegrpc.UnaryServerInfo,
-				handler googlegrpc.UnaryHandler,
-			) (interface{}, error) {
-				ctx, span := trace.StartSpan(ctx, fmt.Sprintf("%v", req))
-				defer span.End()
-
-				return handler(ctx, req)
-			}),
-		)
-	}
-	if options.Network.TLSConfig != nil {
-		rpcOpts = append(rpcOpts, rpc.WithInternalTLSConfig(options.Network.TLSConfig))
-	}
-
-	authOpts, err := svc.initAuthHandlers(listenerTCPAddr, ctx, options)
+	rpcOpts, err := svc.initRPCOptions(listenerTCPAddr, ctx, options)
 	if err != nil {
 		return err
 	}
-	rpcOpts = append(rpcOpts, authOpts...)
-
-	rpcOpts = append(
-		rpcOpts,
-		rpc.WithUnaryServerInterceptor(func(
-			ctx context.Context,
-			req interface{},
-			info *googlegrpc.UnaryServerInfo,
-			handler googlegrpc.UnaryHandler,
-		) (interface{}, error) {
-			ctx, done := svc.r.OperationManager().Create(ctx, info.FullMethod, req)
-			defer done()
-			return handler(ctx, req)
-		}),
-	)
-
-	rpcOpts = append(
-		rpcOpts,
-		rpc.WithStreamServerInterceptor(func(
-			srv interface{},
-			ss googlegrpc.ServerStream,
-			info *googlegrpc.StreamServerInfo,
-			handler googlegrpc.StreamHandler,
-		) error {
-			ctx, done := svc.r.OperationManager().Create(ss.Context(), info.FullMethod, nil)
-			defer done()
-			return handler(srv, &ssStreamContextWrapper{ss, ctx})
-		}),
-	)
 
 	svc.server, err = rpc.NewServer(svc.logger, rpcOpts...)
 	if err != nil {
@@ -704,6 +636,81 @@ func (svc *webService) initMux(ctx context.Context, options Options) (*goji.Mux,
 	mux.Handle(pat.New("/*"), svc.server.GRPCHandler())
 
 	return mux, nil
+}
+
+// Initialize RPC Server options
+func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, ctx context.Context, options Options) ([]rpc.ServerOption, error) {
+	hosts := options.GetHosts(listenerTCPAddr)
+	rpcOpts := []rpc.ServerOption{
+		rpc.WithInstanceNames(hosts.names...),
+		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
+			Enable:                    true,
+			EnableInternalSignaling:   true,
+			ExternalSignalingDialOpts: options.SignalingDialOpts,
+			ExternalSignalingAddress:  options.SignalingAddress,
+			ExternalSignalingHosts:    hosts.external,
+			InternalSignalingHosts:    hosts.internal,
+			Config:                    &grpc.DefaultWebRTCConfiguration,
+		}),
+	}
+	if options.Debug {
+		trace.RegisterExporter(perf.NewNiceLoggingSpanExporter())
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
+		rpcOpts = append(rpcOpts,
+			rpc.WithDebug(),
+			rpc.WithUnaryServerInterceptor(func(
+				ctx context.Context,
+				req interface{},
+				info *googlegrpc.UnaryServerInfo,
+				handler googlegrpc.UnaryHandler,
+			) (interface{}, error) {
+				ctx, span := trace.StartSpan(ctx, fmt.Sprintf("%v", req))
+				defer span.End()
+
+				return handler(ctx, req)
+			}),
+		)
+	}
+	if options.Network.TLSConfig != nil {
+		rpcOpts = append(rpcOpts, rpc.WithInternalTLSConfig(options.Network.TLSConfig))
+	}
+
+	authOpts, err := svc.initAuthHandlers(listenerTCPAddr, ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	rpcOpts = append(rpcOpts, authOpts...)
+
+	rpcOpts = append(
+		rpcOpts,
+		rpc.WithUnaryServerInterceptor(func(
+			ctx context.Context,
+			req interface{},
+			info *googlegrpc.UnaryServerInfo,
+			handler googlegrpc.UnaryHandler,
+		) (interface{}, error) {
+			ctx, done := svc.r.OperationManager().Create(ctx, info.FullMethod, req)
+			defer done()
+			return handler(ctx, req)
+		}),
+	)
+
+	rpcOpts = append(
+		rpcOpts,
+		rpc.WithStreamServerInterceptor(func(
+			srv interface{},
+			ss googlegrpc.ServerStream,
+			info *googlegrpc.StreamServerInfo,
+			handler googlegrpc.StreamHandler,
+		) error {
+			ctx, done := svc.r.OperationManager().Create(ss.Context(), info.FullMethod, nil)
+			defer done()
+			return handler(srv, &ssStreamContextWrapper{ss, ctx})
+		}),
+	)
+
+    return rpcOpts, nil
 }
 
 // Initialize authentication handler options
