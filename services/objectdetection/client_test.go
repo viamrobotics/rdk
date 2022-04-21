@@ -2,6 +2,7 @@ package objectdetection_test
 
 import (
 	"context"
+	"image"
 	"net"
 	"testing"
 
@@ -28,7 +29,9 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	srv := createService(t, "data/fake.json")
+	r := buildRobotWithFakeCamera(t)
+	srv, err := objectdetection.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
 	m := map[resource.Name]interface{}{
 		objectdetection.Name: srv,
 	}
@@ -54,7 +57,7 @@ func TestClient(t *testing.T) {
 
 		names, err := client.DetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, names, test.ShouldContain, "detector_3")
+		test.That(t, names, test.ShouldContain, "detect_red")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
@@ -79,12 +82,30 @@ func TestClient(t *testing.T) {
 
 		names, err := client.DetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, names, test.ShouldContain, "detector_3")
+		test.That(t, names, test.ShouldContain, "detect_red")
 		test.That(t, names, test.ShouldContain, "new_detector")
 		// failure - tries to add a detector again
 		ok, err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "trying to register two detectors with the same name")
 		test.That(t, ok, test.ShouldBeFalse)
+
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	})
+	t.Run("get detections", func(t *testing.T) {
+		client, err := objectdetection.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		dets, err := client.Detect(context.Background(), "fake_cam", "detect_red")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dets, test.ShouldHaveLength, 1)
+		test.That(t, dets[0].Label(), test.ShouldEqual, "red")
+		test.That(t, dets[0].Score(), test.ShouldEqual, 1.0)
+		box := dets[0].BoundingBox()
+		test.That(t, box.Min, test.ShouldResemble, image.Point{110, 288})
+		test.That(t, box.Max, test.ShouldResemble, image.Point{183, 349})
+		// failure - no such camera
+		_, err = client.Detect(context.Background(), "no_camera", "detect_red")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
