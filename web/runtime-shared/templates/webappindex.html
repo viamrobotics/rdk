@@ -382,14 +382,18 @@
             },
             armModifyAll: function (name) {
               const arm = theApp.resourceStatusByName(name);
-              var n = { pieces: [] };
+              var n = { pos_pieces: [], joint_pieces: [] };
+              for (var i = 0; i < arm.pos_pieces.length; i++) {
+                n.pos_pieces.push({
+                  endPosition: arm.pos_pieces[i].endPosition,
+                  endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
 
-              for (var i = 0; i < arm.pieces.length; i++) {
-                n.pieces.push({
-                  endPosition: arm.pieces[i].endPosition,
-                  endPositionValue: roundTo2Decimals(arm.pieces[i].endPositionValue),
-                  joint: arm.pieces[i].joint,
-                  jointValue: roundTo2Decimals(arm.pieces[i].jointValue),
+                });
+              }
+              for (var i = 0; i < arm.joint_pieces.length; i++) {
+                n.joint_pieces.push({
+                  joint: arm.joint_pieces[i].joint,
+                  jointValue: roundTo2Decimals(arm.joint_pieces[i].jointValue),
                 });
               }
               theData.armToggle[name.name] = n;
@@ -399,7 +403,7 @@
             },
             armModifyAllDoEndPosition: function (name) {
               var newPose = new commonApi.Pose();
-              var newPieces = theData.armToggle[name.name].pieces;
+              var newPieces = theData.armToggle[name.name].pos_pieces;
 
               for (var i = 0; i < newPieces.length; i++) {
                 var getterSetter = newPieces[i].endPosition[1];
@@ -417,8 +421,7 @@
               const arm = theApp.rawResourceStatusByName(name);
               var newPositionDegs = new armApi.JointPositions();
               var newList = arm["joint_positions"]["degrees"];
-
-              var newPieces = theData.armToggle[name.name].pieces;
+              var newPieces = theData.armToggle[name.name].joint_pieces;
               for (var i = 0; i < newPieces.length && i < newList.length; i++) {
                 newList[newPieces[i].joint] = newPieces[i].jointValue;
               }
@@ -1122,8 +1125,8 @@
         const relevantSubtypesForStatus = ["arm", "gantry", "board", "servo", "motor", "input_controller"];
 
         const loadCurrentOps = async function () {
-          var req = new robotApi.ListOperationsRequest();
-          robotService.listOperations(req, {}, (err, resp) => {
+          var req = new robotApi.GetOperationsRequest();
+          robotService.getOperations(req, {}, (err, resp) => {
             var lst = resp.toObject().operationsList;
             theData.currentOps = lst;
           });
@@ -1867,34 +1870,45 @@
           <!-- ******* ARM *******  -->
           <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
             <h3>Arm ${arm.name}</h3>
-            <table v-if="armToggle[arm.name]" border="1">
-              <tr>
-                <th colspan="2"><h5>END POSITION (mms)</h5></th>
-                <th colspan="2"><h5>JOINTS (degrees)</h5></th>
-              </tr>
-              <tr v-for="aa in armToggle[arm.name].pos_pieces" :key="aa.joint">
-                <th>${aa.endPosition[0]}</th>
-                <td><input v-model="aa.endPositionValue"></td>
-              </tr>
-              <tr v-for="aa in armToggle[arm.name].joint_pieces" :key="aa.joint"></tr>
-                <th>Joint ${aa.joint}</th>
-                <td><input v-model="aa.jointValue"></td>
-              </tr>
-              <tr>
-                <th colspan="6">
-                  <button v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</button>
-                  <button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</button>
-                  <button v-on:click="armModifyAllCancel(arm)">Cancel</button>
-                </th>
-              </tr>
-            </table>
+            <div style="display: flex; margin-bottom: 1em">
+              <table v-if="armToggle[arm.name]" border="1" style="margin-right: 1em" class="border border-slate-300">
+                <tr>
+                  <th colspan="2" class="border border-slate-300"><h5>END POSITION (mms)</h5></th>
+                </tr>
+                <tr v-for="cc in armToggle[arm.name].pos_pieces" :key="cc.endPosition[0]">
+                  <th class="border border-slate-300">${cc.endPosition[1]}</th>
+                  <td class="border border-slate-300"><input v-model="cc.endPositionValue"></td>
+                </tr>
+                <tr>
+                  <th class="border border-slate-300" colspan="2">
+                    <viam-button v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</viam-button>
+                    <viam-button v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
+                  </th>
+                </tr>
+              </table>
+              <table v-if="armToggle[arm.name]" border="1" class="border border-slate-300">
+                <tr>
+                  <th colspan="2" class="border border-slate-300"><h5>JOINTS (degrees)</h5></th>
+                </tr>
+                <tr v-for="bb in armToggle[arm.name].joint_pieces" :key="bb.joint">
+                  <th class="border border-slate-300">Joint ${bb.joint}</th>
+                  <td class="border border-slate-300"><input v-model="bb.jointValue"></td>
+                </tr>
+                <tr>
+                  <th class="border border-slate-300" colspan="2">
+                    <viam-button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</viam-button>
+                    <viam-button v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
+                  </th>
+                </tr>
+              </table>
+            </div>
     
             <div style="display: flex; margin-bottom: 1em">
               <table border="1" v-if="resourceStatusByName(arm)" style="margin-right: 1em" class="border border-slate-300">
                 <tr>
                   <th colspan="3" class="border border-slate-300"><h5>END POSITION (mms)</h5></th>
                 </tr>
-                <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.joint">
+                <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.endPosition[0]">
                   <th class="border border-slate-300">${aa.endPosition[1]}</th>
                   <td class="border border-slate-300">
                     <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
