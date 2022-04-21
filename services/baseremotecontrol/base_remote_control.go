@@ -4,6 +4,7 @@ package baseremotecontrol
 import (
 	"context"
 	"math"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -24,7 +25,7 @@ const (
 	oneJoyStickControl = controlMode(iota)
 	triggerSpeedControl
 	SubtypeName = resource.SubtypeName("base_remote_control")
-	maxSpeed    = 1000.0
+	maxSpeed    = 300.0
 	maxAngle    = 360.0
 	distRatio   = 10
 )
@@ -114,6 +115,8 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 func (svc *remoteService) start(ctx context.Context) error {
 	var mmPerSec float64
 	var angleDeg float64
+	var oldMmPerSec float64
+	var oldAngleDeg float64
 
 	remoteCtl := func(ctx context.Context, event input.Event) {
 		if event.Event != input.PositionChangeAbs {
@@ -129,13 +132,40 @@ func (svc *remoteService) start(ctx context.Context) error {
 			mmPerSec, angleDeg = svc.oneJoyStickEvent(event, mmPerSec, angleDeg)
 		}
 
+		fmt.Printf("Controller Input: %v | %v\n", mmPerSec, angleDeg)
+
+		if (math.Abs(mmPerSec - oldMmPerSec) < 0.05 && math.Abs(angleDeg - oldAngleDeg) < 0.05) {
+			fmt.Println("Skipping...")
+			return
+		}
+
+		oldMmPerSec = mmPerSec
+		oldAngleDeg = angleDeg
 		// Set distance to large number as it will be overwritten (Note: could have a dependecy on speed)
 		var err error
-		if math.Abs(angleDeg) < 0.99 && math.Abs(mmPerSec) > 0.1 {
-			err = svc.base.MoveArc(ctx, maxSpeed*distRatio, mmPerSec*maxSpeed*-1, angleDeg*maxAngle, true)
+		if math.Abs(angleDeg) < 1.1 && math.Abs(mmPerSec) > 0.1 {
+			// Move Arc
+			d := int(math.Abs(mmPerSec*maxSpeed*distRatio))
+			s := mmPerSec*maxSpeed*-1
+			a := angleDeg*maxAngle*distRatio*-1
+			fmt.Printf("Arc: s = %v | a = %v | Dist = %v | Speed = %v | Angle = %v\n", mmPerSec, angleDeg, d, s, a)
+			err = svc.base.MoveArc(ctx, d, s, a, true)
+		} else if math.Abs(angleDeg) > 0.9 && math.Abs(mmPerSec) < 0.1 {
+			// Spin
+			d := int(0)
+			s := angleDeg*maxSpeed*-1
+			a := math.Abs(angleDeg*maxAngle*distRatio)
+			fmt.Printf("Spin: s = %v | a = %v | Dist = %v | Speed = %v | Angle = %v\n", mmPerSec, angleDeg, d, s, a)
+			err = svc.base.MoveArc(ctx, d, s, a, true)
 		} else {
-			err = svc.base.MoveArc(ctx, maxSpeed*distRatio, 0, angleDeg*maxAngle, true)
+			// Stop
+			d := int(maxSpeed*distRatio)
+			s := 0.0
+			a := angleDeg*maxAngle*-1
+			fmt.Printf("Stop: s = %v | a = %v | Dist = %v | Speed = %v | Angle = %v\n", mmPerSec, angleDeg, d, s, a)
+			err = svc.base.MoveArc(ctx, d, s, a, true)
 		}
+
 		if err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)
 		}
@@ -197,7 +227,7 @@ func (svc *remoteService) triggerSpeedEvent(event input.Event, speed float64, an
 		input.ButtonRecord, input.ButtonSelect, input.ButtonSouth, input.ButtonStart, input.ButtonWest:
 	}
 
-	return svc.speedAndAngleMathMag(speed, angle, oldSpeed)
+	return svc.speedAndAngleMathMag(speed, angle, oldSpeed, oldAngle)
 }
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
@@ -218,12 +248,12 @@ func (svc *remoteService) oneJoyStickEvent(event input.Event, speed float64, ang
 		input.ButtonRecord, input.ButtonSelect, input.ButtonSouth, input.ButtonStart, input.ButtonWest:
 	}
 
-	return svc.speedAndAngleMathMag(speed, angle, oldSpeed)
+	return svc.speedAndAngleMathMag(speed, angle, oldSpeed, oldAngle)
 }
 
 // SpeedAndAngleMathMag utilizes a cut-off and the magnitude of the speed and angle to dictate mmPerSec and
 // angleDeg.
-func (svc *remoteService) speedAndAngleMathMag(speed float64, angle float64, oldSpeed float64) (float64, float64) {
+func (svc *remoteService) speedAndAngleMathMag(speed float64, angle float64, oldSpeed float64, oldAngle float64) (float64, float64) {
 	var newSpeed float64
 	var newAngle float64
 
@@ -233,9 +263,12 @@ func (svc *remoteService) speedAndAngleMathMag(speed float64, angle float64, old
 	case math.Abs(speed) < 0.25 && mag > 0.25:
 		newSpeed = oldSpeed
 		newAngle = angle
-	case math.Abs(speed) < 0.25:
-		newSpeed = 0
+	case math.Abs(speed - oldSpeed) < 0.2:
+		newSpeed = oldSpeed
 		newAngle = angle
+	// case math.Abs(speed) < 0.25:
+	// 	newSpeed = 0
+	// 	newAngle = angle
 	default:
 		newSpeed = speed
 		newAngle = angle
