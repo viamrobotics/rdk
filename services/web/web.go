@@ -673,41 +673,10 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 
 	// CONFIGURE MUX/API ROUTES
 
-	mux := goji.NewMux()
-	if err := svc.installWeb(mux, svc.r, options); err != nil {
+	mux, err := svc.initMux(ctx, options)
+	if err != nil {
 		return err
 	}
-
-	if options.Pprof {
-		mux.HandleFunc(pat.New("/debug/pprof/"), pprof.Index)
-		mux.HandleFunc(pat.New("/debug/pprof/cmdline"), pprof.Cmdline)
-		mux.HandleFunc(pat.New("/debug/pprof/profile"), pprof.Profile)
-		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
-		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
-	}
-
-	prefix := "/viam"
-	addPrefix := func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			p := prefix + r.URL.Path
-			rp := prefix + r.URL.RawPath
-			if len(p) > len(r.URL.Path) && (r.URL.RawPath == "" || len(rp) > len(r.URL.RawPath)) {
-				r2 := new(http.Request)
-				*r2 = *r
-				r2.URL = new(url.URL)
-				*r2.URL = *r.URL
-				r2.URL.Path = p
-				r2.URL.RawPath = rp
-				h.ServeHTTP(w, r2)
-			} else {
-				http.NotFound(w, r)
-			}
-		})
-	}
-
-	// for urls with /api, add /viam to the path so that it matches with the paths defined in protobuf.
-	mux.Handle(pat.New("/api/*"), addPrefix(rpcServer.GatewayHandler()))
-	mux.Handle(pat.New("/*"), rpcServer.GRPCHandler())
 
 	// CONFIGURE SERVER (put it all together?)
 
@@ -794,4 +763,45 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	})
 	return err
+}
+
+// Initialize multiplexer between http handlers
+func (svc *webService) initMux(ctx context.Context, options Options) (*goji.Mux, error) {
+	mux := goji.NewMux()
+	if err := svc.installWeb(mux, svc.r, options); err != nil {
+		return nil, err
+	}
+
+	if options.Pprof {
+		mux.HandleFunc(pat.New("/debug/pprof/"), pprof.Index)
+		mux.HandleFunc(pat.New("/debug/pprof/cmdline"), pprof.Cmdline)
+		mux.HandleFunc(pat.New("/debug/pprof/profile"), pprof.Profile)
+		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
+		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
+	}
+
+	prefix := "/viam"
+	addPrefix := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p := prefix + r.URL.Path
+			rp := prefix + r.URL.RawPath
+			if len(p) > len(r.URL.Path) && (r.URL.RawPath == "" || len(rp) > len(r.URL.RawPath)) {
+				r2 := new(http.Request)
+				*r2 = *r
+				r2.URL = new(url.URL)
+				*r2.URL = *r.URL
+				r2.URL.Path = p
+				r2.URL.RawPath = rp
+				h.ServeHTTP(w, r2)
+			} else {
+				http.NotFound(w, r)
+			}
+		})
+	}
+
+	// for urls with /api, add /viam to the path so that it matches with the paths defined in protobuf.
+	mux.Handle(pat.New("/api/*"), addPrefix(svc.server.GatewayHandler()))
+	mux.Handle(pat.New("/*"), svc.server.GRPCHandler())
+
+	return mux, nil
 }
