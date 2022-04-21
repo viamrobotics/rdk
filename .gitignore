@@ -67,3 +67,5 @@ bin/
 .ignore
 
 web/runtime-shared/*
+!web/runtime-shared/static/dls/fonts/SourceSansPro-Reg*
+!web/runtime-shared/static/dls/fonts/SourceSansPro-SemiBold*
