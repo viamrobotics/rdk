@@ -390,10 +390,9 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 // It'd be nice if we broke out chunks into helper functions, for easier
 // navigation and clearer reading of the workflow.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
-
 	// CONFIGURE NETWORK LISTENER
-
 	options.secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
+
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
 	if err != nil {
 		return err
@@ -406,11 +405,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	listenerAddr := listenerTCPAddr.String()
 	listenerPort := listenerTCPAddr.Port
 
-	signalingOpts := options.SignalingDialOpts
-	if options.SignalingAddress == "" {
-		if !options.secure {
-			signalingOpts = append(signalingOpts, rpc.WithInsecure())
-		}
+	if options.SignalingAddress == "" && !options.secure {
+		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithInsecure())
 	}
 
 	if options.FQDN == "" {
@@ -429,7 +425,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
 			EnableInternalSignaling:   true,
-			ExternalSignalingDialOpts: signalingOpts,
+			ExternalSignalingDialOpts: options.SignalingDialOpts,
 			ExternalSignalingAddress:  options.SignalingAddress,
 			ExternalSignalingHosts:    hosts.external,
 			InternalSignalingHosts:    hosts.internal,
