@@ -391,7 +391,7 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 // navigation and clearer reading of the workflow.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
 
-	// CONFIGURE NETWORK LISTENER / DNS
+	// CONFIGURE NETWORK LISTENER
 
 	options.secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
@@ -459,64 +459,11 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		rpcOpts = append(rpcOpts, rpc.WithInternalTLSConfig(options.Network.TLSConfig))
 	}
 
-	if options.Managed && len(options.Auth.Handlers) == 1 {
-		if options.BakedAuthEntity == "" || options.BakedAuthCreds.Type == "" {
-			return errors.New("expected baked in local UI credentials since managed")
-		}
+	authOpts, err := svc.initAuthHandlers(listenerTCPAddr, ctx, options)
+	if err != nil {
+		return err
 	}
-
-	if len(options.Auth.Handlers) == 0 {
-		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
-	} else {
-		authEntities := make([]string, len(hosts.internal))
-		copy(authEntities, hosts.internal)
-		if !options.Managed {
-			// allow authentication for non-unique entities.
-			// This eases direct connections via address.
-			addIfNotFound := func(toAdd string) []string {
-				for _, ent := range authEntities {
-					if ent == toAdd {
-						return authEntities
-					}
-				}
-				return append(authEntities, toAdd)
-			}
-			if options.FQDN != listenerAddr {
-				authEntities = addIfNotFound(listenerAddr)
-			}
-			if listenerTCPAddr.IP.IsLoopback() {
-				// plus localhost alias
-				authEntities = addIfNotFound(LocalHostWithPort(listenerTCPAddr))
-			}
-		}
-		if options.secure && len(options.Auth.TLSAuthEntities) != 0 {
-			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities, nil))
-		}
-		for _, handler := range options.Auth.Handlers {
-			switch handler.Type {
-			case rpc.CredentialsTypeAPIKey:
-				apiKey := handler.Config.String("key")
-				if apiKey == "" {
-					return errors.Errorf("%q handler requires non-empty API key", handler.Type)
-				}
-				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
-					handler.Type,
-					rpc.MakeSimpleAuthHandler(authEntities, apiKey),
-				))
-			case rutils.CredentialsTypeRobotLocationSecret:
-				secret := handler.Config.String("secret")
-				if secret == "" {
-					return errors.Errorf("%q handler requires non-empty secret", handler.Type)
-				}
-				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
-					handler.Type,
-					rpc.MakeSimpleAuthHandler(authEntities, secret),
-				))
-			default:
-				return errors.Errorf("do not know how to handle auth for %q", handler.Type)
-			}
-		}
-	}
+	rpcOpts = append(rpcOpts, authOpts...)
 
 	rpcOpts = append(
 		rpcOpts,
@@ -761,4 +708,72 @@ func (svc *webService) initMux(ctx context.Context, options Options) (*goji.Mux,
 	mux.Handle(pat.New("/*"), svc.server.GRPCHandler())
 
 	return mux, nil
+}
+
+// Initialize authentication handler options
+func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, ctx context.Context, options Options) ([]rpc.ServerOption, error) {
+	rpcOpts := []rpc.ServerOption{}
+
+	if options.Managed && len(options.Auth.Handlers) == 1 {
+		if options.BakedAuthEntity == "" || options.BakedAuthCreds.Type == "" {
+			return nil, errors.New("expected baked in local UI credentials since managed")
+		}
+	}
+
+	if len(options.Auth.Handlers) == 0 {
+		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
+	} else {
+		listenerAddr := listenerTCPAddr.String()
+		hosts := options.GetHosts(listenerTCPAddr)
+		authEntities := make([]string, len(hosts.internal))
+		copy(authEntities, hosts.internal)
+		if !options.Managed {
+			// allow authentication for non-unique entities.
+			// This eases direct connections via address.
+			addIfNotFound := func(toAdd string) []string {
+				for _, ent := range authEntities {
+					if ent == toAdd {
+						return authEntities
+					}
+				}
+				return append(authEntities, toAdd)
+			}
+			if options.FQDN != listenerAddr {
+				authEntities = addIfNotFound(listenerAddr)
+			}
+			if listenerTCPAddr.IP.IsLoopback() {
+				// plus localhost alias
+				authEntities = addIfNotFound(LocalHostWithPort(listenerTCPAddr))
+			}
+		}
+		if options.secure && len(options.Auth.TLSAuthEntities) != 0 {
+			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities, nil))
+		}
+		for _, handler := range options.Auth.Handlers {
+			switch handler.Type {
+			case rpc.CredentialsTypeAPIKey:
+				apiKey := handler.Config.String("key")
+				if apiKey == "" {
+					return nil, errors.Errorf("%q handler requires non-empty API key", handler.Type)
+				}
+				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
+					handler.Type,
+					rpc.MakeSimpleAuthHandler(authEntities, apiKey),
+				))
+			case rutils.CredentialsTypeRobotLocationSecret:
+				secret := handler.Config.String("secret")
+				if secret == "" {
+					return nil, errors.Errorf("%q handler requires non-empty secret", handler.Type)
+				}
+				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
+					handler.Type,
+					rpc.MakeSimpleAuthHandler(authEntities, secret),
+				))
+			default:
+				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
+			}
+		}
+	}
+
+	return rpcOpts, nil
 }
