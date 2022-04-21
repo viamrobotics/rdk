@@ -383,12 +383,8 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 	return nil
 }
 
-// runWeb takes the given robot and options and runs the web server. This function will block
-// until the context is done.
-
-// TODO(ethan) (rsdk-290): this function is really big and pretty annoying to navigate.
-// It'd be nice if we broke out chunks into helper functions, for easier
-// navigation and clearer reading of the workflow.
+// runWeb takes the given robot and options and runs the web server. This function will
+// block until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
 	if err != nil {
