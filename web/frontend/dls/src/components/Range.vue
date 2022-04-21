@@ -22,7 +22,7 @@
           class="w-12"
           color="primary"
           group="False"
-          :id="id"
+          :inputId="id"
           variant="primary"
           v-model="value"
         ></ViamInput>

@@ -29,7 +29,7 @@
 </template>
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
-import { debounce } from "lodash";
+import { throttle, debounce} from "lodash";
 import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
 import ViamButton from "./Button.vue";
@@ -41,7 +41,9 @@ const PressedKeysMap: { [index: string]: string } = {
   "68": "right",
 };
 
-const inputDelay = 300;
+const inputDelay = 100;
+const eventsDelay = 500;
+
 
 @Component({
   components: {
@@ -56,6 +58,7 @@ export default class KeyboardInput extends Vue {
     backward: false,
     right: false,
   };
+
 
   mdiRestore = mdiRestore;
   mdiReload = mdiReload;
@@ -79,46 +82,45 @@ export default class KeyboardInput extends Vue {
   //for template section
   keysLayout = [["forward"], ["left", "backward", "right"]];
 
-  inputLocked = false;
+
 
   sendKeysState = debounce(() => {
     this.handleKeysStateInstantly();
   }, inputDelay);
 
   handleKeysStateInstantly(): void {
-    this.setInputLocked();
     if (Object.values(this.pressedKeys).every((item) => item === false)) {
-      this.setInputLocked(false);
       return;
     }
 
     const { forward, left, right, backward } = this.pressedKeys;
 
-    if (forward && right) this.$emit("arc-right");
-    else if (forward && left) this.$emit("arc-left");
-    else if (backward && right) this.$emit("back-arc-right");
-    else if (backward && left) this.$emit("back-arc-left");
-    else if (forward) this.$emit("forward");
-    else if (backward) this.$emit("backward");
-    else if (left) this.$emit("spin-counter-clockwise");
-    else if (right) this.$emit("spin-clockwise");
+    if (forward && right) this.emitEvent("arc-right");
+    else if (forward && left) this.emitEvent("arc-left");
+    else if (backward && right) this.emitEvent("back-arc-right");
+    else if (backward && left) this.emitEvent("back-arc-left");
+    else if (forward) this.emitEvent("forward");
+    else if (backward) this.emitEvent("backward");
+    else if (left) this.emitEvent("spin-counter-clockwise");
+    else if (right) this.emitEvent("spin-clockwise");
   }
+  emitEvent = throttle((eventName: string) => {
+    this.emitEventInstantly(eventName);
+  }, eventsDelay);
 
+  emitEventInstantly(eventName: string): void {
+    console.log(`event will be fired ${eventName}`)
+    this.$emit(eventName)
+  }
   setKeyPressed(key: string, value = true): void {
-    if (this.inputLocked && value) return;
     this.pressedKeys[key] = value;
     this.sendKeysState();
-  }
-  setInputLocked(isLocked = true): void {
-    this.inputLocked = isLocked;
   }
 
   onUseKeyboardNav(event: KeyboardEvent): void {
     const key = PressedKeysMap[event.keyCode];
     if (!key) return;
-
     this.setKeyPressed(key, event.type === "keydown");
-
     event.preventDefault();
   }
 
