@@ -38,8 +38,6 @@ type MotorServiceClient interface {
 	GetPosition(ctx context.Context, in *GetPositionRequest, opts ...grpc.CallOption) (*GetPositionResponse, error)
 	// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
 	GetFeatures(ctx context.Context, in *GetFeaturesRequest, opts ...grpc.CallOption) (*GetFeaturesResponse, error)
-	// Stop turns the robot's motor off
-	// To Do (FA): This will be deprecated
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 	// IsPowered returns true if the robot's motor off
 	// To Do (FA): This will be deprecated
@@ -150,8 +148,6 @@ type MotorServiceServer interface {
 	GetPosition(context.Context, *GetPositionRequest) (*GetPositionResponse, error)
 	// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
 	GetFeatures(context.Context, *GetFeaturesRequest) (*GetFeaturesResponse, error)
-	// Stop turns the robot's motor off
-	// To Do (FA): This will be deprecated
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	// IsPowered returns true if the robot's motor off
 	// To Do (FA): This will be deprecated
