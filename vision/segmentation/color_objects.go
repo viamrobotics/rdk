@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -65,18 +64,13 @@ func ColorObjects(ctx context.Context, cam camera.Camera, params config.Attribut
 	if err != nil {
 		return nil, err
 	}
-	// get color from config to build color detector
-	col, err := rimage.NewColorFromHex(cfg.Color)
-	if err != nil {
-		return nil, err
+	// get info from config to build color detector
+	detCfg := &objectdetection.ColorDetectorConfig{
+		SegmentSize:       cfg.MinSegmentSize,
+		Tolerance:         cfg.Tolerance,
+		DetectColorString: cfg.Color,
 	}
-	hue, _, _ := col.HsvNormal()
-	det, err := objectdetection.NewColorDetector(cfg.Tolerance, hue)
-	if err != nil {
-		return nil, err
-	}
-	filter := objectdetection.NewAreaFilter(cfg.MinSegmentSize)
-	detector, err := objectdetection.Build(nil, det, filter)
+	detector, err := objectdetection.NewColorDetector(detCfg)
 	if err != nil {
 		return nil, err
 	}

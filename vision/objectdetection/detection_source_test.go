@@ -22,15 +22,15 @@ func TestDetectionSource(t *testing.T) {
 	p, err := objectdetection.RemoveColorChannel("b")
 	test.That(t, err, test.ShouldBeNil)
 	// make the detector
-	theColor := rimage.NewColor(79, 56, 21) // a yellow-orange color
-	hue, _, _ := theColor.HsvNormal()
-	d, err := objectdetection.NewColorDetector(0.0444444444, hue)
+	detCfg := &objectdetection.ColorDetectorConfig{
+		SegmentSize:       15000,
+		Tolerance:         0.0444444444,
+		DetectColorString: "#4f3815",
+	}
+	d, err := objectdetection.NewColorDetector(detCfg)
 	test.That(t, err, test.ShouldBeNil)
-	// make the filter
-	f := objectdetection.NewAreaFilter(15000)
-
 	// Make the detection source
-	det, err := objectdetection.Build(p, d, f)
+	det, err := objectdetection.Build(p, d, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pipeline, err := objectdetection.NewSource(src, det)
 	test.That(t, err, test.ShouldBeNil)

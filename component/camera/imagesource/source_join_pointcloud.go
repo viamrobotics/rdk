@@ -210,7 +210,8 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 // initalizeInputs gets all the input positions for the robot components in order to calculate the frame system offsets.
 func (jpcs *joinPointCloudSource) initializeInputs(
 	ctx context.Context,
-	fs referenceframe.FrameSystem) (map[string][]referenceframe.Input, error) {
+	fs referenceframe.FrameSystem,
+) (map[string][]referenceframe.Input, error) {
 	inputs := referenceframe.StartPositions(fs)
 
 	for k, original := range inputs {
