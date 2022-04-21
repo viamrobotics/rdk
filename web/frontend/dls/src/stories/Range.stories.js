@@ -15,8 +15,7 @@ storiesOf("Range", module)
     return {
       percentage: 50,
       name: "Test Range:",
-      possibleValues: [0, 90, 180, 240, 360]
     };
   },
-  template: '<div><Range v-model="percentage" :possible-values="possibleValues" :name="name" unit="°"></Range></div>',
+  template: '<div><Range v-model="percentage" :name="name" unit="°"></Range></div>',
 }));

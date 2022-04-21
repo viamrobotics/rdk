@@ -2,8 +2,8 @@
   <div class="flex">
     <div class="flex-auto grid">
       <label class="text-xs">{{ name }}</label>
-      <div class="flex items-center">
-        <div class="pr-2">
+      <div class="flex items-center pt-1">
+        <div class="text-xs px-2 text-center">
           {{ min }}{{unit}}
         </div>
         <div class="pt-1 w-64">
@@ -14,18 +14,19 @@
                           :data="possibleValues"
                           :range="rangeLabels"
                           :labelStyles="{ color: '#9d9d9d', backgroundColor: '#9d9d9d' }"
-
-                          :processStyle="{ backgroundColor: '#000000' }">
+                          :processStyle="processStyle">
             <div slot="tooltip" class="w-4 h-4">
               <div class="border border-black rounded-full w-4 h-4 mt-5	bg-white range-tooltip"></div>
             </div>
           </vue-slide-bar>
         </div>
-        <div class="pl-3 pr-2">{{ max }}{{unit}}</div>
+        <div class="px-2 text-xs text-center">{{ max }}{{unit}}</div>
         <number-input
           class="w-12"
           :hideControls="true"
           v-model="innerValue"
+          :small="true"
+          :id="id"
           :readonly="true"
         ></number-input>
       </div>
@@ -48,10 +49,8 @@ export default class ViamRange extends Vue {
   @Prop({ default: 10 }) step?: number;
   @Prop({ default: null }) name?: string;
   @Prop({ default: "DefaultId" }) id?: string;
-  @Prop({ default: 0 }) percentage?: number | undefined = 0;
-  @Prop({ default: "mm" }) unit?: string;
+  @Prop({ default: "" }) unit?: string;
   @Prop({ required: true }) value!: number;
-  @Prop({default: null}) possibleValues!: number[];
   @Prop({default: false}) hideTickLabels!: boolean;
 
 
@@ -70,28 +69,31 @@ export default class ViamRange extends Vue {
       isHide: true,
     }))
   }
+  get possibleValues(): number[] | null {
+    if (this.hideTickLabels)
+      return null
+    
+    let count = Math.floor((this.max - this.min + 1) / this.step)
+    let result = []
+    for (let i = 0; i < count; i++){
+      result.push(this.min + i * this.step)
+    }
+    return result
+  }
+  get processStyle(): object {
+    return { backgroundColor: '#000000', 'height': '4px',  'border-radius': '0', 'top': '-2px'}
+  }
 }
 </script>
-<style scoped>
-input[type="range"] {
-  height: 2px;
-  -webkit-appearance: none;
-  margin: 10px 0;
-  width: 100%;
-}
-.range-tooltip{
-  /* margin-left: 3px; */
-}
-</style>
 <style>
   .vue-slide-bar-range {
     position: absolute;
     width: 100%;
-    top: 30px;
+    top: -10px;
   }
   .vue-slide-bar {
     background-color: #9D9D9D !important; 
-    border-radius: none !important;
+    border-radius: 0 !important;
   }
   .vue-slide-bar-separate {
     width: 1px !important;

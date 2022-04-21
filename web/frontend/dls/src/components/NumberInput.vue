@@ -10,7 +10,7 @@
       @keydown="handleArrows"
       @input="inputEventHandler"
       @paste="pasteEventHandler"
-      :class="{'border-r': readonly, 'text-center': readonly}"
+      :class="{'border-r': readonly, 'text-center': readonly, 'text-xs': this.small}"
     />
     <div
       v-show="!readonly"
@@ -51,6 +51,8 @@ export default class NumberInput extends Vue {
   public value!: number;
   @Prop({ default: '' })
   public placeholder!: string
+  @Prop({ default: false })
+  public small!: boolean
 
   mdiChevronDown = mdiChevronDown
   mdiChevronUp = mdiChevronUp
