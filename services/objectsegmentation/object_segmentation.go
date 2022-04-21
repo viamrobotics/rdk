@@ -3,6 +3,7 @@ package objectsegmentation
 
 import (
 	"context"
+	"errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -16,6 +17,8 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	objdet "go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
@@ -72,17 +75,43 @@ func FromRobot(r robot.Robot) (Service, error) {
 	return svc, nil
 }
 
+func DetectorToSegmenter(seg Service, detectorName string, detector objdet.Detector) error {
+	srv, ok := seg.(*objectSegService)
+	if !ok {
+		return errors.New("adding segmenters is only supported on segmentation service hosted on local robots")
+	}
+	detSegmenter, params, err := segmentation.DetectionSegmenter(detector)
+	if err != nil {
+		return err
+	}
+	return srv.reg.registerSegmenter(detectorName, SegmenterRegistration{detSegmenter, params})
+}
+
+// radiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
+const RadiusClusteringSegmenter = "radius_clustering"
+
 // New returns a new object segmentation service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	segMap := make(segmenterMap)
+	// RadiusClustering is a default segmentation algorithm
+	err := segMap.registerSegmenter(RadiusClusteringSegmenter, SegmenterRegistration{
+		segmentation.Segmenter(segmentation.RadiusClustering),
+		utils.JSONTags(segmentation.RadiusClusteringConfig{}),
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &objectSegService{
 		r:      r,
 		logger: logger,
+		reg:    segMap,
 	}, nil
 }
 
 type objectSegService struct {
 	r      robot.Robot
 	logger golog.Logger
+	reg    segmenterMap
 }
 
 func (seg *objectSegService) GetObjectPointClouds(
@@ -94,7 +123,7 @@ func (seg *objectSegService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	segmenter, err := SegmenterLookup(segmenterName)
+	segmenter, err := seg.reg.segmenterLookup(segmenterName)
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +131,11 @@ func (seg *objectSegService) GetObjectPointClouds(
 }
 
 func (seg *objectSegService) GetSegmenters(ctx context.Context) ([]string, error) {
-	return SegmenterNames(), nil
+	return seg.reg.segmenterNames(), nil
 }
 
 func (seg *objectSegService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	segmenter, err := SegmenterLookup(segmenterName)
+	segmenter, err := seg.reg.segmenterLookup(segmenterName)
 	if err != nil {
 		return nil, err
 	}

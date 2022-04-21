@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/objectsegmentation"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	objdet "go.viam.com/rdk/vision/objectdetection"
@@ -146,6 +147,21 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if err != nil {
 		return nil, err
 	}
+	// register the detectors as segmenters too
+	segService, err := objectsegmentation.FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+	for _, detName := range detMap.detectorNames() {
+		det, err := detMap.detectorLookup(detName)
+		if err != nil {
+			return nil, err
+		}
+		err = objectsegmentation.DetectorToSegmenter(segService, detName, det)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &objDetService{
 		r:      r,
 		reg:    detMap,
@@ -175,7 +191,16 @@ func (srv *objDetService) AddDetector(ctx context.Context, cfg Config) (bool, er
 	if err != nil {
 		return false, err
 	}
-	return true, nil
+	det, err := srv.reg.detectorLookup(cfg.Name)
+	if err != nil {
+		return false, err
+	}
+	// also turn detector into segmenter
+	segService, err := objectsegmentation.FromRobot(srv.r)
+	if err != nil {
+		return true, err // true since the detector was added successfully to the detection service
+	}
+	return true, objectsegmentation.DetectorToSegmenter(segService, cfg.Name, det)
 }
 
 // Detect returns the detections of the next image from the given camera and the given detector.
