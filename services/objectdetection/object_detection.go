@@ -11,6 +11,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
 	"go.viam.com/rdk/registry"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
 func init() {
@@ -52,6 +54,7 @@ func init() {
 type Service interface {
 	DetectorNames(ctx context.Context) ([]string, error)
 	AddDetector(ctx context.Context, cfg Config) (bool, error)
+	Detect(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -173,4 +176,25 @@ func (srv *objDetService) AddDetector(ctx context.Context, cfg Config) (bool, er
 		return false, err
 	}
 	return true, nil
+}
+
+// Detect returns the detections of the next image from the given camera and the given detector.
+func (srv *objDetService) Detect(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::Detect")
+	defer span.End()
+	cam, err := camera.FromRobot(srv.r, cameraName)
+	if err != nil {
+		return nil, err
+	}
+	detector, err := srv.reg.detectorLookup(detectorName)
+	if err != nil {
+		return nil, err
+	}
+	img, release, err := cam.Next(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
+	return detector(img)
 }

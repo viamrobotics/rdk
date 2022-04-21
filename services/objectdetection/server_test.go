@@ -98,3 +98,30 @@ func TestServerAddDetector(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "is not implemented")
 	test.That(t, resp, test.ShouldBeNil)
 }
+
+func TestServerDetect(t *testing.T) {
+	r := buildRobotWithFakeCamera(t)
+	srv, err := objectdetection.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	m := map[resource.Name]interface{}{
+		objectdetection.Name: srv,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+	// success
+	resp, err := server.Detect(context.Background(), &pb.DetectRequest{
+		CameraName:   "fake_cam",
+		DetectorName: "detect_red",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Detections, test.ShouldHaveLength, 1)
+	test.That(t, resp.Detections[0].Confidence, test.ShouldEqual, 1.0)
+	test.That(t, resp.Detections[0].ClassName, test.ShouldEqual, "red")
+	test.That(t, resp.Detections[0].XMin, test.ShouldEqual, 110)
+	test.That(t, resp.Detections[0].YMin, test.ShouldEqual, 288)
+	test.That(t, resp.Detections[0].XMax, test.ShouldEqual, 183)
+	test.That(t, resp.Detections[0].YMax, test.ShouldEqual, 349)
+	// failure - empty request
+	_, err = server.Detect(context.Background(), &pb.DetectRequest{})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+}

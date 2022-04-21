@@ -3,6 +3,9 @@ package objectdetection
 import (
 	"context"
 
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
 	"go.viam.com/rdk/subtype"
@@ -36,6 +39,8 @@ func (server *subtypeServer) DetectorNames(
 	ctx context.Context,
 	req *pb.DetectorNamesRequest,
 ) (*pb.DetectorNamesResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::server::DetectorNames")
+	defer span.End()
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -53,6 +58,8 @@ func (server *subtypeServer) AddDetector(
 	ctx context.Context,
 	req *pb.AddDetectorRequest,
 ) (*pb.AddDetectorResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::server::AddDetector")
+	defer span.End()
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -69,5 +76,40 @@ func (server *subtypeServer) AddDetector(
 	}
 	return &pb.AddDetectorResponse{
 		Success: success,
+	}, nil
+}
+
+func (server *subtypeServer) Detect(
+	ctx context.Context,
+	req *pb.DetectRequest,
+) (*pb.DetectResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::objectdetection::server::Detect")
+	defer span.End()
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	detections, err := svc.Detect(ctx, req.CameraName, req.DetectorName)
+	if err != nil {
+		return nil, err
+	}
+	protoDets := make([]*pb.Detection, 0, len(detections))
+	for _, det := range detections {
+		box := det.BoundingBox()
+		if box == nil {
+			return nil, errors.New("detection has no bounding box, must return a bounding box")
+		}
+		d := &pb.Detection{
+			XMin:       int64(box.Min.X),
+			YMin:       int64(box.Min.Y),
+			XMax:       int64(box.Max.X),
+			YMax:       int64(box.Max.Y),
+			Confidence: det.Score(),
+			ClassName:  det.Label(),
+		}
+		protoDets = append(protoDets, d)
+	}
+	return &pb.DetectResponse{
+		Detections: protoDets,
 	}, nil
 }
