@@ -390,8 +390,6 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 // It'd be nice if we broke out chunks into helper functions, for easier
 // navigation and clearer reading of the workflow.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
-	options.secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
-
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
 	if err != nil {
 		return err
@@ -401,13 +399,13 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if !ok {
 		return errors.Errorf("expected *net.TCPAddr but got %T", listener.Addr())
 	}
-	listenerAddr := listenerTCPAddr.String()
-	listenerPort := listenerTCPAddr.Port
 
+	options.secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
 	if options.SignalingAddress == "" && !options.secure {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithInsecure())
 	}
 
+	listenerAddr := listenerTCPAddr.String()
 	if options.FQDN == "" {
 		options.FQDN, err = rpc.InstanceNameFromAddress(listenerAddr)
 		if err != nil {
@@ -516,14 +514,14 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		scheme = "http"
 	}
 	if strings.HasPrefix(listenerAddr, "[::]") {
-		listenerAddr = fmt.Sprintf("0.0.0.0:%d", listenerPort)
+		listenerAddr = fmt.Sprintf("0.0.0.0:%d", listenerTCPAddr.Port)
 	}
 	listenerURL := fmt.Sprintf("%s://%s", scheme, listenerAddr)
 	var urlFields []interface{}
 	if options.LocalFQDN == "" {
 		urlFields = append(urlFields, "url", listenerURL)
 	} else {
-		localURL := fmt.Sprintf("%s://%s:%d", scheme, options.LocalFQDN, listenerPort)
+		localURL := fmt.Sprintf("%s://%s:%d", scheme, options.LocalFQDN, listenerTCPAddr.Port)
 		urlFields = append(urlFields, "url", localURL, "alt_url", listenerURL)
 	}
 	svc.logger.Infow("serving", urlFields...)
