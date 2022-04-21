@@ -5,19 +5,25 @@ import (
 	"image"
 	"math"
 	"math/rand"
+	//"fmt"
 	//"time"
 
 	"go.viam.com/rdk/rimage"
+	"github.com/montanaflynn/stats"
 )
 
 type Corner struct {
-	X int
-	Y int
-	R float32 //Cornerness
+	X float64
+	Y float64
+	R float64 //Cornerness
 }
 
-func NewCorner(x, y int) Corner {
+func NewCorner(x, y float64) Corner {
 	return Corner{X: x, Y: y}
+}
+
+func NewCornerWithR(x, y float64, r float64) Corner {
+	return Corner{X: x, Y: y, R: r}
 }
 
 //AreEqual is a simple equality test for corners. If all fields are equal, same corner.
@@ -26,6 +32,32 @@ func AreEqual(a, b Corner) bool {
 		return true
 	}
 	return false
+}
+
+func NormalizeCorners(corners []Corner) []Corner {
+	var xSlice, ySlice []float64
+	for _, c := range corners{
+		xSlice = append(xSlice, float64(c.X))
+		ySlice = append(ySlice, float64(c.Y))
+	}
+	
+	xMean, _ := stats.Mean(xSlice)
+	yMean, _ := stats.Mean(ySlice)
+	sd_x, _ := stats.StandardDeviation(xSlice)
+	sd_y, _ := stats.StandardDeviation(xSlice)
+
+	var newXSlice, newYSlice []float64
+	for i,_ := range(xSlice){
+		newXSlice = append(newXSlice, (xSlice[i]-xMean)/sd_x )
+		newYSlice = append(newYSlice, (ySlice[i]-yMean)/sd_y )
+	}
+
+	var out []Corner
+	for i,_ := range corners{
+		cor := NewCornerWithR(newXSlice[i], newYSlice[i], corners[i].R )
+		out = append(out, cor)
+	}
+	return out
 }
 
 //contains checks a slice of Corners for a particular Corner and returns true if it's there.
@@ -58,10 +90,10 @@ func GetCornerList(XGrad, YGrad *image.Gray, w int) ([]Corner, error) {
 			rect := image.Rect(x-(w/2), y-(w/2), x+(w/2), y+(w/2))
 			sumXX, sumXY, sumYY := GetSum(XX.SubImage(rect).(*image.Gray16)), GetSum(XY.SubImage(rect).(*image.Gray16)), GetSum(YY.SubImage(rect).(*image.Gray16))
 
-			detM := float32((sumXX * sumYY) - (sumXY * sumXY))
-			traceM := float32(sumXX + sumYY)
+			detM := float64((sumXX * sumYY) - (sumXY * sumXY))
+			traceM := float64(sumXX + sumYY)
 			R := detM - (0.04 * traceM * traceM) //k=0.04 is a standard value
-			list = append(list, Corner{x, y, R})
+			list = append(list, Corner{float64(x), float64(y), R})
 		}
 	}
 	return list, nil
@@ -69,7 +101,7 @@ func GetCornerList(XGrad, YGrad *image.Gray, w int) ([]Corner, error) {
 
 //ThreshCornerList thresholds the list of potential corners found by GetCornerList()
 //based on their R score and returns a list of corners with R > t. Larger R = more cornery
-func ThreshCornerList(list []Corner, t float32) []Corner {
+func ThreshCornerList(list []Corner, t float64) []Corner {
 	out := make([]Corner, 0, len(list))
 	for _, c := range list {
 		if c.R > t {
@@ -191,11 +223,11 @@ func GetCornersFromPic(pic *rimage.Image, window int, N int) []Corner {
 //CURRENTLY WILL CAUSE AN ERROR IF THERES A CORNER TOO CLOSE TO EDGE (FIX?)
 func AddCornersToPic(list []Corner, pic *rimage.Image, color rimage.Color, loc string) {
 	//paintin := rimage.NewColor(255,0,0) //hopefully red or at least noticeable
-	radius := 3
+	radius := 3.0
 	for _, l := range list {
 		for x := -radius; x < radius; x++ {
 			for y := -radius; y < radius; y++ {
-				pic.SetXY(l.X+x, l.Y+y, color)
+				pic.SetXY(int(l.X+x), int(l.Y+y), color)
 			}
 		}
 	}
