@@ -587,16 +587,15 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}),
 	)
 
-	rpcServer, err := rpc.NewServer(svc.logger, rpcOpts...)
+	svc.server, err = rpc.NewServer(svc.logger, rpcOpts...)
 	if err != nil {
 		return err
 	}
-	svc.server = rpcServer
 	if options.SignalingAddress == "" {
 		options.SignalingAddress = listenerAddr
 	}
 
-	if err := rpcServer.RegisterServiceServer(
+	if err := svc.server.RegisterServiceServer(
 		ctx,
 		&pb.RobotService_ServiceDesc,
 		grpcserver.New(svc.r),
@@ -636,7 +635,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			subtypeSvc = newSvc
 			svc.services[s] = newSvc
 		}
-		if err := rs.RegisterRPCService(ctx, rpcServer, subtypeSvc); err != nil {
+		if err := rs.RegisterRPCService(ctx, svc.server, subtypeSvc); err != nil {
 			return err
 		}
 	}
@@ -647,7 +646,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if err != nil {
 		return err
 	}
-	if err := rpcServer.RegisterServiceServer(
+	if err := svc.server.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,
 		streamServer.ServiceServer(),
@@ -661,7 +660,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 
 	if options.Debug {
-		if err := rpcServer.RegisterServiceServer(
+		if err := svc.server.RegisterServiceServer(
 			ctx,
 			&echopb.EchoService_ServiceDesc,
 			&echoserver.Server{},
@@ -712,7 +711,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			}
 		}()
 		defer func() {
-			if err := rpcServer.Stop(); err != nil {
+			if err := svc.server.Stop(); err != nil {
 				svc.logger.Errorw("error stopping rpc server", "error", err)
 			}
 		}()
@@ -725,7 +724,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
-		if err := rpcServer.Start(); err != nil {
+		if err := svc.server.Start(); err != nil {
 			svc.logger.Errorw("error starting rpc server", "error", err)
 		}
 	})
