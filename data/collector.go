@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -93,12 +92,8 @@ func (c *collector) Collect() error {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
-	errs, _ := errgroup.WithContext(c.cancelCtx)
-	go c.capture()
-	errs.Go(func() error {
-		return c.write()
-	})
-	return errs.Wait()
+	utils.PanicCapturingGo(func() { c.capture() })
+	return c.write()
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach

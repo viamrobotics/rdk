@@ -114,9 +114,10 @@ func (s *SyncManagerImpl) queue(filePath string, di fs.DirEntry, err error) erro
 
 	fileInfo, err := di.Info()
 	if err != nil {
-		return err
+		return errors.Errorf("failed to get file info for filepath %s: %v", filePath, err)
 	}
 
+	// TODO: sufficient?
 	// If it's been written to in the last minute, it's still active and shouldn't be queued.
 	if time.Now().Sub(fileInfo.ModTime()) < time.Minute {
 		fmt.Println(filePath + " " + string(time.Now().Sub(fileInfo.ModTime())))
@@ -125,14 +126,16 @@ func (s *SyncManagerImpl) queue(filePath string, di fs.DirEntry, err error) erro
 
 	subPath, err := s.getPathUnderCaptureDir(filePath)
 	if err != nil {
-		return err
+		return errors.Errorf("could not get path under capture directory: %v", err)
+	}
+
+	if err = os.MkdirAll(filepath.Dir(path.Join(SyncQueue, subPath)), 0o700); err != nil {
+		return errors.Errorf("failed create directories under sync queue: %v", err)
 	}
 
 	// TODO: create all necessary directories under sync queue before moving
 	err = os.Rename(filePath, path.Join(SyncQueue, subPath))
 	if err != nil {
-		s.logger.Info(filePath + "\n")
-		s.logger.Info(path.Join(SyncQueue, subPath) + "\n")
 		return errors.Errorf("failed to move file to sync queue: %v", err)
 	}
 	return nil
@@ -146,18 +149,18 @@ func (s *SyncManagerImpl) getPathUnderCaptureDir(filePath string) (string, error
 	}
 }
 
-func getDataSyncDir(subtypeName string, componentName string) string {
-	return filepath.Join(SyncQueue, subtypeName, componentName)
-}
-
-// Create the data sync queue subdirectory containing a given component's data.
-func createDataSyncDir(subtypeName string, componentName string) error {
-	fileDir := getDataSyncDir(subtypeName, componentName)
-	if err := os.MkdirAll(fileDir, 0o700); err != nil {
-		return err
-	}
-	return nil
-}
+//func getDataSyncDir(subtypeName string, componentName string) string {
+//	return filepath.Join(SyncQueue, subtypeName, componentName)
+//}
+//
+//// Create the data sync queue subdirectory containing a given component's data.
+//func createDataSyncDir(subtypeName string, componentName string) error {
+//	fileDir := getDataSyncDir(subtypeName, componentName)
+//	if err := os.MkdirAll(fileDir, 0o700); err != nil {
+//		return err
+//	}
+//	return nil
+//}
 
 func (s *SyncManagerImpl) Close() error {
 	s.cancelFunc()
