@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 

@@ -75,6 +75,7 @@ func FromRobot(r robot.Robot) (Service, error) {
 	return svc, nil
 }
 
+// DetectorToSegmenter turns a detector into a segmenter and registers it to the segmenter map.
 func DetectorToSegmenter(seg Service, detectorName string, detector objdet.Detector) error {
 	srv, ok := seg.(*objectSegService)
 	if !ok {
@@ -87,7 +88,7 @@ func DetectorToSegmenter(seg Service, detectorName string, detector objdet.Detec
 	return srv.reg.registerSegmenter(detectorName, SegmenterRegistration{detSegmenter, params})
 }
 
-// radiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
+// RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
 const RadiusClusteringSegmenter = "radius_clustering"
 
 // New returns a new object segmentation service for the given robot.

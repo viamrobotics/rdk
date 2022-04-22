@@ -31,7 +31,8 @@ func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.T
 		}
 		proj := camera.Projector(cam)
 		if proj == nil {
-			return nil, errors.New("camera projector cannot be nil. Currently remote cameras are not supported (intrinsics parameters are not transfered over protobuf)")
+			return nil, errors.New("camera projector cannot be nil." +
+				"Currently remote cameras are not supported (intrinsics parameters are not transferred over protobuf)")
 		}
 		// get the 2D detections
 		img, _, err := cam.Next(ctx)
