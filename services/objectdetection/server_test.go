@@ -5,13 +5,16 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
 	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/objectdetection"
+	"go.viam.com/rdk/services/objectsegmentation"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -69,7 +72,11 @@ func TestDetectionServer(t *testing.T) {
 }
 
 func TestServerAddDetector(t *testing.T) {
-	srv := createService(t, "data/empty.json")
+	logger := golog.NewTestLogger(t)
+	r, err := robotimpl.RobotFromConfigPath(context.Background(), "data/empty.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	srv, err := objectdetection.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
 	m := map[resource.Name]interface{}{
 		objectdetection.Name: srv,
 	}
@@ -89,6 +96,12 @@ func TestServerAddDetector(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Success, test.ShouldBeTrue)
+	// did it add to segmentation service too
+	segSrv, err := objectsegmentation.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	segNames, err := segSrv.GetSegmenters(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segNames, test.ShouldContain, "test")
 	// failure
 	resp, err = server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		DetectorName:       "failing",

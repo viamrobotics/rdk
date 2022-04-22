@@ -17,17 +17,8 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/objectdetection"
+	"go.viam.com/rdk/services/objectsegmentation"
 )
-
-func createService(t *testing.T, filePath string) objectdetection.Service {
-	t.Helper()
-	logger := golog.NewTestLogger(t)
-	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger)
-	test.That(t, err, test.ShouldBeNil)
-	srv, err := objectdetection.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	return srv
-}
 
 func writeTempConfig(t *testing.T, cfg *config.Config) string {
 	t.Helper()
@@ -84,10 +75,20 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 }
 
 func TestDetectorNames(t *testing.T) {
-	srv := createService(t, "data/fake.json")
+	logger := golog.NewTestLogger(t)
+	r, err := robotimpl.RobotFromConfigPath(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	srv, err := objectdetection.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
 	names, err := srv.DetectorNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldContain, "detector_3")
+	// test if detector was added to segmentation service
+	segSrv, err := objectsegmentation.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	segNames, err := segSrv.GetSegmenters(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segNames, test.ShouldContain, "detector_3")
 }
 
 func TestDetect(t *testing.T) {
@@ -110,7 +111,11 @@ func TestDetect(t *testing.T) {
 }
 
 func TestAddDetector(t *testing.T) {
-	srv := createService(t, "data/empty.json")
+	logger := golog.NewTestLogger(t)
+	r, err := robotimpl.RobotFromConfigPath(context.Background(), "data/empty.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	srv, err := objectdetection.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
 	// success
 	cfg := objectdetection.Config{
 		Name: "test",
@@ -127,6 +132,12 @@ func TestAddDetector(t *testing.T) {
 	names, err := srv.DetectorNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldContain, "test")
+	// test if detector was added to segmentation service
+	segSrv, err := objectsegmentation.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	segNames, err := segSrv.GetSegmenters(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segNames, test.ShouldContain, "test")
 	// failure
 	cfg.Name = "will_fail"
 	cfg.Type = "wrong_type"
@@ -137,4 +148,7 @@ func TestAddDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldContain, "test")
 	test.That(t, names, test.ShouldNotContain, "will_fail")
+	segNames, err = segSrv.GetSegmenters(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segNames, test.ShouldNotContain, "will_fail")
 }

@@ -3,9 +3,9 @@ package objectsegmentation
 
 import (
 	"context"
-	"errors"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/camera"
@@ -75,9 +75,13 @@ func FromRobot(r robot.Robot) (Service, error) {
 	return svc, nil
 }
 
-// DetectorToSegmenter turns a detector into a segmenter and registers it to the segmenter map.
-func DetectorToSegmenter(seg Service, detectorName string, detector objdet.Detector) error {
-	srv, ok := seg.(*objectSegService)
+// RegisterDetectionSegmenter turns a detector into a segmenter and registers it to the segmenter map.
+func RegisterDetectionSegmenter(r robot.Robot, detectorName string, detector objdet.Detector) error {
+	segSrv, err := FromRobot(r)
+	if err != nil {
+		return errors.Wrapf(err, "DetectionToSegmenter: %s", detectorName)
+	}
+	srv, ok := segSrv.(*objectSegService)
 	if !ok {
 		return errors.New("adding segmenters is only supported on segmentation service hosted on local robots")
 	}
@@ -87,6 +91,8 @@ func DetectorToSegmenter(seg Service, detectorName string, detector objdet.Detec
 	}
 	return srv.reg.registerSegmenter(detectorName, SegmenterRegistration{detSegmenter, params})
 }
+
+//
 
 // RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
 const RadiusClusteringSegmenter = "radius_clustering"
