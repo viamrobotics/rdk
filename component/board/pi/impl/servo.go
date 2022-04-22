@@ -81,3 +81,8 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	}
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
+
+// Do is unimplemented
+func (s *piPigpioServo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
