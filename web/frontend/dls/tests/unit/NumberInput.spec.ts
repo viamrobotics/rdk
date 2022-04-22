@@ -40,7 +40,6 @@ describe("NumberInput", () => {
     });
     wrapper.findAll(".arrow-icon").at(0).trigger("click");
 
-    // input.setValue("154");
     expect(wrapper.vm.$data.value).toBe(13);
   });
   it("decrease check", async () => {

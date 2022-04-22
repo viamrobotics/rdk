@@ -47,14 +47,14 @@ import VueSlideBar from "vue-slide-bar";
   },
 })
 export default class ViamRange extends Vue {
-  @Prop({ default: 100 }) max = 100;
-  @Prop({ default: 0 }) min = 0;
-  @Prop({ default: 10 }) step = 10;
-  @Prop({ default: "" }) name = ""
-  @Prop({ default: "DefaultId" }) id = 'DefaultId';
-  @Prop({ default: "" }) unit = "";
+  @Prop({ default: 100 }) max!: number;
+  @Prop({ default: 0 }) min!: number;
+  @Prop({ default: 10 }) step!: number;
+  @Prop({ default: "" }) name!: string;
+  @Prop({ default: "DefaultId" }) id!: string;
+  @Prop({ default: "" }) unit!: string;
   @Prop({ required: true }) value!: number;
-  @Prop({ default: false }) hideTickLabels = false;
+  @Prop({ default: false }) hideTickLabels!: boolean;
 
   get innerValue(): number {
     return this.value;
@@ -73,7 +73,7 @@ export default class ViamRange extends Vue {
   get possibleValues(): number[] | null {
     if (this.hideTickLabels) return null;
 
-    let count = Math.floor((this.max - this.min + 1) / this.step) + 1;
+    let count = Math.floor((this.max - this.min) / this.step) + 1;
     let result = [];
     for (let i = 0; i < count; i++) {
       result.push(this.min + i * this.step);
