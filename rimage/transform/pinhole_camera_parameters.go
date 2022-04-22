@@ -265,7 +265,8 @@ func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
 func (params *PinholeCameraIntrinsics) ImageWithDepthToPointCloud(
 	ii *rimage.ImageWithDepth,
-	crop ...image.Rectangle) (pointcloud.PointCloud, error) {
+	crop ...image.Rectangle,
+) (pointcloud.PointCloud, error) {
 	var rect *image.Rectangle
 	if len(crop) > 1 {
 		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)

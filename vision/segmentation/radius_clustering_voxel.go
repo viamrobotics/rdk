@@ -84,7 +84,8 @@ func RadiusClusteringFromVoxels(ctx context.Context, c camera.Camera, params con
 // ApplyRadiusClusteringVoxels turns the cloud into a voxel grid and then does radius clustering  to segment it.
 func ApplyRadiusClusteringVoxels(ctx context.Context,
 	cloud pc.PointCloud,
-	cfg *RadiusClusteringVoxelConfig) ([]*vision.Object, error) {
+	cfg *RadiusClusteringVoxelConfig,
+) ([]*vision.Object, error) {
 	// turn the point cloud into a voxel grid
 	vg := pc.NewVoxelGridFromPointCloud(cloud, cfg.VoxelSize, cfg.Lambda)
 	planeConfig := VoxelGridPlaneConfig{cfg.WeightThresh, cfg.AngleThresh, cfg.CosineThresh, cfg.DistanceThresh}

@@ -51,7 +51,6 @@ var Subtype = resource.NewSubtype(
 
 // A Motor represents a physical motor connected to a board.
 type Motor interface {
-
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational
 	SetPower(ctx context.Context, powerPct float64) error
@@ -297,7 +296,7 @@ type Config struct {
 // Note(erd): This probably shouldn't exist since not all motors have the same config requirements.
 func RegisterConfigAttributeConverter(model string) {
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeMotor,
+		SubtypeName,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
