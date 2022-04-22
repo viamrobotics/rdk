@@ -111,7 +111,9 @@ func (svc *Service) Close(ctx context.Context) error {
 	for _, collector := range svc.collectors {
 		collector.Collector.Close()
 	}
-	svc.syncManager.close()
+	if svc.syncManager != nil {
+		svc.syncManager.close()
+	}
 	return nil
 }
 
