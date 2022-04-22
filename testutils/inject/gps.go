@@ -6,9 +6,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // GPS is an injected GPS.
@@ -83,10 +81,7 @@ func (i *GPS) Close(ctx context.Context) error {
 // Do calls the injected Do or the real version.
 func (i *GPS) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if i.DoFunc == nil {
-		if doer, ok := i.LocalGPS.(generic.Generic); ok {
-			return doer.Do(ctx, cmd)
-		}
-		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", i.LocalGPS)
+		return i.LocalGPS.Do(ctx, cmd)
 	}
 	return i.DoFunc(ctx, cmd)
 }

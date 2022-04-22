@@ -5,9 +5,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Gripper is an injected gripper.
@@ -46,10 +44,7 @@ func (g *Gripper) Close(ctx context.Context) error {
 // Do calls the injected Do or the real version.
 func (g *Gripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if g.DoFunc == nil {
-		if doer, ok := g.Gripper.(generic.Generic); ok {
-			return doer.Do(ctx, cmd)
-		}
-		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", g.Gripper)
+		return g.Gripper.Do(ctx, cmd)
 	}
 	return g.DoFunc(ctx, cmd)
 }

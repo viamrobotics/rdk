@@ -3,9 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Motor is an injected motor.
@@ -89,10 +87,7 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 // Do calls the injected Do or the real version.
 func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if m.DoFunc == nil {
-		if doer, ok := m.Motor.(generic.Generic); ok {
-			return doer.Do(ctx, cmd)
-		}
-		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", m.Motor)
+		return m.Motor.Do(ctx, cmd)
 	}
 	return m.DoFunc(ctx, cmd)
 }

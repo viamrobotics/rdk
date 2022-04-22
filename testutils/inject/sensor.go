@@ -3,9 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Sensor is an injected sensor.
@@ -26,10 +24,7 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 // Do calls the injected Do or the real version.
 func (s *Sensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if s.DoFunc == nil {
-		if doer, ok := s.Sensor.(generic.Generic); ok {
-			return doer.Do(ctx, cmd)
-		}
-		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", s.Sensor)
+		return s.Sensor.Do(ctx, cmd)
 	}
 	return s.DoFunc(ctx, cmd)
 }

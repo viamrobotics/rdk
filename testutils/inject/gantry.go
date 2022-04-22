@@ -6,10 +6,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/gantry"
-	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Gantry is an injected gantry.
@@ -66,10 +64,7 @@ func (a *Gantry) Close(ctx context.Context) error {
 // Do calls the injected Do or the real version.
 func (a *Gantry) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if a.DoFunc == nil {
-		if doer, ok := a.Gantry.(generic.Generic); ok {
-			return doer.Do(ctx, cmd)
-		}
-		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", a.Gantry)
+		return a.Gantry.Do(ctx, cmd)
 	}
 	return a.DoFunc(ctx, cmd)
 }

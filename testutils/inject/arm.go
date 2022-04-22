@@ -6,10 +6,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Arm is an injected arm.
@@ -66,10 +64,7 @@ func (a *Arm) Close(ctx context.Context) error {
 // Do calls the injected Do or the real version.
 func (a *Arm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if a.DoFunc == nil {
-		if doer, ok := a.Arm.(generic.Generic); ok {
-			return doer.Do(ctx, cmd)
-		}
-		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", a.Arm)
+		return a.Arm.Do(ctx, cmd)
 	}
 	return a.DoFunc(ctx, cmd)
 }
