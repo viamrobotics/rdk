@@ -276,9 +276,6 @@ func (svc *webService) update(resources map[resource.Name]interface{}) error {
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
 	components := make(map[resource.Name]interface{})
 	for n, v := range resources {
-		if n.Subtype == generic.Subtype {
-			continue
-		}
 		r, ok := groupedResources[n.Subtype]
 		if !ok {
 			r = make(map[resource.Name]interface{})
