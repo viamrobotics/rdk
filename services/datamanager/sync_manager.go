@@ -2,25 +2,19 @@ package datamanager
 
 import (
 	"context"
-	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
-	"go.viam.com/utils"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+	"go.viam.com/utils"
 )
 
-type SyncManager interface {
-	Queue(syncIntervalMins int)
-	Upload()
-	Close() error
-	SetCaptureDir(dir string)
-}
-
-type SyncManagerImpl struct {
+type syncManager struct {
 	captureDir string
 	syncQueue  string
 	logger     golog.Logger
@@ -29,11 +23,11 @@ type SyncManagerImpl struct {
 	cancelFunc func()
 }
 
-// New returns a new data manager service for the given robot.
-func NewSyncManager(ctx context.Context, queuePath string, logger golog.Logger, captureDir string) SyncManager {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+// newSyncManager returns a new data manager service for the given robot.
+func newSyncManager(queuePath string, logger golog.Logger, captureDir string) syncManager {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	ret := &SyncManagerImpl{
+	ret := syncManager{
 		syncQueue:  queuePath,
 		logger:     logger,
 		captureDir: captureDir,
@@ -44,11 +38,11 @@ func NewSyncManager(ctx context.Context, queuePath string, logger golog.Logger, 
 	return ret
 }
 
-// Sync syncs data to the backing storage system.
-func (s *SyncManagerImpl) Queue(syncIntervalMins int) {
+// enqueue moves files that are no longer being written to from captureDir to SyncQueue.
+func (s *syncManager) enqueue(syncIntervalMins int) {
 	utils.PanicCapturingGo(func() {
 		if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
-			s.logger.Errorf("failed to make sync queue: %v", err)
+			s.logger.Errorf("failed to make sync enqueue: %v", err)
 			return
 		}
 		ticker := time.NewTicker(time.Minute * time.Duration(syncIntervalMins))
@@ -57,31 +51,31 @@ func (s *SyncManagerImpl) Queue(syncIntervalMins int) {
 		for {
 			select {
 			case <-s.cancelCtx.Done():
-				err := filepath.WalkDir(s.captureDir, s.queue)
+				err := filepath.WalkDir(s.captureDir, s.queueFile)
 				if err != nil {
-					s.logger.Errorf("failed to move files to sync queue: %v", err)
+					s.logger.Errorf("failed to move files to sync enqueue: %v", err)
 				}
 				return
 			case <-ticker.C:
 				s.logger.Info(s.captureDir)
-				err := filepath.WalkDir(s.captureDir, s.queue)
+				err := filepath.WalkDir(s.captureDir, s.queueFile)
 				if err != nil {
-					s.logger.Errorf("failed to move files to sync queue: %v", err)
+					s.logger.Errorf("failed to move files to sync enqueue: %v", err)
 				}
 			}
 		}
 	})
 }
 
-// Upload syncs data to the backing storage system.
-func (s *SyncManagerImpl) Upload() {
+// upload syncs data to the backing storage system.
+func (s *syncManager) upload() {
 	utils.PanicCapturingGo(func() {
 		for {
 			select {
 			case <-s.cancelCtx.Done():
 				return
 			default:
-				err := filepath.WalkDir(SyncQueue, s.uploadQueuedFile)
+				err := filepath.WalkDir(SyncQueue, s.uploadFile)
 				if err != nil {
 					s.logger.Errorf("failed to upload queued file: %v", err)
 				}
@@ -90,12 +84,8 @@ func (s *SyncManagerImpl) Upload() {
 	})
 }
 
-func (s *SyncManagerImpl) SetCaptureDir(dir string) {
-	s.captureDir = dir
-}
-
-// TODO: implement
-func (s *SyncManagerImpl) uploadQueuedFile(path string, di fs.DirEntry, err error) error {
+// TODO: implement.
+func (s *syncManager) uploadFile(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -103,12 +93,11 @@ func (s *SyncManagerImpl) uploadQueuedFile(path string, di fs.DirEntry, err erro
 	if di.IsDir() {
 		return nil
 	}
-	//s.logger.Debugf("Visited: %s\n", path)
+	// s.logger.Debugf("Visited: %s\n", path)
 	return nil
 }
 
-// TODO: implement
-func (s *SyncManagerImpl) queue(filePath string, di fs.DirEntry, err error) error {
+func (s *syncManager) queueFile(filePath string, di fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -122,9 +111,8 @@ func (s *SyncManagerImpl) queue(filePath string, di fs.DirEntry, err error) erro
 		return errors.Errorf("failed to get file info for filepath %s: %v", filePath, err)
 	}
 
-	// TODO: sufficient?
 	// If it's been written to in the last minute, it's still active and shouldn't be queued.
-	if time.Now().Sub(fileInfo.ModTime()) < time.Minute {
+	if time.Since(fileInfo.ModTime()) < time.Minute {
 		return nil
 	}
 
@@ -134,39 +122,25 @@ func (s *SyncManagerImpl) queue(filePath string, di fs.DirEntry, err error) erro
 	}
 
 	if err = os.MkdirAll(filepath.Dir(path.Join(SyncQueue, subPath)), 0o700); err != nil {
-		return errors.Errorf("failed create directories under sync queue: %v", err)
+		return errors.Errorf("failed create directories under sync enqueue: %v", err)
 	}
 
-	// TODO: create all necessary directories under sync queue before moving
+	// TODO: create all necessary directories under sync enqueue before moving
 	err = os.Rename(filePath, path.Join(SyncQueue, subPath))
 	if err != nil {
-		return errors.Errorf("failed to move file to sync queue: %v", err)
+		return errors.Errorf("failed to move file to sync enqueue: %v", err)
 	}
 	return nil
 }
 
-func (s *SyncManagerImpl) getPathUnderCaptureDir(filePath string) (string, error) {
+func (s *syncManager) getPathUnderCaptureDir(filePath string) (string, error) {
 	if idx := strings.Index(filePath, s.captureDir); idx != -1 {
 		return filePath[idx+len(s.captureDir):], nil
-	} else {
-		return "", errors.Errorf("file path %s is not under capture directory %s", filePath, s.captureDir)
 	}
+	return "", errors.Errorf("file path %s is not under capture directory %s", filePath, s.captureDir)
 }
 
-//func getDataSyncDir(subtypeName string, componentName string) string {
-//	return filepath.Join(SyncQueue, subtypeName, componentName)
-//}
-//
-//// Create the data sync queue subdirectory containing a given component's data.
-//func createDataSyncDir(subtypeName string, componentName string) error {
-//	fileDir := getDataSyncDir(subtypeName, componentName)
-//	if err := os.MkdirAll(fileDir, 0o700); err != nil {
-//		return err
-//	}
-//	return nil
-//}
-
-func (s *SyncManagerImpl) Close() error {
+// close closes all resources (goroutines) associated with s.
+func (s *syncManager) close() {
 	s.cancelFunc()
-	return nil
 }

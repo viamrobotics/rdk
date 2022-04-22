@@ -47,8 +47,7 @@ type DataManager interface { // TODO: Add synchronize.
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
 
-// TODO: think of a good sync queue name
-// TODO: create this at start up if it doesn't exist
+// SyncQueue is TODO: is this a good spot for it?
 const SyncQueue = "/tmp/sync_queue/"
 
 // Subtype is a constant that identifies the data manager service resource subtype.
@@ -61,7 +60,7 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// The Collector's queue should be big enough to ensure that .capture() is never blocked by the queue being
+// The Collector's enqueue should be big enough to ensure that .capture() is never blocked by the enqueue being
 // written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),
 // this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the size of
 // writes this would be performing.
@@ -106,11 +105,13 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return dataManagerSvc, nil
 }
 
+// Close releases all resources managed by data_manager.
 func (svc *Service) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	for _, collector := range svc.collectors {
 		collector.Collector.Close()
 	}
+	svc.syncManager.close()
 	return nil
 }
 
@@ -120,7 +121,7 @@ type Service struct {
 	logger      golog.Logger
 	captureDir  string
 	collectors  map[componentMethodMetadata]collectorParams
-	syncManager SyncManager
+	syncManager *syncManager
 
 	cancelCtx  context.Context
 	cancelFunc func()
@@ -218,7 +219,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 		return nil, err
 	}
 
-	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
+	// Set enqueue size to defaultCaptureQueueSize if it was not set in the config.
 	captureQueueSize := attributes.CaptureQueueSize
 	if captureQueueSize == 0 {
 		captureQueueSize = defaultCaptureQueueSize
@@ -260,18 +261,16 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	// TODO: break this into some initOrUpdateSyncManager func
 	if svc.syncManager != nil {
 		// If already have a sync manager, close it so it can be replaced.
-		err := svc.syncManager.Close()
-		if err != nil {
-			return errors.Errorf("failed to close sync manager: %v", err)
-		}
+		svc.syncManager.close()
 	} else {
 		// TODO: This should probably be somewhere else... but idea is want to start this goroutine just once at start
 		go svc.updateCollectors()
 	}
 	if svcConfig.SyncIntervalMins > 0 {
-		svc.syncManager = NewSyncManager(svc.cancelCtx, SyncQueue, svc.logger, svc.captureDir)
-		svc.syncManager.Queue(svcConfig.SyncIntervalMins)
-		svc.syncManager.Upload()
+		sm := newSyncManager(SyncQueue, svc.logger, svc.captureDir)
+		svc.syncManager = &sm
+		svc.syncManager.enqueue(svcConfig.SyncIntervalMins)
+		svc.syncManager.upload()
 	}
 
 	// Initialize or add a collector based on changes to the config.
@@ -294,15 +293,6 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 		}
 	}
 
-	// TODO: handle error
-	// TODO: handle updates correctly. Need to kill old goroutine. Maybe have as separate "sync_manager" with its own
-	//       close func?
-	//svc.syncManager.Close()
-	//svc.syncManager = NewSyncManager(svc.cancelCtx, SyncQueue, &svc.collectors, svc.logger, svc.captureDir)
-	//if svcConfig.SyncIntervalMins > 0 {
-	//	go svc.syncManager.Queue(svcConfig.SyncIntervalMins)
-	//	go svc.syncManager.Upload()
-	//}
 	return nil
 }
 
