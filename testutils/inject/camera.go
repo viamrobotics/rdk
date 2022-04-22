@@ -7,9 +7,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/pointcloud"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Camera is an injected camera.
@@ -48,10 +46,7 @@ func (c *Camera) Close(ctx context.Context) error {
 // Do calls the injected Do or the real version.
 func (c *Camera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if c.DoFunc == nil {
-		if doer, ok := c.Camera.(generic.Generic); ok {
-			return doer.Do(ctx, cmd)
-		}
-		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", c.Camera)
+		return c.Camera.Do(ctx, cmd)
 	}
 	return c.DoFunc(ctx, cmd)
 }

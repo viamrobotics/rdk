@@ -6,9 +6,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Board is an injected board.
@@ -177,10 +175,7 @@ func (b *Board) StatusCap() []interface{} {
 // Do calls the injected Do or the real version.
 func (b *Board) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if b.DoFunc == nil {
-		if doer, ok := b.LocalBoard.(generic.Generic); ok {
-			return doer.Do(ctx, cmd)
-		}
-		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", b.LocalBoard)
+		return b.LocalBoard.Do(ctx, cmd)
 	}
 	return b.DoFunc(ctx, cmd)
 }

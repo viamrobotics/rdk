@@ -3,9 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // InputController is an injected InputController.
@@ -54,10 +52,7 @@ func (s *InputController) RegisterControlCallback(
 // Do calls the injected Do or the real version.
 func (s *InputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if s.DoFunc == nil {
-		if doer, ok := s.Controller.(generic.Generic); ok {
-			return doer.Do(ctx, cmd)
-		}
-		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", s.Controller)
+		return s.Controller.Do(ctx, cmd)
 	}
 	return s.DoFunc(ctx, cmd)
 }
@@ -77,4 +72,3 @@ func (s *TriggerableInputController) TriggerEvent(ctx context.Context, event inp
 	}
 	return s.TriggerEventFunc(ctx, event)
 }
-
