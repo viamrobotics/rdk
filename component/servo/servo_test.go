@@ -171,7 +171,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = servo.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalServo", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", nil))
 
 	reconfServo2, err := servo.WrapWithReconfigurable(reconfServo1)
 	test.That(t, err, test.ShouldBeNil)

@@ -194,12 +194,12 @@ func TestArmName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualArm1 arm.MinimalArm = &mock{Name: testArmName}
+	var actualArm1 arm.Arm = &mock{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = arm.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalArm", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", nil))
 
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)
@@ -271,7 +271,7 @@ func TestArmPositionDiff(t *testing.T) {
 var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
 type mock struct {
-	arm.MinimalArm
+	arm.Arm
 	Name        string
 	endPosCount int
 	reconfCount int

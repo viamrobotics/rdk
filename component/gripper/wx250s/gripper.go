@@ -3,6 +3,7 @@ package wx250s
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -158,4 +159,9 @@ func findServo(usbPort, baudRateStr string, logger golog.Logger) *servo.Servo {
 	}
 
 	return newServo
+}
+
+// Do is unimplemented.
+func (g *wx250s) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

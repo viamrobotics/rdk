@@ -113,7 +113,7 @@ func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediad
 }
 
 // NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
-func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.MinimalCamera, error) {
+func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
 	var err error
 
 	debug := attrs.Debug
@@ -161,7 +161,7 @@ func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.MinimalCam
 	return nil, errors.New("found no webcams")
 }
 
-func tryWebcamOpen(attrs *WebcamAttrs, path string, constraints mediadevices.MediaStreamConstraints) (camera.MinimalCamera, error) {
+func tryWebcamOpen(attrs *WebcamAttrs, path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
 	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err

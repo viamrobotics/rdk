@@ -285,6 +285,11 @@ func (g *serialNMEAGPS) Close() error {
 	return nil
 }
 
+// Do is unimplemented.
+func (g *serialNMEAGPS) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 // toPoint converts a nmea.GLL to a geo.Point.
 func toPoint(a nmea.GLL) *geo.Point {
 	return geo.NewPoint(a.Latitude, a.Longitude)

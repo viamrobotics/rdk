@@ -80,7 +80,7 @@ func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 // NewWit creates a new Wit IMU.
-func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.MinimalIMU, error) {
+func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600,
 		DataBits:        8,
@@ -193,4 +193,9 @@ func (imu *wit) parseWIT(line string) error {
 func (imu *wit) Close() {
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
+}
+
+// Do is unimplemented.
+func (imu *wit) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

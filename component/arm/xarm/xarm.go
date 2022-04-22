@@ -82,7 +82,7 @@ func xArmModel(dof int) (referenceframe.Model, error) {
 }
 
 // NewxArm returns a new xArm with the specified dof.
-func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.MinimalArm, error) {
+func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
@@ -136,4 +136,8 @@ func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) erro
 // ModelFrame returns the dynamic frame of the model.
 func (x *xArm) ModelFrame() referenceframe.Model {
 	return x.model
+}
+
+func (x *xArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

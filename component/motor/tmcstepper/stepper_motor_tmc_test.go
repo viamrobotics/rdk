@@ -98,7 +98,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	}()
-	_motor, ok := m.(motor.MinimalMotor)
+	_motor, ok := m.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
 	stoppableMotor, ok := _motor.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)

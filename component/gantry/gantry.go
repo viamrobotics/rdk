@@ -64,14 +64,8 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Gantry represents a fully implemented gantry.
+// Gantry is used for controlling gantries of N axis.
 type Gantry interface {
-	generic.Generic
-	MinimalGantry
-}
-
-// MinimalGantry is used for controlling gantries of N axis.
-type MinimalGantry interface {
 	// GetPosition returns the position in meters
 	GetPosition(ctx context.Context) ([]float64, error)
 
@@ -82,6 +76,7 @@ type MinimalGantry interface {
 	// GetLengths is the length of gantries in meters
 	GetLengths(ctx context.Context) ([]float64, error)
 
+	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
 }
@@ -92,13 +87,11 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(Gantry); ok {
-		return full, nil
+	part, ok := res.(Gantry)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
 	}
-	if part, ok := res.(MinimalGantry); ok {
-		return &reconfigurableGantry{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.
@@ -108,7 +101,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the gantry.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	gantry, ok := resource.(MinimalGantry)
+	gantry, ok := resource.(Gantry)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("Gantry", resource)
 	}
@@ -127,9 +120,9 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	g, ok := r.(MinimalGantry)
+	g, ok := r.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalGantry", r)
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
 		return reconfigurable, nil
@@ -137,21 +130,21 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableGantry{actual: g}, nil
 }
 
-var (
-	_ = Gantry(&reconfigurableGantry{})
-	_ = resource.Reconfigurable(&reconfigurableGantry{})
-	_ = generic.Generic(&reconfigurableGantry{})
-)
-
 type reconfigurableGantry struct {
 	mu     sync.RWMutex
-	actual MinimalGantry
+	actual Gantry
 }
 
 func (g *reconfigurableGantry) ProxyFor() interface{} {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual
+}
+
+func (g *reconfigurableGantry) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Do(ctx, cmd)
 }
 
 // GetPosition returns the position in meters.
@@ -183,17 +176,6 @@ func (g *reconfigurableGantry) Close(ctx context.Context) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return viamutils.TryClose(ctx, g.actual)
-}
-
-// Do will try to Do() and error if not implemented.
-func (g *reconfigurableGantry) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	if dev, ok := g.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", g)
 }
 
 // Reconfigure reconfigures the resource.

@@ -350,7 +350,7 @@ func evaModel() (referenceframe.Model, error) {
 }
 
 // NewEva TODO.
-func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.MinimalArm, error) {
+func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
 	model, err := evaModel()
 	if err != nil {
 		return nil, err
@@ -379,4 +379,8 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 	e.logger.Debugf("connected to eva: %v", name)
 
 	return e, nil
+}
+
+func (e *eva) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

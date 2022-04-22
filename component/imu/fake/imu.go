@@ -34,7 +34,7 @@ func init() {
 }
 
 // NewIMU returns a new fake IMU.
-func NewIMU(cfg config.Component) (imu.MinimalIMU, error) {
+func NewIMU(cfg config.Component) (imu.IMU, error) {
 	name := cfg.Name
 	return &IMU{
 		Name:            name,

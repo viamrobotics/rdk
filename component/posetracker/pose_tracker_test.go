@@ -128,7 +128,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	reconfPT, err := posetracker.WrapWithReconfigurable(poseTracker)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = posetracker.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("MinimalPoseTracker", nil))
+	test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("PoseTracker", nil))
 	reconfPT2, err := posetracker.WrapWithReconfigurable(reconfPT)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfPT2, test.ShouldEqual, reconfPT)

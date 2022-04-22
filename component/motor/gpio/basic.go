@@ -17,7 +17,7 @@ import (
 
 // NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.MinimalMotor, error) {
+func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
 	if mc.MaxPowerPct == 0 {
 		mc.MaxPowerPct = 1.0
 	}
@@ -89,7 +89,7 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Minima
 	return m, nil
 }
 
-var _ = motor.MinimalMotor(&Motor{})
+var _ = motor.Motor(&Motor{})
 
 // A Motor is a GPIO based Motor that resides on a GPIO Board.
 type Motor struct {
@@ -309,4 +309,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
+}
+
+// Do is unimplemented.
+func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

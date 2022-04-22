@@ -50,8 +50,8 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// A MinimalMotor represents the minimal interface necessary to be a motor.
-type MinimalMotor interface {
+// A Motor represents a physical motor connected to a board.
+type Motor interface {
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational
 	SetPower(ctx context.Context, powerPct float64) error
@@ -83,23 +83,19 @@ type MinimalMotor interface {
 
 	// IsPowered returns whether or not the motor is currently on.
 	IsPowered(ctx context.Context) (bool, error)
+
+	generic.Generic
 }
 
 // A LocalMotor is a motor that supports additional features provided by RDK
 // (e.g. GoTillStop).
 type LocalMotor interface {
-	MinimalMotor
+	Motor
 	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
 	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
 	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
 	GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
-}
-
-// Motor represents a fully implemented motor.
-type Motor interface {
-	generic.Generic
-	MinimalMotor
 }
 
 // Named is a helper for getting the named Motor's typed resource name.
@@ -110,7 +106,6 @@ func Named(name string) resource.Name {
 var (
 	_ = LocalMotor(&reconfigurableMotor{})
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
-	_ = generic.Generic(&reconfigurableMotor{})
 )
 
 // FromRobot is a helper for getting the named motor from the given Robot.
@@ -119,13 +114,11 @@ func FromRobot(r robot.Robot, name string) (Motor, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(Motor); ok {
-		return full, nil
+	part, ok := res.(Motor)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Motor", res)
 	}
-	if part, ok := res.(MinimalMotor); ok {
-		return &reconfigurableMotor{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Motor", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all motor names from the given Robot.
@@ -163,13 +156,19 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableMotor struct {
 	mu     sync.RWMutex
-	actual MinimalMotor
+	actual Motor
 }
 
 func (r *reconfigurableMotor) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+func (r *reconfigurableMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) error {
@@ -239,17 +238,6 @@ func (r *reconfigurableMotor) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, r.actual)
 }
 
-// Do will try to Do() and error if not implemented.
-func (r *reconfigurableMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if dev, ok := r.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
-}
-
 func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -267,9 +255,9 @@ func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource
 // WrapWithReconfigurable converts a regular Motor implementation to a reconfigurableMotor.
 // If motor is already a reconfigurableMotor, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	motor, ok := r.(MinimalMotor)
+	motor, ok := r.(Motor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalMotor", r)
+		return nil, utils.NewUnimplementedInterfaceError("Motor", r)
 	}
 	if reconfigurable, ok := motor.(*reconfigurableMotor); ok {
 		return reconfigurable, nil

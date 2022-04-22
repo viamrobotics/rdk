@@ -51,23 +51,17 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Sensor represents a fully implemented Sensor.
-type Sensor interface {
-	generic.Generic
-	MinimalSensor
-}
-
-// A MinimalSensor represents a general purpose sensors that can give arbitrary readings
+// A Sensor represents a general purpose sensors that can give arbitrary readings
 // of some thing that it is sensing.
-type MinimalSensor interface {
+type Sensor interface {
 	// GetReadings return data specific to the type of sensor and can be of any type.
 	GetReadings(ctx context.Context) ([]interface{}, error)
+	generic.Generic
 }
 
 var (
 	_ = Sensor(&reconfigurableSensor{})
 	_ = resource.Reconfigurable(&reconfigurableSensor{})
-	_ = generic.Generic(&reconfigurableSensor{})
 )
 
 // FromRobot is a helper for getting the named Sensor from the given Robot.
@@ -76,13 +70,11 @@ func FromRobot(r robot.Robot, name string) (Sensor, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(Sensor); ok {
-		return full, nil
+	part, ok := res.(Sensor)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Sensor", res)
 	}
-	if part, ok := res.(MinimalSensor); ok {
-		return &reconfigurableSensor{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Sensor", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.
@@ -92,7 +84,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableSensor struct {
 	mu     sync.RWMutex
-	actual MinimalSensor
+	actual Sensor
 }
 
 func (r *reconfigurableSensor) Close(ctx context.Context) error {
@@ -107,21 +99,17 @@ func (r *reconfigurableSensor) ProxyFor() interface{} {
 	return r.actual
 }
 
+// Do passes generic commands/data.
+func (r *reconfigurableSensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
+}
+
 func (r *reconfigurableSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetReadings(ctx)
-}
-
-// Do will try to Do() and error if not implemented.
-func (r *reconfigurableSensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if dev, ok := r.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
 }
 
 func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resource.Reconfigurable) error {
@@ -141,9 +129,9 @@ func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resour
 // WrapWithReconfigurable converts a regular Sensor implementation to a reconfigurableSensor.
 // If Sensor is already a reconfigurableSensor, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	Sensor, ok := r.(MinimalSensor)
+	Sensor, ok := r.(Sensor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalSensor", r)
+		return nil, utils.NewUnimplementedInterfaceError("Sensor", r)
 	}
 	if reconfigurable, ok := Sensor.(*reconfigurableSensor); ok {
 		return reconfigurable, nil

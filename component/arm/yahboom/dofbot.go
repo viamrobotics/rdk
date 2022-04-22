@@ -93,7 +93,7 @@ func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.M
 	return model, mp, nil
 }
 
-func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.MinimalArm, error) {
+func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 	var err error
 
 	a := dofBot{}
@@ -360,4 +360,8 @@ func (a *dofBot) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 
 func (a *dofBot) Close() error {
 	return a.handle.Close()
+}
+
+func (a *dofBot) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

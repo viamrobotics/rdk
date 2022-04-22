@@ -23,7 +23,7 @@ import (
 const modelName = "pca9685"
 
 var (
-	_ = board.MinimalBoard(&PCA9685{})
+	_ = board.Board(&PCA9685{})
 	_ = board.GPIOPin(&gpioPin{})
 )
 
@@ -281,6 +281,11 @@ func (pca *PCA9685) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
 func (pca *PCA9685) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return nil, false
+}
+
+// Do is unimplemented.
+func (pca *PCA9685) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }
 
 // A gpioPin in PCA9685 is the combination of a PWM's T_on and T_off

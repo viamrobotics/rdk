@@ -63,17 +63,12 @@ var (
 // BodyToPoseInFrame represents a map of body names to PoseInFrames.
 type BodyToPoseInFrame map[string]*referenceframe.PoseInFrame
 
-// A PoseTracker represents a fully implemented PoseTracker.
-type PoseTracker interface {
-	generic.Generic
-	MinimalPoseTracker
-}
-
-// A MinimalPoseTracker represents a robot component that can observe bodies in an
+// A PoseTracker represents a robot component that can observe bodies in an
 // environment and provide their respective poses in space. These poses are
 // given in the context of the PoseTracker's frame of reference.
-type MinimalPoseTracker interface {
+type PoseTracker interface {
 	GetPoses(ctx context.Context, bodyNames []string) (BodyToPoseInFrame, error)
+	generic.Generic
 }
 
 // FromRobot is a helper for getting the named force matrix sensor from the given Robot.
@@ -82,17 +77,15 @@ func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(PoseTracker); ok {
-		return full, nil
+	part, ok := res.(PoseTracker)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("PoseTracker", res)
 	}
-	if part, ok := res.(MinimalPoseTracker); ok {
-		return &reconfigurablePoseTracker{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("PoseTracker", res)
+	return part, nil
 }
 
 // GetReadings is a helper for getting all readings from a PoseTracker.
-func GetReadings(ctx context.Context, poseTracker MinimalPoseTracker) ([]interface{}, error) {
+func GetReadings(ctx context.Context, poseTracker PoseTracker) ([]interface{}, error) {
 	poseLookup, err := poseTracker.GetPoses(ctx, []string{})
 	if err != nil {
 		return nil, err
@@ -113,13 +106,20 @@ func GetReadings(ctx context.Context, poseTracker MinimalPoseTracker) ([]interfa
 
 type reconfigurablePoseTracker struct {
 	mu     sync.RWMutex
-	actual MinimalPoseTracker
+	actual PoseTracker
 }
 
 func (r *reconfigurablePoseTracker) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+// Do passes generic commands/data.
+func (r *reconfigurablePoseTracker) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurablePoseTracker) GetPoses(
@@ -134,17 +134,6 @@ func (r *reconfigurablePoseTracker) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return viamutils.TryClose(ctx, r.actual)
-}
-
-// Do will try to Do() and error if not implemented.
-func (r *reconfigurablePoseTracker) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if dev, ok := r.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
 }
 
 func (r *reconfigurablePoseTracker) Reconfigure(
@@ -177,9 +166,9 @@ func (r *reconfigurablePoseTracker) GetReadings(ctx context.Context) ([]interfac
 // WrapWithReconfigurable converts a regular PoseTracker implementation to a reconfigurablePoseTracker.
 // If pose tracker is already a reconfigurablePoseTracker, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	poseTracker, ok := r.(MinimalPoseTracker)
+	poseTracker, ok := r.(PoseTracker)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalPoseTracker", r)
+		return nil, utils.NewUnimplementedInterfaceError("PoseTracker", r)
 	}
 	if reconfigurable, ok := poseTracker.(*reconfigurablePoseTracker); ok {
 		return reconfigurable, nil

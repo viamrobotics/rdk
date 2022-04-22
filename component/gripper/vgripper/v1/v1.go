@@ -446,3 +446,8 @@ func (vg *gripperV1) analogs(ctx context.Context) (hasPressure bool, pressure, c
 
 	return
 }
+
+// Do is unimplemented.
+func (vg *gripperV1) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}

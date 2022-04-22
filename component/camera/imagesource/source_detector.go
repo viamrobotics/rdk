@@ -91,7 +91,7 @@ func (ac *colorDetectorAttrs) DetectColor() ([]uint8, error) {
 }
 
 // newColorDetector creates a simple color detector from a source camera component in the config and user defined attributes.
-func newColorDetector(src camera.MinimalCamera, attrs *colorDetectorAttrs) (camera.MinimalCamera, error) {
+func newColorDetector(src camera.Camera, attrs *colorDetectorAttrs) (camera.Camera, error) {
 	// define the preprocessor
 	pSlice := make([]objectdetection.Preprocessor, 0, 3)
 	for _, c := range attrs.ExcludeColors {

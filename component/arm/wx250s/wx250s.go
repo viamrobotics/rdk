@@ -98,7 +98,7 @@ func getPortMutex(port string) *sync.Mutex {
 }
 
 // NewArm TODO.
-func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.MinimalArm, error) {
+func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
@@ -494,4 +494,9 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, 
 
 func within(a, b, c float64) bool {
 	return math.Abs(a-b) <= c
+}
+
+// Do is unimplemented.
+func (a *Arm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

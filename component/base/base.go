@@ -51,8 +51,8 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A MinimalBase represents a physical base of a robot.
-type MinimalBase interface {
+// A Base represents a physical base of a robot.
+type Base interface {
 	// MoveStraight moves the robot straight a given distance at a given speed. The method
 	// can be requested to block until the move is complete. If a distance or speed of zero is given,
 	// the base will stop.
@@ -71,25 +71,20 @@ type MinimalBase interface {
 
 	// Stop stops the base. It is assumed the base stops immediately.
 	Stop(ctx context.Context) error
+
+	generic.Generic
 }
 
 // A LocalBase represents a physical base of a robot that can report the width of itself.
 type LocalBase interface {
-	MinimalBase
+	Base
 	// GetWidth returns the width of the base in millimeters.
 	GetWidth(ctx context.Context) (int, error)
-}
-
-// Base represents a fully implemented Base.
-type Base interface {
-	generic.Generic
-	MinimalBase
 }
 
 var (
 	_ = LocalBase(&reconfigurableBase{})
 	_ = resource.Reconfigurable(&reconfigurableBase{})
-	_ = generic.Generic(&reconfigurableBase{})
 )
 
 // FromRobot is a helper for getting the named base from the given Robot.
@@ -98,13 +93,11 @@ func FromRobot(r robot.Robot, name string) (Base, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(Base); ok {
-		return full, nil
+	part, ok := res.(Base)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Base", res)
 	}
-	if part, ok := res.(MinimalBase); ok {
-		return &reconfigurableBase{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Base", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all base names from the given Robot.
@@ -114,13 +107,19 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableBase struct {
 	mu     sync.RWMutex
-	actual MinimalBase
+	actual LocalBase
 }
 
 func (r *reconfigurableBase) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+func (r *reconfigurableBase) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableBase) MoveStraight(
@@ -154,27 +153,13 @@ func (r *reconfigurableBase) Stop(ctx context.Context) error {
 func (r *reconfigurableBase) GetWidth(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	if dev, ok := r.actual.(LocalBase); ok {
-		return dev.GetWidth(ctx)
-	}
-	return -1, utils.NewUnimplementedInterfaceError("LocalBase", r)
+	return r.actual.GetWidth(ctx)
 }
 
 func (r *reconfigurableBase) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return viamutils.TryClose(ctx, r.actual)
-}
-
-// Do will try to Do() and error if not implemented.
-func (r *reconfigurableBase) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if dev, ok := r.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
 }
 
 func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {
@@ -194,9 +179,9 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 // WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.
 // If base is already a reconfigurableBase, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	base, ok := r.(MinimalBase)
+	base, ok := r.(LocalBase)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalBase", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalBase", r)
 	}
 	if reconfigurable, ok := base.(*reconfigurableBase); ok {
 		return reconfigurable, nil
@@ -214,7 +199,7 @@ type Move struct {
 }
 
 // DoMove performs the given move on the given base.
-func DoMove(ctx context.Context, move Move, base MinimalBase) error {
+func DoMove(ctx context.Context, move Move, base Base) error {
 	if move.AngleDeg != 0 {
 		err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Block)
 		if err != nil {

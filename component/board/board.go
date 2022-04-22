@@ -62,9 +62,9 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A MinimalBoard represents a physical general purpose board that contains various
+// A Board represents a physical general purpose board that contains various
 // components such as analog readers, and digital interrupts.
-type MinimalBoard interface {
+type Board interface {
 	// AnalogReaderByName returns an analog reader by name.
 	AnalogReaderByName(name string) (AnalogReader, bool)
 
@@ -96,23 +96,19 @@ type MinimalBoard interface {
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
+
+	generic.Generic
 }
 
 // A LocalBoard represents a Board where you can request SPIs and I2Cs by name.
 type LocalBoard interface {
-	MinimalBoard
+	Board
 
 	// SPIByName returns an SPI bus by name.
 	SPIByName(name string) (SPI, bool)
 
 	// I2CByName returns an I2C bus by name.
 	I2CByName(name string) (I2C, bool)
-}
-
-// A Board represents a fully implemented Board.
-type Board interface {
-	generic.Generic
-	MinimalBoard
 }
 
 // ModelAttributes provide info related to a board model.
@@ -162,7 +158,6 @@ type PostProcessor func(raw int64) int64
 var (
 	_ = LocalBoard(&reconfigurableBoard{})
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
-	_ = generic.Generic(&reconfigurableBoard{})
 )
 
 // FromRobot is a helper for getting the named board from the given Robot.
@@ -171,13 +166,11 @@ func FromRobot(r robot.Robot, name string) (Board, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(Board); ok {
-		return full, nil
+	part, ok := res.(Board)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Board", res)
 	}
-	if part, ok := res.(LocalBoard); ok {
-		return &reconfigurableBoard{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Board", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all board names from the given Robot.
@@ -198,6 +191,12 @@ func (r *reconfigurableBoard) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+func (r *reconfigurableBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableBoard) SPIByName(name string) (SPI, bool) {
@@ -389,17 +388,6 @@ func (r *reconfigurableBoard) ModelAttributes() ModelAttributes {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ModelAttributes()
-}
-
-// Do will try to Do() and error if not implemented.
-func (r *reconfigurableBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if dev, ok := r.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
 }
 
 // Close attempts to cleanly close each part of the board.

@@ -158,7 +158,7 @@ type alignColorDepth struct {
 }
 
 // newAlignColorDepth creates a gostream.ImageSource that aligned color and depth channels.
-func newAlignColorDepth(color, depth camera.MinimalCamera, attrs *alignAttrs, logger golog.Logger) (camera.MinimalCamera, error) {
+func newAlignColorDepth(color, depth camera.Camera, attrs *alignAttrs, logger golog.Logger) (camera.Camera, error) {
 	alignCamera, err := getAligner(attrs, logger)
 	if err != nil {
 		return nil, err

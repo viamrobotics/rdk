@@ -150,3 +150,8 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 
 	return false, g.Stop(ctx)
 }
+
+// Do is unimplemented.
+func (g *softGripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}

@@ -27,7 +27,7 @@ func init() {
 		}})
 }
 
-func newSensor(name string) sensor.MinimalSensor {
+func newSensor(name string) sensor.Sensor {
 	return &Sensor{Name: name}
 }
 

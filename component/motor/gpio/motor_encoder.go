@@ -50,9 +50,9 @@ func WrapMotorWithEncoder(
 	encoderBoard board.Board,
 	c config.Component,
 	mc motor.Config,
-	m motor.MinimalMotor,
+	m motor.Motor,
 	logger golog.Logger,
-) (motor.MinimalMotor, error) {
+) (motor.Motor, error) {
 	if mc.EncoderA == "" {
 		return m, nil
 	}
@@ -98,17 +98,17 @@ func WrapMotorWithEncoder(
 func NewEncodedMotor(
 	config config.Component,
 	motorConfig motor.Config,
-	realMotor motor.MinimalMotor,
+	realMotor motor.Motor,
 	encoder board.Encoder,
 	logger golog.Logger,
-) (motor.MinimalMotor, error) {
+) (motor.Motor, error) {
 	return newEncodedMotor(config, motorConfig, realMotor, encoder, logger)
 }
 
 func newEncodedMotor(
 	config config.Component,
 	motorConfig motor.Config,
-	realMotor motor.MinimalMotor,
+	realMotor motor.Motor,
 	encoder board.Encoder,
 	logger golog.Logger,
 ) (*EncodedMotor, error) {
@@ -167,7 +167,7 @@ func newEncodedMotor(
 type EncodedMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cfg                     motor.Config
-	real                    motor.MinimalMotor
+	real                    motor.Motor
 	encoder                 board.Encoder
 
 	stateMu *sync.RWMutex
@@ -630,4 +630,9 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
+}
+
+// Do is unimplemented.
+func (m *EncodedMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

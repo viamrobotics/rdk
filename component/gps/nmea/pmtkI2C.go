@@ -192,6 +192,11 @@ func (g *pmtkI2CNMEAGPS) Close() {
 	g.activeBackgroundWorkers.Wait()
 }
 
+// Do is unimplemented.
+func (g *pmtkI2CNMEAGPS) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 // PMTK checksums commands by XORing together each byte.
 func addChk(data []byte) []byte {
 	chk := checksum(data)

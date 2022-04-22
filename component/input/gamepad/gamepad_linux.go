@@ -48,7 +48,7 @@ func init() {
 		&Config{})
 }
 
-func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) input.MinimalController {
+func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) input.Controller {
 	var g gamepad
 	g.logger = logger
 	g.reconnect = reconnect
@@ -88,7 +88,7 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect), nil
 }
 
-// gamepad is an input.MinimalController.
+// gamepad is an input.Controller.
 type gamepad struct {
 	dev                     *evdev.Evdev
 	Model                   string
@@ -399,6 +399,11 @@ func (g *gamepad) RegisterControlCallback(
 		}
 	}
 	return nil
+}
+
+// Do is unimplemented.
+func (g *gamepad) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }
 
 func isGamepad(dev *evdev.Evdev) bool {

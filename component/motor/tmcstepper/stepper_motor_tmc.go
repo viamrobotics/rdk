@@ -540,3 +540,8 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 		m.writeReg(ctx, xActual, int32(offset*float64(m.stepsPerRev))),
 	)
 }
+
+// Do is unimplemented.
+func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
