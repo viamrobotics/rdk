@@ -63,10 +63,16 @@ var (
 // BodyToPoseInFrame represents a map of body names to PoseInFrames.
 type BodyToPoseInFrame map[string]*referenceframe.PoseInFrame
 
-// A PoseTracker represents a robot component that can observe bodies in an
+// A PoseTracker represents a fully implemented PoseTracker.
+type PoseTracker interface {
+	generic.Generic
+	MinimalPoseTracker
+}
+
+// A MinimalPoseTracker represents a robot component that can observe bodies in an
 // environment and provide their respective poses in space. These poses are
 // given in the context of the PoseTracker's frame of reference.
-type PoseTracker interface {
+type MinimalPoseTracker interface {
 	GetPoses(ctx context.Context, bodyNames []string) (BodyToPoseInFrame, error)
 }
 
@@ -76,15 +82,17 @@ func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(PoseTracker)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("PoseTracker", res)
+	if full, ok := res.(PoseTracker); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalPoseTracker); ok {
+		return &reconfigurablePoseTracker{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("PoseTracker", res)
 }
 
 // GetReadings is a helper for getting all readings from a PoseTracker.
-func GetReadings(ctx context.Context, poseTracker PoseTracker) ([]interface{}, error) {
+func GetReadings(ctx context.Context, poseTracker MinimalPoseTracker) ([]interface{}, error) {
 	poseLookup, err := poseTracker.GetPoses(ctx, []string{})
 	if err != nil {
 		return nil, err
@@ -105,7 +113,7 @@ func GetReadings(ctx context.Context, poseTracker PoseTracker) ([]interface{}, e
 
 type reconfigurablePoseTracker struct {
 	mu     sync.RWMutex
-	actual PoseTracker
+	actual MinimalPoseTracker
 }
 
 func (r *reconfigurablePoseTracker) ProxyFor() interface{} {
@@ -169,9 +177,9 @@ func (r *reconfigurablePoseTracker) GetReadings(ctx context.Context) ([]interfac
 // WrapWithReconfigurable converts a regular PoseTracker implementation to a reconfigurablePoseTracker.
 // If pose tracker is already a reconfigurablePoseTracker, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	poseTracker, ok := r.(PoseTracker)
+	poseTracker, ok := r.(MinimalPoseTracker)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("PoseTracker", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalPoseTracker", r)
 	}
 	if reconfigurable, ok := poseTracker.(*reconfigurablePoseTracker); ok {
 		return reconfigurable, nil

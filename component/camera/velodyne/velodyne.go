@@ -106,7 +106,7 @@ type client struct {
 }
 
 // New creates a connection to a Velodyne lidar and generates pointclouds from it.
-func New(logger golog.Logger, port int, ttlMilliseconds int) (camera.Camera, error) {
+func New(logger golog.Logger, port int, ttlMilliseconds int) (camera.MinimalCamera, error) {
 	bindAddress := fmt.Sprintf("0.0.0.0:%d", port)
 	listener, err := vlp16.ListenUDP(context.Background(), bindAddress)
 	if err != nil {

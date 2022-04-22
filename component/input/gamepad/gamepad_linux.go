@@ -48,7 +48,7 @@ func init() {
 		&Config{})
 }
 
-func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) input.Controller {
+func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) input.MinimalController {
 	var g gamepad
 	g.logger = logger
 	g.reconnect = reconnect
@@ -88,7 +88,7 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect), nil
 }
 
-// gamepad is an input.Controller.
+// gamepad is an input.MinimalController.
 type gamepad struct {
 	dev                     *evdev.Evdev
 	Model                   string

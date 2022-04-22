@@ -150,3 +150,8 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil
 }
+
+// Do echos back whatever was sent to it.
+func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

@@ -81,7 +81,7 @@ const (
 
 // NewVectorNav connect and set up a vectornav IMU over SPI.
 // Will also compensate for acceleration and delta velocity bias over one second so be sure the IMU is still when calling this function.
-func NewVectorNav(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
+func NewVectorNav(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (imu.MinimalIMU, error) {
 	b, err := board.FromRobot(r, config.Attributes.String("board"))
 	if err != nil {
 		return nil, errors.Errorf("vectornav init failed couldn't find board %q", config.Attributes.String("board"))

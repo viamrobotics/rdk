@@ -42,7 +42,7 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	return &w, nil
 }
 
-// webGamepad is an input.Controller.
+// webGamepad is an input.MinimalController.
 type webGamepad struct {
 	controls                []input.Control
 	lastEvents              map[input.Control]input.Event

@@ -129,7 +129,7 @@ const (
 )
 
 // NewOneAxis creates a new one axis gantry.
-func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
+func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.MinimalGantry, error) {
 	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)

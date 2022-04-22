@@ -27,7 +27,7 @@ func init() {
 		}})
 }
 
-func newSensor(name string) sensor.Sensor {
+func newSensor(name string) sensor.MinimalSensor {
 	return &Sensor{Name: name}
 }
 
@@ -42,4 +42,9 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return []interface{}{1, 2, 3}, nil
+}
+
+// Do echos back whatever was sent to it.
+func (s *Sensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }

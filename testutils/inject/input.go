@@ -3,12 +3,15 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // InputController is an injected InputController.
 type InputController struct {
 	input.Controller
+	DoFunc                      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	GetControlsFunc             func(ctx context.Context) ([]input.Control, error)
 	GetEventsFunc               func(ctx context.Context) (map[input.Control]input.Event, error)
 	RegisterControlCallbackFunc func(
@@ -48,6 +51,17 @@ func (s *InputController) RegisterControlCallback(
 	return s.RegisterControlCallbackFunc(ctx, control, triggers, ctrlFunc)
 }
 
+// Do calls the injected Do or the real version.
+func (s *InputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if s.DoFunc == nil {
+		if doer, ok := s.Controller.(generic.Generic); ok {
+			return doer.Do(ctx, cmd)
+		}
+		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", s.Controller)
+	}
+	return s.DoFunc(ctx, cmd)
+}
+
 // TriggerableInputController is an injected injectable InputController.
 type TriggerableInputController struct {
 	InputController
@@ -63,3 +77,4 @@ func (s *TriggerableInputController) TriggerEvent(ctx context.Context, event inp
 	}
 	return s.TriggerEventFunc(ctx, event)
 }
+

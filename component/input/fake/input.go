@@ -39,7 +39,7 @@ func init() {
 	)
 }
 
-// NewInputController returns a fake input.Controller.
+// NewInputController returns a fake input.MinimalController.
 func NewInputController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	c := &InputController{}
 	c.controls = config.ConvertedAttributes.(*Config).controls
@@ -51,7 +51,7 @@ type Config struct {
 	controls []input.Control
 }
 
-// An InputController fakes an input.Controller.
+// An InputController fakes an input.MinimalController.
 type InputController struct {
 	Name     string
 	mu       sync.Mutex
@@ -90,4 +90,9 @@ func (c *InputController) RegisterControlCallback(
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
 func (c *InputController) TriggerEvent(ctx context.Context, event input.Event) error {
 	return errors.New("unsupported")
+}
+
+// Do echos back whatever was sent to it.
+func (c *InputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }

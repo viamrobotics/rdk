@@ -54,8 +54,14 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A GPS represents a GPS that can report lat/long measurements.
+// A GPS represents a fully implemented GPS.
 type GPS interface {
+	generic.Generic
+	MinimalGPS
+}
+
+// A MinimalGPS represents a GPS that can report lat/long measurements.
+type MinimalGPS interface {
 	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
 	ReadAltitude(ctx context.Context) (float64, error)    // The current altitude in meters
 	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in mm per sec
@@ -63,7 +69,7 @@ type GPS interface {
 
 // A LocalGPS represents a GPS that can report accuracy, satellites and valid measurements.
 type LocalGPS interface {
-	GPS
+	MinimalGPS
 	ReadAccuracy(ctx context.Context) (float64, float64, error) // Horizontal and vertical position error in meters
 	ReadSatellites(ctx context.Context) (int, int, error)       // Number of satellites used for fix, and total in view
 	ReadValid(ctx context.Context) (bool, error)                // Whether or not the GPS chip had a valid fix for the most recent dataset
@@ -73,6 +79,7 @@ var (
 	_ = LocalGPS(&reconfigurableGPS{})
 	_ = sensor.Sensor(&reconfigurableGPS{})
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
+	_ = generic.Generic(&reconfigurableGPS{})
 )
 
 // FromRobot is a helper for getting the named GPS from the given Robot.
@@ -81,11 +88,13 @@ func FromRobot(r robot.Robot, name string) (GPS, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(GPS)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("GPS", res)
+	if full, ok := res.(GPS); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(LocalGPS); ok {
+		return &reconfigurableGPS{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("GPS", res)
 }
 
 // NamesFromRobot is a helper for getting all GPS names from the given Robot.
@@ -94,7 +103,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // GetReadings is a helper for getting all readings from a GPS.
-func GetReadings(ctx context.Context, g GPS) ([]interface{}, error) {
+func GetReadings(ctx context.Context, g MinimalGPS) ([]interface{}, error) {
 	loc, err := g.ReadLocation(ctx)
 	if err != nil {
 		return nil, err

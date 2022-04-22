@@ -6,13 +6,16 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // IMU is an injected IMU.
 type IMU struct {
 	imu.IMU
+	DoFunc                  func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ReadAngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
 	ReadAccelerationFunc    func(ctx context.Context) (r3.Vector, error)
@@ -58,4 +61,15 @@ func (i *IMU) Close(ctx context.Context) error {
 		return utils.TryClose(ctx, i.IMU)
 	}
 	return i.CloseFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (i *IMU) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if i.DoFunc == nil {
+		if doer, ok := i.IMU.(generic.Generic); ok {
+			return doer.Do(ctx, cmd)
+		}
+		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", i.IMU)
+	}
+	return i.DoFunc(ctx, cmd)
 }

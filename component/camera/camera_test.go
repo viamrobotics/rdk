@@ -47,6 +47,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	c, err := camera.FromRobot(r, testCameraName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, c, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := c.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -113,12 +126,12 @@ func TestCameraName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualCamera1 camera.Camera = &mock{Name: testCameraName}
+	var actualCamera1 camera.MinimalCamera = &mock{Name: testCameraName}
 	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = camera.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Camera", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalCamera", nil))
 
 	reconfCamera2, err := camera.WrapWithReconfigurable(reconfCamera1)
 	test.That(t, err, test.ShouldBeNil)
@@ -142,7 +155,7 @@ func TestReconfigurableCamera(t *testing.T) {
 
 	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 0)
 	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 0)
-	img1, _, err := reconfCamera1.(camera.Camera).Next(context.Background())
+	img1, _, err := reconfCamera1.(camera.MinimalCamera).Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, img1)
 	test.That(t, err, test.ShouldBeNil)
@@ -168,7 +181,7 @@ func TestClose(t *testing.T) {
 var img = image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 type mock struct {
-	camera.Camera
+	camera.MinimalCamera
 	Name        string
 	nextCount   int
 	reconfCount int
@@ -180,6 +193,10 @@ func (m *mock) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
 
 type simpleSource struct {
 	filePath string
@@ -236,7 +253,7 @@ func TestNewCamera(t *testing.T) {
 	// cam4 wrapped with reconfigurable
 	reconfig, err := camera.WrapWithReconfigurable(cam4)
 	test.That(t, err, test.ShouldBeNil)
-	fakeCamera := reconfig.(camera.Camera)
+	fakeCamera := reconfig.(camera.MinimalCamera)
 	cam5, err := camera.New(imgSrc, nil, fakeCamera)
 	test.That(t, err, test.ShouldBeNil)
 	_, ok = cam5.(camera.WithProjector)

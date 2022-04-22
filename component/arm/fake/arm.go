@@ -102,3 +102,8 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 func (a *Arm) Close() {
 	a.CloseCount++
 }
+
+// Do echos back whatever was sent to it.
+func (a *Arm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

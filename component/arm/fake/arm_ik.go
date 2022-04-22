@@ -125,3 +125,8 @@ func (a *ArmIK) GoToInputs(ctx context.Context, goal []referenceframe.Input) err
 func (a *ArmIK) Close() {
 	a.CloseCount++
 }
+
+// Do echos back whatever was sent to it.
+func (a *ArmIK) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

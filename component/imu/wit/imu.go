@@ -80,7 +80,7 @@ func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 // NewWit creates a new Wit IMU.
-func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
+func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.MinimalIMU, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600,
 		DataBits:        8,

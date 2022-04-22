@@ -48,6 +48,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	a, err := arm.FromRobot(r, testArmName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, a, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := a.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -181,12 +194,12 @@ func TestArmName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualArm1 arm.Arm = &mock{Name: testArmName}
+	var actualArm1 arm.MinimalArm = &mock{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = arm.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalArm", nil))
 
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)
@@ -258,7 +271,7 @@ func TestArmPositionDiff(t *testing.T) {
 var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
 type mock struct {
-	arm.Arm
+	arm.MinimalArm
 	Name        string
 	endPosCount int
 	reconfCount int
@@ -270,3 +283,7 @@ func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

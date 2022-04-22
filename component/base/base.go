@@ -88,8 +88,8 @@ type Base interface {
 
 var (
 	_ = LocalBase(&reconfigurableBase{})
-	_ = generic.Generic(&reconfigurableBase{})
 	_ = resource.Reconfigurable(&reconfigurableBase{})
+	_ = generic.Generic(&reconfigurableBase{})
 )
 
 // FromRobot is a helper for getting the named base from the given Robot.

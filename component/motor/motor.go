@@ -110,6 +110,7 @@ func Named(name string) resource.Name {
 var (
 	_ = LocalMotor(&reconfigurableMotor{})
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
+	_ = generic.Generic(&reconfigurableMotor{})
 )
 
 // FromRobot is a helper for getting the named motor from the given Robot.

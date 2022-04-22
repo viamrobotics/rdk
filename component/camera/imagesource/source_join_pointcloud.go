@@ -69,7 +69,7 @@ type JoinAttrs struct {
 // the point of view of targetName. The model needs to have the entire robot available in order to build the correct offsets
 // between robot components for the frame system transform.
 type joinPointCloudSource struct {
-	sourceCameras []camera.Camera
+	sourceCameras []camera.MinimalCamera
 	sourceNames   []string
 	targetName    string
 	robot         robot.Robot
@@ -77,10 +77,10 @@ type joinPointCloudSource struct {
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
 // reference frame of targetName.
-func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
+func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.MinimalCamera, error) {
 	joinSource := &joinPointCloudSource{}
 	// frame to merge from
-	joinSource.sourceCameras = make([]camera.Camera, len(attrs.SourceCameras))
+	joinSource.sourceCameras = make([]camera.MinimalCamera, len(attrs.SourceCameras))
 	joinSource.sourceNames = make([]string, len(attrs.SourceCameras))
 	for i, source := range attrs.SourceCameras {
 		joinSource.sourceNames[i] = source

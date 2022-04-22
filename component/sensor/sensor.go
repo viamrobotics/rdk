@@ -51,9 +51,15 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Sensor represents a general purpose sensors that can give arbitrary readings
-// of some thing that it is sensing.
+// A Sensor represents a fully implemented Sensor.
 type Sensor interface {
+	generic.Generic
+	MinimalSensor
+}
+
+// A MinimalSensor represents a general purpose sensors that can give arbitrary readings
+// of some thing that it is sensing.
+type MinimalSensor interface {
 	// GetReadings return data specific to the type of sensor and can be of any type.
 	GetReadings(ctx context.Context) ([]interface{}, error)
 }
@@ -61,6 +67,7 @@ type Sensor interface {
 var (
 	_ = Sensor(&reconfigurableSensor{})
 	_ = resource.Reconfigurable(&reconfigurableSensor{})
+	_ = generic.Generic(&reconfigurableSensor{})
 )
 
 // FromRobot is a helper for getting the named Sensor from the given Robot.
@@ -69,11 +76,13 @@ func FromRobot(r robot.Robot, name string) (Sensor, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(Sensor)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Sensor", res)
+	if full, ok := res.(Sensor); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalSensor); ok {
+		return &reconfigurableSensor{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Sensor", res)
 }
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.
@@ -83,7 +92,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableSensor struct {
 	mu     sync.RWMutex
-	actual Sensor
+	actual MinimalSensor
 }
 
 func (r *reconfigurableSensor) Close(ctx context.Context) error {
@@ -132,9 +141,9 @@ func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resour
 // WrapWithReconfigurable converts a regular Sensor implementation to a reconfigurableSensor.
 // If Sensor is already a reconfigurableSensor, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	Sensor, ok := r.(Sensor)
+	Sensor, ok := r.(MinimalSensor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Sensor", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalSensor", r)
 	}
 	if reconfigurable, ok := Sensor.(*reconfigurableSensor); ok {
 		return reconfigurable, nil
