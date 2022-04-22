@@ -64,6 +64,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 
+		// check that the detector was turned into a segmenter and registered to the segmentation service
 		segClient, err := objectsegmentation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		segNames, err := segClient.GetSegmenters(context.Background())
@@ -96,7 +97,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 		test.That(t, names, test.ShouldContain, "new_detector")
-		// check that it also also added to the segmenter
+		// check that it also also added to the segmentation service
 		segClient, err := objectsegmentation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		segNames, err := segClient.GetSegmenters(context.Background())
