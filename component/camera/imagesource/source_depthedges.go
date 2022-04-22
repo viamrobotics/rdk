@@ -66,7 +66,7 @@ func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), erro
 	return edges, func() {}, nil
 }
 
-func newDepthEdgesSource(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newDepthEdgesSource(r robot.Robot, attrs *camera.AttrConfig) (camera.MinimalCamera, error) {
 	source, err := camera.FromRobot(r, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)

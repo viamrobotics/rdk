@@ -23,6 +23,9 @@ const missingPTName = "dne"
 
 func setupInjectRobot() *inject.Robot {
 	poseTracker := &inject.PoseTracker{}
+	poseTracker.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return cmd, nil
+	}
 	robot := &inject.Robot{}
 	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
@@ -38,6 +41,19 @@ func setupInjectRobot() *inject.Robot {
 		return []resource.Name{posetracker.Named(workingPTName), sensor.Named("sensor1")}
 	}
 	return robot
+}
+
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	p, err := posetracker.FromRobot(r, workingPTName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, p, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := p.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
 }
 
 func TestFromRobot(t *testing.T) {
@@ -112,7 +128,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	reconfPT, err := posetracker.WrapWithReconfigurable(poseTracker)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = posetracker.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("PoseTracker", nil))
+	test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("MinimalPoseTracker", nil))
 	reconfPT2, err := posetracker.WrapWithReconfigurable(reconfPT)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfPT2, test.ShouldEqual, reconfPT)
@@ -136,6 +152,10 @@ func (m *mock) GetPoses(ctx context.Context, bodyNames []string) (posetracker.Bo
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
 
 func TestReconfigurablePoseTracker(t *testing.T) {
 	actualPT1 := &mock{Name: workingPTName}

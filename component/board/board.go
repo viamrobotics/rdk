@@ -160,9 +160,9 @@ type AnalogReader interface {
 type PostProcessor func(raw int64) int64
 
 var (
-	_ = generic.Generic(&reconfigurableBoard{})
 	_ = LocalBoard(&reconfigurableBoard{})
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
+	_ = generic.Generic(&reconfigurableBoard{})
 )
 
 // FromRobot is a helper for getting the named board from the given Robot.

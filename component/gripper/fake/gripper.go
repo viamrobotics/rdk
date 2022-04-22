@@ -52,3 +52,8 @@ func (g *Gripper) Open(ctx context.Context) error {
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return false, nil
 }
+
+// Do echos back whatever was sent to it.
+func (g *Gripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

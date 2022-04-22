@@ -70,3 +70,8 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	pc := pointcloud.New()
 	return pc, pc.Set(pointcloud.NewVector(16, 16, 16), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 }
+
+// Do echos back whatever was sent to it.
+func (c *Camera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

@@ -95,6 +95,7 @@ type Arm interface {
 var (
 	_ = Arm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
+	_ = generic.Generic(&reconfigurableArm{})
 )
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
@@ -222,9 +223,9 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
 // If arm is already a reconfigurableArm, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	arm, ok := r.(Arm)
+	arm, ok := r.(MinimalArm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalArm", r)
 	}
 	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
 		return reconfigurable, nil

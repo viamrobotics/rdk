@@ -57,9 +57,15 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// Controller is a logical "container" more than an actual device
-// Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
+// Controller represents a fully implemented controller.
 type Controller interface {
+	generic.Generic
+	MinimalController
+}
+
+// MinimalController is a logical "container" more than an actual device
+// Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
+type MinimalController interface {
 	// GetControls returns a list of GetControls provided by the Controller
 	GetControls(ctx context.Context) ([]Control, error)
 
@@ -143,9 +149,9 @@ type Triggerable interface {
 
 // WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	c, ok := r.(Controller)
+	c, ok := r.(MinimalController)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("input.Controller", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalController", r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableInputController); ok {
 		return reconfigurable, nil
@@ -156,6 +162,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Controller(&reconfigurableInputController{})
 	_ = resource.Reconfigurable(&reconfigurableInputController{})
+	_ = generic.Generic(&reconfigurableInputController{})
 )
 
 // FromRobot is a helper for getting the named input controller from the given Robot.
@@ -164,11 +171,13 @@ func FromRobot(r robot.Robot, name string) (Controller, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(Controller)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("input.Controller", res)
+	if full, ok := res.(Controller); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalController); ok {
+		return &reconfigurableInputController{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("input.Controller", res)
 }
 
 // NamesFromRobot is a helper for getting all input controller names from the given Robot.
@@ -178,7 +187,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the input controller.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	controller, ok := resource.(Controller)
+	controller, ok := resource.(MinimalController)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("input.Controller", resource)
 	}
@@ -201,7 +210,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableInputController struct {
 	mu     sync.RWMutex
-	actual Controller
+	actual MinimalController
 }
 
 func (c *reconfigurableInputController) ProxyFor() interface{} {

@@ -80,7 +80,7 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	return ii.Overlay(), func() {}, nil
 }
 
-func newOverlay(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newOverlay(r robot.Robot, attrs *camera.AttrConfig) (camera.MinimalCamera, error) {
 	source, err := camera.FromRobot(r, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
@@ -106,7 +106,7 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 	return rimage.MakeImageWithDepth(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), ii.Depth, true), func() {}, nil
 }
 
-func newDepthToPretty(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newDepthToPretty(r robot.Robot, attrs *camera.AttrConfig) (camera.MinimalCamera, error) {
 	source, err := camera.FromRobot(r, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)

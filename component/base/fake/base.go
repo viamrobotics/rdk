@@ -64,3 +64,8 @@ func (b *Base) Stop(ctx context.Context) error {
 func (b *Base) Close() {
 	b.CloseCount++
 }
+
+// Do echos back whatever was sent to it.
+func (b *Base) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

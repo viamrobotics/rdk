@@ -64,8 +64,14 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// Gantry is used for controlling gantries of N axis.
+// A Gantry represents a fully implemented gantry.
 type Gantry interface {
+	generic.Generic
+	MinimalGantry
+}
+
+// MinimalGantry is used for controlling gantries of N axis.
+type MinimalGantry interface {
 	// GetPosition returns the position in meters
 	GetPosition(ctx context.Context) ([]float64, error)
 
@@ -86,11 +92,13 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(Gantry)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
+	if full, ok := res.(Gantry); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalGantry); ok {
+		return &reconfigurableGantry{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
 }
 
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.
@@ -100,7 +108,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the gantry.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	gantry, ok := resource.(Gantry)
+	gantry, ok := resource.(MinimalGantry)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("Gantry", resource)
 	}
@@ -119,9 +127,9 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	g, ok := r.(Gantry)
+	g, ok := r.(MinimalGantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalGantry", r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
 		return reconfigurable, nil
@@ -129,9 +137,15 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableGantry{actual: g}, nil
 }
 
+var (
+	_ = Gantry(&reconfigurableGantry{})
+	_ = resource.Reconfigurable(&reconfigurableGantry{})
+	_ = generic.Generic(&reconfigurableGantry{})
+)
+
 type reconfigurableGantry struct {
 	mu     sync.RWMutex
-	actual Gantry
+	actual MinimalGantry
 }
 
 func (g *reconfigurableGantry) ProxyFor() interface{} {

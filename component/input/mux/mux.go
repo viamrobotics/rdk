@@ -37,7 +37,7 @@ type Config struct {
 	Sources []string `json:"sources"`
 }
 
-// NewController returns a new multiplexed input.Controller.
+// NewController returns a new multiplexed input.MinimalController.
 func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	var m mux
 	m.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
@@ -71,9 +71,9 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	return &m, nil
 }
 
-// mux is an input.Controller.
+// mux is an input.MinimalController.
 type mux struct {
-	sources                 []input.Controller
+	sources                 []input.MinimalController
 	mu                      sync.RWMutex
 	activeBackgroundWorkers sync.WaitGroup
 	ctxWithCancel           context.Context

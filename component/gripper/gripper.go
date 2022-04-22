@@ -52,8 +52,14 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Gripper represents a physical robotic gripper.
+// Gripper represents a fully implemented gripper.
 type Gripper interface {
+	generic.Generic
+	MinimalGripper
+}
+
+// A MinimalGripper represents a physical robotic gripper.
+type MinimalGripper interface {
 	// Open opens the gripper.
 	Open(ctx context.Context) error
 
@@ -66,9 +72,9 @@ type Gripper interface {
 
 // WrapWithReconfigurable wraps a gripper with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	g, ok := r.(Gripper)
+	g, ok := r.(MinimalGripper)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gripper", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalGripper", r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGripper); ok {
 		return reconfigurable, nil
@@ -79,6 +85,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Gripper(&reconfigurableGripper{})
 	_ = resource.Reconfigurable(&reconfigurableGripper{})
+	_ = generic.Generic(&reconfigurableGripper{})
 )
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.
@@ -87,11 +94,13 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(Gripper)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gripper", res)
+	if full, ok := res.(Gripper); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalGripper); ok {
+		return &reconfigurableGripper{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Gripper", res)
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
@@ -101,7 +110,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableGripper struct {
 	mu     sync.RWMutex
-	actual Gripper
+	actual MinimalGripper
 }
 
 func (g *reconfigurableGripper) ProxyFor() interface{} {

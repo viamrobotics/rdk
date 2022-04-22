@@ -25,7 +25,7 @@ func init() {
 }
 
 // NewGantry returns a new fake gantry.
-func NewGantry(name string) gantry.Gantry {
+func NewGantry(name string) gantry.MinimalGantry {
 	return &Gantry{name, []float64{1.2}, []float64{5}, r3.Vector{1, 0, 0}, 2}
 }
 
@@ -77,4 +77,9 @@ func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 // GoToInputs moves using the Gantry frames..
 func (g *Gantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{})
+}
+
+// Do echos back whatever was sent to it.
+func (g *Gantry) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }

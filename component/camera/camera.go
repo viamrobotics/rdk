@@ -63,20 +63,26 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Camera represents anything that can capture frames.
+// A Camera represents a fully implemented camera.
 type Camera interface {
+	generic.Generic
+	MinimalCamera
+}
+
+// A MinimalCamera represents anything that can capture frames.
+type MinimalCamera interface {
 	gostream.ImageSource
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
 // WithProjector is a camera with the capability to project images to 3D.
 type WithProjector interface {
-	Camera
+	MinimalCamera
 	GetProjector() rimage.Projector
 }
 
 // Projector will return the camera's projector if it has it, or returns nil if not.
-func Projector(cam Camera) rimage.Projector {
+func Projector(cam MinimalCamera) rimage.Projector {
 	var proj rimage.Projector
 	if c, ok := cam.(WithProjector); ok {
 		proj = c.GetProjector()
@@ -88,7 +94,7 @@ func Projector(cam Camera) rimage.Projector {
 
 // New creates a Camera either with or without a projector, depending on if the camera config has the parameters,
 // or if it has a parent Camera with camera parameters that it should copy. parentSource and attrs can be nil.
-func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (Camera, error) {
+func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource MinimalCamera) (Camera, error) {
 	if imgSrc == nil {
 		return nil, errors.New("cannot have a nil image source")
 	}
@@ -118,11 +124,16 @@ func (is *imageSource) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, is.ImageSource)
 }
 
+// Do returns an error.
+func (is *imageSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("source doesn't support Do()")
+}
+
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
 func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imageSource::NextPointCloud")
 	defer span.End()
-	if c, ok := is.ImageSource.(Camera); ok {
+	if c, ok := is.ImageSource.(MinimalCamera); ok {
 		return c.NextPointCloud(ctx)
 	}
 	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
@@ -139,6 +150,11 @@ func (iswp *imageSourceWithProjector) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, iswp.ImageSource)
 }
 
+// Do returns an error.
+func (iswp *imageSourceWithProjector) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("source doesn't support Do()")
+}
+
 // Projector returns the camera's Projector.
 func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
 	return iswp.projector
@@ -148,7 +164,7 @@ func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
 func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud")
 	defer span.End()
-	if c, ok := iswp.ImageSource.(Camera); ok {
+	if c, ok := iswp.ImageSource.(MinimalCamera); ok {
 		return c.NextPointCloud(ctx)
 	}
 	img, closer, err := iswp.Next(ctx)
@@ -174,9 +190,9 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	c, ok := r.(Camera)
+	c, ok := r.(MinimalCamera)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Camera", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalCamera", r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableCamera); ok {
 		return reconfigurable, nil
@@ -187,6 +203,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Camera(&reconfigurableCamera{})
 	_ = resource.Reconfigurable(&reconfigurableCamera{})
+	_ = generic.Generic(&reconfigurableCamera{})
 )
 
 // FromRobot is a helper for getting the named Camera from the given Robot.
@@ -195,11 +212,13 @@ func FromRobot(r robot.Robot, name string) (Camera, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(Camera)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Camera", res)
+	if full, ok := res.(Camera); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalCamera); ok {
+		return &reconfigurableCamera{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Camera", res)
 }
 
 // NamesFromRobot is a helper for getting all camera names from the given Robot.
@@ -209,7 +228,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableCamera struct {
 	mu     sync.RWMutex
-	actual Camera
+	actual MinimalCamera
 }
 
 func (c *reconfigurableCamera) ProxyFor() interface{} {

@@ -48,8 +48,14 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// A Servo represents a physical servo connected to a board.
+// A Servo represents a fully implmented Servo.
 type Servo interface {
+	generic.Generic
+	MinimalServo
+}
+
+// A MinimalServo represents a physical hobby servo connected to a board.
+type MinimalServo interface {
 	// Move moves the servo to the given angle (0-180 degrees)
 	Move(ctx context.Context, angleDeg uint8) error
 
@@ -65,6 +71,7 @@ func Named(name string) resource.Name {
 var (
 	_ = Servo(&reconfigurableServo{})
 	_ = resource.Reconfigurable(&reconfigurableServo{})
+	_ = generic.Generic(&reconfigurableServo{})
 )
 
 // FromRobot is a helper for getting the named servo from the given Robot.
@@ -73,11 +80,13 @@ func FromRobot(r robot.Robot, name string) (Servo, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(Servo)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Servo", res)
+	if full, ok := res.(Servo); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalServo); ok {
+		return &reconfigurableServo{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Servo", res)
 }
 
 // NamesFromRobot is a helper for getting all servo names from the given Robot.
@@ -101,7 +110,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableServo struct {
 	mu     sync.RWMutex
-	actual Servo
+	actual MinimalServo
 }
 
 func (r *reconfigurableServo) ProxyFor() interface{} {
@@ -156,9 +165,9 @@ func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource
 // WrapWithReconfigurable converts a regular Servo implementation to a reconfigurableServo.
 // If servo is already a reconfigurableServo, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	servo, ok := r.(Servo)
+	servo, ok := r.(MinimalServo)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Servo", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalServo", r)
 	}
 	if reconfigurable, ok := servo.(*reconfigurableServo); ok {
 		return reconfigurable, nil

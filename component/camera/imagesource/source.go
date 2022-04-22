@@ -215,7 +215,7 @@ type dualServerAttrs struct {
 }
 
 // newDualServerSource creates the ImageSource that streams color/depth/both data from two external servers, one for each channel.
-func newDualServerSource(cfg *dualServerAttrs) (camera.Camera, error) {
+func newDualServerSource(cfg *dualServerAttrs) (camera.MinimalCamera, error) {
 	if (cfg.Color == "") || (cfg.Depth == "") {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 	}
@@ -319,7 +319,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 // NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
-func NewServerSource(cfg *ServerAttrs, logger golog.Logger) (camera.Camera, error) {
+func NewServerSource(cfg *ServerAttrs, logger golog.Logger) (camera.MinimalCamera, error) {
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
 	}

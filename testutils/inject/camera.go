@@ -7,12 +7,15 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/pointcloud"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Camera is an injected camera.
 type Camera struct {
 	camera.Camera
+	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	NextFunc           func(ctx context.Context) (image.Image, func(), error)
 	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
 	CloseFunc          func(ctx context.Context) error
@@ -40,4 +43,15 @@ func (c *Camera) Close(ctx context.Context) error {
 		return utils.TryClose(ctx, c.Camera)
 	}
 	return c.CloseFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (c *Camera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if c.DoFunc == nil {
+		if doer, ok := c.Camera.(generic.Generic); ok {
+			return doer.Do(ctx, cmd)
+		}
+		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", c.Camera)
+	}
+	return c.DoFunc(ctx, cmd)
 }

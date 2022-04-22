@@ -57,7 +57,7 @@ type undistortSource struct {
 	cameraParams *transform.PinholeCameraIntrinsics
 }
 
-func newUndistortSource(source camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newUndistortSource(source camera.MinimalCamera, attrs *camera.AttrConfig) (camera.MinimalCamera, error) {
 	var ok bool
 	intrinsics := attrs.CameraParameters
 	if intrinsics == nil {

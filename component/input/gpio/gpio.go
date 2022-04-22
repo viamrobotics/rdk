@@ -1,4 +1,4 @@
-// Package gpio implements a gpio/adc based input.Controller.
+// Package gpio implements a gpio/adc based input.MinimalController.
 package gpio
 
 import (
@@ -34,7 +34,7 @@ func init() {
 		&Config{})
 }
 
-// NewGPIOController returns a new input.Controller.
+// NewGPIOController returns a new input.MinimalController.
 func NewGPIOController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	var c Controller
 	c.logger = logger
@@ -98,7 +98,7 @@ type ButtonConfig struct {
 	DebounceMs int           `json:"debounce_ms"` // set to -1 to disable, default=5
 }
 
-// A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.
+// A Controller creates an input.MinimalController from DigitalInterrupts and AnalogReaders.
 type Controller struct {
 	mu                      sync.RWMutex
 	controls                []input.Control

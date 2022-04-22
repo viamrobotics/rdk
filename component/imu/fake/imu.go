@@ -34,7 +34,7 @@ func init() {
 }
 
 // NewIMU returns a new fake IMU.
-func NewIMU(cfg config.Component) (imu.IMU, error) {
+func NewIMU(cfg config.Component) (imu.MinimalIMU, error) {
 	name := cfg.Name
 	return &IMU{
 		Name:            name,
@@ -82,4 +82,9 @@ func (i *IMU) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.magnetometer, nil
+}
+
+// Do echos back whatever was sent to it.
+func (i *IMU) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }

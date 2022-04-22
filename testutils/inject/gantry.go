@@ -6,13 +6,16 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Gantry is an injected gantry.
 type Gantry struct {
 	gantry.Gantry
+	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	GetPositionFunc    func(ctx context.Context) ([]float64, error)
 	MoveToPositionFunc func(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error
 	GetLengthsFunc     func(ctx context.Context) ([]float64, error)
@@ -58,4 +61,15 @@ func (a *Gantry) Close(ctx context.Context) error {
 		return utils.TryClose(ctx, a.Gantry)
 	}
 	return a.CloseFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (a *Gantry) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if a.DoFunc == nil {
+		if doer, ok := a.Gantry.(generic.Generic); ok {
+			return doer.Do(ctx, cmd)
+		}
+		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", a.Gantry)
+	}
+	return a.DoFunc(ctx, cmd)
 }

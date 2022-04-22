@@ -69,9 +69,15 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// An IMU represents a sensor that can report AngularVelocity, Orientation, Acceleration and Magnetometer
-// measurements.
+// An IMU represents a fully implemented IMU.
 type IMU interface {
+	generic.Generic
+	MinimalIMU
+}
+
+// A MinimalIMU represents a sensor that can report AngularVelocity, Orientation, Acceleration and Magnetometer
+// measurements.
+type MinimalIMU interface {
 	ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
 	ReadAcceleration(ctx context.Context) (r3.Vector, error)
@@ -82,6 +88,7 @@ var (
 	_ = IMU(&reconfigurableIMU{})
 	_ = sensor.Sensor(&reconfigurableIMU{})
 	_ = resource.Reconfigurable(&reconfigurableIMU{})
+	_ = generic.Generic(&reconfigurableIMU{})
 )
 
 // FromRobot is a helper for getting the named IMU from the given Robot.
@@ -90,11 +97,13 @@ func FromRobot(r robot.Robot, name string) (IMU, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(IMU)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("IMU", res)
+	if full, ok := res.(IMU); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalIMU); ok {
+		return &reconfigurableIMU{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("IMU", res)
 }
 
 // NamesFromRobot is a helper for getting all IMU names from the given Robot.
@@ -103,7 +112,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // GetReadings is a helper for getting all readings from an IMU.
-func GetReadings(ctx context.Context, i IMU) ([]interface{}, error) {
+func GetReadings(ctx context.Context, i MinimalIMU) ([]interface{}, error) {
 	vel, err := i.ReadAngularVelocity(ctx)
 	if err != nil {
 		return nil, err
@@ -132,7 +141,7 @@ func GetReadings(ctx context.Context, i IMU) ([]interface{}, error) {
 
 type reconfigurableIMU struct {
 	mu     sync.RWMutex
-	actual IMU
+	actual MinimalIMU
 }
 
 func (r *reconfigurableIMU) Close(ctx context.Context) error {
@@ -214,9 +223,9 @@ func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Rec
 // WrapWithReconfigurable converts a regular IMU implementation to a reconfigurableIMU.
 // If imu is already a reconfigurableIMU, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	imu, ok := r.(IMU)
+	imu, ok := r.(MinimalIMU)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("IMU", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalIMU", r)
 	}
 	if reconfigurable, ok := imu.(*reconfigurableIMU); ok {
 		return reconfigurable, nil

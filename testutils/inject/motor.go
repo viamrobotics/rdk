@@ -3,12 +3,15 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Motor is an injected motor.
 type Motor struct {
 	motor.Motor
+	DoFunc                func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	SetPowerFunc          func(ctx context.Context, powerPct float64) error
 	GoForFunc             func(ctx context.Context, rpm float64, rotations float64) error
 	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
@@ -81,6 +84,17 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 		return m.Motor.IsPowered(ctx)
 	}
 	return m.IsPoweredFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if m.DoFunc == nil {
+		if doer, ok := m.Motor.(generic.Generic); ok {
+			return doer.Do(ctx, cmd)
+		}
+		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", m.Motor)
+	}
+	return m.DoFunc(ctx, cmd)
 }
 
 // LocalMotor is an injected motor that supports additional features provided by RDK
