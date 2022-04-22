@@ -12,6 +12,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -264,7 +266,7 @@ func TestServiceWithRemote(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "foo",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Frame: &config.Frame{
 					Parent: referenceframe.World,
@@ -272,7 +274,7 @@ func TestServiceWithRemote(t *testing.T) {
 			},
 			{
 				Name:  "myParentIsRemote",
-				Type:  config.ComponentTypeGripper,
+				Type:  gripper.SubtypeName,
 				Model: "fake",
 				Frame: &config.Frame{
 					Parent: "bar.pieceArm",

@@ -164,7 +164,8 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *Service) initializeOrUpdateCollector(componentName string, attributes componentAttributes, updateCaptureDir bool) (
-	*componentMethodMetadata, error) {
+	*componentMethodMetadata, error,
+) {
 	// Create component/method metadata to check if the collector exists.
 	subtypeName := resource.SubtypeName(attributes.Type)
 	metadata := data.MethodMetadata{

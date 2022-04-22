@@ -104,7 +104,7 @@ func TestConfigRemote(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "foo",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Frame: &config.Frame{
 					Parent: referenceframe.World,
@@ -112,7 +112,7 @@ func TestConfigRemote(t *testing.T) {
 			},
 			{
 				Name:  "myParentIsRemote",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Frame: &config.Frame{
 					Parent: "cameraOver",
