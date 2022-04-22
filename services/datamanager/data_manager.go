@@ -92,18 +92,15 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
-	syncManager := NewSyncManager(cancelCtx, SyncQueue, logger, viamCaptureDotDir)
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	dataManagerSvc := &Service{
-		r:           r,
-		logger:      logger,
-		captureDir:  viamCaptureDotDir,
-		collectors:  make(map[componentMethodMetadata]collectorParams),
-		syncManager: syncManager,
-		cancelCtx:   cancelCtx,
-		cancelFunc:  cancelFunc,
+		r:          r,
+		logger:     logger,
+		captureDir: viamCaptureDotDir,
+		collectors: make(map[componentMethodMetadata]collectorParams),
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
 	}
 
 	return dataManagerSvc, nil
@@ -111,6 +108,9 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 func (svc *Service) Close(ctx context.Context) error {
 	svc.cancelFunc()
+	for _, collector := range svc.collectors {
+		collector.Collector.Close()
+	}
 	return nil
 }
 
@@ -257,7 +257,22 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
-	svc.syncManager.SetCaptureDir(svc.captureDir)
+	// TODO: break this into some initOrUpdateSyncManager func
+	if svc.syncManager != nil {
+		// If already have a sync manager, close it so it can be replaced.
+		err := svc.syncManager.Close()
+		if err != nil {
+			return errors.Errorf("failed to close sync manager: %v", err)
+		}
+	} else {
+		// TODO: This should probably be somewhere else... but idea is want to start this goroutine just once at start
+		go svc.updateCollectors()
+	}
+	if svcConfig.SyncIntervalMins > 0 {
+		svc.syncManager = NewSyncManager(svc.cancelCtx, SyncQueue, svc.logger, svc.captureDir)
+		svc.syncManager.Queue(svcConfig.SyncIntervalMins)
+		svc.syncManager.Upload()
+	}
 
 	// Initialize or add a collector based on changes to the config.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -288,18 +303,11 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	//	go svc.syncManager.Queue(svcConfig.SyncIntervalMins)
 	//	go svc.syncManager.Upload()
 	//}
-	if svcConfig.SyncIntervalMins > 0 {
-		//go svc.updateCollectors(svcConfig.SyncIntervalMins)
-		go svc.syncManager.Queue(svcConfig.SyncIntervalMins)
-		go svc.syncManager.Upload()
-	}
-
 	return nil
 }
 
-// TODO: handle updates. Should it have its own cancelfunc/context? But then where to store...
-func (svc *Service) updateCollectors(frequencyMins int) {
-	ticker := time.NewTicker(time.Minute * time.Duration(frequencyMins))
+func (svc *Service) updateCollectors() {
+	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
 	for {

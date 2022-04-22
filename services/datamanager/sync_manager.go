@@ -2,9 +2,9 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 	"io/fs"
 	"os"
 	"path"
@@ -14,7 +14,7 @@ import (
 )
 
 type SyncManager interface {
-	Queue(syncIntervalMins int) error
+	Queue(syncIntervalMins int)
 	Upload()
 	Close() error
 	SetCaptureDir(dir string)
@@ -45,44 +45,49 @@ func NewSyncManager(ctx context.Context, queuePath string, logger golog.Logger, 
 }
 
 // Sync syncs data to the backing storage system.
-func (s *SyncManagerImpl) Queue(syncIntervalMins int) error {
-	if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
-		return errors.Errorf("failed to make sync queue: %v", err)
-	}
-	ticker := time.NewTicker(time.Minute * time.Duration(syncIntervalMins))
-	defer ticker.Stop()
+func (s *SyncManagerImpl) Queue(syncIntervalMins int) {
+	utils.PanicCapturingGo(func() {
+		if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
+			s.logger.Errorf("failed to make sync queue: %v", err)
+			return
+		}
+		ticker := time.NewTicker(time.Minute * time.Duration(syncIntervalMins))
+		defer ticker.Stop()
 
-	for {
-		select {
-		case <-s.cancelCtx.Done():
-			err := filepath.WalkDir(s.captureDir, s.queue)
-			if err != nil {
-				s.logger.Errorf("failed to move files to sync queue: %v", err)
-			}
-			return nil
-		case <-ticker.C:
-			s.logger.Info(s.captureDir)
-			err := filepath.WalkDir(s.captureDir, s.queue)
-			if err != nil {
-				s.logger.Errorf("failed to move files to sync queue: %v", err)
+		for {
+			select {
+			case <-s.cancelCtx.Done():
+				err := filepath.WalkDir(s.captureDir, s.queue)
+				if err != nil {
+					s.logger.Errorf("failed to move files to sync queue: %v", err)
+				}
+				return
+			case <-ticker.C:
+				s.logger.Info(s.captureDir)
+				err := filepath.WalkDir(s.captureDir, s.queue)
+				if err != nil {
+					s.logger.Errorf("failed to move files to sync queue: %v", err)
+				}
 			}
 		}
-	}
+	})
 }
 
 // Upload syncs data to the backing storage system.
 func (s *SyncManagerImpl) Upload() {
-	for {
-		select {
-		case <-s.cancelCtx.Done():
-			return
-		default:
-			err := filepath.WalkDir(SyncQueue, s.uploadQueuedFile)
-			if err != nil {
-				s.logger.Errorf("failed to upload queued file: %v", err)
+	utils.PanicCapturingGo(func() {
+		for {
+			select {
+			case <-s.cancelCtx.Done():
+				return
+			default:
+				err := filepath.WalkDir(SyncQueue, s.uploadQueuedFile)
+				if err != nil {
+					s.logger.Errorf("failed to upload queued file: %v", err)
+				}
 			}
 		}
-	}
+	})
 }
 
 func (s *SyncManagerImpl) SetCaptureDir(dir string) {
@@ -120,7 +125,6 @@ func (s *SyncManagerImpl) queue(filePath string, di fs.DirEntry, err error) erro
 	// TODO: sufficient?
 	// If it's been written to in the last minute, it's still active and shouldn't be queued.
 	if time.Now().Sub(fileInfo.ModTime()) < time.Minute {
-		fmt.Println(filePath + " " + string(time.Now().Sub(fileInfo.ModTime())))
 		return nil
 	}
 
