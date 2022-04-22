@@ -58,7 +58,7 @@ func configureMotorForBoard(
 	ctx context.Context,
 	b *arduinoBoard,
 	config config.Component,
-	motorConfig *motor.Config) (motor.MinimalMotor, error) {
+	motorConfig *motor.Config) (motor.Motor, error) {
 	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
@@ -238,6 +238,11 @@ func (m *arduinoMotor) ResetZeroPosition(ctx context.Context, offset float64) er
 
 func (m *arduinoMotor) Close(ctx context.Context) error {
 	return m.Stop(ctx)
+}
+
+// Do is unimplemented.
+func (m *arduinoMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }
 
 type encoder struct {

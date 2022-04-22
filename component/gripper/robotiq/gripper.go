@@ -241,3 +241,8 @@ func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 	g.logger.Debugf("limits %s %s", g.openLimit, g.closeLimit)
 	return nil
 }
+
+// Do is unimplemented.
+func (g *robotiqGripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}

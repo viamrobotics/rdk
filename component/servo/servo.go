@@ -48,19 +48,15 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// A Servo represents a fully implmented Servo.
+// A Servo represents a physical servo connected to a board.
 type Servo interface {
-	generic.Generic
-	MinimalServo
-}
-
-// A MinimalServo represents a physical hobby servo connected to a board.
-type MinimalServo interface {
 	// Move moves the servo to the given angle (0-180 degrees)
 	Move(ctx context.Context, angleDeg uint8) error
 
 	// GetPosition returns the current set angle (degrees) of the servo.
 	GetPosition(ctx context.Context) (uint8, error)
+
+	generic.Generic
 }
 
 // Named is a helper for getting the named Servo's typed resource name.
@@ -71,7 +67,6 @@ func Named(name string) resource.Name {
 var (
 	_ = Servo(&reconfigurableServo{})
 	_ = resource.Reconfigurable(&reconfigurableServo{})
-	_ = generic.Generic(&reconfigurableServo{})
 )
 
 // FromRobot is a helper for getting the named servo from the given Robot.
@@ -80,13 +75,11 @@ func FromRobot(r robot.Robot, name string) (Servo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(Servo); ok {
-		return full, nil
+	part, ok := res.(Servo)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Servo", res)
 	}
-	if part, ok := res.(MinimalServo); ok {
-		return &reconfigurableServo{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Servo", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all servo names from the given Robot.
@@ -110,13 +103,20 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableServo struct {
 	mu     sync.RWMutex
-	actual MinimalServo
+	actual Servo
 }
 
 func (r *reconfigurableServo) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+// Do passes generic commands/data.
+func (r *reconfigurableServo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableServo) Move(ctx context.Context, angleDeg uint8) error {
@@ -137,17 +137,6 @@ func (r *reconfigurableServo) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, r.actual)
 }
 
-// Do will try to Do() and error if not implemented.
-func (r *reconfigurableServo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if dev, ok := r.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
-}
-
 func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource.Reconfigurable) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -165,9 +154,9 @@ func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource
 // WrapWithReconfigurable converts a regular Servo implementation to a reconfigurableServo.
 // If servo is already a reconfigurableServo, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	servo, ok := r.(MinimalServo)
+	servo, ok := r.(Servo)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalServo", r)
+		return nil, utils.NewUnimplementedInterfaceError("Servo", r)
 	}
 	if reconfigurable, ok := servo.(*reconfigurableServo); ok {
 		return reconfigurable, nil

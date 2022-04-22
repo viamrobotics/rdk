@@ -1,4 +1,4 @@
-// Package gpio implements a gpio/adc based input.MinimalController.
+// Package gpio implements a gpio/adc based input.Controller.
 package gpio
 
 import (
@@ -34,7 +34,7 @@ func init() {
 		&Config{})
 }
 
-// NewGPIOController returns a new input.MinimalController.
+// NewGPIOController returns a new input.Controller.
 func NewGPIOController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	var c Controller
 	c.logger = logger
@@ -98,7 +98,7 @@ type ButtonConfig struct {
 	DebounceMs int           `json:"debounce_ms"` // set to -1 to disable, default=5
 }
 
-// A Controller creates an input.MinimalController from DigitalInterrupts and AnalogReaders.
+// A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.
 type Controller struct {
 	mu                      sync.RWMutex
 	controls                []input.Control
@@ -336,6 +336,11 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 	}, c.activeBackgroundWorkers.Done)
 	c.controls = append(c.controls, cfg.Control)
 	return nil
+}
+
+// Do is unimplemented.
+func (c *Controller) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }
 
 func abs(x int) int {

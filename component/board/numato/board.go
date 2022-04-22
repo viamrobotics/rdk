@@ -266,6 +266,10 @@ func (b *numatoBoard) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	return &gpioPin{b, pin}, nil
 }
 
+func (b *numatoBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 type gpioPin struct {
 	b   *numatoBoard
 	pin string

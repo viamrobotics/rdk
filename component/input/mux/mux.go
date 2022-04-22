@@ -3,6 +3,7 @@ package mux
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -37,7 +38,7 @@ type Config struct {
 	Sources []string `json:"sources"`
 }
 
-// NewController returns a new multiplexed input.MinimalController.
+// NewController returns a new multiplexed input.Controller.
 func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	var m mux
 	m.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
@@ -71,9 +72,9 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	return &m, nil
 }
 
-// mux is an input.MinimalController.
+// mux is an input.Controller.
 type mux struct {
-	sources                 []input.MinimalController
+	sources                 []input.Controller
 	mu                      sync.RWMutex
 	activeBackgroundWorkers sync.WaitGroup
 	ctxWithCancel           context.Context
@@ -214,4 +215,9 @@ func (m *mux) RegisterControlCallback(
 		return errs
 	}
 	return nil
+}
+
+// Do is unimplemented.
+func (m *mux) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

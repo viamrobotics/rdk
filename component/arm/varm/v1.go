@@ -159,7 +159,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 	return math.NaN(), motorOffError(ctx, m, errors.New("testing joint limit timed out"))
 }
 
-func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.MinimalArm, error) {
+func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm, error) {
 	var err error
 	newArm := &armV1{}
 
@@ -338,4 +338,8 @@ func (a *armV1) GoToInputs(ctx context.Context, goal []referenceframe.Input) err
 
 func computeInnerJointAngle(j0, j1 float64) float64 {
 	return j0 + j1
+}
+
+func (a *armV1) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

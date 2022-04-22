@@ -48,7 +48,7 @@ func init() {
 		}, &AttrConfig{})
 }
 
-func newSensor(name string, id string) sensor.MinimalSensor {
+func newSensor(name string, id string) sensor.Sensor {
 	// temp sensors are in family 28
 	return &Sensor{Name: name, OneWireID: id, OneWireFamily: "28"}
 }
@@ -89,4 +89,9 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	return []interface{}{temp}, nil
+}
+
+// Do is unimplemented.
+func (s *Sensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

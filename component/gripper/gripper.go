@@ -52,14 +52,8 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// Gripper represents a fully implemented gripper.
+// A Gripper represents a physical robotic gripper.
 type Gripper interface {
-	generic.Generic
-	MinimalGripper
-}
-
-// A MinimalGripper represents a physical robotic gripper.
-type MinimalGripper interface {
 	// Open opens the gripper.
 	Open(ctx context.Context) error
 
@@ -67,14 +61,15 @@ type MinimalGripper interface {
 	// returns true if we grabbed something.
 	Grab(ctx context.Context) (bool, error)
 
+	generic.Generic
 	referenceframe.ModelFramer
 }
 
 // WrapWithReconfigurable wraps a gripper with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	g, ok := r.(MinimalGripper)
+	g, ok := r.(Gripper)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalGripper", r)
+		return nil, utils.NewUnimplementedInterfaceError("Gripper", r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGripper); ok {
 		return reconfigurable, nil
@@ -85,7 +80,6 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Gripper(&reconfigurableGripper{})
 	_ = resource.Reconfigurable(&reconfigurableGripper{})
-	_ = generic.Generic(&reconfigurableGripper{})
 )
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.
@@ -94,13 +88,11 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(Gripper); ok {
-		return full, nil
+	part, ok := res.(Gripper)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Gripper", res)
 	}
-	if part, ok := res.(MinimalGripper); ok {
-		return &reconfigurableGripper{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Gripper", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
@@ -110,13 +102,19 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableGripper struct {
 	mu     sync.RWMutex
-	actual MinimalGripper
+	actual Gripper
 }
 
 func (g *reconfigurableGripper) ProxyFor() interface{} {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual
+}
+
+func (g *reconfigurableGripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Do(ctx, cmd)
 }
 
 func (g *reconfigurableGripper) Open(ctx context.Context) error {
@@ -129,17 +127,6 @@ func (g *reconfigurableGripper) Grab(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual.Grab(ctx)
-}
-
-// Do will try to Do() and error if not implemented.
-func (g *reconfigurableGripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	if dev, ok := g.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", g)
 }
 
 // Reconfigure reconfigures the resource.

@@ -99,7 +99,7 @@ func TestGPIOInput(t *testing.T) {
 
 	res, err := inputReg.Constructor(context.Background(), &r, config.Component{Name: "input1", ConvertedAttributes: &ic}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	dev, ok := res.(input.MinimalController)
+	dev, ok := res.(input.Controller)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, dev, test.ShouldNotBeNil)
 

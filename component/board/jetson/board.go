@@ -226,6 +226,10 @@ func (b *jetsonBoard) getGPIOLine(hwPin string) (gpio.PinIO, error) {
 	return pin, nil
 }
 
+func (b *jetsonBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 type gpioPin struct {
 	b       *jetsonBoard
 	pin     gpio.PinIO

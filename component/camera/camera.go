@@ -63,26 +63,21 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Camera represents a fully implemented camera.
+// A Camera represents anything that can capture frames.
 type Camera interface {
-	generic.Generic
-	MinimalCamera
-}
-
-// A MinimalCamera represents anything that can capture frames.
-type MinimalCamera interface {
 	gostream.ImageSource
+	generic.Generic
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
 // WithProjector is a camera with the capability to project images to 3D.
 type WithProjector interface {
-	MinimalCamera
+	Camera
 	GetProjector() rimage.Projector
 }
 
 // Projector will return the camera's projector if it has it, or returns nil if not.
-func Projector(cam MinimalCamera) rimage.Projector {
+func Projector(cam Camera) rimage.Projector {
 	var proj rimage.Projector
 	if c, ok := cam.(WithProjector); ok {
 		proj = c.GetProjector()
@@ -94,7 +89,7 @@ func Projector(cam MinimalCamera) rimage.Projector {
 
 // New creates a Camera either with or without a projector, depending on if the camera config has the parameters,
 // or if it has a parent Camera with camera parameters that it should copy. parentSource and attrs can be nil.
-func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource MinimalCamera) (Camera, error) {
+func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (Camera, error) {
 	if imgSrc == nil {
 		return nil, errors.New("cannot have a nil image source")
 	}
@@ -124,19 +119,18 @@ func (is *imageSource) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, is.ImageSource)
 }
 
-// Do returns an error.
-func (is *imageSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("source doesn't support Do()")
-}
-
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
 func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imageSource::NextPointCloud")
 	defer span.End()
-	if c, ok := is.ImageSource.(MinimalCamera); ok {
+	if c, ok := is.ImageSource.(Camera); ok {
 		return c.NextPointCloud(ctx)
 	}
 	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
+}
+
+func (is *imageSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }
 
 // ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
@@ -150,11 +144,6 @@ func (iswp *imageSourceWithProjector) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, iswp.ImageSource)
 }
 
-// Do returns an error.
-func (iswp *imageSourceWithProjector) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("source doesn't support Do()")
-}
-
 // Projector returns the camera's Projector.
 func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
 	return iswp.projector
@@ -164,7 +153,7 @@ func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
 func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud")
 	defer span.End()
-	if c, ok := iswp.ImageSource.(MinimalCamera); ok {
+	if c, ok := iswp.ImageSource.(Camera); ok {
 		return c.NextPointCloud(ctx)
 	}
 	img, closer, err := iswp.Next(ctx)
@@ -188,11 +177,15 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	return iswp.projector.ImageWithDepthToPointCloud(imageWithDepth)
 }
 
+func (iswp *imageSourceWithProjector) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	c, ok := r.(MinimalCamera)
+	c, ok := r.(Camera)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalCamera", r)
+		return nil, utils.NewUnimplementedInterfaceError("Camera", r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableCamera); ok {
 		return reconfigurable, nil
@@ -203,7 +196,6 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Camera(&reconfigurableCamera{})
 	_ = resource.Reconfigurable(&reconfigurableCamera{})
-	_ = generic.Generic(&reconfigurableCamera{})
 )
 
 // FromRobot is a helper for getting the named Camera from the given Robot.
@@ -212,13 +204,11 @@ func FromRobot(r robot.Robot, name string) (Camera, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(Camera); ok {
-		return full, nil
+	part, ok := res.(Camera)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Camera", res)
 	}
-	if part, ok := res.(MinimalCamera); ok {
-		return &reconfigurableCamera{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Camera", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all camera names from the given Robot.
@@ -228,7 +218,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableCamera struct {
 	mu     sync.RWMutex
-	actual MinimalCamera
+	actual Camera
 }
 
 func (c *reconfigurableCamera) ProxyFor() interface{} {
@@ -255,15 +245,10 @@ func (c *reconfigurableCamera) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, c.actual)
 }
 
-// Do will try to Do() and error if not implemented.
 func (c *reconfigurableCamera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
-	if dev, ok := c.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", c)
+	return c.actual.Do(ctx, cmd)
 }
 
 // Reconfigure reconfigures the resource.

@@ -53,7 +53,7 @@ func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Boar
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger golog.Logger) (motor.MinimalMotor, error) {
+func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
@@ -342,4 +342,9 @@ func (m *gpioStepper) enable(ctx context.Context, on bool) error {
 	}
 
 	return nil
+}
+
+// Do is unimplemented.
+func (m *gpioStepper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

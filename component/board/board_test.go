@@ -126,7 +126,7 @@ var (
 )
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualBoard board.MinimalBoard = newBoard(testBoardName)
+	var actualBoard board.Board = newBoard(testBoardName)
 
 	reconfBoard1, err := board.WrapWithReconfigurable(actualBoard)
 	test.That(t, err, test.ShouldBeNil)
@@ -162,7 +162,7 @@ func TestReconfigurableBoard(t *testing.T) {
 		test.That(t, actualBoard1.gpioPin.getCount, test.ShouldEqual, 0)
 		test.That(t, actualBoard2.gpioPin.getCount, test.ShouldEqual, 0)
 
-		p, err := reconfBoard1.(board.MinimalBoard).GPIOPinByName("1")
+		p, err := reconfBoard1.(board.Board).GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
 		result, err := p.Get(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -181,7 +181,7 @@ func TestSetGPIO(t *testing.T) {
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioPin.setCount, test.ShouldEqual, 0)
-	p, err := reconfBoard.(board.MinimalBoard).GPIOPinByName("1")
+	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
 	err = p.Set(context.Background(), false)
 	test.That(t, err, test.ShouldBeNil)
@@ -193,7 +193,7 @@ func TestGetGPIO(t *testing.T) {
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioPin.getCount, test.ShouldEqual, 0)
-	p, err := reconfBoard.(board.MinimalBoard).GPIOPinByName("1")
+	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
 	result, err := p.Get(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -206,7 +206,7 @@ func TestSetPWM(t *testing.T) {
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioPin.setPWMCount, test.ShouldEqual, 0)
-	p, err := reconfBoard.(board.MinimalBoard).GPIOPinByName("1")
+	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
 	err = p.SetPWM(context.Background(), 0)
 	test.That(t, err, test.ShouldBeNil)
@@ -218,7 +218,7 @@ func TestSetPWMFreq(t *testing.T) {
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioPin.setPWMFreqCount, test.ShouldEqual, 0)
-	p, err := reconfBoard.(board.MinimalBoard).GPIOPinByName("1")
+	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
 	err = p.SetPWMFreq(context.Background(), 0)
 	test.That(t, err, test.ShouldBeNil)

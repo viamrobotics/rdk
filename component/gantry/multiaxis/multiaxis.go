@@ -26,7 +26,7 @@ type AttrConfig struct {
 
 type multiAxis struct {
 	name      string
-	subAxes   []gantry.MinimalGantry
+	subAxes   []gantry.Gantry
 	lengthsMm []float64
 	logger    golog.Logger
 	model     referenceframe.Model
@@ -61,7 +61,7 @@ func init() {
 }
 
 // NewMultiAxis creates a new-multi axis gantry.
-func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.MinimalGantry, error) {
+func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
@@ -77,7 +77,7 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 		if err != nil {
 			return nil, errors.Wrapf(err, "no axes named [%s]", s)
 		}
-		subAx, ok := oneAx.(gantry.MinimalGantry)
+		subAx, ok := oneAx.(gantry.Gantry)
 		if !ok {
 			return nil, errors.Errorf("gantry named [%s] is not a gantry, is a %T", s, oneAx)
 		}
@@ -189,4 +189,9 @@ func (g *multiAxis) ModelFrame() referenceframe.Model {
 		g.model = model
 	}
 	return g.model
+}
+
+// Do is unimplemented.
+func (g *multiAxis) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

@@ -126,12 +126,12 @@ func TestCameraName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualCamera1 camera.MinimalCamera = &mock{Name: testCameraName}
+	var actualCamera1 camera.Camera = &mock{Name: testCameraName}
 	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = camera.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalCamera", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Camera", nil))
 
 	reconfCamera2, err := camera.WrapWithReconfigurable(reconfCamera1)
 	test.That(t, err, test.ShouldBeNil)
@@ -155,7 +155,7 @@ func TestReconfigurableCamera(t *testing.T) {
 
 	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 0)
 	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 0)
-	img1, _, err := reconfCamera1.(camera.MinimalCamera).Next(context.Background())
+	img1, _, err := reconfCamera1.(camera.Camera).Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, img1)
 	test.That(t, err, test.ShouldBeNil)
@@ -181,7 +181,7 @@ func TestClose(t *testing.T) {
 var img = image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 type mock struct {
-	camera.MinimalCamera
+	camera.Camera
 	Name        string
 	nextCount   int
 	reconfCount int
@@ -253,7 +253,7 @@ func TestNewCamera(t *testing.T) {
 	// cam4 wrapped with reconfigurable
 	reconfig, err := camera.WrapWithReconfigurable(cam4)
 	test.That(t, err, test.ShouldBeNil)
-	fakeCamera := reconfig.(camera.MinimalCamera)
+	fakeCamera := reconfig.(camera.Camera)
 	cam5, err := camera.New(imgSrc, nil, fakeCamera)
 	test.That(t, err, test.ShouldBeNil)
 	_, ok = cam5.(camera.WithProjector)
@@ -265,6 +265,10 @@ func TestNewCamera(t *testing.T) {
 
 type cloudSource struct {
 	*simpleSource
+}
+
+func (cs *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }
 
 func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {

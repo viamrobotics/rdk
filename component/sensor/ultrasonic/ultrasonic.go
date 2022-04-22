@@ -47,7 +47,7 @@ func init() {
 		}, &AttrConfig{})
 }
 
-func newSensor(ctx context.Context, r robot.Robot, name string, config *AttrConfig) (sensor.MinimalSensor, error) {
+func newSensor(ctx context.Context, r robot.Robot, name string, config *AttrConfig) (sensor.Sensor, error) {
 	r.Logger().Debug("building ultrasonic sensor")
 	s := &Sensor{Name: name, config: config}
 	b, err := board.FromRobot(r, config.Board)
@@ -110,4 +110,9 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	}
 	dist := timeA.Sub(timeB).Seconds() * 340 / 2
 	return []interface{}{dist}, nil
+}
+
+// Do is unimplemented.
+func (s *Sensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

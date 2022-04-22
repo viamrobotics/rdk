@@ -300,6 +300,10 @@ func (b *arduinoBoard) Close() error {
 	return b.port.Close()
 }
 
+func (b *arduinoBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 type analogReader struct {
 	b   *arduinoBoard
 	pin string

@@ -69,7 +69,7 @@ func TestWorkingClient(t *testing.T) {
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
-	testWorkingClient := func(t *testing.T, client board.MinimalBoard) {
+	testWorkingClient := func(t *testing.T, client board.Board) {
 		t.Helper()
 
 		// Status
@@ -238,7 +238,7 @@ func TestClientWithoutStatus(t *testing.T) {
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	rClient := resourceSubtype.RPCClient(context.Background(), conn, testBoardName, logger)
-	client, ok := rClient.(board.MinimalBoard)
+	client, ok := rClient.(board.Board)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})

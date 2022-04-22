@@ -3,6 +3,7 @@ package webgamepad
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -42,7 +43,7 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	return &w, nil
 }
 
-// webGamepad is an input.MinimalController.
+// webGamepad is an input.Controller.
 type webGamepad struct {
 	controls                []input.Control
 	lastEvents              map[input.Control]input.Event
@@ -92,6 +93,11 @@ func (w *webGamepad) makeCallbacks(eventOut input.Event) {
 func (w *webGamepad) Close() {
 	w.cancelFunc()
 	w.activeBackgroundWorkers.Wait()
+}
+
+// Do is unimplemented.
+func (w *webGamepad) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }
 
 // GetControls lists the inputs of the gamepad.

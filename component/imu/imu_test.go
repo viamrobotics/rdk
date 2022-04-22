@@ -133,7 +133,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = imu.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalIMU", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("IMU", nil))
 
 	reconfIMU2, err := imu.WrapWithReconfigurable(reconfIMU1)
 	test.That(t, err, test.ShouldBeNil)

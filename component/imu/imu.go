@@ -69,26 +69,20 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// An IMU represents a fully implemented IMU.
-type IMU interface {
-	generic.Generic
-	MinimalIMU
-}
-
-// A MinimalIMU represents a sensor that can report AngularVelocity, Orientation, Acceleration and Magnetometer
+// An IMU represents a sensor that can report AngularVelocity, Orientation, Acceleration and Magnetometer
 // measurements.
-type MinimalIMU interface {
+type IMU interface {
 	ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
 	ReadAcceleration(ctx context.Context) (r3.Vector, error)
 	ReadMagnetometer(ctx context.Context) (r3.Vector, error)
+	generic.Generic
 }
 
 var (
 	_ = IMU(&reconfigurableIMU{})
 	_ = sensor.Sensor(&reconfigurableIMU{})
 	_ = resource.Reconfigurable(&reconfigurableIMU{})
-	_ = generic.Generic(&reconfigurableIMU{})
 )
 
 // FromRobot is a helper for getting the named IMU from the given Robot.
@@ -97,13 +91,11 @@ func FromRobot(r robot.Robot, name string) (IMU, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(IMU); ok {
-		return full, nil
+	part, ok := res.(IMU)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("IMU", res)
 	}
-	if part, ok := res.(MinimalIMU); ok {
-		return &reconfigurableIMU{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("IMU", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all IMU names from the given Robot.
@@ -112,7 +104,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // GetReadings is a helper for getting all readings from an IMU.
-func GetReadings(ctx context.Context, i MinimalIMU) ([]interface{}, error) {
+func GetReadings(ctx context.Context, i IMU) ([]interface{}, error) {
 	vel, err := i.ReadAngularVelocity(ctx)
 	if err != nil {
 		return nil, err
@@ -141,7 +133,7 @@ func GetReadings(ctx context.Context, i MinimalIMU) ([]interface{}, error) {
 
 type reconfigurableIMU struct {
 	mu     sync.RWMutex
-	actual MinimalIMU
+	actual IMU
 }
 
 func (r *reconfigurableIMU) Close(ctx context.Context) error {
@@ -154,6 +146,13 @@ func (r *reconfigurableIMU) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+// Do passes generic commands/data.
+func (r *reconfigurableIMU) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 // ReadAngularVelocity returns angular velocity from the gyroscope deg_per_sec.
@@ -195,17 +194,6 @@ func (r *reconfigurableIMU) GetReadings(ctx context.Context) ([]interface{}, err
 	return GetReadings(ctx, r.actual)
 }
 
-// Do will try to Do() and error if not implemented.
-func (r *reconfigurableIMU) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if dev, ok := r.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
-}
-
 func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -223,9 +211,9 @@ func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Rec
 // WrapWithReconfigurable converts a regular IMU implementation to a reconfigurableIMU.
 // If imu is already a reconfigurableIMU, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	imu, ok := r.(MinimalIMU)
+	imu, ok := r.(IMU)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalIMU", r)
+		return nil, utils.NewUnimplementedInterfaceError("IMU", r)
 	}
 	if reconfigurable, ok := imu.(*reconfigurableIMU); ok {
 		return reconfigurable, nil

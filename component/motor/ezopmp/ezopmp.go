@@ -326,3 +326,8 @@ func (m *Ezopmp) IsPowered(ctx context.Context) (bool, error) {
 	}
 	return false, nil
 }
+
+// Do is unimplemented.
+func (m *Ezopmp) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}

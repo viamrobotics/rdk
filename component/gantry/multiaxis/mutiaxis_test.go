@@ -55,13 +55,13 @@ func createFakeRobot() *inject.Robot {
 	return fakerobot
 }
 
-var threeAxes = []gantry.MinimalGantry{
+var threeAxes = []gantry.Gantry{
 	createFakeOneaAxis(1, []float64{1}),
 	createFakeOneaAxis(2, []float64{5}),
 	createFakeOneaAxis(3, []float64{9}),
 }
 
-var twoAxes = []gantry.MinimalGantry{
+var twoAxes = []gantry.Gantry{
 	createFakeOneaAxis(5, []float64{1}),
 	createFakeOneaAxis(6, []float64{5}),
 }

@@ -113,7 +113,7 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.MinimalArm, error) {
+func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
 	speed := cfg.ConvertedAttributes.(*AttrConfig).Speed
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	if speed > 1 || speed < .1 {
@@ -430,4 +430,9 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 			ua.logger.Debugf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
 		}
 	}
+}
+
+// Do is unimplemented.
+func (ua *URArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

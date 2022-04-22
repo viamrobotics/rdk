@@ -123,7 +123,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = sensor.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalSensor", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Sensor", nil))
 
 	reconfSensor2, err := sensor.WrapWithReconfigurable(reconfSensor1)
 	test.That(t, err, test.ShouldBeNil)

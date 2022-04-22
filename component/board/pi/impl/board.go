@@ -523,6 +523,10 @@ func (pi *piPigpio) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, pi)
 }
 
+func (pi *piPigpio) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 var (
 	lastTick      = uint32(0)
 	tickRollevers = 0

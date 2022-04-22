@@ -262,6 +262,10 @@ func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }
 
+func (base *wheeledBase) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
 	frontLeft, err := motor.FromRobot(r, config.Attributes.String("front_left"))

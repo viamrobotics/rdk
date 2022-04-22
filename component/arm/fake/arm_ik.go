@@ -39,7 +39,7 @@ func fakeModel() (referenceframe.Model, error) {
 }
 
 // NewArmIK returns a new fake arm.
-func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.MinimalArm, error) {
+func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
 	name := cfg.Name
 	model, err := fakeModel()
 	if err != nil {

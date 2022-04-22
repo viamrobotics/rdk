@@ -39,7 +39,7 @@ func init() {
 	)
 }
 
-// NewInputController returns a fake input.MinimalController.
+// NewInputController returns a fake input.Controller.
 func NewInputController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	c := &InputController{}
 	c.controls = config.ConvertedAttributes.(*Config).controls
@@ -51,7 +51,7 @@ type Config struct {
 	controls []input.Control
 }
 
-// An InputController fakes an input.MinimalController.
+// An InputController fakes an input.Controller.
 type InputController struct {
 	Name     string
 	mu       sync.Mutex

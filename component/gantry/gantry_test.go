@@ -194,7 +194,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gantry.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalGantry", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", nil))
 	reconfGantry2, err := gantry.WrapWithReconfigurable(reconfGantry1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGantry2, test.ShouldEqual, reconfGantry1)

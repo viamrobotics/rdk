@@ -129,7 +129,7 @@ const (
 )
 
 // NewOneAxis creates a new one axis gantry.
-func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.MinimalGantry, error) {
+func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
@@ -449,4 +449,9 @@ func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, er
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
 func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{})
+}
+
+// Do is unimplemented.
+func (g *oneAxis) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }

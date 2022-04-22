@@ -57,15 +57,9 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// Controller represents a fully implemented controller.
-type Controller interface {
-	generic.Generic
-	MinimalController
-}
-
-// MinimalController is a logical "container" more than an actual device
+// Controller is a logical "container" more than an actual device
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
-type MinimalController interface {
+type Controller interface {
 	// GetControls returns a list of GetControls provided by the Controller
 	GetControls(ctx context.Context) ([]Control, error)
 
@@ -74,6 +68,8 @@ type MinimalController interface {
 
 	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control
 	RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error
+
+	generic.Generic
 }
 
 // ControlFunction is a callback passed to RegisterControlCallback.
@@ -149,9 +145,9 @@ type Triggerable interface {
 
 // WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	c, ok := r.(MinimalController)
+	c, ok := r.(Controller)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MinimalController", r)
+		return nil, utils.NewUnimplementedInterfaceError("Controller", r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableInputController); ok {
 		return reconfigurable, nil
@@ -162,7 +158,6 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Controller(&reconfigurableInputController{})
 	_ = resource.Reconfigurable(&reconfigurableInputController{})
-	_ = generic.Generic(&reconfigurableInputController{})
 )
 
 // FromRobot is a helper for getting the named input controller from the given Robot.
@@ -171,13 +166,11 @@ func FromRobot(r robot.Robot, name string) (Controller, error) {
 	if err != nil {
 		return nil, err
 	}
-	if full, ok := res.(Controller); ok {
-		return full, nil
+	part, ok := res.(Controller)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("input.Controller", res)
 	}
-	if part, ok := res.(MinimalController); ok {
-		return &reconfigurableInputController{actual: part}, nil
-	}
-	return nil, utils.NewUnimplementedInterfaceError("input.Controller", res)
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all input controller names from the given Robot.
@@ -187,7 +180,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the input controller.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	controller, ok := resource.(MinimalController)
+	controller, ok := resource.(Controller)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("input.Controller", resource)
 	}
@@ -210,13 +203,19 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableInputController struct {
 	mu     sync.RWMutex
-	actual MinimalController
+	actual Controller
 }
 
 func (c *reconfigurableInputController) ProxyFor() interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual
+}
+
+func (c *reconfigurableInputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.Do(ctx, cmd)
 }
 
 func (c *reconfigurableInputController) GetControls(ctx context.Context) ([]Control, error) {
@@ -257,17 +256,6 @@ func (c *reconfigurableInputController) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return viamutils.TryClose(ctx, c.actual)
-}
-
-// Do will try to Do() and error if not implemented.
-func (c *reconfigurableInputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if dev, ok := c.actual.(generic.Generic); ok {
-		return dev.Do(ctx, cmd)
-	}
-	return nil, utils.NewUnimplementedInterfaceError("Generic", c)
 }
 
 // Reconfigure reconfigures the resource.
