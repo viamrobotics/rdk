@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectdetection"
+	"go.viam.com/rdk/services/objectsegmentation"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -32,12 +33,17 @@ func TestClient(t *testing.T) {
 	r := buildRobotWithFakeCamera(t)
 	srv, err := objectdetection.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
+	segsrv, err := objectsegmentation.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
 	m := map[resource.Name]interface{}{
-		objectdetection.Name: srv,
+		objectdetection.Name:    srv,
+		objectsegmentation.Name: segsrv,
 	}
 	svc, err := subtype.New(m)
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(objectdetection.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	resourceSubtype = registry.ResourceSubtypeLookup(objectsegmentation.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 
 	go rpcServer.Serve(listener1)
@@ -54,12 +60,18 @@ func TestClient(t *testing.T) {
 	t.Run("working client", func(t *testing.T) {
 		client, err := objectdetection.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-
 		names, err := client.DetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 
+		segClient, err := objectsegmentation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		segNames, err := segClient.GetSegmenters(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, segNames, test.ShouldContain, "detect_red")
+
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), segClient), test.ShouldBeNil)
 	})
 
 	t.Run("add detector", func(t *testing.T) {
@@ -84,12 +96,20 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 		test.That(t, names, test.ShouldContain, "new_detector")
+		// check that it also also added to the segmenter
+		segClient, err := objectsegmentation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		segNames, err := segClient.GetSegmenters(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, segNames, test.ShouldContain, "detect_red")
+		test.That(t, segNames, test.ShouldContain, "new_detector")
 		// failure - tries to add a detector again
 		ok, err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "trying to register two detectors with the same name")
 		test.That(t, ok, test.ShouldBeFalse)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), segClient), test.ShouldBeNil)
 	})
 	t.Run("get detections", func(t *testing.T) {
 		client, err := objectdetection.NewClient(context.Background(), "", listener1.Addr().String(), logger)
