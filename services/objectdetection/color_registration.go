@@ -9,7 +9,7 @@ import (
 )
 
 // registerColorDetector parses the Parameter field from the config into ColorDetectorConfig,
-// creates the ColorDetector, and registers it to the detector map. Also return the detector itself.
+// creates the ColorDetector, and registers it to the detector map.
 func registerColorDetector(dm detectorMap, conf *Config) error {
 	if conf == nil {
 		return errors.New("object detection config for color detector cannot be nil")
