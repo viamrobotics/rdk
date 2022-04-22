@@ -18,12 +18,14 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/objectsegmentation"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/objectdetection"
 )
 
 var testPointCloud = []r3.Vector{
@@ -172,6 +174,29 @@ func TestGetObjectPointClouds(t *testing.T) {
 		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
 	}
+}
+
+func TestRegisterDetectionSegmenter(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg := &config.Config{}
+	r, err := robotimpl.RobotFromConfig(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	// define the detector
+	colorConf := &objectdetection.ColorDetectorConfig{
+		SegmentSize:       1000,
+		Tolerance:         0.05,
+		DetectColorString: "#112233",
+	}
+	det, err := objectdetection.NewColorDetector(colorConf)
+	test.That(t, err, test.ShouldBeNil)
+	// register and check
+	err = objectsegmentation.RegisterDetectionSegmenter(r, "my_test", det)
+	test.That(t, err, test.ShouldBeNil)
+	srv, err := objectsegmentation.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	names, err := srv.GetSegmenters(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, names, test.ShouldContain, "my_test")
 }
 
 func setupInjectRobot() (*inject.Robot, *mock) {
