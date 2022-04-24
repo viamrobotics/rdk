@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -59,12 +60,12 @@ type Motor interface {
 	// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 	// can be assigned negative values to move in a backwards direction. Note: if both are
 	// negative the motor will spin in the forward direction.
-	GoFor(ctx context.Context, rpm float64, revolutions float64) error
+	GoFor(ctx context.Context, rpm float64, revolutions float64) (operation.NonBlockingReturn, error)
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 	// towards the specified target/position
-	GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error
+	GoTo(ctx context.Context, rpm float64, positionRevolutions float64) (operation.NonBlockingReturn, error)
 
 	// Set the current position (+/- offset) to be the new zero (home) position.
 	ResetZeroPosition(ctx context.Context, offset float64) error
@@ -168,13 +169,13 @@ func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) er
 	return r.actual.SetPower(ctx, powerPct)
 }
 
-func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) (operation.NonBlockingReturn, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GoFor(ctx, rpm, revolutions)
 }
 
-func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
+func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) (operation.NonBlockingReturn, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GoTo(ctx, rpm, positionRevolutions)

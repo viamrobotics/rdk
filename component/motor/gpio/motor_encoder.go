@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
+	"go.viam.com/rdk/operation"
 )
 
 var (
@@ -187,6 +188,8 @@ type EncodedMotor struct {
 	cancelCtx       context.Context
 	cancel          func()
 	loop            *control.ControlLoop
+
+	mgr           operation.NBCallManager
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.
@@ -269,6 +272,7 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 	if !internal {
 		m.state.desiredRPM = 0    // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
+		m.mgr.CancelRunning()
 	}
 	m.state.lastPowerPct = m.fixPowerPct(powerPct)
 	return m.real.SetPower(ctx, m.state.lastPowerPct)
@@ -456,7 +460,7 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // GoFor instructs the motor to go in a given direction at the given RPM for a number of given revolutions.
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
-func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) (operation.NonBlockingReturn, error) {
 	m.RPMMonitorStart()
 
 	var d int64 = 1
@@ -475,18 +479,19 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 		m.state.desiredRPM = rpm
 		if math.Abs(oldRpm) > 0.001 && d == m.directionMovingInLock() {
 			m.stateMu.Unlock()
-			return nil
+			return &operation.NoopNonBlockingReturn{}, nil
 		}
 		err := m.setPower(ctx, float64(d)*.06, true) // power of 6% is random
 		m.stateMu.Unlock()
-		return err
+		// TODO(erh): is this right? 
+		return &operation.NoopNonBlockingReturn{}, err
 	}
 
 	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
 
 	pos, err := m.encoder.GetPosition(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	m.stateMu.Lock()
@@ -502,18 +507,28 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 	isOn, err := m.IsPowered(ctx)
 	if err != nil {
 		m.stateMu.Unlock()
-		return err
+		return nil, err
 	}
 	if !isOn {
 		// if we're off we start slow, otherwise we just set the desired rpm
 		err := m.setPower(ctx, float64(d)*0.03, true)
 		if err != nil {
 			m.stateMu.Unlock()
-			return err
+			return nil, err
 		}
 	}
 	m.stateMu.Unlock()
-	return nil
+	return m.mgr.NewChecked(
+		ctx,
+		func(ctx context.Context) (bool, error) {
+			powered, err := m.IsPowered(ctx)
+			if err != nil {
+				return false, err
+			}
+			return !powered, nil
+		},
+		func() {},
+	), nil
 }
 
 // off assumes the state lock is held.
@@ -547,10 +562,10 @@ func (m *EncodedMotor) Close() {
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
-func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) error {
+func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) (operation.NonBlockingReturn, error) {
 	curPos, err := m.GetPosition(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	moveDistance := targetPosition - curPos
 
@@ -559,7 +574,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition flo
 
 // GoTillStop moves until physically stopped (though with a ten second timeout) or stopFunc() returns true.
 func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	if err := m.GoFor(ctx, rpm, 0); err != nil {
+	if _, err := m.GoFor(ctx, rpm, 0); err != nil {
 		return err
 	}
 	defer func() {
