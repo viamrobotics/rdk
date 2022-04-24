@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 )
 
@@ -89,24 +90,29 @@ func (c *client) SetPower(ctx context.Context, powerPct float64) error {
 	return err
 }
 
-func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64) (operation.NonBlockingReturn, error) {
 	req := &pb.GoForRequest{
 		Name:        c.name,
 		Rpm:         rpm,
 		Revolutions: revolutions,
 	}
-	_, err := c.client.GoFor(ctx, req)
-	return err
+	// TODO(erh): this isn't supposed to block
+	if _, err := c.client.GoFor(ctx, req); err != nil {
+		return nil, err
+	}
+	return &operation.NoopNonBlockingReturn{}, nil
 }
 
-func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
+func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) (operation.NonBlockingReturn, error) {
 	req := &pb.GoToRequest{
 		Name:                c.name,
 		Rpm:                 rpm,
 		PositionRevolutions: positionRevolutions,
 	}
-	_, err := c.client.GoTo(ctx, req)
-	return err
+	if _, err := c.client.GoTo(ctx, req); err != nil {
+		return nil, err
+	}
+	return &operation.NoopNonBlockingReturn{}, nil
 }
 
 func (c *client) ResetZeroPosition(ctx context.Context, offset float64) error {

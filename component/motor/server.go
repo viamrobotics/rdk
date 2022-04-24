@@ -68,7 +68,11 @@ func (server *subtypeServer) GoFor(
 		rVal = revolutions
 	}
 
-	return &pb.GoForResponse{}, motor.GoFor(ctx, req.GetRpm(), rVal)
+	op, err := motor.GoFor(ctx, req.GetRpm(), rVal)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GoForResponse{}, op.Block(ctx)
 }
 
 // GetPosition reports the position of the motor of the underlying robot
@@ -152,8 +156,11 @@ func (server *subtypeServer) GoTo(
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
-
-	return &pb.GoToResponse{}, motor.GoTo(ctx, req.GetRpm(), req.GetPositionRevolutions())
+	op, err := motor.GoTo(ctx, req.GetRpm(), req.GetPositionRevolutions())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GoToResponse{}, op.Block(ctx)
 }
 
 // ResetZeroPosition sets the current position of the motor specified by the request
