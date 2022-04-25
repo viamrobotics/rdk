@@ -40,7 +40,7 @@ func TestDetectorMap(t *testing.T) {
 }
 
 func TestRegisterTFLiteDetector(t *testing.T) {
-	conf := &attributes{
+	conf := &Attributes{
 		DetectorRegistry: []DetectorConfig{
 			{
 				Name:       "my_tflite_det",
@@ -55,7 +55,7 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 }
 
 func TestRegisterTensorFlowDetector(t *testing.T) {
-	conf := &attributes{
+	conf := &Attributes{
 		DetectorRegistry: []DetectorConfig{
 			{
 				Name:       "my_tensorflow_det",
@@ -70,7 +70,7 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 }
 
 func TestRegisterColorDetector(t *testing.T) {
-	conf := &attributes{
+	conf := &Attributes{
 		DetectorRegistry: []DetectorConfig{
 			{
 				Name: "my_color_det",
@@ -96,7 +96,7 @@ func TestRegisterColorDetector(t *testing.T) {
 }
 
 func TestRegisterUnknownDetector(t *testing.T) {
-	conf := &attributes{
+	conf := &Attributes{
 		DetectorRegistry: []DetectorConfig{
 			{
 				Name:       "my_random_det",

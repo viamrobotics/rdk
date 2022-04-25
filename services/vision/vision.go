@@ -42,10 +42,10 @@ func init() {
 	})
 	cType := config.ServiceType(SubtypeName)
 	config.RegisterServiceAttributeMapConverter(cType, func(attributeMap config.AttributeMap) (interface{}, error) {
-		var attrs attributes
+		var attrs Attributes
 		return config.TransformAttributeMapToStruct(&attrs, attributeMap)
 	},
-		&attributes{},
+		&Attributes{},
 	)
 }
 
@@ -87,20 +87,24 @@ func FromRobot(r robot.Robot) (Service, error) {
 	return svc, nil
 }
 
-// attributes contains a list of the user-provided details necessary to register a new vision service.
-type attributes struct {
+// Attributes contains a list of the user-provided details necessary to register a new vision service.
+type Attributes struct {
 	DetectorRegistry []DetectorConfig `json:"register_detectors"`
+}
+
+// DetectorConfig specifies the name of the detector, the type of detector,
+// and the necessary parameters needed to build the detector.
+type DetectorConfig struct {
+	Name       string              `json:"name"`
+	Type       string              `json:"type"`
+	Parameters config.AttributeMap `json:"parameters"`
 }
 
 // New registers new detectors from the config and returns a new object detection service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	attrs, ok := config.ConvertedAttributes.(*attributes)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-	}
 	detMap := make(detectorMap)
 	segMap := make(segmenterMap)
-	// register segmenters
+	// register default segmenters
 	err := segMap.registerSegmenter(RadiusClusteringSegmenter, SegmenterRegistration{
 		segmentation.Segmenter(segmentation.RadiusClustering),
 		utils.JSONTags(segmentation.RadiusClusteringConfig{}),
@@ -108,10 +112,16 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if err != nil {
 		return nil, err
 	}
-	// register detectors
-	err = registerNewDetectors(ctx, detMap, attrs, logger)
-	if err != nil {
-		return nil, err
+	// register detectors and user defined things if config is defined
+	if config.Attributes != nil {
+		attrs, ok := config.ConvertedAttributes.(*Attributes)
+		if !ok {
+			return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+		}
+		err = registerNewDetectors(ctx, detMap, attrs, logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &visionService{
 		r:      r,
@@ -126,4 +136,17 @@ type visionService struct {
 	detReg detectorMap
 	segReg segmenterMap
 	logger golog.Logger
+}
+
+func (vs *visionService) Update(ctx context.Context, conf config.Service) error {
+	newService, err := New(ctx, vs.r, conf, vs.logger)
+	if err != nil {
+		return err
+	}
+	svc, ok := newService.(*visionService)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newService)
+	}
+	vs = svc
+	return nil
 }
