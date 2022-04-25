@@ -123,7 +123,7 @@ type Service struct {
 	logger      golog.Logger
 	captureDir  string
 	collectors  map[componentMethodMetadata]collectorParams
-	syncManager *syncManager
+	syncManager *syncer
 
 	cancelCtx  context.Context
 	cancelFunc func()
