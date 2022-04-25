@@ -466,7 +466,7 @@ export default class Base extends Vue {
   }
 
   refreshCamera(): void {
-    this.$emit('refresh-camera', 'manual')
+    this.$emit("refresh-camera", "manual");
   }
 
   pcdClick(e: Event): void {

@@ -29,7 +29,7 @@
 </template>
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
-import { throttle, debounce} from "lodash";
+import { throttle, debounce } from "lodash";
 import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
 import ViamButton from "./Button.vue";
@@ -44,7 +44,6 @@ const PressedKeysMap: { [index: string]: string } = {
 const inputDelay = 100;
 const eventsDelay = 500;
 
-
 @Component({
   components: {
     ViamIcon,
@@ -58,7 +57,6 @@ export default class KeyboardInput extends Vue {
     backward: false,
     right: false,
   };
-
 
   mdiRestore = mdiRestore;
   mdiReload = mdiReload;
@@ -81,8 +79,6 @@ export default class KeyboardInput extends Vue {
 
   //for template section
   keysLayout = [["forward"], ["left", "backward", "right"]];
-
-
 
   sendKeysState = debounce(() => {
     this.handleKeysStateInstantly();
@@ -109,8 +105,8 @@ export default class KeyboardInput extends Vue {
   }, eventsDelay);
 
   emitEventInstantly(eventName: string): void {
-    console.log(`event will be fired ${eventName}`)
-    this.$emit(eventName)
+    console.log(`event will be fired ${eventName}`);
+    this.$emit(eventName);
   }
   setKeyPressed(key: string, value = true): void {
     this.pressedKeys[key] = value;
