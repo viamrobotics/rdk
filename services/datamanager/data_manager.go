@@ -60,7 +60,7 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// The Collector's enqueue should be big enough to ensure that .capture() is never blocked by the enqueue being
+// The Collector's Enqueue should be big enough to ensure that .capture() is never blocked by the Enqueue being
 // written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),
 // this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the size of
 // writes this would be performing.
@@ -222,7 +222,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 		return nil, err
 	}
 
-	// Set enqueue size to defaultCaptureQueueSize if it was not set in the config.
+	// Set Enqueue size to defaultCaptureQueueSize if it was not set in the config.
 	captureQueueSize := attributes.CaptureQueueSize
 	if captureQueueSize == 0 {
 		captureQueueSize = defaultCaptureQueueSize
@@ -272,8 +272,8 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	if svcConfig.SyncIntervalMins > 0 {
 		sm := newSyncManager(SyncQueue, svc.logger, svc.captureDir)
 		svc.syncManager = &sm
-		svc.syncManager.enqueue(svcConfig.SyncIntervalMins)
-		svc.syncManager.upload()
+		svc.syncManager.Enqueue(time.Minute * time.Duration(svcConfig.SyncIntervalMins))
+		svc.syncManager.UploadSynced()
 	}
 
 	// Initialize or add a collector based on changes to the config.

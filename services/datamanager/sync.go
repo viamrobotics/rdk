@@ -20,8 +20,16 @@ type syncer struct {
 	syncQueue  string
 	logger     golog.Logger
 
-	cancelCtx  context.Context
-	cancelFunc func()
+	queueWaitTime time.Duration
+	uploader      uploader
+	cancelCtx     context.Context
+	cancelFunc    func()
+}
+
+type uploader struct {
+	// TODO: use a thread safe map or a lock
+	inProgress map[string]struct{}
+	uploadFn   func(path string) error
 }
 
 // newSyncManager returns a new data manager service for the given robot.
@@ -29,9 +37,17 @@ func newSyncManager(queuePath string, logger golog.Logger, captureDir string) sy
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	ret := syncer{
-		syncQueue:  queuePath,
-		logger:     logger,
-		captureDir: captureDir,
+		syncQueue:     queuePath,
+		logger:        logger,
+		captureDir:    captureDir,
+		queueWaitTime: time.Minute,
+		uploader: uploader{
+			inProgress: map[string]struct{}{},
+			// TODO: implement an uploadFn for uploading to cloud sync backend
+			uploadFn: func(path string) error {
+				return nil
+			},
+		},
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 	}
@@ -39,14 +55,14 @@ func newSyncManager(queuePath string, logger golog.Logger, captureDir string) sy
 	return ret
 }
 
-// enqueue moves files that are no longer being written to from captureDir to SyncQueue.
-func (s *syncer) enqueue(syncIntervalMins int) {
+// Enqueue moves files that are no longer being written to from captureDir to SyncQueue.
+func (s *syncer) Enqueue(syncInterval time.Duration) {
 	utils.PanicCapturingGo(func() {
-		if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
-			s.logger.Errorf("failed to make sync enqueue: %v", err)
+		if err := os.MkdirAll(s.syncQueue, 0o700); err != nil {
+			s.logger.Errorf("failed to make sync Enqueue: %v", err)
 			return
 		}
-		ticker := time.NewTicker(time.Minute * time.Duration(syncIntervalMins))
+		ticker := time.NewTicker(syncInterval)
 		defer ticker.Stop()
 
 		for {
@@ -54,29 +70,30 @@ func (s *syncer) enqueue(syncIntervalMins int) {
 			case <-s.cancelCtx.Done():
 				err := filepath.WalkDir(s.captureDir, s.queueFile)
 				if err != nil {
-					s.logger.Errorf("failed to move files to sync enqueue: %v", err)
+					s.logger.Errorf("failed to move files to sync Enqueue: %v", err)
 				}
 				return
 			case <-ticker.C:
-				s.logger.Info(s.captureDir)
 				err := filepath.WalkDir(s.captureDir, s.queueFile)
 				if err != nil {
-					s.logger.Errorf("failed to move files to sync enqueue: %v", err)
+					s.logger.Errorf("failed to move files to sync Enqueue: %v", err)
 				}
 			}
 		}
 	})
 }
 
-// upload syncs data to the backing storage system.
-func (s *syncer) upload() {
+// UploadSynced syncs data to the backing storage system.
+func (s *syncer) UploadSynced() {
 	utils.PanicCapturingGo(func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-s.cancelCtx.Done():
 				return
-			default:
-				err := filepath.WalkDir(SyncQueue, s.uploadFile)
+			case <-ticker.C:
+				err := filepath.WalkDir(s.syncQueue, s.uploader.upload)
 				if err != nil {
 					s.logger.Errorf("failed to upload queued file: %v", err)
 				}
@@ -85,8 +102,7 @@ func (s *syncer) upload() {
 	})
 }
 
-// TODO: implement.
-func (s *syncer) uploadFile(path string, di fs.DirEntry, err error) error {
+func (u *uploader) upload(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -94,7 +110,24 @@ func (s *syncer) uploadFile(path string, di fs.DirEntry, err error) error {
 	if di.IsDir() {
 		return nil
 	}
-	// s.logger.Debugf("Visited: %s\n", path)
+	if _, ok := u.inProgress[path]; ok {
+		return nil
+	}
+
+	// Mark upload as in progress.
+	u.inProgress[path] = struct{}{}
+	err = u.uploadFn(path)
+	if err != nil {
+		return err
+	}
+
+	// If upload completed successfully, unmark in-progress and delete file.
+	// TODO: uncomment when sync is actually implemented. Until then, we don't want to delete data.
+	// delete(u.inProgress, path)
+	// err = os.Remove(path)
+	// if err != nil {
+	//  	return err
+	// }
 	return nil
 }
 
@@ -113,7 +146,7 @@ func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 	}
 
 	// If it's been written to in the last minute, it's still active and shouldn't be queued.
-	if time.Since(fileInfo.ModTime()) < time.Minute {
+	if time.Since(fileInfo.ModTime()) < s.queueWaitTime {
 		return nil
 	}
 
@@ -122,14 +155,14 @@ func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 		return errors.Errorf("could not get path under capture directory: %v", err)
 	}
 
-	if err = os.MkdirAll(filepath.Dir(path.Join(SyncQueue, subPath)), 0o700); err != nil {
-		return errors.Errorf("failed create directories under sync enqueue: %v", err)
+	if err = os.MkdirAll(filepath.Dir(path.Join(s.syncQueue, subPath)), 0o700); err != nil {
+		return errors.Errorf("failed create directories under sync Enqueue: %v", err)
 	}
 
-	// TODO: create all necessary directories under sync enqueue before moving
-	err = os.Rename(filePath, path.Join(SyncQueue, subPath))
+	// TODO: create all necessary directories under sync Enqueue before moving
+	err = os.Rename(filePath, path.Join(s.syncQueue, subPath))
 	if err != nil {
-		return errors.Errorf("failed to move file to sync enqueue: %v", err)
+		return errors.Errorf("failed to move file to sync Enqueue: %v", err)
 	}
 	return nil
 }
