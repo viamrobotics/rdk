@@ -143,7 +143,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 		}
 		r.manager.addResource(name, svc)
 	}
-
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
@@ -257,6 +256,7 @@ func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logge
 		logger.Fatal("cannot read config")
 		return nil, err
 	}
+	logger.Debugf("from config Path: %+v", cfg.Services)
 	return RobotFromConfig(ctx, cfg, logger)
 }
 

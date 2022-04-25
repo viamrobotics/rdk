@@ -28,6 +28,12 @@ func createService(t *testing.T, filePath string) vision.Service {
 	logger := golog.NewTestLogger(t)
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger)
 	test.That(t, err, test.ShouldBeNil)
+	cfg, err := r.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	t.Logf("number of services in config: %v", len(cfg.Services))
+	t.Logf("service attributes: %+v", cfg.Services[0])
+	t.Logf("attributes type: %T", cfg.Services[0].ConvertedAttributes)
+	t.Logf("all resouces: %v", r.ResourceNames())
 	srv, err := vision.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	return srv
