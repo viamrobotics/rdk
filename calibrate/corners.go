@@ -3,14 +3,20 @@ package calibrate
 import (
 	"errors"
 	"image"
+	"image/draw"
 	"math"
 	"math/rand"
+	"os"
+	"strconv"
 
 	//"fmt"
 	//"time"
 
 	"github.com/montanaflynn/stats"
 	"go.viam.com/rdk/rimage"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
 )
 
 type Corner struct {
@@ -235,14 +241,40 @@ func AddCornersToPic(list []Corner, pic *rimage.Image, color rimage.Color, loc s
 	SaveImage(pic, loc)
 }
 
-func GetAndShowCorners(inloc, outloc string) []Corner {
+func AddNumbersToPic(list []Corner, pic image.Image, color rimage.Color, loc string) {
+	//paintin := rimage.NewColor(255,0,0) //hopefully red or at least noticeable
+	//radius := 3.0
+	b := pic.Bounds()
+	m := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(m, m.Bounds(), pic, b.Min, draw.Src)
+
+	newlist := SortCornerListByX(list)
+
+	for i, l := range newlist {
+		point := fixed.Point26_6{fixed.I(int(l.X)), fixed.I(int(l.Y))}
+		d := &font.Drawer{
+			Dst:  m,
+			Src:  image.NewUniform(color),
+			Face: basicfont.Face7x13,
+			Dot:  point,
+		}
+		d.DrawString(strconv.Itoa(i))
+	}
+	SaveImage2(m, loc)
+}
+
+func GetAndShowCorners(inloc, outloc, outloc2 string) []Corner {
 
 	img, _ := rimage.NewImageFromFile(inloc)
-	corList := GetCornersFromPic(img, 9, 30)
-	AddCornersToPic(corList, img, rimage.NewColor(255, 0, 0), outloc)
 
-	pick8, _ := PickNRandomCorners(corList, 10) //pick 10 corners
-	AddCornersToPic(pick8, img, rimage.NewColor(0, 0, 255), outloc)
+	corList := GetCornersFromPic(img, 9, 50)
+	AddCornersToPic(corList, img, rimage.NewColor(0, 0, 255), outloc)
+
+	pick8, _ := PickNRandomCorners(corList, 50) //pick 10 corners
+	f, _ := os.Open(outloc)
+	defer f.Close()
+	img2, _, _ := image.Decode(f)
+	AddNumbersToPic(pick8, img2, rimage.NewColor(0, 255, 255), outloc2)
 
 	return pick8
 }
@@ -266,6 +298,9 @@ func Pick4RandomCorners(list []Corner) ([]Corner, error) {
 func PickNRandomCorners(list []Corner, N int) ([]Corner, error) {
 	if len(list) < N {
 		return list, errors.New("need a long enough input list (>4)")
+	}
+	if len(list) == N {
+		return list, nil
 	}
 	//rand.Seed(time.Now().UnixNano())
 	rand.Seed(60387)
@@ -369,4 +404,3 @@ func RemoveBadCorners(list []Corner) ([]Corner, error) {
 	_, idx := contains(newlist, C)
 	return newlist[idx:], nil
 }
-

@@ -31,6 +31,26 @@ func SaveImage(pic *rimage.Image, loc string) (string, error) {
 	return loc, nil
 }
 
+//SaveImage takes a rimage.Image and saves it to a jpeg at the given
+//file location and also returns the location back
+func SaveImage2(pic image.Image, loc string) (string, error) {
+	f, err := os.Create(loc)
+	if err != nil {
+		err = errors.New("can't save that here, sorry")
+		return "", err
+	}
+	defer f.Close()
+	// Specify the quality, between 0-100
+	opt := jpeg.Options{Quality: 90}
+	err = jpeg.Encode(f, pic, &opt)
+	if err != nil {
+		err = errors.New("the 'image' isn't vibing")
+		return "", err
+	}
+	fmt.Printf("Saved image at %v\n", loc)
+	return loc, nil
+}
+
 //sameImgSize compares image.Grays to see if they're the same size
 //I hate that this had to be a new function
 func sameImgSize(g1, g2 image.Image) bool {
