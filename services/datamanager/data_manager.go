@@ -111,19 +111,19 @@ func (svc *Service) Close(ctx context.Context) error {
 	for _, collector := range svc.collectors {
 		collector.Collector.Close()
 	}
-	if svc.syncManager != nil {
-		svc.syncManager.Close()
+	if svc.syncer != nil {
+		svc.syncer.Close()
 	}
 	return nil
 }
 
 // Service initializes and orchestrates data capture collectors for registered component/methods.
 type Service struct {
-	r           robot.Robot
-	logger      golog.Logger
-	captureDir  string
-	collectors  map[componentMethodMetadata]collectorParams
-	syncManager *syncer
+	r          robot.Robot
+	logger     golog.Logger
+	captureDir string
+	collectors map[componentMethodMetadata]collectorParams
+	syncer     *syncer
 
 	cancelCtx  context.Context
 	cancelFunc func()
@@ -262,18 +262,18 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
 	// TODO: break this into some initOrUpdateSyncManager func
-	if svc.syncManager != nil {
+	if svc.syncer != nil {
 		// If already have a sync manager, Close it so it can be replaced.
-		svc.syncManager.Close()
+		svc.syncer.Close()
 	} else {
 		// TODO: This should probably be somewhere else... but idea is want to start this goroutine just once at start
 		go svc.updateCollectors()
 	}
 	if svcConfig.SyncIntervalMins > 0 {
-		sm := newSyncManager(SyncQueue, svc.logger, svc.captureDir)
-		svc.syncManager = &sm
-		svc.syncManager.Enqueue(time.Minute * time.Duration(svcConfig.SyncIntervalMins))
-		svc.syncManager.UploadSynced()
+		sm := newSyncer(SyncQueue, svc.logger, svc.captureDir)
+		svc.syncer = &sm
+		svc.syncer.Enqueue(time.Minute * time.Duration(svcConfig.SyncIntervalMins))
+		svc.syncer.UploadSynced()
 	}
 
 	// Initialize or add a collector based on changes to the config.
