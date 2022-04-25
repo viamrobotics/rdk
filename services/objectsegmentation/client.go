@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
+	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -21,13 +21,13 @@ import (
 // client is a client that implements the Object Segmentation Service.
 type client struct {
 	conn   rpc.ClientConn
-	client pb.ObjectSegmentationServiceClient
+	client pb.VisionServiceClient
 	logger golog.Logger
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
-	grpcClient := pb.NewObjectSegmentationServiceClient(conn)
+	grpcClient := pb.NewVisionServiceClient(conn)
 	sc := &client{
 		conn:   conn,
 		client: grpcClient,

@@ -7,7 +7,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
+	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -15,12 +15,12 @@ import (
 
 // subtypeServer implements the Object Segmentation Service.
 type subtypeServer struct {
-	pb.UnimplementedObjectSegmentationServiceServer
+	pb.UnimplementedVisionServiceServer
 	subtypeSvc subtype.Service
 }
 
 // NewServer constructs a object segmentation gRPC service server.
-func NewServer(s subtype.Service) pb.ObjectSegmentationServiceServer {
+func NewServer(s subtype.Service) pb.VisionServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 

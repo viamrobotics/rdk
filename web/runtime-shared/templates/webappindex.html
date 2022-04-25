@@ -248,8 +248,8 @@
               return "";
             },
             getSegmenterNames: function () {
-              let req = new objectSegmentationApi.GetSegmentersRequest();
-              objectSegmentationService.getSegmenters(req, {}, (err, resp) => {
+              let req = new visionApi.GetSegmentersRequest();
+              visionService.getSegmenters(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
                   console.log("error getting segmenter names");
@@ -261,9 +261,9 @@
             },
             getSegmenterParameters: function (name) {
               this.segmentAlgo = name;
-              let req = new objectSegmentationApi.GetSegmenterParametersRequest();
+              let req = new visionApi.GetSegmenterParametersRequest();
               req.setSegmenterName(name);
-              objectSegmentationService.getSegmenterParameters(req, {}, (err, resp) => {
+              visionService.getSegmenterParameters(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
                   console.log("error getting segmenter parameters for " + name);
@@ -881,14 +881,14 @@
               console.log(segmenterParams);
               theData.pcdClick.calculatingSegments = true;
               theData.pcdClick.foundSegments = false;
-              let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
+              let req = new visionApi.GetObjectPointCloudsRequest();
               req.setCameraName(pcdGlobal.cameraName);
               req.setSegmenterName(segmenterName);
               req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
               const mimeType = "pointcloud/pcd";
               req.setMimeType(mimeType);
               console.log("finding object segments...");
-              objectSegmentationService.getObjectPointClouds(req, {}, (err, resp) => {
+              visionService.getObjectPointClouds(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
                   console.log("error getting segments");
