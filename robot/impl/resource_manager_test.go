@@ -26,10 +26,10 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/objectsegmentation"
+	"go.viam.com/rdk/services/vision"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/vision"
+	viz "go.viam.com/rdk/vision"
 )
 
 func TestManagerForRemoteRobot(t *testing.T) {
@@ -587,19 +587,19 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motionService, test.ShouldEqual, injectMotionService)
 
-	injectObjectSegmentationService := &inject.ObjectSegmentationService{}
-	injectObjectSegmentationService.GetObjectPointCloudsFunc = func(
+	injectVisionService := &inject.VisionService{}
+	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
 		cameraName, segmenterName string,
 		parameters config.AttributeMap,
-	) ([]*vision.Object, error) {
-		return []*vision.Object{vision.NewEmptyObject()}, nil
+	) ([]*viz.Object, error) {
+		return []*viz.Object{vision.NewEmptyObject()}, nil
 	}
-	objectSegResName := objectsegmentation.Name
-	manager.addResource(objectSegResName, injectObjectSegmentationService)
+	objectSegResName := vision.Name
+	manager.addResource(objectSegResName, injectVisionService)
 	objectSegmentationService, err := manager.ResourceByName(objectSegResName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, objectSegmentationService, test.ShouldEqual, injectObjectSegmentationService)
+	test.That(t, objectSegmentationService, test.ShouldEqual, injectVisionService)
 }
 
 func TestManagerNewComponent(t *testing.T) {

@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
+	viz "go.viam.com/rdk/vision"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -53,12 +53,12 @@ func init() {
 type Service interface {
 	// detector methods
 	DetectorNames(ctx context.Context) ([]string, error)
-	AddDetector(ctx context.Context, cfg Config) (bool, error)
+	AddDetector(ctx context.Context, cfg DetectorConfig) (bool, error)
 	Detect(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
 	// segmenter methods
 	GetSegmenters(ctx context.Context) ([]string, error)
 	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
-	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*vision.Object, error)
+	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*viz.Object, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -71,7 +71,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Name is the ObjectSegmentationService's typed resource name.
+// Name is the VisionService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
 // FromRobot retrieves the object detection service of a robot.

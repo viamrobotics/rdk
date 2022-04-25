@@ -11,21 +11,25 @@ import (
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/objectdetection"
+	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
+	viz "go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
-func newServer(m map[resource.Name]interface{}) (pb.ObjectDetectionServiceServer, error) {
+func newServer(m map[resource.Name]interface{}) (pb.VisionServiceServer, error) {
 	svc, err := subtype.New(m)
 	if err != nil {
 		return nil, err
 	}
-	return objectdetection.NewServer(svc), nil
+	return vision.NewServer(svc), nil
 }
 
-func TestDetectionServer(t *testing.T) {
+func TestVisionServerFailures(t *testing.T) {
 	nameRequest := &pb.DetectorNamesRequest{}
 
 	// no service
@@ -33,19 +37,19 @@ func TestDetectionServer(t *testing.T) {
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.DetectorNames(context.Background(), nameRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:object_detection\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:vision\" not found"))
 
-	// set up the robot with something that is not an object detection service
-	m = map[resource.Name]interface{}{objectdetection.Name: "not what you want"}
+	// set up the robot with something that is not a vision service
+	m = map[resource.Name]interface{}{vision.Name: "not what you want"}
 	server, err = newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.DetectorNames(context.Background(), nameRequest)
-	test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("objectdetection.Service", "string"))
+	test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("vision.Service", "string"))
 
 	// correct server
-	injectODS := &inject.ObjectDetectionService{}
+	injectODS := &inject.VisionService{}
 	m = map[resource.Name]interface{}{
-		objectdetection.Name: injectODS,
+		vision.Name: injectODS,
 	}
 	server, err = newServer(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -54,15 +58,24 @@ func TestDetectionServer(t *testing.T) {
 	injectODS.DetectorNamesFunc = func(ctx context.Context) ([]string, error) {
 		return nil, passedErr
 	}
-
 	_, err = server.DetectorNames(context.Background(), nameRequest)
 	test.That(t, err, test.ShouldBeError, passedErr)
+}
+
+func TestServerDetectorNames(t *testing.T) {
+	injectODS := &inject.VisionService{}
+	m := map[resource.Name]interface{}{
+		vision.Name: injectODS,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
 
 	// returns response
 	expSlice := []string{"test name"}
 	injectODS.DetectorNamesFunc = func(ctx context.Context) ([]string, error) {
 		return expSlice, nil
 	}
+	nameRequest := &pb.DetectorNamesRequest{}
 	resp, err := server.DetectorNames(context.Background(), nameRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetDetectorNames(), test.ShouldResemble, expSlice)
@@ -71,7 +84,7 @@ func TestDetectionServer(t *testing.T) {
 func TestServerAddDetector(t *testing.T) {
 	srv := createService(t, "data/empty.json")
 	m := map[resource.Name]interface{}{
-		objectdetection.Name: srv,
+		vision.Name: srv,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -101,10 +114,10 @@ func TestServerAddDetector(t *testing.T) {
 
 func TestServerDetect(t *testing.T) {
 	r := buildRobotWithFakeCamera(t)
-	srv, err := objectdetection.FromRobot(r)
+	srv, err := vision.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	m := map[resource.Name]interface{}{
-		objectdetection.Name: srv,
+		vision.Name: srv,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -124,4 +137,88 @@ func TestServerDetect(t *testing.T) {
 	// failure - empty request
 	_, err = server.Detect(context.Background(), &pb.DetectRequest{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+}
+
+func TestServerObjectSegmentation(t *testing.T) {
+	// create a working segmenter
+	injCam := &cloudSource{}
+
+	injectOSS := &inject.VisionService{}
+	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
+		cameraName string,
+		segmenterName string,
+		params config.AttributeMap) ([]*viz.Object, error) {
+		segments, err := segmentation.RadiusClustering(ctx, injCam, params)
+		if err != nil {
+			return nil, err
+		}
+		return segments, nil
+	}
+	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+		return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
+	}
+	injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
+		return []string{vision.RadiusClusteringSegmenter}, nil
+	}
+	// make server
+	m := map[resource.Name]interface{}{
+		vision.Name: injectOSS,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+	// request segmenters
+	segReq := &pb.GetSegmentersRequest{}
+	segResp, err := server.GetSegmenters(context.Background(), segReq)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segResp.Segmenters, test.ShouldHaveLength, 1)
+	test.That(t, segResp.Segmenters[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
+
+	// no such segmenter in registry
+	_, err = server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+		SegmenterName: "no_such_segmenter",
+	})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
+
+	params, err := structpb.NewStruct(config.AttributeMap{})
+	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
+		CameraName:    "fakeCamera",
+		SegmenterName: "no_such_segmenter",
+		MimeType:      utils.MimeTypePCD,
+		Parameters:    params,
+	})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
+
+	// successful request
+	paramNamesResp, err := server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+		SegmenterName: vision.RadiusClusteringSegmenter,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	paramNames := paramNamesResp.Parameters
+	test.That(t, paramNames[0].Type, test.ShouldEqual, "int")
+	test.That(t, paramNames[1].Type, test.ShouldEqual, "int")
+	test.That(t, paramNames[2].Type, test.ShouldEqual, "float64")
+	test.That(t, paramNames[3].Type, test.ShouldEqual, "int")
+
+	params, err = structpb.NewStruct(config.AttributeMap{
+		paramNames[0].Name: 100, // min points in plane
+		paramNames[1].Name: 3,   // min points in segment
+		paramNames[2].Name: 5.,  //  clustering radius
+		paramNames[3].Name: 10,  //  mean_k_filtering
+	})
+	test.That(t, err, test.ShouldBeNil)
+	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
+		CameraName:    "fakeCamera",
+		SegmenterName: vision.RadiusClusteringSegmenter,
+		MimeType:      utils.MimeTypePCD,
+		Parameters:    params,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(segs.Objects), test.ShouldEqual, 2)
+
+	expectedBoxes := makeExpectedBoxes(t)
+	for _, object := range segs.Objects {
+		box, err := spatialmath.NewGeometryFromProto(object.Geometries.Geometries[0])
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+	}
 }

@@ -3,19 +3,24 @@ package vision_test
 import (
 	"context"
 	"encoding/json"
+	"image"
 	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func createService(t *testing.T, filePath string) vision.Service {
@@ -80,4 +85,49 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 	_, err = srv.AddDetector(context.Background(), detConf)
 	test.That(t, err, test.ShouldBeNil)
 	return r
+}
+
+var testPointCloud = []r3.Vector{
+	pointcloud.NewVector(5, 5, 5),
+	pointcloud.NewVector(5, 5, 6),
+	pointcloud.NewVector(5, 5, 4),
+	pointcloud.NewVector(-5, -5, 5),
+	pointcloud.NewVector(-5, -5, 6),
+	pointcloud.NewVector(-5, -5, 4),
+}
+
+func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
+	t.Helper()
+	box1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: -5, Y: -5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
+	test.That(t, err, test.ShouldBeNil)
+	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
+	test.That(t, err, test.ShouldBeNil)
+	return []spatialmath.Geometry{box1, box2}
+}
+
+type simpleSource struct{}
+
+func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
+	img := rimage.NewImage(100, 200)
+	img.SetXY(20, 10, rimage.Red)
+	return img, nil, nil
+}
+
+type cloudSource struct{}
+
+func (c *cloudSource) Next(ctx context.Context) (image.Image, func(), error) {
+	img := rimage.NewImage(100, 200)
+	img.SetXY(20, 10, rimage.Red)
+	return img, nil, nil
+}
+
+func (c *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	pcA := pointcloud.New()
+	for _, pt := range testPointCloud {
+		err := pcA.Set(pt, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pcA, nil
 }

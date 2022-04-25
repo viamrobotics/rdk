@@ -18,7 +18,7 @@ func (vs *visionService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	segmenter, err := vs.segReg.SegmenterLookup(segmenterName)
+	segmenter, err := vs.segReg.segmenterLookup(segmenterName)
 	if err != nil {
 		return nil, err
 	}
@@ -26,11 +26,11 @@ func (vs *visionService) GetObjectPointClouds(
 }
 
 func (vs *visionService) GetSegmenters(ctx context.Context) ([]string, error) {
-	return SegmenterNames(), nil
+	return vs.segReg.segmenterNames(), nil
 }
 
 func (vs *visionService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	segmenter, err := vs.segReg.SegmenterLookup(segmenterName)
+	segmenter, err := vs.segReg.segmenterLookup(segmenterName)
 	if err != nil {
 		return nil, err
 	}

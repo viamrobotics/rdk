@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
-	"go.viam.com/rdk/services/objectsegmentation"
+	"go.viam.com/rdk/services/vision"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
@@ -43,7 +43,7 @@ var (
 		web.Name,
 		datamanager.Name,
 		framesystem.Name,
-		objectsegmentation.Name,
+		vision.Name,
 	}
 )
 

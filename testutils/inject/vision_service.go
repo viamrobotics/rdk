@@ -15,7 +15,7 @@ type VisionService struct {
 	vision.Service
 	DetectorNamesFunc func(ctx context.Context) ([]string, error)
 	AddDetectorFunc   func(ctx context.Context, cfg vision.DetectorConfig) (bool, error)
-	Detect            func(ctx context.Context, cameraName, detectorName string) ([]objectdetection.Detection, error)
+	DetectFunc        func(ctx context.Context, cameraName, detectorName string) ([]objectdetection.Detection, error)
 	// segmentation functions
 	GetSegmentersFunc          func(ctx context.Context) ([]string, error)
 	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
@@ -45,11 +45,11 @@ func (vs *VisionService) Detect(ctx context.Context, cameraName, detectorName st
 	if vs.DetectFunc == nil {
 		return vs.Service.Detect(ctx, cameraName, detectorName)
 	}
-	return vs.DectectFunc(ctx, cameraName, detectorName)
+	return vs.DetectFunc(ctx, cameraName, detectorName)
 }
 
 // GetObjectPointClouds calls the injected GetObjectPointClouds or the real variant.
-func (vs *ObjectSegmentationService) GetObjectPointClouds(
+func (vs *VisionService) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName, segmenterName string,
 	params config.AttributeMap,
@@ -61,7 +61,7 @@ func (vs *ObjectSegmentationService) GetObjectPointClouds(
 }
 
 // GetSegmenters calls the injected GetSegmenters or the real variant.
-func (vs *ObjectSegmentationService) GetSegmenters(ctx context.Context) ([]string, error) {
+func (vs *VisionService) GetSegmenters(ctx context.Context) ([]string, error) {
 	if vs.GetSegmentersFunc == nil {
 		return vs.Service.GetSegmenters(ctx)
 	}
@@ -69,7 +69,7 @@ func (vs *ObjectSegmentationService) GetSegmenters(ctx context.Context) ([]strin
 }
 
 // GetSegmenterParameters calls the injected GetSegmenterParameters or the real variant.
-func (vs *ObjectSegmentationService) GetSegmenterParameters(
+func (vs *VisionService) GetSegmenterParameters(
 	ctx context.Context,
 	segmenterName string,
 ) ([]utils.TypedName, error) {

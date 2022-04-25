@@ -34,7 +34,7 @@ service VisionService {
   // A specific MIME type can be requested but may not necessarily be the same one returned.
   rpc GetObjectPointClouds(GetObjectPointCloudsRequest) returns (GetObjectPointCloudsResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/vision/object_point_clouds"
+      post: "/viam/api/v1/service/vision/object_point_clouds"
     };
   }
   // GetSegmenterParameters returns the parameter fields needed for the given segmenter.
