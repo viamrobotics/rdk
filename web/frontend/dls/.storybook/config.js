@@ -7,6 +7,7 @@ import ViamBadge from '../src/components/Badge';
 import ViamButton from '../src/components/Button';
 import ViamIcon from '../src/components/ViamIcon';
 import Range from '../src/components/Range';
+
 import ViamInput from '../src/components/ViamInput';
 import Breadcrumbs from '../src/components/Breadcrumbs';
 import Collapse from '../src/components/Collapse';
@@ -14,6 +15,7 @@ import Container from '../src/components/Container';
 import ViamSwitch from '../src/components/Switch';
 import Grid from '../src/components/Grid';
 import KeyboardInput from '../src/components/KeyboardInput';
+import NumberInput from '../src/components/NumberInput';
 import Tab from '../src/components/Tab';
 import Tabs from '../src/components/Tabs';
 import Base from '../src/components/Base';
@@ -28,6 +30,7 @@ library.add(faCheckSquare)
 Vue.component('font-awesome-icon', FontAwesomeIcon);
 Vue.component('InputController', InputController);
 Vue.component('Range', Range);
+
 Vue.component('ViamBadge', ViamBadge);
 Vue.component('ViamButton', ViamButton);
 Vue.component('ViamIcon', ViamIcon);
@@ -38,6 +41,7 @@ Vue.component('Container', Container);
 Vue.component('ViamSwitch', ViamSwitch);
 Vue.component('Grid', Grid);
 Vue.component('KeyboardInput', KeyboardInput);
+Vue.component('NumberInput', NumberInput);
 Vue.component('Tab', Tab);
 Vue.component('Tabs', Tabs);
 Vue.component('Base', Base);
