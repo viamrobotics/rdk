@@ -159,7 +159,6 @@ func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 		return errors.Errorf("failed create directories under sync Enqueue: %v", err)
 	}
 
-	// TODO: create all necessary directories under sync Enqueue before moving
 	err = os.Rename(filePath, path.Join(s.syncQueue, subPath))
 	if err != nil {
 		return errors.Errorf("failed to move file to sync Enqueue: %v", err)
