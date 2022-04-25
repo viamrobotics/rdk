@@ -14,7 +14,8 @@ import (
 	"go.viam.com/utils"
 )
 
-type syncManager struct {
+// syncer is responsible for enqueuing files in captureDir and syncing them to the cloud.
+type syncer struct {
 	captureDir string
 	syncQueue  string
 	logger     golog.Logger
@@ -24,10 +25,10 @@ type syncManager struct {
 }
 
 // newSyncManager returns a new data manager service for the given robot.
-func newSyncManager(queuePath string, logger golog.Logger, captureDir string) syncManager {
+func newSyncManager(queuePath string, logger golog.Logger, captureDir string) syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	ret := syncManager{
+	ret := syncer{
 		syncQueue:  queuePath,
 		logger:     logger,
 		captureDir: captureDir,
@@ -39,7 +40,7 @@ func newSyncManager(queuePath string, logger golog.Logger, captureDir string) sy
 }
 
 // enqueue moves files that are no longer being written to from captureDir to SyncQueue.
-func (s *syncManager) enqueue(syncIntervalMins int) {
+func (s *syncer) enqueue(syncIntervalMins int) {
 	utils.PanicCapturingGo(func() {
 		if err := os.MkdirAll(SyncQueue, 0o700); err != nil {
 			s.logger.Errorf("failed to make sync enqueue: %v", err)
@@ -68,7 +69,7 @@ func (s *syncManager) enqueue(syncIntervalMins int) {
 }
 
 // upload syncs data to the backing storage system.
-func (s *syncManager) upload() {
+func (s *syncer) upload() {
 	utils.PanicCapturingGo(func() {
 		for {
 			select {
@@ -85,7 +86,7 @@ func (s *syncManager) upload() {
 }
 
 // TODO: implement.
-func (s *syncManager) uploadFile(path string, di fs.DirEntry, err error) error {
+func (s *syncer) uploadFile(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -97,7 +98,7 @@ func (s *syncManager) uploadFile(path string, di fs.DirEntry, err error) error {
 	return nil
 }
 
-func (s *syncManager) queueFile(filePath string, di fs.DirEntry, err error) error {
+func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -133,7 +134,7 @@ func (s *syncManager) queueFile(filePath string, di fs.DirEntry, err error) erro
 	return nil
 }
 
-func (s *syncManager) getPathUnderCaptureDir(filePath string) (string, error) {
+func (s *syncer) getPathUnderCaptureDir(filePath string) (string, error) {
 	if idx := strings.Index(filePath, s.captureDir); idx != -1 {
 		return filePath[idx+len(s.captureDir):], nil
 	}
@@ -141,6 +142,6 @@ func (s *syncManager) getPathUnderCaptureDir(filePath string) (string, error) {
 }
 
 // close closes all resources (goroutines) associated with s.
-func (s *syncManager) close() {
+func (s *syncer) close() {
 	s.cancelFunc()
 }
