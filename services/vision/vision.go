@@ -113,7 +113,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, err
 	}
 	// register detectors and user defined things if config is defined
-	if config.Attributes != nil {
+	if config.ConvertedAttributes != nil {
 		attrs, ok := config.ConvertedAttributes.(*Attributes)
 		if !ok {
 			return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
