@@ -34,8 +34,7 @@ jobs:
 
     - name: Verify no uncommitted changes from "make build lint"
       run: |
-        sudo -u testbot bash -lc 'git config --global --unset-all url.ssh://git@github.com/.insteadOf || true'
-        sudo -u testbot bash -lc "git config --global url.\"https://${GITHUB_TOKEN}@github.com\".insteadOf \"https://github.com\""
+        sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
 
         git init
         git add .
