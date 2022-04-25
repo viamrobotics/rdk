@@ -79,7 +79,6 @@ func TestIMUName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "053e1e0c-20de-59e7-bace-922cb1ada629",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: imu.SubtypeName,
@@ -91,7 +90,6 @@ func TestIMUName(t *testing.T) {
 			"all fields included",
 			testIMUName,
 			resource.Name{
-				UUID: "aed67198-6075-5806-837a-6d33ee4b5a42",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: imu.SubtypeName,

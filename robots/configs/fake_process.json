@@ -108,11 +108,6 @@
             "name": "input",
             "model": "fake",
             "type": "input_controller"
-        },
-        {
-            "name": "forcematrix1",
-            "type": "force_matrix",
-            "model": "fake"
         }
     ],
     "processes":
@@ -136,19 +131,6 @@
                 "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
             ],
             "log": true
-        }
-    ],
-    "functions":
-    [
-        {
-            "name": "func1",
-            "engine": "javascript",
-            "source": "(function() { console.log(robot.gripperOpen('gripper1')); return 1}())"
-        },
-        {
-            "name": "func2",
-            "engine": "javascript",
-            "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
         }
     ],
     "services":

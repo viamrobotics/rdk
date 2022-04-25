@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -17,6 +18,9 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
+
+// OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
+const OOBErrString = "input out of bounds"
 
 // Limit represents the limits of motion for a referenceframe.
 type Limit struct {
@@ -188,6 +192,9 @@ func (sf *staticFrame) Geometries(input []Input) (map[string]spatial.Geometry, e
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
 	}
 	pose, err := sf.Transform(input)
+	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		return nil, err
+	}
 	m := make(map[string]spatial.Geometry)
 	m[sf.Name()] = sf.geometryCreator.NewGeometry(pose)
 	return m, err
@@ -252,7 +259,7 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < pf.limit[0].Min || input[0].Value > pf.limit[0].Max {
-		err = fmt.Errorf("%.5f input out of bounds %v", input[0].Value, pf.limit[0])
+		err = fmt.Errorf("%.5f %s %v", input[0].Value, OOBErrString, pf.limit[0])
 	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
 }
@@ -263,6 +270,9 @@ func (pf *translationalFrame) Geometries(input []Input) (map[string]spatial.Geom
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", pf)
 	}
 	pose, err := pf.Transform(input)
+	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		return nil, err
+	}
 	m := make(map[string]spatial.Geometry)
 	m[pf.Name()] = pf.geometryCreator.NewGeometry(pose)
 	return m, err
@@ -316,7 +326,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < rf.limit[0].Min || input[0].Value > rf.limit[0].Max {
-		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit[0])
+		err = fmt.Errorf("%.5f %s %.5f", input[0].Value, OOBErrString, rf.limit[0])
 	}
 	// Create a copy of the r4aa for thread safety
 	return spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
@@ -394,6 +404,9 @@ func (mf *mobile2DFrame) Geometries(input []Input) (map[string]spatial.Geometry,
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", mf)
 	}
 	pose, err := mf.Transform(input)
+	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		return nil, err
+	}
 	m := make(map[string]spatial.Geometry)
 	m[mf.Name()] = mf.geometryCreator.NewGeometry(pose)
 	return m, err

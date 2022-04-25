@@ -12,8 +12,6 @@ window.boardApi = require('./gen/proto/api/component/board/v1/board_pb.js');
 const { BoardServiceClient } = require('./gen/proto/api/component/board/v1/board_pb_service.js');
 window.cameraApi = require('./gen/proto/api/component/camera/v1/camera_pb.js');
 const { CameraServiceClient } = require('./gen/proto/api/component/camera/v1/camera_pb_service.js');
-window.forceMatrixApi = require('./gen/proto/api/component/forcematrix/v1/force_matrix_pb.js');
-const { ForceMatrixServiceClient } = require('./gen/proto/api/component/forcematrix/v1/force_matrix_pb_service.js');
 window.gantryApi = require('./gen/proto/api/component/gantry/v1/gantry_pb.js');
 const { GantryServiceClient } = require('./gen/proto/api/component/gantry/v1/gantry_pb_service.js');
 window.gripperApi = require('./gen/proto/api/component/gripper/v1/gripper_pb.js');
@@ -81,8 +79,24 @@ let connect = async (authEntity, creds) => {
 			video.playsInline = true;
 			const streamName = event.streams[0].id;
 			const streamContainer = document.getElementById(`stream-${streamName}`);
-			streamContainer.getElementsByTagName("button")[0].remove();
-			streamContainer.appendChild(video);
+			if (streamContainer && streamContainer.getElementsByTagName("video").length > 0) {
+				streamContainer.getElementsByTagName("video")[0].remove();
+			}
+			if (streamContainer) {
+				streamContainer.appendChild(video);
+			}
+			const videoPreview = document.createElement('video');
+			videoPreview.srcObject = event.streams[0];
+			videoPreview.autoplay = true;
+			videoPreview.controls = false;
+			videoPreview.playsInline = true;
+			const streamPreviewContainer = document.getElementById(`stream-preview-${streamName}`);
+			if (streamPreviewContainer && streamPreviewContainer.getElementsByTagName("video").length > 0) {
+				streamPreviewContainer.getElementsByTagName("video")[0].remove();
+			}
+			if (streamPreviewContainer) {
+				streamPreviewContainer.appendChild(videoPreview);
+			}
 		}
 	} else {
 		transportFactory = await dialDirect(impliedURL, opts);
@@ -97,9 +111,8 @@ let connect = async (authEntity, creds) => {
 	// TODO: these should be created as needed for #272
 	window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
-    window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
-	window.forceMatrixService = new ForceMatrixServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.imuService = new IMUServiceClient(window.webrtcHost, { transport: transportFactory });
