@@ -681,7 +681,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options Op
 	return rpcOpts, nil
 }
 
-// Initialize robot resources.
+// Populate subtype services with robot resources.
 func (svc *webService) initResources() error {
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
