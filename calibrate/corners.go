@@ -5,11 +5,12 @@ import (
 	"image"
 	"math"
 	"math/rand"
+
 	//"fmt"
 	//"time"
 
-	"go.viam.com/rdk/rimage"
 	"github.com/montanaflynn/stats"
+	"go.viam.com/rdk/rimage"
 )
 
 type Corner struct {
@@ -36,25 +37,25 @@ func AreEqual(a, b Corner) bool {
 
 func NormalizeCorners(corners []Corner) []Corner {
 	var xSlice, ySlice []float64
-	for _, c := range corners{
+	for _, c := range corners {
 		xSlice = append(xSlice, float64(c.X))
 		ySlice = append(ySlice, float64(c.Y))
 	}
-	
+
 	xMean, _ := stats.Mean(xSlice)
 	yMean, _ := stats.Mean(ySlice)
 	sd_x, _ := stats.StandardDeviation(xSlice)
 	sd_y, _ := stats.StandardDeviation(xSlice)
 
 	var newXSlice, newYSlice []float64
-	for i,_ := range(xSlice){
-		newXSlice = append(newXSlice, (xSlice[i]-xMean)/sd_x )
-		newYSlice = append(newYSlice, (ySlice[i]-yMean)/sd_y )
+	for i, _ := range xSlice {
+		newXSlice = append(newXSlice, (xSlice[i]-xMean)/sd_x)
+		newYSlice = append(newYSlice, (ySlice[i]-yMean)/sd_y)
 	}
 
 	var out []Corner
-	for i,_ := range corners{
-		cor := NewCornerWithR(newXSlice[i], newYSlice[i], corners[i].R )
+	for i, _ := range corners {
+		cor := NewCornerWithR(newXSlice[i], newYSlice[i], corners[i].R)
 		out = append(out, cor)
 	}
 	return out
@@ -179,7 +180,7 @@ func TopNCorners(list []Corner, N int, dist float64) ([]Corner, error) {
 		//Saves every corner that's far enough away from what we've seen so far
 		for _, c := range sorted {
 			fcx, fcy, fdx, fdy := float64(c.X), float64(c.Y), float64(out[len(out)-1].X), float64(out[len(out)-1].Y)
-			if here,_ := contains(dontadd, c); ((math.Abs(fcx-fdx) > dist) || (math.Abs(fcy-fdy) > dist)) && !here {
+			if here, _ := contains(dontadd, c); ((math.Abs(fcx-fdx) > dist) || (math.Abs(fcy-fdy) > dist)) && !here {
 				save = append(save, c)
 			} else {
 				dontadd = append(dontadd, c)
@@ -207,13 +208,13 @@ func GetCornersFromPic(pic *rimage.Image, window int, N int) []Corner {
 	//a gradient image in both x and y so we can see what those look like
 	xker := rimage.GetSobelX()
 	yker := rimage.GetSobelY()
-	colGradX, _ := rimage.ConvolveGray(gray, &xker, image.Point{1,1} , rimage.BorderReplicate)
-	colGradY, _ := rimage.ConvolveGray(gray, &yker, image.Point{1,1} , rimage.BorderReplicate)
+	colGradX, _ := rimage.ConvolveGray(gray, &xker, image.Point{1, 1}, rimage.BorderReplicate)
+	colGradY, _ := rimage.ConvolveGray(gray, &yker, image.Point{1, 1}, rimage.BorderReplicate)
 
-	//Calculate potential Harris corners and whittle them down 
+	//Calculate potential Harris corners and whittle them down
 	list, _ := GetCornerList(colGradX, colGradY, window)
-	newlist := ThreshCornerList(list,1000) //1000 is an empirically selected threshold
-	finlist, _ := TopNCorners(newlist,N, 10)
+	newlist := ThreshCornerList(list, 1000) //1000 is an empirically selected threshold
+	finlist, _ := TopNCorners(newlist, N, 10)
 
 	return finlist
 }
@@ -234,10 +235,25 @@ func AddCornersToPic(list []Corner, pic *rimage.Image, color rimage.Color, loc s
 	SaveImage(pic, loc)
 }
 
+func GetAndShowCorners(inloc, outloc string) []Corner {
 
+	img, _ := rimage.NewImageFromFile(inloc)
+	corList := GetCornersFromPic(img, 9, 30)
+	AddCornersToPic(corList, img, rimage.NewColor(255, 0, 0), outloc)
+
+	pick8, _ := PickNRandomCorners(corList, 10) //pick 10 corners
+	AddCornersToPic(pick8, img, rimage.NewColor(0, 0, 255), outloc)
+
+	return pick8
+}
+
+//CornerToXYDist calculates the Euclidean distance between a corner and (x,y)
+func CornerToXYDist(C Corner, x, y float64) float64 {
+	return math.Sqrt(math.Pow(float64(C.X)-x, 2) + math.Pow(float64(C.Y)-y, 2))
+}
 
 func Pick4RandomCorners(list []Corner) ([]Corner, error) {
-	if len(list)<4{
+	if len(list) < 4 {
 		return list, errors.New("need a long enough input list (>4)")
 	}
 	//rand.Seed(time.Now().UnixNano())
@@ -248,7 +264,7 @@ func Pick4RandomCorners(list []Corner) ([]Corner, error) {
 }
 
 func PickNRandomCorners(list []Corner, N int) ([]Corner, error) {
-	if len(list)<N{
+	if len(list) < N {
 		return list, errors.New("need a long enough input list (>4)")
 	}
 	//rand.Seed(time.Now().UnixNano())
@@ -258,89 +274,11 @@ func PickNRandomCorners(list []Corner, N int) ([]Corner, error) {
 	return list[:N], nil
 }
 
-
-
-func GetAndShowCorners(inloc, outloc string) []Corner {
-
-	img, _ := rimage.NewImageFromFile(inloc)
-	corList := GetCornersFromPic(img,9,30)
-	AddCornersToPic(corList,img,rimage.NewColor(255,0,0),outloc)
-
-	pick8,_ := PickNRandomCorners(corList, 10) //pick 10 corners 
-	AddCornersToPic(pick8,img,rimage.NewColor(0,0,255),outloc)
-
-	return pick8
-}
-
-
-
-
-//The remainder of the functions on this page are hacky. They are all tied to FindMagicCorner,
-//which considers the first corner such that at least 3 corners exist along both the same X-axis and 
-//same Y-axis. This idea is predicated on the idea that there's a (properly oriented) checkerboard in the image
-
-//FindMagicCorner inputs a slice of corners and finds the one that has 2 other "friends" in the X-axis
-//and 2 other "friends" in the Y-axis (+/- 10 pixels wiggle room)
-func FindMagicCorner(list []Corner) (Corner,error) {
-
-	list = SortCornerListByX(list)
-	Glist := make([]Corner,0)
-	for _, l := range list {
-		Xaxcount, Yaxcount := 0, 0
-		for i:=0;i<len(list);i++ {
-			//Check if on the same x axis as l
-			if math.Abs(float64(list[i].Y - l.Y)) < 10 {
-				Xaxcount++
-			}
-			//Check if on the same y axis as l
-			if math.Abs(float64(list[i].X - l.X)) < 10{
-				Yaxcount++
-			}
-		}
-
-		if Xaxcount>=3 && Yaxcount>=3 { //probably will include self
-			Glist = append(Glist,l)
-		}
-	}
-
-	if len(Glist)== 0 {
-		err := errors.New("didn't find a magic corner :(")
-		return list[0], err
-	}
-
-	min := math.Inf(1)
-	saveidx := 0
-	for i, g := range Glist{
-		if float64(g.X + g.Y) < min {
-			saveidx = i
-			min = float64(g.X + g.Y)
-		}
-	}
-	return Glist[saveidx], nil
-}
-
-//RemoveBadCorners inputs a slice of corners and outputs a list of corners such that each corner in the 
-//output list has an x+y value larger than the "magic" corner
-func RemoveBadCorners(list []Corner) ([]Corner, error) {
-	newlist := SortCornerListByXY(list)
-	C, err := FindMagicCorner(newlist)
-	if err!=nil {
-		return newlist, err
-	}
-	_,idx := contains(newlist, C)
-	return newlist[idx:], nil
-}
-
-//CornerToXYDist calculates the Euclidean distance between a corner and (x,y)
-func CornerToXYDist(C Corner, x,y float64) float64 {
-	return math.Sqrt(math.Pow(float64(C.X)-x,2) + math.Pow(float64(C.Y)-y,2))
-}
-
 //Pick 4 points (corners) on the image by starting with the "magic" corner (1)
-//and going as far right(2) and down(3) as possible. The last point is closest to the 
+//and going as far right(2) and down(3) as possible. The last point is closest to the
 //X of pt2 and the Y of pt3. Hopefully this will kinda box out the checkerboard.
 func Pick4Corners(list []Corner) ([]Corner, error) {
-	if len(list)<4{
+	if len(list) < 4 {
 		return list, errors.New("need a long enough input list (>4)")
 	}
 	C1, err := FindMagicCorner(list)
@@ -350,12 +288,12 @@ func Pick4Corners(list []Corner) ([]Corner, error) {
 
 	list2 := make([]Corner, 0)
 	list3 := make([]Corner, 0)
-	for _,l := range list {
-		if math.Abs(float64(C1.Y - l.Y)) < 20 {
-			list2 = append(list2,l)
+	for _, l := range list {
+		if math.Abs(float64(C1.Y-l.Y)) < 20 {
+			list2 = append(list2, l)
 		}
-		if math.Abs(float64(C1.X - l.X)) < 20 {
-			list3 = append(list3,l)
+		if math.Abs(float64(C1.X-l.X)) < 20 {
+			list3 = append(list3, l)
 		}
 	}
 	list2 = SortCornerListByX(list2)
@@ -366,15 +304,69 @@ func Pick4Corners(list []Corner) ([]Corner, error) {
 	var C4 Corner
 	var newdist float64
 	dist := math.Inf(1)
-	for _,l := range list {
-		newdist = CornerToXYDist(l,float64(C2.X),float64(C3.Y))
+	for _, l := range list {
+		newdist = CornerToXYDist(l, float64(C2.X), float64(C3.Y))
 		if newdist < dist {
 			dist = newdist
 			C4 = l
 		}
 	}
-	return []Corner{C1,C2,C3,C4}, nil
+	return []Corner{C1, C2, C3, C4}, nil
 }
 
+//The remainder of the functions on this page are hacky. They are all tied to FindMagicCorner,
+//which considers the first corner such that at least 3 corners exist along both the same X-axis and
+//same Y-axis. This idea is predicated on the idea that there's a (properly oriented) checkerboard in the image
 
+//FindMagicCorner inputs a slice of corners and finds the one that has 2 other "friends" in the X-axis
+//and 2 other "friends" in the Y-axis (+/- 10 pixels wiggle room)
+func FindMagicCorner(list []Corner) (Corner, error) {
+
+	list = SortCornerListByX(list)
+	Glist := make([]Corner, 0)
+	for _, l := range list {
+		Xaxcount, Yaxcount := 0, 0
+		for i := 0; i < len(list); i++ {
+			//Check if on the same x axis as l
+			if math.Abs(float64(list[i].Y-l.Y)) < 10 {
+				Xaxcount++
+			}
+			//Check if on the same y axis as l
+			if math.Abs(float64(list[i].X-l.X)) < 10 {
+				Yaxcount++
+			}
+		}
+
+		if Xaxcount >= 3 && Yaxcount >= 3 { //probably will include self
+			Glist = append(Glist, l)
+		}
+	}
+
+	if len(Glist) == 0 {
+		err := errors.New("didn't find a magic corner :(")
+		return list[0], err
+	}
+
+	min := math.Inf(1)
+	saveidx := 0
+	for i, g := range Glist {
+		if float64(g.X+g.Y) < min {
+			saveidx = i
+			min = float64(g.X + g.Y)
+		}
+	}
+	return Glist[saveidx], nil
+}
+
+//RemoveBadCorners inputs a slice of corners and outputs a list of corners such that each corner in the
+//output list has an x+y value larger than the "magic" corner
+func RemoveBadCorners(list []Corner) ([]Corner, error) {
+	newlist := SortCornerListByXY(list)
+	C, err := FindMagicCorner(newlist)
+	if err != nil {
+		return newlist, err
+	}
+	_, idx := contains(newlist, C)
+	return newlist[idx:], nil
+}
 

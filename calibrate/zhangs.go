@@ -5,12 +5,25 @@ import (
 	"fmt"
 	"math"
 
+	//"github.com/maorshutman/lm"
+	"github.com/maorshutman/lm"
 	"gonum.org/v1/gonum/mat"
 )
 
 func MatPrint(X mat.Matrix) {
 	fa := mat.Formatted(X, mat.Prefix(""), mat.Squeeze())
 	fmt.Printf("%v\n", fa)
+}
+
+func CornersToMatrix(cc []Corner) mat.Matrix {
+	var data []float64
+	//var out *mat.Dense
+	for _, c := range cc {
+		data = append(data, []float64{c.X, c.Y, 1}...)
+	}
+
+	out := mat.NewDense(len(cc), 3, data)
+	return out.T()
 }
 
 /* BuildA builds the A matrix for Zhang's method. Reminder that each point pairing from
@@ -53,12 +66,13 @@ func BuildH(imagepts, worldpts []Corner) mat.Vector {
 		//which corresponds to the smallest eigenvalue (in Sigma)
 		Hvec = V.ColView(len(sigma) - 1).(*mat.VecDense)
 	}
-
-    //normalizing 
-    k := Hvec.AtVec(Hvec.Len()-1)
-    for i:=0;i<Hvec.Len();i++{       
-        Hvec.SetVec(i, Hvec.AtVec(i)/k)
-    }
+	/*
+		//normalizing
+		k := Hvec.AtVec(Hvec.Len() - 1)
+		for i := 0; i < Hvec.Len(); i++ {
+			Hvec.SetVec(i, Hvec.AtVec(i)/k)
+		}
+	*/
 	return Hvec
 }
 
@@ -71,6 +85,11 @@ func CheckH(A, H mat.Matrix) {
 func ShapeH(H mat.Vector) *mat.Dense {
 	data := []float64{H.AtVec(0), H.AtVec(1), H.AtVec(2), H.AtVec(3), H.AtVec(4), H.AtVec(5), H.AtVec(6), H.AtVec(7), H.AtVec(8)}
 	return mat.NewDense(3, 3, data)
+}
+
+func Unwrap(in *mat.Dense) *mat.VecDense {
+	r, c := in.Dims()
+	return mat.NewVecDense(r*c, in.RawMatrix().Data)
 }
 
 func getVij(hi, hj mat.Vector) *mat.VecDense {
@@ -94,14 +113,33 @@ func GetVFromH(H mat.Vector) *mat.Dense {
 	v11 := getVij(h1, h1)
 	v22 := getVij(h2, h2)
 	vv.SubVec(v11, v22) // vv = v11 - v22
-
 	Vout.Stack(v12.T(), vv.T())
 
 	return &Vout
 }
 
-func GetV(H1, H2, H3 mat.Vector) *mat.Dense {
+func GetV(H1, H2, H3 *mat.VecDense) *mat.Dense {
 	var V, W mat.Dense
+
+	//Normalizing homographies (at least here) doesn't change much
+	k1, k2, k3 := H1.AtVec(H1.Len()-1), H2.AtVec(H2.Len()-1), H3.AtVec(H3.Len()-1)
+	for i := 0; i < H1.Len(); i++ {
+		H1.SetVec(i, H1.AtVec(i)/k1)
+	}
+	for i := 0; i < H2.Len(); i++ {
+		H2.SetVec(i, H2.AtVec(i)/k2)
+	}
+	for i := 0; i < H3.Len(); i++ {
+		H3.SetVec(i, H3.AtVec(i)/k3)
+	}
+
+	fmt.Println("H1: ")
+	MatPrint(ShapeH(H1))
+	fmt.Println("H2: ")
+	MatPrint(ShapeH(H2))
+	fmt.Println("H3: ")
+	MatPrint(ShapeH(H3))
+
 	V1, V2, V3 := GetVFromH(H1), GetVFromH(H2), GetVFromH(H3)
 	V.Stack(V1, V2)
 	W.Stack(&V, V3)
@@ -137,11 +175,10 @@ func GetIntrinsicsFromB(B mat.Vector) {
 	fmt.Printf("alpha: %v\n", alpha)
 	beta := math.Sqrt(math.Abs(lam * B.AtVec(0) / (B.AtVec(0)*B.AtVec(2) - B.AtVec(1)*B.AtVec(1))))
 	fmt.Printf("beta: %v\n", beta)
-	gamma := -B.AtVec(1) * alpha * alpha * beta / lam
+	gamma := -1 * B.AtVec(1) * alpha * alpha * (beta / lam)
 	fmt.Printf("gamma: %v\n", gamma)
-	u0 := (gamma * v0 / beta) - B.AtVec(3)*alpha*alpha/lam
+	u0 := (gamma * v0 / beta) - (B.AtVec(3) * alpha * alpha / lam)
 	fmt.Printf("u0: %v\n", u0)
-
 }
 
 func GetKFromB(B mat.Vector) *mat.TriDense {
@@ -164,77 +201,59 @@ func GetKFromB(B mat.Vector) *mat.TriDense {
 	return &K
 }
 
+//The function I want to minimize is |IMPTS - (H * WDPTS)|**2
+func MinClosure(dst, x []float64, I, W mat.Matrix) func(out, in []float64) {
 
-/*
-func BuildVFromH(H mat.Vector) *mat.Dense {
-	//This is the function for when we want to use the letter first (hi1, not h1i)
-	//Kinda doesn't make sense to me because it doesn't use a significant chunk of H
-	data := make([]float64, 0)
-	data = append(data, []float64{H.AtVec(0) * H.AtVec(3), H.AtVec(0)*H.AtVec(4) + H.AtVec(3)*H.AtVec(1), H.AtVec(1) * H.AtVec(4),
-		H.AtVec(2)*H.AtVec(3) + H.AtVec(0)*H.AtVec(5), H.AtVec(2)*H.AtVec(4) + H.AtVec(1)*H.AtVec(5), H.AtVec(3) * H.AtVec(5)}...)
+	//define I?
+	//define W?
+	//naw just pass it in
 
-	data = append(data, []float64{H.AtVec(0)*H.AtVec(0) - H.AtVec(3)*H.AtVec(3), 2 * (H.AtVec(0)*H.AtVec(1) - H.AtVec(3)*H.AtVec(4)), H.AtVec(1)*H.AtVec(1) - H.AtVec(4)*H.AtVec(4),
-		2 * (H.AtVec(2)*H.AtVec(0) - H.AtVec(3)*H.AtVec(5)), 2 * (H.AtVec(2)*H.AtVec(1) - H.AtVec(4)*H.AtVec(5)), H.AtVec(2)*H.AtVec(2) - H.AtVec(5)*H.AtVec(5)}...)
+	return func(dst, x []float64) {
+		//x would be the parameters (H)
+		//and dst should be the |imagepts - projected world pts|**2
+		var out, projected mat.Dense
+		H := mat.NewDense(3, 3, x)
+		projected.Mul(H, W)
 
-	V := mat.NewDense(2, 6, data)
-	return V
+		//Normalize projected by column before subtracting it
+		_, c := projected.Dims()
+		for i := 0; i < c; i++ {
+			k := projected.At(2, i)
+			projected.Set(0, i, projected.At(0, i)/k)
+			projected.Set(1, i, projected.At(1, i)/k)
+			projected.Set(2, i, projected.At(2, i)/k)
+		}
+		//This might have made things worse... INVESTIGATE LATER
+
+		//got that now do I - projected ... then square it
+		out.Sub(I, &projected)
+
+		for i, d := range out.RawMatrix().Data {
+			dst[i] = d * d
+		}
+	}
 }
 
-func BuildVFromH2(H mat.Vector) *mat.Dense {
-	//This is the function for when we want to use the number first (h1i, not hi1)
-	data := make([]float64, 0)
-	data = append(data, []float64{H.AtVec(0) * H.AtVec(1), H.AtVec(0)*H.AtVec(4) + H.AtVec(3)*H.AtVec(1), H.AtVec(3) * H.AtVec(4),
-		H.AtVec(6)*H.AtVec(1) + H.AtVec(0)*H.AtVec(7), H.AtVec(6)*H.AtVec(4) + H.AtVec(3)*H.AtVec(7), H.AtVec(6) * H.AtVec(7)}...)
+func DoLM(H *mat.VecDense, I, W mat.Matrix) *mat.Dense {
+	//pass in image and world points to the outside function
+	r, c := I.Dims()
+	minfunc := MinClosure(make([]float64, r*c), H.RawVector().Data, I, W)
 
-	data = append(data, []float64{H.AtVec(0)*H.AtVec(0) - H.AtVec(1)*H.AtVec(1), 2 * (H.AtVec(0)*H.AtVec(3) - H.AtVec(1)*H.AtVec(4)), H.AtVec(3)*H.AtVec(3) - H.AtVec(4)*H.AtVec(4),
-		2 * (H.AtVec(6)*H.AtVec(0) - H.AtVec(7)*H.AtVec(1)), 2 * (H.AtVec(3)*H.AtVec(6) - H.AtVec(4)*H.AtVec(7)), H.AtVec(6)*H.AtVec(6) - H.AtVec(7)*H.AtVec(7)}...)
+	jacobian := lm.NumJac{minfunc}
+	homogProb := lm.LMProblem{
+		Dim:        9,
+		Size:       r * c,
+		Func:       minfunc,
+		Jac:        jacobian.Jac,
+		InitParams: H.RawVector().Data,
+		Tau:        1e-6,
+		Eps1:       1e-8,
+		Eps2:       1e-8,
+	}
 
-	V := mat.NewDense(2, 6, data)
-	return V
+	LMresults, _ := lm.LM(homogProb, &lm.Settings{Iterations: 100, ObjectiveTol: 1e-16})
+	fmt.Println()
+	//fmt.Printf("The results are %v and are of type %T\n", LMresults.X, LMresults)
+
+	return mat.NewDense(3, 3, LMresults.X)
 }
-
-func MakeVFromH(Hvec mat.Vector) *mat.Dense {
-
-	Hdata := []float64{Hvec.AtVec(0), Hvec.AtVec(1), Hvec.AtVec(2), Hvec.AtVec(3), Hvec.AtVec(4), Hvec.AtVec(5), Hvec.AtVec(6), Hvec.AtVec(7), Hvec.AtVec(8)}
-	H := mat.NewDense(3, 3, Hdata)
-
-	data := make([]float64, 0)
-	data = append(data, []float64{H.At(0, 0) * H.At(1, 0), H.At(0, 0)*H.At(1, 1) + H.At(0, 1)*H.At(1, 0), H.At(0, 1) * H.At(1, 1),
-		H.At(0, 2)*H.At(1, 0) + H.At(0, 0)*H.At(1, 2), H.At(0, 2)*H.At(1, 1) + H.At(0, 1)*H.At(1, 2), H.At(0, 2) * H.At(1, 2)}...)
-
-	data = append(data, []float64{H.At(0, 0)*H.At(0, 0) - H.At(1, 0)*H.At(1, 0), (2 * H.At(0, 0) * H.At(0, 1)) - (2 * H.At(1, 0) * H.At(1, 1)),
-		H.At(0, 1)*H.At(0, 1) - H.At(1, 1)*H.At(1, 1), (2 * H.At(0, 2) * H.At(0, 0)) - (2 * H.At(1, 2) * H.At(1, 0)),
-		(2 * H.At(0, 2) * H.At(0, 1)) - (2 * H.At(1, 2) * H.At(1, 1)), H.At(0, 2)*H.At(0, 2) - H.At(1, 2)*H.At(1, 2)}...)
-
-	V := mat.NewDense(2, 6, data)
-	return V
-}
-
-func MakeV(H1, H2, H3 mat.Vector) *mat.Dense {
-	var V, W mat.Dense
-	V1, V2, V3 := BuildVFromH2(H1), BuildVFromH2(H2), BuildVFromH2(H3)
-	V.Stack(V1, V2)
-	W.Stack(&V, V3)
-
-	return &W
-}
-
-
-func GetIntrinsicsFromB(B mat.Vector) {
-    v0 := (B.AtVec(1) * B.AtVec(2) - B.AtVec(0) * B.AtVec(4)) / (B.AtVec(0) * B.AtVec(3) - B.AtVec(1) * B.AtVec(1))
-    fmt.Printf("v0: %v\n", v0)
-    lam := B.AtVec(5) - ((B.AtVec(2) * B.AtVec(2) + v0*(B.AtVec(1) * B.AtVec(2) - B.AtVec(0) * B.AtVec(4)) )/B.AtVec(0))
-    fmt.Printf("lam: %v\n", lam)
-    alpha := math.Sqrt(math.Abs(lam/B.AtVec(0)))
-    fmt.Printf("alpha: %v\n", alpha)
-    beta := math.Sqrt(math.Abs(lam*B.AtVec(0)/(B.AtVec(0) * B.AtVec(3) - B.AtVec(1) * B.AtVec(1))))
-    fmt.Printf("beta: %v\n", beta)
-    gamma := -B.AtVec(1) * alpha * alpha * beta / lam
-    fmt.Printf("gamma: %v\n", gamma)
-    u0 := gamma*v0/beta - B.AtVec(2)*alpha*alpha/lam
-    fmt.Printf("u0: %v\n", u0)
-}
-
-*/
-
-
