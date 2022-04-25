@@ -1,4 +1,4 @@
-package objectdetection
+package vision
 
 import (
 	"testing"

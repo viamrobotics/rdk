@@ -1,4 +1,4 @@
-package objectdetection
+package vision
 
 import (
 	"context"
@@ -41,7 +41,7 @@ func TestDetectorMap(t *testing.T) {
 
 func TestRegisterTFLiteDetector(t *testing.T) {
 	conf := &attributes{
-		Registry: []Config{
+		Registry: []DetectorConfig{
 			{
 				Name:       "my_tflite_det",
 				Type:       "tflite",
@@ -56,7 +56,7 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 
 func TestRegisterTensorFlowDetector(t *testing.T) {
 	conf := &attributes{
-		Registry: []Config{
+		Registry: []DetectorConfig{
 			{
 				Name:       "my_tensorflow_det",
 				Type:       "tensorflow",
@@ -71,7 +71,7 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 
 func TestRegisterColorDetector(t *testing.T) {
 	conf := &attributes{
-		Registry: []Config{
+		Registry: []DetectorConfig{
 			{
 				Name: "my_color_det",
 				Type: "color",
@@ -97,7 +97,7 @@ func TestRegisterColorDetector(t *testing.T) {
 
 func TestRegisterUnknownDetector(t *testing.T) {
 	conf := &attributes{
-		Registry: []Config{
+		Registry: []DetectorConfig{
 			{
 				Name:       "my_random_det",
 				Type:       "not_real",

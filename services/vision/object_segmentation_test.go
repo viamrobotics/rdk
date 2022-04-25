@@ -1,4 +1,4 @@
-package objectsegmentation_test
+package vision_test
 
 import (
 	"context"

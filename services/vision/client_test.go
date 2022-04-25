@@ -1,4 +1,4 @@
-package objectdetection_test
+package vision_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
-	servicepb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectdetection"

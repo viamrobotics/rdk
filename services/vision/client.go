@@ -1,4 +1,4 @@
-package objectdetection
+package vision
 
 import (
 	"context"
@@ -10,20 +10,20 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
+	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
 // client is a client that implements the Object Detection Service.
 type client struct {
 	conn   rpc.ClientConn
-	client pb.ObjectDetectionServiceClient
+	client pb.VisionServiceClient
 	logger golog.Logger
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
-	grpcClient := pb.NewObjectDetectionServiceClient(conn)
+	grpcClient := pb.NewVisionServiceClient(conn)
 	sc := &client{
 		conn:   conn,
 		client: grpcClient,
@@ -62,7 +62,7 @@ func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
 	return resp.DetectorNames, nil
 }
 
-func (c *client) AddDetector(ctx context.Context, cfg Config) (bool, error) {
+func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) (bool, error) {
 	ctx, span := trace.StartSpan(ctx, "service::objectdetection::client::AddDetector")
 	defer span.End()
 	params, err := structpb.NewStruct(cfg.Parameters)

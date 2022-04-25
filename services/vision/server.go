@@ -1,4 +1,4 @@
-package objectdetection
+package vision
 
 import (
 	"context"
@@ -7,19 +7,19 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
+	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
 // subtypeServer implements the Object Detection Service.
 type subtypeServer struct {
-	pb.UnimplementedObjectDetectionServiceServer
+	pb.UnimplementedVisionServiceServer
 	subtypeSvc subtype.Service
 }
 
 // NewServer constructs a object detection gRPC service server.
-func NewServer(s subtype.Service) pb.ObjectDetectionServiceServer {
+func NewServer(s subtype.Service) pb.VisionServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 

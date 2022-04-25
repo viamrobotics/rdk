@@ -1,4 +1,4 @@
-package objectdetection_test
+package vision_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/service/objectdetection/v1"
+	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectdetection"
 	"go.viam.com/rdk/subtype"
