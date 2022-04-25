@@ -112,7 +112,7 @@ func (svc *Service) Close(ctx context.Context) error {
 		collector.Collector.Close()
 	}
 	if svc.syncManager != nil {
-		svc.syncManager.close()
+		svc.syncManager.Close()
 	}
 	return nil
 }
@@ -194,7 +194,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 			return &componentMetadata, nil
 		}
 
-		// Otherwise, close the current collector and instantiate a new one below.
+		// Otherwise, Close the current collector and instantiate a new one below.
 		collector.Close()
 	}
 
@@ -263,8 +263,8 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
 	// TODO: break this into some initOrUpdateSyncManager func
 	if svc.syncManager != nil {
-		// If already have a sync manager, close it so it can be replaced.
-		svc.syncManager.close()
+		// If already have a sync manager, Close it so it can be replaced.
+		svc.syncManager.Close()
 	} else {
 		// TODO: This should probably be somewhere else... but idea is want to start this goroutine just once at start
 		go svc.updateCollectors()
@@ -288,7 +288,7 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 		}
 	}
 
-	// If a component/method has been removed from the config, close the collector and remove it from the map.
+	// If a component/method has been removed from the config, Close the collector and remove it from the map.
 	for componentMetadata, params := range svc.collectors {
 		if _, present := newCollectorMetadata[componentMetadata]; !present {
 			params.Collector.Close()

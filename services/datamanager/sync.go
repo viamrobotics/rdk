@@ -173,7 +173,7 @@ func (s *syncer) getPathUnderCaptureDir(filePath string) (string, error) {
 	return "", errors.Errorf("file path %s is not under capture directory %s", filePath, s.captureDir)
 }
 
-// close closes all resources (goroutines) associated with s.
-func (s *syncer) close() {
+// Close closes all resources (goroutines) associated with s.
+func (s *syncer) Close() {
 	s.cancelFunc()
 }

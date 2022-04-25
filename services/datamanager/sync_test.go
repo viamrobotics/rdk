@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -29,11 +30,11 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	l := golog.NewTestLogger(t)
 
 	sut := newTestSyncer(captureDir, syncDir, l)
-	uploadCount := 0
+	var uploadCount uint64
 	sut.uploader = uploader{
 		inProgress: map[string]struct{}{},
 		uploadFn: func(path string) error {
-			uploadCount++
+			atomic.AddUint64(&uploadCount, 1)
 			_ = os.Remove(path)
 			return nil
 		},
@@ -44,7 +45,7 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	defer os.Remove(file1.Name())
 
 	// Start syncer, let it run for a couple seconds.
-	go sut.Enqueue(time.Millisecond)
+	go sut.Enqueue(time.Millisecond * 250)
 	go sut.UploadSynced()
 	time.Sleep(time.Second * 2)
 
@@ -59,7 +60,8 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	}
 	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
 	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
-	test.That(t, uploadCount, test.ShouldEqual, 1)
+	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 1)
+	sut.Close()
 }
 
 // Validates that if a syncer is killed after enqueing a file, a new syncer will still pick it up and upload it.
@@ -71,11 +73,11 @@ func TestRecoversAfterKilled(t *testing.T) {
 	l := golog.NewTestLogger(t)
 
 	sut := newTestSyncer(captureDir, syncDir, l)
-	uploadCount := 0
+	var uploadCount uint64
 	sut.uploader = uploader{
 		inProgress: map[string]struct{}{},
 		uploadFn: func(path string) error {
-			uploadCount++
+			atomic.AddUint64(&uploadCount, 1)
 			_ = os.Remove(path)
 			return nil
 		},
@@ -96,5 +98,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 		t.Fatalf("failed to list files in syncDir")
 	}
 	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
-	test.That(t, uploadCount, test.ShouldEqual, 1)
+	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 1)
+	sut.Close()
 }
