@@ -2,8 +2,9 @@ package vision_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -148,14 +149,24 @@ func TestServerObjectSegmentation(t *testing.T) {
 		cameraName string,
 		segmenterName string,
 		params config.AttributeMap) ([]*viz.Object, error) {
-		segments, err := segmentation.RadiusClustering(ctx, injCam, params)
-		if err != nil {
-			return nil, err
+		switch segmenterName {
+		case vision.RadiusClusteringSegmenter:
+			segments, err := segmentation.RadiusClustering(ctx, injCam, params)
+			if err != nil {
+				return nil, err
+			}
+			return segments, nil
+		default:
+			return nil, errors.Errorf("no Segmenter with name %s", segmenterName)
 		}
-		return segments, nil
 	}
 	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-		return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
+		switch segmenterName {
+		case vision.RadiusClusteringSegmenter:
+			return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
+		default:
+			return nil, errors.Errorf("no Segmenter with name %s", segmenterName)
+		}
 	}
 	injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
 		return []string{vision.RadiusClusteringSegmenter}, nil
