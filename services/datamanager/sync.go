@@ -32,8 +32,8 @@ type uploader struct {
 	uploadFn   func(path string) error
 }
 
-// newSyncManager returns a new data manager service for the given robot.
-func newSyncManager(queuePath string, logger golog.Logger, captureDir string) syncer {
+// newSyncer returns a new data manager service for the given robot.
+func newSyncer(queuePath string, logger golog.Logger, captureDir string) syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	ret := syncer{
