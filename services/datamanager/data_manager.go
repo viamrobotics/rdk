@@ -253,6 +253,22 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	return &componentMetadata, nil
 }
 
+func (svc *Service) initOrUpdateSyncer(intervalMins int) {
+	if svc.syncer != nil {
+		// If already have a sync manager, Close it so it can be replaced.
+		svc.syncer.Close()
+	} else {
+		// TODO: This should probably be somewhere else... but idea is want to start this goroutine just once at start
+		go svc.updateCollectors()
+	}
+	if intervalMins > 0 {
+		sm := newSyncer(SyncQueue, svc.logger, svc.captureDir)
+		svc.syncer = &sm
+		svc.syncer.Enqueue(time.Minute * time.Duration(intervalMins))
+		svc.syncer.UploadSynced()
+	}
+}
+
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
@@ -261,20 +277,7 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
-	// TODO: break this into some initOrUpdateSyncManager func
-	if svc.syncer != nil {
-		// If already have a sync manager, Close it so it can be replaced.
-		svc.syncer.Close()
-	} else {
-		// TODO: This should probably be somewhere else... but idea is want to start this goroutine just once at start
-		go svc.updateCollectors()
-	}
-	if svcConfig.SyncIntervalMins > 0 {
-		sm := newSyncer(SyncQueue, svc.logger, svc.captureDir)
-		svc.syncer = &sm
-		svc.syncer.Enqueue(time.Minute * time.Duration(svcConfig.SyncIntervalMins))
-		svc.syncer.UploadSynced()
-	}
+	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 
 	// Initialize or add a collector based on changes to the config.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
