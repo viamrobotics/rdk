@@ -266,7 +266,7 @@ func storeToCache(id string, cfg *Config) error {
 		return err
 	}
 
-	md, err := json.MarshalIndent(cfg, "", " ")
+	md, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
