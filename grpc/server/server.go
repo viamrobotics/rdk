@@ -6,14 +6,17 @@ package server
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -42,23 +45,6 @@ func New(r robot.Robot) pb.RobotServiceServer {
 func (s *Server) Close() {
 	s.cancel()
 	s.activeBackgroundWorkers.Wait()
-}
-
-// DoAction runs an action on the underlying robot.
-func (s *Server) DoAction(
-	ctx context.Context,
-	req *pb.DoActionRequest,
-) (*pb.DoActionResponse, error) {
-	act := action.LookupAction(req.Name)
-	if act == nil {
-		return nil, errors.Errorf("unknown action name [%s]", req.Name)
-	}
-	s.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer s.activeBackgroundWorkers.Done()
-		act(s.cancelCtx, s.r)
-	})
-	return &pb.DoActionResponse{}, nil
 }
 
 type runCommander interface {
@@ -90,4 +76,67 @@ func (s *Server) ResourceRunCommand(
 	}
 
 	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
+}
+
+// GetOperations lists all running operations.
+func (s *Server) GetOperations(ctx context.Context, req *pb.GetOperationsRequest) (*pb.GetOperationsResponse, error) {
+	me := operation.Get(ctx)
+
+	all := s.r.OperationManager().All()
+
+	res := &pb.GetOperationsResponse{}
+	for _, o := range all {
+		if o == me {
+			continue
+		}
+
+		s, err := convertInterfaceToStruct(o.Arguments)
+		if err != nil {
+			return nil, err
+		}
+
+		res.Operations = append(res.Operations, &pb.Operation{
+			Id:        o.ID.String(),
+			Method:    o.Method,
+			Arguments: s,
+			Started:   timestamppb.New(o.Started),
+		})
+	}
+
+	return res, nil
+}
+
+func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
+	if i == nil {
+		return &structpb.Struct{}, nil // TODO(cheuk): should InterfaceToMap handle nil?
+	}
+	m, err := protoutils.InterfaceToMap(i)
+	if err != nil {
+		return nil, err
+	}
+
+	return structpb.NewStruct(m)
+}
+
+// CancelOperation kills an operations.
+func (s *Server) CancelOperation(ctx context.Context, req *pb.CancelOperationRequest) (*pb.CancelOperationResponse, error) {
+	op := s.r.OperationManager().FindString(req.Id)
+	if op != nil {
+		op.Cancel()
+	}
+	return &pb.CancelOperationResponse{}, nil
+}
+
+// BlockForOperation blocks for an operation to finish.
+func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperationRequest) (*pb.BlockForOperationResponse, error) {
+	for {
+		op := s.r.OperationManager().FindString(req.Id)
+		if op == nil {
+			return &pb.BlockForOperationResponse{}, nil
+		}
+
+		if !utils.SelectContextOrWait(ctx, time.Millisecond*5) {
+			return nil, ctx.Err()
+		}
+	}
 }

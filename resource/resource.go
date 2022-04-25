@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
 
@@ -27,10 +26,8 @@ const (
 	ResourceNamespaceRDK  = Namespace("rdk")
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
-	ResourceTypeFunction  = TypeName("function")
 
-	ResourceSubtypeFunction = SubtypeName("function")
-	ResourceSubtypeRemote   = SubtypeName("remote")
+	ResourceSubtypeRemote = SubtypeName("remote")
 )
 
 // Type represents a known component/service type of a robot.
@@ -91,7 +88,6 @@ func (s Subtype) String() string {
 // Name represents a known component/service representation of a robot.
 type Name struct {
 	Subtype
-	UUID string
 	Name string
 }
 
@@ -99,16 +95,11 @@ type Name struct {
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
 	isService := rType == ResourceTypeService
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
-	i := resourceSubtype.String()
-	if (name != "") && !isService {
-		i = fmt.Sprintf("%s/%s", i, name)
-	}
 	nameIdent := name
 	if isService {
 		nameIdent = ""
 	}
 	return Name{
-		UUID:    uuid.NewSHA1(uuid.NameSpaceX500, []byte(i)).String(),
 		Subtype: resourceSubtype,
 		Name:    nameIdent,
 	}
@@ -140,9 +131,6 @@ func NewFromString(resourceName string) (Name, error) {
 
 // Validate ensures that important fields exist and are valid.
 func (n Name) Validate() error {
-	if _, err := uuid.Parse(n.UUID); err != nil {
-		return errors.New("uuid field for resource missing or invalid")
-	}
 	return n.Subtype.Validate()
 }
 
