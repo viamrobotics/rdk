@@ -66,4 +66,3 @@ bin/
 # exclude files from `ag` search
 .ignore
 
-web/runtime-shared/*
