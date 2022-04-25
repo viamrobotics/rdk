@@ -3,10 +3,8 @@ package config
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -272,19 +270,11 @@ func storeToCache(id string, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-
 	reader := bytes.NewReader(md)
-
-	data := []byte(id)
-	hasher := fnv.New128a()
-	if _, err := hasher.Write(data); err != nil {
-		return err
-	}
-	hash := hex.EncodeToString(hasher.Sum(nil))
 
 	path := getCloudCacheFilePath(id)
 
-	return artifact.AtomicStore(path, reader, hash)
+	return artifact.AtomicStore(path, reader, id)
 }
 
 // readFromCloud fetches a robot config from the cloud based
