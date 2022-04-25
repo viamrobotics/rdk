@@ -2,13 +2,10 @@ package vision_test
 
 import (
 	"context"
-	"errors"
-	"image"
 	"net"
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -18,65 +15,14 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/services/objectsegmentation"
-	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
+	viz "go.viam.com/rdk/vision"
 )
 
-var testPointCloud = []r3.Vector{
-	pointcloud.NewVector(5, 5, 5),
-	pointcloud.NewVector(5, 5, 6),
-	pointcloud.NewVector(5, 5, 4),
-	pointcloud.NewVector(-5, -5, 5),
-	pointcloud.NewVector(-5, -5, 6),
-	pointcloud.NewVector(-5, -5, 4),
-}
-
-func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
-	t.Helper()
-	box1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: -5, Y: -5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
-	test.That(t, err, test.ShouldBeNil)
-	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
-	test.That(t, err, test.ShouldBeNil)
-	return []spatialmath.Geometry{box1, box2}
-}
-
-type simpleSource struct{}
-
-func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
-	img := rimage.NewImage(100, 200)
-	img.SetXY(20, 10, rimage.Red)
-	return img, nil, nil
-}
-
-type cloudSource struct{}
-
-func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
-}
-
-func (c *cloudSource) Next(ctx context.Context) (image.Image, func(), error) {
-	img := rimage.NewImage(100, 200)
-	img.SetXY(20, 10, rimage.Red)
-	return img, nil, nil
-}
-
-func (c *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	pcA := pointcloud.New()
-	for _, pt := range testPointCloud {
-		err := pcA.Set(pt, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return pcA, nil
-}
-
-func TestServiceFailures(t *testing.T) {
+func TestObjectSegmentationFailures(t *testing.T) {
 	cfgService := config.Service{}
 	logger := golog.NewTestLogger(t)
 
@@ -85,11 +31,11 @@ func TestServiceFailures(t *testing.T) {
 		return nil, rdkutils.NewResourceNotFoundError(n)
 	}
 	// fails on not finding the service
-	_, err := objectsegmentation.FromRobot(r)
-	test.That(t, err, test.ShouldBeError, rdkutils.NewResourceNotFoundError(objectsegmentation.Name))
+	_, err := vision.FromRobot(r)
+	test.That(t, err, test.ShouldBeError, rdkutils.NewResourceNotFoundError(vision.Name))
 
 	// fails on not finding camera
-	obs, err := objectsegmentation.New(context.Background(), r, cfgService, logger)
+	obs, err := vision.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", "", config.AttributeMap{})
@@ -115,7 +61,7 @@ func TestServiceFailures(t *testing.T) {
 		}
 	}
 
-	obs, err = objectsegmentation.New(context.Background(), r, cfgService, logger)
+	obs, err = vision.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	params := config.AttributeMap{
@@ -124,7 +70,7 @@ func TestServiceFailures(t *testing.T) {
 		"clustering_radius_mm":  5.,
 		"mean_k_filtering":      10.,
 	}
-	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", objectsegmentation.RadiusClusteringSegmenter, params)
+	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter, params)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector")
 }
 
@@ -151,13 +97,13 @@ func TestGetObjectPointClouds(t *testing.T) {
 	}
 
 	// from a camera that has a PointCloud func -- apply default
-	obs, err := objectsegmentation.New(context.Background(), r, cfgService, logger)
+	obs, err := vision.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 	segmenterNames, err := obs.GetSegmenters(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, segmenterNames, test.ShouldContain, objectsegmentation.RadiusClusteringSegmenter)
+	test.That(t, segmenterNames, test.ShouldContain, vision.RadiusClusteringSegmenter)
 
-	paramNames, err := obs.GetSegmenterParameters(context.Background(), objectsegmentation.RadiusClusteringSegmenter)
+	paramNames, err := obs.GetSegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, paramNames, test.ShouldHaveLength, 4)
 	cfg := config.AttributeMap{
@@ -166,7 +112,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 		paramNames[2].Name: 5.,  // clustering radius
 		paramNames[3].Name: 10., // mean k filtering
 	}
-	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", objectsegmentation.RadiusClusteringSegmenter, cfg)
+	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
 
@@ -191,7 +137,7 @@ func setupInjectRobot() (*inject.Robot, *mock) {
 func TestFromRobot(t *testing.T) {
 	r, svc1 := setupInjectRobot()
 
-	svc, err := objectsegmentation.FromRobot(r)
+	svc, err := vision.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
@@ -204,23 +150,23 @@ func TestFromRobot(t *testing.T) {
 		return "not object segmentation", nil
 	}
 
-	svc, err = objectsegmentation.FromRobot(r)
+	svc, err = vision.FromRobot(r)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of objectsegmentation.Service")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of vision.Service")
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
 
-	svc, err = objectsegmentation.FromRobot(r)
+	svc, err = vision.FromRobot(r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, svc, test.ShouldBeNil)
 }
 
 type mock struct {
-	objectsegmentation.Service
+	vision.Service
 	timesCalled int
 }
 
@@ -228,9 +174,9 @@ func (m *mock) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
 	segmenterName string,
 	params config.AttributeMap,
-) ([]*vision.Object, error) {
+) ([]*viz.Object, error) {
 	m.timesCalled++
-	return []*vision.Object{vision.NewEmptyObject(), vision.NewEmptyObject()}, nil
+	return []*viz.Object{viz.NewEmptyObject(), viz.NewEmptyObject()}, nil
 }
 
 func TestFullClientServerLoop(t *testing.T) {
@@ -259,23 +205,23 @@ func TestFullClientServerLoop(t *testing.T) {
 			return nil, rdkutils.NewResourceNotFoundError(n)
 		}
 	}
-	oss, err := objectsegmentation.New(context.Background(), r, cfgService, logger)
+	oss, err := vision.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 	osMap := map[resource.Name]interface{}{
-		objectsegmentation.Name: oss,
+		vision.Name: oss,
 	}
 	svc, err := subtype.New(osMap)
 	test.That(t, err, test.ShouldBeNil)
 	// test the server/client
-	resourceSubtype := registry.ResourceSubtypeLookup(objectsegmentation.Subtype)
+	resourceSubtype := registry.ResourceSubtypeLookup(vision.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
-	client, err := objectsegmentation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+	client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	paramNames, err := client.GetSegmenterParameters(context.Background(), objectsegmentation.RadiusClusteringSegmenter)
+	paramNames, err := client.GetSegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
 	expParams := []rdkutils.TypedName{
 		{"min_points_in_plane", "int"},
@@ -290,7 +236,7 @@ func TestFullClientServerLoop(t *testing.T) {
 		paramNames[2].Name: 5.,  // clustering radius
 		paramNames[3].Name: 10,  // mean k filtering
 	}
-	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", objectsegmentation.RadiusClusteringSegmenter, params)
+	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter, params)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
 

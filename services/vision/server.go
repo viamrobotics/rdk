@@ -30,7 +30,7 @@ func (server *subtypeServer) service() (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("objectdetection.Service", resource)
+		return nil, utils.NewUnimplementedInterfaceError("vision.Service", resource)
 	}
 	return svc, nil
 }
@@ -39,7 +39,7 @@ func (server *subtypeServer) DetectorNames(
 	ctx context.Context,
 	req *pb.DetectorNamesRequest,
 ) (*pb.DetectorNamesResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "service::objectdetection::server::DetectorNames")
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::DetectorNames")
 	defer span.End()
 	svc, err := server.service()
 	if err != nil {
@@ -58,14 +58,14 @@ func (server *subtypeServer) AddDetector(
 	ctx context.Context,
 	req *pb.AddDetectorRequest,
 ) (*pb.AddDetectorResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "service::objectdetection::server::AddDetector")
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddDetector")
 	defer span.End()
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
 	params := config.AttributeMap(req.DetectorParameters.AsMap())
-	cfg := Config{
+	cfg := DetectorConfig{
 		Name:       req.DetectorName,
 		Type:       req.DetectorModelType,
 		Parameters: params,
@@ -83,7 +83,7 @@ func (server *subtypeServer) Detect(
 	ctx context.Context,
 	req *pb.DetectRequest,
 ) (*pb.DetectResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "service::objectdetection::server::Detect")
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::Detect")
 	defer span.End()
 	svc, err := server.service()
 	if err != nil {
