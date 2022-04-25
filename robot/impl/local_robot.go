@@ -256,7 +256,6 @@ func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logge
 		logger.Fatal("cannot read config")
 		return nil, err
 	}
-	logger.Debugf("from config Path: %+v", cfg.Services)
 	return RobotFromConfig(ctx, cfg, logger)
 }
 
