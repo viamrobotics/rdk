@@ -264,12 +264,12 @@ func openFromCache(id string) (io.ReadCloser, error) {
 }
 
 func storeToCache(id string, cfg *Config) error {
-	cfgFilePath := cfg.ConfigFilePath
-	buf, err := envsubst.ReadFile(cfgFilePath)
+	md, err := json.MarshalIndent(cfg, "", " ")
 	if err != nil {
 		return err
 	}
-	reader := bytes.NewReader(buf)
+
+	reader := bytes.NewReader(md)
 
 	data := []byte(id)
 	hasher := fnv.New128a()
