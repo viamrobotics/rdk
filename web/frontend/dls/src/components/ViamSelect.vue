@@ -23,7 +23,7 @@ import { find } from "lodash";
 export default class ViamRange extends Vue {
   @Prop({ default: "" }) name!: string;
   @Prop({ default: "DefaultId" }) id!: string;
-  @Prop({ default: "id" }) valueKey!: string;
+  @Prop({ default: "value" }) valueKey!: string;
   @Prop({ default: "label" }) labelKey!: string;
 
 
@@ -51,6 +51,7 @@ export default class ViamRange extends Vue {
       this.innerValue = key
       const collapse: any = this.$refs.collapse
       collapse.toggleExpand()
+      this.$emit('selected', key)
   }
 }
 </script>

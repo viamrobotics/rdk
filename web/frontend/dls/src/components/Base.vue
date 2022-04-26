@@ -102,15 +102,10 @@
                           Select Camera
                         </p>
                         <div class="relative">
-                          <select
-                            class="form-select appearance-none block w-full px-3 py-1.5 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none"
-                            aria-label="Default select example"
-                            @change="$emit('show-base-camera')"
-                            v-model="selectedValue"
-                          >
-                            <option selected value="NoCamera">No Camera</option>
-                            <option value="Camera1">Camera1</option>
-                          </select>
+                          <ViamSelect :options="cameraOptions"
+                                      v-model="selectedValue"
+                                      @change="$emit('show-base-camera')">
+                          </ViamSelect>
                           <div
                             class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
                           >
@@ -302,6 +297,7 @@ export default class Base extends Vue {
   spinType = "";
   increment = 500;
   speed = 300;
+  cameraOptions = [{value: 'NoCamera', label: 'NoCamera'}, {value: 'Camera1', label: 'Camera1'}]
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
   }

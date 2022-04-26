@@ -1,15 +1,15 @@
 import { storiesOf } from "@storybook/vue";
 
-storiesOf("Select", module)
-  .add("Default Select", () => ({
+storiesOf("ViamSelect", module)
+  .add("Default ViamSelect", () => ({
     data() {
       return {
         value: 1,
         options: [
-            { label: 'no camera', id: 1},
-            { label: 'camera', id: 2},
+            { label: 'no camera', value: 1},
+            { label: 'camera', value: 2},
         ]
       };
     },
-    template: '<div><Select v-model="value" :options="options" value-key="id"></Select></div>',
+    template: '<div><ViamSelect v-model="value" :options="options" value-key="value"></ViamSelect></div>',
   }));
