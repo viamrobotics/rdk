@@ -127,7 +127,6 @@ type Service struct {
 	collectors map[componentMethodMetadata]collectorParams
 	syncer     *syncer
 
-	//
 	backgroundWorkers        *sync.WaitGroup
 	updateCollectorsCancelFn func()
 }
@@ -197,7 +196,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 			return &componentMetadata, nil
 		}
 
-		// Otherwise, Close the current collector and instantiate a new one below.
+		// Otherwise, close the current collector and instantiate a new one below.
 		collector.Close()
 	}
 
@@ -310,7 +309,7 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 		}
 	}
 
-	// If a component/method has been removed from the config, Close the collector and remove it from the map.
+	// If a component/method has been removed from the config, close the collector and remove it from the map.
 	for componentMetadata, params := range svc.collectors {
 		if _, present := newCollectorMetadata[componentMetadata]; !present {
 			params.Collector.Close()
