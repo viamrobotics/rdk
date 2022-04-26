@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -17,7 +16,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	rdkutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -96,15 +94,14 @@ func TestServerAddDetector(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	// success
-	resp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+	_, err = server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		DetectorName:       "test",
 		DetectorModelType:  "color",
 		DetectorParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp.Success, test.ShouldBeTrue)
 	// failure
-	resp, err = server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+	resp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		DetectorName:       "failing",
 		DetectorModelType:  "no_such_type",
 		DetectorParameters: params,
@@ -113,7 +110,7 @@ func TestServerAddDetector(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 }
 
-func TestServerDetect(t *testing.T) {
+func TestServerGetDetections(t *testing.T) {
 	r := buildRobotWithFakeCamera(t)
 	srv, err := vision.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
@@ -123,7 +120,7 @@ func TestServerDetect(t *testing.T) {
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	// success
-	resp, err := server.Detect(context.Background(), &pb.DetectRequest{
+	resp, err := server.GetDetections(context.Background(), &pb.GetDetectionsRequest{
 		CameraName:   "fake_cam",
 		DetectorName: "detect_red",
 	})
@@ -136,7 +133,7 @@ func TestServerDetect(t *testing.T) {
 	test.That(t, resp.Detections[0].XMax, test.ShouldEqual, 183)
 	test.That(t, resp.Detections[0].YMax, test.ShouldEqual, 349)
 	// failure - empty request
-	_, err = server.Detect(context.Background(), &pb.DetectRequest{})
+	_, err = server.GetDetections(context.Background(), &pb.GetDetectionsRequest{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 }
 
@@ -160,15 +157,15 @@ func TestServerObjectSegmentation(t *testing.T) {
 			return nil, errors.Errorf("no Segmenter with name %s", segmenterName)
 		}
 	}
-	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+	injectOSS.SegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
 		switch segmenterName {
 		case vision.RadiusClusteringSegmenter:
-			return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
+			return utils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
 		default:
 			return nil, errors.Errorf("no Segmenter with name %s", segmenterName)
 		}
 	}
-	injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
+	injectOSS.SegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
 		return []string{vision.RadiusClusteringSegmenter}, nil
 	}
 	// make server
@@ -178,19 +175,20 @@ func TestServerObjectSegmentation(t *testing.T) {
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	// request segmenters
-	segReq := &pb.GetSegmentersRequest{}
-	segResp, err := server.GetSegmenters(context.Background(), segReq)
+	segReq := &pb.SegmenterNamesRequest{}
+	segResp, err := server.SegmenterNames(context.Background(), segReq)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, segResp.Segmenters, test.ShouldHaveLength, 1)
-	test.That(t, segResp.Segmenters[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
+	test.That(t, segResp.SegmenterNames, test.ShouldHaveLength, 1)
+	test.That(t, segResp.SegmenterNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
 
 	// no such segmenter in registry
-	_, err = server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+	_, err = server.SegmenterParameters(context.Background(), &pb.SegmenterParametersRequest{
 		SegmenterName: "no_such_segmenter",
 	})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
 
 	params, err := structpb.NewStruct(config.AttributeMap{})
+	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		CameraName:    "fakeCamera",
 		SegmenterName: "no_such_segmenter",
@@ -200,11 +198,11 @@ func TestServerObjectSegmentation(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
 
 	// successful request
-	paramNamesResp, err := server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+	paramNamesResp, err := server.SegmenterParameters(context.Background(), &pb.SegmenterParametersRequest{
 		SegmenterName: vision.RadiusClusteringSegmenter,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	paramNames := paramNamesResp.Parameters
+	paramNames := paramNamesResp.SegmenterParameters
 	test.That(t, paramNames[0].Type, test.ShouldEqual, "int")
 	test.That(t, paramNames[1].Type, test.ShouldEqual, "int")
 	test.That(t, paramNames[2].Type, test.ShouldEqual, "float64")

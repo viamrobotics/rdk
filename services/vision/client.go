@@ -69,28 +69,28 @@ func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
 	return resp.DetectorNames, nil
 }
 
-func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) (bool, error) {
+func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddDetector")
 	defer span.End()
 	params, err := structpb.NewStruct(cfg.Parameters)
 	if err != nil {
-		return false, err
+		return err
 	}
-	resp, err := c.client.AddDetector(ctx, &pb.AddDetectorRequest{
+	_, err = c.client.AddDetector(ctx, &pb.AddDetectorRequest{
 		DetectorName:       cfg.Name,
 		DetectorModelType:  cfg.Type,
 		DetectorParameters: params,
 	})
 	if err != nil {
-		return false, err
+		return err
 	}
-	return resp.Success, nil
+	return nil
 }
 
-func (c *client) Detect(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::client::Detect")
+func (c *client) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetections")
 	defer span.End()
-	resp, err := c.client.Detect(ctx, &pb.DetectRequest{
+	resp, err := c.client.GetDetections(ctx, &pb.GetDetectionsRequest{
 		CameraName:   cameraName,
 		DetectorName: detectorName,
 	})
@@ -106,23 +106,23 @@ func (c *client) Detect(ctx context.Context, cameraName, detectorName string) ([
 	return detections, nil
 }
 
-func (c *client) GetSegmenters(ctx context.Context) ([]string, error) {
-	resp, err := c.client.GetSegmenters(ctx, &pb.GetSegmentersRequest{})
+func (c *client) SegmenterNames(ctx context.Context) ([]string, error) {
+	resp, err := c.client.SegmenterNames(ctx, &pb.SegmenterNamesRequest{})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Segmenters, nil
+	return resp.SegmenterNames, nil
 }
 
-func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
+func (c *client) SegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+	resp, err := c.client.SegmenterParameters(ctx, &pb.SegmenterParametersRequest{
 		SegmenterName: segmenterName,
 	})
 	if err != nil {
 		return nil, err
 	}
-	params := make([]utils.TypedName, len(resp.Parameters))
-	for i, p := range resp.Parameters {
+	params := make([]utils.TypedName, len(resp.SegmenterParameters))
+	for i, p := range resp.SegmenterParameters {
 		params[i] = utils.TypedName{p.Name, p.Type}
 	}
 	return params, nil

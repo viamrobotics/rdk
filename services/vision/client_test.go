@@ -80,18 +80,16 @@ func TestClient(t *testing.T) {
 			},
 		}
 		// success
-		ok, err := client.AddDetector(context.Background(), cfg)
+		err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		names, err := client.DetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 		test.That(t, names, test.ShouldContain, "new_detector")
 		// failure - tries to add a detector again
-		ok, err = client.AddDetector(context.Background(), cfg)
+		err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "trying to register two detectors with the same name")
-		test.That(t, ok, test.ShouldBeFalse)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
@@ -99,7 +97,7 @@ func TestClient(t *testing.T) {
 		client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		dets, err := client.Detect(context.Background(), "fake_cam", "detect_red")
+		dets, err := client.GetDetections(context.Background(), "fake_cam", "detect_red")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dets, test.ShouldHaveLength, 1)
 		test.That(t, dets[0].Label(), test.ShouldEqual, "red")
@@ -108,7 +106,7 @@ func TestClient(t *testing.T) {
 		test.That(t, box.Min, test.ShouldResemble, image.Point{110, 288})
 		test.That(t, box.Max, test.ShouldResemble, image.Point{183, 349})
 		// failure - no such camera
-		_, err = client.Detect(context.Background(), "no_camera", "detect_red")
+		_, err = client.GetDetections(context.Background(), "no_camera", "detect_red")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
@@ -140,7 +138,7 @@ func TestInjectedServiceClient(t *testing.T) {
 
 		injCam := &cloudSource{}
 
-		injectVision.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]rdkutils.TypedName, error) {
+		injectVision.SegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]rdkutils.TypedName, error) {
 			return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
 		}
 		injectVision.GetObjectPointCloudsFunc = func(ctx context.Context,
@@ -154,16 +152,16 @@ func TestInjectedServiceClient(t *testing.T) {
 			}
 			return segments, nil
 		}
-		injectVision.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
+		injectVision.SegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
 			return []string{vision.RadiusClusteringSegmenter}, nil
 		}
 
-		segNames, err := client.GetSegmenters(context.Background())
+		segNames, err := client.SegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segNames, test.ShouldHaveLength, 1)
 		test.That(t, segNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
 
-		paramNames, err := client.GetSegmenterParameters(context.Background(), segNames[0])
+		paramNames, err := client.SegmenterParameters(context.Background(), segNames[0])
 		test.That(t, err, test.ShouldBeNil)
 		expParams := []rdkutils.TypedName{
 			{"min_points_in_plane", "int"},
