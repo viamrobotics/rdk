@@ -106,21 +106,6 @@
                                       v-model="selectedValue"
                                       @change="$emit('show-base-camera')">
                           </ViamSelect>
-                          <div
-                            class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-                          >
-                            <svg
-                              class="h-4 w-4 stroke-2"
-                              :class="['text-gray-700 dark:text-gray-300']"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              stroke-linejoin="round"
-                              stroke-linecap="round"
-                              fill="none"
-                            >
-                              <path d="M18 16L12 22L6 16" />
-                            </svg>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -297,7 +282,7 @@ export default class Base extends Vue {
   spinType = "";
   increment = 500;
   speed = 300;
-  cameraOptions = [{value: 'NoCamera', label: 'NoCamera'}, {value: 'Camera1', label: 'Camera1'}]
+  cameraOptions = [{value: 'NoCamera', label: 'No Camera'}, {value: 'Camera1', label: 'Camera1'}]
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
   }
