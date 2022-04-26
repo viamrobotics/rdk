@@ -23,7 +23,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-t-0 border-black h-72 pt-2 pb-4"
+          class="border border-t-0 border-black pt-2 pb-4"
           :style="{ maxHeight: maxHeight + 'px' }"
         >
           <div>
@@ -141,7 +141,7 @@
           </div>
           <div
             v-if="selectedItem === 'discrete'"
-            class="p-4 grid grid-cols-1"
+            class="pr-4 pl-4 pt-4 grid grid-cols-1"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div>
@@ -156,7 +156,7 @@
               </div>
             </div>
             <div class="flex pt-2">
-              <div class="column" v-if="movementMode === 'Straight'">
+              <div class="column pr-2" v-if="movementMode === 'Straight'">
                 <p class="text-xs">Movement Type</p>
                 <RadioButtons
                   :options="['Continous', 'Discrete']"
@@ -202,7 +202,7 @@
             </div>
             <div class="flex">
               <div
-                class="column"
+                class="column pr-2"
                 v-if="movementMode === 'Spin' || movementMode === 'Arc'"
               >
                 <p class="text-xs">Movement Type</p>
