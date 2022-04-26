@@ -43,8 +43,6 @@ type FrameSystem interface {
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error)
 
-	GeometriesOfFrame(positions map[string][]Input, src, dst string) (map[string]spatial.Geometry, error)
-
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
@@ -175,28 +173,15 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 	if !sfs.frameExists(src) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", src)
 	}
+	srcFrame := sfs.GetFrame(src)
 	if !sfs.frameExists(dst) {
 		return nil, fmt.Errorf("destination frame %s not found in FrameSystem", dst)
 	}
-	tf, err := sfs.transformFromParent(positions, sfs.parents[sfs.GetFrame(src)], sfs.GetFrame(dst))
+	tf, err := sfs.transformFromParent(positions, srcFrame, sfs.GetFrame(dst))
 	if err != nil {
 		return nil, err
 	}
 	return object.Transform(tf), nil
-}
-
-// GeometriesOfFrame takes in a source and destination frame and returns the geometries from the src Frame in the reference
-// frame of the the second, in the form of a mapping between the name of the frame and its geometry, and including any
-// intermediate frames if they exist. Positions is a map of inputs for any frames with non-zero DOF, with slices of
-// inputs keyed to the frame name.
-func (sfs *simpleFrameSystem) GeometriesOfFrame(positions map[string][]Input, src, dst string) (map[string]spatial.Geometry, error) {
-	if !sfs.frameExists(src) {
-		return nil, fmt.Errorf("source frame %s not found in FrameSystem", src)
-	}
-	if !sfs.frameExists(dst) {
-		return nil, fmt.Errorf("destination frame %s not found in FrameSystem", dst)
-	}
-	return sfs.geometriesFromParent(positions, sfs.GetFrame(src), sfs.parents[sfs.GetFrame(src)], sfs.GetFrame(dst))
 }
 
 // Name returns the name of the simpleFrameSystem.
@@ -312,81 +297,54 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 	return positions
 }
 
-func (sfs *simpleFrameSystem) getSrcParentTransform(inputMap map[string][]Input, parent Frame) (spatial.Pose, error) {
-	// check if frames are in system. It is allowed for the src frame to be an anonymous frame not in the system, so
-	// long as its parent IS in the system.
-	if parent != nil && !sfs.frameExists(parent.Name()) {
-		return nil, fmt.Errorf("source frame parent %s not found in FrameSystem", parent.Name())
+func (sfs *simpleFrameSystem) getSrcToWorldTransform(inputMap map[string][]Input, src Frame) (spatial.Pose, error) {
+	if src != nil && !sfs.frameExists(src.Name()) {
+		return nil, fmt.Errorf("source frame %s not found in FrameSystem", src.Name())
 	}
 
-	// If parent is nil, that means src is the world frame, which has no parent.
+	// If src is nil it is interpreted as the world frame
 	var err error
-	fromParentTransform := spatial.NewZeroPose()
-	if parent != nil {
-		// get source parent to world transform
-		fromParentTransform, err = sfs.composeTransforms(parent, inputMap) // returns source to world transform
-		if err != nil && fromParentTransform == nil {
+	srcToWorld := spatial.NewZeroPose()
+	if src != nil {
+		srcToWorld, err = sfs.composeTransforms(src, inputMap)
+		if err != nil && srcToWorld == nil {
 			return nil, err
 		}
 	}
-	return fromParentTransform, err
+	return srcToWorld, err
 }
 
-func (sfs *simpleFrameSystem) getTargetParentTransform(inputMap map[string][]Input, target Frame) (spatial.Pose, error) {
-	if target == nil {
-		return nil, errors.New("target frame is nil")
-	}
-	if !sfs.frameExists(target.Name()) {
+func (sfs *simpleFrameSystem) getWorldToDstTransform(inputMap map[string][]Input, target Frame) (spatial.Pose, error) {
+	if target == nil || !sfs.frameExists(target.Name()) {
 		return nil, fmt.Errorf("target frame %s not found in FrameSystem", target.Name())
 	}
-
-	// get world to target transform
-	toTargetTransform, err := sfs.composeTransforms(target, inputMap) // returns target to world transform
-	if err != nil && toTargetTransform == nil {
+	dstToWorld, err := sfs.composeTransforms(target, inputMap)
+	d := dstToWorld.Point()
+	_ = d
+	if err != nil && dstToWorld == nil {
 		return nil, err
 	}
-	return spatial.PoseInverse(toTargetTransform), err
+	return spatial.PoseInverse(dstToWorld), err
 }
 
 // Returns the relative pose between the parent and the destination frame
-func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, srcParent, dst Frame) (*PoseInFrame, error) {
+func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, dst Frame) (*PoseInFrame, error) {
 	// catch all errors together to allow for hypothetical calculations that result in errors
 	var errAll error
-	toTarget, err := sfs.getTargetParentTransform(inputMap, dst)
+	worldToDst, err := sfs.getWorldToDstTransform(inputMap, dst)
+	d := worldToDst.Point()
+	_ = d
 	multierr.AppendInto(&errAll, err)
-	fromParent, err := sfs.getSrcParentTransform(inputMap, srcParent)
+	srcToWorld, err := sfs.getSrcToWorldTransform(inputMap, src)
+	s := srcToWorld.Point()
+	_ = s
 	multierr.AppendInto(&errAll, err)
-	if errAll != nil && (toTarget == nil || fromParent == nil) {
+	if errAll != nil && (worldToDst == nil || srcToWorld == nil) {
 		return nil, errAll
 	}
 
-	// transform from source to world, world to target
-	return &PoseInFrame{dst.Name(), spatial.Compose(toTarget, fromParent)}, nil
-}
-
-// Returns the relative pose between two frames.
-func (sfs *simpleFrameSystem) geometriesFromParent(
-	inputMap map[string][]Input,
-	src, srcParent, dst Frame,
-) (map[string]spatial.Geometry, error) {
-	toTarget, err := sfs.getTargetParentTransform(inputMap, dst)
-	if toTarget == nil && err != nil {
-		return nil, err
-	}
-	fromParent, err := sfs.getSrcParentTransform(inputMap, srcParent)
-	if fromParent == nil && err != nil {
-		return nil, err
-	}
-
-	// transform from source to world, world to target
-	geometries, err := geometriesFromPositions(src, inputMap)
-	if err != nil && geometries == nil {
-		return nil, err
-	}
-	for _, geometry := range geometries {
-		geometry.Transform(spatial.Compose(toTarget, fromParent))
-	}
-	return geometries, err
+	// transform from source to world, world to target parent
+	return &PoseInFrame{dst.Name(), spatial.Compose(worldToDst, srcToWorld)}, nil
 }
 
 // compose the quaternions from the input frame to the world referenceframe.
@@ -424,12 +382,4 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 		return nil, err
 	}
 	return frame.Transform(inputs)
-}
-
-func geometriesFromPositions(frame Frame, positions map[string][]Input) (map[string]spatial.Geometry, error) {
-	inputs, err := getFrameInputs(frame, positions)
-	if err != nil {
-		return nil, err
-	}
-	return frame.Geometries(inputs)
 }
