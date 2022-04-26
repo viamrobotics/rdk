@@ -10,7 +10,7 @@
         'flex-row-reverse': iconLeft,
       }"
     >
-      <div class="flex-1">
+      <div class="flex-1 cursor-pointer" @click="toggleExpand()">
         <slot />
       </div>
 
