@@ -24,12 +24,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue, Watch } from "vue-property-decorator";
-import "vue-class-component/hooks";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { mdiCheck } from "@mdi/js";
-import ViamButton from "./Button.vue";
-import ViamIcon from "./ViamIcon.vue";
+import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+import 'vue-class-component/hooks';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { mdiCheck } from '@mdi/js';
+import ViamButton from './Button.vue';
+import ViamIcon from './ViamIcon.vue';
 @Component({
   components: {
     FontAwesomeIcon,
@@ -41,7 +41,7 @@ export default class RadioButtons extends Vue {
   @Prop() options!: [string];
   @Prop() defaultOption?: string;
   @Prop() disabledOptions?: [string];
-  selected: string | undefined = "";
+  selected: string | undefined = '';
   mdiCheck = mdiCheck;
   mounted(): void {
     this.selected = this.defaultOption;
@@ -53,10 +53,10 @@ export default class RadioButtons extends Vue {
       return false;
     }
   }
-  @Watch("defaultOption")
+  @Watch('defaultOption')
   selectOption(option: string): void {
     this.selected = option;
-    this.$emit("selectOption", option);
+    this.$emit('selectOption', option);
   }
 }
 </script>

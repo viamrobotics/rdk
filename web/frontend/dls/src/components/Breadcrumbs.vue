@@ -28,8 +28,8 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import "vue-class-component/hooks";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import 'vue-class-component/hooks';
 
 @Component
 export default class Breadcrumbs extends Vue {
@@ -40,7 +40,7 @@ export default class Breadcrumbs extends Vue {
     return index === this.crumbs.length - 1;
   }
   selected(crumb: string): void {
-    this.$emit("selected", crumb);
+    this.$emit('selected', crumb);
   }
 }
 </script>

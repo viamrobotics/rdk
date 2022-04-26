@@ -28,17 +28,17 @@
   </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from "vue-property-decorator";
-import { throttle, debounce } from "lodash";
-import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
-import ViamIcon from "./ViamIcon.vue";
-import ViamButton from "./Button.vue";
+import { Component, Vue } from 'vue-property-decorator';
+import { throttle, debounce } from 'lodash';
+import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from '@mdi/js';
+import ViamIcon from './ViamIcon.vue';
+import ViamButton from './Button.vue';
 
 const PressedKeysMap: { [index: string]: string } = {
-  "87": "forward",
-  "83": "backward",
-  "65": "left",
-  "68": "right",
+  87: 'forward',
+  83: 'backward',
+  65: 'left',
+  68: 'right',
 };
 
 const inputDelay = 100;
@@ -64,10 +64,10 @@ export default class KeyboardInput extends Vue {
   mdiArrowDown = mdiArrowDown;
 
   keyLetters = {
-    forward: "W",
-    left: "A",
-    backward: "S",
-    right: "D",
+    forward: 'W',
+    left: 'A',
+    backward: 'S',
+    right: 'D',
   };
 
   keyIcons = {
@@ -78,7 +78,7 @@ export default class KeyboardInput extends Vue {
   };
 
   //for template section
-  keysLayout = [["forward"], ["left", "backward", "right"]];
+  keysLayout = [['forward'], ['left', 'backward', 'right']];
 
   sendKeysState = debounce(() => {
     this.handleKeysStateInstantly();
@@ -91,14 +91,14 @@ export default class KeyboardInput extends Vue {
 
     const { forward, left, right, backward } = this.pressedKeys;
 
-    if (forward && right) this.emitEvent("arc-right");
-    else if (forward && left) this.emitEvent("arc-left");
-    else if (backward && right) this.emitEvent("back-arc-right");
-    else if (backward && left) this.emitEvent("back-arc-left");
-    else if (forward) this.emitEvent("forward");
-    else if (backward) this.emitEvent("backward");
-    else if (left) this.emitEvent("spin-counter-clockwise");
-    else if (right) this.emitEvent("spin-clockwise");
+    if (forward && right) this.emitEvent('arc-right');
+    else if (forward && left) this.emitEvent('arc-left');
+    else if (backward && right) this.emitEvent('back-arc-right');
+    else if (backward && left) this.emitEvent('back-arc-left');
+    else if (forward) this.emitEvent('forward');
+    else if (backward) this.emitEvent('backward');
+    else if (left) this.emitEvent('spin-counter-clockwise');
+    else if (right) this.emitEvent('spin-clockwise');
   }
   emitEvent = throttle((eventName: string) => {
     this.emitEventInstantly(eventName);
@@ -116,17 +116,17 @@ export default class KeyboardInput extends Vue {
   onUseKeyboardNav(event: KeyboardEvent): void {
     const key = PressedKeysMap[event.keyCode];
     if (!key) return;
-    this.setKeyPressed(key, event.type === "keydown");
+    this.setKeyPressed(key, event.type === 'keydown');
     event.preventDefault();
   }
 
   beforeDestroy(): void {
-    window.removeEventListener("keydown", this.onUseKeyboardNav);
-    window.removeEventListener("keyup", this.onUseKeyboardNav);
+    window.removeEventListener('keydown', this.onUseKeyboardNav);
+    window.removeEventListener('keyup', this.onUseKeyboardNav);
   }
   mounted(): void {
-    window.addEventListener("keydown", this.onUseKeyboardNav, false);
-    window.addEventListener("keyup", this.onUseKeyboardNav, false);
+    window.addEventListener('keydown', this.onUseKeyboardNav, false);
+    window.addEventListener('keyup', this.onUseKeyboardNav, false);
   }
 }
 </script>

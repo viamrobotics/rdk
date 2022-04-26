@@ -1,11 +1,11 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("Camera", module).add("Default Camera", () => ({
+storiesOf('Camera', module).add('Default Camera', () => ({
   data() {
     return {
-      streamName: "Camera1",
-      crumbs: ["Camera", "Intel"],
-      segmentAlgo: ["Camera", "Intel"],
+      streamName: 'Camera1',
+      crumbs: ['Camera', 'Intel'],
+      segmentAlgo: ['Camera', 'Intel'],
     };
   },
   template:

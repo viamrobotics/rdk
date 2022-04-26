@@ -60,8 +60,8 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue, Model } from "vue-property-decorator";
-import "vue-class-component/hooks";
+import { Component, Prop, Vue, Model } from 'vue-property-decorator';
+import 'vue-class-component/hooks';
 
 @Component
 export default class ViamSwitch extends Vue {
@@ -71,16 +71,16 @@ export default class ViamSwitch extends Vue {
   @Prop({ default: null }) name?: string;
   @Prop({ default: false }) required?: boolean;
   @Prop({ default: false }) reversed?: boolean;
-  @Prop({ default: "base" }) size?: string;
+  @Prop({ default: 'base' }) size?: string;
 
-  @Model("change", { type: Boolean }) option!: boolean;
+  @Model('change', { type: Boolean }) option!: boolean;
 
   get checked(): boolean {
     return this.option;
   }
 
   set checked(val: boolean) {
-    this.$emit("change", val);
+    this.$emit('change', val);
   }
 }
 </script>

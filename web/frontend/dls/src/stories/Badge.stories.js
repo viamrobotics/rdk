@@ -1,9 +1,9 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("ViamBadge", module).add("Default ViamBadge", () => ({
+storiesOf('ViamBadge', module).add('Default ViamBadge', () => ({
   data() {
     return {
-      streamNames: ["test1", "test2"],
+      streamNames: ['test1', 'test2'],
     };
   },
   template:

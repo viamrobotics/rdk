@@ -24,8 +24,8 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import { Status } from "proto/api/component/inputcontroller/v1/input_controller_pb";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Status } from 'proto/api/component/inputcontroller/v1/input_controller_pb';
 
 @Component
 export default class InputController extends Vue {
@@ -36,33 +36,33 @@ export default class InputController extends Vue {
 
   get controls(): string[][] {
     const controlOrder = [
-      "AbsoluteX",
-      "AbsoluteY",
-      "AbsoluteRX",
-      "AbsoluteRY",
-      "AbsoluteZ",
-      "AbsoluteRZ",
-      "AbsoluteHat0X",
-      "AbsoluteHat0Y",
-      "ButtonSouth",
-      "ButtonEast",
-      "ButtonWest",
-      "ButtonNorth",
-      "ButtonLT",
-      "ButtonRT",
-      "ButtonLThumb",
-      "ButtonRThumb",
-      "ButtonSelect",
-      "ButtonStart",
-      "ButtonMenu",
-      "ButtonEStop",
+      'AbsoluteX',
+      'AbsoluteY',
+      'AbsoluteRX',
+      'AbsoluteRY',
+      'AbsoluteZ',
+      'AbsoluteRZ',
+      'AbsoluteHat0X',
+      'AbsoluteHat0Y',
+      'ButtonSouth',
+      'ButtonEast',
+      'ButtonWest',
+      'ButtonNorth',
+      'ButtonLT',
+      'ButtonRT',
+      'ButtonLThumb',
+      'ButtonRThumb',
+      'ButtonSelect',
+      'ButtonStart',
+      'ButtonMenu',
+      'ButtonEStop',
     ];
-    var controls = [];
+    const controls = [];
     for (const ctrl of controlOrder) {
-      var value = this.getValue(ctrl);
-      if (value != "") {
+      const value = this.getValue(ctrl);
+      if (value !== '') {
         controls.push([
-          ctrl.replace("Absolute", "").replace("Button", ""),
+          ctrl.replace('Absolute', '').replace('Button', ''),
           value,
         ]);
       }
@@ -71,8 +71,8 @@ export default class InputController extends Vue {
   }
 
   get connected(): boolean {
-    for (let ev of this.controllerStatus.eventsList) {
-      if (ev.event != "Disconnect") {
+    for (const ev of this.controllerStatus.eventsList) {
+      if (ev.event !== 'Disconnect') {
         return true;
       }
     }
@@ -82,14 +82,14 @@ export default class InputController extends Vue {
   getValue(control: string): string {
     for (const iEvent of this.controllerStatus.eventsList) {
       if (iEvent.control === control) {
-        if (control.includes("Absolute")) {
+        if (control.includes('Absolute')) {
           return iEvent.value.toFixed(4);
         } else {
           return iEvent.value.toFixed(0);
         }
       }
     }
-    return "";
+    return '';
   }
 }
 </script>

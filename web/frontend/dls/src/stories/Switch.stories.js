@@ -1,6 +1,6 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("ViamSwitch", module).add("Default viamSwitch", () => ({
+storiesOf('ViamSwitch', module).add('Default viamSwitch', () => ({
   data() {
     return {
       option: false,

@@ -1,13 +1,13 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("InputController", module).add("Default InputController", () => ({
+storiesOf('InputController', module).add('Default InputController', () => ({
   data() {
     return {
       status: {
         eventsList: [
           {
-            event: "test",
-            control: "test",
+            event: 'test',
+            control: 'test',
             value: 1,
           },
         ],

@@ -36,9 +36,9 @@
   </div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import NumberInput from "./NumberInput.vue";
-import VueSlideBar from "vue-slide-bar";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import NumberInput from './NumberInput.vue';
+import VueSlideBar from 'vue-slide-bar';
 
 @Component({
   components: {
@@ -50,9 +50,9 @@ export default class ViamRange extends Vue {
   @Prop({ default: 100 }) max!: number;
   @Prop({ default: 0 }) min!: number;
   @Prop({ default: 10 }) step!: number;
-  @Prop({ default: "" }) name!: string;
-  @Prop({ default: "DefaultId" }) id!: string;
-  @Prop({ default: "" }) unit!: string;
+  @Prop({ default: '' }) name!: string;
+  @Prop({ default: 'DefaultId' }) id!: string;
+  @Prop({ default: '' }) unit!: string;
   @Prop({ required: true }) value!: number;
   @Prop({ default: false }) hideTickLabels!: boolean;
 
@@ -60,7 +60,7 @@ export default class ViamRange extends Vue {
     return this.value;
   }
   set innerValue(value: number) {
-    this.$emit("input", value);
+    this.$emit('input', value);
   }
 
   get rangeLabels(): { label: number; isHide: boolean }[] | null {
@@ -73,8 +73,8 @@ export default class ViamRange extends Vue {
   get possibleValues(): number[] | null {
     if (this.hideTickLabels) return null;
 
-    let count = Math.floor((this.max - this.min) / this.step) + 1;
-    let result = [];
+    const count = Math.floor((this.max - this.min) / this.step) + 1;
+    const result = [];
     for (let i = 0; i < count; i++) {
       result.push(this.min + i * this.step);
     }
@@ -82,10 +82,10 @@ export default class ViamRange extends Vue {
   }
   get processStyle(): { [key: string]: string } {
     return {
-      backgroundColor: "#000000",
-      height: "4px",
-      "border-radius": "0",
-      top: "-2px",
+      backgroundColor: '#000000',
+      height: '4px',
+      'border-radius': '0',
+      top: '-2px',
     };
   }
 }

@@ -1,9 +1,9 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("ViamInput", module).add("Default ViamInput", () => ({
+storiesOf('ViamInput', module).add('Default ViamInput', () => ({
   data() {
     return {
-      streamNames: ["test1", "test2"],
+      streamNames: ['test1', 'test2'],
     };
   },
   template:

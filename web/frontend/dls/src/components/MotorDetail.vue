@@ -112,19 +112,19 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
+import { Component, Prop, Vue } from 'vue-property-decorator';
 import {
   SetPowerRequest,
   GoForRequest,
   GoToRequest,
   Status,
-} from "proto/api/component/motor/v1/motor_pb";
-import RadioButtons from "./RadioButtons.vue";
+} from 'proto/api/component/motor/v1/motor_pb';
+import RadioButtons from './RadioButtons.vue';
 
 enum MotorCommandType {
-  Go = "go",
-  GoFor = "goFor",
-  GoTo = "goTo",
+  Go = 'go',
+  GoFor = 'goFor',
+  GoTo = 'goTo',
 }
 
 class MotorCommand {
@@ -140,39 +140,35 @@ class MotorCommand {
   }
 
   private validateRevolutions(revolutions: number): string {
-    revolutions = Number.parseFloat(revolutions.toString());
-    if (Number.isNaN(revolutions)) {
-      return "Input is not a number";
+    if (Number.isNaN(Number.parseFloat(revolutions.toString()))) {
+      return 'Input is not a number';
     }
-    return "";
+    return '';
   }
 
   private validateRPM(rpm: number): string {
-    rpm = Number.parseFloat(rpm.toString());
-    if (Number.isNaN(rpm)) {
-      return "Input is not a number";
+    if (Number.isNaN(Number.parseFloat(rpm.toString()))) {
+      return 'Input is not a number';
     }
-    return "";
+    return '';
   }
 
   private validatePower(power: number): string {
-    power = Number.parseFloat(power.toString());
-    if (Number.isNaN(power)) {
-      return "Input is not a number";
+    if (Number.isNaN(Number.parseFloat(power.toString()))) {
+      return 'Input is not a number';
     } else if (power > 100) {
-      return "Power cannot be greater than 100%";
+      return 'Power cannot be greater than 100%';
     } else if (power < -100) {
-      return "Power cannot be less than -100%";
+      return 'Power cannot be less than -100%';
     }
-    return "";
+    return '';
   }
 
   private validatePosition(position: number): string {
-    position = Number.parseFloat(position.toString());
-    if (Number.isNaN(position)) {
-      return "Input is not a number";
+    if (Number.isNaN(Number.parseFloat(position.toString()))) {
+      return 'Input is not a number';
     }
-    return "";
+    return '';
   }
 
   validate(): { [key: string]: string } {
@@ -293,7 +289,7 @@ export default class MotorDetail extends Vue {
 
   private validateInputs(): boolean {
     this.errors = this.motorCommand.validate();
-    for (let key of Object.keys(this.errors)) {
+    for (const key of Object.keys(this.errors)) {
       const error = this.errors[key];
       if (error) {
         return false;
@@ -303,14 +299,14 @@ export default class MotorDetail extends Vue {
   }
 
   stop(): void {
-    this.$emit("execute", MotorCommand.STOP.asObject());
+    this.$emit('execute', MotorCommand.STOP.asObject());
   }
 
   emitCommand(): void {
     if (this.validateInputs()) {
       const command = this.motorCommand.asObject();
       console.log(command);
-      this.$emit("execute", command);
+      this.$emit('execute', command);
     }
   }
 }

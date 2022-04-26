@@ -1,9 +1,9 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("Grid", module).add("Default Grid", () => ({
+storiesOf('Grid', module).add('Default Grid', () => ({
   data() {
     return {
-      streamNames: ["test1", "test2"],
+      streamNames: ['test1', 'test2'],
     };
   },
   template:

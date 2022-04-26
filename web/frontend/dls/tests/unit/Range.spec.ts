@@ -1,10 +1,10 @@
-import { enableAutoDestroy, mount } from "@vue/test-utils";
-import Range from "@/components/Range.vue";
+import { enableAutoDestroy, mount } from '@vue/test-utils';
+import Range from '@/components/Range.vue';
 
-describe("Range", () => {
+describe('Range', () => {
   enableAutoDestroy(afterEach);
 
-  it("has html structure", async () => {
+  it('has html structure', () => {
     const wrapper = mount({
       data() {
         return { value: 12 };
@@ -12,12 +12,12 @@ describe("Range", () => {
       template: '<div> <Range v-model="value"></Range></div>',
       components: { Range },
     });
-    const input = wrapper.find("input").element as HTMLInputElement;
-    expect(wrapper.element.tagName).toBe("DIV");
-    expect(input.value).toBe("12");
+    const input = wrapper.find('input').element as HTMLInputElement;
+    expect(wrapper.element.tagName).toBe('DIV');
+    expect(input.value).toBe('12');
   });
 
-  it("ticks are shown correctly", async () => {
+  it('ticks are shown correctly', () => {
     const wrapper = mount({
       data() {
         return { value: 0 };
@@ -26,7 +26,7 @@ describe("Range", () => {
         '<div> <Range v-model="value" :min="0" :max="360" :step="90"></Range> </div>',
       components: { Range },
     });
-    const ticksCount = wrapper.findAll(".vue-slide-bar-separate").length;
+    const ticksCount = wrapper.findAll('.vue-slide-bar-separate').length;
     expect(ticksCount).toBe(5);
   });
 });
