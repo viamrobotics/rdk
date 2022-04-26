@@ -102,6 +102,7 @@ func (s *syncer) UploadSynced() {
 	})
 }
 
+// upload is an fs.WalkDirFunc that uploads files to Viam cloud storage.
 func (u *uploader) upload(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		return err
@@ -131,6 +132,7 @@ func (u *uploader) upload(path string, di fs.DirEntry, err error) error {
 	return nil
 }
 
+// queueFile is an fs.WalkDirFunc that moves matching files to s.syncQueue.
 func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 	if err != nil {
 		return err
