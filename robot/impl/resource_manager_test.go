@@ -593,7 +593,7 @@ func TestManagerAdd(t *testing.T) {
 		cameraName, segmenterName string,
 		parameters config.AttributeMap,
 	) ([]*viz.Object, error) {
-		return []*viz.Object{vision.NewEmptyObject()}, nil
+		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
 	objectSegResName := vision.Name
 	manager.addResource(objectSegResName, injectVisionService)

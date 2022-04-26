@@ -82,7 +82,7 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 			"segment_size": 1000,
 		},
 	}
-	_, err = srv.AddDetector(context.Background(), detConf)
+	err = srv.AddDetector(context.Background(), detConf)
 	test.That(t, err, test.ShouldBeNil)
 	return r
 }

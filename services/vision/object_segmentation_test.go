@@ -99,11 +99,11 @@ func TestGetObjectPointClouds(t *testing.T) {
 	// from a camera that has a PointCloud func -- apply default
 	obs, err := vision.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
-	segmenterNames, err := obs.GetSegmenters(context.Background())
+	segmenterNames, err := obs.SegmenterNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segmenterNames, test.ShouldContain, vision.RadiusClusteringSegmenter)
 
-	paramNames, err := obs.GetSegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
+	paramNames, err := obs.SegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, paramNames, test.ShouldHaveLength, 4)
 	cfg := config.AttributeMap{
@@ -221,7 +221,7 @@ func TestFullClientServerLoop(t *testing.T) {
 
 	client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	paramNames, err := client.GetSegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
+	paramNames, err := client.SegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
 	expParams := []rdkutils.TypedName{
 		{"min_points_in_plane", "int"},

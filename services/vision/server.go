@@ -74,26 +74,24 @@ func (server *subtypeServer) AddDetector(
 		Type:       req.DetectorModelType,
 		Parameters: params,
 	}
-	success, err := svc.AddDetector(ctx, cfg)
+	err = svc.AddDetector(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.AddDetectorResponse{
-		Success: success,
-	}, nil
+	return &pb.AddDetectorResponse{}, nil
 }
 
-func (server *subtypeServer) Detect(
+func (server *subtypeServer) GetDetections(
 	ctx context.Context,
-	req *pb.DetectRequest,
-) (*pb.DetectResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::server::Detect")
+	req *pb.GetDetectionsRequest,
+) (*pb.GetDetectionsResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetections")
 	defer span.End()
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.Detect(ctx, req.CameraName, req.DetectorName)
+	detections, err := svc.GetDetections(ctx, req.CameraName, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
@@ -113,37 +111,37 @@ func (server *subtypeServer) Detect(
 		}
 		protoDets = append(protoDets, d)
 	}
-	return &pb.DetectResponse{
+	return &pb.GetDetectionsResponse{
 		Detections: protoDets,
 	}, nil
 }
 
-func (server *subtypeServer) GetSegmenters(
+func (server *subtypeServer) SegmenterNames(
 	ctx context.Context,
-	req *pb.GetSegmentersRequest,
-) (*pb.GetSegmentersResponse, error) {
+	req *pb.SegmenterNamesRequest,
+) (*pb.SegmenterNamesResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetSegmenters(ctx)
+	names, err := svc.SegmenterNames(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetSegmentersResponse{
-		Segmenters: names,
+	return &pb.SegmenterNamesResponse{
+		SegmenterNames: names,
 	}, nil
 }
 
-func (server *subtypeServer) GetSegmenterParameters(
+func (server *subtypeServer) SegmenterParameters(
 	ctx context.Context,
-	req *pb.GetSegmenterParametersRequest,
-) (*pb.GetSegmenterParametersResponse, error) {
+	req *pb.SegmenterParametersRequest,
+) (*pb.SegmenterParametersResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	params, err := svc.GetSegmenterParameters(ctx, req.SegmenterName)
+	params, err := svc.SegmenterParameters(ctx, req.SegmenterName)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +149,8 @@ func (server *subtypeServer) GetSegmenterParameters(
 	for i, p := range params {
 		typedParams[i] = &pb.TypedParameter{Name: p.Name, Type: p.Type}
 	}
-	return &pb.GetSegmenterParametersResponse{
-		Parameters: typedParams,
+	return &pb.SegmenterParametersResponse{
+		SegmenterParameters: typedParams,
 	}, nil
 }
 

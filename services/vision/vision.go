@@ -53,11 +53,11 @@ func init() {
 type Service interface {
 	// detector methods
 	DetectorNames(ctx context.Context) ([]string, error)
-	AddDetector(ctx context.Context, cfg DetectorConfig) (bool, error)
-	Detect(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
+	AddDetector(ctx context.Context, cfg DetectorConfig) error
+	GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
 	// segmenter methods
-	GetSegmenters(ctx context.Context) ([]string, error)
-	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
+	SegmenterNames(ctx context.Context) ([]string, error)
+	SegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*viz.Object, error)
 }
 
@@ -147,6 +147,6 @@ func (vs *visionService) Update(ctx context.Context, conf config.Service) error 
 	if !ok {
 		return utils.NewUnexpectedTypeError(svc, newService)
 	}
-	vs = svc
+	*vs = *svc
 	return nil
 }
