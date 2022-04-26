@@ -71,8 +71,8 @@ export default class InputController extends Vue {
   }
 
   get connected(): boolean {
-    for (const ev of this.controllerStatus.eventsList) {
-      if (ev.event !== "Disconnect") {
+    for (const event_ of this.controllerStatus.eventsList) {
+      if (event_.event !== "Disconnect") {
         return true;
       }
     }
@@ -80,13 +80,9 @@ export default class InputController extends Vue {
   }
 
   getValue(control: string): string {
-    for (const iEvent of this.controllerStatus.eventsList) {
-      if (iEvent.control === control) {
-        if (control.includes("Absolute")) {
-          return iEvent.value.toFixed(4);
-        } else {
-          return iEvent.value.toFixed(0);
-        }
+    for (const indexEvent of this.controllerStatus.eventsList) {
+      if (indexEvent.control === control) {
+        return control.includes("Absolute") ? indexEvent.value.toFixed(4) : indexEvent.value.toFixed(0);
       }
     }
     return "";

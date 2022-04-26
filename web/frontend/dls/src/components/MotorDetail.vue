@@ -199,26 +199,26 @@ class MotorCommand {
     type: string;
     request: SetPowerRequest | GoForRequest | GoToRequest;
   } {
-    let req;
+    let request;
     switch (this.type) {
       case MotorCommandType.Go:
-        req = new SetPowerRequest();
-        req.setPowerPct((this.speed * this.direction) / 100);
+        request = new SetPowerRequest();
+        request.setPowerPct((this.speed * this.direction) / 100);
         break;
       case MotorCommandType.GoFor:
-        req = new GoForRequest();
-        req.setRpm(this.speed * this.direction);
-        req.setRevolutions(this.revolutions);
+        request = new GoForRequest();
+        request.setRpm(this.speed * this.direction);
+        request.setRevolutions(this.revolutions);
         break;
       case MotorCommandType.GoTo:
-        req = new GoToRequest();
-        req.setRpm(this.speed);
-        req.setPositionRevolutions(this.position);
+        request = new GoToRequest();
+        request.setRpm(this.speed);
+        request.setPositionRevolutions(this.position);
         break;
     }
     return {
       type: this.type.toString(),
-      request: req,
+      request,
     };
   }
 }

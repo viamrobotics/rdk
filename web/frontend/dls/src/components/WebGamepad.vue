@@ -32,7 +32,7 @@
           class="column control"
         >
           <p class="subtitle">{{ name }}</p>
-          {{ name.match(/X|Y|Z$/) ? value.toFixed(4) : value.toFixed(0) }}
+          {{ /X|Y|Z$/.test(name) ? value.toFixed(4) : value.toFixed(0) }}
         </div>
       </div>
     </div>
@@ -78,25 +78,25 @@ export default class WebGamepad extends Vue {
   }
 
   curStates = {
-    X: NaN,
-    Y: NaN,
-    RX: NaN,
-    RY: NaN,
-    Z: NaN,
-    RZ: NaN,
-    Hat0X: NaN,
-    Hat0Y: NaN,
-    South: NaN,
-    East: NaN,
-    West: NaN,
-    North: NaN,
-    LT: NaN,
-    RT: NaN,
-    LThumb: NaN,
-    RThumb: NaN,
-    Select: NaN,
-    Start: NaN,
-    Menu: NaN,
+    X: Number.NaN,
+    Y: Number.NaN,
+    RX: Number.NaN,
+    RY: Number.NaN,
+    Z: Number.NaN,
+    RZ: Number.NaN,
+    Hat0X: Number.NaN,
+    Hat0Y: Number.NaN,
+    South: Number.NaN,
+    East: Number.NaN,
+    West: Number.NaN,
+    North: Number.NaN,
+    LT: Number.NaN,
+    RT: Number.NaN,
+    LThumb: Number.NaN,
+    RThumb: Number.NaN,
+    Select: Number.NaN,
+    Start: Number.NaN,
+    Menu: Number.NaN,
   } as { [key: string]: number };
 
   prevStates = {} as { [key: string]: number };
@@ -109,7 +109,7 @@ export default class WebGamepad extends Vue {
   processEvents(): void {
     if (this.gamepadConnected === false) {
       for (const ctrl in this.curStates) {
-        this.curStates[ctrl] = NaN;
+        this.curStates[ctrl] = Number.NaN;
       }
       if (this.gamepadConnectedPrev === true) {
         this.connectEvent(false);
@@ -131,7 +131,7 @@ export default class WebGamepad extends Vue {
       }
       const newEvent = new Event();
       newEvent.setTime(Timestamp.fromDate(new Date()));
-      if (ctrl.match(/X|Y|Z$/)) {
+      if (/X|Y|Z$/.test(ctrl)) {
         newEvent.setControl(`Absolute${ctrl}`);
         newEvent.setEvent("PositionChangeAbs");
       } else {
@@ -164,7 +164,7 @@ export default class WebGamepad extends Vue {
       newEvent.setTime(Timestamp.fromDate(new Date()));
       newEvent.setEvent(con ? "Connect" : "Disconnect");
       newEvent.setValue(0);
-      if (ctrl.match(/X|Y|Z$/)) {
+      if (/X|Y|Z$/.test(ctrl)) {
         newEvent.setControl(`Absolute${ctrl}`);
       } else {
         newEvent.setControl(`Button${ctrl}`);
@@ -175,16 +175,16 @@ export default class WebGamepad extends Vue {
 
   sendEvent(newEvent: Event): void {
     if (this.enabled) {
-      const req = new TriggerEventRequest();
-      req.setController("WebGamepad");
-      req.setEvent(newEvent);
-      this.$emit("execute", req);
+      const request = new TriggerEventRequest();
+      request.setController("WebGamepad");
+      request.setEvent(newEvent);
+      this.$emit("execute", request);
     }
   }
 
-  grpcCallback(err: Error): void {
-    if (err) {
-      console.log(err);
+  grpcCallback(error: Error): void {
+    if (error) {
+      console.log(error);
     }
   }
 
@@ -205,11 +205,7 @@ export default class WebGamepad extends Vue {
     }
 
     if (this.gamepad) {
-      if (this.gamepad.mapping === "standard") {
-        this.gamepadName = this.gamepad.id.replace(/ \(STANDARD .*\)/i, "");
-      } else {
-        this.gamepadName = this.gamepad.id;
-      }
+      this.gamepadName = this.gamepad.mapping === "standard" ? this.gamepad.id.replace(/ \(standard .*\)/i, "") : this.gamepad.id;
 
       this.prevStates = Object.assign(this.prevStates, this.curStates);
       this.gamepadConnected = this.gamepad.connected;

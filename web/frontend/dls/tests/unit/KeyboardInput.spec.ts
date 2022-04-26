@@ -7,7 +7,7 @@ describe("ViamButton", () => {
   const testEventFire = (keys: string[], eventName: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrapper: any = mount(KeyboardInput);
-    keys.forEach((keyName) => wrapper.vm.setKeyPressed(keyName, true));
+    for (const keyName of keys) wrapper.vm.setKeyPressed(keyName, true);
     wrapper.vm.handleKeysStateInstantly();
     expect(wrapper.emitted()[eventName]).toBeTruthy();
   };

@@ -47,11 +47,7 @@ export default class RadioButtons extends Vue {
     this.selected = this.defaultOption;
   }
   isDisabled(option: string): boolean {
-    if (this.disabledOptions) {
-      return !!this.disabledOptions.includes(option);
-    } else {
-      return false;
-    }
+    return this.disabledOptions ? !!this.disabledOptions.includes(option) : false;
   }
   @Watch("defaultOption")
   selectOption(option: string): void {

@@ -69,7 +69,7 @@ module.exports = {
     /**
      * @TODO this rule cannot be currently enabled, because static analysis cannot be run on vue class components
      * We want to switch to exclusively using `<script setup>` components (there are many other static analysis benefits
-     * of using only that component method), so once all components are converted we can re-enable this
+     * of using only that component method), so once all components are converted we can re-enable
      */ 
     "vue/no-undef-components": ["off", {
       ignorePatterns: [],

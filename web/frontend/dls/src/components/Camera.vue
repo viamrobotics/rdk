@@ -493,16 +493,16 @@ export default class Base extends Vue {
     this.$emit("select-object", e);
   }
 
-  pointLoad(i: number): void {
-    this.$emit("point-load", i);
+  pointLoad(index: number): void {
+    this.$emit("point-load", index);
   }
 
-  segmentLoad(i: number): void {
-    this.$emit("segment-load", i);
+  segmentLoad(index: number): void {
+    this.$emit("segment-load", index);
   }
 
-  boundingBoxLoad(i: number): void {
-    this.$emit("bounding-box-load", i);
+  boundingBoxLoad(index: number): void {
+    this.$emit("bounding-box-load", index);
   }
 
   togglePCDExpand(): void {

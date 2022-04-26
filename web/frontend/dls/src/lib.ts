@@ -47,8 +47,8 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   Camera,
 };
 
-Object.keys(Components).forEach((name) => {
+for (const name of Object.keys(Components)) {
   Vue.component(name, Components[name]);
-});
+}
 
 export default Components;

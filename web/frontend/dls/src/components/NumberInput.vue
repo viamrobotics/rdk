@@ -37,7 +37,7 @@
 import { Component, Vue, Prop } from "vue-property-decorator";
 import { mdiChevronDown, mdiChevronUp } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
-const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
+const REGEXP_NUMBER = /^-?(?:\d+|\d+\.\d*|\.\d+)$/;
 
 @Component({
   name: "NumberInput",
@@ -50,9 +50,9 @@ const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
   },
 })
 export default class NumberInput extends Vue {
-  @Prop({ default: -Infinity })
+  @Prop({ default: Number.NEGATIVE_INFINITY })
   public min!: number;
-  @Prop({ default: Infinity })
+  @Prop({ default: Number.POSITIVE_INFINITY })
   public max!: number;
   @Prop({ default: false })
   public float!: boolean;
@@ -129,10 +129,10 @@ export default class NumberInput extends Vue {
   increase(): void {
     this.changeValue(+this.step);
   }
-  isNumber(stringVal: string): boolean {
-    if (!this.float && !REGEXP_NUMBER.test(stringVal)) return false;
+  isNumber(stringValue: string): boolean {
+    if (!this.float && !REGEXP_NUMBER.test(stringValue)) return false;
 
-    const parsedNumber = Number(stringVal);
+    const parsedNumber = Number(stringValue);
     return (
       Number.isFinite(parsedNumber) && REGEXP_NUMBER.test(`${parsedNumber}`)
     );

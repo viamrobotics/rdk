@@ -349,11 +349,7 @@ export default class Base extends Vue {
     );
   }
   resizeContent(): void {
-    if (this.camera) {
-      this.maxHeight = 1500;
-    } else {
-      this.maxHeight = 500;
-    }
+    this.maxHeight = this.camera ? 1500 : 500;
   }
 }
 </script>

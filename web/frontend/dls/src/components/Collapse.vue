@@ -113,11 +113,7 @@ export default Vue.extend({
       this.resizeContent();
     },
     resizeContent() {
-      if (this.collapsed) {
-        this.maxHeight = 0;
-      } else {
-        this.maxHeight = this.$refs.content.offsetHeight;
-      }
+      this.maxHeight = this.collapsed ? 0 : this.$refs.content.offsetHeight;
     },
   },
 });

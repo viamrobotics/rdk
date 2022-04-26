@@ -79,8 +79,8 @@ export default class ViamSwitch extends Vue {
     return this.option;
   }
 
-  set checked(val: boolean) {
-    this.$emit("change", val);
+  set checked(value: boolean) {
+    this.$emit("change", value);
   }
 }
 </script>
