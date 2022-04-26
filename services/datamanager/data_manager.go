@@ -47,8 +47,7 @@ type DataManager interface { // TODO: Add synchronize.
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
 
-// SyncQueue is TODO: is this a good spot for it?
-const SyncQueue = "/tmp/sync_queue/"
+var SyncQueue = filepath.Join(os.Getenv("HOME"), "sync_queue", ".viam")
 
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
@@ -222,7 +221,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 		return nil, err
 	}
 
-	// Set Enqueue size to defaultCaptureQueueSize if it was not set in the config.
+	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
 	captureQueueSize := attributes.CaptureQueueSize
 	if captureQueueSize == 0 {
 		captureQueueSize = defaultCaptureQueueSize
@@ -259,7 +258,7 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 		svc.syncer.Close()
 	} else {
 		// TODO: This should probably be somewhere else... but idea is want to start this goroutine just once at start
-		go svc.updateCollectors()
+		go svc.updateCollectorTargets()
 	}
 	if intervalMins > 0 {
 		sm := newSyncer(SyncQueue, svc.logger, svc.captureDir)
@@ -302,7 +301,7 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	return nil
 }
 
-func (svc *Service) updateCollectors() {
+func (svc *Service) updateCollectorTargets() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 

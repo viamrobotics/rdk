@@ -32,7 +32,7 @@ type uploader struct {
 	uploadFn   func(path string) error
 }
 
-// newSyncer returns a new data manager service for the given robot.
+// newSyncer returns a new syncer.
 func newSyncer(queuePath string, logger golog.Logger, captureDir string) syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
@@ -145,7 +145,7 @@ func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 		return errors.Errorf("failed to get file info for filepath %s: %v", filePath, err)
 	}
 
-	// If it's been written to in the last minute, it's still active and shouldn't be queued.
+	// If it's been written to in the last s.queueWaitTime, it's still active and shouldn't be queued.
 	if time.Since(fileInfo.ModTime()) < s.queueWaitTime {
 		return nil
 	}
