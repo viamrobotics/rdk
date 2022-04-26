@@ -88,9 +88,29 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	opt *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *planReturn, 1)
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+		seedPos, err := mp.frame.Transform(seed)
+		if err != nil {
+			solutionChan <- &planReturn{err: err}
+			return nil, err
+		}
+		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
+		// TODO(rb) make this worldstate, once that is incorporated
+		obstacles := map[string]spatial.Geometry{}
+		interactionSpaces := map[string]spatial.Geometry{}
+		if len(obstacles) == 0 {
+			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		} else {
+			collisionConst := NewCollisionConstraint(mp.Frame(), obstacles, interactionSpaces)
+			if collisionConst != nil {
+				opt.AddConstraint("self-collision", collisionConst)
+			}
+		}
+	}
+
 	utils.PanicCapturingGo(func() {
-		// TODO(rb) fix me
-		mp.planRunner(ctx, goal, seed, map[string]spatial.Geometry{}, opt, nil, solutionChan)
+		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -109,31 +129,12 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	obstacles map[string]spatial.Geometry,
 	opt *PlannerOptions,
 	endpointPreview chan *configuration,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
 	inputSteps := []*configuration{}
-
-	if opt == nil {
-		opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed)
-		if err != nil {
-			solutionChan <- &planReturn{err: err}
-			return
-		}
-		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
-		if len(obstacles) == 0 {
-			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
-		} else {
-			collisionConst := NewCollisionConstraintFromFrame(mp.Frame(), obstacles)
-			if collisionConst != nil {
-				opt.AddConstraint("self-collision", collisionConst)
-			}
-		}
-	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
