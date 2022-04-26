@@ -386,22 +386,22 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import 'vue-class-component/hooks';
-import Collapse from './Collapse.vue';
-import Breadcrumbs from './Breadcrumbs.vue';
-import ViamSwitch from './Switch.vue';
-import ViamIcon from './ViamIcon.vue';
-import RadioButtons from './RadioButtons.vue';
-import Popper from 'vue-popperjs';
-import 'vue-popperjs/dist/vue-popper.css';
+import { Component, Prop, Vue } from "vue-property-decorator";
+import "vue-class-component/hooks";
+import Collapse from "./Collapse.vue";
+import Breadcrumbs from "./Breadcrumbs.vue";
+import ViamSwitch from "./Switch.vue";
+import ViamIcon from "./ViamIcon.vue";
+import RadioButtons from "./RadioButtons.vue";
+import Popper from "vue-popperjs";
+import "vue-popperjs/dist/vue-popper.css";
 import {
   mdiRestore,
   mdiImageFilterCenterFocus,
   mdiCameraIris,
   mdiDownloadOutline,
   mdiInformationOutline,
-} from '@mdi/js';
+} from "@mdi/js";
 
 @Component({
   components: {
@@ -437,77 +437,77 @@ export default class Base extends Vue {
   camera = !this.connectedCamera;
   pcd = !this.connectedPCD;
   maxHeight = 150;
-  selectedValue = 'manual';
+  selectedValue = "manual";
   streamId = `stream-${this.streamName}`;
   pcdId = `pcd-${this.streamName}`;
-  selected = '';
+  selected = "";
   speed = 0;
   min = 0;
   max = 500;
 
   beforeMount(): void {
-    window.addEventListener('resize', this.resizeContent);
+    window.addEventListener("resize", this.resizeContent);
   }
 
   beforeDestroy(): void {
-    window.removeEventListener('resize', this.resizeContent);
+    window.removeEventListener("resize", this.resizeContent);
   }
   mounted(): void {
     this.resizeContent();
   }
   toggleExpand(): void {
     this.camera = !this.camera;
-    this.$emit('toggle-camera', this.camera);
+    this.$emit("toggle-camera", this.camera);
     this.resizeContent();
   }
 
   selectCameraView(): void {
-    this.$emit('selected-camera-view', this.selectedValue);
+    this.$emit("selected-camera-view", this.selectedValue);
   }
 
   refreshCamera(): void {
-    this.$emit('refresh-camera', 'manual');
+    this.$emit("refresh-camera", "manual");
   }
 
   pcdClick(e: Event): void {
-    this.$emit('pcd-click', e);
+    this.$emit("pcd-click", e);
   }
 
   pcdMove(e: Event): void {
-    this.$emit('pcd-move', e);
+    this.$emit("pcd-move", e);
   }
 
   changeSegmenter(): void {
-    this.$emit('change-segmenter', this.selectedValue);
+    this.$emit("change-segmenter", this.selectedValue);
   }
 
   findSegments(): void {
-    this.$emit('find-segments', this.selectedValue, this.segmenterParameters);
+    this.$emit("find-segments", this.selectedValue, this.segmenterParameters);
   }
 
   fullImage(e: Event): void {
-    this.$emit('full-image', e);
+    this.$emit("full-image", e);
   }
 
   selectObject(e: Event): void {
-    this.$emit('select-object', e);
+    this.$emit("select-object", e);
   }
 
   pointLoad(i: number): void {
-    this.$emit('point-load', i);
+    this.$emit("point-load", i);
   }
 
   segmentLoad(i: number): void {
-    this.$emit('segment-load', i);
+    this.$emit("segment-load", i);
   }
 
   boundingBoxLoad(i: number): void {
-    this.$emit('bounding-box-load', i);
+    this.$emit("bounding-box-load", i);
   }
 
   togglePCDExpand(): void {
     this.pcd = !this.pcd;
-    this.$emit('toggle-pcd', this.pcd);
+    this.$emit("toggle-pcd", this.pcd);
     this.resizeContent();
   }
   resizeContent(): void {

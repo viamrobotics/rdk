@@ -5,7 +5,7 @@
       <div class="flex items-center pt-1">
         <div class="text-xs px-2 text-center">{{ min }}{{ unit }}</div>
         <div class="pt-1 w-64">
-          <vue-slide-bar
+          <VueSlideBar
             v-model="innerValue"
             :line-height="2"
             :icon-width="16"
@@ -20,7 +20,7 @@
                 class="border border-black rounded-full w-4 h-4 mt-5 bg-white range-tooltip"
               ></div>
             </div>
-          </vue-slide-bar>
+          </VueSlideBar>
         </div>
         <div class="px-2 text-xs text-center">{{ max }}{{ unit }}</div>
         <number-input
@@ -36,9 +36,9 @@
   </div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import NumberInput from './NumberInput.vue';
-import VueSlideBar from 'vue-slide-bar';
+import { Component, Prop, Vue } from "vue-property-decorator";
+import NumberInput from "./NumberInput.vue";
+import VueSlideBar from "vue-slide-bar";
 
 @Component({
   components: {
@@ -50,9 +50,9 @@ export default class ViamRange extends Vue {
   @Prop({ default: 100 }) max!: number;
   @Prop({ default: 0 }) min!: number;
   @Prop({ default: 10 }) step!: number;
-  @Prop({ default: '' }) name!: string;
-  @Prop({ default: 'DefaultId' }) id!: string;
-  @Prop({ default: '' }) unit!: string;
+  @Prop({ default: "" }) name!: string;
+  @Prop({ default: "DefaultId" }) id!: string;
+  @Prop({ default: "" }) unit!: string;
   @Prop({ required: true }) value!: number;
   @Prop({ default: false }) hideTickLabels!: boolean;
 
@@ -60,7 +60,7 @@ export default class ViamRange extends Vue {
     return this.value;
   }
   set innerValue(value: number) {
-    this.$emit('input', value);
+    this.$emit("input", value);
   }
 
   get rangeLabels(): { label: number; isHide: boolean }[] | null {
@@ -82,10 +82,10 @@ export default class ViamRange extends Vue {
   }
   get processStyle(): { [key: string]: string } {
     return {
-      backgroundColor: '#000000',
-      height: '4px',
-      'border-radius': '0',
-      top: '-2px',
+      backgroundColor: "#000000",
+      height: "4px",
+      "border-radius": "0",
+      top: "-2px",
     };
   }
 }

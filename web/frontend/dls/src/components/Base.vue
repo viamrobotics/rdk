@@ -251,21 +251,21 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import 'vue-class-component/hooks';
-import Collapse from './Collapse.vue';
-import Breadcrumbs from './Breadcrumbs.vue';
-import ViamIcon from './ViamIcon.vue';
+import { Component, Prop, Vue } from "vue-property-decorator";
+import "vue-class-component/hooks";
+import Collapse from "./Collapse.vue";
+import Breadcrumbs from "./Breadcrumbs.vue";
+import ViamIcon from "./ViamIcon.vue";
 import {
   mdiRestore,
   mdiPlayCircleOutline,
   mdiCloseOctagonOutline,
-} from '@mdi/js';
-import Tabs from './Tabs.vue';
-import Tab from './Tab.vue';
-import RadioButtons from './RadioButtons.vue';
-import 'vue-popperjs/dist/vue-popper.css';
-import ViamButton from './Button.vue';
+} from "@mdi/js";
+import Tabs from "./Tabs.vue";
+import Tab from "./Tab.vue";
+import RadioButtons from "./RadioButtons.vue";
+import "vue-popperjs/dist/vue-popper.css";
+import ViamButton from "./Button.vue";
 
 @Component({
   components: {
@@ -291,23 +291,23 @@ export default class Base extends Vue {
 
   camera = this.connectedCamera;
   maxHeight = 500;
-  selectedValue = 'NoCamera';
+  selectedValue = "NoCamera";
   isContinuous = true;
   streamId = `stream-preview-${this.streamName}`;
-  selectedItem = 'keyboard';
+  selectedItem = "keyboard";
   pressedKey = 0;
-  movementMode = 'Straight';
-  movementType = 'Continous';
-  direction = 'Forwards';
-  spinType = '';
+  movementMode = "Straight";
+  movementType = "Continous";
+  direction = "Forwards";
+  spinType = "";
   increment = 500;
   speed = 300;
   beforeMount(): void {
-    window.addEventListener('resize', this.resizeContent);
+    window.addEventListener("resize", this.resizeContent);
   }
 
   beforeDestroy(): void {
-    window.removeEventListener('resize', this.resizeContent);
+    window.removeEventListener("resize", this.resizeContent);
   }
 
   mounted(): void {
@@ -332,7 +332,7 @@ export default class Base extends Vue {
   }
   baseRun(): void {
     this.$emit(
-      'base-run',
+      "base-run",
       this.movementMode,
       this.movementType,
       this.spinType,
@@ -341,7 +341,7 @@ export default class Base extends Vue {
   }
   baseStop(): void {
     this.$emit(
-      'base-stop',
+      "base-stop",
       this.movementMode,
       this.movementType,
       this.spinType,
