@@ -10,11 +10,14 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+//MatPrint prints out the matrix in a viewable format
 func MatPrint(X mat.Matrix) {
 	fa := mat.Formatted(X, mat.Prefix(""), mat.Squeeze())
 	fmt.Printf("%v\n", fa)
 }
 
+//CornersToMatrix takes a list of N corners and places them in a Nx3 matrix
+//with homogenous coordinates ([X Y 1] for each corner)
 func CornersToMatrix(cc []Corner) mat.Matrix {
 	var data []float64
 	//var out *mat.Dense
@@ -26,15 +29,15 @@ func CornersToMatrix(cc []Corner) mat.Matrix {
 	return out.T()
 }
 
-/* BuildA builds the A matrix for Zhang's method. Reminder that each point pairing from
+/* buildA builds the A matrix for Zhang's method. Reminder that each point pairing from
 2D-image(x,y) to 2D-world (X,Y) coordinates gives two equations: ax^T*h=0 and ay^T*h = 0, where
 ax^T = [-X, -Y, -1, 0,0,0, xX,xY, x]
 ay^T = [0,0,0, -X, -Y, -1, yX,yY, y],
-so we use 4 points and stack these 2 at a time to make A: (8x9) matrix
+so we use N points and stack these 2 at a time to make A: (2Nx9) matrix
 
 (points should be on the same plane so that plane could be the XY or Z=0 plane)
 */
-func BuildA(impts, wdpts []Corner) (*mat.Dense, error) {
+func buildA(impts, wdpts []Corner) (*mat.Dense, error) {
 	var x, y, X, Y float64
 	if len(impts) < 4 || len(wdpts) < 4 || len(impts) != len(wdpts) {
 		return mat.NewDense(1, 1, nil), errors.New("need at least 4 image and 4 corresponding measured points")
@@ -49,9 +52,11 @@ func BuildA(impts, wdpts []Corner) (*mat.Dense, error) {
 	return A, nil
 }
 
+//BuildH uses the A matrix to find the homography matrix H (as a vector)  
+//such that AH=0. In reality, we approximate this using the SVD of A
 func BuildH(imagepts, worldpts []Corner) mat.Vector {
 	var Hvec *mat.VecDense
-	A, _ := BuildA(imagepts, worldpts)
+	A, _ := buildA(imagepts, worldpts)
 
 	svd := mat.SVD{}
 	done := svd.Factorize(A, 6)
@@ -66,32 +71,29 @@ func BuildH(imagepts, worldpts []Corner) mat.Vector {
 		//which corresponds to the smallest eigenvalue (in Sigma)
 		Hvec = V.ColView(len(sigma) - 1).(*mat.VecDense)
 	}
-	/*
-		//normalizing
-		k := Hvec.AtVec(Hvec.Len() - 1)
-		for i := 0; i < Hvec.Len(); i++ {
-			Hvec.SetVec(i, Hvec.AtVec(i)/k)
-		}
-	*/
 	return Hvec
 }
 
-func CheckH(A, H mat.Matrix) {
-	var out mat.Dense
-	out.Mul(A, H)
-	MatPrint(&out)
-}
-
+//ShapeH takes a 9-element vector and forms it into a 3x3 matrix
 func ShapeH(H mat.Vector) *mat.Dense {
 	data := []float64{H.AtVec(0), H.AtVec(1), H.AtVec(2), H.AtVec(3), H.AtVec(4), H.AtVec(5), H.AtVec(6), H.AtVec(7), H.AtVec(8)}
 	return mat.NewDense(3, 3, data)
 }
 
+//Unwrap takes a matrix and forms it into a row*col long vector
 func Unwrap(in *mat.Dense) *mat.VecDense {
 	r, c := in.Dims()
 	return mat.NewVecDense(r*c, in.RawMatrix().Data)
 }
 
+//CheckMul is a testing function that multiplies the two input matrices and shows the result
+func CheckMul(A, H mat.Matrix) {
+	var out mat.Dense
+	out.Mul(A, H)
+	MatPrint(&out)
+}
+
+//getVij calculates Vij given column vectors of H (via Zhang's method)
 func getVij(hi, hj mat.Vector) *mat.VecDense {
 	data := make([]float64, 0)
 	data = append(data, []float64{hi.AtVec(0) * hj.AtVec(0), hi.AtVec(0)*hj.AtVec(1) + hi.AtVec(1)*hj.AtVec(0), hi.AtVec(1) * hj.AtVec(1),
@@ -100,7 +102,8 @@ func getVij(hi, hj mat.Vector) *mat.VecDense {
 	return mat.NewVecDense(6, data)
 }
 
-func GetVFromH(H mat.Vector) *mat.Dense {
+//getVFromH uses getVij() to create part of the V matrix from a given homography matrix
+func getVFromH(H mat.Vector) *mat.Dense {
 	HH := ShapeH(H)
 
 	//Just do it for 1 H and we can stack them later
@@ -118,6 +121,8 @@ func GetVFromH(H mat.Vector) *mat.Dense {
 	return &Vout
 }
 
+//GetV uses getVFromH to combine the calculated chunks from different views 
+// (homographies) into a single V matrix 
 func GetV(H1, H2, H3 *mat.VecDense) *mat.Dense {
 	var V, W mat.Dense
 
@@ -140,17 +145,18 @@ func GetV(H1, H2, H3 *mat.VecDense) *mat.Dense {
 	fmt.Println("H3: ")
 	MatPrint(ShapeH(H3))
 
-	V1, V2, V3 := GetVFromH(H1), GetVFromH(H2), GetVFromH(H3)
+	V1, V2, V3 := getVFromH(H1), getVFromH(H2), getVFromH(H3)
 	V.Stack(V1, V2)
 	W.Stack(&V, V3)
 
 	return &W
 }
 
+//BuildBFromV uses V to calculate and return matrix B (as a vector) such that VB = 0.
+//In reality, we can only approximate this using the SVD 
 func BuildBFromV(V *mat.Dense) (mat.Vector, error) {
 	var Bvec mat.Vector
 	svd := mat.SVD{}
-
 	done := svd.Factorize(V, 6)
 
 	if done {
@@ -162,10 +168,11 @@ func BuildBFromV(V *mat.Dense) (mat.Vector, error) {
 
 		return Bvec, nil
 	}
-
 	return Bvec, errors.New("couldn't factorize your V")
 }
 
+//GetIntrinsicsFromB utilizes the method in Zhang's paper (Apdx B) to directly calculate
+// and print out the intrinsic parameters given the B matrix
 func GetIntrinsicsFromB(B mat.Vector) {
 	v0 := (B.AtVec(1)*B.AtVec(3) - B.AtVec(0)*B.AtVec(4)) / (B.AtVec(0)*B.AtVec(2) - B.AtVec(1)*B.AtVec(1))
 	fmt.Printf("v0: %v\n", v0)
@@ -181,6 +188,9 @@ func GetIntrinsicsFromB(B mat.Vector) {
 	fmt.Printf("u0: %v\n", u0)
 }
 
+//GetKFromB is supposed to be another method of retrieving the intrinsic parameters. Will
+//not work if B can't be subject to a Cholesky decomposition (not positive semi-definite).
+//Currently, this method almost never works, so we choose GetIntrinsicsFromB
 func GetKFromB(B mat.Vector) *mat.TriDense {
 	//Reshape B (vector) into a SymDense and then get to work
 	data := []float64{B.AtVec(0), B.AtVec(1), B.AtVec(3), B.AtVec(1), B.AtVec(2), B.AtVec(4), B.AtVec(3), B.AtVec(4), B.AtVec(5)}
@@ -201,12 +211,15 @@ func GetKFromB(B mat.Vector) *mat.TriDense {
 	return &K
 }
 
-//The function I want to minimize is |IMPTS - (H * WDPTS)|**2
+
+//The following two functions are for an implementation of the Levenberg-Marquardt algorithm
+//which is an optimization method to solve a non-linear least squares problem
+
+
+//MinCloure is a closure function for the function I want truly want to minimize which is
+// |IMPTS - (H * WDPTS)| ^2  . Note that the function to be minimized includes a normalization step
 func MinClosure(dst, x []float64, I, W mat.Matrix) func(out, in []float64) {
 
-	//define I?
-	//define W?
-	//naw just pass it in
 
 	return func(dst, x []float64) {
 		//x would be the parameters (H)
@@ -223,17 +236,18 @@ func MinClosure(dst, x []float64, I, W mat.Matrix) func(out, in []float64) {
 			projected.Set(1, i, projected.At(1, i)/k)
 			projected.Set(2, i, projected.At(2, i)/k)
 		}
-		//This might have made things worse... INVESTIGATE LATER
 
 		//got that now do I - projected ... then square it
 		out.Sub(I, &projected)
-
 		for i, d := range out.RawMatrix().Data {
 			dst[i] = d * d
 		}
 	}
 }
 
+//DoLM implements the Levenberg-Marquardt algorithm given the homography, image points,
+//and world points. The goal is to adjust the homography matrix such that it minimizes the squared
+//difference between IMPTS and H * WRLDPTS. Returns the new homography matrix as a 3x3
 func DoLM(H *mat.VecDense, I, W mat.Matrix) *mat.Dense {
 	//pass in image and world points to the outside function
 	r, c := I.Dims()
