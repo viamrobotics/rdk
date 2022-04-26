@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -23,6 +24,18 @@ func newTestSyncer(captureDir string, queue string, logger golog.Logger) syncer 
 	}
 }
 
+func newMockUploader(uploadCount *uint64) uploader {
+	return uploader{
+		inProgress: map[string]struct{}{},
+		lock:       &sync.Mutex{},
+		uploadFn: func(path string) error {
+			atomic.AddUint64(uploadCount, 1)
+			_ = os.Remove(path)
+			return nil
+		},
+	}
+}
+
 // Validates that for some captureDir, a file is enqueued and uploaded exactly once.
 func TestQueuesAndUploadsOnce(t *testing.T) {
 	captureDir := t.TempDir()
@@ -31,14 +44,7 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 
 	sut := newTestSyncer(captureDir, syncDir, l)
 	var uploadCount uint64
-	sut.uploader = uploader{
-		inProgress: map[string]struct{}{},
-		uploadFn: func(path string) error {
-			atomic.AddUint64(&uploadCount, 1)
-			_ = os.Remove(path)
-			return nil
-		},
-	}
+	sut.uploader = newMockUploader(&uploadCount)
 
 	// Put a file in captureDir.
 	file1, _ := ioutil.TempFile(captureDir, "whatever")
@@ -74,14 +80,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	sut := newTestSyncer(captureDir, syncDir, l)
 	var uploadCount uint64
-	sut.uploader = uploader{
-		inProgress: map[string]struct{}{},
-		uploadFn: func(path string) error {
-			atomic.AddUint64(&uploadCount, 1)
-			_ = os.Remove(path)
-			return nil
-		},
-	}
+	sut.uploader = newMockUploader(&uploadCount)
 
 	// Put a file in syncDir; this simulates a file that was enqueued by some previous syncer.
 	file1, _ := ioutil.TempFile(syncDir, "whatever")

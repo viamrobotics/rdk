@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -27,7 +28,7 @@ type syncer struct {
 }
 
 type uploader struct {
-	// TODO: use a thread safe map or a lock
+	lock       *sync.Mutex
 	inProgress map[string]struct{}
 	uploadFn   func(path string) error
 }
@@ -111,14 +112,20 @@ func (u *uploader) upload(path string, di fs.DirEntry, err error) error {
 	if di.IsDir() {
 		return nil
 	}
+	u.lock.Lock()
 	if _, ok := u.inProgress[path]; ok {
+		u.lock.Unlock()
 		return nil
 	}
 
 	// Mark upload as in progress.
 	u.inProgress[path] = struct{}{}
+	u.lock.Unlock()
 	err = u.uploadFn(path)
 	if err != nil {
+		u.lock.Lock()
+		delete(u.inProgress, path)
+		u.lock.Unlock()
 		return err
 	}
 
