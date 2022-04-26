@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -47,6 +48,7 @@ type DataManager interface { // TODO: Add synchronize.
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
 
+// SyncQueue is the directory under which files are queued while they are waiting to be synced to the cloud.
 var SyncQueue = filepath.Join(os.Getenv("HOME"), "sync_queue", ".viam")
 
 // Subtype is a constant that identifies the data manager service resource subtype.
@@ -90,15 +92,15 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	_, cancelFunc := context.WithCancel(ctx)
 
 	dataManagerSvc := &Service{
-		r:          r,
-		logger:     logger,
-		captureDir: viamCaptureDotDir,
-		collectors: make(map[componentMethodMetadata]collectorParams),
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		r:                        r,
+		logger:                   logger,
+		captureDir:               viamCaptureDotDir,
+		collectors:               make(map[componentMethodMetadata]collectorParams),
+		updateCollectorsCancelFn: cancelFunc,
+		backgroundWorkers:        &sync.WaitGroup{},
 	}
 
 	return dataManagerSvc, nil
@@ -106,13 +108,14 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 // Close releases all resources managed by data_manager.
 func (svc *Service) Close(ctx context.Context) error {
-	svc.cancelFunc()
+	svc.updateCollectorsCancelFn()
 	for _, collector := range svc.collectors {
 		collector.Collector.Close()
 	}
 	if svc.syncer != nil {
 		svc.syncer.Close()
 	}
+	svc.backgroundWorkers.Wait()
 	return nil
 }
 
@@ -124,8 +127,9 @@ type Service struct {
 	collectors map[componentMethodMetadata]collectorParams
 	syncer     *syncer
 
-	cancelCtx  context.Context
-	cancelFunc func()
+	//
+	backgroundWorkers        *sync.WaitGroup
+	updateCollectorsCancelFn func()
 }
 
 // Parameters stored for each collector.
@@ -252,20 +256,32 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	return &componentMetadata, nil
 }
 
-func (svc *Service) initOrUpdateSyncer(intervalMins int) {
-	if svc.syncer != nil {
-		// If already have a sync manager, Close it so it can be replaced.
-		svc.syncer.Close()
+func (svc *Service) initOrUpdateSyncer(ctx context.Context, intervalMins int) {
+	cancelCtx, fn := context.WithCancel(ctx)
+	svc.updateCollectorsCancelFn = fn
+
+	if svc.syncer == nil {
+		if intervalMins > 0 {
+			svc.initSyncer(cancelCtx, intervalMins)
+		}
 	} else {
-		// TODO: This should probably be somewhere else... but idea is want to start this goroutine just once at start
-		go svc.updateCollectorTargets()
+		svc.syncer.Close()
+		svc.updateCollectorsCancelFn()
+		if intervalMins > 0 {
+			svc.initSyncer(cancelCtx, intervalMins)
+		} else {
+			svc.syncer = nil
+		}
 	}
-	if intervalMins > 0 {
-		sm := newSyncer(SyncQueue, svc.logger, svc.captureDir)
-		svc.syncer = &sm
-		svc.syncer.Enqueue(time.Minute * time.Duration(intervalMins))
-		svc.syncer.UploadSynced()
-	}
+}
+
+func (svc *Service) initSyncer(ctx context.Context, intervalMins int) {
+	svc.backgroundWorkers.Add(1)
+	go svc.updateCollectorTargets(ctx)
+	sm := newSyncer(SyncQueue, svc.logger, svc.captureDir)
+	svc.syncer = &sm
+	svc.syncer.Enqueue(time.Minute * time.Duration(intervalMins))
+	svc.syncer.UploadSynced()
 }
 
 // Update updates the data manager service when the config has changed.
@@ -276,7 +292,7 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
-	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+	svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins)
 
 	// Initialize or add a collector based on changes to the config.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -301,13 +317,14 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	return nil
 }
 
-func (svc *Service) updateCollectorTargets() {
+func (svc *Service) updateCollectorTargets(cancelCtx context.Context) {
+	defer svc.backgroundWorkers.Done()
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-svc.cancelCtx.Done():
+		case <-cancelCtx.Done():
 			return
 		case <-ticker.C:
 			for component, collector := range svc.collectors {
