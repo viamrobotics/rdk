@@ -218,9 +218,11 @@
               >
                 <Range
                   id="angle"
-                  min="0"
-                  max="360"
-                  unit="<sup class='text-xs'>O</sup>"
+                  :min="0"
+                  :max="360"
+                  :step="90"
+                  v-model="maxClusteringRadius"
+                  unit="°"
                   name="Max Clustering Radius"
                 ></Range>
               </div>
@@ -301,6 +303,8 @@ export default class Base extends Vue {
   direction = "Forwards";
   spinType = "";
   increment = 500;
+  maxClusteringRadius = 90
+  
   speed = 300;
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
