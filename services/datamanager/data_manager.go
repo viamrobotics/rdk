@@ -261,12 +261,16 @@ func (svc *Service) initOrUpdateSyncer(ctx context.Context, intervalMins int) {
 	svc.updateCollectorsCancelFn = fn
 
 	if svc.syncer == nil {
+		// If previously we were not syncing and now we are, init a syncer.
 		if intervalMins > 0 {
 			svc.initSyncer(cancelCtx, intervalMins)
 		}
 	} else {
+		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine before
+		// initing a new syncer or niling svc.syncer.
 		svc.syncer.Close()
 		svc.updateCollectorsCancelFn()
+		// If we are still syncing, init a new syncer.
 		if intervalMins > 0 {
 			svc.initSyncer(cancelCtx, intervalMins)
 		} else {
