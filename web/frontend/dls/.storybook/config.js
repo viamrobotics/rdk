@@ -7,6 +7,8 @@ import ViamBadge from '../src/components/Badge';
 import ViamButton from '../src/components/Button';
 import ViamIcon from '../src/components/ViamIcon';
 import Range from '../src/components/Range';
+import Select from '../src/components/Select';
+
 
 import ViamInput from '../src/components/ViamInput';
 import Breadcrumbs from '../src/components/Breadcrumbs';
@@ -30,6 +32,8 @@ library.add(faCheckSquare)
 Vue.component('font-awesome-icon', FontAwesomeIcon);
 Vue.component('InputController', InputController);
 Vue.component('Range', Range);
+Vue.component('Select', Select);
+
 
 Vue.component('ViamBadge', ViamBadge);
 Vue.component('ViamButton', ViamButton);
