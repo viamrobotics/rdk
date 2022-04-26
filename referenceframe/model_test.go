@@ -69,7 +69,7 @@ func TestTransform(t *testing.T) {
 }
 
 func TestModelGeometries(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/model_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	sm, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -80,7 +80,16 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, geometries, test.ShouldNotBeNil)
 	expected, err := sm.inputsToFrames(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
+	geoms, err := m.Geometries(inputs)
+	_ = geoms
 
+	inputs[0] = Input{math.Pi / 2}
+	expected, err = sm.inputsToFrames(inputs, true)
+	test.That(t, err, test.ShouldBeNil)
+	geoms, err = m.Geometries(inputs)
+	_ = geoms
+	pose := geoms.Geometries()["test:link2"].Pose().Point()
+	_ = pose
 	numGeometries := 0
 	for _, joint := range expected {
 		if joint.geometryCreator != nil {
@@ -90,12 +99,12 @@ func TestModelGeometries(t *testing.T) {
 				if tf.Name() == joint.Name() {
 					geometry, err := tf.Geometries([]Input{})
 					test.That(t, err, test.ShouldBeNil)
-					offset = geometry[tf.Name()].Pose().Point().Sub(tf.(*staticFrame).transform.Point())
+					offset = geometry.Geometries()[tf.Name()].Pose().Point().Sub(tf.(*staticFrame).transform.Point())
 				}
 			}
-			expected := joint.transform.Point().Add(offset)
-			geometryCenter := geometries[sm.Name()+":"+joint.Name()].Pose().Point()
-			test.That(t, spatial.R3VectorAlmostEqual(expected, geometryCenter, 1e-3), test.ShouldBeTrue)
+			expectedGeometry := joint.transform.Point().Add(offset)
+			geometryCenter := geometries.Geometries()[sm.Name()+":"+joint.Name()].Pose().Point()
+			test.That(t, spatial.R3VectorAlmostEqual(expectedGeometry, geometryCenter, 1e-3), test.ShouldBeTrue)
 		}
 	}
 	test.That(t, numGeometries, test.ShouldEqual, 5)

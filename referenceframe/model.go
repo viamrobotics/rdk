@@ -77,7 +77,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
-func (m *SimpleModel) Geometries(inputs []Input) (map[string]spatialmath.Geometry, error) {
+func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	frames, err := m.inputsToFrames(inputs, true)
 	if err != nil && frames == nil {
 		return nil, err
@@ -91,9 +91,9 @@ func (m *SimpleModel) Geometries(inputs []Input) (map[string]spatialmath.Geometr
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		geometryMap[m.name+":"+frame.Name()] = geometry[frame.Name()]
+		geometryMap[m.name+":"+frame.Name()] = geometry.Geometries()[frame.Name()].Transform(frame.transform)
 	}
-	return geometryMap, errAll
+	return NewGeometriesInFrame(m.name, geometryMap), errAll
 }
 
 // CachedTransform will check a sync.Map cache to see if the exact given set of inputs has been computed yet. If so

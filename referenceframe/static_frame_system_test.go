@@ -108,8 +108,8 @@ func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// define the point coordinates and transform between them both ways
-	poseWorld := NewPoseInFrame(World, spatial.NewPoseFromPoint(r3.Vector{1, 3, 0}))    // the point from PoV of world
-	poseFrame := NewPoseInFrame("frame", spatial.NewPoseFromPoint(r3.Vector{-1, 0, 0})) // the point from PoV of frame
+	poseWorld := NewPoseInFrame(World, spatial.NewPoseFromPoint(r3.Vector{1, 3, 0}))
+	poseFrame := NewPoseInFrame("frame", spatial.NewPoseFromAxisAngle(r3.Vector{-1., 0, 0}, r3.Vector{0., 0., 1.}, math.Pi))
 	testTransformPoint(t, fs, map[string][]Input{}, poseWorld, poseFrame)
 	testTransformPoint(t, fs, map[string][]Input{}, poseFrame, poseWorld)
 }
@@ -157,6 +157,8 @@ func TestFrameTranslation(t *testing.T) {
 	poseStart := NewPoseInFrame("frame1", spatial.NewPoseFromPoint(r3.Vector{5, 0, 0})) // the point from PoV of frame 1
 	poseEnd := NewPoseInFrame("frame2", spatial.NewPoseFromPoint(r3.Vector{0, 6, 0}))   // the point from PoV of frame 2
 	testTransformPoint(t, fs, map[string][]Input{}, poseStart, poseEnd)
+	testTransformPoint(t, fs, map[string][]Input{}, poseEnd, poseStart)
+
 }
 
 /*
@@ -200,10 +202,57 @@ func TestFrameTransform(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// do the transformation
-	poseStart := NewPoseInFrame("frame1", spatial.NewPoseFromPoint(r3.Vector{5, 0, 0})) // the point from PoV of frame 1
-	poseEnd := NewPoseInFrame("frame2", spatial.NewPoseFromPoint(r3.Vector{6, 0, 0}))   // the point from PoV of frame 2
+	poseStart := NewPoseInFrame("frame1", spatial.NewPoseFromPoint(r3.Vector{5, 0, 0}))
+	poseEnd := NewPoseInFrame("frame2", spatial.NewPoseFromAxisAngle(r3.Vector{6, 0, 0.}, r3.Vector{0., 0., 1.}, math.Pi/2))
 	testTransformPoint(t, fs, map[string][]Input{}, poseStart, poseEnd)
 }
+
+// func TestGeometriesTransform(t *testing.T) {
+// 	fs := NewEmptySimpleFrameSystem("test")
+
+// 	// create expected box
+// 	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, spatial.NewZeroPose())
+// 	test.That(t, err, test.ShouldBeNil)
+// 	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
+// 	expectedBox := bc.NewGeometry(pose)
+
+// 	testGeometries := func(t *testing.T, frame Frame) {
+// 		t.Helper()
+// 		err = fs.AddFrame(frame, fs.World())
+// 		test.That(t, err, test.ShouldBeNil)
+// 		gf, err := frame.Geometries([]Input{})
+// 		test.That(t, err, test.ShouldBeNil)
+// 		tf, err := fs.Transform(StartPositions(fs), gf, World)
+// 		test.That(t, err, test.ShouldBeNil)
+// 		gf, _ = tf.(*GeometriesInFrame)
+// 		test.That(t, expectedBox.AlmostEqual(gf.Geometries()[""]), test.ShouldBeTrue)
+// 	}
+
+// 	// test creating a new static frame with a geometry
+// 	sf, err := NewStaticFrameWithGeometry("", pose, bc)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	testGeometries(t, sf)
+
+// 	// test creating a new translational frame with a geometry
+// 	tf, err := NewTranslationalFrameWithGeometry("", r3.Vector{0, 1, 0}, Limit{Min: -30, Max: 30}, bc)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	testGeometries(t, tf)
+
+// 	// test erroring correctly from trying to create a geometry for a rotational frame
+// 	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
+// 	test.That(t, err, test.ShouldBeNil)
+// 	testGeometries(t, rf)
+
+// 	// test creating a new mobile frame with a geometry
+// 	mf, err := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, bc)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	testGeometries(t, mf)
+
+// 	// test inheriting a geometry creator
+// 	sf, err = NewStaticFrameFromFrame(tf, pose)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	testGeometries(t, sf)
+// }
 
 /*
 This test uses the same setup as the above test, but this time is concede with representing a geometry in a difference reference frame
@@ -224,7 +273,7 @@ world
 // frame1 has its origin at (0, 7, 0) in the world referenceframe. and frame2 has its origin
 // at (5, 1, 0), and orientation 90 degrees around z.
 // frame3 is an intermediate frame at (0, 4, 0) in the world referenceframe.
-func TestGeometriesOfFrame(t *testing.T) {
+func TestGeomtriesTransform(t *testing.T) {
 	// build the system
 	fs := NewEmptySimpleFrameSystem("test")
 	// location of frame3 with respect to world frame
@@ -252,10 +301,13 @@ func TestGeometriesOfFrame(t *testing.T) {
 	err = fs.AddFrame(object, f1)
 	test.That(t, err, test.ShouldBeNil)
 
-	objectFromFrame2 := r3.Vector{6., 0., 0.} // the point from PoV of frame 2
-	geometries, _ := fs.GeometriesOfFrame(map[string][]Input{}, "object", "frame2")
-	test.That(t, geometries, test.ShouldNotBeNil)
-	test.That(t, spatial.R3VectorAlmostEqual(geometries["object"].Pose().Point(), objectFromFrame2, 1e-8), test.ShouldBeTrue)
+	objectFromFrame2 := spatial.NewPoseFromPoint(r3.Vector{6., 0., 0.}) // the point from PoV of frame 2
+	geometries, err := object.Geometries([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	tf, err := fs.Transform(map[string][]Input{}, geometries, "frame2")
+	test.That(t, err, test.ShouldBeNil)
+	framedGeometries, _ := tf.(*GeometriesInFrame)
+	test.That(t, spatial.PoseAlmostCoincident(framedGeometries.Geometries()["object"].Pose(), objectFromFrame2), test.ShouldBeTrue)
 }
 
 func TestComplicatedFrameTransform(t *testing.T) {
@@ -298,7 +350,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 
 	// back to world frame
 	poseStart = NewPoseInFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{2, 0, 0})) // the point from PoV of frame 4
-	poseEnd = NewPoseInFrame(World, spatial.NewPoseFromPoint(r3.Vector{0, 7, 1}))      // the point from PoV of world
+	poseEnd = NewPoseInFrame(World, spatial.NewPoseFromPoint(r3.Vector{1, 7, 0}))      // the point from PoV of world
 	testTransformPoint(t, fs, map[string][]Input{}, poseStart, poseEnd)
 }
 
@@ -349,9 +401,8 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	f1 = fs2.GetFrame("frame1")
 	test.That(t, f1, test.ShouldBeNil)
 
-	poseStart := NewPoseInFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{2, 0, 0})) // the point from PoV of frame 4
-	poseEnd := NewPoseInFrame(World, spatial.NewPoseFromPoint(r3.Vector{0, 7, 1}))      // the point from PoV of world
-	testTransformPoint(t, fs, map[string][]Input{}, poseStart, poseEnd)
+	_, err = fs.Transform(map[string][]Input{}, NewPoseInFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{2, 0, 0})), "frame2")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	// Put frame3 back where it was
 	err = fs.AddFrame(frame3, fs.World())
@@ -364,14 +415,21 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	t.Logf("frames in fs2 after merge: %v", fs2.FrameNames())
 
 	// Confirm new combined frame system now works as it did before
-	poseStart = NewPoseInFrame("frame2", spatial.NewPoseFromPoint(r3.Vector{3, 0, 0})) // the point from PoV of frame 2
-	poseEnd = NewPoseInFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{2, 0, 0}))   // the point from PoV of frame 4
+	poseStart := NewPoseInFrame("frame2", spatial.NewPoseFromPoint(r3.Vector{3, 0, 0})) // the point from PoV of frame 2
+	poseEnd := NewPoseInFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{2, 0, 0}))   // the point from PoV of frame 4
 	testTransformPoint(t, fs, map[string][]Input{}, poseStart, poseEnd)
 }
 
 func testTransformPoint(t *testing.T, fs FrameSystem, positions map[string][]Input, start, end *PoseInFrame) {
 	t.Helper()
-	tf, err := fs.Transform(StartPositions(fs), start, end.FrameName())
+	tf, err := fs.Transform(positions, start, end.FrameName())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, tf.AlmostEqual(end), test.ShouldBeTrue)
+	pf, ok := tf.(*PoseInFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+	// o := pf.Pose().Point()
+	// _ = o
+	// p := end.Pose().Point()
+	// _ = p
+	test.That(t, pf.FrameName(), test.ShouldResemble, end.FrameName())
+	test.That(t, spatial.PoseAlmostCoincident(pf.Pose(), end.Pose()), test.ShouldBeTrue)
 }
