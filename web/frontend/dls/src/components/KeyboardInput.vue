@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col w-64 h-23">
+  <div class="flex flex-col h-23">
     <div
       v-for="(lineKeys, index) in keysLayout"
       :key="index"

@@ -7,7 +7,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-black p-2"
+          class="border-l border-r border-b border-black p-2"
           :style="{ height: maxHeight + 'px' }"
         >
           <Container>
