@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils"
 )
 
+// syncManager is responsible for uploading files to the cloud every syncInterval.
 type syncManager interface {
 	Start(syncInterval time.Duration)
 	Close()
