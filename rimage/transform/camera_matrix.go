@@ -26,7 +26,8 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignColorAndDepthImage(c *rimage.Im
 // TransformDepthCoordToColorCoord changes the coordinate system of the depth map to be in same coordinate system
 // as the color image.
 func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(
-	col *rimage.Image, dep *rimage.DepthMap) (*rimage.ImageWithDepth, error) {
+	col *rimage.Image, dep *rimage.DepthMap,
+) (*rimage.ImageWithDepth, error) {
 	if col.Height() != dcie.ColorCamera.Height || col.Width() != dcie.ColorCamera.Width {
 		return nil,
 			errors.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)",
@@ -74,7 +75,8 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Poin
 // Aligns it if it isn't already aligned.
 func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(
 	ii *rimage.ImageWithDepth,
-	crop ...image.Rectangle) (pointcloud.PointCloud, error) {
+	crop ...image.Rectangle,
+) (pointcloud.PointCloud, error) {
 	var iwd *rimage.ImageWithDepth
 	var err error
 	// color and depth images need to already be aligned

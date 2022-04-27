@@ -81,7 +81,8 @@ func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName strin
 func (c *client) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
 	segmenterName string,
-	params config.AttributeMap) ([]*vision.Object, error) {
+	params config.AttributeMap,
+) ([]*vision.Object, error) {
 	conf, err := structpb.NewStruct(params)
 	if err != nil {
 		return nil, err

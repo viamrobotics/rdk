@@ -26,7 +26,8 @@ import (
 func init() {
 	registry.RegisterComponent(camera.Subtype, "align_color_depth",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
-			config config.Component, logger golog.Logger) (interface{}, error) {
+			config config.Component, logger golog.Logger,
+		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*alignAttrs)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
