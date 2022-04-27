@@ -33,8 +33,6 @@ Vue.component('font-awesome-icon', FontAwesomeIcon);
 Vue.component('InputController', InputController);
 Vue.component('Range', Range);
 Vue.component('ViamSelect', ViamSelect);
-
-
 Vue.component('ViamBadge', ViamBadge);
 Vue.component('ViamButton', ViamButton);
 Vue.component('ViamIcon', ViamIcon);
