@@ -50,7 +50,6 @@
         { 'overflow-y-hidden': !expandedCompleted },
       ]"
       data-cy="collapse-content"
-      v-show="!collapsed"
       :style="{ maxHeight: maxHeight + 'px' }"
     >
       <div ref="content">
