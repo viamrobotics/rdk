@@ -208,6 +208,7 @@
                 <p class="text-xs">Movement Type</p>
                 <RadioButtons
                   :options="['Clockwise', 'Counterclockwise']"
+                  defaultOption="Clockwise"
                   :disabledOptions="[]"
                   v-on:selectOption="setSpinType($event)"
                 />
@@ -299,9 +300,10 @@ export default class Base extends Vue {
   movementMode = "Straight";
   movementType = "Continous";
   direction = "Forwards";
-  spinType = "";
+  spinType = "Clockwise";
   increment = 500;
   speed = 300;
+  angle = 0
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
   }
