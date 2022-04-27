@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -35,6 +36,7 @@ func newSensor(name string) sensor.Sensor {
 type Sensor struct {
 	mu   sync.Mutex
 	Name string
+	generic.Echo
 }
 
 // GetReadings always returns the set values.
@@ -42,9 +44,4 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return []interface{}{1, 2, 3}, nil
-}
-
-// Do echos back whatever was sent to it.
-func (s *Sensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }

@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -107,6 +108,7 @@ type Controller struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
+	generic.Unimplemented
 }
 
 // GetControls lists the inputs.
@@ -336,11 +338,6 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 	}, c.activeBackgroundWorkers.Done)
 	c.controls = append(c.controls, cfg.Control)
 	return nil
-}
-
-// Do is unimplemented.
-func (c *Controller) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 func abs(x int) int {

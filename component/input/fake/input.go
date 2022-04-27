@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -56,6 +57,7 @@ type InputController struct {
 	Name     string
 	mu       sync.Mutex
 	controls []input.Control
+	generic.Echo
 }
 
 // GetControls lists the inputs of the gamepad.
@@ -90,9 +92,4 @@ func (c *InputController) RegisterControlCallback(
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
 func (c *InputController) TriggerEvent(ctx context.Context, event input.Event) error {
 	return errors.New("unsupported")
-}
-
-// Do echos back whatever was sent to it.
-func (c *InputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
@@ -34,6 +35,7 @@ func init() {
 
 // Camera is a fake camera that always returns the same image.
 type Camera struct {
+	generic.Echo
 	Name  string
 	color string
 }
@@ -69,9 +71,4 @@ func setDot(img *image.NRGBA, color color.Color) {
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	pc := pointcloud.New()
 	return pc, pc.Set(pointcloud.NewVector(16, 16, 16), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-}
-
-// Do echos back whatever was sent to it.
-func (c *Camera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }

@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -49,6 +50,7 @@ func init() {
 }
 
 type wheeledBase struct {
+	generic.Unimplemented
 	widthMm              int
 	wheelCircumferenceMm int
 	spinSlipFactor       float64
@@ -260,10 +262,6 @@ func (base *wheeledBase) Close(ctx context.Context) error {
 
 func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 	return base.widthMm, nil
-}
-
-func (base *wheeledBase) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.

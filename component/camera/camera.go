@@ -95,23 +95,24 @@ func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (C
 	}
 	// if the camera parameters are specified in the config, those get priority.
 	if attrs != nil && attrs.CameraParameters != nil {
-		return &imageSourceWithProjector{imgSrc, attrs.CameraParameters}, nil
+		return &imageSourceWithProjector{imgSrc, attrs.CameraParameters, generic.Unimplemented{}}, nil
 	}
 	// inherit camera parameters from source camera if possible. if not, create a camera without projector.
 	if reconfigCam, ok := parentSource.(*reconfigurableCamera); ok {
 		if c, ok := reconfigCam.ProxyFor().(WithProjector); ok {
-			return &imageSourceWithProjector{imgSrc, c.GetProjector()}, nil
+			return &imageSourceWithProjector{imgSrc, c.GetProjector(), generic.Unimplemented{}}, nil
 		}
 	}
 	if camera, ok := parentSource.(WithProjector); ok {
-		return &imageSourceWithProjector{imgSrc, camera.GetProjector()}, nil
+		return &imageSourceWithProjector{imgSrc, camera.GetProjector(), generic.Unimplemented{}}, nil
 	}
-	return &imageSource{imgSrc}, nil
+	return &imageSource{imgSrc, generic.Unimplemented{}}, nil
 }
 
 // ImageSource implements a Camera with a gostream.ImageSource.
 type imageSource struct {
 	gostream.ImageSource
+	generic.Unimplemented
 }
 
 // Close closes the underlying ImageSource.
@@ -129,14 +130,11 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
 }
 
-func (is *imageSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
-}
-
 // ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
 type imageSourceWithProjector struct {
 	gostream.ImageSource
 	projector rimage.Projector
+	generic.Unimplemented
 }
 
 // Close closes the underlying ImageSource.
@@ -175,10 +173,6 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	_, toPcdSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ImageWithDepthToPointCloud")
 	defer toPcdSpan.End()
 	return iswp.projector.ImageWithDepthToPointCloud(imageWithDepth)
-}
-
-func (iswp *imageSourceWithProjector) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.

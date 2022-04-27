@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/config"
@@ -109,7 +110,7 @@ func configureMotorForBoard(
 	m, err := gpio.NewEncodedMotor(
 		config,
 		*motorConfig,
-		&arduinoMotor{b, *motorConfig, config.Name},
+		&arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name},
 		&encoder{b, *motorConfig, config.Name},
 		b.logger,
 	)
@@ -139,6 +140,7 @@ func configureMotorForBoard(
 }
 
 type arduinoMotor struct {
+	generic.Unimplemented
 	b    *arduinoBoard
 	cfg  motor.Config
 	name string
@@ -238,11 +240,6 @@ func (m *arduinoMotor) ResetZeroPosition(ctx context.Context, offset float64) er
 
 func (m *arduinoMotor) Close(ctx context.Context) error {
 	return m.Stop(ctx)
-}
-
-// Do is unimplemented.
-func (m *arduinoMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 type encoder struct {

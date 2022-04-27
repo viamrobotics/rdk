@@ -20,6 +20,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -41,6 +42,7 @@ func init() {
 }
 
 type serialNMEAGPS struct {
+	generic.Unimplemented
 	mu     sync.RWMutex
 	dev    io.ReadWriteCloser
 	logger golog.Logger
@@ -283,11 +285,6 @@ func (g *serialNMEAGPS) Close() error {
 		g.dev = nil
 	}
 	return nil
-}
-
-// Do is unimplemented.
-func (g *serialNMEAGPS) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 // toPoint converts a nmea.GLL to a geo.Point.

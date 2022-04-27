@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -54,6 +55,7 @@ type IMU struct {
 	magnetometer    r3.Vector
 
 	mu sync.Mutex
+	generic.Echo
 }
 
 // ReadAngularVelocity always returns the set value.
@@ -82,9 +84,4 @@ func (i *IMU) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.magnetometer, nil
-}
-
-// Do echos back whatever was sent to it.
-func (i *IMU) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }

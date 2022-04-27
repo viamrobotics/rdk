@@ -18,6 +18,7 @@ import (
 	"github.com/viamrobotics/evdev"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -102,6 +103,7 @@ type gamepad struct {
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 	devFile                 string
 	reconnect               bool
+	generic.Unimplemented
 }
 
 // Mapping represents the evdev code to input.Control mapping for a given gamepad model.
@@ -399,11 +401,6 @@ func (g *gamepad) RegisterControlCallback(
 		}
 	}
 	return nil
-}
-
-// Do is unimplemented.
-func (g *gamepad) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 func isGamepad(dev *evdev.Evdev) bool {

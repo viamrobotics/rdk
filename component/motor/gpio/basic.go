@@ -12,6 +12,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 )
 
@@ -108,6 +109,7 @@ type Motor struct {
 	cancelForFunc func()
 	waitCh        chan struct{}
 	logger        golog.Logger
+	generic.Unimplemented
 }
 
 // GetPosition always returns 0.
@@ -309,9 +311,4 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
-}
-
-// Do is unimplemented.
-func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

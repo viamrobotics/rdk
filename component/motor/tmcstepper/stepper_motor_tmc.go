@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -77,6 +78,7 @@ type Motor struct {
 	maxAcc      float64
 	fClk        float64
 	logger      golog.Logger
+	generic.Unimplemented
 }
 
 // TMC5072 Values.
@@ -539,9 +541,4 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 		m.writeReg(ctx, xTarget, int32(offset*float64(m.stepsPerRev))),
 		m.writeReg(ctx, xActual, int32(offset*float64(m.stepsPerRev))),
 	)
-}
-
-// Do is unimplemented.
-func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

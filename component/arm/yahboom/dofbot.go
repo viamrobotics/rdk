@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -73,6 +74,7 @@ func init() {
 }
 
 type dofBot struct {
+	generic.Unimplemented
 	handle board.I2CHandle
 	model  referenceframe.Model
 	mp     motionplan.MotionPlanner
@@ -360,8 +362,4 @@ func (a *dofBot) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 
 func (a *dofBot) Close() error {
 	return a.handle.Close()
-}
-
-func (a *dofBot) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

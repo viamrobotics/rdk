@@ -6,19 +6,17 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/grpc"
-	pbgeneric "go.viam.com/rdk/proto/api/component/generic/v1"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 )
 
 // serviceClient is a client that satisfies the motor.proto contract.
 type serviceClient struct {
-	conn    rpc.ClientConn
-	client  pb.MotorServiceClient
-	gclient pbgeneric.GenericServiceClient
-	logger  golog.Logger
+	conn   rpc.ClientConn
+	client pb.MotorServiceClient
+	logger golog.Logger
 }
 
 // newServiceClient returns a new serviceClient served at the given address.
@@ -39,12 +37,10 @@ func newServiceClient(
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
 	client := pb.NewMotorServiceClient(conn)
-	gClient := pbgeneric.NewGenericServiceClient(conn)
 	sc := &serviceClient{
-		conn:    conn,
-		client:  client,
-		gclient: gClient,
-		logger:  logger,
+		conn:   conn,
+		client: client,
+		logger: logger,
 	}
 	return sc
 }
@@ -157,17 +153,5 @@ func (c *client) IsPowered(ctx context.Context) (bool, error) {
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	command, err := structpb.NewStruct(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.gclient.Do(ctx, &pbgeneric.DoRequest{
-		Name:    c.name,
-		Command: command,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Result.AsMap(), nil
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

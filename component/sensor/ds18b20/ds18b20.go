@@ -13,6 +13,7 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -58,6 +59,7 @@ type Sensor struct {
 	Name          string
 	OneWireID     string
 	OneWireFamily string
+	generic.Unimplemented
 }
 
 // ReadTemperatureCelsius returns current temperature in celsius.
@@ -89,9 +91,4 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	return []interface{}{temp}, nil
-}
-
-// Do is unimplemented.
-func (s *Sensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

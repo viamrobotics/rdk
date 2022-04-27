@@ -9,6 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
@@ -34,6 +35,7 @@ func init() {
 
 // Gripper is a fake gripper that can simply read and set properties.
 type Gripper struct {
+	generic.Echo
 	Name  string
 	model referenceframe.Model
 }
@@ -51,9 +53,4 @@ func (g *Gripper) Open(ctx context.Context) error {
 // Grab does nothing.
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return false, nil
-}
-
-// Do echos back whatever was sent to it.
-func (g *Gripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }

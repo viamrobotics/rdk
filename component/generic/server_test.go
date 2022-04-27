@@ -54,15 +54,15 @@ func TestGenericDo(t *testing.T) {
 		return nil, errors.New("do failed")
 	}
 
-	commandStruct, err := structpb.NewStruct(command)
+	commandStruct, err := structpb.NewStruct(generic.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 
 	req := pb.DoRequest{Name: testGenericName, Command: commandStruct}
 	resp, err := genericServer.Do(context.Background(), &req)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp.Result.AsMap()["cmd"], test.ShouldEqual, command["cmd"])
-	test.That(t, resp.Result.AsMap()["data1"], test.ShouldEqual, command["data1"])
+	test.That(t, resp.Result.AsMap()["cmd"], test.ShouldEqual, generic.TestCommand["cmd"])
+	test.That(t, resp.Result.AsMap()["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 	req = pb.DoRequest{Name: failGenericName, Command: commandStruct}
 	resp, err = genericServer.Do(context.Background(), &req)

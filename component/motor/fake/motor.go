@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -56,6 +57,7 @@ type Motor struct {
 	PositionSupported bool
 	Board             string
 	PWM               board.GPIOPin
+	generic.Echo
 }
 
 // GetPosition always returns 0.
@@ -149,9 +151,4 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil
-}
-
-// Do echos back whatever was sent to it.
-func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }

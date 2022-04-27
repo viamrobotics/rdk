@@ -22,6 +22,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -86,6 +87,7 @@ type evaData struct {
 }
 
 type eva struct {
+	generic.Unimplemented
 	host         string
 	version      string
 	token        string
@@ -379,8 +381,4 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 	e.logger.Debugf("connected to eva: %v", name)
 
 	return e, nil
-}
-
-func (e *eva) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

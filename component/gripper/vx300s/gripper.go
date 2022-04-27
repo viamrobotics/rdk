@@ -3,7 +3,6 @@ package vx300s
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/dynamixel/servo/s_model"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -49,6 +49,7 @@ func getPortMutex(port string) *sync.Mutex {
 type vx300s struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
+	generic.Unimplemented
 }
 
 // newGripper TODO.
@@ -159,9 +160,4 @@ func findServo(usbPort, baudRateStr string, logger golog.Logger) *servo.Servo {
 	}
 
 	return newServo
-}
-
-// Do is unimplemented.
-func (g *vx300s) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

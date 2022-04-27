@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -80,6 +81,7 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 
 // A Board provides dummy data from fake parts in order to implement a Board.
 type Board struct {
+	generic.Echo
 	Name     string
 	SPIs     map[string]*SPI
 	I2Cs     map[string]*I2C
@@ -178,11 +180,6 @@ func (b *Board) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 // ModelAttributes returns attributes related to the model of this board.
 func (b *Board) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
-}
-
-// Do will simply echo back what was sent.
-func (b *Board) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }
 
 // Close attempts to cleanly close each part of the board.

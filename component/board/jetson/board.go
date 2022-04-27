@@ -18,6 +18,7 @@ import (
 	"periph.io/x/host/v3"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -99,6 +100,7 @@ func init() {
 }
 
 type jetsonBoard struct {
+	generic.Unimplemented
 	mu      sync.Mutex
 	spis    map[string]*spiBus
 	analogs map[string]board.AnalogReader
@@ -224,10 +226,6 @@ func (b *jetsonBoard) getGPIOLine(hwPin string) (gpio.PinIO, error) {
 		return nil, errors.Errorf("no global pin found for '%d'", mapping.gpioGlobal)
 	}
 	return pin, nil
-}
-
-func (b *jetsonBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 type gpioPin struct {

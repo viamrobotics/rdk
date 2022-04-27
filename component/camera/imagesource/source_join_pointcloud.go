@@ -2,7 +2,6 @@ package imagesource
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"image"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -70,6 +70,7 @@ type JoinAttrs struct {
 // the point of view of targetName. The model needs to have the entire robot available in order to build the correct offsets
 // between robot components for the frame system transform.
 type joinPointCloudSource struct {
+	generic.Unimplemented
 	sourceCameras []camera.Camera
 	sourceNames   []string
 	targetName    string
@@ -270,8 +271,4 @@ func contains(s []string, str string) (int, bool) {
 		}
 	}
 	return -1, false
-}
-
-func (jpcs *joinPointCloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
