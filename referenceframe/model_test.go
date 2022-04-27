@@ -86,9 +86,10 @@ func TestModelGeometries(t *testing.T) {
 	inputs[0] = Input{math.Pi / 2}
 	expected, err = sm.inputsToFrames(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
+	pose := expected[3].transform.Point()
 	geoms, err = m.Geometries(inputs)
 	_ = geoms
-	pose := geoms.Geometries()["test:link2"].Pose().Point()
+	pose = geoms.Geometries()["test:link2"].Pose().Point()
 	_ = pose
 	numGeometries := 0
 	for _, joint := range expected {
