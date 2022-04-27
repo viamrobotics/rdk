@@ -11,38 +11,82 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+func TestCollisionsEqual(t *testing.T) {
+	expected := Collision{name1: "a", name2: "b", penetrationDepth: 1}
+	cases := []struct {
+		collision Collision
+		success   bool
+	}{
+		{Collision{name1: "a", name2: "b", penetrationDepth: 1}, true},
+		{Collision{name1: "b", name2: "a", penetrationDepth: 1}, true},
+		{Collision{name1: "a", name2: "c", penetrationDepth: 1}, false},
+		{Collision{name1: "b", name2: "a", penetrationDepth: 2}, false},
+	}
+	for _, c := range cases {
+		test.That(t, c.success == collisionsAlmostEqual(expected, c.collision), test.ShouldBeTrue)
+	}
+}
+
+func TestCollisionListsEqual(t *testing.T) {
+	c1a := Collision{name1: "a", name2: "b", penetrationDepth: 1}
+	c1b := Collision{name1: "a", name2: "b", penetrationDepth: 1}
+	c2a := Collision{name1: "c", name2: "d", penetrationDepth: 2}
+	c2b := Collision{name1: "d", name2: "c", penetrationDepth: 2}
+	c3a := Collision{name1: "e", name2: "f", penetrationDepth: 2}
+	c3b := Collision{name1: "f", name2: "e", penetrationDepth: 2}
+	list1 := []Collision{c1a, c2b, c3a}
+	list2 := []Collision{c3b, c1a, c2a}
+	list3 := []Collision{c3b, c1a, c1b}
+	test.That(t, collisionListsAlmostEqual(list1, list2), test.ShouldBeTrue)
+	test.That(t, collisionListsAlmostEqual(list1, list3), test.ShouldBeFalse)
+	test.That(t, collisionListsAlmostEqual(list1, []Collision{}), test.ShouldBeFalse)
+}
+
 func TestCheckCollisions(t *testing.T) {
 	// case 1: small collection of custom geometries, expecting:
 	//      - a collision between two internal geometries
 	//      - a collision between an internal and external geometry
 	//      - no collision between two external geometries
-	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	bc1, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
-	internalGeometries := make(map[string]spatial.Geometry)
-	internalGeometries["internalCube000"] = bc.NewGeometry(spatial.NewZeroPose())
-	internalGeometries["internalCube222"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{3, 3, 3}))
-	internalGeometries["internalCube333"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{4, 4, 4}))
-	externalGeometries := make(map[string]spatial.Geometry)
-	externalGeometries["externalCube000"] = bc.NewGeometry(spatial.NewZeroPose())
-	externalGeometries["externalCube888"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{8, 8, 8}))
-	externalGeometries["externalCube999"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{9, 9, 9}))
-	cg, err := CheckCollisions(internalGeometries, externalGeometries)
+	robot := make(map[string]spatial.Geometry)
+	robot["robotCube000"] = bc1.NewGeometry(spatial.NewZeroPose())
+	robot["robotCube222"] = bc1.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{3, 3, 3}))
+	robot["robotCube333"] = bc1.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{4, 4, 4}))
+	obstacles := make(map[string]spatial.Geometry)
+	obstacles["obstacleCube000"] = bc1.NewGeometry(spatial.NewZeroPose())
+	obstacles["obstacleCube888"] = bc1.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{8, 8, 8}))
+	obstacles["obstacleCube999"] = bc1.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{9, 9, 9}))
+	interactionSpaces := make(map[string]spatial.Geometry)
+	interactionSpaces["iSCube000"] = bc1.NewGeometry(spatial.NewZeroPose())
+	interactionSpaces["iSCube222"] = bc1.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{3, 3, 3}))
+	robotEntities, err := NewObjectCollisionEntities(robot)
 	test.That(t, err, test.ShouldBeNil)
-	collisions := cg.Collisions()
-	test.That(t, len(collisions), test.ShouldEqual, 2)
-	expectedCollisions := [2]Collision{{"internalCube222", "internalCube333", 1}, {"externalCube000", "internalCube000", 2}}
-	test.That(t, collisionsEqual(collisions, expectedCollisions), test.ShouldBeTrue)
+	obstacleEntities, err := NewObjectCollisionEntities(obstacles)
+	test.That(t, err, test.ShouldBeNil)
+	spaceEntities, err := NewSpaceCollisionEntities(interactionSpaces)
+	test.That(t, err, test.ShouldBeNil)
+	cs, err := NewCollisionSystem(robotEntities, []CollisionEntities{obstacleEntities, spaceEntities})
+	test.That(t, err, test.ShouldBeNil)
+	expectedCollisions := []Collision{
+		{"robotCube222", "robotCube333", 1},
+		{"obstacleCube000", "robotCube000", 2},
+		{"iSCube000", "robotCube333", 1},
+		{"iSCube222", "robotCube333", 1},
+	}
+	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 
 	// case 2: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
 	// no external geometries considered, self collision only
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	internalGeometries, _ = m.Geometries(make([]frame.Input, len(m.DoF())))
-	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	cg, err = CheckCollisions(internalGeometries, map[string]spatial.Geometry{})
+	robot, _ = m.Geometries(make([]frame.Input, len(m.DoF())))
+	test.That(t, robot, test.ShouldNotBeNil)
+	robotEntities, err = NewObjectCollisionEntities(robot)
 	test.That(t, err, test.ShouldBeNil)
-	cols := cg.Collisions()
-	test.That(t, len(cols), test.ShouldEqual, len(cg.indices)-1)
+	cs, err = NewCollisionSystem(robotEntities, []CollisionEntities{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(cs.Collisions()), test.ShouldEqual, 4)
 }
 
 func TestUniqueCollisions(t *testing.T) {
@@ -53,36 +97,29 @@ func TestUniqueCollisions(t *testing.T) {
 	input := make([]frame.Input, len(m.DoF()))
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	zeroPositionCG, err := CheckCollisions(internalGeometries, map[string]spatial.Geometry{})
+	internalEntities, err := NewObjectCollisionEntities(internalGeometries)
+	test.That(t, err, test.ShouldBeNil)
+	zeroPositionCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
-	input[0] = frame.Input{1}
+	input[0] = frame.Input{Value: 1}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	cg, err := CheckUniqueCollisions(internalGeometries, map[string]spatial.Geometry{}, zeroPositionCG)
+	internalEntities, err = NewObjectCollisionEntities(internalGeometries)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cg.Collisions()), test.ShouldEqual, 0)
+	cs, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(cs.Collisions()), test.ShouldEqual, 0)
 
 	// case 2: self collision - check only new collisions are returned
-	input[4] = frame.Input{2}
+	input[4] = frame.Input{Value: 2}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	cg, err = CheckUniqueCollisions(internalGeometries, map[string]spatial.Geometry{}, zeroPositionCG)
+	internalEntities, err = NewObjectCollisionEntities(internalGeometries)
 	test.That(t, err, test.ShouldBeNil)
-	cols := cg.Collisions()
-	test.That(t, len(cols), test.ShouldEqual, 2)
-	equal := collisionsEqual(cols, [2]Collision{{"xArm6:base_top", "xArm6:wrist_link", 0}, {"xArm6:wrist_link", "xArm6:upper_arm", 0}})
-	test.That(t, equal, test.ShouldBeTrue)
-}
-
-// collisionsEqual is a helper function to compare two Collision lists because they can be out of order due to random nature of maps.
-func collisionsEqual(c1 []Collision, c2 [2]Collision) bool {
-	return (collisionEqual(c1[0], c2[0]) && collisionEqual(c1[1], c2[1])) || (collisionEqual(c1[0], c2[1]) && collisionEqual(c1[1], c2[0]))
-}
-
-// collisionEqual is a helper function to compare two Collisions because their strings can be out of order due to random nature of maps.
-func collisionEqual(c1, c2 Collision) bool {
-	return ((c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)) &&
-		utils.Float64AlmostEqual(c1.penetrationDepth, c2.penetrationDepth, 0.1)
+	cs, err = NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG)
+	test.That(t, err, test.ShouldBeNil)
+	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 0}, {"xArm6:wrist_link", "xArm6:upper_arm", 0}}
+	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 }
