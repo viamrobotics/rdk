@@ -11,6 +11,7 @@ import (
 // Base is an injected base.
 type Base struct {
 	base.LocalBase
+	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error
 	MoveArcFunc      func(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error
 	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error
@@ -65,4 +66,12 @@ func (b *Base) Close(ctx context.Context) error {
 		return utils.TryClose(ctx, b.LocalBase)
 	}
 	return b.CloseFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (b *Base) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if b.DoFunc == nil {
+		return b.LocalBase.Do(ctx, cmd)
+	}
+	return b.DoFunc(ctx, cmd)
 }
