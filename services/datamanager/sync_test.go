@@ -54,7 +54,7 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 
 	// Start syncer, let it run for a second.
 	sut.Start(time.Millisecond * 100)
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second)
 
 	// Verify file was enqueued and uploaded (moved from captureDir to syncDir).
 	filesInCaptureDir, err := ioutil.ReadDir(captureDir)
@@ -89,7 +89,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	// Start syncer, let it run for a second.
 	sut.Start(time.Millisecond * 100)
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second)
 
 	// Verify enqueued file was uploaded.
 	filesInQueue, err := ioutil.ReadDir(syncDir)

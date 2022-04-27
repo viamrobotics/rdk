@@ -91,10 +91,10 @@ func (s *syncer) enqueue(syncInterval time.Duration) {
 	})
 }
 
-// uploadSynced syncs data to the backing storage system.
-func (s *syncer) uploadSynced() {
+// uploadQueued syncs data to the backing storage system.
+func (s *syncer) uploadQueued() {
 	utils.PanicCapturingGo(func() {
-		ticker := time.NewTicker(time.Second)
+		ticker := time.NewTicker(time.Millisecond * 500)
 		defer ticker.Stop()
 		for {
 			select {
@@ -155,7 +155,7 @@ func (s *syncer) getPathUnderCaptureDir(filePath string) (string, error) {
 
 func (s *syncer) Start(syncInterval time.Duration) {
 	s.enqueue(syncInterval)
-	s.uploadSynced()
+	s.uploadQueued()
 }
 
 // Close closes all resources (goroutines) associated with s.
