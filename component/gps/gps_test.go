@@ -80,7 +80,6 @@ func TestGPSName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "047fe0db-e1e8-5b26-b7a6-6e5814eaf4b3",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gps.SubtypeName,
@@ -92,7 +91,6 @@ func TestGPSName(t *testing.T) {
 			"all fields included",
 			testGPSName,
 			resource.Name{
-				UUID: "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gps.SubtypeName,

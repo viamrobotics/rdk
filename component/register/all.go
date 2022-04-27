@@ -8,7 +8,6 @@ import (
 	_ "go.viam.com/rdk/component/base/register"
 	_ "go.viam.com/rdk/component/board/register"
 	_ "go.viam.com/rdk/component/camera/register"
-	_ "go.viam.com/rdk/component/forcematrix/register"
 	_ "go.viam.com/rdk/component/gantry/register"
 	_ "go.viam.com/rdk/component/gps/register"
 	_ "go.viam.com/rdk/component/gripper/register"

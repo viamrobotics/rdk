@@ -42,7 +42,8 @@ func DetectionsToObjects(dets []objectdetection.Detection,
 	iwd *rimage.ImageWithDepth,
 	proj rimage.Projector,
 	meanK int,
-	sigma float64) ([]*vision.Object, error) {
+	sigma float64,
+) ([]*vision.Object, error) {
 	statisticalFilter, err := pointcloud.StatisticalOutlierFilter(meanK, sigma)
 	if err != nil {
 		return nil, err
