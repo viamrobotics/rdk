@@ -54,6 +54,7 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 			uploadFn: func(path string) error {
 				return nil
 			},
+			lock: &sync.Mutex{},
 		},
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
