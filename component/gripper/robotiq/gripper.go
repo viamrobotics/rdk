@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
@@ -49,6 +50,7 @@ type robotiqGripper struct {
 	openLimit  string
 	closeLimit string
 	logger     golog.Logger
+	generic.Unimplemented
 }
 
 // newGripper TODO.
@@ -57,7 +59,7 @@ func newGripper(ctx context.Context, host string, logger golog.Logger) (*robotiq
 	if err != nil {
 		return nil, err
 	}
-	g := &robotiqGripper{conn, "0", "255", logger}
+	g := &robotiqGripper{conn, "0", "255", logger, generic.Unimplemented{}}
 
 	init := [][]string{
 		{"ACT", "1"},   // robot activate

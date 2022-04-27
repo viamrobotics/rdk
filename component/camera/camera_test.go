@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -45,6 +46,19 @@ func setupInjectRobot() *inject.Robot {
 		return []resource.Name{camera.Named(testCameraName), arm.Named("arm1")}
 	}
 	return r
+}
+
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	c, err := camera.FromRobot(r, testCameraName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, c, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := c.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
 }
 
 func TestFromRobot(t *testing.T) {
@@ -181,6 +195,10 @@ func (m *mock) Next(ctx context.Context) (image.Image, func(), error) {
 
 func (m *mock) Close() { m.reconfCount++ }
 
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
+
 type simpleSource struct {
 	filePath string
 }
@@ -248,6 +266,7 @@ func TestNewCamera(t *testing.T) {
 
 type cloudSource struct {
 	*simpleSource
+	generic.Unimplemented
 }
 
 func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -263,7 +282,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector/Camera Intrinsics associated with it")
 
 	// make a camera with a NextPointCloudFunction
-	imgSrc2 := &cloudSource{imgSrc}
+	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}
 	noProj2, err := camera.New(imgSrc2, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
@@ -291,7 +310,7 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// camera with a point cloud function
-	imgSrc2 := &cloudSource{imgSrc}
+	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}
 	cam2, err := camera.New(imgSrc2, nil, cam)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = cam2.NextPointCloud(context.Background())

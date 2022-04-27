@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -77,6 +78,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, armSvc)
 
+	generic.RegisterService(rpcServer, armSvc)
+	injectArm.DoFunc = generic.EchoFunc
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -93,6 +97,12 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 1", func(t *testing.T) {
 		arm1Client, err := arm.NewClient(context.Background(), testArmName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		// Do
+		resp, err := arm1Client.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		pos, err := arm1Client.GetEndPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
