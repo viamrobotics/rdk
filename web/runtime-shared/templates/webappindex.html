@@ -545,7 +545,10 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * 1);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
@@ -555,7 +558,10 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * 1);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Continous" &&
@@ -565,7 +571,10 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * -1);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
@@ -575,7 +584,10 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * -1);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Arc" &&
                   spinType === "Clockwise" &&
@@ -586,7 +598,10 @@
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * 1);
                   req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Arc" &&
                   spinType === "Counterclockwise" &&
@@ -597,7 +612,10 @@
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * 1);
                   req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Arc" &&
                   spinType === "Clockwise" &&
@@ -608,7 +626,10 @@
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * -1);
                   req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Arc" &&
                   spinType === "Counterclockwise" &&
@@ -619,7 +640,10 @@
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * -1);
                   req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Spin" &&
                   spinType === "Clockwise"
@@ -628,7 +652,10 @@
                   req.setName(name);
                   req.setDegsPerSec(document.getElementById("speed").value)
                   req.setAngleDeg(document.getElementById("angle").value * 1);
-                  baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.spin(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Spin" &&
                   spinType === "Counterclockwise"
@@ -637,7 +664,10 @@
                   req.setName(name);
                   req.setDegsPerSec(document.getElementById("speed").value)
                   req.setAngleDeg(document.getElementById("angle").value * -1);
-                  baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.spin(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               }
             },
             renderFrame: function (cameraName) {
@@ -1534,7 +1564,28 @@
           <div style="color: red;">${ error }</div>
           <!-- ******* BASE *******  -->
           <div class="base" v-for="base in filterResources('rdk', 'component', 'base')" :key="base.name">
-                <div class="camera" v-for="streamName in streamNames" :key="streamName">
+                <div v-if="!streamNames.length">
+                  <div class="camera">
+                    <viam-base
+                        :base-name="base.name"
+                        :connected-camera="false"
+                        :crumbs="['base', base.name]"
+                        :base-status="baseRunStatus"
+                        @forward="baseAction(base.name,'straight', 1, null)"
+                        @backward="baseAction(base.name,'straight', -1, null)"
+                        @spin-clockwise="baseAction(base.name,'angle', 1, 135)"
+                        @spin-counter-clockwise="baseAction(base.name,'angle', 1, 45)"
+                        @arc-right="baseAction(base.name,'arc', 1, 135)"
+                        @arc-left="baseAction(base.name,'arc', 1, 45)"
+                        @back-arc-right="baseAction(base.name,'arc', -1, 225)"
+                        @back-arc-left="baseAction(base.name,'arc', -1, 315)"
+                        @base-run="handleBaseAction"
+                        @base-stop="handleBaseActionStop(base.name)"
+                    ></viam-base>
+                  </div>
+                </div>
+                <div v-else>
+                  <div class="camera" v-for="streamName in streamNames" :key="streamName">
                     <viam-base
                         :base-name="base.name"
                         :stream-name="streamName"
@@ -1553,6 +1604,7 @@
                         @base-stop="handleBaseActionStop(base.name)"
                         @show-base-camera="viewPreviewCamera(streamName)"
                     ></viam-base>
+                  </div>
                 </div>
             </div>
 
