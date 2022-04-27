@@ -1570,7 +1570,7 @@
       {{ end }}
     </div>
     <div id="app" v-cloak>
-      <container class="p-2">
+      <div class="p-2">
           <div style="color: red;">${ error }</div>
           <!-- ******* BASE *******  -->
           <div class="base" v-for="base in filterResources('rdk', 'component', 'base')" :key="base.name">
@@ -1931,7 +1931,7 @@
                       @select-object="doSelectObject"
               ></camera>
           </div>
-      </container>
+        </div>
     </div>
     <!-- end vue app -->
 

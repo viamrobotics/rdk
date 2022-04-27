@@ -304,10 +304,10 @@ export default class Base extends Vue {
   movementType = "Continous";
   direction = "Forwards";
   spinType = "";
-  increment = 500;
+  increment = 1000;
   maxClusteringRadius = 90
   
-  speed = 300;
+  speed = 200;
   angle = 0
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
