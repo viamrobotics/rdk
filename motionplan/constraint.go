@@ -125,10 +125,10 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSpaces map[string]spatial.Geometry) Constraint {
 	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
 	zeroVols, err := frame.Geometries(make([]referenceframe.Input, len(frame.DoF())))
-	if err != nil && len(zeroVols) == 0 {
+	if err != nil && len(zeroVols.Geometries()) == 0 {
 		return nil // no geometries defined for frame
 	}
-	internalEntities, err := NewObjectCollisionEntities(zeroVols)
+	internalEntities, err := NewObjectCollisionEntities(zeroVols.Geometries())
 	if err != nil {
 		return nil
 	}
@@ -150,7 +150,7 @@ func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSp
 		if err != nil && internal == nil {
 			return false, 0
 		}
-		internalEntities, err := NewObjectCollisionEntities(internal)
+		internalEntities, err := NewObjectCollisionEntities(internal.Geometries())
 		if err != nil {
 			return false, 0
 		}
