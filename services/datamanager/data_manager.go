@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
@@ -279,8 +280,7 @@ func (svc *Service) initOrUpdateSyncer(ctx context.Context, intervalMins int) {
 }
 
 func (svc *Service) initSyncer(ctx context.Context, intervalMins int) {
-	svc.backgroundWorkers.Add(1)
-	go svc.updateCollectorTargets(ctx)
+	svc.updateCollectorTargets(ctx)
 	svc.syncer = newSyncer(SyncQueue, svc.logger, svc.captureDir)
 	svc.syncer.Start(time.Minute * time.Duration(intervalMins))
 }
@@ -319,23 +319,26 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 }
 
 func (svc *Service) updateCollectorTargets(cancelCtx context.Context) {
-	defer svc.backgroundWorkers.Done()
-	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
+	svc.backgroundWorkers.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer svc.backgroundWorkers.Done()
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
 
-	for {
-		select {
-		case <-cancelCtx.Done():
-			return
-		case <-ticker.C:
-			for component, collector := range svc.collectors {
-				// Create new target and set it.
-				nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
-				if err != nil {
-					svc.logger.Error(errors.Errorf("failed to create new data capture file: %v", err))
+		for {
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-ticker.C:
+				for component, collector := range svc.collectors {
+					// Create new target and set it.
+					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
+					if err != nil {
+						svc.logger.Error(errors.Errorf("failed to create new data capture file: %v", err))
+					}
+					collector.Collector.SetTarget(nextTarget)
 				}
-				collector.Collector.SetTarget(nextTarget)
 			}
 		}
-	}
+	})
 }
