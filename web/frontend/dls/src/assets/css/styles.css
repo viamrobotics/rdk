@@ -6,6 +6,12 @@
 }
 @font-face {
     font-family: 'Space Mono';
+    font-weight: bold;
+    font-style: normal;
+    src: url('../webfonts/SpaceMono-Bold.ttf') format('truetype');
+}
+@font-face {
+    font-family: 'Space Mono';
     font-weight: normal;
     font-style: italic;
     src: url('../webfonts/SpaceMono-Italic.ttf') format('truetype');
