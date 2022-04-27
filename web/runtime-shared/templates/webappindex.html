@@ -495,13 +495,17 @@
             },
             baseAction: function (name, action, amount, angle) {
               let req;
+              this.baseRunStatus = true;
               switch (action) {
                 case "straight":
                   req = new baseApi.MoveStraightRequest();
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value);
                   req.setDistanceMm(document.getElementById("distance").value * amount);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
                   break;
                 case "arc":
                   req = new baseApi.MoveArcRequest();
@@ -509,14 +513,20 @@
                   req.setMmPerSec(document.getElementById("speed").value);
                   req.setDistanceMm(document.getElementById("distance").value * amount);
                   req.setAngleDeg(angle);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
                   break;
                 case "angle":
                   req = new baseApi.SpinRequest();
                   req.setName(name);
                   req.setDegsPerSec(document.getElementById("speed").value);
                   req.setAngleDeg(angle);
-                  baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.spin(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
                   break;
               }
             },
