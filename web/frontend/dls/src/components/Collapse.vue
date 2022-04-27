@@ -10,7 +10,7 @@
         'flex-row-reverse': iconLeft,
       }"
     >
-      <div class="flex-1 cursor-pointer" @click="toggleExpand()">
+      <div data-cy="collapse-container" class="flex-1 cursor-pointer" @click="toggleExpand()">
         <slot />
       </div>
 
@@ -49,6 +49,8 @@
         'transition-all duration-300 ease-in-out',
         { 'overflow-y-hidden': !expandedCompleted },
       ]"
+      data-cy="collapse-content"
+      v-show="!collapsed"
       :style="{ maxHeight: maxHeight + 'px' }"
     >
       <div ref="content">

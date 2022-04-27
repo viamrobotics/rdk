@@ -1,9 +1,9 @@
 <template>
     <collapse ref="collapse">
-        <span>{{selectedLabel}}</span>
+        <span data-cy="selected-value">{{selectedLabel}}</span>
         <template v-slot:content>
-            <div class="flex flex-col border-l border-r border-b border-black">
-                <div @click="select(option[valueKey])" :key="option[valueKey]" v-for="option in options" class="cursor-pointer px-2 hover:bg-gray-100">
+            <div data-cy="options-container" class="flex flex-col border-l border-r border-b border-black">
+                <div data-cy="option" @click="select(option[valueKey])" :key="option[valueKey]" v-for="option in options" class="cursor-pointer px-2 hover:bg-gray-100">
                     {{option[labelKey]}}
                 </div>
             </div>
