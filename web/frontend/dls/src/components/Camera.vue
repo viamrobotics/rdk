@@ -7,7 +7,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-black p-2"
+          class="border-l border-r border-b border-black p-2"
           :style="{ height: maxHeight + 'px' }"
         >
           <Container>
@@ -466,7 +466,7 @@ export default class Base extends Vue {
   }
 
   refreshCamera(): void {
-    this.$emit('refresh-camera', 'manual')
+    this.$emit("refresh-camera", "manual");
   }
 
   pcdClick(e: Event): void {
