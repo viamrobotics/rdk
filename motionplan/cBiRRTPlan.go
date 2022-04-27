@@ -88,9 +88,34 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	opt *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *planReturn, 1)
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+		seedPos, err := mp.frame.Transform(seed)
+		if err != nil {
+			solutionChan <- &planReturn{err: err}
+			return nil, err
+		}
+		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
+		// TODO(rb) make this worldstate, once that is incorporated
+		obstacles := map[string]spatial.Geometry{}
+		interactionSpaces := map[string]spatial.Geometry{}
+		if len(obstacles) == 0 {
+			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		} else {
+			collisionConst := NewCollisionConstraint(mp.Frame(), obstacles, interactionSpaces)
+			if collisionConst != nil {
+				opt.AddConstraint("self-collision", collisionConst)
+			}
+		}
+	}
+
 	utils.PanicCapturingGo(func() {
+<<<<<<< HEAD
 		// TODO(rb) fix me
 		mp.planRunner(ctx, goal, seed, map[string]spatial.Geometry{}, map[string]spatial.Geometry{}, opt, nil, solutionChan)
+=======
+		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
+>>>>>>> b7db533b0b0c01c54fd46e2b719c0072a6fab7bc
 	})
 	select {
 	case <-ctx.Done():
@@ -109,7 +134,10 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
+<<<<<<< HEAD
 	obstacles, interactionSpaces map[string]spatial.Geometry,
+=======
+>>>>>>> b7db533b0b0c01c54fd46e2b719c0072a6fab7bc
 	opt *PlannerOptions,
 	endpointPreview chan *configuration,
 	solutionChan chan *planReturn,
@@ -117,6 +145,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	defer close(solutionChan)
 	inputSteps := []*configuration{}
 
+<<<<<<< HEAD
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
 		seedPos, err := mp.frame.Transform(seed)
@@ -135,6 +164,8 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		}
 	}
 
+=======
+>>>>>>> b7db533b0b0c01c54fd46e2b719c0072a6fab7bc
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
