@@ -3,7 +3,6 @@ package resource_test
 import (
 	"testing"
 
-	"github.com/google/uuid"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -148,7 +147,6 @@ func TestResourceNameNew(t *testing.T) {
 			arm.SubtypeName,
 			"",
 			resource.Name{
-				UUID: "a5b161b9-dfa9-5eef-93d1-58431fd91212",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,
@@ -163,7 +161,6 @@ func TestResourceNameNew(t *testing.T) {
 			arm.SubtypeName,
 			"arm1",
 			resource.Name{
-				UUID: "ded8a90b-0c77-5bda-baf5-b7e79bbdb28a",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,
@@ -208,7 +205,6 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"missing name",
 			"rdk:component:arm",
 			resource.Name{
-				UUID: "a5b161b9-dfa9-5eef-93d1-58431fd91212",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
@@ -224,7 +220,6 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"all fields included",
 			arm.Named("arm1").String(),
 			resource.Name{
-				UUID: "ded8a90b-0c77-5bda-baf5-b7e79bbdb28a",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
@@ -240,7 +235,6 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"all fields included 2",
 			"rdk:component:gps/gps1",
 			resource.Name{
-				UUID: "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
@@ -326,38 +320,8 @@ func TestResourceNameValidate(t *testing.T) {
 		Err         string
 	}{
 		{
-			"missing uuid",
-			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
-					},
-					ResourceSubtype: arm.SubtypeName,
-				},
-				Name: "arm1",
-			},
-			"uuid field for resource missing or invalid",
-		},
-		{
-			"invalid uuid",
-			resource.Name{
-				UUID: "abcd",
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
-					},
-					ResourceSubtype: arm.SubtypeName,
-				},
-				Name: "arm1",
-			},
-			"uuid field for resource missing or invalid",
-		},
-		{
 			"missing namespace",
 			resource.Name{
-				UUID: uuid.NewString(),
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						ResourceType: resource.ResourceTypeComponent,
@@ -371,7 +335,6 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"missing type",
 			resource.Name{
-				UUID: uuid.NewString(),
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace: resource.ResourceNamespaceRDK,
@@ -385,7 +348,6 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"missing subtype",
 			resource.Name{
-				UUID: uuid.NewString(),
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
@@ -399,7 +361,6 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"missing name",
 			resource.Name{
-				UUID: uuid.NewString(),
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
@@ -413,7 +374,6 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"all fields included",
 			resource.Name{
-				UUID: uuid.NewString(),
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,

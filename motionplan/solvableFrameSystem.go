@@ -143,8 +143,11 @@ func plannerRunner(ctx context.Context,
 				ctx,
 				spatial.PoseToProtobuf(goal),
 				seed,
+<<<<<<< HEAD
 				map[string]spatial.Geometry{},
 				map[string]spatial.Geometry{},
+=======
+>>>>>>> b7db533b0b0c01c54fd46e2b719c0072a6fab7bc
 				opt,
 				endpointPreview,
 				solutionChan,

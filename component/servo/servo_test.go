@@ -126,7 +126,6 @@ func TestServoName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "90cdc3ec-bf17-568f-8340-c6add982e00f",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: servo.SubtypeName,
@@ -138,7 +137,6 @@ func TestServoName(t *testing.T) {
 			"all fields included",
 			testServoName,
 			resource.Name{
-				UUID: "85bbeb08-07b7-5fef-8706-27258bc67859",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: servo.SubtypeName,

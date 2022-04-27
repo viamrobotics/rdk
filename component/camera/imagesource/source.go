@@ -35,7 +35,8 @@ import (
 func init() {
 	registry.RegisterComponent(camera.Subtype, "single_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
-			config config.Component, logger golog.Logger) (interface{}, error) {
+			config config.Component, logger golog.Logger,
+		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*ServerAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
@@ -65,7 +66,8 @@ func init() {
 
 	registry.RegisterComponent(camera.Subtype, "dual_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
-			config config.Component, logger golog.Logger) (interface{}, error) {
+			config config.Component, logger golog.Logger,
+		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*dualServerAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
@@ -95,7 +97,8 @@ func init() {
 
 	registry.RegisterComponent(camera.Subtype, "file",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
-			config config.Component, logger golog.Logger) (interface{}, error) {
+			config config.Component, logger golog.Logger,
+		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*fileSourceAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
@@ -150,8 +153,13 @@ type fileSourceAttrs struct {
 	Aligned bool   `json:"aligned"`
 }
 
-// Next returns the image stored in the color and depth files as an ImageWithDepth.
+// Next returns the image stored in the color and depth files as an ImageWithDepth, or just an Image
+// if Depth is not available.
 func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
+	if fs.DepthFN == "" { // no depth info
+		img, err := rimage.NewImageFromFile(fs.ColorFN)
+		return img, func() {}, err
+	}
 	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN, fs.isAligned)
 	return img, func() {}, err
 }

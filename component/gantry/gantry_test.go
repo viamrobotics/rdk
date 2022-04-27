@@ -149,7 +149,6 @@ func TestGantryName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "c7e7e1a5-2d0c-5665-af81-0f821bb94793",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gantry.SubtypeName,
@@ -161,7 +160,6 @@ func TestGantryName(t *testing.T) {
 			"all fields included",
 			testGantryName,
 			resource.Name{
-				UUID: "4f1dd722-b371-59e9-9e66-701823f025b7",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gantry.SubtypeName,
