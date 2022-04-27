@@ -280,9 +280,9 @@ func (svc *Service) initOrUpdateSyncer(ctx context.Context, intervalMins int) {
 }
 
 func (svc *Service) initSyncer(ctx context.Context, intervalMins int) {
-	svc.updateCollectorTargets(ctx)
+	svc.queueCapturedData(ctx, intervalMins)
 	svc.syncer = newSyncer(SyncQueue, svc.logger, svc.captureDir)
-	svc.syncer.Start(time.Minute * time.Duration(intervalMins))
+	svc.syncer.Start()
 }
 
 // Update updates the data manager service when the config has changed.
@@ -318,25 +318,39 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	return nil
 }
 
-func (svc *Service) updateCollectorTargets(cancelCtx context.Context) {
+func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins int) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		ticker := time.NewTicker(time.Minute)
+		ticker := time.NewTicker(time.Minute * time.Duration(intervalMins))
 		defer ticker.Stop()
 
 		for {
 			select {
 			case <-cancelCtx.Done():
+				files := []string{}
+				for _, collector := range svc.collectors {
+					files = append(files, collector.Collector.GetTarget().Name())
+				}
+				err := svc.syncer.Enqueue(files)
+				if err != nil {
+					svc.logger.Errorf("failed to move files to sync queue: %v", err)
+				}
 				return
 			case <-ticker.C:
+				oldFiles := []string{}
 				for component, collector := range svc.collectors {
 					// Create new target and set it.
 					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
 					if err != nil {
 						svc.logger.Error(errors.Errorf("failed to create new data capture file: %v", err))
 					}
+					oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
 					collector.Collector.SetTarget(nextTarget)
+				}
+				err := svc.syncer.Enqueue(oldFiles)
+				if err != nil {
+					svc.logger.Errorf("failed to move files to sync queue: %v", err)
 				}
 			}
 		}
