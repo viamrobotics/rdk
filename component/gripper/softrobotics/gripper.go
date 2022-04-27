@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -41,6 +42,7 @@ type softGripper struct {
 	pinOpen, pinClose, pinPower board.GPIOPin
 
 	logger golog.Logger
+	generic.Unimplemented
 }
 
 // newGripper TODO.
@@ -149,9 +151,4 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	}
 
 	return false, g.Stop(ctx)
-}
-
-// Do is unimplemented.
-func (g *softGripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

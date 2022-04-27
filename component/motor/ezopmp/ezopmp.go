@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -62,6 +63,7 @@ type Ezopmp struct {
 	logger      golog.Logger
 	maxPowerPct float64
 	maxFlowRate float64
+	generic.Unimplemented
 }
 
 // available commands.
@@ -325,9 +327,4 @@ func (m *Ezopmp) IsPowered(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 	return false, nil
-}
-
-// Do is unimplemented.
-func (m *Ezopmp) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

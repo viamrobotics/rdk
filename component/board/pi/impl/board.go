@@ -24,6 +24,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -56,6 +57,7 @@ func init() {
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
 // accessed via pigpio.
 type piPigpio struct {
+	generic.Unimplemented
 	mu            sync.Mutex
 	cfg           *board.Config
 	gpioConfigSet map[int]bool
@@ -521,10 +523,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 
 func (pi *piPigpio) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, pi)
-}
-
-func (pi *piPigpio) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 var (

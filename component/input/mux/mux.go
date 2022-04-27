@@ -3,13 +3,13 @@ package mux
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -81,6 +81,7 @@ type mux struct {
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 	eventsChan              chan input.Event
+	generic.Unimplemented
 }
 
 func (m *mux) makeCallbacks(eventOut input.Event) {
@@ -215,9 +216,4 @@ func (m *mux) RegisterControlCallback(
 		return errs
 	}
 	return nil
-}
-
-// Do is unimplemented.
-func (m *mux) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

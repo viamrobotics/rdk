@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -24,6 +25,7 @@ func init() {
 type Servo struct {
 	Name  string
 	angle uint8
+	generic.Echo
 }
 
 // Move sets the given angle.
@@ -35,9 +37,4 @@ func (s *Servo) Move(ctx context.Context, angleDeg uint8) error {
 // GetPosition returns the set angle.
 func (s *Servo) GetPosition(ctx context.Context) (uint8, error) {
 	return s.angle, nil
-}
-
-// Do echos back whatever was sent to it.
-func (s *Servo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }

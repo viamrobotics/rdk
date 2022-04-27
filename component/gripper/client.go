@@ -6,20 +6,18 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/grpc"
-	pbgeneric "go.viam.com/rdk/proto/api/component/generic/v1"
 	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 )
 
 // serviceClient is a client satisfies the gripper.proto contract.
 type serviceClient struct {
-	conn    rpc.ClientConn
-	client  pb.GripperServiceClient
-	gclient pbgeneric.GenericServiceClient
-	logger  golog.Logger
+	conn   rpc.ClientConn
+	client pb.GripperServiceClient
+	logger golog.Logger
 }
 
 // newServiceClient constructs a new serviceClient that is served at the given address.
@@ -35,12 +33,10 @@ func newServiceClient(ctx context.Context, address string, logger golog.Logger, 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
 	client := pb.NewGripperServiceClient(conn)
-	gClient := pbgeneric.NewGenericServiceClient(conn)
 	sc := &serviceClient{
-		conn:    conn,
-		client:  client,
-		gclient: gClient,
-		logger:  logger,
+		conn:   conn,
+		client: client,
+		logger: logger,
 	}
 	return sc
 }
@@ -103,17 +99,5 @@ func (c *client) Close() error {
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	command, err := structpb.NewStruct(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.gclient.Do(ctx, &pbgeneric.DoRequest{
-		Name:    c.name,
-		Command: command,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Result.AsMap(), nil
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

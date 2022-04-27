@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	picommon "go.viam.com/rdk/component/board/pi/common"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -54,6 +55,7 @@ func init() {
 
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
+	generic.Unimplemented	
 	pin      C.uint
 	min, max uint8
 }
@@ -80,9 +82,4 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 		return 0, nil
 	}
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
-}
-
-// Do is unimplemented
-func (s *piPigpioServo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

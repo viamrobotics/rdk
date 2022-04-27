@@ -73,23 +73,28 @@ func clientFromSvcClient(sc *serviceClient, name string) Generic {
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return DoFromConnection(ctx, c.conn, c.name, cmd)
+}
 
+// Close cleanly closes the underlying connections.
+func (c *client) Close() error {
+	return c.serviceClient.Close()
+}
+
+// DoFromConnection is a helper to allow Do() calls from other component clients.
+func DoFromConnection(ctx context.Context, conn rpc.ClientConn, name string, cmd map[string]interface{}) (map[string]interface{}, error) {
+	gclient := pb.NewGenericServiceClient(conn)
 	command, err := structpb.NewStruct(cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := c.client.Do(ctx, &pb.DoRequest{
-		Name: c.name,
+	resp, err := gclient.Do(ctx, &pb.DoRequest{
+		Name:    name,
 		Command: command,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return resp.Result.AsMap(), nil
-}
-
-// Close cleanly closes the underlying connections.
-func (c *client) Close() error {
-	return c.serviceClient.Close()
 }

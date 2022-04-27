@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -91,6 +92,7 @@ func newArduino(cfg *board.Config, logger golog.Logger) (*arduinoBoard, error) {
 }
 
 type arduinoBoard struct {
+	generic.Unimplemented
 	cfg        *board.Config
 	port       io.ReadWriteCloser
 	portReader *bufio.Reader
@@ -298,10 +300,6 @@ func (b *arduinoBoard) Close() error {
 	}
 
 	return b.port.Close()
-}
-
-func (b *arduinoBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 type analogReader struct {

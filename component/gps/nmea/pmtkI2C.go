@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -33,6 +34,7 @@ func init() {
 
 // This allows the use of any GPS chip that communicates over I2C using the PMTK protocol.
 type pmtkI2CNMEAGPS struct {
+	generic.Unimplemented
 	mu     sync.RWMutex
 	bus    board.I2C
 	addr   byte
@@ -190,11 +192,6 @@ func (g *pmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 func (g *pmtkI2CNMEAGPS) Close() {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
-}
-
-// Do is unimplemented.
-func (g *pmtkI2CNMEAGPS) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 // PMTK checksums commands by XORing together each byte.

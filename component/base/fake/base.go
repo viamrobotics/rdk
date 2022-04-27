@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -31,6 +32,7 @@ func init() {
 
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
+	generic.Echo
 	Name       string
 	CloseCount int
 }
@@ -63,9 +65,4 @@ func (b *Base) Stop(ctx context.Context) error {
 // Close does nothing.
 func (b *Base) Close() {
 	b.CloseCount++
-}
-
-// Do echos back whatever was sent to it.
-func (b *Base) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }

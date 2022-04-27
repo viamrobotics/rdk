@@ -22,8 +22,6 @@ const (
 	missingGenericName = "generic5"
 )
 
-var command = map[string]interface{}{"cmd": "test", "data1": 500}
-
 func setupInjectRobot() *inject.Robot {
 	generic1 := &mock{Name: testGenericName}
 	r := &inject.Robot{}
@@ -50,9 +48,9 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, err := s.Do(context.Background(), command)
+	result, err := s.Do(context.Background(), generic.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldEqual, command)
+	test.That(t, result, test.ShouldEqual, generic.TestCommand)
 
 	s, err = generic.FromRobot(r, fakeGenericName)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Generic", "string"))
@@ -136,9 +134,9 @@ func TestReconfigurableGeneric(t *testing.T) {
 
 	test.That(t, actualGeneric1.doCount, test.ShouldEqual, 0)
 	test.That(t, actualGeneric2.doCount, test.ShouldEqual, 0)
-	result, err := reconfGeneric1.(generic.Generic).Do(context.Background(), command)
+	result, err := reconfGeneric1.(generic.Generic).Do(context.Background(), generic.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldEqual, command)
+	test.That(t, result, test.ShouldEqual, generic.TestCommand)
 	test.That(t, actualGeneric1.doCount, test.ShouldEqual, 0)
 	test.That(t, actualGeneric2.doCount, test.ShouldEqual, 1)
 

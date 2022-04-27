@@ -20,6 +20,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -67,6 +68,7 @@ func ur5eModel() (referenceframe.Model, error) {
 
 // URArm TODO.
 type URArm struct {
+	generic.Unimplemented
 	io.Closer
 	mu                      *sync.Mutex
 	muMove                  sync.Mutex
@@ -430,9 +432,4 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 			ua.logger.Debugf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
 		}
 	}
-}
-
-// Do is unimplemented.
-func (ua *URArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

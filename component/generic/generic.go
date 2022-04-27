@@ -3,6 +3,7 @@ package generic
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -37,6 +38,13 @@ func init() {
 
 // SubtypeName is a constant that identifies the component resource subtype string "Generic".
 const SubtypeName = resource.SubtypeName("generic")
+var (
+	ErrUnimplemented = errors.New("Do() unimplemented")
+	EchoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return cmd, nil
+	}
+	TestCommand = map[string]interface{}{"command": "test", "data": 500}
+)
 
 // Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
@@ -54,6 +62,22 @@ func Named(name string) resource.Name {
 type Generic interface {
 	// Do sends and recieves arbitrary data
 	Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+}
+
+// Unimplemented can be embedded in other components to save boilerplate.
+type Unimplemented struct {}
+
+// Do covers the unimplemented case for other components
+func (u *Unimplemented) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, ErrUnimplemented
+}
+
+// Echo can be embedded in other (fake) components to save boilerplate.
+type Echo struct {}
+
+// Do covers the echo case for other components
+func (e *Echo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }
 
 var (
@@ -127,4 +151,10 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 	return &reconfigurableGeneric{actual: Generic}, nil
+}
+
+// RegisterService is a helper for testing in other components
+func RegisterService(server rpc.Server, service subtype.Service) {
+	resourceSubtype := registry.ResourceSubtypeLookup(Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), server, service)
 }

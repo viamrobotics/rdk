@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -265,10 +266,7 @@ func TestNewCamera(t *testing.T) {
 
 type cloudSource struct {
 	*simpleSource
-}
-
-func (cs *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
+	generic.Unimplemented
 }
 
 func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -284,7 +282,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector/Camera Intrinsics associated with it")
 
 	// make a camera with a NextPointCloudFunction
-	imgSrc2 := &cloudSource{imgSrc}
+	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}
 	noProj2, err := camera.New(imgSrc2, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
@@ -312,7 +310,7 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// camera with a point cloud function
-	imgSrc2 := &cloudSource{imgSrc}
+	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}
 	cam2, err := camera.New(imgSrc2, nil, cam)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = cam2.NextPointCloud(context.Background())

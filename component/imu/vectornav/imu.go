@@ -13,6 +13,7 @@ import (
 	rdkutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -55,6 +56,7 @@ type vectornav struct {
 	bdVX float64
 	bdVY float64
 	bdVZ float64
+	generic.Unimplemented
 }
 
 const (
@@ -477,9 +479,4 @@ func (imu *vectornav) Close() {
 	imu.cancelFunc()
 	imu.busClosed = true
 	imu.activeBackgroundWorkers.Wait()
-}
-
-// Do is unimplemented.
-func (imu *vectornav) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

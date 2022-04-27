@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
@@ -187,6 +188,7 @@ type EncodedMotor struct {
 	cancelCtx       context.Context
 	cancel          func()
 	loop            *control.ControlLoop
+	generic.Unimplemented
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.
@@ -630,9 +632,4 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
-}
-
-// Do is unimplemented.
-func (m *EncodedMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

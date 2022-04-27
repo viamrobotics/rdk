@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/posetracker"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
@@ -89,6 +90,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(posetracker.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, ptSvc)
 
+	workingPT.DoFunc = generic.EchoFunc
+	generic.RegisterService(rpcServer, ptSvc)
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -108,6 +112,12 @@ func TestClient(t *testing.T) {
 		bodyToPoseInFrame, err := workingPTClient.GetPoses(
 			context.Background(), []string{zeroPoseBody, nonZeroPoseBody})
 		test.That(t, err, test.ShouldBeNil)
+
+		// Do
+		resp, err := workingPTClient.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		poseTester(t, bodyToPoseInFrame, zeroPoseBody)
 		poseTester(t, bodyToPoseInFrame, nonZeroPoseBody)

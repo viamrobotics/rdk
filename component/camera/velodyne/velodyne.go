@@ -16,6 +16,7 @@ import (
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
@@ -89,6 +90,7 @@ func init() {
 }
 
 type client struct {
+	generic.Unimplemented
 	bindAddress     string
 	ttlMilliseconds int
 
@@ -312,8 +314,4 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 func (c *client) Close() {
 	c.cancelFunc()
 	c.activeBackgroundWorkers.Wait()
-}
-
-func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

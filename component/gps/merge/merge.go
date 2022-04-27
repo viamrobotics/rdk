@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
@@ -38,7 +39,7 @@ func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.
 		return nil, errors.New("no subs for merge gps")
 	}
 
-	m := &mergeGPS{r, nil, logger}
+	m := &mergeGPS{r, nil, logger, generic.Unimplemented{}}
 
 	for _, s := range subs {
 		g, err := gps.FromRobot(r, s)
@@ -55,6 +56,7 @@ type mergeGPS struct {
 	r      robot.Robot
 	subs   []gps.GPS
 	logger golog.Logger
+	generic.Unimplemented
 }
 
 // The current latitude and longitude.
@@ -167,9 +169,4 @@ func (m *mergeGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 		allErrors = multierr.Combine(allErrors, err)
 	}
 	return nil, allErrors
-}
-
-// Do is unimplemented.
-func (m *mergeGPS) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

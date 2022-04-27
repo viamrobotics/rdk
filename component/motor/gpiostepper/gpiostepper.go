@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -114,6 +115,7 @@ type gpioStepper struct {
 	threadStarted        bool
 	targetStepPosition   int64
 	targetStepsPerSecond int64
+	generic.Unimplemented
 }
 
 // validate if this config is valid.
@@ -342,9 +344,4 @@ func (m *gpioStepper) enable(ctx context.Context, on bool) error {
 	}
 
 	return nil
-}
-
-// Do is unimplemented.
-func (m *gpioStepper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

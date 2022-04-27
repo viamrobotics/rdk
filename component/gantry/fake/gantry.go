@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -26,7 +27,7 @@ func init() {
 
 // NewGantry returns a new fake gantry.
 func NewGantry(name string) gantry.Gantry {
-	return &Gantry{name, []float64{1.2}, []float64{5}, r3.Vector{1, 0, 0}, 2}
+	return &Gantry{name, []float64{1.2}, []float64{5}, r3.Vector{1, 0, 0}, 2, generic.Echo{}}
 }
 
 // Gantry is a fake gantry that can simply read and set properties.
@@ -36,6 +37,7 @@ type Gantry struct {
 	lengths      []float64
 	axis         r3.Vector
 	lengthMeters float64
+	generic.Echo
 }
 
 // GetPosition returns the position in meters.
@@ -77,9 +79,4 @@ func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 // GoToInputs moves using the Gantry frames..
 func (g *Gantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{})
-}
-
-// Do echos back whatever was sent to it.
-func (g *Gantry) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }

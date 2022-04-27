@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -94,6 +95,7 @@ func (config *Config) Validate(path string) error {
 
 // PCA9685 is a general purpose 16-channel 12-bit PWM controller.
 type PCA9685 struct {
+	generic.Unimplemented
 	address             byte
 	referenceClockSpeed int
 	bus                 board.I2C
@@ -281,11 +283,6 @@ func (pca *PCA9685) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
 func (pca *PCA9685) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return nil, false
-}
-
-// Do is unimplemented.
-func (pca *PCA9685) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }
 
 // A gpioPin in PCA9685 is the combination of a PWM's T_on and T_off

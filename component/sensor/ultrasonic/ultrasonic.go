@@ -10,6 +10,7 @@ import (
 	rdkutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -79,6 +80,7 @@ type Sensor struct {
 	echoInt    board.DigitalInterrupt
 	triggerPin board.GPIOPin
 	intChan    chan bool
+	generic.Unimplemented
 }
 
 // GetReadings returns the calculated distance.
@@ -110,9 +112,4 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	}
 	dist := timeA.Sub(timeB).Seconds() * 340 / 2
 	return []interface{}{dist}, nil
-}
-
-// Do is unimplemented.
-func (s *Sensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

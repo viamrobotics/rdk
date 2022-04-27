@@ -21,6 +21,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -62,6 +63,7 @@ var OffAngles = map[string]float64{
 }
 
 type myArm struct {
+	generic.Unimplemented
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
@@ -510,8 +512,4 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, 
 
 func within(a, b, c float64) bool {
 	return math.Abs(a-b) <= c
-}
-
-func (a *myArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("Do() unimplemented")
 }

@@ -32,15 +32,7 @@ func TestClient(t *testing.T) {
 	workingGeneric := &inject.Generic{}
 	failingGeneric := &inject.Generic{}
 
-	workingGeneric.DoFunc = func(
-		ctx context.Context,
-		cmd map[string]interface{},
-	) (
-		map[string]interface{},
-		error,
-	) {
-		return cmd, nil
-	}
+	workingGeneric.DoFunc = generic.EchoFunc
 	failingGeneric.DoFunc = func(
 		ctx context.Context,
 		cmd map[string]interface{},
@@ -76,10 +68,10 @@ func TestClient(t *testing.T) {
 		workingGenericClient, err := generic.NewClient(context.Background(), testGenericName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		resp, err := workingGenericClient.Do(context.Background(), command)
+		resp, err := workingGenericClient.Do(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["cmd"], test.ShouldEqual, command["cmd"])
-		test.That(t, resp["data1"], test.ShouldEqual, command["data1"])
+		test.That(t, resp["cmd"], test.ShouldEqual, generic.TestCommand["cmd"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		test.That(t, utils.TryClose(context.Background(), workingGenericClient), test.ShouldBeNil)
 	})
@@ -88,7 +80,7 @@ func TestClient(t *testing.T) {
 		failingGenericClient, err := generic.NewClient(context.Background(), failGenericName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = failingGenericClient.Do(context.Background(), command)
+		_, err = failingGenericClient.Do(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), failingGenericClient), test.ShouldBeNil)
@@ -101,10 +93,10 @@ func TestClient(t *testing.T) {
 		workingGenericDialedClient, ok := client.(generic.Generic)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		resp, err := workingGenericDialedClient.Do(context.Background(), command)
+		resp, err := workingGenericDialedClient.Do(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["cmd"], test.ShouldEqual, command["cmd"])
-		test.That(t, resp["data1"], test.ShouldEqual, command["data1"])
+		test.That(t, resp["cmd"], test.ShouldEqual, generic.TestCommand["cmd"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
