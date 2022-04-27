@@ -15,7 +15,12 @@ import (
 	"go.viam.com/utils"
 )
 
-// syncer is responsible for enqueuing files in captureDir and syncing them to the cloud.
+type syncManager interface {
+	Start(syncInterval time.Duration)
+	Close()
+}
+
+// syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type syncer struct {
 	captureDir string
 	syncQueue  string
@@ -34,7 +39,7 @@ type uploader struct {
 }
 
 // newSyncer returns a new syncer.
-func newSyncer(queuePath string, logger golog.Logger, captureDir string) syncer {
+func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	ret := syncer{
@@ -53,14 +58,14 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) syncer 
 		cancelFunc: cancelFunc,
 	}
 
-	return ret
+	return &ret
 }
 
-// Enqueue moves files that are no longer being written to from captureDir to SyncQueue.
-func (s *syncer) Enqueue(syncInterval time.Duration) {
+// enqueue moves files that are no longer being written to from captureDir to SyncQueue.
+func (s *syncer) enqueue(syncInterval time.Duration) {
 	utils.PanicCapturingGo(func() {
 		if err := os.MkdirAll(s.syncQueue, 0o700); err != nil {
-			s.logger.Errorf("failed to make sync Enqueue: %v", err)
+			s.logger.Errorf("failed to make sync queue: %v", err)
 			return
 		}
 		ticker := time.NewTicker(syncInterval)
@@ -71,21 +76,21 @@ func (s *syncer) Enqueue(syncInterval time.Duration) {
 			case <-s.cancelCtx.Done():
 				err := filepath.WalkDir(s.captureDir, s.queueFile)
 				if err != nil {
-					s.logger.Errorf("failed to move files to sync Enqueue: %v", err)
+					s.logger.Errorf("failed to move files to sync queue: %v", err)
 				}
 				return
 			case <-ticker.C:
 				err := filepath.WalkDir(s.captureDir, s.queueFile)
 				if err != nil {
-					s.logger.Errorf("failed to move files to sync Enqueue: %v", err)
+					s.logger.Errorf("failed to move files to sync queue: %v", err)
 				}
 			}
 		}
 	})
 }
 
-// UploadSynced syncs data to the backing storage system.
-func (s *syncer) UploadSynced() {
+// uploadSynced syncs data to the backing storage system.
+func (s *syncer) uploadSynced() {
 	utils.PanicCapturingGo(func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -101,6 +106,59 @@ func (s *syncer) UploadSynced() {
 			}
 		}
 	})
+}
+
+// queueFile is an fs.WalkDirFunc that moves matching files to s.syncQueue.
+func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if di.IsDir() {
+		return nil
+	}
+
+	fileInfo, err := di.Info()
+	if err != nil {
+		return errors.Errorf("failed to get file info for filepath %s: %v", filePath, err)
+	}
+
+	// If it's been written to in the last s.queueWaitTime, it's still active and shouldn't be queued.
+	if time.Since(fileInfo.ModTime()) < s.queueWaitTime {
+		return nil
+	}
+
+	subPath, err := s.getPathUnderCaptureDir(filePath)
+	if err != nil {
+		return errors.Errorf("could not get path under capture directory: %v", err)
+	}
+
+	if err = os.MkdirAll(filepath.Dir(path.Join(s.syncQueue, subPath)), 0o700); err != nil {
+		return errors.Errorf("failed create directories under sync enqueue: %v", err)
+	}
+
+	err = os.Rename(filePath, path.Join(s.syncQueue, subPath))
+	if err != nil {
+		return errors.Errorf("failed to move file to sync enqueue: %v", err)
+	}
+	return nil
+}
+
+func (s *syncer) getPathUnderCaptureDir(filePath string) (string, error) {
+	if idx := strings.Index(filePath, s.captureDir); idx != -1 {
+		return filePath[idx+len(s.captureDir):], nil
+	}
+	return "", errors.Errorf("file path %s is not under capture directory %s", filePath, s.captureDir)
+}
+
+func (s *syncer) Start(syncInterval time.Duration) {
+	s.enqueue(syncInterval)
+	s.uploadSynced()
+}
+
+// Close closes all resources (goroutines) associated with s.
+func (s *syncer) Close() {
+	s.cancelFunc()
 }
 
 // upload is an fs.WalkDirFunc that uploads files to Viam cloud storage.
@@ -137,52 +195,4 @@ func (u *uploader) upload(path string, di fs.DirEntry, err error) error {
 	//  	return err
 	// }
 	return nil
-}
-
-// queueFile is an fs.WalkDirFunc that moves matching files to s.syncQueue.
-func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-
-	if di.IsDir() {
-		return nil
-	}
-
-	fileInfo, err := di.Info()
-	if err != nil {
-		return errors.Errorf("failed to get file info for filepath %s: %v", filePath, err)
-	}
-
-	// If it's been written to in the last s.queueWaitTime, it's still active and shouldn't be queued.
-	if time.Since(fileInfo.ModTime()) < s.queueWaitTime {
-		return nil
-	}
-
-	subPath, err := s.getPathUnderCaptureDir(filePath)
-	if err != nil {
-		return errors.Errorf("could not get path under capture directory: %v", err)
-	}
-
-	if err = os.MkdirAll(filepath.Dir(path.Join(s.syncQueue, subPath)), 0o700); err != nil {
-		return errors.Errorf("failed create directories under sync Enqueue: %v", err)
-	}
-
-	err = os.Rename(filePath, path.Join(s.syncQueue, subPath))
-	if err != nil {
-		return errors.Errorf("failed to move file to sync Enqueue: %v", err)
-	}
-	return nil
-}
-
-func (s *syncer) getPathUnderCaptureDir(filePath string) (string, error) {
-	if idx := strings.Index(filePath, s.captureDir); idx != -1 {
-		return filePath[idx+len(s.captureDir):], nil
-	}
-	return "", errors.Errorf("file path %s is not under capture directory %s", filePath, s.captureDir)
-}
-
-// Close closes all resources (goroutines) associated with s.
-func (s *syncer) Close() {
-	s.cancelFunc()
 }

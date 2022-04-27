@@ -61,7 +61,7 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// The Collector's Enqueue should be big enough to ensure that .capture() is never blocked by the Enqueue being
+// The Collector's enqueue should be big enough to ensure that .capture() is never blocked by the enqueue being
 // written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),
 // this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the size of
 // writes this would be performing.
@@ -125,7 +125,7 @@ type Service struct {
 	logger     golog.Logger
 	captureDir string
 	collectors map[componentMethodMetadata]collectorParams
-	syncer     *syncer
+	syncer     syncManager
 
 	backgroundWorkers        *sync.WaitGroup
 	updateCollectorsCancelFn func()
@@ -281,10 +281,8 @@ func (svc *Service) initOrUpdateSyncer(ctx context.Context, intervalMins int) {
 func (svc *Service) initSyncer(ctx context.Context, intervalMins int) {
 	svc.backgroundWorkers.Add(1)
 	go svc.updateCollectorTargets(ctx)
-	sm := newSyncer(SyncQueue, svc.logger, svc.captureDir)
-	svc.syncer = &sm
-	svc.syncer.Enqueue(time.Minute * time.Duration(intervalMins))
-	svc.syncer.UploadSynced()
+	svc.syncer = newSyncer(SyncQueue, svc.logger, svc.captureDir)
+	svc.syncer.Start(time.Minute * time.Duration(intervalMins))
 }
 
 // Update updates the data manager service when the config has changed.

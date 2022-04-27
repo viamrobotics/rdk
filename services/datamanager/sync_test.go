@@ -36,7 +36,7 @@ func newMockUploader(uploadCount *uint64) uploader {
 	}
 }
 
-// Validates that for some captureDir, a file is enqueued and uploaded exactly once.
+// Validates that for some captureDir, files are enqueued and uploaded exactly once.
 func TestQueuesAndUploadsOnce(t *testing.T) {
 	captureDir := t.TempDir()
 	syncDir := t.TempDir()
@@ -46,13 +46,14 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	var uploadCount uint64
 	sut.uploader = newMockUploader(&uploadCount)
 
-	// Put a file in captureDir.
+	// Put a couple files in captureDir.
 	file1, _ := ioutil.TempFile(captureDir, "whatever")
 	defer os.Remove(file1.Name())
+	file2, _ := ioutil.TempFile(captureDir, "whatever2")
+	defer os.Remove(file2.Name())
 
-	// Start syncer, let it run for a couple seconds.
-	go sut.Enqueue(time.Millisecond * 250)
-	go sut.UploadSynced()
+	// Start syncer, let it run for a second.
+	sut.Start(time.Millisecond * 100)
 	time.Sleep(time.Second * 2)
 
 	// Verify file was enqueued and uploaded (moved from captureDir to syncDir).
@@ -66,7 +67,7 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	}
 	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
 	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
-	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 1)
+	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 2)
 	sut.Close()
 }
 
@@ -86,9 +87,8 @@ func TestRecoversAfterKilled(t *testing.T) {
 	file1, _ := ioutil.TempFile(syncDir, "whatever")
 	defer os.Remove(file1.Name())
 
-	// Start syncer, let it run for a couple seconds.
-	go sut.Enqueue(time.Millisecond * 250)
-	go sut.UploadSynced()
+	// Start syncer, let it run for a second.
+	sut.Start(time.Millisecond * 100)
 	time.Sleep(time.Second * 2)
 
 	// Verify enqueued file was uploaded.
