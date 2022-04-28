@@ -121,15 +121,11 @@ func (c *collector) sleepBasedCapture() {
 		time.Sleep(time.Until(next))
 		select {
 		case <-c.cancelCtx.Done():
-			c.lock.Lock()
 			c.backgroundWorkers.Wait()
-			c.lock.Unlock()
 			close(c.queue)
 			return
 		default:
-			c.lock.Lock()
 			c.backgroundWorkers.Add(1)
-			c.lock.Unlock()
 			utils.PanicCapturingGo(func() {
 				c.getAndPushNextReading()
 			})
@@ -147,14 +143,14 @@ func (c *collector) tickerBasedCapture() {
 			if !errors.Is(err, context.Canceled) {
 				c.logger.Errorw("unexpected error in collector context", "error", err)
 			}
+			c.backgroundWorkers.Wait()
+			close(c.queue)
 			return
 		}
 
 		select {
 		case <-c.cancelCtx.Done():
-			c.lock.Lock()
 			c.backgroundWorkers.Wait()
-			c.lock.Unlock()
 			close(c.queue)
 			return
 		case <-ticker.C:
