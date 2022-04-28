@@ -92,7 +92,7 @@ func (c *collector) Collect() error {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
-	utils.PanicCapturingGo(func() { c.capture() })
+	utils.PanicCapturingGo(c.capture)
 	return c.write()
 }
 
