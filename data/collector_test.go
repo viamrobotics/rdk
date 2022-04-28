@@ -145,9 +145,6 @@ func TestSwallowsErrors(t *testing.T) {
 	}()
 	time.Sleep(30 * time.Millisecond)
 	c.Close()
-	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
-	// write an error log for a few instructions after .Close() is called, and this test is reading from the logger).
-	time.Sleep(10 * time.Millisecond)
 
 	// Verify that no errors were passed into errorChannel, and that errors were logged.
 	select {
@@ -171,9 +168,6 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	go c.Collect()
 	time.Sleep(30 * time.Millisecond)
 	c.Close()
-	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
-	// write an error log for a few instructions after .Close() is called, and this test is reading from the logger).
-	time.Sleep(10 * time.Millisecond)
 
 	test.That(t, logs.FilterLevelExact(zapcore.DebugLevel).Len(), test.ShouldBeGreaterThan, 0)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
