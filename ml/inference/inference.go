@@ -4,7 +4,6 @@ package inference
 import "C"
 import (
 	"errors"
-	"fmt"
 	_ "image/jpeg"
 	_ "image/png"
 	_ "path/filepath"
@@ -27,7 +26,7 @@ type TfliteInterpreter interface {
 }
 
 type InterpreterLoader struct {
-	NewModelFromFile      func(path string) (TfliteModel, error)
+	NewModelFromFile      func(path string) *tflite.Model
 	NewInterpreter        func(model TfliteModel, options TfliteInterpreterOptions) (TfliteInterpreter, error)
 	NewInterpreterOptions func() (TfliteInterpreterOptions, error)
 }
@@ -47,7 +46,7 @@ func GetDefaultInterpreterLoader() *InterpreterLoader {
 
 	loader := &InterpreterLoader{
 		NewInterpreter:        GetInterpreter,
-		NewModelFromFile:      GetModel,
+		NewModelFromFile:      tflite.NewModelFromFile,
 		NewInterpreterOptions: GetInterpreterOptions,
 	}
 
@@ -56,9 +55,9 @@ func GetDefaultInterpreterLoader() *InterpreterLoader {
 
 // GetTfliteInterpreter returns the service a struct containing information of a tflite compatible interpreter
 func (l *InterpreterLoader) GetTfliteInterpreter(modelPath string, numThreads int) (*FullInterpreter, error) {
-	model, err := l.NewModelFromFile(modelPath)
-	if err != nil {
-		return nil, err
+	model := l.NewModelFromFile(modelPath)
+	if model == nil {
+		return nil, errors.New("cannot load model")
 	}
 
 	options, err := l.NewInterpreterOptions()
@@ -73,7 +72,7 @@ func (l *InterpreterLoader) GetTfliteInterpreter(modelPath string, numThreads in
 	}
 
 	options.SetErrorReporter(func(msg string, user_data interface{}) {
-		fmt.Println(msg)
+		errors.New(msg)
 	}, nil)
 
 	interpreter, err := l.NewInterpreter(model, options)
@@ -91,14 +90,14 @@ func (l *InterpreterLoader) GetTfliteInterpreter(modelPath string, numThreads in
 
 }
 
-func GetModel(modelPath string) (TfliteModel, error) {
-	model := tflite.NewModelFromFile(modelPath)
-	if model == nil {
-		return nil, errors.New("cannot load model")
-	}
+// func GetModel(modelPath string) (TfliteModel, error) {
+// 	model := tflite.NewModelFromFile(modelPath)
+// 	if model == nil {
+// 		return nil, errors.New("cannot load model")
+// 	}
 
-	return model, nil
-}
+// 	return model, nil
+// }
 
 func GetInterpreterOptions() (TfliteInterpreterOptions, error) {
 	options := tflite.NewInterpreterOptions()
