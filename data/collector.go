@@ -45,16 +45,17 @@ type Collector interface {
 }
 
 type collector struct {
-	queue     chan *v1.SensorData
-	interval  time.Duration
-	params    map[string]string
-	lock      *sync.Mutex
-	logger    golog.Logger
-	target    *os.File
-	writer    *bufio.Writer
-	cancelCtx context.Context
-	cancel    context.CancelFunc
-	capturer  Capturer
+	queue             chan *v1.SensorData
+	interval          time.Duration
+	params            map[string]string
+	lock              *sync.Mutex
+	logger            golog.Logger
+	target            *os.File
+	writer            *bufio.Writer
+	backgroundWorkers sync.WaitGroup
+	cancelCtx         context.Context
+	cancel            context.CancelFunc
+	capturer          Capturer
 }
 
 // SetTarget updates the file being written to by the collector.
@@ -82,6 +83,8 @@ func (c *collector) Close() {
 	defer c.lock.Unlock()
 
 	c.cancel()
+	c.backgroundWorkers.Wait()
+	close(c.queue)
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
@@ -114,19 +117,25 @@ func (c *collector) capture() {
 }
 
 func (c *collector) sleepBasedCapture() {
-	var wg sync.WaitGroup
 	next := time.Now()
 	for {
+		if err := c.cancelCtx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				c.logger.Errorw("data manager context closed unexpectedly", "error", err)
+			}
+			return
+		}
+
 		time.Sleep(time.Until(next))
 		select {
 		case <-c.cancelCtx.Done():
-			wg.Wait()
-			close(c.queue)
 			return
 		default:
-			wg.Add(1)
+			c.lock.Lock()
+			c.backgroundWorkers.Add(1)
+			c.lock.Unlock()
 			utils.PanicCapturingGo(func() {
-				c.getAndPushNextReading(&wg)
+				c.getAndPushNextReading()
 			})
 		}
 		next = next.Add(c.interval)
@@ -136,25 +145,31 @@ func (c *collector) sleepBasedCapture() {
 func (c *collector) tickerBasedCapture() {
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
-	var wg sync.WaitGroup
 
 	for {
+		if err := c.cancelCtx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				c.logger.Errorw("data manager context closed unexpectedly", "error", err)
+			}
+			return
+		}
+
 		select {
 		case <-c.cancelCtx.Done():
-			wg.Wait()
-			close(c.queue)
 			return
 		case <-ticker.C:
-			wg.Add(1)
+			c.lock.Lock()
+			c.backgroundWorkers.Add(1)
+			c.lock.Unlock()
 			utils.PanicCapturingGo(func() {
-				c.getAndPushNextReading(&wg)
+				c.getAndPushNextReading()
 			})
 		}
 	}
 }
 
-func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (c *collector) getAndPushNextReading() {
+	defer c.backgroundWorkers.Done()
 
 	timeRequested := timestamppb.New(time.Now().UTC())
 	reading, err := c.capturer.Capture(c.cancelCtx, c.params)
@@ -179,6 +194,13 @@ func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
 		},
 		Data: pbReading,
 	}
+	if err := c.cancelCtx.Err(); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			c.logger.Errorw("data manager context closed unexpectedly", "error", err)
+		}
+		return
+	}
+
 	select {
 	// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
 	// still work when this happens.
@@ -195,16 +217,17 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 	bufferSize int, logger golog.Logger) Collector {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
-		queue:     make(chan *v1.SensorData, queueSize),
-		interval:  interval,
-		params:    params,
-		lock:      &sync.Mutex{},
-		logger:    logger,
-		target:    target,
-		writer:    bufio.NewWriterSize(target, bufferSize),
-		cancelCtx: cancelCtx,
-		cancel:    cancelFunc,
-		capturer:  capturer,
+		queue:             make(chan *v1.SensorData, queueSize),
+		interval:          interval,
+		params:            params,
+		lock:              &sync.Mutex{},
+		logger:            logger,
+		target:            target,
+		writer:            bufio.NewWriterSize(target, bufferSize),
+		cancelCtx:         cancelCtx,
+		cancel:            cancelFunc,
+		backgroundWorkers: sync.WaitGroup{},
+		capturer:          capturer,
 	}
 }
 
