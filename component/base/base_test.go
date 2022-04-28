@@ -42,6 +42,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	b, err := base.FromRobot(r, testBaseName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, b, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := b.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -73,7 +86,6 @@ func TestBaseNamed(t *testing.T) {
 	baseName := base.Named("test_base")
 	test.That(t, baseName.String(), test.ShouldResemble, "rdk:component:base/test_base")
 	test.That(t, baseName.Subtype, test.ShouldResemble, base.Subtype)
-	test.That(t, baseName.UUID, test.ShouldResemble, "026551c7-e5d4-55bd-ba08-61bcdc643bce")
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
@@ -141,6 +153,10 @@ func (m *mock) GetWidth(ctx context.Context) (int, error) {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
 
 func TestDoMove(t *testing.T) {
 	dev := &inject.Base{}

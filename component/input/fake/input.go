@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -22,7 +23,7 @@ func init() {
 	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewInputController})
 
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeInputController,
+		input.SubtypeName,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
@@ -56,6 +57,7 @@ type InputController struct {
 	Name     string
 	mu       sync.Mutex
 	controls []input.Control
+	generic.Echo
 }
 
 // GetControls lists the inputs of the gamepad.

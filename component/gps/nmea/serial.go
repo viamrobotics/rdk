@@ -20,6 +20,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -41,6 +42,7 @@ func init() {
 }
 
 type serialNMEAGPS struct {
+	generic.Unimplemented
 	mu     sync.RWMutex
 	dev    io.ReadWriteCloser
 	logger golog.Logger

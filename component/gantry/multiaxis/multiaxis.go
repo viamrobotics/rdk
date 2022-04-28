@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -25,6 +26,7 @@ type AttrConfig struct {
 }
 
 type multiAxis struct {
+	generic.Unimplemented
 	name      string
 	subAxes   []gantry.Gantry
 	lengthsMm []float64
@@ -52,7 +54,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeGantry, modelname,
+	config.RegisterComponentAttributeMapConverter(gantry.SubtypeName, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

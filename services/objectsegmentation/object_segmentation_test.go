@@ -2,6 +2,7 @@ package objectsegmentation_test
 
 import (
 	"context"
+	"errors"
 	"image"
 	"net"
 	"testing"
@@ -53,6 +54,10 @@ func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 type cloudSource struct{}
+
+func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
 
 func (c *cloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 	img := rimage.NewImage(100, 200)
@@ -222,7 +227,8 @@ type mock struct {
 func (m *mock) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
 	segmenterName string,
-	params config.AttributeMap) ([]*vision.Object, error) {
+	params config.AttributeMap,
+) ([]*vision.Object, error) {
 	m.timesCalled++
 	return []*vision.Object{vision.NewEmptyObject(), vision.NewEmptyObject()}, nil
 }

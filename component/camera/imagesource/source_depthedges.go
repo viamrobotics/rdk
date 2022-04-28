@@ -34,7 +34,7 @@ func init() {
 			return newDepthEdgesSource(r, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_edges",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_edges",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

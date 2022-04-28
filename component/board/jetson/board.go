@@ -18,6 +18,7 @@ import (
 	"periph.io/x/host/v3"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -99,6 +100,7 @@ func init() {
 }
 
 type jetsonBoard struct {
+	generic.Unimplemented
 	mu      sync.Mutex
 	spis    map[string]*spiBus
 	analogs map[string]board.AnalogReader

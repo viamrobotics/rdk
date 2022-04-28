@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -73,6 +74,7 @@ func init() {
 }
 
 type dofBot struct {
+	generic.Unimplemented
 	handle board.I2CHandle
 	model  referenceframe.Model
 	mp     motionplan.MotionPlanner

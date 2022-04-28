@@ -43,6 +43,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	g, err := gps.FromRobot(r, testGPSName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := g.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -80,7 +93,6 @@ func TestGPSName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "047fe0db-e1e8-5b26-b7a6-6e5814eaf4b3",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gps.SubtypeName,
@@ -92,7 +104,6 @@ func TestGPSName(t *testing.T) {
 			"all fields included",
 			testGPSName,
 			resource.Name{
-				UUID: "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gps.SubtypeName,
@@ -310,6 +321,10 @@ func (m *mock) ReadValid(ctx context.Context) (bool, error) {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
 
 type mockWithSensor struct {
 	mock
