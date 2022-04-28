@@ -113,6 +113,10 @@ func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, nil, nil
 }
 
+func (s *simpleSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
+
 type cloudSource struct{}
 
 func (c *cloudSource) Next(ctx context.Context) (image.Image, func(), error) {
@@ -130,4 +134,8 @@ func (c *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 		}
 	}
 	return pcA, nil
+}
+
+func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }

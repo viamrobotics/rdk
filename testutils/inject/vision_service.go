@@ -13,28 +13,28 @@ import (
 // VisionService represents a fake instance of an object detection service.
 type VisionService struct {
 	vision.Service
-	DetectorNamesFunc func(ctx context.Context) ([]string, error)
-	AddDetectorFunc   func(ctx context.Context, cfg vision.DetectorConfig) error
-	GetDetectionsFunc func(ctx context.Context, cameraName, detectorName string) ([]objectdetection.Detection, error)
+	GetDetectorNamesFunc func(ctx context.Context) ([]string, error)
+	AddDetectorFunc      func(ctx context.Context, cfg vision.DetectorConfig) error
+	GetDetectionsFunc    func(ctx context.Context, cameraName, detectorName string) ([]objectdetection.Detection, error)
 	// segmentation functions
-	SegmenterNamesFunc       func(ctx context.Context) ([]string, error)
-	SegmenterParametersFunc  func(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
-	GetObjectPointCloudsFunc func(ctx context.Context,
+	GetSegmenterNamesFunc      func(ctx context.Context) ([]string, error)
+	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
+	GetObjectPointCloudsFunc   func(ctx context.Context,
 		cameraName, segmenterName string,
 		params config.AttributeMap) ([]*viz.Object, error)
 }
 
-// DetectorNames calls the injected DetectorNames or the real variant.
-func (vs *VisionService) DetectorNames(ctx context.Context) ([]string, error) {
-	if vs.DetectorNamesFunc == nil {
-		return vs.Service.DetectorNames(ctx)
+// GetDetectorNames calls the injected DetectorNames or the real variant.
+func (vs *VisionService) GetDetectorNames(ctx context.Context) ([]string, error) {
+	if vs.GetDetectorNamesFunc == nil {
+		return vs.Service.GetDetectorNames(ctx)
 	}
-	return vs.DetectorNamesFunc(ctx)
+	return vs.GetDetectorNamesFunc(ctx)
 }
 
 // AddDetector calls the injected AddDetector or the real variant.
 func (vs *VisionService) AddDetector(ctx context.Context, cfg vision.DetectorConfig) error {
-	if vs.DetectorNamesFunc == nil {
+	if vs.AddDetectorFunc == nil {
 		return vs.Service.AddDetector(ctx, cfg)
 	}
 	return vs.AddDetectorFunc(ctx, cfg)
@@ -60,21 +60,21 @@ func (vs *VisionService) GetObjectPointClouds(
 	return vs.GetObjectPointCloudsFunc(ctx, cameraName, segmenterName, params)
 }
 
-// SegmenterNames calls the injected SegmenterNames or the real variant.
-func (vs *VisionService) SegmenterNames(ctx context.Context) ([]string, error) {
-	if vs.SegmenterNamesFunc == nil {
-		return vs.Service.SegmenterNames(ctx)
+// GetSegmenterNames calls the injected GetSegmenterNames or the real variant.
+func (vs *VisionService) GetSegmenterNames(ctx context.Context) ([]string, error) {
+	if vs.GetSegmenterNamesFunc == nil {
+		return vs.Service.GetSegmenterNames(ctx)
 	}
-	return vs.SegmenterNamesFunc(ctx)
+	return vs.GetSegmenterNamesFunc(ctx)
 }
 
-// SegmenterParameters calls the injected SegmenterParameters or the real variant.
-func (vs *VisionService) SegmenterParameters(
+// GetSegmenterParameters calls the injected GetSegmenterParameters or the real variant.
+func (vs *VisionService) GetSegmenterParameters(
 	ctx context.Context,
 	segmenterName string,
 ) ([]utils.TypedName, error) {
-	if vs.SegmenterParametersFunc == nil {
-		return vs.Service.SegmenterParameters(ctx, segmenterName)
+	if vs.GetSegmenterParametersFunc == nil {
+		return vs.Service.GetSegmenterParameters(ctx, segmenterName)
 	}
-	return vs.SegmenterParametersFunc(ctx, segmenterName)
+	return vs.GetSegmenterParametersFunc(ctx, segmenterName)
 }

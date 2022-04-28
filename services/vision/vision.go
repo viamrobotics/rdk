@@ -52,12 +52,12 @@ func init() {
 // A Service that returns  list of 2D bounding boxes and labels around objects in a 2D image.
 type Service interface {
 	// detector methods
-	DetectorNames(ctx context.Context) ([]string, error)
+	GetDetectorNames(ctx context.Context) ([]string, error)
 	AddDetector(ctx context.Context, cfg DetectorConfig) error
 	GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
 	// segmenter methods
-	SegmenterNames(ctx context.Context) ([]string, error)
-	SegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
+	GetSegmenterNames(ctx context.Context) ([]string, error)
+	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*viz.Object, error)
 }
 
