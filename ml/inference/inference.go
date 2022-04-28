@@ -3,10 +3,12 @@ package inference
 
 import "C"
 import (
-	"errors"
 	_ "image/jpeg"
 	_ "image/png"
+	"log"
 	_ "path/filepath"
+
+	"github.com/pkg/errors"
 
 	tflite "github.com/mattn/go-tflite"
 )
@@ -18,7 +20,7 @@ type TfliteModel interface {
 type TfliteInterpreterOptions interface {
 	Delete()
 	SetNumThread(num int)
-	SetErrorReporter(f func(string, interface{}), user_data interface{})
+	SetErrorReporter(f func(string, interface{}), userData interface{})
 }
 
 type TfliteInterpreter interface {
@@ -37,13 +39,8 @@ type FullInterpreter struct {
 	Options     TfliteInterpreterOptions
 }
 
-// INTERFACES HAVE FUNCTIONS
-// STRUCTS HAVE OBJECTS INSIDE
-
 // GetDefaultInterpreterLoader returns the default loader when using tflite
 func GetDefaultInterpreterLoader() *InterpreterLoader {
-	// var interpreterFunc = tflite.NewInterpreter
-
 	loader := &InterpreterLoader{
 		NewInterpreter:        GetInterpreter,
 		NewModelFromFile:      tflite.NewModelFromFile,
@@ -71,8 +68,8 @@ func (l *InterpreterLoader) GetTfliteInterpreter(modelPath string, numThreads in
 		options.SetNumThread(numThreads)
 	}
 
-	options.SetErrorReporter(func(msg string, user_data interface{}) {
-		errors.New(msg)
+	options.SetErrorReporter(func(msg string, userData interface{}) {
+		log.Println(msg)
 	}, nil)
 
 	interpreter, err := l.NewInterpreter(model, options)
@@ -87,22 +84,12 @@ func (l *InterpreterLoader) GetTfliteInterpreter(modelPath string, numThreads in
 	}
 
 	return &fullInterpreter, nil
-
 }
-
-// func GetModel(modelPath string) (TfliteModel, error) {
-// 	model := tflite.NewModelFromFile(modelPath)
-// 	if model == nil {
-// 		return nil, errors.New("cannot load model")
-// 	}
-
-// 	return model, nil
-// }
 
 func GetInterpreterOptions() (TfliteInterpreterOptions, error) {
 	options := tflite.NewInterpreterOptions()
 	if options == nil {
-		return nil, errors.New("no interpreter options")
+		return nil, errors.Errorf("no interpreter options %v", options)
 	}
 
 	return options, nil
@@ -111,20 +98,19 @@ func GetInterpreterOptions() (TfliteInterpreterOptions, error) {
 func GetInterpreter(model TfliteModel, options TfliteInterpreterOptions) (TfliteInterpreter, error) {
 	tfliteModel, ok := model.(*tflite.Model)
 	if !ok {
-		return nil, nil
+		return nil, errors.New("not a tflite.Model")
 	}
 
 	tfliteOptions, ok := model.(*tflite.InterpreterOptions)
 	if !ok {
-		return nil, nil
+		return nil, errors.New("not a tflite.InterpreterOptions")
 	}
 
 	interpreter := tflite.NewInterpreter(tfliteModel, tfliteOptions)
 	if interpreter == nil {
-		return nil, errors.New("cannot create interpreter")
+		return nil, errors.Errorf("cannot create interpreter %v", interpreter)
 	}
 	return interpreter, nil
-
 }
 
 // DeleteInterpreter should be called at the end of using the interpreter to delete the instance and related parts
