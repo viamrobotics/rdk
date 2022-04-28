@@ -1,4 +1,4 @@
-// package inference makes inferences
+// inference makes inferences
 package inference
 
 import (
@@ -61,14 +61,27 @@ func TestGetInterpreter(t *testing.T) {
 	test.That(t, interpreter, test.ShouldBeNil)
 }
 
-func TestBadModel(t *testing.T) {
+func TestFailedInterpreter(t *testing.T) {
+	badInterpreterLoader := func(model TfliteModel, options TfliteInterpreterOptions) (TfliteInterpreter, error) {
+		return nil, errors.New("cannot create interpreter")
+	}
 
+	goodOptions := func() (TfliteInterpreterOptions, error) { return &mockInterpreterOptions{}, nil }
+
+	loader := &InterpreterLoader{
+		NewModelFromFile:      modelLoader,
+		NewInterpreter:        badInterpreterLoader,
+		NewInterpreterOptions: goodOptions,
+	}
+	interpreter, err := loader.GetTfliteInterpreter("random path", 0)
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, interpreter, test.ShouldBeNil)
 }
 
-func modelLoader(path string) (TfliteModel, error) {
+func modelLoader(path string) *tflite.Model {
 	if path == "bad path" {
-		return nil, errors.New("cannot load model")
+		return nil
 	} else {
-		return &tflite.Model{}, nil
+		return &tflite.Model{}
 	}
 }
