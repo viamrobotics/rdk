@@ -34,6 +34,7 @@ func (r *exampleReading) toProto() *structpb.Struct {
 
 var (
 	dummyCapturer = CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+		time.Sleep(time.Millisecond * 5)
 		return dummyReading, nil
 	})
 	dummyReading      = exampleReading{}

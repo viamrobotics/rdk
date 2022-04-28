@@ -84,7 +84,6 @@ func (c *collector) Close() {
 
 	c.cancel()
 	c.backgroundWorkers.Wait()
-	close(c.queue)
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
@@ -119,16 +118,11 @@ func (c *collector) capture() {
 func (c *collector) sleepBasedCapture() {
 	next := time.Now()
 	for {
-		if err := c.cancelCtx.Err(); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				c.logger.Errorw("data manager context closed unexpectedly", "error", err)
-			}
-			return
-		}
-
 		time.Sleep(time.Until(next))
 		select {
 		case <-c.cancelCtx.Done():
+			c.backgroundWorkers.Wait()
+			close(c.queue)
 			return
 		default:
 			c.lock.Lock()
@@ -147,15 +141,10 @@ func (c *collector) tickerBasedCapture() {
 	defer ticker.Stop()
 
 	for {
-		if err := c.cancelCtx.Err(); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				c.logger.Errorw("data manager context closed unexpectedly", "error", err)
-			}
-			return
-		}
-
 		select {
 		case <-c.cancelCtx.Done():
+			c.backgroundWorkers.Wait()
+			close(c.queue)
 			return
 		case <-ticker.C:
 			c.lock.Lock()
