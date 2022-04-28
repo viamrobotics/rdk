@@ -59,10 +59,10 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::client::DetectorNames")
+func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetectorNames")
 	defer span.End()
-	resp, err := c.client.DetectorNames(ctx, &pb.DetectorNamesRequest{})
+	resp, err := c.client.GetDetectorNames(ctx, &pb.GetDetectorNamesRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -106,16 +106,16 @@ func (c *client) GetDetections(ctx context.Context, cameraName, detectorName str
 	return detections, nil
 }
 
-func (c *client) SegmenterNames(ctx context.Context) ([]string, error) {
-	resp, err := c.client.SegmenterNames(ctx, &pb.SegmenterNamesRequest{})
+func (c *client) GetSegmenterNames(ctx context.Context) ([]string, error) {
+	resp, err := c.client.GetSegmenterNames(ctx, &pb.GetSegmenterNamesRequest{})
 	if err != nil {
 		return nil, err
 	}
 	return resp.SegmenterNames, nil
 }
 
-func (c *client) SegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	resp, err := c.client.SegmenterParameters(ctx, &pb.SegmenterParametersRequest{
+func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
 		SegmenterName: segmenterName,
 	})
 	if err != nil {

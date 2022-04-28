@@ -59,7 +59,7 @@ func TestClient(t *testing.T) {
 		client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		names, err := client.DetectorNames(context.Background())
+		names, err := client.GetDetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 
@@ -83,7 +83,7 @@ func TestClient(t *testing.T) {
 		err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err, test.ShouldBeNil)
 
-		names, err := client.DetectorNames(context.Background())
+		names, err := client.GetDetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 		test.That(t, names, test.ShouldContain, "new_detector")
@@ -138,7 +138,7 @@ func TestInjectedServiceClient(t *testing.T) {
 
 		injCam := &cloudSource{}
 
-		injectVision.SegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]rdkutils.TypedName, error) {
+		injectVision.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]rdkutils.TypedName, error) {
 			return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
 		}
 		injectVision.GetObjectPointCloudsFunc = func(ctx context.Context,
@@ -152,16 +152,16 @@ func TestInjectedServiceClient(t *testing.T) {
 			}
 			return segments, nil
 		}
-		injectVision.SegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
+		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
 			return []string{vision.RadiusClusteringSegmenter}, nil
 		}
 
-		segNames, err := client.SegmenterNames(context.Background())
+		segNames, err := client.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segNames, test.ShouldHaveLength, 1)
 		test.That(t, segNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
 
-		paramNames, err := client.SegmenterParameters(context.Background(), segNames[0])
+		paramNames, err := client.GetSegmenterParameters(context.Background(), segNames[0])
 		test.That(t, err, test.ShouldBeNil)
 		expParams := []rdkutils.TypedName{
 			{"min_points_in_plane", "int"},
