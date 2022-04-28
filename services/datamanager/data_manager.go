@@ -255,13 +255,14 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 func (svc *Service) initOrUpdateSyncer(ctx context.Context, intervalMins int) {
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
-		svc.syncer.Close()
 		svc.updateCollectorsCancelFn()
+		svc.syncer.Close()
 		svc.backgroundWorkers.Wait()
 		svc.syncer = nil
+		svc.updateCollectorsCancelFn = nil
 	}
 
-	// If previously we were not syncing and now we are, init a syncer.
+	// Init a new syncer if we are still syncing.
 	if intervalMins > 0 {
 		cancelCtx, fn := context.WithCancel(ctx)
 		svc.updateCollectorsCancelFn = fn
@@ -312,6 +313,12 @@ func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins in
 		defer ticker.Stop()
 
 		for {
+			if err := cancelCtx.Err(); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					svc.logger.Errorw("data manager context closed unexpectedly", "error", err)
+				}
+				return
+			}
 			select {
 			case <-cancelCtx.Done():
 				files := make([]string, 0, len(svc.collectors))
