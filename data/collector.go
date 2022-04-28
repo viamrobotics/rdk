@@ -143,6 +143,13 @@ func (c *collector) tickerBasedCapture() {
 	defer ticker.Stop()
 
 	for {
+		if err := c.cancelCtx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				c.logger.Errorw("unexpected error in collector context", "error", err)
+			}
+			return
+		}
+
 		select {
 		case <-c.cancelCtx.Done():
 			c.lock.Lock()
