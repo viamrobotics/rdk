@@ -121,7 +121,9 @@ func (c *collector) sleepBasedCapture() {
 		time.Sleep(time.Until(next))
 		select {
 		case <-c.cancelCtx.Done():
+			c.lock.Lock()
 			c.backgroundWorkers.Wait()
+			c.lock.Unlock()
 			close(c.queue)
 			return
 		default:
@@ -143,7 +145,9 @@ func (c *collector) tickerBasedCapture() {
 	for {
 		select {
 		case <-c.cancelCtx.Done():
+			c.lock.Lock()
 			c.backgroundWorkers.Wait()
+			c.lock.Unlock()
 			close(c.queue)
 			return
 		case <-ticker.C:
@@ -182,12 +186,6 @@ func (c *collector) getAndPushNextReading() {
 			TimeReceived:  timeReceived,
 		},
 		Data: pbReading,
-	}
-	if err := c.cancelCtx.Err(); err != nil {
-		if !errors.Is(err, context.Canceled) {
-			c.logger.Errorw("data manager context closed unexpectedly", "error", err)
-		}
-		return
 	}
 
 	select {
