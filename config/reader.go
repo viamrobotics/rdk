@@ -20,6 +20,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/resource"
 )
@@ -264,17 +265,21 @@ func storeToCache(id string, cfg *Config) error {
 	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
 		return err
 	}
+
 	md, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
-	//nolint:gosec
-	return ioutil.WriteFile(getCloudCacheFilePath(id), md, 0o640)
+	reader := bytes.NewReader(md)
+
+	path := getCloudCacheFilePath(id)
+
+	return artifact.AtomicStore(path, reader, id)
 }
 
-// ReadFromCloud fetches a robot config from the cloud based
+// readFromCloud fetches a robot config from the cloud based
 // on the given config.
-func ReadFromCloud(
+func readFromCloud(
 	ctx context.Context,
 	cloudCfg *Cloud,
 	readFromCache bool,
@@ -466,7 +471,7 @@ func fromReader(
 	cfg := Config{
 		ConfigFilePath: originalPath,
 	}
-	unprocessedCfg := Config{
+	unprocessedConfig := Config{
 		ConfigFilePath: originalPath,
 	}
 
@@ -477,18 +482,18 @@ func fromReader(
 	if err := json.Unmarshal(rd, &cfg); err != nil {
 		return nil, nil, errors.Wrap(err, "cannot parse config")
 	}
-	if err := json.Unmarshal(rd, &unprocessedCfg); err != nil {
+	if err := json.Unmarshal(rd, &unprocessedConfig); err != nil {
 		return nil, nil, errors.Wrap(err, "cannot parse config")
 	}
 	if err := cfg.Ensure(skipCloud); err != nil {
 		return nil, nil, err
 	}
-	if err := unprocessedCfg.Ensure(skipCloud); err != nil {
+	if err := unprocessedConfig.Ensure(skipCloud); err != nil {
 		return nil, nil, err
 	}
 
 	if !skipCloud && cfg.Cloud != nil {
-		return ReadFromCloud(ctx, cfg.Cloud, true, true, logger)
+		return readFromCloud(ctx, cfg.Cloud, true, true, logger)
 	}
 
 	for idx, c := range cfg.Components {
@@ -535,5 +540,5 @@ func fromReader(
 	if err := cfg.Ensure(skipCloud); err != nil {
 		return nil, nil, err
 	}
-	return &cfg, &unprocessedCfg, nil
+	return &cfg, &unprocessedConfig, nil
 }

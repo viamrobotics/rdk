@@ -126,16 +126,18 @@ do_darwin(){
 
 mod_profiles(){
 	# Add dev environment variables to shells
-	grep -q viamdevrc ~/.bash_profile || echo "source ~/.viamdevrc" >> ~/.bash_profile
-	grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc
-	grep -q viamdevrc ~/.zprofile || echo "source ~/.viamdevrc" >> ~/.zprofile
-	grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc
+	test -f ~/.bash_profile && ( grep -q viamdevrc ~/.bash_profile || echo "source ~/.viamdevrc" >> ~/.bash_profile )
+	test -f ~/.bashrc && ( grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc )
+	test -f ~/.zprofile && ( grep -q viamdevrc ~/.zprofile || echo "source ~/.viamdevrc" >> ~/.zprofile )
+	test -f ~/.zshrc && ( grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc )
 
-	# No longer seems to be needed. Can build/lint/test without this
-	# git config --global --get-regexp url. > /dev/null
-	# if [ $? -ne 0 ]; then
-	# 	git config --global url.ssh://git@github.com/.insteadOf https://github.com/
-	# fi
+	# Once again seems to be needed, now that API is a distinct private repo
+	git config --global --get-regexp url. > /dev/null
+	if [ $? -ne 0 ]; then
+		git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+	fi
+	mkdir -p ~/.ssh
+	grep -q github.com ~/.ssh/known_hosts || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 }
 
 do_brew(){
@@ -165,7 +167,7 @@ do_brew(){
 		exit 1
 	fi
 
-	brew link --overwrite "node@16" || exit 1
+	brew link --overwrite "gcc@11" "go@1.17" "node@16" "protobuf@3.19" || exit 1
 
 	echo "Brew installed software versions..."
 	brew list --version

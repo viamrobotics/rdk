@@ -9,6 +9,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -55,6 +56,7 @@ func Named(name string) resource.Name {
 type Sensor interface {
 	// GetReadings return data specific to the type of sensor and can be of any type.
 	GetReadings(ctx context.Context) ([]interface{}, error)
+	generic.Generic
 }
 
 var (
@@ -95,6 +97,13 @@ func (r *reconfigurableSensor) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+// Do passes generic commands/data.
+func (r *reconfigurableSensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
