@@ -9,25 +9,13 @@ import (
 	"go.viam.com/test"
 )
 
-var (
-	model       *tflite.Model
-	options     *tflite.InterpreterOptions
-	interpreter *tflite.Interpreter
-)
+type mockInterpreterOptions struct{}
 
-type mockInterpreterOptions struct {
-}
+func (mIo *mockInterpreterOptions) SetNumThread(num int) {}
 
-func (mIo *mockInterpreterOptions) SetNumThread(num int) {
-	return
-}
+func (mIo *mockInterpreterOptions) Delete() {}
 
-func (mIo *mockInterpreterOptions) Delete() {
-	return
-}
-
-func (mIo *mockInterpreterOptions) SetErrorReporter(f func(string, interface{}), user_data interface{}) {
-	return
+func (mIo *mockInterpreterOptions) SetErrorReporter(f func(string, interface{}), userData interface{}) {
 }
 
 func TestGetInterpreter(t *testing.T) {
@@ -81,7 +69,7 @@ func TestFailedInterpreter(t *testing.T) {
 func modelLoader(path string) *tflite.Model {
 	if path == "bad path" {
 		return nil
-	} else {
-		return &tflite.Model{}
 	}
+
+	return &tflite.Model{}
 }
