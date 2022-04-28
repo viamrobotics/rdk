@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -17,7 +19,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -79,6 +81,8 @@ type componentAttributes struct {
 // Config describes how to configure the service.
 type Config struct {
 	CaptureDir          string                         `json:"capture_dir"`
+	MaxStoragePercent   int                            `json:"max_storage_percent"`
+	EnableAutoDelete    bool                           `json:"enable_auto_delete"`
 	ComponentAttributes map[string]componentAttributes `json:"component_attributes"`
 }
 
@@ -86,11 +90,14 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	dataManagerSvc := &Service{
 		r:          r,
 		logger:     logger,
 		captureDir: viamCaptureDotDir,
 		collectors: make(map[componentMethodMetadata]collectorParams),
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
 	}
 
 	return dataManagerSvc, nil
@@ -98,17 +105,23 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 // Service initializes and orchestrates data capture collectors for registered component/methods.
 type Service struct {
-	r          robot.Robot
-	logger     golog.Logger
-	captureDir string
-	collectors map[componentMethodMetadata]collectorParams
+	r                 robot.Robot
+	logger            golog.Logger
+	captureDir        string
+	maxStoragePercent int
+	enableAutoDelete  bool
+	collectors        map[componentMethodMetadata]collectorParams
+
+	cancelCtx  context.Context
+	cancelFunc func()
 }
 
 // Parameters stored for each collector.
 type collectorParams struct {
-	Collector  data.Collector
-	Attributes componentAttributes
-	CaptureDir string
+	Collector     data.Collector
+	Attributes    componentAttributes
+	CaptureDir    string
+	ComponentName string
 }
 
 // Identifier for a particular collector: component name, component type, and method name.
@@ -131,7 +144,6 @@ func getFileTimestampName() string {
 // Create a timestamped file within the given capture directory.
 func createDataCaptureFile(captureDir string, subtypeName string, componentName string) (*os.File, error) {
 	fileDir := filepath.Join(captureDir, subtypeName, componentName)
-	//
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
@@ -154,7 +166,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 		ComponentName:  componentName,
 		MethodMetadata: metadata,
 	}
-	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
+	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok && storedCollectorParams.Collector != nil {
 		collector := storedCollectorParams.Collector
 		previousAttributes := storedCollectorParams.Attributes
 
@@ -215,7 +227,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	if err != nil {
 		return nil, err
 	}
-	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir}
+	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir, componentName}
 
 	// TODO: Handle errors more gracefully.
 	go func() {
@@ -228,14 +240,79 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	return &componentMetadata, nil
 }
 
+type DiskStatus struct {
+	All         uint64
+	Used        uint64
+	Free        uint64
+	Avail       uint64
+	PercentUsed int
+}
+
+func DiskUsage(path string) (disk DiskStatus) {
+	fs := syscall.Statfs_t{}
+	err := syscall.Statfs(path, &fs)
+	if err != nil {
+		return
+	}
+	disk.All = fs.Blocks * uint64(fs.Bsize)
+	disk.Avail = fs.Bavail * uint64(fs.Bsize)
+	disk.Free = fs.Bfree * uint64(fs.Bsize)
+	disk.Used = disk.All - disk.Free
+	disk.PercentUsed = int(100 * disk.Used / (disk.Used + disk.Avail))
+	return disk
+}
+
+func (svc *Service) checkStorage() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	var wg sync.WaitGroup
+
+	for {
+		select {
+		case <-svc.cancelCtx.Done():
+			wg.Wait()
+			return
+		case <-ticker.C:
+			wg.Add(1)
+			du := DiskUsage("/")                         // From root? Should get du across entire filesystem?
+			if du.PercentUsed >= svc.maxStoragePercent { // Should we add some margin, e.g. a few % within maxStoragePercent?
+				if svc.enableAutoDelete {
+					// TODO: Add deletion logic for oldest file(s)
+				} else {
+					// If auto-delete is disabled, simply stop collecting. If disk space frees up,
+					// we will reset collectors with previous configuration.
+					// If the user updates the config in the meantime, we will update the map
+					// of collectors.
+					svc.closeCollectors()
+				}
+			} else {
+				// Handle case where we previously closed/paused collectors and now disk usage has freed up
+				svc.reinitializeClosedCollectors()
+			}
+		}
+	}
+}
+
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
-		return utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+		return rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
+	svc.enableAutoDelete = svcConfig.EnableAutoDelete
+
+	// If auto-delete off, stop writing to disk after max percent storage
+	// If auto-delete on, delete oldest file after max percent storage?
+	updateEnableAutoDelete := svc.enableAutoDelete != svcConfig.EnableAutoDelete
+	updateMaxPercentStorage := svc.maxStoragePercent != svcConfig.MaxStoragePercent
+	if updateEnableAutoDelete || updateMaxPercentStorage {
+		// Kick this off earlier and just send an update here?
+		svc.checkStorage()
+	}
+	svc.enableAutoDelete = svcConfig.EnableAutoDelete
+	svc.maxStoragePercent = svcConfig.MaxStoragePercent
 
 	// Initialize or add a collector based on changes to the config.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -257,5 +334,27 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 		}
 	}
 
+	return nil
+}
+
+func (svc *Service) closeCollectors() {
+	for _, collector := range svc.collectors {
+		collector.Collector.Close()
+		collector.Collector = nil // Should we have a bool instead? collector_disabled/closed?
+	}
+}
+
+func (svc *Service) reinitializeClosedCollectors() {
+	for _, collector := range svc.collectors {
+		if collector.Collector == nil {
+			svc.initializeOrUpdateCollector(collector.ComponentName, collector.Attributes, false)
+		}
+	}
+}
+
+// Close releases all resources managed by data_manager.
+func (svc *Service) Close(ctx context.Context) error {
+	svc.cancelFunc()
+	svc.closeCollectors()
 	return nil
 }
