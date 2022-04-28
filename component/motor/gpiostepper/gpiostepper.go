@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -114,6 +115,7 @@ type gpioStepper struct {
 	threadStarted        bool
 	targetStepPosition   int64
 	targetStepsPerSecond int64
+	generic.Unimplemented
 }
 
 // validate if this config is valid.
