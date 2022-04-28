@@ -5,6 +5,7 @@ package data
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -86,6 +87,11 @@ func (c *collector) Close() {
 	c.backgroundWorkers.Wait()
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
+	}
+	err := c.logger.Sync()
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 }
 
@@ -192,7 +198,7 @@ func (c *collector) getAndPushNextReading() {
 	}
 
 	select {
-	// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
+	// If c.qgitueue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
 	// still work when this happens.
 	case <-c.cancelCtx.Done():
 		return
