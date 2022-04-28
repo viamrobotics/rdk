@@ -69,44 +69,34 @@ func TestTransform(t *testing.T) {
 }
 
 func TestModelGeometries(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/model_test.json"), "")
+	// build a test model
+	offset := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})
+	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, offset)
 	test.That(t, err, test.ShouldBeNil)
-	sm, ok := m.(*SimpleModel)
-	test.That(t, ok, test.ShouldBeTrue)
+	// m, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/model_test.json"), "")
+	frame1, err := NewStaticFrameWithGeometry("link1", offset, bc)
+	test.That(t, err, test.ShouldBeNil)
+	frame2, err := NewRotationalFrame("", spatial.R4AA{RY: 1}, Limit{Min: -360, Max: 360})
+	test.That(t, err, test.ShouldBeNil)
+	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
+	test.That(t, err, test.ShouldBeNil)
+	m := &SimpleModel{name: "test", OrdTransforms: []Frame{frame1, frame2, frame3}}
 
-	inputs := make([]Input, len(sm.DoF()))
-	geometries, _ := sm.Geometries(inputs)
-
+	// test zero pose of model
+	inputs := make([]Input, len(m.DoF()))
+	geometries, _ := m.Geometries(inputs)
 	test.That(t, geometries, test.ShouldNotBeNil)
-	expected, err := sm.inputsToFrames(inputs, true)
-	test.That(t, err, test.ShouldBeNil)
-	geoms, err := m.Geometries(inputs)
-	_ = geoms
+	link1 := geometries.Geometries()["test:link1"].Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
+	link2 := geometries.Geometries()["test:link2"].Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{0, 0, 20}, 1e-8), test.ShouldBeTrue)
 
+	// transform the model 90 degrees at the joint
 	inputs[0] = Input{math.Pi / 2}
-	expected, err = sm.inputsToFrames(inputs, true)
-	test.That(t, err, test.ShouldBeNil)
-	pose := expected[3].transform.Point()
-	geoms, err = m.Geometries(inputs)
-	_ = geoms
-	pose = geoms.Geometries()["test:link2"].Pose().Point()
-	_ = pose
-	numGeometries := 0
-	for _, joint := range expected {
-		if joint.geometryCreator != nil {
-			numGeometries++
-			var offset r3.Vector
-			for _, tf := range m.(*SimpleModel).OrdTransforms {
-				if tf.Name() == joint.Name() {
-					geometry, err := tf.Geometries([]Input{})
-					test.That(t, err, test.ShouldBeNil)
-					offset = geometry.Geometries()[tf.Name()].Pose().Point().Sub(tf.(*staticFrame).transform.Point())
-				}
-			}
-			expectedGeometry := joint.transform.Point().Add(offset)
-			geometryCenter := geometries.Geometries()[sm.Name()+":"+joint.Name()].Pose().Point()
-			test.That(t, spatial.R3VectorAlmostEqual(expectedGeometry, geometryCenter, 1e-3), test.ShouldBeTrue)
-		}
-	}
-	test.That(t, numGeometries, test.ShouldEqual, 5)
+	geometries, _ = m.Geometries(inputs)
+	test.That(t, geometries, test.ShouldNotBeNil)
+	link1 = geometries.Geometries()["test:link1"].Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
+	link2 = geometries.Geometries()["test:link2"].Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{10, 0, 10}, 1e-8), test.ShouldBeTrue)
 }
