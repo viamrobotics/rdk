@@ -13,26 +13,23 @@ import (
 	"go.viam.com/test"
 )
 
-func newTestSyncer(captureDir string, queue string, logger golog.Logger) syncer {
-	return syncer{
-		captureDir:    captureDir,
-		syncQueue:     queue,
-		logger:        logger,
-		queueWaitTime: time.Nanosecond,
-		cancelCtx:     context.Background(),
-		cancelFunc:    func() {},
-	}
-}
+func newTestSyncer(captureDir string, queue string, logger golog.Logger, uploadCount *uint64) syncer {
+	cancelCtx, cancelFn := context.WithCancel(context.Background())
 
-func newMockUploader(uploadCount *uint64) uploader {
-	return uploader{
-		inProgress: map[string]struct{}{},
-		lock:       &sync.Mutex{},
-		uploadFn: func(path string) error {
+	return syncer{
+		captureDir:     captureDir,
+		syncQueue:      queue,
+		logger:         logger,
+		queueWaitTime:  time.Nanosecond,
+		inProgress:     map[string]struct{}{},
+		inProgressLock: &sync.Mutex{},
+		uploadFn: func(ctx context.Context, path string) error {
 			atomic.AddUint64(uploadCount, 1)
 			_ = os.Remove(path)
 			return nil
 		},
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFn,
 	}
 }
 
@@ -42,9 +39,8 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	syncDir := t.TempDir()
 	l := golog.NewTestLogger(t)
 
-	sut := newTestSyncer(captureDir, syncDir, l)
 	var uploadCount uint64
-	sut.uploader = newMockUploader(&uploadCount)
+	sut := newTestSyncer(captureDir, syncDir, l, &uploadCount)
 
 	// Start syncer.
 	sut.Start()
@@ -82,9 +78,8 @@ func TestRecoversAfterKilled(t *testing.T) {
 	syncDir := t.TempDir()
 	l := golog.NewTestLogger(t)
 
-	sut := newTestSyncer(captureDir, syncDir, l)
 	var uploadCount uint64
-	sut.uploader = newMockUploader(&uploadCount)
+	sut := newTestSyncer(captureDir, syncDir, l, &uploadCount)
 
 	// Put a file in syncDir; this simulates a file that was enqueued by some previous syncer.
 	file1, _ := ioutil.TempFile(syncDir, "whatever")
