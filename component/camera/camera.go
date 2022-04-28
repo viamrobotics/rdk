@@ -13,6 +13,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
@@ -65,6 +66,7 @@ func Named(name string) resource.Name {
 // A Camera represents anything that can capture frames.
 type Camera interface {
 	gostream.ImageSource
+	generic.Generic
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
@@ -93,23 +95,24 @@ func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (C
 	}
 	// if the camera parameters are specified in the config, those get priority.
 	if attrs != nil && attrs.CameraParameters != nil {
-		return &imageSourceWithProjector{imgSrc, attrs.CameraParameters}, nil
+		return &imageSourceWithProjector{imgSrc, attrs.CameraParameters, generic.Unimplemented{}}, nil
 	}
 	// inherit camera parameters from source camera if possible. if not, create a camera without projector.
 	if reconfigCam, ok := parentSource.(*reconfigurableCamera); ok {
 		if c, ok := reconfigCam.ProxyFor().(WithProjector); ok {
-			return &imageSourceWithProjector{imgSrc, c.GetProjector()}, nil
+			return &imageSourceWithProjector{imgSrc, c.GetProjector(), generic.Unimplemented{}}, nil
 		}
 	}
 	if camera, ok := parentSource.(WithProjector); ok {
-		return &imageSourceWithProjector{imgSrc, camera.GetProjector()}, nil
+		return &imageSourceWithProjector{imgSrc, camera.GetProjector(), generic.Unimplemented{}}, nil
 	}
-	return &imageSource{imgSrc}, nil
+	return &imageSource{imgSrc, generic.Unimplemented{}}, nil
 }
 
 // ImageSource implements a Camera with a gostream.ImageSource.
 type imageSource struct {
 	gostream.ImageSource
+	generic.Unimplemented
 }
 
 // Close closes the underlying ImageSource.
@@ -131,6 +134,7 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 type imageSourceWithProjector struct {
 	gostream.ImageSource
 	projector rimage.Projector
+	generic.Unimplemented
 }
 
 // Close closes the underlying ImageSource.
@@ -233,6 +237,12 @@ func (c *reconfigurableCamera) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return viamutils.TryClose(ctx, c.actual)
+}
+
+func (c *reconfigurableCamera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.Do(ctx, cmd)
 }
 
 // Reconfigure reconfigures the resource.

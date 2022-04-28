@@ -4,6 +4,8 @@ package web
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"net"
 
 	"go.viam.com/utils/rpc"
 
@@ -140,4 +142,73 @@ func OptionsFromConfig(cfg *config.Config) (Options, error) {
 		options.SignalingDialOpts = signalingDialOpts
 	}
 	return options, nil
+}
+
+// Hosts configurations.
+type Hosts struct {
+	names    []string
+	internal []string
+	external []string
+}
+
+// GetHosts derives host configurations from options.
+func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
+	hosts := Hosts{
+		names:    []string{options.FQDN},
+		external: []string{options.FQDN},
+		internal: []string{options.FQDN},
+	}
+
+	listenerAddr := listenerTCPAddr.String()
+	localhostWithPort := localHostWithPort(listenerTCPAddr)
+
+	addSignalingHost := func(host string, set []string, seen map[string]bool) []string {
+		if _, ok := seen[host]; ok {
+			return set
+		}
+		seen[host] = true
+		return append(set, host)
+	}
+	seenExternalSignalingHosts := map[string]bool{options.FQDN: true}
+	seenInternalSignalingHosts := map[string]bool{options.FQDN: true}
+
+	if !options.Managed {
+		// allow signaling for non-unique entities.
+		// This eases WebRTC connections.
+		if options.FQDN != listenerAddr {
+			hosts.external = addSignalingHost(listenerAddr, hosts.external, seenExternalSignalingHosts)
+			hosts.internal = addSignalingHost(listenerAddr, hosts.internal, seenInternalSignalingHosts)
+		}
+		if listenerTCPAddr.IP.IsLoopback() {
+			// plus localhost alias
+			hosts.external = addSignalingHost(localhostWithPort, hosts.external, seenExternalSignalingHosts)
+			hosts.internal = addSignalingHost(localhostWithPort, hosts.internal, seenInternalSignalingHosts)
+		}
+	}
+
+	if options.LocalFQDN != "" {
+		// only add the local FQDN here since we will already have DefaultFQDN
+		// in the case that FQDNs was empty, avoiding a duplicate host. If FQDNs
+		// is non-empty, we don't care about having a default for signaling/naming.
+		hosts.names = append(hosts.names, options.LocalFQDN)
+		hosts.internal = addSignalingHost(options.LocalFQDN, hosts.internal, seenInternalSignalingHosts)
+		localFQDNWithPort := fmt.Sprintf("%s%s", options.LocalFQDN, listenerPortStr(listenerTCPAddr))
+		hosts.internal = addSignalingHost(localFQDNWithPort, hosts.internal, seenInternalSignalingHosts)
+	}
+
+	return hosts
+}
+
+func localHostWithPort(listenerTCPAddr *net.TCPAddr) string {
+	return fmt.Sprintf("localhost%s", listenerPortStr(listenerTCPAddr))
+}
+
+func listenerPortStr(listenerTCPAddr *net.TCPAddr) string {
+	var listenerPortStr string
+
+	listenerPort := listenerTCPAddr.Port
+	if listenerPort != 443 {
+		listenerPortStr = fmt.Sprintf(":%d", listenerPort)
+	}
+	return listenerPortStr
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -27,6 +28,7 @@ type AttrConfig struct {
 }
 
 type xArm struct {
+	generic.Unimplemented
 	dof      int
 	tid      uint16
 	conn     net.Conn
@@ -56,14 +58,14 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, "xArm6",
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "xArm6",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
 		&AttrConfig{})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, "xArm7",
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "xArm7",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

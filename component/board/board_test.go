@@ -42,6 +42,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	b, err := board.FromRobot(r, testBoardName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, b, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := b.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -81,7 +94,6 @@ func TestBoardName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "9596b6cc-dc7f-52b6-a050-0a9a09e3f90d",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: board.SubtypeName,
@@ -93,7 +105,6 @@ func TestBoardName(t *testing.T) {
 			"all fields included",
 			testBoardName,
 			resource.Name{
-				UUID: "211f7735-3e34-563e-a01b-420c58b5a974",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: board.SubtypeName,
@@ -388,6 +399,10 @@ func (m *mock) GPIOPinByName(name string) (board.GPIOPin, error) {
 
 func (m *mock) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{Remote: true}
+}
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }
 
 type mockGPIOPin struct {
