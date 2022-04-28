@@ -45,6 +45,7 @@ type controller struct {
 	activeAxes   map[string]bool
 	ampModel1    string
 	ampModel2    string
+	testChan     chan string
 }
 
 // Motor is a single axis/motor/component instance.
@@ -70,6 +71,9 @@ type Config struct {
 	// Can reduce current when holding
 	// https://www.galil.com/download/comref/com4103/index.html#low_current_stepper_mode.html
 	LowCurrent int `json:"low_current"`
+
+	// TestChan is a fake "serial" path for test use only
+	TestChan chan string `json:"-"`
 }
 
 func init() {
@@ -195,9 +199,11 @@ func (m *Motor) Close() {
 			return
 		}
 	}
-	err = m.c.port.Close()
-	if err != nil {
-		m.c.logger.Error(err)
+	if m.c.port != nil {
+		err = m.c.port.Close()
+		if err != nil {
+			m.c.logger.Error(err)
+		}
 	}
 	globalMu.Lock()
 	defer globalMu.Unlock()
@@ -210,23 +216,27 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 	ctrl.serialDevice = c.SerialDevice
 	ctrl.logger = logger
 
-	serialOptions := serial.OpenOptions{
-		PortName:          c.SerialDevice,
-		BaudRate:          115200,
-		DataBits:          8,
-		StopBits:          1,
-		MinimumReadSize:   1,
-		RTSCTSFlowControl: true,
-	}
+	if c.TestChan != nil {
+		ctrl.testChan = c.TestChan
+	} else {
+		serialOptions := serial.OpenOptions{
+			PortName:          c.SerialDevice,
+			BaudRate:          115200,
+			DataBits:          8,
+			StopBits:          1,
+			MinimumReadSize:   1,
+			RTSCTSFlowControl: true,
+		}
 
-	port, err := serial.Open(serialOptions)
-	if err != nil {
-		return nil, err
+		port, err := serial.Open(serialOptions)
+		if err != nil {
+			return nil, err
+		}
+		ctrl.port = port
 	}
-	ctrl.port = port
 
 	// Set echo off to not scramble our returns
-	_, err = ctrl.sendCmd("EO 0")
+	_, err := ctrl.sendCmd("EO 0")
 	if err != nil && !strings.HasPrefix(err.Error(), "unknown error after cmd") {
 		return nil, err
 	}
@@ -342,21 +352,30 @@ func (m *Motor) configure(c *Config) error {
 
 // Must be run inside a lock.
 func (c *controller) sendCmd(cmd string) (string, error) {
-	_, err := c.port.Write([]byte(cmd + "\r\n"))
-	if err != nil {
-		return "", err
+	if c.testChan != nil {
+		c.testChan <- cmd
+	} else {
+		_, err := c.port.Write([]byte(cmd + "\r\n"))
+		if err != nil {
+			return "", err
+		}
 	}
 
 	var ret []byte
 	for {
 		buf := make([]byte, 4096)
-		n, err := c.port.Read(buf)
-		if err != nil {
-			return string(ret), err
-		}
-		ret = append(ret, buf[:n]...)
-		if bytes.ContainsAny(buf[:n], ":?") {
+		if c.testChan != nil {
+			ret = []byte(<-c.testChan)
 			break
+		} else {
+			n, err := c.port.Read(buf)
+			if err != nil {
+				return string(ret), err
+			}
+			ret = append(ret, buf[:n]...)
+			if bytes.ContainsAny(buf[:n], ":?") {
+				break
+			}
 		}
 	}
 	if bytes.LastIndexByte(ret, []byte(":")[0]) == len(ret)-1 {
