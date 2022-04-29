@@ -126,3 +126,10 @@ let connect = async (authEntity, creds) => {
 	window.statusService = new StatusServiceClient(window.webrtcHost, { transport: transportFactory });
 }
 window.connect = connect;
+
+window.rcDebug = false;
+window.rcLogConditionally = function (req) {
+	if (rcDebug) {
+		console.log("gRPC call: ", req);
+	}
+}
