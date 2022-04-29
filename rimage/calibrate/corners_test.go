@@ -1,6 +1,7 @@
 package calibrate
 
 import (
+	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -76,7 +77,7 @@ func TestGetAndShowCorners(t *testing.T) {
 	got := SortCornerListByX(c)
 
 	expected := []Corner{
-		{535, 460, 6.88028101376e+11},
+		{535, 460, 6.88028101e+11},
 		{562, 320, 4.7888680633344e+11},
 		{606, 367, 5.51086485236e+11},
 		{614, 263, 4.6939313582064e+11},
@@ -128,6 +129,11 @@ func TestGetAndShowCorners(t *testing.T) {
 		{1240, 590, 4.5866218616064e+11},
 	}
 
-	test.That(t, got, test.ShouldResemble, expected)
+	for i, e := range expected {
+		test.That(t, got[i].X, test.ShouldResemble, e.X)
+		test.That(t, got[i].Y, test.ShouldResemble, e.Y)
+		test.That(t, fmt.Sprintf("%e", got[i].R), test.ShouldResemble, fmt.Sprintf("%e", e.R))
+
+	}
 	test.That(t, err, test.ShouldBeNil)
 }
