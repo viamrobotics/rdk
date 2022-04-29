@@ -18,7 +18,7 @@ func SaveImage(pic *rimage.Image, loc string) (string, error) {
 		err = errors.New("can't save that here, sorry")
 		return "", err
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck, gosec
 	// Specify the quality, between 0-100
 	opt := jpeg.Options{Quality: 90}
 	err = jpeg.Encode(f, pic, &opt)
@@ -37,7 +37,7 @@ func SaveImage2(pic image.Image, loc string) (string, error) {
 		err = errors.New("can't save that here, sorry")
 		return "", err
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck, gosec
 	// Specify the quality, between 0-100
 	opt := jpeg.Options{Quality: 90}
 	err = jpeg.Encode(f, pic, &opt)
@@ -47,7 +47,6 @@ func SaveImage2(pic image.Image, loc string) (string, error) {
 	}
 	return loc, nil
 }
-
 
 // sameImgSize compares image.Grays to see if they're the same size
 // I hate that this had to be a new function.
