@@ -52,7 +52,7 @@ func buildA(impts, wdpts []Corner) (*mat.Dense, error) {
 	return A, nil
 }
 
-//BuildH uses the A matrix to find the homography matrix H (as a vector)  
+//BuildH uses the A matrix to find the homography matrix H (as a vector)
 //such that AH=0. In reality, we approximate this using the SVD of A
 func BuildH(imagepts, worldpts []Corner) mat.Vector {
 	var Hvec *mat.VecDense
@@ -121,8 +121,8 @@ func getVFromH(H mat.Vector) *mat.Dense {
 	return &Vout
 }
 
-//GetV uses getVFromH to combine the calculated chunks from different views 
-// (homographies) into a single V matrix 
+//GetV uses getVFromH to combine the calculated chunks from different views
+// (homographies) into a single V matrix
 func GetV(H1, H2, H3 *mat.VecDense) *mat.Dense {
 	var V, W mat.Dense
 
@@ -153,7 +153,7 @@ func GetV(H1, H2, H3 *mat.VecDense) *mat.Dense {
 }
 
 //BuildBFromV uses V to calculate and return matrix B (as a vector) such that VB = 0.
-//In reality, we can only approximate this using the SVD 
+//In reality, we can only approximate this using the SVD
 func BuildBFromV(V *mat.Dense) (mat.Vector, error) {
 	var Bvec mat.Vector
 	svd := mat.SVD{}
@@ -173,7 +173,7 @@ func BuildBFromV(V *mat.Dense) (mat.Vector, error) {
 
 //GetIntrinsicsFromB utilizes the method in Zhang's paper (Apdx B) to directly calculate
 // and print out the intrinsic parameters given the B matrix
-func GetIntrinsicsFromB(B mat.Vector) {
+func GetIntrinsicsFromB(B mat.Vector) []float64 {
 	v0 := (B.AtVec(1)*B.AtVec(3) - B.AtVec(0)*B.AtVec(4)) / (B.AtVec(0)*B.AtVec(2) - B.AtVec(1)*B.AtVec(1))
 	fmt.Printf("v0: %v\n", v0)
 	lam := B.AtVec(5) - ((B.AtVec(3)*B.AtVec(3) + v0*(B.AtVec(1)*B.AtVec(2)-B.AtVec(0)*B.AtVec(4))) / B.AtVec(0))
@@ -186,6 +186,8 @@ func GetIntrinsicsFromB(B mat.Vector) {
 	fmt.Printf("gamma: %v\n", gamma)
 	u0 := (gamma * v0 / beta) - (B.AtVec(3) * alpha * alpha / lam)
 	fmt.Printf("u0: %v\n", u0)
+
+	return []float64{v0, lam, alpha, beta, gamma, u0}
 }
 
 //GetKFromB is supposed to be another method of retrieving the intrinsic parameters. Will
@@ -211,15 +213,12 @@ func GetKFromB(B mat.Vector) *mat.TriDense {
 	return &K
 }
 
-
 //The following two functions are for an implementation of the Levenberg-Marquardt algorithm
 //which is an optimization method to solve a non-linear least squares problem
-
 
 //MinCloure is a closure function for the function I want truly want to minimize which is
 // |IMPTS - (H * WDPTS)| ^2  . Note that the function to be minimized includes a normalization step
 func MinClosure(dst, x []float64, I, W mat.Matrix) func(out, in []float64) {
-
 
 	return func(dst, x []float64) {
 		//x would be the parameters (H)
@@ -248,9 +247,12 @@ func MinClosure(dst, x []float64, I, W mat.Matrix) func(out, in []float64) {
 //DoLM implements the Levenberg-Marquardt algorithm given the homography, image points,
 //and world points. The goal is to adjust the homography matrix such that it minimizes the squared
 //difference between IMPTS and H * WRLDPTS. Returns the new homography matrix as a 3x3
-func DoLM(H *mat.VecDense, I, W mat.Matrix) *mat.Dense {
+func DoLM(H *mat.VecDense, I, W mat.Matrix) (*mat.Dense, error) {
 	//pass in image and world points to the outside function
 	r, c := I.Dims()
+	if len(H.RawVector().Data) != 9 {
+		return nil, errors.New("matrix H must have 9 elements")
+	}
 	minfunc := MinClosure(make([]float64, r*c), H.RawVector().Data, I, W)
 
 	jacobian := lm.NumJac{minfunc}
@@ -265,9 +267,11 @@ func DoLM(H *mat.VecDense, I, W mat.Matrix) *mat.Dense {
 		Eps2:       1e-8,
 	}
 
-	LMresults, _ := lm.LM(homogProb, &lm.Settings{Iterations: 100, ObjectiveTol: 1e-16})
-	fmt.Println()
+	LMresults, err := lm.LM(homogProb, &lm.Settings{Iterations: 100, ObjectiveTol: 1e-16})
+	if err != nil {
+		return nil, err
+	}
 	//fmt.Printf("The results are %v and are of type %T\n", LMresults.X, LMresults)
 
-	return mat.NewDense(3, 3, LMresults.X)
+	return mat.NewDense(3, 3, LMresults.X), nil
 }
