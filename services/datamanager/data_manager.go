@@ -243,7 +243,7 @@ func getServiceConfig(cfg *config.Config) (config.Service, error) {
 			return c, nil
 		}
 	}
-	return config.Service{}, errors.Errorf("could not find data_manager service")
+	return config.Service{}, errors.New("could not find data_manager service")
 }
 
 // Get the component method configs associated with the data manager service.
@@ -289,7 +289,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 	if len(componentMethodConfigs) == 0 {
-		return errors.Errorf("could not find and components with data_manager service configuration")
+		return errors.New("could not find and components with data_manager service configuration")
 	}
 
 	// Initialize or add a collector based on changes to the component configurations.
