@@ -1,11 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"github.com/edaniels/golog"
+	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/rdk/calibrate"
-	//"go.viam.com/rdk/rimage"
-	//"gonum.org/v1/gonum/mat"
+	"go.viam.com/rdk/rimage/calibrate"
 )
 
 /*
@@ -33,208 +32,219 @@ Finally, here are some resources that you may find useful.
 
 */
 
+//nolint:dupl
 func main() {
+	// These particular world points come from observing the resulting image at OUTxnums.jpeg and knowing
+	// a priori that each square on the checkerboard is 30mm
 
-	corners := calibrate.GetAndShowCorners("./data/chess3.jpeg", "./data/chessOUT3nums.jpeg", 50)
-	checkCorners := calibrate.SortCornerListByX(corners)
-	for _,c := range checkCorners{
-		fmt.Println(c)
+	var logger golog.Logger
+	corners, err := calibrate.GetAndShowCorners("./data/chess3.jpeg", "./data/chessOUT3nums.jpeg", 50)
+	if err == nil {
+		logger.Fatal("cannot get corners.")
+	}
+	imagePts := calibrate.SortCornerListByX(corners)
+
+	logger.Info(calibrate.CornersToMatrix(imagePts).Dims())
+
+	worldPts := []calibrate.Corner{ // in order from L->R as seen on output image so they can match with imagePts
+		calibrate.NewCorner(60, 240),
+		calibrate.NewCorner(30, 150),
+		calibrate.NewCorner(60, 180),
+		calibrate.NewCorner(30, 90),
+		calibrate.NewCorner(60, 150),
+		calibrate.NewCorner(30, 30), // 5
+		calibrate.NewCorner(60, 120),
+		calibrate.NewCorner(90, 210),
+		calibrate.NewCorner(30, 0),
+		calibrate.NewCorner(60, 90),
+		calibrate.NewCorner(90, 180), // 10
+		calibrate.NewCorner(60, 60),
+		calibrate.NewCorner(90, 150),
+		calibrate.NewCorner(90, 120),
+		calibrate.NewCorner(120, 240),
+		calibrate.NewCorner(90, 90), // 15
+		calibrate.NewCorner(120, 210),
+		calibrate.NewCorner(90, 60),
+		calibrate.NewCorner(120, 180),
+		calibrate.NewCorner(90, 30),
+		calibrate.NewCorner(120, 150), // 20
+		calibrate.NewCorner(120, 120),
+		calibrate.NewCorner(120, 90),
+		calibrate.NewCorner(120, 60),
+		calibrate.NewCorner(120, 30),
+		calibrate.NewCorner(150, 210), // 25
+		calibrate.NewCorner(150, 180),
+		calibrate.NewCorner(150, 150),
+		calibrate.NewCorner(150, 120),
+		calibrate.NewCorner(150, 90),
+		calibrate.NewCorner(150, 60), // 30
+		calibrate.NewCorner(150, 30),
+		calibrate.NewCorner(180, 240),
+		calibrate.NewCorner(180, 180),
+		calibrate.NewCorner(180, 210),
+		calibrate.NewCorner(180, 120), // 35
+		calibrate.NewCorner(180, 150),
+		calibrate.NewCorner(180, 60),
+		calibrate.NewCorner(180, 90),
+		calibrate.NewCorner(180, 30),
+		calibrate.NewCorner(210, 30), // 40
+		calibrate.NewCorner(210, 90),
+		calibrate.NewCorner(210, 60),
+		calibrate.NewCorner(210, 150),
+		calibrate.NewCorner(210, 120),
+		calibrate.NewCorner(210, 210), // 45
+		calibrate.NewCorner(240, 60),
+		calibrate.NewCorner(240, 120),
+		calibrate.NewCorner(240, 180),
+		calibrate.NewCorner(240, 240), // 49
 	}
 
-	/*
-		//These particular world points come from observing the resulting image at OUTxnums.jpeg and knowing
-		//a priori that each square on the checkerboard is 30mm
+	IP, WP := calibrate.CornersToMatrix(imagePts), calibrate.CornersToMatrix(worldPts)
+	H1 := calibrate.BuildH(imagePts, worldPts)
+	newH1, err := calibrate.DoLM(H1.(*mat.VecDense), IP, WP)
+	if err != nil {
+		logger.Debug("lm optimizer failed")
+	}
 
-		corners := calibrate.GetAndShowCorners("./data/chess3.jpeg", "./data/chessOUT3nums.jpeg", 50)
-		imagePts := calibrate.SortCornerListByX(corners)
-		fmt.Println(calibrate.CornersToMatrix(imagePts).Dims())
+	corners, err = calibrate.GetAndShowCorners("./data/chess2.jpeg", "./data/chessOUT2nums.jpeg", 50)
+	if err == nil {
+		logger.Fatal("cannot get corners.")
+	}
+	imagePts = calibrate.SortCornerListByX(corners)
+	worldPts = []calibrate.Corner{ // in order from L->R as seen on output image so they can match with imagePts
+		calibrate.NewCorner(60, 240),
+		calibrate.NewCorner(60, 210),
+		calibrate.NewCorner(60, 180),
+		calibrate.NewCorner(30, 90),
+		calibrate.NewCorner(60, 120),
+		calibrate.NewCorner(90, 210), // 5
+		calibrate.NewCorner(30, 0),
+		calibrate.NewCorner(60, 90),
+		calibrate.NewCorner(90, 180),
+		calibrate.NewCorner(60, 60),
+		calibrate.NewCorner(60, 30), // 10
+		calibrate.NewCorner(90, 150),
+		calibrate.NewCorner(90, 120),
+		calibrate.NewCorner(120, 240),
+		calibrate.NewCorner(90, 90),
+		calibrate.NewCorner(90, 60), // 15
+		calibrate.NewCorner(120, 210),
+		calibrate.NewCorner(90, 30),
+		calibrate.NewCorner(120, 180),
+		calibrate.NewCorner(120, 150),
+		calibrate.NewCorner(120, 120), // 20
+		calibrate.NewCorner(120, 90),
+		calibrate.NewCorner(120, 60),
+		calibrate.NewCorner(120, 30),
+		calibrate.NewCorner(150, 210),
+		calibrate.NewCorner(150, 180), // 25
+		calibrate.NewCorner(150, 150),
+		calibrate.NewCorner(150, 120),
+		calibrate.NewCorner(150, 90),
+		calibrate.NewCorner(150, 60),
+		calibrate.NewCorner(150, 30), // 30
+		calibrate.NewCorner(180, 240),
+		calibrate.NewCorner(180, 180),
+		calibrate.NewCorner(180, 120),
+		calibrate.NewCorner(180, 210),
+		calibrate.NewCorner(180, 60), // 35
+		calibrate.NewCorner(180, 150),
+		calibrate.NewCorner(180, 90),
+		calibrate.NewCorner(180, 30),
+		calibrate.NewCorner(210, 30),
+		calibrate.NewCorner(210, 90), // 40
+		calibrate.NewCorner(210, 60),
+		calibrate.NewCorner(210, 150),
+		calibrate.NewCorner(210, 120),
+		calibrate.NewCorner(210, 180),
+		calibrate.NewCorner(210, 210), // 45
+		calibrate.NewCorner(240, 60),
+		calibrate.NewCorner(240, 120),
+		calibrate.NewCorner(240, 180),
+		calibrate.NewCorner(240, 240), // 49
+	}
 
-			worldPts := []calibrate.Corner{ //in order from L->R as seen on output image so they can match with imagePts
-				calibrate.NewCorner(60, 240),
-				calibrate.NewCorner(30, 150),
-				calibrate.NewCorner(60, 180),
-				calibrate.NewCorner(30, 90),
-				calibrate.NewCorner(60, 150),
-				calibrate.NewCorner(30, 30), // 5
-				calibrate.NewCorner(60, 120),
-				calibrate.NewCorner(90, 210),
-				calibrate.NewCorner(30, 0),
-				calibrate.NewCorner(60, 90),
-				calibrate.NewCorner(90, 180), //10
-				calibrate.NewCorner(60, 60),
-				calibrate.NewCorner(90, 150),
-				calibrate.NewCorner(90, 120),
-				calibrate.NewCorner(120, 240),
-				calibrate.NewCorner(90, 90), // 15
-				calibrate.NewCorner(120, 210),
-				calibrate.NewCorner(90, 60),
-				calibrate.NewCorner(120, 180),
-				calibrate.NewCorner(90, 30),
-				calibrate.NewCorner(120, 150), //20
-				calibrate.NewCorner(120, 120),
-				calibrate.NewCorner(120, 90),
-				calibrate.NewCorner(120, 60),
-				calibrate.NewCorner(120, 30),
-				calibrate.NewCorner(150, 210), //25
-				calibrate.NewCorner(150, 180),
-				calibrate.NewCorner(150, 150),
-				calibrate.NewCorner(150, 120),
-				calibrate.NewCorner(150, 90),
-				calibrate.NewCorner(150, 60), //30
-				calibrate.NewCorner(150, 30),
-				calibrate.NewCorner(180, 240),
-				calibrate.NewCorner(180, 180),
-				calibrate.NewCorner(180, 210),
-				calibrate.NewCorner(180, 120), //35
-				calibrate.NewCorner(180, 150),
-				calibrate.NewCorner(180, 60),
-				calibrate.NewCorner(180, 90),
-				calibrate.NewCorner(180, 30),
-				calibrate.NewCorner(210, 30), //40
-				calibrate.NewCorner(210, 90),
-				calibrate.NewCorner(210, 60),
-				calibrate.NewCorner(210, 150),
-				calibrate.NewCorner(210, 120),
-				calibrate.NewCorner(210, 210), //45
-				calibrate.NewCorner(240, 60),
-				calibrate.NewCorner(240, 120),
-				calibrate.NewCorner(240, 180),
-				calibrate.NewCorner(240, 240), //49
-			}
+	H2 := calibrate.BuildH(imagePts, worldPts)
+	IP, WP = calibrate.CornersToMatrix(imagePts), calibrate.CornersToMatrix(worldPts)
+	newH2, err := calibrate.DoLM(H2.(*mat.VecDense), IP, WP)
+	if err != nil {
+		logger.Debug("lm optimizer failed")
+	}
 
-			IP, WP := calibrate.CornersToMatrix(imagePts), calibrate.CornersToMatrix(worldPts)
-			H1 := calibrate.BuildH(imagePts, worldPts)
-			newH1, _ := calibrate.DoLM(H1.(*mat.VecDense), IP, WP)
+	corners, err = calibrate.GetAndShowCorners("./data/chess1.jpeg", "./data/chessOUT1nums.jpeg", 50)
+	if err == nil {
+		logger.Fatal("cannot get corners.")
+	}
+	imagePts = calibrate.SortCornerListByX(corners)
+	worldPts = []calibrate.Corner{ // in order from L->R as seen on output image so they can match with imagePts
+		calibrate.NewCorner(30, 210),
+		calibrate.NewCorner(30, 180),
+		calibrate.NewCorner(30, 150),
+		calibrate.NewCorner(30, 90),
+		calibrate.NewCorner(60, 240),
+		calibrate.NewCorner(30, 30), // 5
+		calibrate.NewCorner(60, 180),
+		calibrate.NewCorner(60, 120),
+		calibrate.NewCorner(60, 90),
+		calibrate.NewCorner(60, 60),
+		calibrate.NewCorner(90, 210), // 10
+		calibrate.NewCorner(90, 150),
+		calibrate.NewCorner(90, 90),
+		calibrate.NewCorner(90, 180),
+		calibrate.NewCorner(90, 30),
+		calibrate.NewCorner(90, 120), // 15
+		calibrate.NewCorner(90, 60),
+		calibrate.NewCorner(120, 60),
+		calibrate.NewCorner(120, 30),
+		calibrate.NewCorner(120, 120),
+		calibrate.NewCorner(120, 90), // 20
+		calibrate.NewCorner(120, 150),
+		calibrate.NewCorner(120, 180),
+		calibrate.NewCorner(120, 210),
+		calibrate.NewCorner(120, 240),
+		calibrate.NewCorner(150, 30), // 25
+		calibrate.NewCorner(150, 60),
+		calibrate.NewCorner(150, 90),
+		calibrate.NewCorner(150, 120),
+		calibrate.NewCorner(150, 150),
+		calibrate.NewCorner(150, 180), // 30
+		calibrate.NewCorner(180, 30),
+		calibrate.NewCorner(150, 210),
+		calibrate.NewCorner(180, 60),
+		calibrate.NewCorner(180, 90),
+		calibrate.NewCorner(180, 120), // 35
+		calibrate.NewCorner(210, 30),
+		calibrate.NewCorner(180, 150),
+		calibrate.NewCorner(180, 180),
+		calibrate.NewCorner(210, 60),
+		calibrate.NewCorner(210, 90), // 40
+		calibrate.NewCorner(180, 210),
+		calibrate.NewCorner(210, 120),
+		calibrate.NewCorner(210, 150),
+		calibrate.NewCorner(180, 240),
+		calibrate.NewCorner(240, 60), // 45
+		calibrate.NewCorner(210, 180),
+		calibrate.NewCorner(240, 120),
+		calibrate.NewCorner(210, 210),
+		calibrate.NewCorner(240, 180), // 49
+	}
 
-			corners = calibrate.GetAndShowCorners("./data/chess2.jpeg", "./data/chessOUT2nums.jpeg", 50)
-			imagePts = calibrate.SortCornerListByX(corners)
-			worldPts = []calibrate.Corner{ //in order from L->R as seen on output image so they can match with imagePts
-				calibrate.NewCorner(60, 240),
-				calibrate.NewCorner(60, 210),
-				calibrate.NewCorner(60, 180),
-				calibrate.NewCorner(30, 90),
-				calibrate.NewCorner(60, 120),
-				calibrate.NewCorner(90, 210), // 5
-				calibrate.NewCorner(30, 0),
-				calibrate.NewCorner(60, 90),
-				calibrate.NewCorner(90, 180),
-				calibrate.NewCorner(60, 60),
-				calibrate.NewCorner(60, 30), //10
-				calibrate.NewCorner(90, 150),
-				calibrate.NewCorner(90, 120),
-				calibrate.NewCorner(120, 240),
-				calibrate.NewCorner(90, 90),
-				calibrate.NewCorner(90, 60), // 15
-				calibrate.NewCorner(120, 210),
-				calibrate.NewCorner(90, 30),
-				calibrate.NewCorner(120, 180),
-				calibrate.NewCorner(120, 150),
-				calibrate.NewCorner(120, 120), //20
-				calibrate.NewCorner(120, 90),
-				calibrate.NewCorner(120, 60),
-				calibrate.NewCorner(120, 30),
-				calibrate.NewCorner(150, 210),
-				calibrate.NewCorner(150, 180), //25
-				calibrate.NewCorner(150, 150),
-				calibrate.NewCorner(150, 120),
-				calibrate.NewCorner(150, 90),
-				calibrate.NewCorner(150, 60),
-				calibrate.NewCorner(150, 30), //30
-				calibrate.NewCorner(180, 240),
-				calibrate.NewCorner(180, 180),
-				calibrate.NewCorner(180, 120),
-				calibrate.NewCorner(180, 210),
-				calibrate.NewCorner(180, 60), //35
-				calibrate.NewCorner(180, 150),
-				calibrate.NewCorner(180, 90),
-				calibrate.NewCorner(180, 30),
-				calibrate.NewCorner(210, 30),
-				calibrate.NewCorner(210, 90), //40
-				calibrate.NewCorner(210, 60),
-				calibrate.NewCorner(210, 150),
-				calibrate.NewCorner(210, 120),
-				calibrate.NewCorner(210, 180),
-				calibrate.NewCorner(210, 210), //45
-				calibrate.NewCorner(240, 60),
-				calibrate.NewCorner(240, 120),
-				calibrate.NewCorner(240, 180),
-				calibrate.NewCorner(240, 240), //49
-			}
+	H3 := calibrate.BuildH(imagePts, worldPts)
+	IP, WP = calibrate.CornersToMatrix(imagePts), calibrate.CornersToMatrix(worldPts)
+	newH3, err := calibrate.DoLM(H3.(*mat.VecDense), IP, WP)
+	if err != nil {
+		logger.Debug("lm optimizer failed")
+	}
 
-			H2 := calibrate.BuildH(imagePts, worldPts)
-			IP, WP = calibrate.CornersToMatrix(imagePts), calibrate.CornersToMatrix(worldPts)
-			newH2, _ := calibrate.DoLM(H2.(*mat.VecDense), IP, WP)
+	// V := calibrate.GetV(H1.(*mat.VecDense),H2.(*mat.VecDense),H3.(*mat.VecDense)) //uncomment to use non-optimized homographies
+	V := calibrate.GetV(calibrate.Unwrap(newH1), calibrate.Unwrap(newH2), calibrate.Unwrap(newH3))
 
-			corners = calibrate.GetAndShowCorners("./data/chess1.jpeg", "./data/chessOUT1nums.jpeg", 50)
-			imagePts = calibrate.SortCornerListByX(corners)
-			worldPts = []calibrate.Corner{ //in order from L->R as seen on output image so they can match with imagePts
-				calibrate.NewCorner(30, 210),
-				calibrate.NewCorner(30, 180),
-				calibrate.NewCorner(30, 150),
-				calibrate.NewCorner(30, 90),
-				calibrate.NewCorner(60, 240),
-				calibrate.NewCorner(30, 30), // 5
-				calibrate.NewCorner(60, 180),
-				calibrate.NewCorner(60, 120),
-				calibrate.NewCorner(60, 90),
-				calibrate.NewCorner(60, 60),
-				calibrate.NewCorner(90, 210), //10
-				calibrate.NewCorner(90, 150),
-				calibrate.NewCorner(90, 90),
-				calibrate.NewCorner(90, 180),
-				calibrate.NewCorner(90, 30),
-				calibrate.NewCorner(90, 120), // 15
-				calibrate.NewCorner(90, 60),
-				calibrate.NewCorner(120, 60),
-				calibrate.NewCorner(120, 30),
-				calibrate.NewCorner(120, 120),
-				calibrate.NewCorner(120, 90), //20
-				calibrate.NewCorner(120, 150),
-				calibrate.NewCorner(120, 180),
-				calibrate.NewCorner(120, 210),
-				calibrate.NewCorner(120, 240),
-				calibrate.NewCorner(150, 30), //25
-				calibrate.NewCorner(150, 60),
-				calibrate.NewCorner(150, 90),
-				calibrate.NewCorner(150, 120),
-				calibrate.NewCorner(150, 150),
-				calibrate.NewCorner(150, 180), //30
-				calibrate.NewCorner(180, 30),
-				calibrate.NewCorner(150, 210),
-				calibrate.NewCorner(180, 60),
-				calibrate.NewCorner(180, 90),
-				calibrate.NewCorner(180, 120), //35
-				calibrate.NewCorner(210, 30),
-				calibrate.NewCorner(180, 150),
-				calibrate.NewCorner(180, 180),
-				calibrate.NewCorner(210, 60),
-				calibrate.NewCorner(210, 90), //40
-				calibrate.NewCorner(180, 210),
-				calibrate.NewCorner(210, 120),
-				calibrate.NewCorner(210, 150),
-				calibrate.NewCorner(180, 240),
-				calibrate.NewCorner(240, 60), //45
-				calibrate.NewCorner(210, 180),
-				calibrate.NewCorner(240, 120),
-				calibrate.NewCorner(210, 210),
-				calibrate.NewCorner(240, 180), //49
-			}
+	B, err := calibrate.BuildBFromV(V)
+	if err != nil {
+		logger.Debug("building B failed")
+	}
 
-			H3 := calibrate.BuildH(imagePts, worldPts)
-			IP, WP = calibrate.CornersToMatrix(imagePts), calibrate.CornersToMatrix(worldPts)
-			newH3, _ := calibrate.DoLM(H3.(*mat.VecDense), IP, WP)
-
-			//V := calibrate.GetV(H1.(*mat.VecDense),H2.(*mat.VecDense),H3.(*mat.VecDense)) //uncomment to use non-optimized homographies
-			V := calibrate.GetV(calibrate.Unwrap(newH1), calibrate.Unwrap(newH2), calibrate.Unwrap(newH3))
-
-			B, _ := calibrate.BuildBFromV(V)
-
-			fmt.Println("B looks like:")
-			calibrate.MatPrint(B)
-			fmt.Println()
-			fmt.Println("Intrinsic Parameters: ")
-			_ = calibrate.GetIntrinsicsFromB(B)
-
-	*/
-
+	logger.Info("Intrinsic Parameters (v0, lambda, alpha, beta, gamma, u0): ")
+	out := calibrate.GetIntrinsicsFromB(B)
+	logger.Info(out)
 }

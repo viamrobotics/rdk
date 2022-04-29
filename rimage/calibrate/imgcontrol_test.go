@@ -3,10 +3,10 @@ package calibrate
 import (
 	"testing"
 
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	//"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/rimage"
 )
 
 func TestGrayAndAvg(t *testing.T) {
@@ -24,5 +24,4 @@ func TestGrayAndAvg(t *testing.T) {
 	im2, _ = MultiplyGrays(MakeGray(im), MakeGray(im))
 	got = GetAvg(im2)
 	test.That(t, got, test.ShouldEqual, 11839)
-
 }
