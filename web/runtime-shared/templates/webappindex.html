@@ -533,10 +533,7 @@
               console.log('baseActionHandlerStop');
               let req = new baseApi.StopRequest();
               req.setName(name);
-              baseService.stop(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
               this.baseRunStatus = false;
             },
             handleBaseAction : function(movementMode, movementType, spinType, direction) {
@@ -589,7 +586,7 @@
                   movementType === "Discrete" &&
                   direction === "Backwards"
               ) {
-                BaseControlHelper.moveStraight(name, 
+                  BaseControlHelper.moveStraight(name, 
                     document.getElementById("distance").value * -1, 
                     document.getElementById("speed").value, 
                     (err, resp) => {
@@ -640,7 +637,7 @@
                   spinType === "Counterclockwise" &&
                   direction === "Backwards"
               ) {
-                BaseControlHelper.moveArc(name,
+                  BaseControlHelper.moveArc(name,
                     document.getElementById("distance").value * -1,
                     document.getElementById("speed").value,
                     document.getElementById("angle").value,
@@ -872,7 +869,7 @@
               console.log("making move attempt using " + gripperName);
 
               motionService.move(req, {}, (err, resp) => {
-                grpcCallback(err, resp)
+                grpcCallback(err, resp);
                 if (err) {
                   return Promise.reject(err);
                 }
