@@ -313,7 +313,7 @@ func GetAndShowCorners(inloc, outloc string, n int) ([]Corner, error) {
 		return nil, err
 	}
 
-	defer f.Close()
+	defer f.Close() // nolint:errcheck, gosec
 	img2, _, err2 := image.Decode(f)
 	if err2 != nil {
 		return nil, err
