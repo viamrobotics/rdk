@@ -108,7 +108,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no such segmenter")
 
-	// succesfully get parameter names
+	// successfully get parameter names
 	paramNames, err := obs.GetSegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, paramNames, test.ShouldHaveLength, 4)
