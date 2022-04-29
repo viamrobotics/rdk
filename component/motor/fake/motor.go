@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -56,6 +57,7 @@ type Motor struct {
 	PositionSupported bool
 	Board             string
 	PWM               board.GPIOPin
+	generic.Echo
 }
 
 // GetPosition always returns 0.
