@@ -55,7 +55,7 @@ func NewInterpreterLoader(numThreads int) *InterpreterLoader {
 
 // Load returns the service a struct containing information of a tflite compatible interpreter
 func (l *InterpreterLoader) Load(modelPath string) (*TfliteObjects, error) {
-	if err := l.Validate(); err != nil {
+	if err := l.validate(); err != nil {
 		return nil, err
 	}
 
@@ -100,7 +100,7 @@ func getInterpreterOptions() (tfliteInterpreterOptions, error) {
 }
 
 // Validate if this InterpreterLoader is valid.
-func (l *InterpreterLoader) Validate() error {
+func (l *InterpreterLoader) validate() error {
 	if l.newModelFromFile == nil {
 		return errors.New("need a new model function")
 	}
