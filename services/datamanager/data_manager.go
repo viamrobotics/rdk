@@ -3,6 +3,7 @@ package datamanager
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -68,7 +69,6 @@ const defaultCaptureBufferSize = 4096
 
 // Attributes to initialize the collector for a component.
 type componentAttributes struct {
-	Type               string            `json:"type"`
 	Method             string            `json:"method"`
 	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
 	CaptureQueueSize   int               `json:"capture_queue_size"`
@@ -78,9 +78,17 @@ type componentAttributes struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir          string                         `json:"capture_dir"`
-	ComponentAttributes map[string]componentAttributes `json:"component_attributes"`
+	CaptureDir string `json:"capture_dir"`
 }
+
+// ComponentConfig describes how to configure the component/method within the service.
+type ComponentMethodConfig struct {
+	Name       string               `json:"name"`
+	Type       resource.SubtypeName `json:"type"`
+	Attributes componentAttributes
+}
+
+// TODO: Add configuration for remotes.
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
@@ -141,11 +149,11 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
-func (svc *Service) initializeOrUpdateCollector(componentName string, attributes componentAttributes, updateCaptureDir bool) (
+func (svc *Service) initializeOrUpdateCollector(componentName string, componentType string, attributes componentAttributes, updateCaptureDir bool) (
 	*componentMethodMetadata, error,
 ) {
 	// Create component/method metadata to check if the collector exists.
-	subtypeName := resource.SubtypeName(attributes.Type)
+	subtypeName := resource.SubtypeName(componentType)
 	metadata := data.MethodMetadata{
 		Subtype:    subtypeName,
 		MethodName: attributes.Method,
@@ -161,7 +169,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
+				targetFile, err := createDataCaptureFile(svc.captureDir, componentType, componentName)
 				if err != nil {
 					return nil, err
 				}
@@ -193,7 +201,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
+	targetFile, err := createDataCaptureFile(svc.captureDir, componentType, componentName)
 	if err != nil {
 		return nil, err
 	}
@@ -228,20 +236,64 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	return &componentMetadata, nil
 }
 
-// Update updates the data manager service when the config has changed.
-func (svc *Service) Update(ctx context.Context, config config.Service) error {
-	svcConfig, ok := config.ConvertedAttributes.(*Config)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+// Get the config associated with the data manager service.
+func getServiceConfig(cfg *config.Config) (config.Service, error) {
+	for _, c := range cfg.Services {
+		if c.ResourceName() == Name { // NOTE: Check if this works, Name may be insufficient.
+			return c, nil
+		}
 	}
-	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
-	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
+	return config.Service{}, errors.Errorf("could not find data_manager service")
+}
 
-	// Initialize or add a collector based on changes to the config.
+// Get the component method configs associated with the data manager service.
+func getComponentMethodConfigs(cfg *config.Config) ([]ComponentMethodConfig, error) {
+	componentMethodConfigs := []ComponentMethodConfig{}
+	for _, c := range cfg.Components {
+		if svcConfig, ok := c.ServiceConfig["data_manager"]; ok {
+			for _, methodConfiguration := range (svcConfig["capture_methods"]).([]interface{}) {
+				componentAttrs := componentAttributes{}
+				marshaled, _ := json.Marshal(methodConfiguration)
+				err := json.Unmarshal(marshaled, &componentAttrs)
+				if err != nil {
+					return nil, err
+				}
+				componentMethodConfig := ComponentMethodConfig{c.Name, c.Type, componentAttrs}
+				componentMethodConfigs = append(componentMethodConfigs, componentMethodConfig)
+			}
+		}
+	}
+	return componentMethodConfigs, nil
+}
+
+// Update updates the data manager service when the config has changed.
+func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
+	svcConfig, err := getServiceConfig(cfg)
+	if err != nil {
+		return err
+	}
+	convertedSvcConfig, ok := svcConfig.ConvertedAttributes.(*Config)
+	if !ok {
+		return utils.NewUnexpectedTypeError(convertedSvcConfig, svcConfig.ConvertedAttributes)
+	}
+	updateCaptureDir := svc.captureDir != convertedSvcConfig.CaptureDir
+	svc.captureDir = convertedSvcConfig.CaptureDir
+
+	componentMethodConfigs, err := getComponentMethodConfigs(cfg)
+	if err != nil {
+		return err
+	}
+	if len(componentMethodConfigs) == 0 {
+		return errors.Errorf("could not find and components with data_manager service configuration")
+	}
+
+	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
-	for componentName, attributes := range svcConfig.ComponentAttributes {
-		if attributes.CaptureFrequencyHz > 0 {
-			componentMetadata, err := svc.initializeOrUpdateCollector(componentName, attributes, updateCaptureDir)
+	for _, componentMethodConfig := range componentMethodConfigs {
+		if componentMethodConfig.Attributes.CaptureFrequencyHz > 0 {
+			componentMetadata, err := svc.initializeOrUpdateCollector(
+				componentMethodConfig.Name, (string)(componentMethodConfig.Type),
+				componentMethodConfig.Attributes, updateCaptureDir)
 			if err != nil {
 				return err
 			}

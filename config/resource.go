@@ -28,11 +28,12 @@ type ResourceConfig interface {
 type Component struct {
 	Name string `json:"name"`
 
-	Type      resource.SubtypeName `json:"type"`
-	SubType   string               `json:"subtype"`
-	Model     string               `json:"model"`
-	Frame     *Frame               `json:"frame,omitempty"`
-	DependsOn []string             `json:"depends_on"`
+	Type          resource.SubtypeName    `json:"type"`
+	SubType       string                  `json:"subtype"`
+	Model         string                  `json:"model"`
+	Frame         *Frame                  `json:"frame,omitempty"`
+	DependsOn     []string                `json:"depends_on"`
+	ServiceConfig map[string]AttributeMap `json:"service_config"`
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`
