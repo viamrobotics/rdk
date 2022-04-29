@@ -122,16 +122,27 @@ func (c *collector) capture() {
 }
 
 func (c *collector) sleepBasedCapture() {
-	next := time.Now()
+	next := time.Now().Add(c.interval)
 	for {
 		time.Sleep(time.Until(next))
+		if err := c.cancelCtx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				c.logger.Errorw("unexpected error in collector context", "error", err)
+			}
+			c.backgroundWorkers.Wait()
+			close(c.queue)
+			return
+		}
+
 		select {
 		case <-c.cancelCtx.Done():
 			c.backgroundWorkers.Wait()
 			close(c.queue)
 			return
 		default:
+			c.lock.Lock()
 			c.backgroundWorkers.Add(1)
+			c.lock.Unlock()
 			utils.PanicCapturingGo(func() {
 				c.getAndPushNextReading()
 			})
