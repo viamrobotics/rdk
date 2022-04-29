@@ -6,8 +6,10 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/registry"
@@ -131,6 +133,8 @@ type visionService struct {
 
 // Update will create a new completely vision service from the input config.
 func (vs *visionService) Update(ctx context.Context, conf config.Service) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::Update")
+	defer span.End()
 	newService, err := New(ctx, vs.r, conf, vs.logger)
 	if err != nil {
 		return err
@@ -141,4 +145,79 @@ func (vs *visionService) Update(ctx context.Context, conf config.Service) error 
 	}
 	*vs = *svc
 	return nil
+}
+
+// Detection Methods
+// GetDetectorNames returns a list of the all the names of the detectors in the detector map.
+func (vs *visionService) GetDetectorNames(ctx context.Context) ([]string, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::GetDetectorNames")
+	defer span.End()
+	return vs.detReg.detectorNames(), nil
+}
+
+// AddDetector adds a new detector from an Attribute config struct.
+func (vs *visionService) AddDetector(ctx context.Context, cfg DetectorConfig) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::AddDetector")
+	defer span.End()
+	attrs := &Attributes{DetectorRegistry: []DetectorConfig{cfg}}
+	return registerNewDetectors(ctx, vs.detReg, attrs, vs.logger)
+}
+
+// GetDetections returns the detections of the next image from the given camera and the given detector.
+func (vs *visionService) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetections")
+	defer span.End()
+	cam, err := camera.FromRobot(vs.r, cameraName)
+	if err != nil {
+		return nil, err
+	}
+	detector, err := vs.detReg.detectorLookup(detectorName)
+	if err != nil {
+		return nil, err
+	}
+	img, release, err := cam.Next(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
+	return detector(img)
+}
+
+// Segmentation Methods
+// GetSegmenterNames returns a list of all the names of the segmenters in the segmenter map.
+func (vs *visionService) GetSegmenterNames(ctx context.Context) ([]string, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterNames")
+	defer span.End()
+	return vs.segReg.segmenterNames(), nil
+}
+
+// GetSegmenterParameters returns a list of parameter name and type for the necessary parameters of the chosen segmenter.
+func (vs *visionService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterParameters")
+	defer span.End()
+	segmenter, err := vs.segReg.segmenterLookup(segmenterName)
+	if err != nil {
+		return nil, err
+	}
+	return segmenter.Parameters, nil
+}
+
+// GetObjectPointClouds returns all the found objects in a 3D image according to the chosen segmenter.
+func (vs *visionService) GetObjectPointClouds(
+	ctx context.Context,
+	cameraName, segmenterName string,
+	params config.AttributeMap,
+) ([]*viz.Object, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds")
+	defer span.End()
+	cam, err := camera.FromRobot(vs.r, cameraName)
+	if err != nil {
+		return nil, err
+	}
+	segmenter, err := vs.segReg.segmenterLookup(segmenterName)
+	if err != nil {
+		return nil, err
+	}
+	return segmenter.Segmenter(ctx, cam, params)
 }
