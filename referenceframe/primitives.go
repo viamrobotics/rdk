@@ -83,6 +83,7 @@ func InterpolateInputs(from, to []Input, by float64) []Input {
 	return newVals
 }
 
+// GetFrameInputs looks through the inputMap and returns a slice of Inputs corresponding to the given frame.
 func GetFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
 	var input []Input
 	// Get frame inputs if necessary

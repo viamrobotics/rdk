@@ -158,7 +158,6 @@ func TestFrameTranslation(t *testing.T) {
 	poseEnd := NewPoseInFrame("frame2", spatial.NewPoseFromPoint(r3.Vector{0, 6, 0}))   // the point from PoV of frame 2
 	testTransformPoint(t, fs, map[string][]Input{}, poseStart, poseEnd)
 	testTransformPoint(t, fs, map[string][]Input{}, poseEnd, poseStart)
-
 }
 
 /*

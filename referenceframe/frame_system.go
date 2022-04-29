@@ -43,8 +43,12 @@ type FrameSystem interface {
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error)
 
+	// DivideFrameSystem will take a frame system and a frame in that system, and return two frame systems- one being rooted
+	// at the given frame and containing all descendents of it, the other with the original world with the frame and its
+	// descendents removed.
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 
+	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
 }
 
@@ -177,9 +181,12 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 	if !sfs.frameExists(dst) {
 		return nil, fmt.Errorf("destination frame %s not found in FrameSystem", dst)
 	}
+
 	var tfParent *PoseInFrame
 	var err error
 	if _, ok := object.(*GeometriesInFrame); ok && len(srcFrame.DoF()) != 0 {
+		// don't want to apply the final transformation when that is taken care of by the geometries
+		// except in the case where geometry is tied to a static frame
 		tfParent, err = sfs.transformFromParent(positions, sfs.parents[srcFrame], sfs.GetFrame(dst))
 	} else {
 		tfParent, err = sfs.transformFromParent(positions, srcFrame, sfs.GetFrame(dst))
@@ -331,7 +338,7 @@ func (sfs *simpleFrameSystem) getWorldToDstTransform(inputMap map[string][]Input
 	return spatial.PoseInverse(dstToWorld), err
 }
 
-// Returns the relative pose between the parent and the destination frame
+// Returns the relative pose between the parent and the destination frame.
 func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, dst Frame) (*PoseInFrame, error) {
 	// catch all errors together to allow for hypothetical calculations that result in errors
 	var errAll error

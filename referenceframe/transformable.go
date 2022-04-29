@@ -7,6 +7,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// Transformable is an interface to describe elements that can be transformed by the frame system.
 type Transformable interface {
 	Transform(*PoseInFrame) Transformable
 	FrameName() string
@@ -29,6 +30,7 @@ func (pF *PoseInFrame) Pose() spatialmath.Pose {
 	return pF.pose
 }
 
+// Transform applies the given transformation to the PoseInFrame.
 func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
 	return NewPoseInFrame(tf.frame, spatialmath.Compose(tf.pose, pF.pose))
 }
@@ -76,6 +78,7 @@ func (gF *GeometriesInFrame) Geometries() map[string]spatialmath.Geometry {
 	return gF.geometries
 }
 
+// Transform applies the given transformation to each of the geometries in the GeometriesInFrame object.
 func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
 	geometries := make(map[string]spatialmath.Geometry)
 	for name, geometry := range gF.geometries {
@@ -113,7 +116,6 @@ func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*Geometries
 			return nil, err
 		}
 		geometries[strconv.Itoa(i)] = g
-
 	}
 	return &GeometriesInFrame{
 		frame:      proto.GetReferenceFrame(),

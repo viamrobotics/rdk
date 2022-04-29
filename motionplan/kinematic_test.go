@@ -255,21 +255,21 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	// Target point in world
 	tf, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", targetPoint), frame.World)
 	test.That(t, err, test.ShouldBeNil)
-	worldPointLoc := tf.(*frame.PoseInFrame).Pose().Point()
+	worldPointLoc := spatial.NewPoseFromPoint(tf.(*frame.PoseInFrame).Pose().Point())
 
 	// Move the XY gantry such that the xArm6 is now at the point specified
-	positions["gantryX"] = frame.FloatsToInputs([]float64{worldPointLoc.X - poseXarm.Point().X})
-	positions["gantryY"] = frame.FloatsToInputs([]float64{worldPointLoc.Y - poseXarm.Point().Y})
+	positions["gantryX"] = frame.FloatsToInputs([]float64{worldPointLoc.Point().X - poseXarm.Point().X})
+	positions["gantryY"] = frame.FloatsToInputs([]float64{worldPointLoc.Point().Y - poseXarm.Point().Y})
 
 	// Confirm the xArm6 is now at the same location as the point
 	newPointXarm, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(newPointXarm.(*frame.PoseInFrame).Pose(), spatial.NewPoseFromPoint(worldPointLoc)), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincident(newPointXarm.(*frame.PoseInFrame).Pose(), worldPointLoc), test.ShouldBeTrue)
 
 	// If the above passes, then converting one directly to the other should be (0,0,0)
 	pointCamToXarm, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", targetPoint), "xArm6")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.R3VectorAlmostEqual(pointCamToXarm.(*frame.PoseInFrame).Pose().Point(), r3.Vector{}, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincident(pointCamToXarm.(*frame.PoseInFrame).Pose(), spatial.NewZeroPose()), test.ShouldBeTrue)
 }
 
 func TestCombinedIKinematics(t *testing.T) {
