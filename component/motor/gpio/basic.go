@@ -102,8 +102,8 @@ type Motor struct {
 	maxRPM                   float64
 	dirFlip                  bool
 
-	mgr operation.LocalCallManager
-	logger        golog.Logger
+	mgr    operation.LocalCallManager
+	logger golog.Logger
 }
 
 // GetPosition always returns 0.
@@ -186,7 +186,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	m.mgr.CancelRunning()
-	
+
 	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx)
 	}

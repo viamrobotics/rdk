@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -58,6 +60,35 @@ type wheeledBase struct {
 	allMotors []motor.Motor
 }
 
+//TODO(erh): move this
+type simpleFunc func(ctx context.Context) error
+func runInParallel(ctx context.Context, fs []simpleFunc) error {
+	ctx, cancel := context.WithCancel(ctx)
+
+	var wg sync.WaitGroup
+
+	var anError atomic.Value
+	
+	for _, f := range fs {
+		wg.Add(1)
+		
+		go func() {
+			defer wg.Done()
+			err := f(ctx)
+			if err != nil {
+				anError.Store(err)
+				cancel()
+			}
+		}()
+	}
+
+	err := anError.Load()
+	if err == nil {
+		return nil
+	}
+	return err.(error)
+}
+
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
@@ -71,24 +102,21 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
+	fs := []simpleFunc{}
+	
 	// Send motor commands
-	var err error
 	for _, m := range base.left {
-		err = multierr.Combine(err, m.GoFor(ctx, -rpm, revolutions))
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, -rpm, revolutions)})
 	}
 	for _, m := range base.right {
-		err = multierr.Combine(err, m.GoFor(ctx, rpm, revolutions))
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rpm, revolutions) })
 	}
 
+	err := runInParallel(ctx, fs)
 	if err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
 	}
-
-	if !block {
-		return nil
-	}
-
-	return base.WaitForMotorsToStop(ctx)
+	return nil
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {

@@ -8,18 +8,36 @@ import (
 	"go.viam.com/utils"
 )
 
+// LocalCallManager ensures only 1 operation is happening a time
+// An operation can be nested, so if there is already an operation in progress,
+// it can have sub-operations without an issue.
 type LocalCallManager struct {
 	mu sync.Mutex
 	op *basic
 }
 
+// CancelRunning cancel's a current operation.
 func (cm *LocalCallManager) CancelRunning() {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.cancelInLock()
 }
 
+// OpRunning returns if there is a current operation.
+func (cm *LocalCallManager) OpRunning() bool {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	return cm.op != nil
+}
+
+type myContextKeyType string
+
+const theContextKey = myContextKeyType("opkey")
+
 func (cm *LocalCallManager) New(ctx context.Context) (context.Context, func()) {
+	if ctx.Value(theContextKey) != nil {
+		return ctx, func() {}
+	}
 
 	cm.mu.Lock()
 
@@ -27,6 +45,9 @@ func (cm *LocalCallManager) New(ctx context.Context) (context.Context, func()) {
 	cm.cancelInLock()
 
 	theOp := &basic{}
+
+	ctx = context.WithValue(ctx, theContextKey, theOp)
+
 	theOp.theContext, theOp.cancelFunc = context.WithCancel(ctx)
 	theOp.waitCh = make(chan bool)
 	cm.op = theOp
@@ -42,18 +63,17 @@ func (cm *LocalCallManager) New(ctx context.Context) (context.Context, func()) {
 	}
 }
 
-
-// return true if it finished, false if cancelled
+// return true if it finished, false if cancelled.
 func (cm *LocalCallManager) TimedWait(ctx context.Context, dur time.Duration) bool {
 	ctx, finish := cm.New(ctx)
 	defer finish()
-	
+
 	return utils.SelectContextOrWait(ctx, dur)
 }
 
 func (cm *LocalCallManager) cancelInLock() {
 	op := cm.op
-	
+
 	if op == nil {
 		return
 	}
@@ -68,6 +88,6 @@ func (cm *LocalCallManager) cancelInLock() {
 type basic struct {
 	theContext context.Context
 	cancelFunc context.CancelFunc
-	waitCh chan bool
+	waitCh     chan bool
 }
 
