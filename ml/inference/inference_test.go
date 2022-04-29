@@ -9,7 +9,7 @@ import (
 	"go.viam.com/test"
 )
 
-const BADPATH string = "bad path"
+const badPath string = "bad path"
 
 type mockInterpreterOptions struct{}
 
@@ -21,42 +21,42 @@ func (mIo *mockInterpreterOptions) SetErrorReporter(f func(string, interface{}),
 }
 
 func TestGetInterpreter(t *testing.T) {
-	goodInterpreterLoader := func(model *tflite.Model, options TfliteInterpreterOptions) (*tflite.Interpreter, error) {
+	goodInterpreterLoader := func(model *tflite.Model, options tfliteInterpreterOptions) (*tflite.Interpreter, error) {
 		return &tflite.Interpreter{}, nil
 	}
 
-	goodOptions := func() (TfliteInterpreterOptions, error) { return &mockInterpreterOptions{}, nil }
+	goodOptions := func() (tfliteInterpreterOptions, error) { return &mockInterpreterOptions{}, nil }
 
 	loader := &InterpreterLoader{
-		NewModelFromFile:      modelLoader,
-		NewInterpreter:        goodInterpreterLoader,
-		NewInterpreterOptions: goodOptions,
-		NumThreads:            4,
+		newModelFromFile:      modelLoader,
+		newInterpreter:        goodInterpreterLoader,
+		newInterpreterOptions: goodOptions,
+		numThreads:            4,
 	}
 	interpreter, err := loader.Load("random path2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, interpreter, test.ShouldNotBeNil)
-	test.That(t, interpreter.Model, test.ShouldNotBeNil)
+	test.That(t, interpreter.model, test.ShouldNotBeNil)
 	test.That(t, interpreter.Interpreter, test.ShouldNotBeNil)
 	test.That(t, interpreter.Options, test.ShouldNotBeNil)
 
-	interpreter, err = loader.Load(BADPATH)
+	interpreter, err = loader.Load(badPath)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot load model"))
 	test.That(t, interpreter, test.ShouldBeNil)
 }
 
 func TestFailedInterpreter(t *testing.T) {
-	badInterpreterLoader := func(model *tflite.Model, options TfliteInterpreterOptions) (*tflite.Interpreter, error) {
+	badInterpreterLoader := func(model *tflite.Model, options tfliteInterpreterOptions) (*tflite.Interpreter, error) {
 		return nil, errors.New("cannot create interpreter")
 	}
 
-	goodOptions := func() (TfliteInterpreterOptions, error) { return &mockInterpreterOptions{}, nil }
+	goodOptions := func() (tfliteInterpreterOptions, error) { return &mockInterpreterOptions{}, nil }
 
 	loader := &InterpreterLoader{
-		NewModelFromFile:      modelLoader,
-		NewInterpreter:        badInterpreterLoader,
-		NewInterpreterOptions: goodOptions,
-		NumThreads:            4,
+		newModelFromFile:      modelLoader,
+		newInterpreter:        badInterpreterLoader,
+		newInterpreterOptions: goodOptions,
+		numThreads:            4,
 	}
 	interpreter, err := loader.Load("random path")
 	test.That(t, err, test.ShouldBeError, errors.New("cannot create interpreter"))
@@ -64,17 +64,17 @@ func TestFailedInterpreter(t *testing.T) {
 }
 
 func TestBadNumThreads(t *testing.T) {
-	goodInterpreterLoader := func(model *tflite.Model, options TfliteInterpreterOptions) (*tflite.Interpreter, error) {
+	goodInterpreterLoader := func(model *tflite.Model, options tfliteInterpreterOptions) (*tflite.Interpreter, error) {
 		return &tflite.Interpreter{}, nil
 	}
 
-	goodOptions := func() (TfliteInterpreterOptions, error) { return &mockInterpreterOptions{}, nil }
+	goodOptions := func() (tfliteInterpreterOptions, error) { return &mockInterpreterOptions{}, nil }
 
 	loader := &InterpreterLoader{
-		NewModelFromFile:      modelLoader,
-		NewInterpreter:        goodInterpreterLoader,
-		NewInterpreterOptions: goodOptions,
-		NumThreads:            -5,
+		newModelFromFile:      modelLoader,
+		newInterpreter:        goodInterpreterLoader,
+		newInterpreterOptions: goodOptions,
+		numThreads:            -5,
 	}
 	interpreter, err := loader.Load("random path")
 	test.That(t, err, test.ShouldBeError, errors.New("NumThreads must be a positive integer"))
@@ -89,16 +89,16 @@ func TestNilLoader(t *testing.T) {
 }
 
 func TestNilNumThreads(t *testing.T) {
-	goodInterpreterLoader := func(model *tflite.Model, options TfliteInterpreterOptions) (*tflite.Interpreter, error) {
+	goodInterpreterLoader := func(model *tflite.Model, options tfliteInterpreterOptions) (*tflite.Interpreter, error) {
 		return &tflite.Interpreter{}, nil
 	}
 
-	goodOptions := func() (TfliteInterpreterOptions, error) { return &mockInterpreterOptions{}, nil }
+	goodOptions := func() (tfliteInterpreterOptions, error) { return &mockInterpreterOptions{}, nil }
 
 	loader := &InterpreterLoader{
-		NewModelFromFile:      modelLoader,
-		NewInterpreter:        goodInterpreterLoader,
-		NewInterpreterOptions: goodOptions,
+		newModelFromFile:      modelLoader,
+		newInterpreter:        goodInterpreterLoader,
+		newInterpreterOptions: goodOptions,
 	}
 	interpreter, err := loader.Load("random path")
 	test.That(t, err, test.ShouldBeError, errors.New("NumThreads must be a positive integer"))
@@ -106,7 +106,7 @@ func TestNilNumThreads(t *testing.T) {
 }
 
 func modelLoader(path string) *tflite.Model {
-	if path == BADPATH {
+	if path == badPath {
 		return nil
 	}
 
