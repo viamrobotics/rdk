@@ -81,7 +81,7 @@ type Config struct {
 	CaptureDir string `json:"capture_dir"`
 }
 
-// ComponentConfig describes how to configure the component/method within the service.
+// ComponentMethodConfig describes how to configure the component/method within the service.
 type ComponentMethodConfig struct {
 	Name       string               `json:"name"`
 	Type       resource.SubtypeName `json:"type"`
@@ -149,7 +149,8 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
-func (svc *Service) initializeOrUpdateCollector(componentName string, componentType string, attributes componentAttributes, updateCaptureDir bool) (
+func (svc *Service) initializeOrUpdateCollector(
+	componentName string, componentType string, attributes componentAttributes, updateCaptureDir bool) (
 	*componentMethodMetadata, error,
 ) {
 	// Create component/method metadata to check if the collector exists.
@@ -256,8 +257,11 @@ func getComponentMethodConfigs(cfg *config.Config) ([]ComponentMethodConfig, err
 				// TODO: Can this work similar to ConvertedAttributes which automatically infer the
 				// struct directly from the `json` fields? Tried something similar and didn't work.
 				componentAttrs := componentAttributes{}
-				marshaled, _ := json.Marshal(methodConfiguration)
-				err := json.Unmarshal(marshaled, &componentAttrs)
+				marshaled, err := json.Marshal(methodConfiguration)
+				if err != nil {
+					return nil, err
+				}
+				err = json.Unmarshal(marshaled, &componentAttrs)
 				if err != nil {
 					return nil, err
 				}
