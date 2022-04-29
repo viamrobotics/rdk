@@ -240,7 +240,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	return &componentMetadata, nil
 }
 
-type DiskStatus struct {
+type diskStatus struct {
 	All         uint64
 	Used        uint64
 	Free        uint64
@@ -248,7 +248,7 @@ type DiskStatus struct {
 	PercentUsed int
 }
 
-func DiskUsage(path string) (disk DiskStatus) {
+func diskUsage(path string) (disk diskStatus) {
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs(path, &fs)
 	if err != nil {
@@ -274,7 +274,7 @@ func (svc *Service) checkStorage() {
 			return
 		case <-ticker.C:
 			wg.Add(1)
-			du := DiskUsage("/")                         // From root? Should get du across entire filesystem?
+			du := diskUsage("/")                         // From root? Should get du across entire filesystem?
 			if du.PercentUsed >= svc.maxStoragePercent { // Should we add some margin, e.g. a few % within maxStoragePercent?
 				if svc.enableAutoDelete {
 					// TODO: Add deletion logic for oldest file(s)
@@ -287,7 +287,10 @@ func (svc *Service) checkStorage() {
 				}
 			} else {
 				// Handle case where we previously closed/paused collectors and now disk usage has freed up
-				svc.reinitializeClosedCollectors()
+				err := svc.reinitializeClosedCollectors()
+				if err != nil {
+					svc.logger.Warn("Issue reinitializing closed collector", err)
+				}
 			}
 		}
 	}
@@ -344,12 +347,16 @@ func (svc *Service) closeCollectors() {
 	}
 }
 
-func (svc *Service) reinitializeClosedCollectors() {
+func (svc *Service) reinitializeClosedCollectors() error {
 	for _, collector := range svc.collectors {
 		if collector.Collector == nil {
-			svc.initializeOrUpdateCollector(collector.ComponentName, collector.Attributes, false)
+			_, err := svc.initializeOrUpdateCollector(collector.ComponentName, collector.Attributes, false)
+			if err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // Close releases all resources managed by data_manager.
