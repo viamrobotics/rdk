@@ -96,11 +96,10 @@ func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64) (o
 		Rpm:         rpm,
 		Revolutions: revolutions,
 	}
-	// TODO(erh): this isn't supposed to block
-	if _, err := c.client.GoFor(ctx, req); err != nil {
-		return nil, err
-	}
-	return &operation.NoopNonBlockingReturn{}, nil
+	return operation.NewFuncNonBlockingReturn(ctx, func(ctx context.Context) error {
+		_, err := c.client.GoFor(ctx, req)
+		return err
+	}), nil
 }
 
 func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) (operation.NonBlockingReturn, error) {
@@ -109,10 +108,10 @@ func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions floa
 		Rpm:                 rpm,
 		PositionRevolutions: positionRevolutions,
 	}
-	if _, err := c.client.GoTo(ctx, req); err != nil {
-		return nil, err
-	}
-	return &operation.NoopNonBlockingReturn{}, nil
+	return operation.NewFuncNonBlockingReturn(ctx, func(ctx context.Context) error {
+		_, err := c.client.GoTo(ctx, req)
+		return err
+	}), nil
 }
 
 func (c *client) ResetZeroPosition(ctx context.Context, offset float64) error {
