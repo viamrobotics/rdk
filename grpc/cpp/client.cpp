@@ -7,8 +7,6 @@
 #include <google/protobuf/util/json_util.h>
 #include <grpcpp/security/credentials.h>
 
-#include "proto/api/service/status/v1/status.pb.h"
-#include "proto/api/service/status/v1/status.grpc.pb.h"
 #include "proto/api/service/metadata/v1/metadata.grpc.pb.h"
 #include "proto/api/service/metadata/v1/metadata.pb.h"
 #include "proto/api/common/v1/common.grpc.pb.h"
@@ -32,7 +30,6 @@ int main(const int argc, const char** argv) {
   ClientContext context;
   const ResourcesRequest request;
   ResourcesResponse response;
-  // const Status gStatus = client->Status(&context, request, &response);
   const Status gStatus = client->Resources(&context, request, &response);
   if (!gStatus.ok()) {
     std::cout << "Status rpc failed." << std::endl;
