@@ -135,7 +135,7 @@ func getInterpreter(model *tflite.Model, options TfliteInterpreterOptions) (*tfl
 }
 
 // DeleteInterpreter should be called at the end of using the interpreter to delete the instance and related parts
-func DeleteInterpreter(i *TfliteX) error {
+func (i *TfliteX) DeleteInterpreter() error {
 	i.Model.Delete()
 	i.Options.Delete()
 	i.Interpreter.Delete()
