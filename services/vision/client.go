@@ -21,7 +21,7 @@ import (
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
-// client is a client that implements the Object Detection Service.
+// client is a client that implements the Vision Service.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.VisionServiceClient

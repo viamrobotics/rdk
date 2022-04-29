@@ -16,13 +16,13 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// subtypeServer implements the Object Detection Service.
+// subtypeServer implements the Vision Service.
 type subtypeServer struct {
 	pb.UnimplementedVisionServiceServer
 	subtypeSvc subtype.Service
 }
 
-// NewServer constructs a object detection gRPC service server.
+// NewServer constructs a vision gRPC service server.
 func NewServer(s subtype.Service) pb.VisionServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }

@@ -1,6 +1,5 @@
-// Package vision is the service that allows you to access registered detectors and cameras
-// and return bounding boxes and streams of detections. Also allows you to register new
-// object detectors.
+// Package vision is the service that allows you to access various computer vision algorithms
+// (like detection, segmentation, tracking, etc) that usually only require a camera or image input.
 package vision
 
 import (
@@ -49,7 +48,7 @@ func init() {
 	)
 }
 
-// A Service that returns  list of 2D bounding boxes and labels around objects in a 2D image.
+// A Service that implements various computer vision algorithms like detection and segmentation.
 type Service interface {
 	// detector methods
 	GetDetectorNames(ctx context.Context) ([]string, error)
@@ -64,17 +63,17 @@ type Service interface {
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("vision")
 
-// Subtype is a constant that identifies the object detection service resource subtype.
+// Subtype is a constant that identifies the vision service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
 	SubtypeName,
 )
 
-// Name is the VisionService's typed resource name.
+// Name is the Vision Service's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// FromRobot retrieves the object detection service of a robot.
+// FromRobot retrieves the vision service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
 	resource, err := r.ResourceByName(Name)
 	if err != nil {
@@ -90,14 +89,6 @@ func FromRobot(r robot.Robot) (Service, error) {
 // Attributes contains a list of the user-provided details necessary to register a new vision service.
 type Attributes struct {
 	DetectorRegistry []DetectorConfig `json:"register_detectors"`
-}
-
-// DetectorConfig specifies the name of the detector, the type of detector,
-// and the necessary parameters needed to build the detector.
-type DetectorConfig struct {
-	Name       string              `json:"name"`
-	Type       string              `json:"type"`
-	Parameters config.AttributeMap `json:"parameters"`
 }
 
 // New registers new detectors from the config and returns a new object detection service for the given robot.
@@ -138,6 +129,7 @@ type visionService struct {
 	logger golog.Logger
 }
 
+// Update will create a new completely vision service from the input config.
 func (vs *visionService) Update(ctx context.Context, conf config.Service) error {
 	newService, err := New(ctx, vs.r, conf, vs.logger)
 	if err != nil {

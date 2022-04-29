@@ -8,6 +8,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -24,6 +25,14 @@ const (
 // newDetectorTypeNotImplemented is used when the detector type is not implemented.
 func newDetectorTypeNotImplemented(name string) error {
 	return errors.Errorf("detector type %q is not implemented", name)
+}
+
+// DetectorConfig specifies the name of the detector, the type of detector,
+// and the necessary parameters needed to build the detector.
+type DetectorConfig struct {
+	Name       string              `json:"name"`
+	Type       string              `json:"type"`
+	Parameters config.AttributeMap `json:"parameters"`
 }
 
 // registerNewDetectors take an attributes struct and parses each element by type to create an RDK Detector

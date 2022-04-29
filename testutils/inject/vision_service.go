@@ -10,9 +10,10 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-// VisionService represents a fake instance of an object detection service.
+// VisionService represents a fake instance of a vision service.
 type VisionService struct {
 	vision.Service
+	// detection functions
 	GetDetectorNamesFunc func(ctx context.Context) ([]string, error)
 	AddDetectorFunc      func(ctx context.Context, cfg vision.DetectorConfig) error
 	GetDetectionsFunc    func(ctx context.Context, cameraName, detectorName string) ([]objectdetection.Detection, error)
