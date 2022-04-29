@@ -229,8 +229,6 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		if c.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
-		if _, ok := seen[c.Name]; ok {
-		}
 		if c.Name == referenceframe.World {
 			return errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
 		}
