@@ -344,6 +344,11 @@ func (b *boat) Close(ctx context.Context) error {
 	return b.Stop(ctx)
 }
 
+// Do is unimplemented.
+func (b *boat) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 func runRC2(ctx context.Context, myBoat *boat) {
 	var err error
 

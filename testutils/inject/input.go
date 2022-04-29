@@ -9,6 +9,7 @@ import (
 // InputController is an injected InputController.
 type InputController struct {
 	input.Controller
+	DoFunc                      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	GetControlsFunc             func(ctx context.Context) ([]input.Control, error)
 	GetEventsFunc               func(ctx context.Context) (map[input.Control]input.Event, error)
 	RegisterControlCallbackFunc func(
@@ -46,6 +47,14 @@ func (s *InputController) RegisterControlCallback(
 		return s.RegisterControlCallback(ctx, control, triggers, ctrlFunc)
 	}
 	return s.RegisterControlCallbackFunc(ctx, control, triggers, ctrlFunc)
+}
+
+// Do calls the injected Do or the real version.
+func (s *InputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if s.DoFunc == nil {
+		return s.Controller.Do(ctx, cmd)
+	}
+	return s.DoFunc(ctx, cmd)
 }
 
 // TriggerableInputController is an injected injectable InputController.
