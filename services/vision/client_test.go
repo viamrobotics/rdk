@@ -170,7 +170,7 @@ func TestInjectedServiceClient(t *testing.T) {
 		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
 			return nil, errors.New("segmenter names error")
 		}
-		segNames, err := client.GetSegmenterNames(context.Background())
+		_, err = client.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter names error")
 
@@ -179,7 +179,7 @@ func TestInjectedServiceClient(t *testing.T) {
 			return []string{vision.RadiusClusteringSegmenter}, nil
 		}
 
-		segNames, err = client.GetSegmenterNames(context.Background())
+		segNames, err := client.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segNames, test.ShouldHaveLength, 1)
 		test.That(t, segNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
