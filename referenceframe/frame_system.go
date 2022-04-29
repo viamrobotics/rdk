@@ -177,11 +177,17 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 	if !sfs.frameExists(dst) {
 		return nil, fmt.Errorf("destination frame %s not found in FrameSystem", dst)
 	}
-	tf, err := sfs.transformFromParent(positions, srcFrame, sfs.GetFrame(dst))
+	var tfParent *PoseInFrame
+	var err error
+	if _, ok := object.(*GeometriesInFrame); ok && len(srcFrame.DoF()) != 0 {
+		tfParent, err = sfs.transformFromParent(positions, sfs.parents[srcFrame], sfs.GetFrame(dst))
+	} else {
+		tfParent, err = sfs.transformFromParent(positions, srcFrame, sfs.GetFrame(dst))
+	}
 	if err != nil {
 		return nil, err
 	}
-	return object.Transform(tf), nil
+	return object.Transform(tfParent), nil
 }
 
 // Name returns the name of the simpleFrameSystem.
@@ -319,8 +325,6 @@ func (sfs *simpleFrameSystem) getWorldToDstTransform(inputMap map[string][]Input
 		return nil, fmt.Errorf("target frame %s not found in FrameSystem", target.Name())
 	}
 	dstToWorld, err := sfs.composeTransforms(target, inputMap)
-	d := dstToWorld.Point()
-	_ = d
 	if err != nil && dstToWorld == nil {
 		return nil, err
 	}
@@ -332,12 +336,8 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 	// catch all errors together to allow for hypothetical calculations that result in errors
 	var errAll error
 	worldToDst, err := sfs.getWorldToDstTransform(inputMap, dst)
-	d := worldToDst.Point()
-	_ = d
 	multierr.AppendInto(&errAll, err)
 	srcToWorld, err := sfs.getSrcToWorldTransform(inputMap, src)
-	s := srcToWorld.Point()
-	_ = s
 	multierr.AppendInto(&errAll, err)
 	if errAll != nil && (worldToDst == nil || srcToWorld == nil) {
 		return nil, errAll
@@ -364,20 +364,8 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap map[string
 	return q, errAll
 }
 
-func getFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
-	var input []Input
-	// Get frame inputs if necessary
-	if len(frame.DoF()) > 0 {
-		if _, ok := inputMap[frame.Name()]; !ok {
-			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
-		}
-		input = inputMap[frame.Name()]
-	}
-	return input, nil
-}
-
 func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
-	inputs, err := getFrameInputs(frame, positions)
+	inputs, err := GetFrameInputs(frame, positions)
 	if err != nil {
 		return nil, err
 	}

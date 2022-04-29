@@ -207,53 +207,6 @@ func TestFrameTransform(t *testing.T) {
 	testTransformPoint(t, fs, map[string][]Input{}, poseStart, poseEnd)
 }
 
-// func TestGeometriesTransform(t *testing.T) {
-// 	fs := NewEmptySimpleFrameSystem("test")
-
-// 	// create expected box
-// 	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, spatial.NewZeroPose())
-// 	test.That(t, err, test.ShouldBeNil)
-// 	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
-// 	expectedBox := bc.NewGeometry(pose)
-
-// 	testGeometries := func(t *testing.T, frame Frame) {
-// 		t.Helper()
-// 		err = fs.AddFrame(frame, fs.World())
-// 		test.That(t, err, test.ShouldBeNil)
-// 		gf, err := frame.Geometries([]Input{})
-// 		test.That(t, err, test.ShouldBeNil)
-// 		tf, err := fs.Transform(StartPositions(fs), gf, World)
-// 		test.That(t, err, test.ShouldBeNil)
-// 		gf, _ = tf.(*GeometriesInFrame)
-// 		test.That(t, expectedBox.AlmostEqual(gf.Geometries()[""]), test.ShouldBeTrue)
-// 	}
-
-// 	// test creating a new static frame with a geometry
-// 	sf, err := NewStaticFrameWithGeometry("", pose, bc)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	testGeometries(t, sf)
-
-// 	// test creating a new translational frame with a geometry
-// 	tf, err := NewTranslationalFrameWithGeometry("", r3.Vector{0, 1, 0}, Limit{Min: -30, Max: 30}, bc)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	testGeometries(t, tf)
-
-// 	// test erroring correctly from trying to create a geometry for a rotational frame
-// 	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
-// 	test.That(t, err, test.ShouldBeNil)
-// 	testGeometries(t, rf)
-
-// 	// test creating a new mobile frame with a geometry
-// 	mf, err := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, bc)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	testGeometries(t, mf)
-
-// 	// test inheriting a geometry creator
-// 	sf, err = NewStaticFrameFromFrame(tf, pose)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	testGeometries(t, sf)
-// }
-
 /*
 This test uses the same setup as the above test, but this time is concede with representing a geometry in a difference reference frame
 
@@ -307,6 +260,7 @@ func TestGeomtriesTransform(t *testing.T) {
 	tf, err := fs.Transform(map[string][]Input{}, geometries, "frame2")
 	test.That(t, err, test.ShouldBeNil)
 	framedGeometries, _ := tf.(*GeometriesInFrame)
+	test.That(t, framedGeometries.FrameName(), test.ShouldResemble, "frame2")
 	test.That(t, spatial.PoseAlmostCoincident(framedGeometries.Geometries()["object"].Pose(), objectFromFrame2), test.ShouldBeTrue)
 }
 
@@ -426,10 +380,6 @@ func testTransformPoint(t *testing.T, fs FrameSystem, positions map[string][]Inp
 	test.That(t, err, test.ShouldBeNil)
 	pf, ok := tf.(*PoseInFrame)
 	test.That(t, ok, test.ShouldBeTrue)
-	// o := pf.Pose().Point()
-	// _ = o
-	// p := end.Pose().Point()
-	// _ = p
 	test.That(t, pf.FrameName(), test.ShouldResemble, end.FrameName())
 	test.That(t, spatial.PoseAlmostCoincident(pf.Pose(), end.Pose()), test.ShouldBeTrue)
 }

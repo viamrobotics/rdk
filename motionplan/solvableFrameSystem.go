@@ -247,35 +247,45 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
 	}
-	tf, err := sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame.Name(), sf.goalFrame.Name())
+	pf := frame.NewPoseInFrame(sf.solveFrame.Name(), spatial.NewZeroPose())
+	tf, err := sf.fss.Transform(sf.sliceToMap(inputs), pf, sf.goalFrame.Name())
 	if err != nil {
 		return nil, err
 	}
-	return tf.Pose(), nil
+	return tf.(*frame.PoseInFrame).Pose(), nil
 }
 
 // Geometry takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
-// intermediate frames (if any exist) up to and including the end effector, and eturns a map of frame names to geometries.
+// intermediate frames (if any exist) up to and including the end effector, and returns a map of frame names to geometries.
 // The key for each frame in the map will be the string: "<model_name>:<frame_name>".
-func (sf *solverFrame) Geometries(inputs []frame.Input) (map[string]spatial.Geometry, error) {
+func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFrame, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, errors.New("incorrect number of inputs to transform")
 	}
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := make(map[string]spatial.Geometry)
-	for _, frame := range sf.frames {
-		geometries, err := sf.fss.GeometriesOfFrame(inputMap, frame.Name(), sf.goalFrame.Name())
-		if geometries == nil {
+	for _, f := range sf.frames {
+		inputs, err := frame.GetFrameInputs(f, inputMap)
+		if err != nil {
+			return nil, err
+		}
+		gf, err := f.Geometries(inputs)
+		if gf == nil {
 			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		for name, geometry := range geometries {
+		var tf frame.Transformable
+		tf, err = sf.fss.Transform(inputMap, gf, sf.goalFrame.Name())
+		if err != nil {
+			return nil, err
+		}
+		for name, geometry := range tf.(*frame.GeometriesInFrame).Geometries() {
 			sfGeometries[name] = geometry
 		}
 	}
-	return sfGeometries, errAll
+	return frame.NewGeometriesInFrame(sf.goalFrame.Name(), sfGeometries), errAll
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.
