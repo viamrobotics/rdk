@@ -7,12 +7,14 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
+	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	servicepb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/registry"
@@ -132,6 +134,18 @@ func TestInjectedServiceClient(t *testing.T) {
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
+	t.Run("dialed client test config for working vision service", func(t *testing.T) {
+		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
+			return []string{vision.RadiusClusteringSegmenter}, nil
+		}
+
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		workingDialedClient := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		segmenterNames, err := workingDialedClient.GetSegmenterNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, segmenterNames, test.ShouldHaveLength, 1)
+	})
 	t.Run("test segmentation", func(t *testing.T) {
 		client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -152,11 +166,20 @@ func TestInjectedServiceClient(t *testing.T) {
 			}
 			return segments, nil
 		}
+		// SegmenterNames error
+		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
+			return nil, errors.New("segmenter names error")
+		}
+		segNames, err := client.GetSegmenterNames(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter names error")
+
+		// SegmenterNames success
 		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
 			return []string{vision.RadiusClusteringSegmenter}, nil
 		}
 
-		segNames, err := client.GetSegmenterNames(context.Background())
+		segNames, err = client.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segNames, test.ShouldHaveLength, 1)
 		test.That(t, segNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
