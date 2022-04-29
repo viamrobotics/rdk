@@ -8,6 +8,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
@@ -82,6 +83,8 @@ type Motor interface {
 
 	// IsPowered returns whether or not the motor is currently on.
 	IsPowered(ctx context.Context) (bool, error)
+
+	generic.Generic
 }
 
 // A LocalMotor is a motor that supports additional features provided by RDK
@@ -160,6 +163,12 @@ func (r *reconfigurableMotor) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+func (r *reconfigurableMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) error {

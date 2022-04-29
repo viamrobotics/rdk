@@ -12,6 +12,7 @@ import (
 // Board is an injected board.
 type Board struct {
 	board.LocalBoard
+	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	SPIByNameFunc              func(name string) (board.SPI, bool)
 	spiByNameCap               []interface{}
 	I2CByNameFunc              func(name string) (board.I2C, bool)
@@ -169,4 +170,12 @@ func (b *Board) StatusCap() []interface{} {
 	}
 	defer func() { b.statusCap = nil }()
 	return b.statusCap
+}
+
+// Do calls the injected Do or the real version.
+func (b *Board) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if b.DoFunc == nil {
+		return b.LocalBoard.Do(ctx, cmd)
+	}
+	return b.DoFunc(ctx, cmd)
 }

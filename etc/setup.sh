@@ -136,6 +136,8 @@ mod_profiles(){
 	if [ $? -ne 0 ]; then
 		git config --global url.ssh://git@github.com/.insteadOf https://github.com/
 	fi
+	mkdir -p ~/.ssh
+	grep -q github.com ~/.ssh/known_hosts || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 }
 
 do_brew(){
