@@ -1,7 +1,6 @@
 package calibrate
 
 import (
-	//"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -73,7 +72,8 @@ func TestSortCornerListByY(t *testing.T) {
 }
 
 func TestGetAndShowCorners(t *testing.T) {
-	got := SortCornerListByX(GetAndShowCorners(artifact.MustPath("calibrate/chess3.jpeg"), artifact.MustPath("calibrate/chessOUT3nums.jpeg"), 50))
+	c, err := GetAndShowCorners(artifact.MustPath("calibrate/chess3.jpeg"), artifact.MustPath("calibrate/chessOUT3nums.jpeg"), 50)
+	got := SortCornerListByX(c)
 
 	expected := []Corner{
 		{535, 460, 6.88028101376e+11},
@@ -125,7 +125,9 @@ func TestGetAndShowCorners(t *testing.T) {
 		{1145, 290, 8.6269347588816e+11},
 		{1166, 363, 6.19502594256e+11},
 		{1194, 456, 4.98050232896e+11},
-		{1240, 590, 4.5866218616064e+11}}
+		{1240, 590, 4.5866218616064e+11},
+	}
 
 	test.That(t, got, test.ShouldResemble, expected)
+	test.That(t, err, test.ShouldBeNil)
 }
