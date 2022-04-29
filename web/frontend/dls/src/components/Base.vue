@@ -10,7 +10,7 @@
           color="danger"
           group
           variant="primary"
-          :disabled="!baseStatus"
+          :disabled="!baseStatus && selectedItem !== 'keyboard'"
           @click="baseStop()"
         >
           <template v-slot:icon>
@@ -37,6 +37,7 @@
               <Tab
                 :selected="selectedItem === 'discrete'"
                 @select="selectedItem = 'discrete'"
+                @click="resetDiscreteState()"
                 >Discrete</Tab
               >
             </Tabs>
@@ -188,6 +189,7 @@
                 <p class="text-xs">Movement Type</p>
                 <RadioButtons
                   :options="['Clockwise', 'Counterclockwise']"
+                  defaultOption="Clockwise"
                   :disabledOptions="[]"
                   v-on:selectOption="setSpinType($event)"
                 />
@@ -282,10 +284,11 @@ export default class Base extends Vue {
   movementType = "Continous";
   direction = "Forwards";
   spinType = "";
-  increment = 500;
+  increment = 1000;
   maxClusteringRadius = 90
   
-  speed = 300;
+  speed = 200;
+  angle = 0
   cameraOptions = [{value: 'NoCamera', label: 'No Camera'}, {value: 'Camera1', label: 'Camera1'}]
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
@@ -297,6 +300,13 @@ export default class Base extends Vue {
 
   mounted(): void {
     this.resizeContent();
+  }
+
+  resetDiscreteState(): void {
+    this.movementMode = "Straight";
+    this.movementType = "Continous";
+    this.direction = "Forwards";
+    this.spinType = '';
   }
 
   setMovementMode(e: string): void {
