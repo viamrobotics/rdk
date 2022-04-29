@@ -248,15 +248,15 @@
               return "";
             },
             getSegmenterNames: function () {
-              let req = new visionApi.GetSegmentersRequest();
-              visionService.getSegmenters(req, {}, (err, resp) => {
+              let req = new visionApi.GetSegmenterNamesRequest();
+              visionService.getSegmenterNames(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
                   console.log("error getting segmenter names");
                   console.log(err);
                   return;
                 }
-                theData.segmenterNames = resp.getSegmentersList();
+                theData.segmenterNames = resp.getSegmenterNamesList();
               });
             },
             getSegmenterParameters: function (name) {
@@ -270,7 +270,7 @@
                   console.log(err);
                   return;
                 }
-                theData.segmenterParameterNames = resp.getParametersList();
+                theData.segmenterParameterNames = resp.getSegmenterParametersList();
                 theData.segmenterParameters = {};
               });
             },
