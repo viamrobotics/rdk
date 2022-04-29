@@ -323,10 +323,7 @@
               const req = new gantryApi.MoveToPositionRequest();
               req.setName(name.name);
               req.setPositionsMmList(pos);
-              gantryService.moveToPosition(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              gantryService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             armEndPositionInc: function (name, getterSetter, amount) {
               if (getterSetter[0] == "o" || getterSetter[0] == "O") {
@@ -357,10 +354,7 @@
               const req = new armApi.MoveToPositionRequest();
               req.setName(name.name);
               req.setTo(newPose);
-              armService.moveToPosition(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             armJointInc: function (name, field, amount) {
               const arm = theApp.rawResourceStatusByName(name);
@@ -372,10 +366,7 @@
               const req = new armApi.MoveToJointPositionsRequest();
               req.setName(name.name);
               req.setPositionDegs(newPositionDegs);
-              armService.moveToJointPositions(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             armHome: function (name) {
               const arm = theApp.rawResourceStatusByName(name);
@@ -389,10 +380,7 @@
               const req = new armApi.MoveToJointPositionsRequest();
               req.setName(name.name);
               req.setPositionDegs(newPositionDegs);
-              armService.moveToJointPositions(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             armModifyAll: function (name) {
               const arm = theApp.resourceStatusByName(name);
@@ -428,10 +416,7 @@
               const req = new armApi.MoveToPositionRequest();
               req.setName(name.name);
               req.setTo(newPose);
-              armService.moveToPosition(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
               delete theData.armToggle[name.name];
             },
             armModifyAllDoJoint: function (name) {
@@ -447,10 +432,7 @@
               const req = new armApi.MoveToJointPositionsRequest();
               req.setName(name.name);
               req.setPositionDegs(newPositionDegs);
-              armService.moveToJointPositions(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
               delete theData.armToggle[name.name];
             },
 
@@ -460,18 +442,12 @@
                 case "open":
                   req = new gripperApi.OpenRequest();
                   req.setName(name);
-                  gripperService.open(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+                  gripperService.open(req, {}, (err, resp) => grpcCallback(err, resp));
                   break;
                 case "grab":
                   req = new gripperApi.GrabRequest();
                   req.setName(name);
-                  gripperService.grab(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+                  gripperService.grab(req, {}, (err, resp) => grpcCallback(err, resp));
                   break;
               }
             },
@@ -482,10 +458,7 @@
               const req = new servoApi.MoveRequest();
               req.setName(name.name);
               req.setAngleDeg(angle);
-              servoService.move(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             motorCommand: function (motor, cmd) {
               let req = cmd.request;
@@ -493,22 +466,13 @@
 
               switch (cmd.type) {
                 case "go":
-                  motorService.setPower(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+                  motorService.setPower(req, {}, (err, resp) => grpcCallback(err, resp));
                   break;
                 case "goFor":
-                  motorService.goFor(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+                  motorService.goFor(req, {}, (err, resp) => grpcCallback(err, resp));
                   break;
                 case "goTo":
-                  motorService.goTo(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+                  motorService.goTo(req, {}, (err, resp) => grpcCallback(err, resp));
                   break;
               }
             },
@@ -524,18 +488,12 @@
               });
             },
             inputInject: function (req) {
-              inputControllerService.triggerEvent(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              inputControllerService.triggerEvent(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             killOp: function (id) {
               var req = new robotApi.KillOperationRequest();
               req.setId(id);
-              robotService.killOperation(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             baseAction: function (name, action, amount, angle) {
               let req;
@@ -914,10 +872,7 @@
               console.log("making move attempt using " + gripperName);
 
               motionService.move(req, {}, (err, resp) => {
-                {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  };
+                grpcCallback(err, resp)
                 if (err) {
                   return Promise.reject(err);
                 }
@@ -995,10 +950,7 @@
               }
               var req = new navigationApi.SetModeRequest();
               req.setMode(pbMode);
-              navigationService.setMode(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              navigationService.setMode(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             setNavigationLocation: function (elId) {
               const posSplit = document.getElementById(elId).value.split(",");
@@ -1024,10 +976,7 @@
                   longitude: lng,
                 })
               );
-              robotService.resourceRunCommand(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+              robotService.resourceRunCommand(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             viewCamera : function(name) {
               const streamContainer = document.getElementById(`stream-${name}`);
@@ -1451,10 +1400,7 @@
           point.setLatitude(e.latLng.lat());
           point.setLongitude(e.latLng.lng());
           req.setLocation(point);
-          navigationService.addWaypoint(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+          navigationService.addWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
         });
 
         let centered = false;
@@ -1495,10 +1441,7 @@
               marker.addListener("dblclick", () => {
                 var req = new navigationApi.RemoveWaypointRequest();
                 req.setId(waypoint.getId());
-                navigationService.removeWaypoint(req, {}, (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                  });
+                navigationService.removeWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
               });
             }
             const waypointsToDelete = Object.keys(knownWaypoints).filter((elem) => {
