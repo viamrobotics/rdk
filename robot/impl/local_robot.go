@@ -224,10 +224,8 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 			}
 		}
 		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
-			if err == nil {
-				if err := configUpdateable.Update(ctx, r.config); err != nil {
-					return err
-				}
+			if err := configUpdateable.Update(ctx, r.config); err != nil {
+				return err
 			}
 		}
 	}
