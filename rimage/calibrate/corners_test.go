@@ -133,7 +133,6 @@ func TestGetAndShowCorners(t *testing.T) {
 		test.That(t, got[i].X, test.ShouldResemble, e.X)
 		test.That(t, got[i].Y, test.ShouldResemble, e.Y)
 		test.That(t, fmt.Sprintf("%e", got[i].R), test.ShouldResemble, fmt.Sprintf("%e", e.R))
-
 	}
 	test.That(t, err, test.ShouldBeNil)
 }
