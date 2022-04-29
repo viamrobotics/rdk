@@ -12,6 +12,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/registry"
@@ -95,6 +96,8 @@ type Board interface {
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
+
+	generic.Generic
 }
 
 // A LocalBoard represents a Board where you can request SPIs and I2Cs by name.
@@ -188,6 +191,12 @@ func (r *reconfigurableBoard) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+func (r *reconfigurableBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableBoard) SPIByName(name string) (SPI, bool) {

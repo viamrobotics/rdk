@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -77,6 +78,7 @@ type Motor struct {
 	maxAcc      float64
 	fClk        float64
 	logger      golog.Logger
+	generic.Unimplemented
 }
 
 // TMC5072 Values.

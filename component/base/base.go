@@ -9,6 +9,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -70,6 +71,8 @@ type Base interface {
 
 	// Stop stops the base. It is assumed the base stops immediately.
 	Stop(ctx context.Context) error
+
+	generic.Generic
 }
 
 // A LocalBase represents a physical base of a robot that can report the width of itself.
@@ -111,6 +114,12 @@ func (r *reconfigurableBase) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+func (r *reconfigurableBase) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableBase) MoveStraight(
