@@ -10,7 +10,7 @@
           color="danger"
           group
           variant="primary"
-          :disabled="!baseStatus"
+          :disabled="!baseStatus && selectedItem !== 'keyboard'"
           @click="baseStop()"
         >
           <template v-slot:icon>
