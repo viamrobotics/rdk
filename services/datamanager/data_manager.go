@@ -99,6 +99,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		captureDir:        viamCaptureDotDir,
 		collectors:        make(map[componentMethodMetadata]collectorParams),
 		backgroundWorkers: sync.WaitGroup{},
+		lock:              sync.Mutex{},
 	}
 
 	return dataManagerSvc, nil
@@ -106,6 +107,8 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 // Close releases all resources managed by data_manager.
 func (svc *Service) Close(ctx context.Context) error {
+	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	for _, collector := range svc.collectors {
 		collector.Collector.Close()
 	}
@@ -125,6 +128,7 @@ type Service struct {
 	collectors map[componentMethodMetadata]collectorParams
 	syncer     syncManager
 
+	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
 	updateCollectorsCancelFn func()
 }
@@ -252,7 +256,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	return &componentMetadata, nil
 }
 
-func (svc *Service) initOrUpdateSyncer(ctx context.Context, intervalMins int) {
+func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.updateCollectorsCancelFn()
@@ -264,7 +268,7 @@ func (svc *Service) initOrUpdateSyncer(ctx context.Context, intervalMins int) {
 
 	// Init a new syncer if we are still syncing.
 	if intervalMins > 0 {
-		cancelCtx, fn := context.WithCancel(ctx)
+		cancelCtx, fn := context.WithCancel(context.Background())
 		svc.updateCollectorsCancelFn = fn
 		svc.queueCapturedData(cancelCtx, intervalMins)
 		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
@@ -274,13 +278,17 @@ func (svc *Service) initOrUpdateSyncer(ctx context.Context, intervalMins int) {
 
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, config config.Service) error {
+	svc.lock.Lock()
+	defer svc.lock.Unlock()
+
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
-	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
-	svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins)
+	svc.captureDir = svcConfig.CaptureDir
+	// nolint:contextcheck
+	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 
 	// Initialize or add a collector based on changes to the config.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -331,6 +339,7 @@ func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins in
 				return
 			case <-ticker.C:
 				oldFiles := make([]string, 0, len(svc.collectors))
+				svc.lock.Lock()
 				for component, collector := range svc.collectors {
 					// Create new target and set it.
 					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
@@ -340,6 +349,7 @@ func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins in
 					oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
 					collector.Collector.SetTarget(nextTarget)
 				}
+				svc.lock.Unlock()
 				if err := svc.syncer.Enqueue(oldFiles); err != nil {
 					svc.logger.Errorw("failed to move files to sync queue", "error", err)
 				}
