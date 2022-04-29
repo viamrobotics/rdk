@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
@@ -93,6 +94,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(motor.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, motorSvc)
 
+	workingMotor.DoFunc = generic.EchoFunc
+	generic.RegisterService(rpcServer, motorSvc)
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -108,7 +112,13 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for working motor", func(t *testing.T) {
-		err := workingMotorClient.SetPower(context.Background(), 42.0)
+		// Do
+		resp, err := workingMotorClient.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+
+		err = workingMotorClient.SetPower(context.Background(), 42.0)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = workingMotorClient.GoFor(context.Background(), 42.0, 42.0)
