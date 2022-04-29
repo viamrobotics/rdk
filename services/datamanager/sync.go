@@ -162,6 +162,7 @@ func (s *syncer) Close() {
 func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		s.logger.Errorw("failed to upload queued file", "error", err)
+		// nolint
 		return nil
 	}
 
