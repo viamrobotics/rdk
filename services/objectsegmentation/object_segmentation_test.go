@@ -2,6 +2,7 @@ package objectsegmentation_test
 
 import (
 	"context"
+	"errors"
 	"image"
 	"net"
 	"testing"
@@ -53,6 +54,10 @@ func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 type cloudSource struct{}
+
+func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
 
 func (c *cloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 	img := rimage.NewImage(100, 200)

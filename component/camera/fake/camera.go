@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
@@ -34,6 +35,7 @@ func init() {
 
 // Camera is a fake camera that always returns the same image.
 type Camera struct {
+	generic.Echo
 	Name  string
 	color string
 }

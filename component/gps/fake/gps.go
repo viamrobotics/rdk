@@ -102,8 +102,12 @@ func (g *GPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.valid, nil
 }
 
-// RunCommand runs an arbitrary command.
-func (g *GPS) RunCommand(ctx context.Context, name string, args map[string]interface{}) (map[string]interface{}, error) {
+// Do runs an arbitrary command.
+func (g *GPS) Do(ctx context.Context, args map[string]interface{}) (map[string]interface{}, error) {
+	name, ok := args["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' value")
+	}
 	switch name {
 	case "set_location":
 		g.mu.Lock()

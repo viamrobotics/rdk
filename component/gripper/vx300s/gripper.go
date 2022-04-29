@@ -14,6 +14,7 @@ import (
 	"go.viam.com/dynamixel/servo/s_model"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -48,6 +49,7 @@ func getPortMutex(port string) *sync.Mutex {
 type vx300s struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
+	generic.Unimplemented
 }
 
 // newGripper TODO.

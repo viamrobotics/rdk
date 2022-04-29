@@ -12,6 +12,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 )
 
@@ -108,6 +109,7 @@ type Motor struct {
 	cancelForFunc func()
 	waitCh        chan struct{}
 	logger        golog.Logger
+	generic.Unimplemented
 }
 
 // GetPosition always returns 0.
