@@ -43,6 +43,9 @@ func AreEqual(a, b Corner) bool {
 //NormalizeCorners takes in a list of corners and returns a list of corners such that the output list
 //has x and y values that are (x - xmean)/std(x)
 func NormalizeCorners(corners []Corner) []Corner {
+	if len(corners) <= 1 {
+		return corners
+	}
 	var xSlice, ySlice []float64
 	for _, c := range corners {
 		xSlice = append(xSlice, float64(c.X))
@@ -319,11 +322,9 @@ func pickNRandomCorners(list []Corner, N int) ([]Corner, error) {
 	return list[:N], nil
 }
 
-
 //The remainder of the functions on this page are hacky. They are all tied to FindMagicCorner,
 //which considers the first corner such that at least 3 corners exist along both the same X-axis and
 //same Y-axis. This idea is predicated on the idea that there's a (properly oriented) checkerboard in the image
-
 
 //FindMagicCorner inputs a slice of corners and finds the one that has 2 other "friends" in the X-axis
 //and 2 other "friends" in the Y-axis (+/- 10 pixels wiggle room)
