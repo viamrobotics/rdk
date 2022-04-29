@@ -239,7 +239,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, componentT
 // Get the config associated with the data manager service.
 func getServiceConfig(cfg *config.Config) (config.Service, error) {
 	for _, c := range cfg.Services {
-		if c.ResourceName() == Name { // NOTE: Check if this works, Name may be insufficient.
+		if c.ResourceName() == Name {
 			return c, nil
 		}
 	}
@@ -252,12 +252,17 @@ func getComponentMethodConfigs(cfg *config.Config) ([]ComponentMethodConfig, err
 	for _, c := range cfg.Components {
 		if svcConfig, ok := c.ServiceConfig["data_manager"]; ok {
 			for _, methodConfiguration := range (svcConfig["capture_methods"]).([]interface{}) {
+				// Encode json map into struct.
+				// TODO: Can this work similar to ConvertedAttributes which automatically infer the
+				// struct directly from the `json` fields? Tried something similar and didn't work.
 				componentAttrs := componentAttributes{}
 				marshaled, _ := json.Marshal(methodConfiguration)
 				err := json.Unmarshal(marshaled, &componentAttrs)
 				if err != nil {
 					return nil, err
 				}
+
+				// Create a componentMethodConfig from the method attributes.
 				componentMethodConfig := ComponentMethodConfig{c.Name, c.Type, componentAttrs}
 				componentMethodConfigs = append(componentMethodConfigs, componentMethodConfig)
 			}
