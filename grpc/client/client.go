@@ -3,7 +3,9 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,9 +38,13 @@ type RobotClient struct {
 	conn           rpc.ClientConn
 	client         pb.RobotServiceClient
 	metadataClient metadata.Service
+	dialOptions    []rpc.DialOption
 
 	namesMu       *sync.RWMutex
 	resourceNames []resource.Name
+
+	connected  bool
+	changeChan chan bool
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
@@ -55,34 +61,24 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		opt.apply(&rOpts)
 	}
 
-	conn, err := grpc.Dial(ctx, address, logger, rOpts.dialOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	metadataClient, err := metadata.NewClient(ctx, address, logger, rOpts.dialOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	client := pb.NewRobotServiceClient(conn)
-	closeCtx, cancel := context.WithCancel(context.Background())
+	closeCtx, cancel := context.WithCancel(ctx)
 
 	rc := &RobotClient{
 		address:                 address,
-		conn:                    conn,
-		client:                  client,
-		metadataClient:          metadataClient,
 		cancelBackgroundWorkers: cancel,
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		logger:                  logger,
 		closeContext:            closeCtx,
+		dialOptions:             rOpts.dialOptions,
+	}
+	if err := rc.connect(ctx); err != nil {
+		return nil, err
 	}
 
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
-		return nil, multierr.Combine(err, utils.TryClose(ctx, metadataClient), conn.Close())
+		return nil, multierr.Combine(err, rc.conn.Close())
 	}
 
 	if rOpts.refreshEvery != 0 {
@@ -92,7 +88,101 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
+	if rOpts.reconnectEvery != 0 {
+		rc.activeBackgroundWorkers.Add(1)
+		utils.ManagedGo(func() {
+			rc.checkConnected(closeCtx, rOpts.reconnectEvery)
+		}, rc.activeBackgroundWorkers.Done)
+	}
+
 	return rc, nil
+}
+
+// Connected exposes whether a robot client is connected to the remote.
+func (rc *RobotClient) Connected() bool {
+	return rc.connected
+}
+
+// Changed watches for whether the remote has changed.
+func (rc *RobotClient) Changed() <-chan bool {
+	if rc.changeChan == nil {
+		rc.changeChan = make(chan bool)
+	}
+	return rc.changeChan
+}
+
+func (rc *RobotClient) connect(ctx context.Context) error {
+	conn, err := grpc.Dial(ctx, rc.address, rc.logger, rc.dialOptions...)
+	if err != nil {
+		return err
+	}
+	client := pb.NewRobotServiceClient(conn)
+	metadataClient := metadata.NewClientFromConn(ctx, conn, "", rc.logger)
+
+	rc.conn = conn
+	rc.client = client
+	rc.metadataClient = metadataClient
+	rc.connected = true
+	if rc.changeChan != nil {
+		rc.changeChan <- true
+	}
+	return nil
+}
+
+// checkConnected either checks if the client is still connected, or attempts to reconnect to the remote.
+func (rc *RobotClient) checkConnected(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		if !utils.SelectContextOrWaitChan(ctx, ticker.C) {
+			return
+		}
+		if !rc.Connected() {
+			rc.Logger().Debugf("trying to reconnect to remote at address %v", rc.address)
+			err := rc.connect(ctx)
+			if err != nil {
+				rc.Logger().Debugw(fmt.Sprintf("failed to reconnect remote at address %v", rc.address), "error", err)
+				continue
+			}
+			rc.Logger().Debugf("successfully reconnected remote at address %v", rc.address)
+		} else {
+			check := func() error {
+				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				if _, err := rc.metadataClient.Resources(timeoutCtx); err != nil {
+					return err
+				}
+				return nil
+			}
+			var outerError error
+			for attempt := 0; attempt < 3; attempt++ {
+				err := check()
+				if err != nil {
+					outerError = err
+					// if pipe is closed, we know for sure we lost connection
+					if strings.Contains(err.Error(), "read/write on closed pipe") {
+						break
+					} else {
+						// otherwise retry
+						continue
+					}
+				} else {
+					outerError = nil
+					break
+				}
+			}
+			if outerError != nil {
+				rc.Logger().Errorw(
+					fmt.Sprintf("lost connection to remote at address %v, retrying in %v sec", rc.address, every.Seconds()),
+					"error",
+					outerError)
+				rc.connected = false
+				if rc.changeChan != nil {
+					rc.changeChan <- true
+				}
+			}
+		}
+	}
 }
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine
@@ -100,8 +190,18 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
+	if rc.changeChan != nil {
+		close(rc.changeChan)
+		rc.changeChan = nil
+	}
+	return rc.conn.Close()
+}
 
-	return multierr.Combine(rc.conn.Close(), utils.TryClose(ctx, rc.metadataClient))
+func (rc *RobotClient) isDisconnected() error {
+	if !rc.Connected() {
+		return errors.Errorf("lost connection to remote robot at %s", rc.address)
+	}
+	return nil
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
@@ -130,6 +230,9 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
+	if err := rc.isDisconnected(); err != nil {
+		return nil, err
+	}
 	c := registry.ResourceSubtypeLookup(name.Subtype)
 	if c == nil || c.RPCClient == nil {
 		// registration doesn't exist
@@ -145,6 +248,9 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
+	if err := rc.isDisconnected(); err != nil {
+		return err
+	}
 
 	// call metadata service.
 	names, err := rc.metadataClient.Resources(ctx)
@@ -180,6 +286,9 @@ func (rc *RobotClient) OperationManager() *operation.Manager {
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
+	if err := rc.isDisconnected(); err != nil {
+		return []resource.Name{}
+	}
 	names := []resource.Name{}
 	for _, v := range rc.resourceNames {
 		names = append(

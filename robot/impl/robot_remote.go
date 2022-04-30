@@ -6,7 +6,6 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -80,10 +79,16 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 	return dialOpts
 }
 
-func dialRemote(ctx context.Context, address string, logger golog.Logger, dialOpts ...rpc.DialOption) (robot.Robot, error) {
+func dialRemote(ctx context.Context, config config.Remote, logger golog.Logger, dialOpts ...rpc.DialOption) (robot.RemoteRobot, error) {
 	var outerError error
 	for attempt := 0; attempt < 3; attempt++ {
-		robotClient, err := client.New(ctx, address, logger, client.WithDialOptions(dialOpts...))
+		robotClient, err := client.New(
+			ctx,
+			config.Address,
+			logger,
+			client.WithDialOptions(dialOpts...),
+			client.WithReconnectEvery(config.ReconnectInterval),
+		)
 		if err != nil {
 			outerError = err
 			continue
@@ -100,40 +105,73 @@ func dialRemote(ctx context.Context, address string, logger golog.Logger, dialOp
 // so that any future changes are forced to consider un/prefixing
 // of names.
 type remoteRobot struct {
-	mu       sync.Mutex
-	robot    robot.Robot
-	conf     config.Remote
-	manager  *resourceManager
-	dialOpts []rpc.DialOption
+	mu      sync.Mutex
+	robot   robot.RemoteRobot
+	conf    config.Remote
+	manager *resourceManager
 
-	disconnected            bool
-	reconnectInterval       time.Duration
-	cancelBackgroundWorkers func()
 	activeBackgroundWorkers sync.WaitGroup
+	cancelBackgroundWorkers func()
 }
 
 // newRemoteRobot returns a new remote robot wrapping a given robot.Robot
 // and its configuration.
-func newRemoteRobot(ctx context.Context, robot robot.Robot, config config.Remote, dialOpts ...rpc.DialOption) *remoteRobot {
+func newRemoteRobot(ctx context.Context, robot robot.RemoteRobot, config config.Remote) *remoteRobot {
 	// We pull the manager out here such that we correctly return nil for
 	// when parts are accessed. This is because a networked robot client
 	// may just return a non-nil wrapper for a part they may not exist.
 	remoteManager := managerForRemoteRobot(robot)
 
 	remote := &remoteRobot{
-		robot:    robot,
-		conf:     config,
-		manager:  remoteManager,
-		dialOpts: dialOpts,
+		robot:   robot,
+		conf:    config,
+		manager: remoteManager,
+	}
 
-		reconnectInterval: config.ReconnectInterval,
+	remote.startWatcher(ctx)
+	return remote
+}
+
+func (rr *remoteRobot) startWatcher(ctx context.Context) {
+	rr.activeBackgroundWorkers.Add(1)
+	cancelCtx, cancel := context.WithCancel(ctx)
+	rr.cancelBackgroundWorkers = cancel
+	utils.ManagedGo(func() {
+		for {
+			select {
+			case <-cancelCtx.Done():
+				return
+			default:
+			}
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-rr.robot.Changed():
+				if rr.robot.Connected() {
+					newManager := managerForRemoteRobot(rr.robot)
+					rr.manager.replaceForRemote(cancelCtx, newManager)
+				}
+			}
+		}
+	}, func() {
+		rr.activeBackgroundWorkers.Done()
+	})
+}
+
+func (rr *remoteRobot) isDisconnected() error {
+	if !rr.robot.Connected() {
+		return errors.Errorf("lost connection to remote robot %q", rr.conf.Name)
 	}
-	}
+	return nil
 }
 
 func (rr *remoteRobot) Refresh(ctx context.Context) error {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
+
+	if err := rr.isDisconnected(); err != nil {
+		return err
+	}
 	refresher, ok := rr.robot.(robot.Refresher)
 	if !ok {
 		return nil
@@ -158,6 +196,12 @@ func (rr *remoteRobot) replace(ctx context.Context, newRobot robot.Robot) {
 	}
 
 	rr.manager.replaceForRemote(ctx, actual.manager)
+	if err := rr.close(ctx); err != nil {
+		rr.Logger().Errorw("error closing remote robot client", "error", err)
+	}
+	rr.robot = actual.robot
+	rr.conf = actual.conf
+	rr.startWatcher(ctx)
 }
 
 func (rr *remoteRobot) prefixName(name string) string {
@@ -201,6 +245,10 @@ func (rr *remoteRobot) RemoteNames() []string {
 func (rr *remoteRobot) ResourceNames() []resource.Name {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
+
+	if err := rr.isDisconnected(); err != nil {
+		return []resource.Name{}
+	}
 	newNames := make([]resource.Name, 0, len(rr.manager.ResourceNames()))
 	for _, name := range rr.manager.ResourceNames() {
 		name := rr.prefixResourceName(name)
@@ -217,6 +265,10 @@ func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
+
+	if err := rr.isDisconnected(); err != nil {
+		return nil, err
+	}
 	newName := rr.unprefixResourceName(name)
 	return rr.manager.ResourceByName(newName)
 }
@@ -234,6 +286,14 @@ func (rr *remoteRobot) Logger() golog.Logger {
 }
 
 func (rr *remoteRobot) Close(ctx context.Context) error {
+	return rr.close(ctx)
+}
+
+func (rr *remoteRobot) close(ctx context.Context) error {
+	if rr.cancelBackgroundWorkers != nil {
+		rr.cancelBackgroundWorkers()
+	}
+	rr.activeBackgroundWorkers.Wait()
 	return utils.TryClose(ctx, rr.robot)
 }
 
@@ -257,10 +317,9 @@ func managerForRemoteRobot(robot robot.Robot) *resourceManager {
 
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (manager *resourceManager) replaceForRemote(ctx context.Context, newManager *resourceManager) {
-	var oldResources *resource.Graph
+	oldResources := resource.NewGraph()
 
 	if len(manager.resources.Nodes) != 0 {
-		oldResources = resource.NewGraph()
 		for name := range manager.resources.Nodes {
 			oldResources.AddNode(name, struct{}{})
 		}

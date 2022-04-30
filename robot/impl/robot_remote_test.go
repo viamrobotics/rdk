@@ -36,8 +36,8 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot {
-	injectRobot := &inject.Robot{}
+func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.RemoteRobot {
+	injectRobot := &inject.RemoteRobot{}
 	armNames := []resource.Name{
 		arm.Named(fmt.Sprintf("arm1%s", suffix)),
 		arm.Named(fmt.Sprintf("arm2%s", suffix)),
@@ -146,7 +146,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	return injectRobot
 }
 
-func setupInjectRobot(logger golog.Logger) *inject.Robot {
+func setupInjectRobot(logger golog.Logger) *inject.RemoteRobot {
 	return setupInjectRobotWithSuffx(logger, "")
 }
 
@@ -160,8 +160,9 @@ func TestRemoteRobot(t *testing.T) {
 		context.Background(),
 		wrapped,
 		config.Remote{
-			Name:   "one",
-			Prefix: true,
+			Name:              "one",
+			Prefix:            true,
+			ReconnectInterval: 0,
 		},
 	)
 
@@ -486,5 +487,13 @@ func (w *dummyRemoteRobotWrapper) Refresh(ctx context.Context) error {
 		return err
 	}
 	w.Robot = robot
+	return nil
+}
+
+func (w *dummyRemoteRobotWrapper) Connected() bool {
+	return true
+}
+
+func (w *dummyRemoteRobotWrapper) Changed() <-chan bool {
 	return nil
 }
