@@ -239,21 +239,21 @@ type StreamServer struct {
 // New returns a new web service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	webSvc := &webService{
-		r:             r,
-		logger:        logger,
-		server:        nil,
+		r:            r,
+		logger:       logger,
+		rpcServer:       nil,
 		streamServer: nil,
-		services:      make(map[resource.Subtype]subtype.Service),
+		services:     make(map[resource.Subtype]subtype.Service),
 	}
 	return webSvc, nil
 }
 
 type webService struct {
-	mu            sync.Mutex
-	r             robot.Robot
-	server        rpc.Server
+	mu           sync.Mutex
+	r            robot.Robot
+	rpcServer    rpc.Server
 	streamServer *StreamServer
-	services      map[resource.Subtype]subtype.Service
+	services     map[resource.Subtype]subtype.Service
 
 	logger                  golog.Logger
 	cancelFunc              func()
@@ -473,7 +473,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	svc.server, err = rpc.NewServer(svc.logger, rpcOpts...)
+	svc.rpcServer, err = rpc.NewServer(svc.logger, rpcOpts...)
 	if err != nil {
 		return err
 	}
@@ -482,7 +482,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		options.SignalingAddress = listenerAddr
 	}
 
-	if err := svc.server.RegisterServiceServer(
+	if err := svc.rpcServer.RegisterServiceServer(
 		ctx,
 		&pb.RobotService_ServiceDesc,
 		grpcserver.New(svc.r),
@@ -503,7 +503,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if err != nil {
 		return err
 	}
-	if err := svc.server.RegisterServiceServer(
+	if err := svc.rpcServer.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,
 		svc.streamServer.Server.ServiceServer(),
@@ -517,7 +517,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 
 	if options.Debug {
-		if err := svc.server.RegisterServiceServer(
+		if err := svc.rpcServer.RegisterServiceServer(
 			ctx,
 			&echopb.EchoService_ServiceDesc,
 			&echoserver.Server{},
@@ -544,7 +544,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			}
 		}()
 		defer func() {
-			if err := svc.server.Stop(); err != nil {
+			if err := svc.rpcServer.Stop(); err != nil {
 				svc.logger.Errorw("error stopping rpc server", "error", err)
 			}
 		}()
@@ -557,7 +557,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
-		if err := svc.server.Start(); err != nil {
+		if err := svc.rpcServer.Start(); err != nil {
 			svc.logger.Errorw("error starting rpc server", "error", err)
 		}
 	})
@@ -775,7 +775,7 @@ func (svc *webService) initSubtypeServices(ctx context.Context) error {
 			subtypeSvc = newSvc
 			svc.services[s] = newSvc
 		}
-		if err := rs.RegisterRPCService(ctx, svc.server, subtypeSvc); err != nil {
+		if err := rs.RegisterRPCService(ctx, svc.rpcServer, subtypeSvc); err != nil {
 			return err
 		}
 	}
@@ -847,8 +847,8 @@ func (svc *webService) initMux(options Options) (*goji.Mux, error) {
 	}
 
 	// for urls with /api, add /viam to the path so that it matches with the paths defined in protobuf.
-	mux.Handle(pat.New("/api/*"), addPrefix(svc.server.GatewayHandler()))
-	mux.Handle(pat.New("/*"), svc.server.GRPCHandler())
+	mux.Handle(pat.New("/api/*"), addPrefix(svc.rpcServer.GatewayHandler()))
+	mux.Handle(pat.New("/*"), svc.rpcServer.GRPCHandler())
 
 	return mux, nil
 }
