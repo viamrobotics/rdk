@@ -334,10 +334,10 @@ func (svc *webService) Close(ctx context.Context) error {
 
 // TODO: use in makeStreamServer as iterator pattern?
 func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) error {
-    // TODO: check if stream service and server are initialized?
-    if svc.streamService == nil {
-        return nil
-    }
+	// TODO: check if stream service and server are initialized?
+	if svc.streamService == nil {
+		return nil
+	}
 
 	sources := allSourcesToDisplay(theRobot)
 
@@ -361,14 +361,7 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 		}
 
 		// Stream
-		waitCh := make(chan struct{})
-		svc.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer svc.activeBackgroundWorkers.Done()
-			close(waitCh)
-			gostream.StreamSource(ctx, source, view)
-		})
-		<-waitCh
+		svc.startStream(ctx, source, view)
 	}
 
 	return nil
@@ -399,17 +392,21 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 	}
 
 	for _, stream := range streams {
-		waitCh := make(chan struct{})
-		svc.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer svc.activeBackgroundWorkers.Done()
-			close(waitCh)
-			gostream.StreamSource(ctx, sources[stream.Name()], stream)
-		})
-		<-waitCh
+		svc.startStream(ctx, sources[stream.Name()], stream)
 	}
 
 	return &StreamService{streamServer, true, sources}, nil
+}
+
+func (svc *webService) startStream(ctx context.Context, source gostream.ImageSource, stream gostream.Stream) {
+	waitCh := make(chan struct{})
+	svc.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer svc.activeBackgroundWorkers.Done()
+		close(waitCh)
+		gostream.StreamSource(ctx, source, stream)
+	})
+	<-waitCh
 }
 
 type ssStreamContextWrapper struct {
