@@ -80,6 +80,7 @@
                     </div>
                     <div class="flex pt-6">
                       <KeyboardInput
+                        @keyboard-ctl="keyboardCtl"
                         @arc-right="$emit('arc-right')"
                         @arc-left="$emit('arc-left')"
                         @back-arc-right="$emit('back-arc-right')"
@@ -103,9 +104,11 @@
                           Select Camera
                         </p>
                         <div class="relative">
-                          <ViamSelect :options="cameraOptions"
-                                      v-model="selectedValue"
-                                      @selected="$emit('show-base-camera')">
+                          <ViamSelect
+                            :options="cameraOptions"
+                            v-model="selectedValue"
+                            @selected="$emit('show-base-camera')"
+                          >
                           </ViamSelect>
                         </div>
                       </div>
@@ -285,11 +288,14 @@ export default class Base extends Vue {
   direction = "Forwards";
   spinType = "";
   increment = 1000;
-  maxClusteringRadius = 90
-  
+  maxClusteringRadius = 90;
+
   speed = 200;
-  angle = 0
-  cameraOptions = [{value: 'NoCamera', label: 'No Camera'}, {value: 'Camera1', label: 'Camera1'}]
+  angle = 0;
+  cameraOptions = [
+    { value: "NoCamera", label: "No Camera" },
+    { value: "Camera1", label: "Camera1" },
+  ];
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
   }
@@ -306,7 +312,7 @@ export default class Base extends Vue {
     this.movementMode = "Straight";
     this.movementType = "Continous";
     this.direction = "Forwards";
-    this.spinType = '';
+    this.spinType = "";
   }
 
   setMovementMode(e: string): void {
@@ -349,6 +355,18 @@ export default class Base extends Vue {
     } else {
       this.maxHeight = 500;
     }
+  }
+  keyboardCtl(keysPressed: any): void {
+    console.log("KeysPressed: %o", keysPressed);
+    let toEmit = {
+      baseName: this.baseName,
+      forward: keysPressed.forward,
+      backward: keysPressed.backward,
+      right: keysPressed.right,
+      left: keysPressed.left,
+    };
+    console.log("Emitting keyboard control: %o", toEmit);
+    this.$emit("keyboard-ctl", toEmit);
   }
 }
 </script>

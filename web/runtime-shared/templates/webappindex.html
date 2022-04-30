@@ -503,6 +503,31 @@
               req.setId(id);
               robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
             },
+            baseKeyboardCtl: function(keys) {
+              console.log('input at index: %o', keys);
+              const {baseName, ...controls} = keys;
+
+              console.log('control: %o', controls);
+              if (Object.values(controls).every((item) => item === false)) {
+                //This block is not really needed since it's covered in arc calculation
+                console.log("all input false, stopping base.");
+                // TODO: call a helper instead of an eventhandler
+                this.handleBaseActionStop(baseName);
+                return;
+              } 
+
+              const arcInputs = window.computeKeyboardBaseControls(controls);
+              console.log("arc inputs: %o", arcInputs);
+              baseRunStatus = true;
+              BaseControlHelper.moveArc(baseName,
+                    arcInputs.distance,
+                    arcInputs.speed,
+                    arcInputs.angle,
+                    (err, resp) => {
+                      this.baseRunStatus = false; //needed?
+                      return grpcCallback(err, resp)
+                    });
+            },
             baseAction: function (name, action, amount, angle) {
               let req;
               this.baseRunStatus = true;
@@ -1578,6 +1603,7 @@
                         :connected-camera="false"
                         :crumbs="['base', base.name]"
                         :base-status="baseRunStatus"
+                        @keyboard-ctl="baseKeyboardCtl"
                         @forward="baseAction(base.name,'straight', 1, null)"
                         @backward="baseAction(base.name,'straight', -1, null)"
                         @spin-clockwise="baseAction(base.name,'angle', 1, 135)"
@@ -1599,6 +1625,7 @@
                         :crumbs="['base', base.name]"
                         :base-status="baseRunStatus"
                         @base-change-tab="viewPreviewCamera(streamName)"
+                        @keyboard-ctl="baseKeyboardCtl"
                         @forward="baseAction(base.name,'straight', 1, null)"
                         @backward="baseAction(base.name,'straight', -1, null)"
                         @spin-clockwise="baseAction(base.name,'angle', 1, 135)"

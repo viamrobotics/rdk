@@ -41,8 +41,8 @@ const PressedKeysMap: { [index: string]: string } = {
   "68": "right",
 };
 
-const inputDelay = 100;
-const eventsDelay = 500;
+const inputDelay = 50;
+const eventsDelay = 50;
 
 @Component({
   components: {
@@ -81,8 +81,12 @@ export default class KeyboardInput extends Vue {
   keysLayout = [["forward"], ["left", "backward", "right"]];
 
   sendKeysState = debounce(() => {
-    this.handleKeysStateInstantly();
+    this.handleKeysStateInstantlyNew();
   }, inputDelay);
+
+  handleKeysStateInstantlyNew(): void {
+    this.emitEvent("keyboard-ctl");
+  }
 
   handleKeysStateInstantly(): void {
     if (Object.values(this.pressedKeys).every((item) => item === false)) {
@@ -106,7 +110,7 @@ export default class KeyboardInput extends Vue {
 
   emitEventInstantly(eventName: string): void {
     console.log(`event will be fired ${eventName}`);
-    this.$emit(eventName);
+    this.$emit(eventName, this.pressedKeys);
   }
   setKeyPressed(key: string, value = true): void {
     this.pressedKeys[key] = value;
