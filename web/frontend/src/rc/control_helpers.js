@@ -34,36 +34,37 @@ window.BaseControlHelper = {
   },
 }
 
-const keyboardBaseDefaults = {
-  maxSpeed : 500.0,
+// Leaving in window scope for tunning. Should be const or in inputs
+window.keyboardBaseDefaults = {
+  maxSpeed : 300.0,
 	maxAngle : 425.0,
 	distRatio : 10
 }
 
 /*
-  Input: State of keys. e.g. {ButtonNorth : true, ButtonSouth : false, ButtonEast : false, ButtonWest: false}
+  Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
   Output: distance, speed, and angle parameters for MoveArc
 */
-function computeKeyboardBaseControls(keysPressed) {
+window.computeKeyboardBaseControls = function(keysPressed) {
   let mmPerSec;
   let angleDeg;
 
-  if (keysPressed.ButtonNorth && keysPressed.ButtonSouth) {
+  if (keysPressed.forward && keysPressed.backward) {
     mmPerSec = 0.0;
-  } else if (keysPressed.ButtonNorth) {
+  } else if (keysPressed.forward) {
     mmPerSec = 1.0;
-  } else if (keysPressed.ButtonSouth) {
+  } else if (keysPressed.backward) {
     mmPerSec = -1.0;
   } else {
     mmPerSec = 0.0;
   }
 
   // Angle
-  if (keysPressed.ButtonEast && keysPressed.ButtonWest) {
+  if (keysPressed.right && keysPressed.left) {
     angleDeg = 0.0;
-  } else if (keysPressed.ButtonEast) {
+  } else if (keysPressed.right) {
     angleDeg = -1.0;
-  } else if (keysPressed.ButtonWest) {
+  } else if (keysPressed.left) {
     angleDeg = 1.0;
   } else {
     angleDeg = 0.0;
@@ -96,6 +97,6 @@ function computeKeyboardBaseControls(keysPressed) {
     angle = angleDeg * keyboardBaseDefaults.maxAngle * keyboardBaseDefaults.distRatio * 2 - 1;
   }
 
-  console.log("%s: s = %f | a = %f | Dist = %f | Speed = %f | Angle = %f", mmPerSec, angleDeg, distance, speed, angle);
-  return {'distance' : distance, 'speed' : speed, 'angle' : angle};
+  console.log("%s: s = %f | a = %f | Dist = %f | Speed = %f | Angle = %f", moveType, mmPerSec, angleDeg, distance, speed, angle);
+  return {distance, speed, angle};
 }
