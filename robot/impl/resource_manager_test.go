@@ -37,6 +37,9 @@ func TestManagerForRemoteRobot(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	baseNames := []resource.Name{base.Named("base1"), base.Named("base2")}
@@ -99,6 +102,9 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
@@ -215,6 +221,9 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote1", Prefix: false}),
 		config.Remote{Name: "remote1"},
@@ -236,6 +245,9 @@ func TestManagerWithSameNameInRemoteOneWithPrefix(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote1",
@@ -268,6 +280,9 @@ func TestManagerWithSameNameInRemoteBothWithPrefix(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote1",
@@ -308,6 +323,9 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, ""), config.Remote{}),
 		config.Remote{Name: "remote1"},
@@ -324,6 +342,9 @@ func TestManagerMergeNamesWithRemotesDedupe(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
@@ -392,6 +413,9 @@ func TestManagerClone(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	newManager := manager.Clone()
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), newManager), test.ShouldBeNil)
+	}()
 
 	// remove and delete manager to prove clone
 	delete(manager.remotes, "remote1")
@@ -800,12 +824,23 @@ func TestManagerMergeAdd(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
+	remote1 := newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{})
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), remote1), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		remote1,
 		config.Remote{Name: "remote1"},
 	)
+	remote2 := newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{})
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), remote2), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		remote2,
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -882,6 +917,9 @@ func TestManagerMergeAdd(t *testing.T) {
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
 	otherManager := managerForRemoteRobot(otherRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), otherManager), test.ShouldBeNil)
+	}()
 	otherManager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
 		config.Remote{Name: "other1"},
@@ -955,6 +993,9 @@ func TestManagerMergeAdd(t *testing.T) {
 	checkEmpty(emptyManager)
 
 	sameManager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), sameManager), test.ShouldBeNil)
+	}()
 	sameManager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
@@ -1020,6 +1061,9 @@ func TestManagerMergeModify(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
@@ -1129,80 +1173,6 @@ func TestManagerMergeModify(t *testing.T) {
 	test.That(t, utils.NewStringSet(emptyManager.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 
 	test.That(t, result.Process(context.Background(), manager), test.ShouldBeNil)
-
-	replacementManager := newResourceManager(resourceManagerOptions{}, logger)
-	robotForRemote := &localRobot{manager: newResourceManager(resourceManagerOptions{}, logger), logger: logger}
-
-	cfg := config.Component{Type: arm.SubtypeName, Name: "arm2_r1"}
-	rName := cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Arm{})
-
-	cfg = config.Component{Type: base.SubtypeName, Name: "base2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Base{})
-
-	cfg = config.Component{Type: board.SubtypeName, Name: "board2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Board{})
-
-	cfg = config.Component{Type: camera.SubtypeName, Name: "camera2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Camera{})
-
-	cfg = config.Component{Type: gripper.SubtypeName, Name: "gripper2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Gripper{})
-
-	cfg = config.Component{Type: motor.SubtypeName, Name: "motor2_r1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Motor{})
-
-	cfg = config.Component{Type: servo.SubtypeName, Name: "servo2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Servo{})
-
-	cfg = config.Component{Type: input.SubtypeName, Name: "inputController2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.InputController{})
-
-	remote1Replacemenet := newRemoteRobot(context.Background(), robotForRemote, config.Remote{Name: "remote1"})
-	replacementManager.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
-
-	cfg = config.Component{Type: arm.SubtypeName, Name: "arm1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Arm{})
-
-	cfg = config.Component{Type: base.SubtypeName, Name: "base1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Base{})
-
-	cfg = config.Component{Type: board.SubtypeName, Name: "board1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Board{})
-
-	cfg = config.Component{Type: camera.SubtypeName, Name: "camera1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Camera{})
-
-	cfg = config.Component{Type: gripper.SubtypeName, Name: "gripper1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Gripper{})
-
-	cfg = config.Component{Type: input.SubtypeName, Name: "inputController1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.InputController{})
-
-	cfg = config.Component{Type: motor.SubtypeName, Name: "motor1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Motor{})
-
-	cfg = config.Component{Type: servo.SubtypeName, Name: "servo1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Servo{})
-
-	fp1 := &fakeProcess{id: "1"}
-	_, err = replacementManager.processManager.AddProcess(context.Background(), fp1, false)
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestManagerMergeRemove(t *testing.T) {
@@ -1210,14 +1180,19 @@ func TestManagerMergeRemove(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
-	manager.addRemote(
-		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
-		config.Remote{Name: "remote1"},
-	)
-	manager.addRemote(
-		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
-		config.Remote{Name: "remote2"},
-	)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
+	remote1 := newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{})
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), remote1), test.ShouldBeNil)
+	}()
+	manager.addRemote(remote1, config.Remote{Name: "remote1"})
+	remote2 := newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{})
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), remote2), test.ShouldBeNil)
+	}()
+	manager.addRemote(remote2, config.Remote{Name: "remote2"})
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
@@ -1282,6 +1257,9 @@ func TestManagerMergeRemove(t *testing.T) {
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
 	otherManager := managerForRemoteRobot(otherRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), otherManager), test.ShouldBeNil)
+	}()
 	otherManager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
 		config.Remote{Name: "other1"},
@@ -1290,6 +1268,9 @@ func TestManagerMergeRemove(t *testing.T) {
 	checkSame(manager)
 
 	sameManager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), sameManager), test.ShouldBeNil)
+	}()
 	sameManager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
@@ -1315,6 +1296,9 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
 		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},

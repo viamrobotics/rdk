@@ -214,7 +214,7 @@ func (manager *resourceManager) newProcesses(ctx context.Context, processes []pe
 func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
 		dialOpts := remoteDialOptions(config, manager.opts)
-		robotClient, err := dialRemote(ctx, config.Address, logger, dialOpts...)
+		robotClient, err := dialRemote(ctx, config, logger, dialOpts...)
 		if err != nil {
 			if errors.Is(err, rpc.ErrInsecureWithCredentials) {
 				if manager.opts.fromCommand {
@@ -226,7 +226,7 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
 		configCopy := config
-		manager.addRemote(newRemoteRobot(ctx, robotClient, configCopy, dialOpts...), configCopy)
+		manager.addRemote(newRemoteRobot(ctx, robotClient, configCopy), configCopy)
 	}
 	return nil
 }
