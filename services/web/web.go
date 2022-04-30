@@ -278,10 +278,10 @@ func (svc *webService) Start(ctx context.Context, o Options) error {
 func (svc *webService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	return svc.update(resources)
+	return svc.update(ctx, resources)
 }
 
-func (svc *webService) update(resources map[resource.Name]interface{}) error {
+func (svc *webService) update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	// so group resources by subtype
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
 	components := make(map[resource.Name]interface{})
@@ -313,6 +313,10 @@ func (svc *webService) update(resources map[resource.Name]interface{}) error {
 			}
 		}
 	}
+
+	// update streams
+	svc.addNewStreams(ctx, svc.r)
+
 	return nil
 }
 
@@ -325,6 +329,48 @@ func (svc *webService) Close(ctx context.Context) error {
 		svc.cancelFunc = nil
 	}
 	svc.activeBackgroundWorkers.Wait()
+	return nil
+}
+
+// TODO: use in makeStreamServer as iterator pattern?
+func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) error {
+    // TODO: check if stream service and server are initialized?
+    if svc.streamService == nil {
+        return nil
+    }
+
+	sources := allSourcesToDisplay(theRobot)
+
+	for name, source := range sources {
+		// Check if stream already exists for named image source
+		if _, ok := svc.streamService.ImagesSources[name]; ok {
+			continue
+		}
+
+		// Configure new stream
+		config := defaultStreamConfig
+		config.Name = name
+		view, err := gostream.NewStream(config)
+		if err != nil {
+			return err
+		}
+
+		// Add stream server
+		if err := svc.streamService.Server.AddStream(view); err != nil {
+			return err
+		}
+
+		// Stream
+		waitCh := make(chan struct{})
+		svc.activeBackgroundWorkers.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer svc.activeBackgroundWorkers.Done()
+			close(waitCh)
+			gostream.StreamSource(ctx, source, view)
+		})
+		<-waitCh
+	}
+
 	return nil
 }
 
@@ -448,7 +494,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	if err := svc.initResources(); err != nil {
+	if err := svc.initResources(ctx); err != nil {
 		return err
 	}
 
@@ -698,7 +744,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options Op
 }
 
 // Populate subtype services with robot resources.
-func (svc *webService) initResources() error {
+func (svc *webService) initResources(ctx context.Context) error {
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
 		resource, err := svc.r.ResourceByName(name)
@@ -708,7 +754,7 @@ func (svc *webService) initResources() error {
 
 		resources[name] = resource
 	}
-	if err := svc.update(resources); err != nil {
+	if err := svc.update(ctx, resources); err != nil {
 		return err
 	}
 
