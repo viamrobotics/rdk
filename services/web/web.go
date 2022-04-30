@@ -202,9 +202,8 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // allSourcesToDisplay returns every possible image source that could be viewed from
 // the robot.
-func allSourcesToDisplay(theRobot robot.Robot) ([]gostream.ImageSource, []string) {
-	sources := []gostream.ImageSource{}
-	names := []string{}
+func allSourcesToDisplay(theRobot robot.Robot) map[string]gostream.ImageSource {
+	sources := make(map[string]gostream.ImageSource)
 
 	// TODO (RDK-133): allow users to determine what to stream.
 	for _, name := range camera.NamesFromRobot(theRobot) {
@@ -213,11 +212,10 @@ func allSourcesToDisplay(theRobot robot.Robot) ([]gostream.ImageSource, []string
 			continue
 		}
 
-		sources = append(sources, cam)
-		names = append(names, name)
+		sources[name] = cam
 	}
 
-	return sources, names
+	return sources
 }
 
 var defaultStreamConfig = x264.DefaultStreamConfig
@@ -228,22 +226,34 @@ type Service interface {
 	Start(context.Context, Options) error
 }
 
+// StreamService manages streams and displays
+type StreamService struct {
+	// Server serves streams
+	Server gostream.StreamServer
+	// HasStreams is true if service has streams that require a WebRTC connection
+	HasStreams bool
+	// ImagesSources to stream from by name
+	ImagesSources map[string]gostream.ImageSource
+}
+
 // New returns a new web service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	webSvc := &webService{
-		r:        r,
-		logger:   logger,
-		server:   nil,
-		services: make(map[resource.Subtype]subtype.Service),
+		r:             r,
+		logger:        logger,
+		server:        nil,
+		streamService: nil,
+		services:      make(map[resource.Subtype]subtype.Service),
 	}
 	return webSvc, nil
 }
 
 type webService struct {
-	mu       sync.Mutex
-	r        robot.Robot
-	server   rpc.Server
-	services map[resource.Subtype]subtype.Service
+	mu            sync.Mutex
+	r             robot.Robot
+	server        rpc.Server
+	streamService *StreamService
+	services      map[resource.Subtype]subtype.Service
 
 	logger                  golog.Logger
 	cancelFunc              func()
@@ -318,42 +328,42 @@ func (svc *webService) Close(ctx context.Context) error {
 	return nil
 }
 
-func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (gostream.StreamServer, bool, error) {
-	displaySources, displayNames := allSourcesToDisplay(theRobot)
+func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (*StreamService, error) {
+	sources := allSourcesToDisplay(theRobot)
 	var streams []gostream.Stream
 
-	if len(displaySources) == 0 {
+	if len(sources) == 0 {
 		noopServer, err := gostream.NewStreamServer(streams...)
-		return noopServer, false, err
+		return &StreamService{noopServer, false, sources}, err
 	}
 
-	for idx := range displaySources {
+	for name := range sources {
 		config := defaultStreamConfig
-		config.Name = displayNames[idx]
+		config.Name = name
 		view, err := gostream.NewStream(config)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		streams = append(streams, view)
 	}
 
 	streamServer, err := gostream.NewStreamServer(streams...)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
-	for idx, stream := range streams {
+	for _, stream := range streams {
 		waitCh := make(chan struct{})
 		svc.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer svc.activeBackgroundWorkers.Done()
 			close(waitCh)
-			gostream.StreamSource(ctx, displaySources[idx], stream)
+			gostream.StreamSource(ctx, sources[stream.Name()], stream)
 		})
 		<-waitCh
 	}
 
-	return streamServer, true, nil
+	return &StreamService{streamServer, true, sources}, nil
 }
 
 type ssStreamContextWrapper struct {
@@ -446,19 +456,19 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	streamServer, hasStreams, err := svc.makeStreamServer(ctx, svc.r)
+	svc.streamService, err = svc.makeStreamServer(ctx, svc.r)
 	if err != nil {
 		return err
 	}
 	if err := svc.server.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,
-		streamServer.ServiceServer(),
+		svc.streamService.Server.ServiceServer(),
 		streampb.RegisterStreamServiceHandlerFromEndpoint,
 	); err != nil {
 		return err
 	}
-	if hasStreams {
+	if svc.streamService.HasStreams {
 		// force WebRTC template rendering
 		options.WebRTC = true
 	}
@@ -495,8 +505,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 				svc.logger.Errorw("error stopping rpc server", "error", err)
 			}
 		}()
-		if streamServer != nil {
-			if err := streamServer.Close(); err != nil {
+		if svc.streamService.Server != nil {
+			if err := svc.streamService.Server.Close(); err != nil {
 				svc.logger.Errorw("error closing stream server", "error", err)
 			}
 		}
