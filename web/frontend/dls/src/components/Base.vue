@@ -53,18 +53,7 @@
                   <div>
                     <div>
                       <div class="flex">
-                        <input id="angle" type="hidden" value="45" />
-                        <ViamInput
-                          type="number"
-                          color="primary"
-                          group="False"
-                          variant="primary"
-                          class="pr-2 w-32"
-                          inputId="distance"
-                          v-model="increment"
-                        >
-                          <span class="text-xs">Increment (mm)</span>
-                        </ViamInput>
+                        <!-- May need a speed input
                         <ViamInput
                           type="number"
                           color="primary"
@@ -76,21 +65,12 @@
                         >
                           <span class="text-xs">Speed (mm/sec)</span>
                         </ViamInput>
+                        -->
                       </div>
                     </div>
                     <div class="flex pt-6">
                       <KeyboardInput
                         @keyboard-ctl="keyboardCtl"
-                        @arc-right="$emit('arc-right')"
-                        @arc-left="$emit('arc-left')"
-                        @back-arc-right="$emit('back-arc-right')"
-                        @back-arc-left="$emit('back-arc-left')"
-                        @forward="$emit('forward')"
-                        @backward="$emit('backward')"
-                        @spin-clockwise="$emit('spin-clockwise')"
-                        @spin-counter-clockwise="
-                          $emit('spin-counter-clockwise')
-                        "
                       >
                       </KeyboardInput>
                     </div>
@@ -357,7 +337,6 @@ export default class Base extends Vue {
     }
   }
   keyboardCtl(keysPressed: any): void {
-    console.log("KeysPressed: %o", keysPressed);
     let toEmit = {
       baseName: this.baseName,
       forward: keysPressed.forward,
@@ -365,7 +344,6 @@ export default class Base extends Vue {
       right: keysPressed.right,
       left: keysPressed.left,
     };
-    console.log("Emitting keyboard control: %o", toEmit);
     this.$emit("keyboard-ctl", toEmit);
   }
 }

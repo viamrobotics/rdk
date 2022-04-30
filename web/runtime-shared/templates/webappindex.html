@@ -504,63 +504,26 @@
               robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             baseKeyboardCtl: function(keys) {
-              console.log('input at index: %o', keys);
               const {baseName, ...controls} = keys;
+              console.log('Keyboard state: %o', controls);
 
-              console.log('control: %o', controls);
               if (Object.values(controls).every((item) => item === false)) {
-                //This block is not really needed since it's covered in arc calculation
-                console.log("all input false, stopping base.");
-                // TODO: call a helper instead of an eventhandler
+                console.log("All keyboard inputs false, stopping base.");
                 this.handleBaseActionStop(baseName);
                 return;
               } 
 
               const arcInputs = window.computeKeyboardBaseControls(controls);
-              console.log("arc inputs: %o", arcInputs);
+              console.log("Arc inputs: %o", arcInputs);
               baseRunStatus = true;
               BaseControlHelper.moveArc(baseName,
                     arcInputs.distance,
                     arcInputs.speed,
                     arcInputs.angle,
                     (err, resp) => {
-                      this.baseRunStatus = false; //needed?
-                      return grpcCallback(err, resp)
-                    });
-            },
-            baseAction: function (name, action, amount, angle) {
-              let req;
-              this.baseRunStatus = true;
-              switch (action) {
-                case "straight":
-                  BaseControlHelper.moveStraight(name, 
-                    document.getElementById("distance").value * amount, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                     });
-                  break;
-                case "arc":
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * amount,
-                    document.getElementById("speed").value,
-                    angle,
-                    (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                    });
-                  break;
-                case "angle":
-                  BaseControlHelper.spin(name, 
-                    angle, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      this.baseRunStatus = false;
-                      return grpcCallback(err, resp)
-                    });
-                  break;
-              }
             },
             handleBaseActionStop : function(name) {
               console.log('baseActionHandlerStop');
@@ -1604,14 +1567,6 @@
                         :crumbs="['base', base.name]"
                         :base-status="baseRunStatus"
                         @keyboard-ctl="baseKeyboardCtl"
-                        @forward="baseAction(base.name,'straight', 1, null)"
-                        @backward="baseAction(base.name,'straight', -1, null)"
-                        @spin-clockwise="baseAction(base.name,'angle', 1, 135)"
-                        @spin-counter-clockwise="baseAction(base.name,'angle', 1, 45)"
-                        @arc-right="baseAction(base.name,'arc', 1, 135)"
-                        @arc-left="baseAction(base.name,'arc', 1, 45)"
-                        @back-arc-right="baseAction(base.name,'arc', -1, 225)"
-                        @back-arc-left="baseAction(base.name,'arc', -1, 315)"
                         @base-run="handleBaseAction"
                         @base-stop="handleBaseActionStop(base.name)"
                     ></viam-base>
@@ -1626,14 +1581,6 @@
                         :base-status="baseRunStatus"
                         @base-change-tab="viewPreviewCamera(streamName)"
                         @keyboard-ctl="baseKeyboardCtl"
-                        @forward="baseAction(base.name,'straight', 1, null)"
-                        @backward="baseAction(base.name,'straight', -1, null)"
-                        @spin-clockwise="baseAction(base.name,'angle', 1, 135)"
-                        @spin-counter-clockwise="baseAction(base.name,'angle', 1, 45)"
-                        @arc-right="baseAction(base.name,'arc', 1, 135)"
-                        @arc-left="baseAction(base.name,'arc', 1, 45)"
-                        @back-arc-right="baseAction(base.name,'arc', -1, 225)"
-                        @back-arc-left="baseAction(base.name,'arc', -1, 315)"
                         @base-run="handleBaseAction"
                         @base-stop="handleBaseActionStop(base.name)"
                         @show-base-camera="viewPreviewCamera(streamName)"
