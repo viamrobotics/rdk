@@ -226,8 +226,8 @@ type Service interface {
 	Start(context.Context, Options) error
 }
 
-// StreamService manages streams and displays
-type StreamService struct {
+// StreamServer manages streams and displays
+type StreamServer struct {
 	// Server serves streams
 	Server gostream.StreamServer
 	// HasStreams is true if service has streams that require a WebRTC connection
@@ -242,7 +242,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		r:             r,
 		logger:        logger,
 		server:        nil,
-		streamService: nil,
+		streamServer: nil,
 		services:      make(map[resource.Subtype]subtype.Service),
 	}
 	return webSvc, nil
@@ -252,7 +252,7 @@ type webService struct {
 	mu            sync.Mutex
 	r             robot.Robot
 	server        rpc.Server
-	streamService *StreamService
+	streamServer *StreamServer
 	services      map[resource.Subtype]subtype.Service
 
 	logger                  golog.Logger
@@ -335,7 +335,7 @@ func (svc *webService) Close(ctx context.Context) error {
 // TODO: use in makeStreamServer as iterator pattern?
 func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) error {
 	// TODO: check if stream service and server are initialized?
-	if svc.streamService == nil {
+	if svc.streamServer == nil {
 		return nil
 	}
 
@@ -343,7 +343,7 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 
 	for name, source := range sources {
 		// Check if stream already exists for named image source
-		if _, ok := svc.streamService.ImagesSources[name]; ok {
+		if _, ok := svc.streamServer.ImagesSources[name]; ok {
 			continue
 		}
 
@@ -356,7 +356,7 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 		}
 
 		// Add stream server
-		if err := svc.streamService.Server.AddStream(view); err != nil {
+		if err := svc.streamServer.Server.AddStream(view); err != nil {
 			return err
 		}
 
@@ -367,13 +367,13 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 	return nil
 }
 
-func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (*StreamService, error) {
+func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (*StreamServer, error) {
 	sources := allSourcesToDisplay(theRobot)
 	var streams []gostream.Stream
 
 	if len(sources) == 0 {
 		noopServer, err := gostream.NewStreamServer(streams...)
-		return &StreamService{noopServer, false, sources}, err
+		return &StreamServer{noopServer, false, sources}, err
 	}
 
 	for name := range sources {
@@ -395,7 +395,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 		svc.startStream(ctx, sources[stream.Name()], stream)
 	}
 
-	return &StreamService{streamServer, true, sources}, nil
+	return &StreamServer{streamServer, true, sources}, nil
 }
 
 func (svc *webService) startStream(ctx context.Context, source gostream.ImageSource, stream gostream.Stream) {
@@ -499,19 +499,19 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	svc.streamService, err = svc.makeStreamServer(ctx, svc.r)
+	svc.streamServer, err = svc.makeStreamServer(ctx, svc.r)
 	if err != nil {
 		return err
 	}
 	if err := svc.server.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,
-		svc.streamService.Server.ServiceServer(),
+		svc.streamServer.Server.ServiceServer(),
 		streampb.RegisterStreamServiceHandlerFromEndpoint,
 	); err != nil {
 		return err
 	}
-	if svc.streamService.HasStreams {
+	if svc.streamServer.HasStreams {
 		// force WebRTC template rendering
 		options.WebRTC = true
 	}
@@ -548,8 +548,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 				svc.logger.Errorw("error stopping rpc server", "error", err)
 			}
 		}()
-		if svc.streamService.Server != nil {
-			if err := svc.streamService.Server.Close(); err != nil {
+		if svc.streamServer.Server != nil {
+			if err := svc.streamServer.Server.Close(); err != nil {
 				svc.logger.Errorw("error closing stream server", "error", err)
 			}
 		}
