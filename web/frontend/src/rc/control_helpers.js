@@ -37,8 +37,8 @@ window.BaseControlHelper = {
 // Leaving in window scope for tunning. Should be const or in inputs
 window.keyboardBaseDefaults = {
   maxSpeed : 300.0,
-	maxAngle : 425.0,
-	distRatio : 10
+  maxAngle : 425.0,
+  distRatio : 10
 }
 
 /*
