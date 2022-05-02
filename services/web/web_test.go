@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	rgrpc "go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -517,6 +518,66 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc2), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
+}
+
+func TestWebWithStreams(t *testing.T) {
+	const (
+		camera1Key = "camera1"
+		camera2Key = "camera2"
+	)
+
+	// Start a robot with a camera
+	// TODO: we can never add stream servers unless there is least one camera on the
+	// robot when the service starts! Make it so this is not the case.
+	robot := &inject.Robot{}
+	rs := map[resource.Name]interface{}{camera.Named(camera1Key): &inject.Camera{}}
+	robot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{camera.Named(camera1Key)}
+	}
+	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		if r, ok := rs[name]; ok {
+			return r, nil
+		} else {
+			return robot.ResourceByName(name)
+		}
+	}
+	ctx := context.Background()
+
+	// Start service
+	logger := golog.NewTestLogger(t)
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := web.NewOptions()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	svc, err := web.New(ctx, robot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Add another camera and update
+	robot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{camera.Named(camera1Key), camera.Named(camera2Key)}
+	}
+	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		switch name {
+		case camera.Named(camera1Key):
+			return &inject.Camera{}, nil
+		case camera.Named(camera2Key):
+			return &inject.Camera{}, nil
+		default:
+			return robot.ResourceByName(name)
+		}
+	}
+	rs[camera.Named(camera2Key)] = &inject.Camera{}
+	updateable, ok := svc.(resource.Updateable)
+	test.That(t, ok, test.ShouldBeTrue)
+	err = updateable.Update(ctx, rs)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Do streams initialize?
+
+	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
 }
 
 func setupRobotCtx() (context.Context, robot.Robot) {
