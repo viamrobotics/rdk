@@ -117,15 +117,19 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 func (svc *Service) Close(ctx context.Context) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
-	for _, collector := range svc.collectors {
-		collector.Collector.Close()
-	}
+	svc.closeCollectors()
 	if svc.syncer != nil {
 		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
 	}
 	svc.backgroundWorkers.Wait()
 	return nil
+}
+
+func (svc *Service) closeCollectors() {
+	for _, collector := range svc.collectors {
+		collector.Collector.Close()
+	}
 }
 
 // Service initializes and orchestrates data capture collectors for registered component/methods.
@@ -327,9 +331,13 @@ func getComponentMethodConfigs(cfg *config.Config) ([]ComponentMethodConfig, err
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	svcConfig, err := getServiceConfig(cfg)
+	// Service is not in the config or has been removed from it. Close any collectors.
 	if err != nil {
-		return err
+		svc.closeCollectors()
+		// nolint:nilerr
+		return nil
 	}
+
 	convertedSvcConfig, ok := svcConfig.ConvertedAttributes.(*Config)
 	if !ok {
 		return utils.NewUnexpectedTypeError(convertedSvcConfig, svcConfig.ConvertedAttributes)
