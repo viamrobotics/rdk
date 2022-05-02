@@ -300,27 +300,35 @@ func getServiceConfig(cfg *config.Config) (config.Service, error) {
 	return config.Service{}, errors.New("could not find data_manager service")
 }
 
+func getComponentMethodConfig(
+	component config.Component, methodConfiguration interface{}) (ComponentMethodConfig, error) {
+	// Convert a mapping into a struct by encoding/decoding json.
+	// NOTE: This was necessary since added a generic ServiceConfig of type map[string]AttributeMap
+	// into Component in resource.go. Would need to somehow apply the high-level AttributeMapConverter
+	// to this nested AttributeMap, or register a different converter.
+	componentAttrs := componentAttributes{}
+	marshaled, err := json.Marshal(methodConfiguration)
+	if err != nil {
+		return ComponentMethodConfig{}, err
+	}
+	err = json.Unmarshal(marshaled, &componentAttrs)
+	if err != nil {
+		return ComponentMethodConfig{}, err
+	}
+
+	return ComponentMethodConfig{component.Name, component.Type, componentAttrs}, nil
+}
+
 // Get the component method configs associated with the data manager service.
-func getComponentMethodConfigs(cfg *config.Config) ([]ComponentMethodConfig, error) {
+func (svc *Service) getComponentMethodConfigs(cfg *config.Config) ([]ComponentMethodConfig, error) {
 	componentMethodConfigs := []ComponentMethodConfig{}
 	for _, c := range cfg.Components {
 		if svcConfig, ok := c.ServiceConfig["data_manager"]; ok {
 			for _, methodConfiguration := range (svcConfig["capture_methods"]).([]interface{}) {
-				// Encode json map into struct.
-				// TODO: Can this work similar to ConvertedAttributes which automatically infer the
-				// struct directly from the `json` fields? Tried something similar and didn't work.
-				componentAttrs := componentAttributes{}
-				marshaled, err := json.Marshal(methodConfiguration)
+				componentMethodConfig, err := getComponentMethodConfig(c, methodConfiguration)
 				if err != nil {
-					return nil, err
+					return componentMethodConfigs, err
 				}
-				err = json.Unmarshal(marshaled, &componentAttrs)
-				if err != nil {
-					return nil, err
-				}
-
-				// Create a componentMethodConfig from the method attributes.
-				componentMethodConfig := ComponentMethodConfig{c.Name, c.Type, componentAttrs}
 				componentMethodConfigs = append(componentMethodConfigs, componentMethodConfig)
 			}
 		}
@@ -330,7 +338,7 @@ func getComponentMethodConfigs(cfg *config.Config) ([]ComponentMethodConfig, err
 
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
-	svcConfig, err := getServiceConfig(cfg)
+	c, err := getServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
 	if err != nil {
 		svc.closeCollectors()
@@ -338,14 +346,14 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 		return nil
 	}
 
-	convertedSvcConfig, ok := svcConfig.ConvertedAttributes.(*Config)
+	svcConfig, ok := c.ConvertedAttributes.(*Config)
 	if !ok {
-		return utils.NewUnexpectedTypeError(convertedSvcConfig, svcConfig.ConvertedAttributes)
+		return utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
 	}
-	updateCaptureDir := svc.captureDir != convertedSvcConfig.CaptureDir
-	svc.captureDir = convertedSvcConfig.CaptureDir
+	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
+	svc.captureDir = svcConfig.CaptureDir
 
-	componentMethodConfigs, err := getComponentMethodConfigs(cfg)
+	componentMethodConfigs, err := svc.getComponentMethodConfigs(cfg)
 	if err != nil {
 		return err
 	}
@@ -358,7 +366,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	}
 
 	// nolint:contextcheck
-	svc.initOrUpdateSyncer(convertedSvcConfig.SyncIntervalMins)
+	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
