@@ -48,7 +48,7 @@ func TestNewCollector(t *testing.T) {
 }
 
 // Test that SensorData is written correctly and can be read, and that interval is respected and that capture()
-// is called floor(time_passed/interval) times in both the ticker (interval >= 2ms) case.
+// is called floor(time_passed/interval) times in the ticker (interval >= 2ms) case.
 func TestSuccessfulWriteTicker(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
@@ -196,6 +196,7 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 }
 
 func validateNReadings(t *testing.T, file *os.File, n int) {
+	t.Helper()
 	_, _ = file.Seek(0, 0)
 	for i := 0; i < n; i++ {
 		read, err := readNextSensorData(file)
