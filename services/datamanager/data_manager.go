@@ -104,8 +104,8 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		collectors:        make(map[componentMethodMetadata]collectorParams),
 		backgroundWorkers: sync.WaitGroup{},
 		lock:              sync.Mutex{},
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		cancelCtx:         cancelCtx,
+		cancelFunc:        cancelFunc,
 	}
 
 	return dataManagerSvc, nil
@@ -115,9 +115,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 func (svc *Service) Close(ctx context.Context) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
-	for _, collector := range svc.collectors {
-		collector.Collector.Close()
-	}
+	svc.closeCollectors()
 	if svc.syncer != nil {
 		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
@@ -128,17 +126,19 @@ func (svc *Service) Close(ctx context.Context) error {
 
 // Service initializes and orchestrates data capture collectors for registered component/methods.
 type Service struct {
-	r          robot.Robot
-	logger     golog.Logger
-	captureDir string
-	collectors map[componentMethodMetadata]collectorParams
-	syncer     syncManager
+	r                 robot.Robot
+	logger            golog.Logger
+	captureDir        string
+	collectors        map[componentMethodMetadata]collectorParams
+	syncer            syncManager
+	maxStoragePercent int
+	enableAutoDelete  bool
 
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
 	updateCollectorsCancelFn func()
-	cancelCtx  context.Context
-	cancelFunc func()
+	cancelCtx                context.Context
+	cancelFunc               func()
 }
 
 // Parameters stored for each collector.
@@ -409,11 +409,6 @@ func (svc *Service) reinitializeClosedCollectors() error {
 	return nil
 }
 
-// Close releases all resources managed by data_manager.
-func (svc *Service) Close(ctx context.Context) error {
-	svc.cancelFunc()
-	svc.closeCollectors()
-	return nil
 func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins int) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
