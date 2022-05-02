@@ -26,10 +26,10 @@ Finally, here are some resources that you may find useful.
 package calibrate
 
 import (
-	"errors"
 	"math"
 
 	"github.com/maorshutman/lm"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -57,7 +57,7 @@ so we use N points and stack these 2 at a time to make A: (2Nx9) matrix
 func buildA(impts, wdpts []Corner) (*mat.Dense, error) {
 	var x, y, X, Y float64
 	if len(impts) < 4 || len(wdpts) < 4 || len(impts) != len(wdpts) {
-		return mat.NewDense(1, 1, nil), errors.New("need at least 4 image and 4 corresponding measured points")
+		return nil, errors.Errorf("need at least 4 image and 4 corresponding measured points, got %d and %d", len(impts), len(wdpts))
 	}
 	data := make([]float64, 0)
 	for i := range impts {
@@ -86,17 +86,13 @@ func BuildH(imagepts, worldpts []Corner) mat.Vector {
 		// This svd returns V and not V^T, so we will grab the last COLUMN (not row)
 		// which corresponds to the smallest eigenvalue (in Sigma)
 		h := V.ColView(len(sigma) - 1)
-		hvec, ok := h.(*mat.VecDense)
-		if !ok {
-			return nil
-		}
-		return hvec
+		return h
 	}
 	return nil
 }
 
 // ShapeH takes a 9-element vector and forms it into a 3x3 matrix.
-func ShapeH(h mat.Vector) *mat.Dense {
+func shapeH(h mat.Vector) *mat.Dense {
 	data := []float64{h.AtVec(0), h.AtVec(1), h.AtVec(2), h.AtVec(3), h.AtVec(4), h.AtVec(5), h.AtVec(6), h.AtVec(7), h.AtVec(8)}
 	return mat.NewDense(3, 3, data)
 }
@@ -105,13 +101,6 @@ func ShapeH(h mat.Vector) *mat.Dense {
 func Unwrap(in *mat.Dense) *mat.VecDense {
 	r, c := in.Dims()
 	return mat.NewVecDense(r*c, in.RawMatrix().Data)
-}
-
-// CheckMul is a testing function that multiplies the two input matrices.
-func CheckMul(a, h mat.Matrix) mat.Dense {
-	var out mat.Dense
-	out.Mul(a, h)
-	return out
 }
 
 // getVij calculates Vij given column vectors of H (via Zhang's method).
@@ -127,7 +116,7 @@ func getVij(hi, hj mat.Vector) *mat.VecDense {
 
 // getVFromH uses getVij() to create part of the V matrix from a given homography matrix.
 func getVFromH(h mat.Vector) *mat.Dense {
-	hh := ShapeH(h)
+	hh := shapeH(h)
 
 	// Just do it for 1 H and we can stack them later
 	h1 := hh.ColView(0)
@@ -182,7 +171,7 @@ func BuildBFromV(v *mat.Dense) (mat.Vector, error) {
 
 		return Bvec, nil
 	}
-	return Bvec, errors.New("couldn't factorize your V")
+	return nil, errors.New("couldn't factorize your V")
 }
 
 // GetIntrinsicsFromB utilizes the method in Zhang's paper (Apdx B) to directly calculate
@@ -253,10 +242,10 @@ func MinClosure(dst, x []float64, ip, wp mat.Matrix) func(out, in []float64) {
 // difference between IMPTS and H * WRLDPTS. Returns the new homography matrix as a 3x3.
 func DoLM(h *mat.VecDense, ip, wp mat.Matrix) (*mat.Dense, error) {
 	// pass in image and world points to the outside function
-	r, c := ip.Dims()
 	if len(h.RawVector().Data) != 9 {
-		return nil, errors.New("matrix H must have 9 elements")
+		return nil, errors.Errorf("matrix H must have 9 elements, got %d", len(h.RawVector().Data))
 	}
+	r, c := ip.Dims()
 	minfunc := MinClosure(make([]float64, r*c), h.RawVector().Data, ip, wp)
 
 	jacobian := lm.NumJac{minfunc}
@@ -275,7 +264,6 @@ func DoLM(h *mat.VecDense, ip, wp mat.Matrix) (*mat.Dense, error) {
 	if err != nil {
 		return nil, err
 	}
-	// fmt.Printf("The results are %v and are of type %T\n", LMresults.X, LMresults)
 
 	return mat.NewDense(3, 3, LMresults.X), nil
 }

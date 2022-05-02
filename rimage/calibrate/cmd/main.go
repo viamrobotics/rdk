@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/edaniels/golog"
+	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/rimage/calibrate"
@@ -38,14 +39,12 @@ func main() {
 	// a priori that each square on the checkerboard is 30mm
 
 	var logger golog.Logger
-	corners, err := calibrate.GetAndShowCorners("./data/chess3.jpeg", "./data/chessOUT3nums.jpeg", 50)
-	if err == nil {
+	corners, err := calibrate.GetAndShowCorners(artifact.MustPath("calibrate/chess3.jpeg"),
+		artifact.MustPath("calibrate/chessOUT3nums.jpeg"), 50)
+	if err != nil {
 		logger.Fatal("cannot get corners.")
 	}
 	imagePts := calibrate.SortCornerListByX(corners)
-
-	logger.Info(calibrate.CornersToMatrix(imagePts).Dims())
-
 	worldPts := []calibrate.Corner{ // in order from L->R as seen on output image so they can match with imagePts
 		calibrate.NewCorner(60, 240),
 		calibrate.NewCorner(30, 150),
@@ -106,7 +105,8 @@ func main() {
 		logger.Debug("lm optimizer failed")
 	}
 
-	corners, err = calibrate.GetAndShowCorners("./data/chess2.jpeg", "./data/chessOUT2nums.jpeg", 50)
+	corners, err = calibrate.GetAndShowCorners(artifact.MustPath("calibrate/chess2.jpeg"),
+		artifact.MustPath("calibrate/chessOUT2nums.jpeg"), 50)
 	if err == nil {
 		logger.Fatal("cannot get corners.")
 	}
@@ -171,7 +171,8 @@ func main() {
 		logger.Debug("lm optimizer failed")
 	}
 
-	corners, err = calibrate.GetAndShowCorners("./data/chess1.jpeg", "./data/chessOUT1nums.jpeg", 50)
+	corners, err = calibrate.GetAndShowCorners(artifact.MustPath("calibrate/chess1.jpeg"),
+		artifact.MustPath("calibrate/chessOUT1nums.jpeg"), 50)
 	if err == nil {
 		logger.Fatal("cannot get corners.")
 	}
