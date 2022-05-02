@@ -2,7 +2,7 @@
 Simple base control helpers. Should be replaced by a proper SDK once available.
 */
 window.BaseControlHelper = {
-  moveStraight: function(name, speed_mm_s, distance_mm, cb) {
+  moveStraight: function(name, distance_mm, speed_mm_s, cb) {
     const req = new baseApi.MoveStraightRequest();
     req.setName(name);
     req.setMmPerSec(speed_mm_s);
