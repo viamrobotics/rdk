@@ -143,9 +143,10 @@ type Service struct {
 
 // Parameters stored for each collector.
 type collectorParams struct {
-	Collector  data.Collector
-	Attributes componentAttributes
-	CaptureDir string
+	Collector     data.Collector
+	Attributes    componentAttributes
+	CaptureDir    string
+	ComponentType string
 }
 
 // Identifier for a particular collector: component name, component type, and method name.
@@ -253,7 +254,7 @@ func (svc *Service) initializeOrUpdateCollector(
 	if err != nil {
 		return nil, err
 	}
-	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir}
+	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir, componentType}
 
 	// TODO: Handle errors more gracefully.
 	go func() {
@@ -401,7 +402,7 @@ func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins in
 				svc.lock.Lock()
 				for component, collector := range svc.collectors {
 					// Create new target and set it.
-					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, component.ComponentName)
+					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.ComponentType, component.ComponentName)
 					if err != nil {
 						svc.logger.Errorw("failed to create new data capture file", "error", err)
 					}
