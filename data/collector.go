@@ -5,7 +5,6 @@ package data
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -87,11 +86,6 @@ func (c *collector) Close() {
 	c.backgroundWorkers.Wait()
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
-	}
-	err := c.logger.Sync()
-	if err != nil {
-		fmt.Println(err)
-		return
 	}
 }
 
