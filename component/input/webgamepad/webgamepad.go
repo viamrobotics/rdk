@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -51,6 +52,7 @@ type webGamepad struct {
 	ctxWithCancel           context.Context
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
+	generic.Unimplemented
 }
 
 func (w *webGamepad) makeCallbacks(eventOut input.Event) {

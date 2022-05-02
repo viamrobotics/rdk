@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/servo"
 	viamgrpc "go.viam.com/rdk/grpc"
 	componentpb "go.viam.com/rdk/proto/api/component/servo/v1"
@@ -55,6 +56,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(servo.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, servoSvc)
 
+	workingServo.DoFunc = generic.EchoFunc
+	generic.RegisterService(rpcServer, servoSvc)
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -69,6 +73,12 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for working servo", func(t *testing.T) {
 		workingServoClient, err := servo.NewClient(context.Background(), testServoName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		// Do
+		resp, err := workingServoClient.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		err = workingServoClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldBeNil)

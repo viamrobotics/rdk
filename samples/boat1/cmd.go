@@ -90,6 +90,11 @@ func (b *Boat) Close(ctx context.Context) error {
 	return b.Stop(ctx)
 }
 
+// Do is unimplemented.
+func (b *Boat) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
+}
+
 // StartRC TODO.
 func (b *Boat) StartRC(ctx context.Context) {
 	b.activeBackgroundWorkers.Add(1)
