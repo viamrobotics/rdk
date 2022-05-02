@@ -29,6 +29,7 @@ jobs:
       uses: actions/checkout@v2
     - name: Build and push
       run: |
+        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
         make canon-cache
 
   test:
@@ -38,3 +39,4 @@ jobs:
       ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS }}
       TEST_MONGODB_URI: ${{ secrets.TEST_MONGODB_URI }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}

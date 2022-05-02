@@ -42,6 +42,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	b, err := board.FromRobot(r, testBoardName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, b, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := b.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -386,6 +399,10 @@ func (m *mock) GPIOPinByName(name string) (board.GPIOPin, error) {
 
 func (m *mock) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{Remote: true}
+}
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }
 
 type mockGPIOPin struct {

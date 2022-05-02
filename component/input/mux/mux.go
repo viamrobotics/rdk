@@ -9,6 +9,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -80,6 +81,7 @@ type mux struct {
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 	eventsChan              chan input.Event
+	generic.Unimplemented
 }
 
 func (m *mux) makeCallbacks(eventOut input.Event) {

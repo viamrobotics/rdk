@@ -22,12 +22,12 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
-	"go.viam.com/rdk/services/objectsegmentation"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/utils"
 )
@@ -43,7 +43,7 @@ var (
 		web.Name,
 		datamanager.Name,
 		framesystem.Name,
-		objectsegmentation.Name,
+		vision.Name,
 	}
 )
 
@@ -143,7 +143,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 		}
 		r.manager.addResource(name, svc)
 	}
-
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}

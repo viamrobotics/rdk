@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -94,6 +95,7 @@ func (config *Config) Validate(path string) error {
 
 // PCA9685 is a general purpose 16-channel 12-bit PWM controller.
 type PCA9685 struct {
+	generic.Unimplemented
 	address             byte
 	referenceClockSpeed int
 	bus                 board.I2C
