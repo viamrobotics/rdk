@@ -212,11 +212,11 @@ func TestGraphSubGraph(t *testing.T) {
 	test.That(t, sg, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	out := sg.TopologicalSort()
-	test.That(t, out, test.ShouldResemble, []Name{
+	test.That(t, newResourceNameSet(out...), test.ShouldResemble, newResourceNameSet([]Name{
 		NewName("namespace", "atype", "asubtype", "D"),
 		NewName("namespace", "atype", "asubtype", "F"),
 		NewName("namespace", "atype", "asubtype", "C"),
-	})
+	}...))
 }
 
 func TestGraphDepTree(t *testing.T) {
