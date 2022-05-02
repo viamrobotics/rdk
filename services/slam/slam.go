@@ -126,14 +126,14 @@ func RunTimeConfigValidation(svcConfig *AttrConfig) error {
 
 	// Check Input File Pattern
 	if svcConfig.InputFilePattern != "" {
-		pattern := `(\\d+):(\\d+):(\\d+)`
+		pattern := `(\d+):(\d+):(\d+)`
 		re := regexp.MustCompile(pattern)
 		res := re.MatchString(svcConfig.InputFilePattern)
 		if !res {
 			return errors.Errorf("input_file_pattern (%v) does not match the regex pattern %v", svcConfig.InputFilePattern, pattern)
 		}
 
-		re = regexp.MustCompile(`(\\d+)`)
+		re = regexp.MustCompile(`(\d+)`)
 		res2 := re.FindAllString(svcConfig.InputFilePattern, 3)
 		X, err := strconv.Atoi(res2[0])
 		if err != nil {
