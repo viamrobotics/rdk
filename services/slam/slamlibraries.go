@@ -1,4 +1,4 @@
-// Package slam implements simulatenous localization and mapping
+// Package slam implements simultaneous localization and mapping
 package slam
 
 import (
@@ -17,82 +17,94 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var slam_map = map[string]SLAM{
-	"cartographer": DenseSlamAlgo{SLAMMetadata: cartographer_metadata},
-	"orbslamv3":    SparseSlamAlgo{SLAMMetadata: orbslamv3_metadata},
+var slamLibraries = map[string]SLAM{
+	"cartographer": DenseSlamAlgo{Metadata: cartographerMetadata},
+	"orbslamv3":    SparseSlamAlgo{Metadata: orbslamv3Metadata},
 }
 
 // Define general slam types. Sparse slam for RGB pixel images which need to go through
-// feature extraction and dense slam that operates on pointclouds commonly produced by lidars
+// feature extraction and dense slam that operates on pointclouds commonly produced by lidars.
 var denseSlam = slamType{
 	SupportedCameras: map[string][]string{"rplidar": {"2d"}, "velodyne": {"3d, 2d"}},
-	ModeFileType:     map[string]string{"2d": ".pcd", "3d": ".pcd"}}
+	ModeFileType:     map[string]string{"2d": ".pcd", "3d": ".pcd"},
+}
+
 var sparseSlam = slamType{
 	SupportedCameras: map[string][]string{"intelrealsense": {"rgbd, mono"}},
-	ModeFileType:     map[string]string{"mono": ".jpeg", "rgbd": ".both"}}
+	ModeFileType:     map[string]string{"mono": ".jpeg", "rgbd": ".both"},
+}
 
 type slamType struct {
 	SupportedCameras map[string][]string
 	ModeFileType     map[string]string
 }
 
-// Define currently implemented slam libraries
-var cartographer_metadata = SLAMMetadata{
+// Define currently implemented slam libraries.
+var cartographerMetadata = Metadata{
 	AlgoName:       "cartographer",
 	SlamType:       denseSlam,
 	SlamMode:       map[string]bool{"2d": true, "3d": false},
-	BinaryLocation: ""}
-var orbslamv3_metadata = SLAMMetadata{
+	BinaryLocation: "",
+}
+
+var orbslamv3Metadata = Metadata{
 	AlgoName:       "orbslamv3",
 	SlamType:       sparseSlam,
 	SlamMode:       map[string]bool{"mono": true, "rgbd": true},
-	BinaryLocation: ""}
+	BinaryLocation: "",
+}
 
-type SLAMMetadata struct {
+// Metadata contains all pertinant information for defining a SLAM library/algorithm including the sparse/dense definition.
+type Metadata struct {
 	AlgoName       string
 	SlamType       slamType
 	SlamMode       map[string]bool
 	BinaryLocation string
 }
 
+// SparseSlamAlgo is a data structure for all sparse slam libraries/algorithms.
 type SparseSlamAlgo struct {
-	SLAMMetadata
+	Metadata
 	SlamType slamType
 }
 
+// DenseSlamAlgo is a data structure for all dense slam libraries/algorithms.
 type DenseSlamAlgo struct {
-	SLAMMetadata
+	Metadata
 	SlamType slamType
 }
 
+// SLAM interface includes definitions for SLAM functions that may vary based on library.
 type SLAM interface {
 	GetAndSaveData(ctx context.Context, cam camera.Camera, mode string, dataDirectory string, logger golog.Logger) error
-	GetMetadata() (SLAMMetadata, error)
+	GetMetadata() Metadata
 }
 
 // ------------------------------------------------------------------------------------
 
-func (s SLAMMetadata) GetMetadata() (SLAMMetadata, error) {
-	return s, nil
+// GetMetadata for the implemented SLAM library/algorithm.
+func (s Metadata) GetMetadata() Metadata {
+	return s
 }
 
-func (algo DenseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera, mode string, dataDirectory string, logger golog.Logger) error {
+// GetAndSaveData implements the data extraction for dense algos and saving to the specified directory.
+func (algo DenseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, logger golog.Logger) error {
 	// Get NextPointCloud
 	pointcloud, err := cam.NextPointCloud(ctx)
 	if err != nil {
 		if err.Error() == "bad scan: OpTimeout" {
 			logger.Warnf("Skipping this scan due to error: %v", err)
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	// Get timestamp for file name
 	timeStamp := time.Now()
 
 	// Create file
-	f, err := os.Create(dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + algo.SLAMMetadata.SlamType.ModeFileType[mode])
+	fileMode := algo.Metadata.SlamType.ModeFileType[mode]
+	f, err := os.Create(dd + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + fileMode)
 	if err != nil {
 		return err
 	}
@@ -109,23 +121,24 @@ func (algo DenseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera,
 	return f.Close()
 }
 
-func (algo SparseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera, mode string, dataDirectory string, logger golog.Logger) error {
+// GetAndSaveData implements the data extraction for sparse algos and saving to the specified directory.
+func (algo SparseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, logger golog.Logger) error {
 	// Get Image
 	img, _, err := cam.Next(ctx)
 	if err != nil {
 		if err.Error() == "bad scan: OpTimeout" {
 			logger.Warnf("Skipping this scan due to error: %v", err)
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	// Get timestamp for file name
 	timeStamp := time.Now()
 
 	// Create file
-	f, err := os.Create(dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + algo.SLAMMetadata.SlamType.ModeFileType[mode])
+	fileMode := algo.Metadata.SlamType.ModeFileType[mode]
+	f, err := os.Create(dd + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + fileMode)
 	if err != nil {
 		return err
 	}
