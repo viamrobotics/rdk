@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"net/url"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -329,6 +330,7 @@ func (svc *webService) Close(ctx context.Context) error {
 		svc.cancelFunc()
 		svc.cancelFunc = nil
 	}
+	fmt.Printf("-- MP: there are %d goroutines --", runtime.NumGoroutine())
 	svc.activeBackgroundWorkers.Wait()
 	return nil
 }
@@ -367,6 +369,7 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 		}
 
 		// Stream
+		// TODO: this causes tests to hang
 		svc.startStream(ctx, source, view)
 	}
 
