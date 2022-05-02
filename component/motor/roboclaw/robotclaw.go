@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 const modelname = "roboclaw"
@@ -53,7 +54,7 @@ func getOrCreateConnection(r robot.Robot, config *roboclawConfig) (*roboclaw.Rob
 		if err != nil {
 			continue
 		}
-		m, ok := r.(*roboclawMotor)
+		m, ok := utils.UnwrapProxy(r).(*roboclawMotor)
 		if !ok {
 			continue
 		}
@@ -76,7 +77,7 @@ func getOrCreateConnection(r robot.Robot, config *roboclawConfig) (*roboclaw.Rob
 func newRoboClaw(r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
 	motorConfig, ok := config.ConvertedAttributes.(*roboclawConfig)
 	if !ok {
-		return nil, errors.New("config error, why isn't this a roboclawConfig")
+		return nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
 	}
 
 	if motorConfig.Number < 1 || motorConfig.Number > 2 {
