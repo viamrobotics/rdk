@@ -24,10 +24,10 @@ var slam_map = map[string]SLAM{
 
 // Define general slam types. Sparse slam for RGB pixel images which need to go through
 // feature extraction and dense slam that operates on pointclouds commonly produced by lidars
-var sparseSlam = slamType{
+var denseSlam = slamType{
 	SupportedCameras: map[string][]string{"rplidar": {"2d"}, "velodyne": {"3d, 2d"}},
 	ModeFileType:     map[string]string{"2d": ".pcd", "3d": ".pcd"}}
-var denseSlam = slamType{
+var sparseSlam = slamType{
 	SupportedCameras: map[string][]string{"intelrealsense": {"rgbd, mono"}},
 	ModeFileType:     map[string]string{"mono": ".jpeg", "rgbd": ".both"}}
 
@@ -77,7 +77,6 @@ func (s SLAMMetadata) GetMetadata() (SLAMMetadata, error) {
 }
 
 func (algo DenseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera, mode string, dataDirectory string, logger golog.Logger) error {
-
 	// Get NextPointCloud
 	pointcloud, err := cam.NextPointCloud(ctx)
 	if err != nil {
@@ -85,7 +84,7 @@ func (algo DenseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera,
 			logger.Warnf("Skipping this scan due to error: %v", err)
 			return nil
 		} else {
-			panic(err)
+			return err
 		}
 	}
 
@@ -93,7 +92,7 @@ func (algo DenseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera,
 	timeStamp := time.Now()
 
 	// Create file
-	f, err := os.Create(dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + algo.SlamType.ModeFileType[mode])
+	f, err := os.Create(dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + algo.SLAMMetadata.SlamType.ModeFileType[mode])
 	if err != nil {
 		return err
 	}
@@ -118,7 +117,7 @@ func (algo SparseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera
 			logger.Warnf("Skipping this scan due to error: %v", err)
 			return nil
 		} else {
-			panic(err)
+			return err
 		}
 	}
 
@@ -126,7 +125,7 @@ func (algo SparseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera
 	timeStamp := time.Now()
 
 	// Create file
-	f, err := os.Create(dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + algo.SlamType.ModeFileType[mode])
+	f, err := os.Create(dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + algo.SLAMMetadata.SlamType.ModeFileType[mode])
 	if err != nil {
 		return err
 	}

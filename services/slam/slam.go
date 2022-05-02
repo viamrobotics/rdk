@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
@@ -28,20 +27,24 @@ import (
 )
 
 func init() {
-	registry.RegisterService(Subtype, registry.Service{Constructor: New})
-	cType := config.ServiceType(SubtypeName)
+	registry.RegisterService(Subtype, registry.Service{
+		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+			return New(ctx, r, c, logger)
+		}, //Constructor: New})
+	})
+	// cType := config.ServiceType(SubtypeName)
 
-	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf AttrConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &AttrConfig{})
+	// config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
+	// 	var conf AttrConfig
+	// 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	if err := decoder.Decode(attributes); err != nil {
+	// 		return nil, err
+	// 	}
+	// 	return &conf, nil
+	// }, &AttrConfig{})
 }
 
 const SubtypeName = resource.SubtypeName("slam")
@@ -69,7 +72,11 @@ func (config *AttrConfig) Validate(path string) error {
 // Validate ensures all parts of the config are valid.
 func RunTimeConfigValidation(svcConfig *AttrConfig) error {
 
-	slam_algo_metadata, err := slam_map[svcConfig.Algorithm].GetMetadata()
+	slam_lib, ok := slam_map[svcConfig.Algorithm]
+	if !ok {
+		return errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
+	}
+	slam_algo_metadata, err := slam_lib.GetMetadata()
 	if err != nil {
 		return errors.Errorf("retrieving metadata from config algorthim [%v]", svcConfig.Algorithm)
 	}
@@ -108,7 +115,7 @@ func RunTimeConfigValidation(svcConfig *AttrConfig) error {
 	files, err := ioutil.ReadDir(svcConfig.DataDirectory)
 	if err != nil {
 		return errors.Errorf("checking files in provided data driectory [%v]", svcConfig.DataDirectory)
-	}
+	} // how to test???
 
 	var configBool bool
 	var mapBool bool
@@ -140,8 +147,8 @@ func RunTimeConfigValidation(svcConfig *AttrConfig) error {
 	if svcConfig.InputFilePattern != "" {
 		re := regexp.MustCompile("(\\d+):(\\d+):(\\d+)")
 		res := re.MatchString(svcConfig.InputFilePattern)
-		if res {
-			return errors.Errorf("input_file_pattern in config (%V) does not match the valid regex pattern (\\d+):(\\d+):(\\d+)", svcConfig.InputFilePattern)
+		if !res {
+			return errors.Errorf("input_file_pattern in config (%v) does not match the valid regex pattern (\\d+):(\\d+):(\\d+)", svcConfig.InputFilePattern)
 		}
 
 		re = regexp.MustCompile("(\\d+)")
@@ -149,8 +156,8 @@ func RunTimeConfigValidation(svcConfig *AttrConfig) error {
 		X, _ := strconv.Atoi(res2[0])
 		Y, _ := strconv.Atoi(res2[1])
 
-		if X < Y {
-			return errors.Errorf("second valuen in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
+		if X > Y {
+			return errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
 		}
 	}
 
@@ -179,6 +186,13 @@ type AttrConfig struct {
 	InputFilePattern string            `json:"input_file_pattern"`
 }
 
+type Service interface {
+	GetSLAMServiceData() (slamService, error)
+	startDataProcess(ctx context.Context) error
+	startSLAMProcess(ctx context.Context) error
+	Close(ctx context.Context) error
+}
+
 // SlamService is the structure of the slam service
 type slamService struct {
 	camera      camera.Camera
@@ -200,7 +214,7 @@ type slamService struct {
 }
 
 // New returns a new slam service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
+func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
@@ -217,8 +231,9 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	var cam camera.Camera
 	var err error
 	if len(svcConfig.Sensors) > 0 {
-		fmt.Println("Running in live mode")
+		logger.Info("Running in live mode")
 		cam, err = camera.FromRobot(r, svcConfig.Sensors[0])
+		//fmt.Println(err)
 		if err != nil {
 			return nil, errors.Errorf("error with get camera for slam service: %q", err)
 		}
@@ -232,7 +247,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		}
 
 	} else {
-		fmt.Println("Running in non-live mode")
+		logger.Info("Running in non-live mode")
 		cam = nil
 	}
 
@@ -240,7 +255,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	p, err := goutils.TryReserveRandomPort()
 
 	// -------- Get Data Frequency ---------
-	freq := float64(1000.0 / svcConfig.DataRateMs)
+	freq := float64(1000.0 / int(svcConfig.DataRateMs))
 
 	// ------- Get Cancel Protocols --------
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -308,9 +323,11 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 			}
 
 			// Get data from desired camera
+			fmt.Println("HI")
 			if err := slamSvc.slamLib.GetAndSaveData(slamSvc.cancelCtx, slamSvc.camera, slamSvc.slamMode, slamSvc.dataDirectory, slamSvc.logger); err != nil {
 				panic(err)
 			}
+			i = i + 1
 
 		}
 	})
@@ -320,6 +337,10 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 
 func (slamSvc *slamService) startSLAMProcess(ctx context.Context) error {
 	return nil
+}
+
+func (slamSvc *slamService) GetSLAMServiceData() (slamService, error) {
+	return *slamSvc, nil
 }
 
 // Close out of all slam related processes.
