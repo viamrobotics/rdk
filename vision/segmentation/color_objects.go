@@ -32,9 +32,6 @@ func (csc *ColorObjectsConfig) CheckValid() error {
 	if n != 3 || err != nil {
 		return errors.Wrapf(err, "couldn't parse hex (%s) n: %d", csc.Color, n)
 	}
-	if csc.MeanK <= 0 {
-		return errors.Errorf("mean_k must be greater than 0, got %v", csc.MeanK)
-	}
 	if csc.Sigma <= 0 {
 		return errors.Errorf("sigma, the std dev used for filtering, must be greater than 0, got %v", csc.Sigma)
 	}
