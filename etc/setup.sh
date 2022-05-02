@@ -153,6 +153,7 @@ do_brew(){
 	brew "nlopt"
 	brew "x264"
 	brew "protoc-gen-grpc-web"
+	brew "pkg-config"
 	# pinned
 	brew "gcc@11"
 	brew "go@1.17"
