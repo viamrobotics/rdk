@@ -10,6 +10,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -69,7 +70,6 @@ func Named(name string) resource.Name {
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
-
 	// GetEndPosition returns the current position of the arm.
 	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
 
@@ -83,6 +83,7 @@ type Arm interface {
 	// GetJointPositions returns the current joint positions of the arm.
 	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
+	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
 }
@@ -131,6 +132,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 type reconfigurableArm struct {
 	mu     sync.RWMutex
 	actual Arm
+}
+
+func (r *reconfigurableArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableArm) ProxyFor() interface{} {

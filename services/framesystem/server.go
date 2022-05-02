@@ -45,7 +45,7 @@ func (server *subtypeServer) Config(
 	if err != nil {
 		return nil, err
 	}
-	sortedParts, err := svc.Config(ctx)
+	sortedParts, err := svc.Config(ctx, req.GetSupplementalTransforms())
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (server *subtypeServer) TransformPose(
 
 	dst := req.Destination
 	pF := referenceframe.ProtobufToPoseInFrame(req.Source)
-	transformedPose, err := svc.TransformPose(ctx, pF, dst)
+	transformedPose, err := svc.TransformPose(ctx, pF, dst, req.GetSupplementalTransforms())
 
 	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
 }

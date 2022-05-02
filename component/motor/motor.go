@@ -8,6 +8,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
@@ -51,7 +52,6 @@ var Subtype = resource.NewSubtype(
 
 // A Motor represents a physical motor connected to a board.
 type Motor interface {
-
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational
 	SetPower(ctx context.Context, powerPct float64) error
@@ -83,6 +83,8 @@ type Motor interface {
 
 	// IsPowered returns whether or not the motor is currently on.
 	IsPowered(ctx context.Context) (bool, error)
+
+	generic.Generic
 }
 
 // A LocalMotor is a motor that supports additional features provided by RDK
@@ -161,6 +163,12 @@ func (r *reconfigurableMotor) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+func (r *reconfigurableMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) error {
@@ -297,7 +305,7 @@ type Config struct {
 // Note(erd): This probably shouldn't exist since not all motors have the same config requirements.
 func RegisterConfigAttributeConverter(model string) {
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeMotor,
+		SubtypeName,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

@@ -41,6 +41,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	s, err := sensor.FromRobot(r, testSensorName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := s.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -78,7 +91,6 @@ func TestSensorName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "0434a3a1-3bf4-5f98-8ca7-3bee0487f970",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: sensor.SubtypeName,
@@ -90,7 +102,6 @@ func TestSensorName(t *testing.T) {
 			"all fields included",
 			testSensorName,
 			resource.Name{
-				UUID: "abfe61a0-61ed-523e-9793-f0d5dded2915",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: sensor.SubtypeName,
@@ -182,3 +193,7 @@ func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

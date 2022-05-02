@@ -27,6 +27,7 @@ import (
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/utils"
 )
@@ -35,7 +36,15 @@ var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{metadata.Name, sensors.Name, status.Name, web.Name, datamanager.Name, framesystem.Name}
+	defaultSvc = []resource.Name{
+		metadata.Name,
+		sensors.Name,
+		status.Name,
+		web.Name,
+		datamanager.Name,
+		framesystem.Name,
+		vision.Name,
+	}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -134,7 +143,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 		}
 		r.manager.addResource(name, svc)
 	}
-
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}

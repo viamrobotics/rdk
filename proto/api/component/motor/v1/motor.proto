@@ -59,8 +59,8 @@ service MotorService {
     };
   }
 
-  // Stop turns the robot's motor off
-  // To Do (FA): This will be deprecated
+  // Stop turns the robot's motor off 
+  
   rpc Stop(StopRequest) returns (StopResponse) {
     option (google.api.http) = {
       put: "/viam/api/v1/component/motor/{name}/stop"

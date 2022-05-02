@@ -46,6 +46,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	g, err := gantry.FromRobot(r, testGantryName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := g.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -149,7 +162,6 @@ func TestGantryName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "c7e7e1a5-2d0c-5665-af81-0f821bb94793",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gantry.SubtypeName,
@@ -161,7 +173,6 @@ func TestGantryName(t *testing.T) {
 			"all fields included",
 			testGantryName,
 			resource.Name{
-				UUID: "4f1dd722-b371-59e9-9e66-701823f025b7",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gantry.SubtypeName,
@@ -242,3 +253,7 @@ func (m *mock) GetLengths(context.Context) ([]float64, error) {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -89,6 +90,7 @@ func (b *Board) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
 
 // A Board provides dummy data from fake parts in order to implement a Board.
 type Board struct {
+	generic.Echo
 	Name     string
 	SPIs     map[string]*SPI
 	I2Cs     map[string]*I2C

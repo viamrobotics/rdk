@@ -1,0 +1,136 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/service/vision/v1";
+option java_package = "com.viam.rdk.proto.api.service.vision.v1";
+
+package proto.api.service.vision.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+import "proto/api/common/v1/common.proto";
+
+// VisionService declares the gRPC contract for a vision service
+service VisionService {
+  // Detection methods
+
+  // GetDetectorNames returns the list of detectors in the registry.
+  rpc GetDetectorNames(GetDetectorNamesRequest) returns (GetDetectorNamesResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/vision/detector_names"
+    };
+  }
+  // AddDetector adds a new detector to the registry.
+  rpc AddDetector(AddDetectorRequest) returns (AddDetectorResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/add_detector"
+    };
+  }
+  // GetDetections will return a list of detections in the next image given a camera and a detector
+  rpc GetDetections(GetDetectionsRequest) returns (GetDetectionsResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/detections"
+    };
+  }
+
+  // Segmentation methods
+
+  // GetSegmenterNames returns the list of segmenters in the registry.
+  rpc GetSegmenterNames(GetSegmenterNamesRequest) returns (GetSegmenterNamesResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/vision/segmenter_names"
+    };
+  }
+  // GetSegmenterParameters returns the parameter fields needed for the given segmenter.
+  rpc GetSegmenterParameters(GetSegmenterParametersRequest) returns (GetSegmenterParametersResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/vision/segmenter_parameters"
+    };
+  }
+  // GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
+  // as well as the 3-vector center of each of the found objects.
+  // A specific MIME type can be requested but may not necessarily be the same one returned.
+  rpc GetObjectPointClouds(GetObjectPointCloudsRequest) returns (GetObjectPointCloudsResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/object_point_clouds"
+    };
+  }
+}
+
+message GetDetectorNamesRequest {}
+
+message GetDetectorNamesResponse {
+  // detectors in the registry
+  repeated string detector_names = 1;
+}
+
+message AddDetectorRequest {
+   string detector_name = 1;
+   string detector_model_type = 2;
+   google.protobuf.Struct detector_parameters = 3;
+}
+
+message AddDetectorResponse {}
+
+message GetDetectionsRequest {
+   // name of camera source to use as input
+   string camera_name = 1;
+   // name of the registered detector to use
+   string detector_name = 2;
+}
+
+message GetDetectionsResponse {
+   // the bounding boxes and labels
+   repeated Detection detections = 1;
+}
+
+message Detection {
+   // the four corners of the box
+   int64 x_min = 1;
+   int64 y_min = 2;
+   int64 x_max = 3;
+   int64 y_max = 4;
+   // the confidence of the detection
+   double confidence = 5;
+   // label associated with the detected object
+   string class_name = 6;
+}
+
+message GetSegmenterNamesRequest {}
+
+message GetSegmenterNamesResponse {
+  // segmenters in the registry
+  repeated string segmenter_names = 1;
+}
+
+message GetSegmenterParametersRequest {
+  // Name of the segmentation algo
+  string segmenter_name = 1;
+}
+
+message TypedParameter {
+   string name = 1;
+   string type = 2;
+}
+
+message GetSegmenterParametersResponse {
+  // parameter names of the segmenter in the request
+  repeated TypedParameter segmenter_parameters = 1;
+}
+
+message GetObjectPointCloudsRequest {
+  // Name of a camera
+  string camera_name = 1;
+  // Name of the segmentation algorithm
+  string segmenter_name = 2;
+  // Requested MIME type of response
+  string mime_type = 3;
+  // parameters for the chosen segmenter
+  google.protobuf.Struct parameters = 4;
+}
+
+message GetObjectPointCloudsResponse {
+  // Actual MIME type of response
+  string mime_type = 1;
+  // List of objects in the scene
+  repeated common.v1.PointCloudObject objects = 2;
+}
+

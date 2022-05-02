@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/web"
 	rdktestutils "go.viam.com/rdk/testutils"
 )
@@ -42,6 +43,7 @@ var serviceNames = []resource.Name{
 	status.Name,
 	datamanager.Name,
 	framesystem.Name,
+	vision.Name,
 	metadata.Name,
 }
 
@@ -100,7 +102,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resources, err := svc.Resources(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resources), test.ShouldEqual, 10)
+		test.That(t, len(resources), test.ShouldEqual, 11)
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
@@ -218,7 +220,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		resources, err := svc.Resources(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resources), test.ShouldEqual, 5)
+		test.That(t, len(resources), test.ShouldEqual, 6)
 
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -308,7 +310,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		resources, err = svc.Resources(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resources), test.ShouldEqual, 10)
+		test.That(t, len(resources), test.ShouldEqual, 11)
 	})
 
 	t.Run("additive diff", func(t *testing.T) {
@@ -1205,20 +1207,20 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:10]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:11]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[10:12]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[11:13]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				armNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[12:14]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[13:15]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				baseNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[14]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[15]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				boardNames,
 			)...))
@@ -1371,20 +1373,20 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:10]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:11]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[10:12]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[11:13]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				armNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[12:14]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[13:15]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				baseNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[14]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[15]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				boardNames,
 			)...))
@@ -1647,20 +1649,20 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:10]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:11]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[10:12]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[11:13]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				armNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[12:14]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[13:15]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				baseNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[14]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[15]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				boardNames,
 			)...))
@@ -1815,13 +1817,13 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:10]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:11]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
 				[]resource.Name{arm.Named("arm1")},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[10:13]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[11:14]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{
 					arm.Named("arm3"),
@@ -1829,14 +1831,14 @@ func TestRobotReconfigure(t *testing.T) {
 					board.Named("board3"),
 				},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[13:15]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[14:16]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{
 					base.Named("base2"),
 					board.Named("board2"),
 				},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[15]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[16]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{board.Named("board1")},
 			)...))

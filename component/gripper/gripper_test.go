@@ -40,6 +40,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	g, err := gripper.FromRobot(r, testGripperName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := g.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -77,7 +90,6 @@ func TestGripperName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "e2b52bce-800b-56b7-904c-2f8372ce4623",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gripper.SubtypeName,
@@ -89,7 +101,6 @@ func TestGripperName(t *testing.T) {
 			"all fields included",
 			testGripperName,
 			resource.Name{
-				UUID: "f3e34221-62ec-5951-b112-d4cccb47bf61",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gripper.SubtypeName,
@@ -161,3 +172,7 @@ func (m *mock) Grab(ctx context.Context) (bool, error) {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

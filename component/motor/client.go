@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 )
@@ -149,4 +150,8 @@ func (c *client) IsPowered(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return resp.GetIsOn(), nil
+}
+
+func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

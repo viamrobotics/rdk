@@ -6,7 +6,13 @@
         <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
       </div>
       <div class="p-2 float-right">
-        <ViamButton color="danger" group variant="primary" @click="baseStop()">
+        <ViamButton
+          color="danger"
+          group
+          variant="primary"
+          :disabled="!baseStatus && selectedItem !== 'keyboard'"
+          @click="baseStop()"
+        >
           <template v-slot:icon>
             <ViamIcon color="white" :path="mdiCloseOctagonOutline"
               >STOP</ViamIcon
@@ -17,7 +23,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-black p-2 h-72"
+          class="border border-t-0 border-black pt-2 pb-4"
           :style="{ maxHeight: maxHeight + 'px' }"
         >
           <div>
@@ -25,18 +31,20 @@
               <Tab
                 :selected="selectedItem === 'keyboard'"
                 @select="selectedItem = 'keyboard'"
+                @click="$emit('base-change-tab', selectedItem)"
                 >Keyboard</Tab
               >
               <Tab
                 :selected="selectedItem === 'discrete'"
                 @select="selectedItem = 'discrete'"
+                @click="resetDiscreteState()"
                 >Discrete</Tab
               >
             </Tabs>
           </div>
           <div
             v-if="selectedItem === 'keyboard'"
-            class="border border-black p-4"
+            class="p-4"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div>
@@ -95,30 +103,10 @@
                           Select Camera
                         </p>
                         <div class="relative">
-                          <select
-                            class="form-select appearance-none block w-full px-3 py-1.5 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none"
-                            aria-label="Default select example"
-                            @change="$emit('show-base-camera')"
-                            v-model="selectedValue"
-                          >
-                            <option selected value="NoCamera">No Camera</option>
-                            <option value="Camera1">Camera1</option>
-                          </select>
-                          <div
-                            class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-                          >
-                            <svg
-                              class="h-4 w-4 stroke-2"
-                              :class="['text-gray-700 dark:text-gray-300']"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              stroke-linejoin="round"
-                              stroke-linecap="round"
-                              fill="none"
-                            >
-                              <path d="M18 16L12 22L6 16" />
-                            </svg>
-                          </div>
+                          <ViamSelect :options="cameraOptions"
+                                      v-model="selectedValue"
+                                      @change="$emit('show-base-camera')">
+                          </ViamSelect>
                         </div>
                       </div>
                     </div>
@@ -134,7 +122,7 @@
           </div>
           <div
             v-if="selectedItem === 'discrete'"
-            class="border border-black p-4 grid grid-cols-1"
+            class="pr-4 pl-4 pt-4 grid grid-cols-1"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div>
@@ -142,16 +130,18 @@
                 <p class="text-xs">Movement Mode</p>
                 <RadioButtons
                   :options="['Straight', 'Arc', 'Spin']"
+                  defaultOption="Straight"
                   :disabledOptions="[]"
                   v-on:selectOption="setMovementMode($event)"
                 />
               </div>
             </div>
             <div class="flex pt-2">
-              <div class="column" v-if="movementMode === 'Straight'">
+              <div class="column pr-2" v-if="movementMode === 'Straight'">
                 <p class="text-xs">Movement Type</p>
                 <RadioButtons
                   :options="['Continous', 'Discrete']"
+                  defaultOption="Continous"
                   :disabledOptions="[]"
                   v-on:selectOption="setMovementType($event)"
                 />
@@ -163,6 +153,7 @@
                 <p class="text-xs">Direction</p>
                 <RadioButtons
                   :options="['Forwards', 'Backwards']"
+                  defaultOption="Forwards"
                   :disabledOptions="[]"
                   v-on:selectOption="setDirection($event)"
                 />
@@ -172,7 +163,7 @@
                 color="primary"
                 group="False"
                 variant="primary"
-                value="300"
+                v-model="speed"
                 inputId="speed"
                 class="text-xs pr-2 w-32"
                 >Speed (mm/sec)
@@ -183,7 +174,7 @@
                 color="primary"
                 group="False"
                 variant="primary"
-                value="500"
+                v-model="increment"
                 inputId="distance"
                 :disabled="movementType === 'Continous'"
                 class="text-xs pr-2 w-32"
@@ -192,12 +183,13 @@
             </div>
             <div class="flex">
               <div
-                class="column"
+                class="column pr-2"
                 v-if="movementMode === 'Spin' || movementMode === 'Arc'"
               >
                 <p class="text-xs">Movement Type</p>
                 <RadioButtons
                   :options="['Clockwise', 'Counterclockwise']"
+                  defaultOption="Clockwise"
                   :disabledOptions="[]"
                   v-on:selectOption="setSpinType($event)"
                 />
@@ -207,9 +199,12 @@
                 v-if="movementMode === 'Spin' || movementMode === 'Arc'"
               >
                 <Range
-                  min="0"
-                  max="360"
-                  unit="<sup class='text-xs'>O</sup>"
+                  id="angle"
+                  :min="0"
+                  :max="360"
+                  :step="90"
+                  v-model="maxClusteringRadius"
+                  unit="°"
                   name="Max Clustering Radius"
                 ></Range>
               </div>
@@ -220,6 +215,7 @@
                   color="success"
                   group
                   variant="primary"
+                  :disabled="baseStatus"
                   @click="baseRun()"
                 >
                   <template v-slot:icon>
@@ -271,6 +267,7 @@ export default class Base extends Vue {
   @Prop({ default: null }) baseName!: string;
   @Prop({ default: null }) crumbs!: [string];
   @Prop({ default: true }) connectedCamera!: boolean;
+  @Prop({ default: false }) baseStatus!: boolean;
 
   mdiRestore = mdiRestore;
   mdiPlayCircleOutline = mdiPlayCircleOutline;
@@ -283,12 +280,16 @@ export default class Base extends Vue {
   streamId = "stream-preview-" + this.streamName;
   selectedItem = "keyboard";
   pressedKey = 0;
-  movementMode = "";
-  movementType = "";
-  direction = "";
+  movementMode = "Straight";
+  movementType = "Continous";
+  direction = "Forwards";
   spinType = "";
-  increment = 500;
-  speed = 300;
+  increment = 1000;
+  maxClusteringRadius = 90
+  
+  speed = 200;
+  angle = 0
+  cameraOptions = [{value: 'NoCamera', label: 'No Camera'}, {value: 'Camera1', label: 'Camera1'}]
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
   }
@@ -299,6 +300,13 @@ export default class Base extends Vue {
 
   mounted(): void {
     this.resizeContent();
+  }
+
+  resetDiscreteState(): void {
+    this.movementMode = "Straight";
+    this.movementType = "Continous";
+    this.direction = "Forwards";
+    this.spinType = '';
   }
 
   setMovementMode(e: string): void {
