@@ -10,51 +10,72 @@ import (
 	tflite "github.com/mattn/go-tflite"
 )
 
-type tfliteInterpreterOptions interface {
-	Delete()
-	SetNumThread(num int)
-	SetErrorReporter(f func(string, interface{}), userData interface{})
-}
-
 type InterpreterLoader struct {
-	newModelFromFile      func(path string) *tflite.Model
-	newInterpreterOptions func() (tfliteInterpreterOptions, error)
-	newInterpreter        func(model *tflite.Model, options tfliteInterpreterOptions) (*tflite.Interpreter, error)
-	numThreads            int
+	newModelFromFile   func(path string) *tflite.Model
+	newInterpreter     func(model *tflite.Model, options *tflite.InterpreterOptions) *tflite.Interpreter
+	interpreterOptions *tflite.InterpreterOptions
 }
 
-type TfliteObjects struct {
+type TfliteInterpreter struct {
 	Interpreter *tflite.Interpreter
 	model       *tflite.Model
-	Options     tfliteInterpreterOptions
+	options     *tflite.InterpreterOptions
 }
 
 // NewDefaultInterpreterLoader returns the default loader when using tflite
-func NewDefaultInterpreterLoader() *InterpreterLoader {
-	loader := &InterpreterLoader{
-		newModelFromFile:      tflite.NewModelFromFile,
-		newInterpreterOptions: getInterpreterOptions,
-		newInterpreter:        getInterpreter,
-		numThreads:            4,
+func NewDefaultInterpreterLoader() (*InterpreterLoader, error) {
+	options, err := loadOptions(4)
+	if err != nil {
+		return nil, err
 	}
 
-	return loader
+	loader := &InterpreterLoader{
+		newModelFromFile:   tflite.NewModelFromFile,
+		newInterpreter:     tflite.NewInterpreter,
+		interpreterOptions: options,
+	}
+
+	return loader, nil
 }
 
 // NewInterpreterLoader returns a loader that allows you to set threads when using tflite
-func NewInterpreterLoader(numThreads int) *InterpreterLoader {
-	loader := &InterpreterLoader{
-		newModelFromFile:      tflite.NewModelFromFile,
-		newInterpreterOptions: getInterpreterOptions,
-		newInterpreter:        getInterpreter,
-		numThreads:            numThreads,
+func NewInterpreterLoader(numThreads int) (*InterpreterLoader, error) {
+	if numThreads <= 0 {
+		return nil, errors.New("numThreads must be a positive integer")
 	}
 
-	return loader
+	options, err := loadOptions(numThreads)
+	if err != nil {
+		return nil, err
+	}
+
+	loader := &InterpreterLoader{
+		newModelFromFile:   tflite.NewModelFromFile,
+		newInterpreter:     tflite.NewInterpreter,
+		interpreterOptions: options,
+	}
+
+	return loader, nil
+}
+
+// loadOptions function sets up tflite.InterpreterOptions based on thread count
+func loadOptions(numThreads int) (*tflite.InterpreterOptions, error) {
+	options := tflite.NewInterpreterOptions()
+	if options == nil {
+		return nil, errors.New("interpreter options failed to be created")
+	}
+
+	options.SetNumThread(numThreads)
+
+	options.SetErrorReporter(func(msg string, userData interface{}) {
+		log.Println(msg)
+	}, nil)
+
+	return options, nil
 }
 
 // Load returns the service a struct containing information of a tflite compatible interpreter
-func (l *InterpreterLoader) Load(modelPath string) (*TfliteObjects, error) {
+func (l *InterpreterLoader) Load(modelPath string) (*TfliteInterpreter, error) {
 	if err := l.validate(); err != nil {
 		return nil, err
 	}
@@ -64,81 +85,37 @@ func (l *InterpreterLoader) Load(modelPath string) (*TfliteObjects, error) {
 		return nil, errors.New("cannot load model")
 	}
 
-	options, err := l.newInterpreterOptions()
-	if err != nil {
-		return nil, err
+	interpreter := l.newInterpreter(model, l.interpreterOptions)
+	if interpreter == nil {
+		return nil, errors.New("cannot create interpreter")
 	}
 
-	options.SetNumThread(l.numThreads)
-
-	options.SetErrorReporter(func(msg string, userData interface{}) {
-		log.Println(msg)
-	}, nil)
-
-	interpreter, err := l.newInterpreter(model, options)
-	if err != nil {
-		return nil, err
-	}
-
-	tfliteObjs := TfliteObjects{
+	tfliteObjs := TfliteInterpreter{
 		Interpreter: interpreter,
 		model:       model,
-		Options:     options,
+		options:     l.interpreterOptions,
 	}
 
 	return &tfliteObjs, nil
 }
 
-// getInterpreterOptions returns a TfliteInterpreterOptions
-func getInterpreterOptions() (tfliteInterpreterOptions, error) {
-	options := tflite.NewInterpreterOptions()
-	if options == nil {
-		return nil, errors.New("no interpreter options")
-	}
-
-	return options, nil
-}
-
-// Validate if this InterpreterLoader is valid.
+// validate if this InterpreterLoader is valid.
 func (l *InterpreterLoader) validate() error {
 	if l.newModelFromFile == nil {
 		return errors.New("need a new model function")
-	}
-
-	if l.newInterpreterOptions == nil {
-		return errors.New("need a new interpreter options function")
 	}
 
 	if l.newInterpreter == nil {
 		return errors.New("need a new interpreter function")
 	}
 
-	if l.numThreads <= 0 {
-		return errors.New("NumThreads must be a positive integer")
-	}
-
 	return nil
 }
 
-// getInterpreter returns a tflite.Interpreter
-func getInterpreter(model *tflite.Model, options tfliteInterpreterOptions) (*tflite.Interpreter, error) {
-	tfliteOptions, ok := options.(*tflite.InterpreterOptions)
-	if !ok {
-		return nil, errors.New("not a tflite.InterpreterOptions")
-	}
-
-	interpreter := tflite.NewInterpreter(model, tfliteOptions)
-	if interpreter == nil {
-		return nil, errors.New("cannot create interpreter")
-		// return nil, errors.Errorf("cannot create interpreter %v", interpreter)
-	}
-	return interpreter, nil
-}
-
 // Delete should be called at the end of using the interpreter to delete the instance and related parts
-func (i *TfliteObjects) Delete() error {
-	i.model.Delete()
-	i.Options.Delete()
-	i.Interpreter.Delete()
+func (t *TfliteInterpreter) Delete() error {
+	t.model.Delete()
+	t.options.Delete()
+	t.Interpreter.Delete()
 	return nil
 }
