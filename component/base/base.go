@@ -9,6 +9,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -165,6 +166,16 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 	}
 	r.actual = actual.actual
 	return nil
+}
+
+func (r *reconfigurableBase) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
+	obj, canUpdate := r.actual.(interface {
+		ShouldUpdate(config *config.Component) robot.ShouldUpdateAction
+	})
+	if canUpdate {
+		return obj.ShouldUpdate(c)
+	}
+	return robot.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.

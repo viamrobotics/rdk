@@ -102,3 +102,8 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 func (a *Arm) Close() {
 	a.CloseCount++
 }
+
+// ShouldUpdate returns how the arm should be reconfigured.
+func (a *Arm) ShouldUpdate(config *config.Component) robot.ShouldUpdateAction {
+	return robot.Reconfigure
+}

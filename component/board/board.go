@@ -12,6 +12,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/registry"
@@ -386,6 +387,17 @@ func (r *reconfigurableBoard) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return viamutils.TryClose(ctx, r.actual)
+}
+
+// ShouldUpdate returns how the board should be reconfigured.
+func (r *reconfigurableBoard) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
+	obj, canUpdate := r.actual.(interface {
+		ShouldUpdate(config *config.Component) robot.ShouldUpdateAction
+	})
+	if canUpdate {
+		return obj.ShouldUpdate(c)
+	}
+	return robot.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.

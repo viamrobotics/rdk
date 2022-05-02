@@ -29,7 +29,7 @@
       }
     },
     {
-      "model": "fake",
+      "model": "gpio",
       "name": "m1",
       "type": "motor",
       "depends_on" : ["board1"],
