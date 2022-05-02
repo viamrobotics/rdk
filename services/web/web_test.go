@@ -545,7 +545,7 @@ func TestWebWithStreams(t *testing.T) {
 			return robot.ResourceByName(name)
 		}
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start service
 	logger := golog.NewTestLogger(t)
@@ -581,6 +581,8 @@ func TestWebWithStreams(t *testing.T) {
 
 	// Do streams initialize?
 
+	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
+	cancel()
 	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
 }
 
