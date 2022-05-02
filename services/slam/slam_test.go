@@ -8,12 +8,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 func TestGeneralSLAMService(t *testing.T) {
@@ -44,7 +45,8 @@ func TestGeneralSLAMService(t *testing.T) {
 	cfgService.ConvertedAttributes = attrCfg
 
 	_, err = New(ctx, r, cfgService, logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("error with get camera for slam service: \"resource \\\"rdk:component:camera/%v\\\" not found\"", attrCfg.Sensors[0]))
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("error with get camera for slam service: \"resource \\\"rdk:component:camera/%v\\\" not found\"", attrCfg.Sensors[0]))
 
 	attrCfg = &AttrConfig{
 		Algorithm:        "cartographer",
@@ -59,9 +61,9 @@ func TestGeneralSLAMService(t *testing.T) {
 	slamSvc, err := New(ctx, r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ss, err := slamSvc.GetSLAMServiceData()
+	ss := slamSvc.GetSLAMServiceData()
 
-	//cam := &fake.Camera{}
+	// cam := &fake.Camera{}
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pointcloud.New(), nil
@@ -71,12 +73,9 @@ func TestGeneralSLAMService(t *testing.T) {
 	// err = ss.startDataProcess(ctx)
 	// ss.cancelCtx.Done()
 	// test.That(t, err, test.ShouldBeNil)
-
-	return
 }
 
 func TestConfigValidation(t *testing.T) {
-
 	// Validate Tests
 	cfg := &AttrConfig{Algorithm: "test_algo"}
 
@@ -117,41 +116,46 @@ func TestConfigValidation(t *testing.T) {
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	var test_slam_type = slamType{
+	testSlamType := slamType{
 		SupportedCameras: map[string][]string{"test_sensor": {"test1", "test2"}},
-		ModeFileType:     map[string]string{"2d": ".pcd", "3d": ".pcd"}}
+		ModeFileType:     map[string]string{"2d": ".pcd", "3d": ".pcd"},
+	}
 
-	var test_metadata = SLAMMetadata{
+	testMetadata := Metadata{
 		AlgoName: "test",
-		SlamType: test_slam_type,
+		SlamType: testSlamType,
 		SlamMode: map[string]bool{"test2": false},
 	}
 
-	slam_map["test"] = DenseSlamAlgo{SLAMMetadata: test_metadata}
+	slamLibraries["test"] = DenseSlamAlgo{Metadata: testMetadata}
 	cfg.Algorithm = "test"
 	cfg.Sensors = []string{"test_sensor"}
 	cfg.ConfigParams["mode"] = "test1"
 	err = RunTimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("invalid mode type (%v) specified in config params for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("invalid mode type (%v) specified in config params for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
 
 	cfg.ConfigParams["mode"] = "test2"
 	err = RunTimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("specified mode (%v) is not supported for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("specified mode (%v) is not supported for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
 
 	cfg.Algorithm = "cartographer"
 	cfg.Sensors = []string{"rplidar"}
 	cfg.ConfigParams["mode"] = "2d"
 
-	delete(slam_map, "test")
+	delete(slamLibraries, "test")
 
 	// Input File Pattern test
 	cfg.InputFilePattern = "dd:300:3"
 	err = RunTimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("input_file_pattern in config (%v) does not match the valid regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("input_file_pattern in config (%v) does not match the valid regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
 
 	cfg.InputFilePattern = "500:300:3"
 	err = RunTimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
 
 	// Directory test
 	cfg.DataDirectory = "/var/tmp/test_fail"
@@ -181,20 +185,19 @@ func TestConfigValidation(t *testing.T) {
 	// Sensor Mode test
 	cfg.ConfigParams["mode"] = "rgbd"
 	err = RunTimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("specified mode (%v) is not supported for camera [%v]", cfg.ConfigParams["mode"], cfg.Sensors[0]))
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("specified mode (%v) is not supported for camera [%v]", cfg.ConfigParams["mode"], cfg.Sensors[0]))
 
 	// Sensor test
 	cfg.Sensors = []string{"intelrealsense"}
 	err = RunTimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%v is not one of the valid sensors for valid sensor for %v", cfg.Sensors[0], cfg.Algorithm))
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("%v is not one of the valid sensors for valid sensor for %v", cfg.Sensors[0], cfg.Algorithm))
 
 	// Valid Algo
 	cfg.Algorithm = "wrong_algo"
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", cfg.Algorithm))
-
-	// ---- Note: Test GetMetadata()
-	return
 }
 
 func TestCartographerData(t *testing.T) {
@@ -220,7 +223,7 @@ func TestCartographerData(t *testing.T) {
 	slamSvc, err := New(ctx, r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ss, err := slamSvc.GetSLAMServiceData()
+	ss := slamSvc.GetSLAMServiceData()
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pointcloud.New(), nil
@@ -229,8 +232,6 @@ func TestCartographerData(t *testing.T) {
 
 	_ = ss.slamLib.GetAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	return
 }
 
 func TestOrbSLAMData(t *testing.T) {
@@ -256,7 +257,7 @@ func TestOrbSLAMData(t *testing.T) {
 	slamSvc, err := New(ctx, r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ss, err := slamSvc.GetSLAMServiceData()
+	ss := slamSvc.GetSLAMServiceData()
 
 	cam := &inject.Camera{}
 	cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -280,12 +281,9 @@ func TestOrbSLAMData(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.New("want image/both but don't have *rimage.ImageWithDepth"))
 
 	// TODO: image with depth test
-
-	return
 }
 
 func createFolderArchiecture(path string, validArch bool) error {
-
 	if err := os.Mkdir(path, os.ModePerm); err != nil {
 		return err
 	}
