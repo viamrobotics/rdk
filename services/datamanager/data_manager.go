@@ -318,6 +318,9 @@ func (svc *Service) checkStorage() {
 				}
 			}
 		}
+	}
+}
+
 func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
