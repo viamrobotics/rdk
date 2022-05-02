@@ -130,7 +130,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm float64, revolutions floa
 	case 1:
 		return m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, ticks, true)
 	case 2:
-		return m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, ticks, true)
+		return m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, ticks, true)
 	default:
 		panic("impossible")
 	}
