@@ -3,6 +3,7 @@ package slam
 import (
 	"context"
 	"image"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -92,15 +93,14 @@ func TestConfigValidation(t *testing.T) {
 		Algorithm:        "cartographer",
 		Sensors:          []string{"rplidar"},
 		ConfigParams:     map[string]string{"mode": "2d"},
-		DataDirectory:    "/var/tmp/test",
+		DataDirectory:    "/tmp",
 		InputFilePattern: "100:300:5",
 	}
 
-	err = resetFolder(cfg.DataDirectory)
+	name1, err := createFolderArchiecture(cfg.DataDirectory, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = createFolderArchiecture(cfg.DataDirectory, true)
-	test.That(t, err, test.ShouldBeNil)
+	cfg.DataDirectory = name1
 
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -160,11 +160,10 @@ func TestConfigValidation(t *testing.T) {
 	// Directory test
 	cfg.DataDirectory = "/var/tmp/test_fail"
 
-	err = resetFolder(cfg.DataDirectory)
+	name2, err := createFolderArchiecture(cfg.DataDirectory, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = createFolderArchiecture(cfg.DataDirectory, false)
-	test.That(t, err, test.ShouldBeNil)
+	cfg.DataDirectory = name2
 
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("no data folder was found in [%v]", cfg.DataDirectory))
@@ -198,6 +197,12 @@ func TestConfigValidation(t *testing.T) {
 	cfg.Algorithm = "wrong_algo"
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", cfg.Algorithm))
+
+	err = resetFolder(name1)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = resetFolder(name2)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestCartographerData(t *testing.T) {
@@ -283,23 +288,28 @@ func TestOrbSLAMData(t *testing.T) {
 	// TODO: image with depth test
 }
 
-func createFolderArchiecture(path string, validArch bool) error {
-	if err := os.Mkdir(path, os.ModePerm); err != nil {
-		return err
+func createFolderArchiecture(path string, validArch bool) (string, error) {
+	// if err := os.Mkdir(path, os.ModePerm); err != nil {
+	// 	return err
+	// }
+
+	name, err := ioutil.TempDir(path, "*")
+	if err != nil {
+		return "nil", err
 	}
 
 	if validArch {
-		if err := os.Mkdir(path+"/map", os.ModePerm); err != nil {
-			return err
+		if err := os.Mkdir(name+"/map", os.ModePerm); err != nil {
+			return "", err
 		}
-		if err := os.Mkdir(path+"/data", os.ModePerm); err != nil {
-			return err
+		if err := os.Mkdir(name+"/data", os.ModePerm); err != nil {
+			return "", err
 		}
-		if err := os.Mkdir(path+"/config", os.ModePerm); err != nil {
-			return err
+		if err := os.Mkdir(name+"/config", os.ModePerm); err != nil {
+			return "", err
 		}
 	}
-	return nil
+	return name, nil
 }
 
 func resetFolder(path string) error {
