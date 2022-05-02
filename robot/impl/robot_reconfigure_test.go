@@ -28,9 +28,9 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
-	"go.viam.com/rdk/services/objectsegmentation"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/web"
 	rdktestutils "go.viam.com/rdk/testutils"
 )
@@ -41,7 +41,7 @@ var serviceNames = []resource.Name{
 	status.Name,
 	datamanager.Name,
 	framesystem.Name,
-	objectsegmentation.Name,
+	vision.Name,
 	metadata.Name,
 }
 

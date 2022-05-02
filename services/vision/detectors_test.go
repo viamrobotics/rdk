@@ -1,4 +1,4 @@
-package objectdetection
+package vision
 
 import (
 	"context"
@@ -40,8 +40,8 @@ func TestDetectorMap(t *testing.T) {
 }
 
 func TestRegisterTFLiteDetector(t *testing.T) {
-	conf := &attributes{
-		Registry: []Config{
+	conf := &Attributes{
+		DetectorRegistry: []DetectorConfig{
 			{
 				Name:       "my_tflite_det",
 				Type:       "tflite",
@@ -55,8 +55,8 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 }
 
 func TestRegisterTensorFlowDetector(t *testing.T) {
-	conf := &attributes{
-		Registry: []Config{
+	conf := &Attributes{
+		DetectorRegistry: []DetectorConfig{
 			{
 				Name:       "my_tensorflow_det",
 				Type:       "tensorflow",
@@ -70,8 +70,8 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 }
 
 func TestRegisterColorDetector(t *testing.T) {
-	conf := &attributes{
-		Registry: []Config{
+	conf := &Attributes{
+		DetectorRegistry: []DetectorConfig{
 			{
 				Name: "my_color_det",
 				Type: "color",
@@ -90,14 +90,14 @@ func TestRegisterColorDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// error from bad config
-	conf.Registry[0].Parameters = nil
+	conf.DetectorRegistry[0].Parameters = nil
 	err = registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
 }
 
 func TestRegisterUnknownDetector(t *testing.T) {
-	conf := &attributes{
-		Registry: []Config{
+	conf := &Attributes{
+		DetectorRegistry: []DetectorConfig{
 			{
 				Name:       "my_random_det",
 				Type:       "not_real",
