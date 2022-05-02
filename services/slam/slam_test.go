@@ -36,11 +36,12 @@ func TestGeneralSLAMService(t *testing.T) {
 	_, err = New(ctx, r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	name1, err := createFolderArchiecture("/tmp", true)
 	attrCfg := &AttrConfig{
 		Algorithm:        "cartographer",
 		Sensors:          []string{"rplidar"},
 		ConfigParams:     map[string]string{"mode": "2d"},
-		DataDirectory:    "/var/tmp/test",
+		DataDirectory:    name1,
 		InputFilePattern: "100:300:5",
 	}
 	cfgService.ConvertedAttributes = attrCfg
@@ -53,7 +54,7 @@ func TestGeneralSLAMService(t *testing.T) {
 		Algorithm:        "cartographer",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "2d"},
-		DataDirectory:    "/var/tmp/test",
+		DataDirectory:    name1,
 		InputFilePattern: "100:300:5",
 		DataRateMs:       100,
 	}
@@ -74,6 +75,8 @@ func TestGeneralSLAMService(t *testing.T) {
 	// err = ss.startDataProcess(ctx)
 	// ss.cancelCtx.Done()
 	// test.That(t, err, test.ShouldBeNil)
+	err = resetFolder(name1)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestConfigValidation(t *testing.T) {
@@ -89,18 +92,16 @@ func TestConfigValidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Runtime Validation Tests
+	name1, err := createFolderArchiecture("/tmp", true)
+	test.That(t, err, test.ShouldBeNil)
+
 	cfg = &AttrConfig{
 		Algorithm:        "cartographer",
 		Sensors:          []string{"rplidar"},
 		ConfigParams:     map[string]string{"mode": "2d"},
-		DataDirectory:    "/tmp",
+		DataDirectory:    name1,
 		InputFilePattern: "100:300:5",
 	}
-
-	name1, err := createFolderArchiecture(cfg.DataDirectory, true)
-	test.That(t, err, test.ShouldBeNil)
-
-	cfg.DataDirectory = name1
 
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -158,9 +159,7 @@ func TestConfigValidation(t *testing.T) {
 		errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
 
 	// Directory test
-	cfg.DataDirectory = "/var/tmp/test_fail"
-
-	name2, err := createFolderArchiecture(cfg.DataDirectory, false)
+	name2, err := createFolderArchiecture("/tmp", false)
 	test.That(t, err, test.ShouldBeNil)
 
 	cfg.DataDirectory = name2
@@ -169,13 +168,13 @@ func TestConfigValidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.Errorf("no data folder was found in [%v]", cfg.DataDirectory))
 
 	// ---- Note: Test os.Stat / ioutil.ReadDir
-	err = os.Mkdir(cfg.DataDirectory+"/data", os.ModePerm)
+	err = os.Mkdir(name2+"/data", os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("no map folder was found in [%v]", cfg.DataDirectory))
 
-	err = os.Mkdir(cfg.DataDirectory+"/map", os.ModePerm)
+	err = os.Mkdir(name2+"/map", os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = RunTimeConfigValidation(cfg)
@@ -207,11 +206,15 @@ func TestConfigValidation(t *testing.T) {
 
 func TestCartographerData(t *testing.T) {
 	cfgService := config.Service{Name: "test", Type: "slam"}
+
+	name, err := createFolderArchiecture("/tmp", true)
+	test.That(t, err, test.ShouldBeNil)
+
 	attrCfg := &AttrConfig{
 		Algorithm:        "cartographer",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "2d"},
-		DataDirectory:    "/var/tmp/test",
+		DataDirectory:    name,
 		InputFilePattern: "100:300:5",
 		DataRateMs:       100,
 	}
@@ -237,15 +240,22 @@ func TestCartographerData(t *testing.T) {
 
 	_ = ss.slamLib.GetAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	err = resetFolder(name)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestOrbSLAMData(t *testing.T) {
 	cfgService := config.Service{Name: "test", Type: "slam"}
+
+	name, err := createFolderArchiecture("/tmp", true)
+	test.That(t, err, test.ShouldBeNil)
+
 	attrCfg := &AttrConfig{
 		Algorithm:        "orbslamv3",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "mono"},
-		DataDirectory:    "/var/tmp/test",
+		DataDirectory:    name,
 		InputFilePattern: "100:300:5",
 		DataRateMs:       100,
 	}
@@ -285,6 +295,8 @@ func TestOrbSLAMData(t *testing.T) {
 	err = ss.slamLib.GetAndSaveData(ss.cancelCtx, ss.camera, "rgbd", ss.dataDirectory, ss.logger)
 	test.That(t, err, test.ShouldBeError, errors.New("want image/both but don't have *rimage.ImageWithDepth"))
 
+	err = resetFolder(name)
+	test.That(t, err, test.ShouldBeNil)
 	// TODO: image with depth test
 }
 
