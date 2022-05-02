@@ -173,7 +173,7 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg DetectorConfig) er
 		return err
 	}
 	// also create a new segmenter from the detector
-	return vs.registerSegmenterFromDetector(detName)
+	return vs.registerSegmenterFromDetector(cfg.Name)
 }
 
 // GetDetections returns the detections of the next image from the given camera and the given detector.
