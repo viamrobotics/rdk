@@ -133,7 +133,7 @@ func TestConfigValidation(t *testing.T) {
 	cfg.ConfigParams["mode"] = "test1"
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("invalid mode type (%v) specified in config params for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
+		errors.Errorf("invalid mode (%v) specified for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
 
 	cfg.ConfigParams["mode"] = "test2"
 	err = RunTimeConfigValidation(cfg)
@@ -150,7 +150,7 @@ func TestConfigValidation(t *testing.T) {
 	cfg.InputFilePattern = "dd:300:3"
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("input_file_pattern in config (%v) does not match the valid regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
+		errors.Errorf("input_file_pattern (%v) does not match the regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
 
 	cfg.InputFilePattern = "500:300:3"
 	err = RunTimeConfigValidation(cfg)
