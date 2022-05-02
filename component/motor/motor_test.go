@@ -46,6 +46,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	m, err := motor.FromRobot(r, testMotorName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := m.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -174,7 +187,6 @@ func TestMotorName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "a5ec0320-f103-5dd8-b56c-e9f363fb792a",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: motor.SubtypeName,
@@ -186,7 +198,6 @@ func TestMotorName(t *testing.T) {
 			"all fields included",
 			testMotorName,
 			resource.Name{
-				UUID: "e0fbfb5f-147a-5e4d-b209-ca362547c8cf",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: motor.SubtypeName,
@@ -424,6 +435,10 @@ func (m *mock) IsPowered(ctx context.Context) (bool, error) {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
 
 type mockLocal struct {
 	mock

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -43,7 +44,7 @@ func init() {
 			return newJoinPointCloudSource(r, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "join_pointclouds",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_pointclouds",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf JoinAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
@@ -69,6 +70,7 @@ type JoinAttrs struct {
 // the point of view of targetName. The model needs to have the entire robot available in order to build the correct offsets
 // between robot components for the frame system transform.
 type joinPointCloudSource struct {
+	generic.Unimplemented
 	sourceCameras []camera.Camera
 	sourceNames   []string
 	targetName    string
@@ -105,7 +107,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
-	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot)
+	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +212,8 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 // initalizeInputs gets all the input positions for the robot components in order to calculate the frame system offsets.
 func (jpcs *joinPointCloudSource) initializeInputs(
 	ctx context.Context,
-	fs referenceframe.FrameSystem) (map[string][]referenceframe.Input, error) {
+	fs referenceframe.FrameSystem,
+) (map[string][]referenceframe.Input, error) {
 	inputs := referenceframe.StartPositions(fs)
 
 	for k, original := range inputs {

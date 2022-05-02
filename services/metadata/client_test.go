@@ -25,7 +25,6 @@ var (
 	clientNewResource         = arm.Named("")
 	clientOneResourceResponse = []resource.Name{protoutils.ResourceNameFromProto(
 		&commonpb.ResourceName{
-			Uuid:      clientNewResource.UUID,
 			Namespace: string(clientNewResource.Namespace),
 			Type:      string(clientNewResource.ResourceType),
 			Subtype:   string(clientNewResource.ResourceSubtype),

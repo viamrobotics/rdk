@@ -36,7 +36,7 @@ func init() {
 			return NewWebcamSource(attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "webcam",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "webcam",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {

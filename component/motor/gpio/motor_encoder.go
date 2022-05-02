@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
@@ -187,6 +188,7 @@ type EncodedMotor struct {
 	cancelCtx       context.Context
 	cancel          func()
 	loop            *control.ControlLoop
+	generic.Unimplemented
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.

@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -40,7 +39,7 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeCamera,
+		camera.SubtypeName,
 		"color_detector",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
@@ -109,28 +108,17 @@ func newColorDetector(src camera.Camera, attrs *colorDetectorAttrs) (camera.Came
 	if attrs.Tolerance != 0. {
 		tolerance = attrs.Tolerance
 	}
-	col := rimage.Pink // default value
-	detectColor, err := attrs.DetectColor()
-	if err != nil {
-		return nil, err
+	detCfg := &objectdetection.ColorDetectorConfig{
+		SegmentSize:       attrs.SegmentSize,
+		Tolerance:         tolerance,
+		DetectColorString: attrs.DetectColorString,
 	}
-	if len(detectColor) != 0 {
-		col = rimage.NewColor(detectColor[0], detectColor[1], detectColor[2])
-	}
-	hue, _, _ := col.HsvNormal()
-	d, err := objectdetection.NewColorDetector(tolerance, hue)
+	d, err := objectdetection.NewColorDetector(detCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	// define the filter
-	segmentSize := 5000 // default value
-	if attrs.SegmentSize != 0 {
-		segmentSize = attrs.SegmentSize
-	}
-	f := objectdetection.NewAreaFilter(segmentSize)
-
-	det, err := objectdetection.Build(p, d, f)
+	det, err := objectdetection.Build(p, d, nil)
 	if err != nil {
 		return nil, err
 	}
