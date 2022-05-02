@@ -36,7 +36,9 @@ func TestGeneralSLAMService(t *testing.T) {
 	_, err = New(ctx, r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	name1, err := createFolderArchiecture("/tmp", true)
+	name1, err := createTempFolderArchiecture(true)
+	test.That(t, err, test.ShouldBeNil)
+
 	attrCfg := &AttrConfig{
 		Algorithm:        "cartographer",
 		Sensors:          []string{"rplidar"},
@@ -92,7 +94,7 @@ func TestConfigValidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Runtime Validation Tests
-	name1, err := createFolderArchiecture("/tmp", true)
+	name1, err := createTempFolderArchiecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	cfg = &AttrConfig{
@@ -158,8 +160,11 @@ func TestConfigValidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
 
+	err = resetFolder(name1)
+	test.That(t, err, test.ShouldBeNil)
+
 	// Directory test
-	name2, err := createFolderArchiecture("/tmp", false)
+	name2, err := createTempFolderArchiecture(false)
 	test.That(t, err, test.ShouldBeNil)
 
 	cfg.DataDirectory = name2
@@ -197,9 +202,6 @@ func TestConfigValidation(t *testing.T) {
 	err = RunTimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", cfg.Algorithm))
 
-	err = resetFolder(name1)
-	test.That(t, err, test.ShouldBeNil)
-
 	err = resetFolder(name2)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -207,7 +209,7 @@ func TestConfigValidation(t *testing.T) {
 func TestCartographerData(t *testing.T) {
 	cfgService := config.Service{Name: "test", Type: "slam"}
 
-	name, err := createFolderArchiecture("/tmp", true)
+	name, err := createTempFolderArchiecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
@@ -248,7 +250,7 @@ func TestCartographerData(t *testing.T) {
 func TestOrbSLAMData(t *testing.T) {
 	cfgService := config.Service{Name: "test", Type: "slam"}
 
-	name, err := createFolderArchiecture("/tmp", true)
+	name, err := createTempFolderArchiecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
@@ -300,12 +302,8 @@ func TestOrbSLAMData(t *testing.T) {
 	// TODO: image with depth test
 }
 
-func createFolderArchiecture(path string, validArch bool) (string, error) {
-	// if err := os.Mkdir(path, os.ModePerm); err != nil {
-	// 	return err
-	// }
-
-	name, err := ioutil.TempDir(path, "*")
+func createTempFolderArchiecture(validArch bool) (string, error) {
+	name, err := ioutil.TempDir("/tmp", "*")
 	if err != nil {
 		return "nil", err
 	}
