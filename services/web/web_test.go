@@ -580,6 +580,8 @@ func TestWebWithStreams(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Do streams initialize?
+	// TODO: maybe we can start the stream and verify that Next is called on the
+	// underyinglying cameras.
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()
