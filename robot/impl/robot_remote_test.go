@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -155,7 +156,7 @@ func TestRemoteRobot(t *testing.T) {
 
 	injectRobot := setupInjectRobot(logger)
 
-	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false}
+	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false, &sync.Mutex{}, true, make(chan bool)}
 	robot := newRemoteRobot(
 		context.Background(),
 		wrapped,
@@ -453,10 +454,62 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, wrapped.Robot.Close(context.Background()), test.ShouldBeNil)
 }
 
+func TestRemoteRobotDisconnected(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	injectRobot := setupInjectRobot(logger)
+
+	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false, &sync.Mutex{}, true, make(chan bool)}
+	robot := newRemoteRobot(context.Background(), wrapped, config.Remote{Name: "one"})
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+	}()
+	test.That(t, len(robot.ResourceNames()), test.ShouldEqual, 16)
+	_, err := robot.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	wrapped.updateConnection(false)
+
+	test.That(t, len(robot.ResourceNames()), test.ShouldEqual, 0)
+	_, err = robot.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, errors.New("lost connection to remote robot \"one\""))
+}
+
+func TestRemoteRobotReconnected(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	injectRobot := setupInjectRobot(logger)
+
+	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false, &sync.Mutex{}, true, make(chan bool)}
+	robot := newRemoteRobot(
+		context.Background(),
+		wrapped,
+		config.Remote{
+			Name: "one",
+		},
+	)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+	}()
+	wrapped.updateConnection(false)
+	test.That(t, len(robot.ResourceNames()), test.ShouldEqual, 0)
+	_, err := robot.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, errors.New("lost connection to remote robot \"one\""))
+
+	wrapped.updateConnection(true)
+	test.That(t, len(robot.ResourceNames()), test.ShouldEqual, 16)
+	_, err = robot.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
 type dummyRemoteRobotWrapper struct {
 	robot.Robot
 	logger     golog.Logger
 	errRefresh bool
+
+	mu         *sync.Mutex
+	connected  bool
+	changeChan chan bool
 }
 
 func (w *dummyRemoteRobotWrapper) Refresh(ctx context.Context) error {
@@ -491,9 +544,22 @@ func (w *dummyRemoteRobotWrapper) Refresh(ctx context.Context) error {
 }
 
 func (w *dummyRemoteRobotWrapper) Connected() bool {
-	return true
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.connected
 }
 
 func (w *dummyRemoteRobotWrapper) Changed() <-chan bool {
-	return nil
+	if w.changeChan == nil {
+		w.changeChan = make(chan bool)
+	}
+	return w.changeChan
+}
+
+func (w *dummyRemoteRobotWrapper) updateConnection(connected bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.connected = connected
+	w.changeChan <- true
 }
