@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
@@ -28,7 +29,6 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/utils"
 )
 
@@ -40,7 +40,6 @@ var (
 		metadata.Name,
 		sensors.Name,
 		status.Name,
-		web.Name,
 		datamanager.Name,
 		framesystem.Name,
 		vision.Name,
@@ -55,6 +54,9 @@ type localRobot struct {
 	config     *config.Config
 	operations *operation.Manager
 	logger     golog.Logger
+
+	// robot-specific services
+	web web.Service
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -147,6 +149,18 @@ func newWithResources(
 		}
 		r.manager.addResource(name, svc)
 	}
+
+	// ethan TODO(RSDK-299): having to duplicate this for al the robot-specific services
+	// is a bit of a pain, and more importantly creates unwieldy code. Consider if we
+	// can have a "roboSvc" list similar to "defaultSvc" to avoid repetition
+	// robot-specific resources
+	newCfg := config.Service{Type: config.ServiceType(web.SubtypeName)}
+	webSvc, err := web.New(ctx, r, newCfg, logger)
+	if err != nil {
+		return nil, err
+	}
+	r.web = webSvc
+
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
@@ -254,6 +268,12 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 			}
 		}
 	}
+
+	err := r.web.Update(ctx, resources)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
