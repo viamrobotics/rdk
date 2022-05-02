@@ -1,4 +1,4 @@
-package objectdetection
+package vision
 
 import (
 	"github.com/pkg/errors"
@@ -10,7 +10,7 @@ import (
 
 // registerColorDetector parses the Parameter field from the config into ColorDetectorConfig,
 // creates the ColorDetector, and registers it to the detector map.
-func registerColorDetector(dm detectorMap, conf *Config) error {
+func registerColorDetector(dm detectorMap, conf *DetectorConfig) error {
 	if conf == nil {
 		return errors.New("object detection config for color detector cannot be nil")
 	}
