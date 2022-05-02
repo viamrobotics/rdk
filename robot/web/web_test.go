@@ -22,7 +22,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )

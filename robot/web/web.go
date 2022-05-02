@@ -224,6 +224,7 @@ var defaultStreamConfig = x264.DefaultStreamConfig
 type Service interface {
 	// Start starts the web server
 	Start(context.Context, Options) error
+	Update(context.Context, map[resource.Name]interface{}) error
 }
 
 // StreamServer manages streams and displays.

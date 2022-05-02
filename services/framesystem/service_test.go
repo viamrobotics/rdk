@@ -18,8 +18,8 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )

@@ -31,12 +31,10 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/services/web"
 	rdktestutils "go.viam.com/rdk/testutils"
 )
 
 var serviceNames = []resource.Name{
-	web.Name,
 	sensors.Name,
 	status.Name,
 	datamanager.Name,

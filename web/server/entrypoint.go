@@ -26,7 +26,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rlog"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/robot/web"
 )
 
 type wrappedLogger struct {
