@@ -1,15 +1,16 @@
 package calibrate
 
 import (
-	"errors"
 	"image"
 	"image/draw"
 	"math"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 
 	"github.com/montanaflynn/stats"
+	"github.com/pkg/errors"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/math/fixed"
@@ -23,6 +24,10 @@ type Corner struct {
 	Y float64
 	R float64 // Cornerness
 }
+
+// harrisK is the constant empirically selected in Harris corner detection to relate
+// the determinant to the trace of the matrix of products.
+const harrisK = 0.04
 
 // NewCorner creates a new corner without a value for R.
 func NewCorner(x, y float64) Corner {
@@ -48,28 +53,38 @@ func NormalizeCorners(corners []Corner) []Corner {
 	if len(corners) <= 1 {
 		return corners
 	}
-	var xSlice, ySlice []float64
+	xSlice := make([]float64, 0, len(corners))
+	ySlice := make([]float64, 0, len(corners))
 	for _, c := range corners {
 		xSlice = append(xSlice, c.X)
 		ySlice = append(ySlice, c.Y)
 	}
 
 	xMean, err := stats.Mean(xSlice)
-	yMean, err2 := stats.Mean(ySlice)
-	sdX, err3 := stats.StandardDeviation(xSlice)
-	sdY, err4 := stats.StandardDeviation(xSlice)
-
-	if (err != nil) || (err2 != nil) || (err3 != nil) || (err4 != nil) {
-		return nil
+	if err != nil {
+		panic(err)
+	}
+	yMean, err := stats.Mean(ySlice)
+	if err != nil {
+		panic(err)
+	}
+	sdX, err := stats.StandardDeviation(xSlice)
+	if err != nil {
+		panic(err)
+	}
+	sdY, err := stats.StandardDeviation(xSlice)
+	if err != nil {
+		panic(err)
 	}
 
-	var newXSlice, newYSlice []float64
+	newXSlice := make([]float64, 0, len(xSlice))
+	newYSlice := make([]float64, 0, len(ySlice))
 	for i := range xSlice {
 		newXSlice = append(newXSlice, (xSlice[i]-xMean)/sdX)
 		newYSlice = append(newYSlice, (ySlice[i]-yMean)/sdY)
 	}
 
-	var out []Corner
+	out := make([]Corner, 0, len(corners))
 	for i := range corners {
 		cor := NewCornerWithR(newXSlice[i], newYSlice[i], corners[i].R)
 		out = append(out, cor)
@@ -91,35 +106,38 @@ func contains(s []Corner, c Corner) (bool, int) {
 // corner detection, producing an exhaustive list of corners. The size of the window will be (w*w)
 // and the multiplicative value of the window will always be = 1.
 func getCornerList(xGrad, yGrad *image.Gray, w int) ([]Corner, error) {
-	XX, err := MultiplyGrays(xGrad, xGrad)
-	XY, err2 := MultiplyGrays(xGrad, yGrad)
-	YY, err3 := MultiplyGrays(yGrad, yGrad)
-
+	XX, err := rimage.MultiplyGrays(xGrad, xGrad)
 	if err != nil {
 		return nil, err
 	}
-	if err2 != nil {
-		return nil, err2
+	XY, err := rimage.MultiplyGrays(xGrad, yGrad)
+	if err != nil {
+		return nil, err
 	}
-	if err3 != nil {
-		return nil, err3
+	YY, err := rimage.MultiplyGrays(yGrad, yGrad)
+	if err != nil {
+		return nil, err
 	}
 
 	list := make([]Corner, 0, XX.Bounds().Max.X*XX.Bounds().Max.Y)
-	if !sameImgSize(XX, XY) || !sameImgSize(XY, YY) {
-		err := errors.New("these images aren't the same size")
-		return list, err
+	if !rimage.SameImgSize(XX, XY) {
+		return nil, errors.Errorf("these images aren't the same size (%d %d) != (%d %d)",
+			XX.Bounds().Max.X, XX.Bounds().Max.Y, XY.Bounds().Max.X, XY.Bounds().Max.Y)
+	}
+	if !rimage.SameImgSize(XY, YY) {
+		return nil, errors.Errorf("these images aren't the same size (%d %d) != (%d %d)",
+			XY.Bounds().Max.X, XY.Bounds().Max.Y, YY.Bounds().Max.X, YY.Bounds().Max.Y)
 	}
 
 	for y := XX.Bounds().Min.Y + (w / 2); y < XX.Bounds().Max.Y-(w/2); y++ {
 		for x := XX.Bounds().Min.X + (w / 2); x < XX.Bounds().Max.X-(w/2); x++ {
 			rect := image.Rect(x-(w/2), y-(w/2), x+(w/2), y+(w/2))
-			sumXX, sumXY, sumYY := GetSum(XX.SubImage(rect).(*image.Gray16)),
-				GetSum(XY.SubImage(rect).(*image.Gray16)), GetSum(YY.SubImage(rect).(*image.Gray16))
+			sumXX, sumXY, sumYY := rimage.GetGraySum(XX.SubImage(rect).(*image.Gray16)),
+				rimage.GetGraySum(XY.SubImage(rect).(*image.Gray16)), rimage.GetGraySum(YY.SubImage(rect).(*image.Gray16))
 
 			detM := float64((sumXX * sumYY) - (sumXY * sumXY))
 			traceM := float64(sumXX + sumYY)
-			R := detM - (0.04 * traceM * traceM) // k=0.04 is a standard value
+			R := detM - (harrisK * traceM * traceM) // k=0.04 is a standard value
 			list = append(list, Corner{float64(x), float64(y), R})
 		}
 	}
@@ -141,52 +159,36 @@ func threshCornerList(list []Corner, t float64) []Corner {
 // SortCornerListByR takes a list of corners and bubble sorts them such that the highest
 // R value (most corner-y) is first and the lowest R value is last.
 func SortCornerListByR(list []Corner) []Corner {
-	for i := 0; i < len(list); i++ {
-		for j := 0; j < len(list)-i-1; j++ {
-			if list[j].R < list[j+1].R {
-				list[j], list[j+1] = list[j+1], list[j]
-			}
-		}
-	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].R > list[j].R
+	})
 	return list
 }
 
 // SortCornerListByX takes a list of corners and bubble sorts them such that the lowest value of x
 // (leftmost) is first and the highest is last.
 func SortCornerListByX(list []Corner) []Corner {
-	for i := 0; i < len(list); i++ {
-		for j := 0; j < len(list)-i-1; j++ {
-			if list[j].X > list[j+1].X {
-				list[j], list[j+1] = list[j+1], list[j]
-			}
-		}
-	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].X < list[j].X
+	})
 	return list
 }
 
 // SortCornerListByY takes a list of corners and bubble sorts them such that the lowest value of y
 // (topmost) is first and the highest is last.
 func SortCornerListByY(list []Corner) []Corner {
-	for i := 0; i < len(list); i++ {
-		for j := 0; j < len(list)-i-1; j++ {
-			if list[j].Y > list[j+1].Y {
-				list[j], list[j+1] = list[j+1], list[j]
-			}
-		}
-	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Y < list[j].Y
+	})
 	return list
 }
 
 // SortCornerListByXY takes a list of corners and bubble sorts them such that the lowest value of x+y
 // (topleftmost) is first and the highest is last.
 func SortCornerListByXY(list []Corner) []Corner {
-	for i := 0; i < len(list); i++ {
-		for j := 0; j < len(list)-i-1; j++ {
-			if list[j].X+list[j].Y > list[j+1].X+list[j+1].Y {
-				list[j], list[j+1] = list[j+1], list[j]
-			}
-		}
-	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].X+list[i].Y < list[j].X+list[j].Y
+	})
 	return list
 }
 
@@ -194,8 +196,7 @@ func SortCornerListByXY(list []Corner) []Corner {
 // non-maximally suppressed (spaced out, choosing the max) using dist (in pixels).
 func topNCorners(list []Corner, n int, dist float64) ([]Corner, error) {
 	if n <= 0 {
-		err := errors.New("n must be a positive integer")
-		return list, err
+		return nil, errors.Errorf("n must be a positive integer, got %d", n)
 	}
 
 	out, save, dontadd := make([]Corner, 0, n), make([]Corner, 0, len(list)), make([]Corner, 0, len(list))
@@ -227,35 +228,43 @@ func topNCorners(list []Corner, n int, dist float64) ([]Corner, error) {
 	return out, nil
 }
 
-// getCornersFromPic returns a list of corners (of length N) found in the input image using Harris
-// corner detection with window size = window.
-func getCornersFromPic(pic *rimage.Image, window int, n int) []Corner {
-	gray := MakeGray(pic)
+// getCornersFromPic returns a list of corners (of length n) found in the input image using Harris
+// corner detection with window size = window. Input thresh sets a threshold for what is considered a
+// corner (empirically ~1000) and spacing sets a min limit for how close output corners can be.
+func getCornersFromPic(pic *rimage.Image, window, n int, thresh, spacing float64) ([]Corner, error) {
+	gray := rimage.MakeGray(pic)
 
 	// Now we're gonna use a Sobel kernel (starting at (1,1) cuz it's a 3x3) to make
 	// a gradient image in both x and y so we can see what those look like
 	xker := rimage.GetSobelX()
 	yker := rimage.GetSobelY()
 	colGradX, err := rimage.ConvolveGray(gray, &xker, image.Point{1, 1}, rimage.BorderReplicate)
-	colGradY, err2 := rimage.ConvolveGray(gray, &yker, image.Point{1, 1}, rimage.BorderReplicate)
+	if err != nil {
+		return nil, err
+	}
+	colGradY, err := rimage.ConvolveGray(gray, &yker, image.Point{1, 1}, rimage.BorderReplicate)
+	if err != nil {
+		return nil, err
+	}
 
 	// Calculate potential Harris corners and whittle them down
-	list, err3 := getCornerList(colGradX, colGradY, window)
-	newlist := threshCornerList(list, 1000)      // 1000 is an empirically selected threshold
-	finlist, err4 := topNCorners(newlist, n, 10) // 10 pixels away from each other
-
-	if (err != nil) || (err2 != nil) || (err3 != nil) || (err4 != nil) {
-		return nil
+	list, err := getCornerList(colGradX, colGradY, window)
+	if err != nil {
+		return nil, err
 	}
-	return finlist
+	newlist := threshCornerList(list, thresh)
+	finlist, err := topNCorners(newlist, n, spacing)
+	if err != nil {
+		return nil, err
+	}
+
+	return finlist, nil
 }
 
-// addCornersToPic takes the existing corners in list and draws "color"" pixels on them on
-// top of the image pic. Then, it saves the resulting image to the location at loc
-// CURRENTLY WILL CAUSE AN ERROR IF THERES A CORNER TOO CLOSE TO EDGE (FIX?)
-func addCornersToPic(list []Corner, pic *rimage.Image, color rimage.Color, loc string) {
-	// paintin := rimage.NewColor(255,0,0) //hopefully red or at least noticeable
-	radius := 3.0
+// addCornersToPic takes the existing corners in list and draws a "color" dot of radius "radius" on top
+// of the corners on top of the image pic. Then, it saves the resulting image to the location at loc
+// TODO(kj): CURRENTLY WILL CAUSE AN ERROR IF THERES A CORNER TOO CLOSE TO EDGE (FIX?)
+func addCornersToPic(list []Corner, pic *rimage.Image, color rimage.Color, radius float64, loc string) error {
 	for _, l := range list {
 		for x := -radius; x < radius; x++ {
 			for y := -radius; y < radius; y++ {
@@ -263,16 +272,15 @@ func addCornersToPic(list []Corner, pic *rimage.Image, color rimage.Color, loc s
 			}
 		}
 	}
-	if _, err := SaveImage(pic, loc); err != nil {
-		return
+	if err := rimage.SaveImage(pic, loc); err != nil {
+		return err
 	}
+	return nil
 }
 
 // AddNumbersToPic takes the input image and corner list and overlays numbers on the image
 // that correspond to the index of the corner in the list.
-func addNumbersToPic(list []Corner, pic image.Image, color rimage.Color, loc string) {
-	// paintin := rimage.NewColor(255,0,0) //hopefully red or at least noticeable
-	// radius := 3.0
+func addNumbersToPic(list []Corner, pic image.Image, color rimage.Color, loc string) error {
 	b := pic.Bounds()
 	m := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(m, m.Bounds(), pic, b.Min, draw.Src)
@@ -289,9 +297,10 @@ func addNumbersToPic(list []Corner, pic image.Image, color rimage.Color, loc str
 		}
 		d.DrawString(strconv.Itoa(i))
 	}
-	if _, err := SaveImage2(m, loc); err != nil {
-		return
+	if err := rimage.SaveImage(m, loc); err != nil {
+		return err
 	}
+	return nil
 }
 
 // GetAndShowCorners is the outward facing function that reads in an image from inloc, puts a
@@ -301,8 +310,15 @@ func GetAndShowCorners(inloc, outloc string, n int) ([]Corner, error) {
 	if err != nil {
 		return nil, err
 	}
-	corList := getCornersFromPic(img, 9, n)
-	addCornersToPic(corList, img, rimage.NewColor(0, 0, 255), outloc)
+	corList, err := getCornersFromPic(img, 9, n, 1000, 10)
+	if err != nil {
+		return nil, err
+	}
+
+	err = addCornersToPic(corList, img, rimage.NewColor(0, 0, 255), 3, outloc)
+	if err != nil {
+		return nil, err
+	}
 	pick8, err := pickNRandomCorners(corList, n) // pick N corners
 	if err != nil {
 		return nil, err
@@ -313,14 +329,20 @@ func GetAndShowCorners(inloc, outloc string, n int) ([]Corner, error) {
 		return nil, err
 	}
 
-	defer f.Close() // nolint:errcheck, gosec
+	defer func() { // nolint:gosec
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
 	img2, _, err2 := image.Decode(f)
 	if err2 != nil {
 		return nil, err
 	}
-
-	addNumbersToPic(pick8, img2, rimage.NewColor(0, 255, 255), outloc)
-
+	err = addNumbersToPic(pick8, img2, rimage.NewColor(0, 255, 255), outloc)
+	if err != nil {
+		return nil, err
+	}
 	return pick8, nil
 }
 
@@ -328,13 +350,13 @@ func GetAndShowCorners(inloc, outloc string, n int) ([]Corner, error) {
 // the output list will have len = N. Otherwise the list will remain unchanged.
 func pickNRandomCorners(list []Corner, n int) ([]Corner, error) {
 	if len(list) < n {
-		return list, errors.New("need a long enough input list (>4)")
+		return list, errors.Errorf("need a long enough input list (>4), got %d", len(list))
 	}
 	if len(list) >= n {
 		return list, nil
 	}
-	// rand.Seed(time.Now().UnixNano())
-	rand.Seed(60387)
+
+	rand.Seed(60387) // Deterministic seed for consistency. Once world points are added, these remain corresponding
 	rand.Shuffle(len(list), func(i, j int) { list[i], list[j] = list[j], list[i] })
 
 	return list[:n], nil
