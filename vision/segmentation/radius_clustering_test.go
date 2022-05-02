@@ -54,6 +54,18 @@ func TestPixelSegmentation(t *testing.T) {
 	segments, err := segmentation.RadiusClustering(context.Background(), injectCamera, objConfig)
 	test.That(t, err, test.ShouldBeNil)
 	testSegmentation(t, segments)
+	// do segmentation with no mean k filtering
+	objConfig = config.AttributeMap{
+		"min_points_in_plane":   50000,
+		"min_points_in_segment": 500,
+		"clustering_radius_mm":  10.0,
+		"mean_k_filtering":      -1.,
+		"extra_uneeded_param":   4444,
+		"another_extra_one":     "hey",
+	}
+	segments, err = segmentation.RadiusClustering(context.Background(), injectCamera, objConfig)
+	test.That(t, err, test.ShouldBeNil)
+	testSegmentation(t, segments)
 }
 
 func testSegmentation(t *testing.T, segments []*vision.Object) {
