@@ -3,7 +3,6 @@ package slam
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -210,7 +209,7 @@ type slamService struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  golog.Logger
-	activeBackgroundWorkers sync.WaitGroup
+	activeBackgroundWorkers *sync.WaitGroup
 }
 
 // New returns a new slam service for the given robot.
@@ -305,9 +304,7 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 	goutils.PanicCapturingGo(func() {
 		defer slamSvc.activeBackgroundWorkers.Done()
 
-		i := 0
 		for {
-			fmt.Println(i)
 			select {
 			case <-slamSvc.cancelCtx.Done():
 				return
@@ -323,11 +320,9 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 			}
 
 			// Get data from desired camera
-			fmt.Println("HI")
 			if err := slamSvc.slamLib.GetAndSaveData(slamSvc.cancelCtx, slamSvc.camera, slamSvc.slamMode, slamSvc.dataDirectory, slamSvc.logger); err != nil {
 				panic(err)
 			}
-			i = i + 1
 
 		}
 	})
