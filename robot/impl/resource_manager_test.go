@@ -1398,6 +1398,7 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
+	cloned := manager.Clone()
 	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
 		Components: []config.Component{
 			{
@@ -1478,6 +1479,8 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet("2"),
 	)
+
+	manager = cloned.Clone()
 
 	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
 		Remotes: []config.Remote{
@@ -1596,6 +1599,8 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet("2"),
 	)
+
+	manager = cloned.Clone()
 
 	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
 		Remotes: []config.Remote{

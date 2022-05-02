@@ -3,11 +3,17 @@ package robotimpl
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 )
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
@@ -47,9 +53,73 @@ type draftRobot struct {
 
 	// additions and removals consist of modifications as well since we treat
 	// any modification as a removal to commit and an addition to rollback.
-	additions     *resourceManager
-	modifications *resourceManager
-	removals      *resourceManager
+	leftovers PartsMergeResult
+	removals  *resourceManager
+}
+
+func (draft *draftRobot) RemoteByName(name string) (robot.Robot, bool) {
+	return draft.original.RemoteByName(name)
+}
+
+// ResourceByName returns a resource by name.
+func (draft *draftRobot) ResourceByName(name resource.Name) (interface{}, error) {
+	iface, err := draft.manager.ResourceByName(name)
+	if err != nil {
+		return draft.original.ResourceByName(name)
+	}
+
+	return iface, nil
+}
+
+// RemoteNames returns the name of all known remote robots.
+func (draft *draftRobot) RemoteNames() []string {
+	return draft.original.RemoteNames()
+}
+
+// ResourceNames returns a list of all known resource namesR.
+func (draft *draftRobot) ResourceNames() []resource.Name {
+	return draft.original.ResourceNames()
+}
+
+// ProcessManager returns the process manager for the robot.
+func (draft *draftRobot) ProcessManager() pexec.ProcessManager {
+	return draft.original.ProcessManager()
+}
+
+// OperationManager returns the operation manager the robot is using.
+func (draft *draftRobot) OperationManager() *operation.Manager {
+	return draft.original.OperationManager()
+}
+
+// Logger returns the logger the robot is using.
+func (draft *draftRobot) Logger() golog.Logger {
+	return draft.original.Logger()
+}
+
+// Close attempts to cleanly close down all constituent parts of the robot.
+func (draft *draftRobot) Close(ctx context.Context) error {
+	return draft.original.Close(ctx)
+}
+
+func (draft *draftRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
+	return draft.original.newService(ctx, config)
+}
+
+func (draft *draftRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
+	rName := config.ResourceName()
+	f := registry.ComponentLookup(rName.Subtype, config.Model)
+	if f == nil {
+		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
+	}
+	newResource, err := f.Constructor(ctx, draft, config, draft.original.logger)
+	if err != nil {
+		return nil, err
+	}
+	c := registry.ResourceSubtypeLookup(rName.Subtype)
+	if c == nil || c.Reconfigurable == nil {
+		return newResource, nil
+	}
+	return c.Reconfigurable(newResource)
 }
 
 // newDraftRobot returns a new draft of a robot based on the given
@@ -57,27 +127,42 @@ type draftRobot struct {
 // should look like.
 func newDraftRobot(r *localRobot, diff *config.Diff) *draftRobot {
 	return &draftRobot{
-		original:      r,
-		diff:          diff,
-		manager:       r.manager.Clone(),
-		additions:     newResourceManager(r.manager.opts, r.logger),
-		modifications: newResourceManager(r.manager.opts, r.logger),
-		removals:      newResourceManager(r.manager.opts, r.logger),
+		original: r,
+		diff:     diff,
+		manager:  r.manager.Clone(),
+		removals: newResourceManager(r.manager.opts, r.logger),
 	}
 }
 
 // Rollback rolls back any intermediate changes made.
 func (draft *draftRobot) Rollback(ctx context.Context) error {
-	order := draft.additions.resources.TopologicalSort()
+	var allErrs error
+	order := draft.manager.resources.TopologicalSort()
 	for _, k := range order {
-		if _, ok := draft.manager.resources.Nodes[k]; !ok {
-			if err := utils.TryClose(ctx, draft.additions.resources.Nodes[k]); err != nil {
-				return err
+		if _, ok := draft.original.manager.resources.Nodes[k]; !ok {
+			if err := utils.TryClose(ctx, draft.manager.resources.Nodes[k]); err != nil {
+				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 			}
 		}
-		draft.additions.resources.Remove(k)
+		draft.manager.resources.Remove(k)
 	}
-	return draft.additions.Close(ctx)
+	for _, k := range draft.manager.processManager.ProcessIDs() {
+		if _, ok := draft.original.ProcessManager().ProcessByID(k); !ok {
+			if proc, ok := draft.manager.processManager.RemoveProcessByID(k); ok {
+				if err := proc.Stop(); err != nil {
+					allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing process"))
+				}
+			}
+		}
+	}
+	for k, x := range draft.manager.remotes {
+		if _, ok := draft.original.manager.remotes[k]; !ok {
+			if err := utils.TryClose(ctx, x); err != nil {
+				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
+			}
+		}
+	}
+	return nil
 }
 
 // ProcessAndCommit processes all changes in an all-or-nothing fashion
@@ -104,64 +189,52 @@ func (draft *draftRobot) ProcessAndCommit(ctx context.Context) (err error) {
 	return nil
 }
 
+func (draft *draftRobot) clearLeftovers(ctx context.Context) error {
+	var allErrs error
+	for _, p := range draft.leftovers.ReplacedProcesses {
+		allErrs = multierr.Combine(allErrs, p.Stop())
+	}
+	for _, x := range draft.leftovers.ReplacedRemotes {
+		if err := utils.TryClose(ctx, x); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
+		}
+	}
+	for _, x := range draft.leftovers.ReplacedServicesComponents {
+		if err := utils.TryClose(ctx, x); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resources"))
+		}
+	}
+	return allErrs
+}
+
 // Commit commits all changes and updates the original
 // robot in place.
 func (draft *draftRobot) Commit(ctx context.Context) error {
 	draft.original.mu.Lock()
 	defer draft.original.mu.Unlock()
-
-	addResult, err := draft.manager.MergeAdd(draft.additions)
-	if err != nil {
+	if err := draft.clearLeftovers(ctx); err != nil {
 		return err
-	}
-	modifyResult, err := draft.manager.MergeModify(ctx, draft.modifications, draft.diff)
-	if err != nil {
-		return err
-	}
-	draft.manager.MergeRemove(draft.removals)
-	draft.original.manager = draft.manager
-	draft.original.config = draft.diff.Right
-
-	if err := addResult.Process(ctx, draft.removals); err != nil {
-		draft.original.logger.Errorw("error processing add result but still committing changes", "error", err)
-	}
-	if err := modifyResult.Process(ctx, draft.removals); err != nil {
-		draft.original.logger.Errorw("error processing modify result but still committing changes", "error", err)
 	}
 	if err := draft.removals.Close(ctx); err != nil {
-		draft.original.logger.Errorw("error closing parts removed but still committing changes", "error", err)
+		return err
 	}
+	draft.original.manager = draft.manager
+	draft.original.config = draft.diff.Right
 	return nil
 }
 
 // Process processes all types changes into the draft robot.
 func (draft *draftRobot) Process(ctx context.Context) error {
-	// We specifically add, modify, and remove parts of the robot
-	// in order to provide the best chance of reconfiguration/compatibility.
-	// This assumes the addition/modification of parts does not cause
-	// any adverse effects before any removals.
-	draft.additions.resources = draft.manager.resources.Clone()
-	if err := draft.ProcessAddChanges(ctx); err != nil {
+	var err error
+	if err = draft.ProcessRemoveChanges(ctx); err != nil {
 		return err
 	}
-	draft.modifications.resources = draft.additions.resources.Clone()
-	if err := draft.ProcessModifyChanges(ctx); err != nil {
-		return err
-	}
-	if err := draft.ProcessRemoveChanges(ctx); err != nil {
+
+	draft.leftovers, err = draft.manager.UpdateConfig(ctx, draft.diff.Added, draft.diff.Modified, draft.original.logger, draft)
+	if err != nil {
 		return err
 	}
 	return nil
-}
-
-// ProcessAddChanges processes only additive changes.
-func (draft *draftRobot) ProcessAddChanges(ctx context.Context) error {
-	return draft.additions.processConfig(ctx, draft.diff.Added, draft.original, draft.original.logger)
-}
-
-// ProcessModifyChanges processes only modificative changes.
-func (draft *draftRobot) ProcessModifyChanges(ctx context.Context) error {
-	return draft.modifications.processModifiedConfig(ctx, draft.diff.Modified, draft.original, draft.original.logger)
 }
 
 // ProcessRemoveChanges processes only subtractive changes.

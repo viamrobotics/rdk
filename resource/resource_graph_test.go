@@ -122,8 +122,10 @@ func TestGetParentsAndChildren(t *testing.T) {
 		},
 		{
 			Name: NewName("namespace", "atype", "asubtype", "F"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A"),
-				NewName("namespace", "atype", "asubtype", "C")},
+			DependsOn: []Name{
+				NewName("namespace", "atype", "asubtype", "A"),
+				NewName("namespace", "atype", "asubtype", "C"),
+			},
 		},
 	}
 	g := NewGraph()
@@ -188,8 +190,10 @@ func TestGraphSubGraph(t *testing.T) {
 		},
 		{
 			Name: NewName("namespace", "atype", "asubtype", "F"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A"),
-				NewName("namespace", "atype", "asubtype", "C")},
+			DependsOn: []Name{
+				NewName("namespace", "atype", "asubtype", "A"),
+				NewName("namespace", "atype", "asubtype", "C"),
+			},
 		},
 	}
 	g := NewGraph()
@@ -203,7 +207,7 @@ func TestGraphSubGraph(t *testing.T) {
 	sg, err := g.SubGraphFrom(NewName("namespace", "atype", "asubtype", "W"))
 	test.That(t, sg, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
-		"cannot create subgraph from non existing node \"W\" ")
+		"cannot create sub-graph from non existing node \"W\" ")
 	sg, err = g.SubGraphFrom(NewName("namespace", "atype", "asubtype", "C"))
 	test.That(t, sg, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
@@ -704,25 +708,4 @@ func TestCopyNodeAndChildren(t *testing.T) {
 	test.That(t, newResourceNameSet(out[7]), test.ShouldResemble, newResourceNameSet([]Name{
 		NewName("namespace", "atype", "asubtype", "A"),
 	}...))
-}
-
-func debugTransClosPrint(m transitiveClosureMatrix) {
-	names := make([]Name, 0)
-	keys := make([]string, 0)
-	fmt.Print(" \t")
-	for k := range m {
-		names = append(names, k)
-		keys = append(keys, k.Name)
-	}
-	for _, k := range keys {
-		fmt.Printf("%s\t", k)
-	}
-	fmt.Print("\r\n")
-	for i, k := range keys {
-		fmt.Printf("%s\t", k)
-		for j := range keys {
-			fmt.Printf("%d\t", m[names[i]][names[j]])
-		}
-		fmt.Print("\r\n")
-	}
 }

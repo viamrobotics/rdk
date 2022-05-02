@@ -40,6 +40,18 @@ type Robot interface {
 	Close(ctx context.Context) error
 }
 
+// ShouldUpdateAction help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
+type ShouldUpdateAction int
+
+const (
+	// None Nothing happens the resource and its children will not be affected.
+	None ShouldUpdateAction = iota
+	// Reconfigure The resource will be reconfigured and its children will be destroyed and re-created.
+	Reconfigure
+	// Rebuild The resource will be rebuilt and ties children will be destroyed and re-created.
+	Rebuild
+)
+
 // A Refresher can refresh the contents of a robot.
 type Refresher interface {
 	// Refresh instructs the Robot to manually refresh the contents of itself.

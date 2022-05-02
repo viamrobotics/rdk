@@ -10,6 +10,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -198,6 +199,17 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	}
 	r.actual = actual.actual
 	return nil
+}
+
+// ShouldUpdate returns how the arm should be reconfigured.
+func (r *reconfigurableArm) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
+	obj, canUpdate := r.actual.(interface {
+		ShouldUpdate(config *config.Component) robot.ShouldUpdateAction
+	})
+	if canUpdate {
+		return obj.ShouldUpdate(c)
+	}
+	return robot.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.

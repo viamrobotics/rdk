@@ -78,6 +78,15 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 	return b, nil
 }
 
+// ShouldUpdate returns how the board should be reconfigured.
+func (b *Board) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
+	_, ok := c.ConvertedAttributes.(*board.Config)
+	if !ok {
+		return robot.Rebuild
+	}
+	return robot.Reconfigure
+}
+
 // A Board provides dummy data from fake parts in order to implement a Board.
 type Board struct {
 	Name     string
