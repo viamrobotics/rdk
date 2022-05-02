@@ -64,6 +64,10 @@ func TestClient(t *testing.T) {
 		names, err := client.GetDetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
+		// detector was turned into segmenter
+		segNames, err := client.GetSegmenterNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, segNames, test.ShouldContain, "detect_red")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
@@ -89,6 +93,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 		test.That(t, names, test.ShouldContain, "new_detector")
+		// segmenter should also be added
+		segNames, err := client.GetSegmenterNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, segNames, test.ShouldContain, "detect_red")
+		test.That(t, segNames, test.ShouldContain, "new_detector")
 		// failure - tries to add a detector again
 		err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "trying to register two detectors with the same name")
