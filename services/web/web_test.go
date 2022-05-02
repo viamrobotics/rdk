@@ -526,18 +526,22 @@ func TestWebWithStreams(t *testing.T) {
 		camera2Key = "camera2"
 	)
 
+	cam1 := &inject.Camera{}
+	cam2 := &inject.Camera{}
+
 	// Start a robot with a camera
 	// TODO: we can never add stream servers unless there is least one camera on the
 	// robot when the service starts! Make it so this is not the case.
 	robot := &inject.Robot{}
-	rs := map[resource.Name]interface{}{camera.Named(camera1Key): &inject.Camera{}}
+	rs := map[resource.Name]interface{}{camera.Named(camera1Key): cam1}
 	robot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named(camera1Key)}
 	}
 	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		if r, ok := rs[name]; ok {
-			return r, nil
-		} else {
+		switch name {
+		case camera.Named(camera1Key):
+			return cam1, nil
+		default:
 			return robot.ResourceByName(name)
 		}
 	}
@@ -562,14 +566,14 @@ func TestWebWithStreams(t *testing.T) {
 	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case camera.Named(camera1Key):
-			return &inject.Camera{}, nil
+			return cam1, nil
 		case camera.Named(camera2Key):
-			return &inject.Camera{}, nil
+			return cam2, nil
 		default:
 			return robot.ResourceByName(name)
 		}
 	}
-	rs[camera.Named(camera2Key)] = &inject.Camera{}
+	rs[camera.Named(camera2Key)] = cam2
 	updateable, ok := svc.(resource.Updateable)
 	test.That(t, ok, test.ShouldBeTrue)
 	err = updateable.Update(ctx, rs)
