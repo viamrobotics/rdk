@@ -4,6 +4,7 @@ package inference
 import "C"
 import (
 	"log"
+	"runtime"
 
 	"github.com/pkg/errors"
 
@@ -16,7 +17,7 @@ type InterpreterLoader struct {
 	interpreterOptions *tflite.InterpreterOptions
 }
 
-type TfliteInterpreter struct {
+type TFLiteInterpreter struct {
 	Interpreter *tflite.Interpreter
 	model       *tflite.Model
 	options     *tflite.InterpreterOptions
@@ -24,7 +25,7 @@ type TfliteInterpreter struct {
 
 // NewDefaultInterpreterLoader returns the default loader when using tflite
 func NewDefaultInterpreterLoader() (*InterpreterLoader, error) {
-	options, err := loadOptions(4)
+	options, err := loadOptions(runtime.NumCPU())
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +76,7 @@ func loadOptions(numThreads int) (*tflite.InterpreterOptions, error) {
 }
 
 // Load returns the service a struct containing information of a tflite compatible interpreter
-func (l *InterpreterLoader) Load(modelPath string) (*TfliteInterpreter, error) {
+func (l *InterpreterLoader) Load(modelPath string) (*TFLiteInterpreter, error) {
 	if err := l.validate(); err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func (l *InterpreterLoader) Load(modelPath string) (*TfliteInterpreter, error) {
 		return nil, errors.New("cannot create interpreter")
 	}
 
-	tfliteInterpreter := TfliteInterpreter{
+	tfliteInterpreter := TFLiteInterpreter{
 		Interpreter: interpreter,
 		model:       model,
 		options:     l.interpreterOptions,
@@ -113,9 +114,8 @@ func (l *InterpreterLoader) validate() error {
 }
 
 // Delete should be called at the end of using the interpreter to delete the instance and related parts
-func (t *TfliteInterpreter) Delete() error {
+func (t *TFLiteInterpreter) Delete() {
 	t.model.Delete()
 	t.options.Delete()
 	t.Interpreter.Delete()
-	return nil
 }
