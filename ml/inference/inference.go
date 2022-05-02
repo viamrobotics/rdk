@@ -90,13 +90,13 @@ func (l *InterpreterLoader) Load(modelPath string) (*TfliteInterpreter, error) {
 		return nil, errors.New("cannot create interpreter")
 	}
 
-	tfliteObjs := TfliteInterpreter{
+	tfliteInterpreter := TfliteInterpreter{
 		Interpreter: interpreter,
 		model:       model,
 		options:     l.interpreterOptions,
 	}
 
-	return &tfliteObjs, nil
+	return &tfliteInterpreter, nil
 }
 
 // validate if this InterpreterLoader is valid.
