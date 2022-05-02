@@ -9,20 +9,37 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
 // DetectionSegmenter will take an objectdetector.Detector and turn it into a Segementer.
-// The Projector that is used to build the Segmenter must be associated with the camera that will be given to the Segmenter.
-func DetectionSegmenter(detector objectdetection.Detector, proj rimage.Projector, meanK int, sigma float64) (Segmenter, error) {
+// The params for the segmenter are "mean_k" and "sigma" for the statistical filter on the point clouds.
+func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.TypedName, error) {
 	if detector == nil {
-		return nil, errors.New("detector cannot be nil")
+		return nil, nil, errors.New("detector cannot be nil")
 	}
-	if proj == nil {
-		return nil, errors.New("projector cannot be nil")
-	}
-	return func(ctx context.Context, cam camera.Camera, params config.AttributeMap) ([]*vision.Object, error) {
+	parameters := []utils.TypedName{{"mean_k", "int"}, {"sigma", "float64"}}
+	// return the segmenter
+	seg := func(ctx context.Context, cam camera.Camera, params config.AttributeMap) ([]*vision.Object, error) {
+		meanK := params.Int("mean_k", 0)
+		sigma := params.Float64("sigma", 1.5)
+		var err error
+		filter := func(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
+			return pc, nil
+		}
+		if meanK > 0 && sigma > 0.0 {
+			filter, err = pointcloud.StatisticalOutlierFilter(meanK, sigma)
+			if err != nil {
+				return nil, err
+			}
+		}
+		proj := camera.Projector(cam)
+		if proj == nil {
+			return nil, errors.New("camera projector cannot be nil." +
+				"Currently remote cameras are not supported (intrinsics parameters are not transferred over protobuf)")
+		}
 		// get the 2D detections
 		img, _, err := cam.Next(ctx)
 		if err != nil {
@@ -33,49 +50,49 @@ func DetectionSegmenter(detector objectdetection.Detector, proj rimage.Projector
 		if err != nil {
 			return nil, err
 		}
-		return DetectionsToObjects(dets, originalImg, proj, meanK, sigma)
-	}, nil
-}
-
-// DetectionsToObjects turns 2D detections into 3D objects using the intrinsic camera projection parameters and the image.
-func DetectionsToObjects(dets []objectdetection.Detection,
-	iwd *rimage.ImageWithDepth,
-	proj rimage.Projector,
-	meanK int,
-	sigma float64,
-) ([]*vision.Object, error) {
-	var err error
-	// make a pass-through filter if meanK or sigma is less than or equal to 0
-	filter := func(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
-		return pc, nil
-	}
-	if meanK > 0 && sigma > 0.0 {
-		filter, err = pointcloud.StatisticalOutlierFilter(meanK, sigma)
+		pcs, err := detectionsToPointClouds(dets, originalImg, proj)
 		if err != nil {
 			return nil, err
 		}
+		// filter the point clouds to get rid of outlier points
+		objects := make([]*vision.Object, 0, len(pcs))
+		for _, pc := range pcs {
+			filtered, err := filter(pc)
+			if err != nil {
+				return nil, err
+			}
+			// if object was filtered away, skip it
+			if filtered.Size() == 0 {
+				continue
+			}
+			obj, err := vision.NewObject(filtered)
+			if err != nil {
+				return nil, err
+			}
+			objects = append(objects, obj)
+		}
+		return objects, nil
 	}
-	// project 2D detections to 3D objects
-	objects := make([]*vision.Object, 0, len(dets))
+	return seg, parameters, nil
+}
+
+// detectionsToPointClouds turns 2D detections into 3D point clodus using the intrinsic camera projection parameters and the image.
+func detectionsToPointClouds(dets []objectdetection.Detection,
+	iwd *rimage.ImageWithDepth,
+	proj rimage.Projector,
+) ([]pointcloud.PointCloud, error) {
+	// project 2D detections to 3D pointclouds
+	pcs := make([]pointcloud.PointCloud, 0, len(dets))
 	for _, d := range dets {
 		bb := d.BoundingBox()
+		if bb == nil {
+			return nil, errors.New("detection bounding box cannot be nil")
+		}
 		pc, err := proj.ImageWithDepthToPointCloud(iwd, *bb)
 		if err != nil {
 			return nil, err
 		}
-		filtered, err := filter(pc)
-		if err != nil {
-			return nil, err
-		}
-		// if object was filtered away, skip it
-		if filtered.Size() == 0 {
-			continue
-		}
-		obj, err := vision.NewObject(filtered)
-		if err != nil {
-			return nil, err
-		}
-		objects = append(objects, obj)
+		pcs = append(pcs, pc)
 	}
-	return objects, nil
+	return pcs, nil
 }
