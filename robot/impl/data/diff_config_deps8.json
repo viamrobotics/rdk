@@ -1,0 +1,72 @@
+{
+  "components":
+  [
+    {
+      "model": "fake",
+      "name": "board2",
+      "type": "board",
+      "attributes":
+      {
+      }
+    },
+    {
+      "model": "fake",
+      "name": "board1",
+      "type": "board",
+      "attributes":
+      {
+        "digital_interrupts":
+        [
+          {
+            "name": "encoder",
+            "pin": "16"
+          },
+          {
+            "name": "encoder-b",
+            "pin": "22"
+          }
+        ]
+      }
+    },
+    {
+      "model": "fake",
+      "name": "m1",
+      "type": "motor",
+      "depends_on" : ["board1"],
+      "attributes" : {
+        "board" : "board1",
+        "pins" : {
+          "pwm" : "5"
+        },
+        "pwm_freq" : 4000,
+        "encoder": "encoder",
+        "encoder_b": "encoder-b",
+        "ticks_per_rotation" : 1
+      }
+    }
+  ],
+  "processes":
+  [
+    {
+      "id": "1",
+      "name": "echo",
+      "args":
+      [
+        "hello",
+        "world"
+      ],
+      "one_shot": true
+    },
+    {
+      "id": "2",
+      "name": "echo",
+      "args":
+      [
+        "hello",
+        "world",
+        "again"
+      ],
+      "one_shot": true
+    }
+  ]
+}
