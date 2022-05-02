@@ -349,8 +349,12 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+
+	// NOTE: Returns normally but logs an error if the data service is enabled without any
+	// components/remotes enabled. Another option is to return an error here and cause RDK to fail.
 	if len(componentMethodConfigs) == 0 {
-		return errors.New("could not find and components with data_manager service configuration")
+		svc.logger.Error("Could not find any components with data_manager service configuration")
+		return nil
 	}
 
 	// nolint:contextcheck
