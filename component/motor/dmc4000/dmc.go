@@ -27,6 +27,9 @@ import (
 
 const (
 	modelName = "DMC4000"
+
+	// Timeout for Home() and GoTillStop().
+	homeTimeout = time.Minute
 )
 
 // controllers is global to all instances, mapped by serial device.
@@ -56,14 +59,15 @@ type Motor struct {
 	MaxRPM           float64
 	MaxAcceleration  float64
 	HomeRPM          float64
+	jogging          bool
 }
 
 // Config adds DMC-specific config options.
 type Config struct {
 	motor.Config
-	SerialDevice string  `json:"serial_device"` // path to /dev/ttyXXXX file
-	Axis         string  `json:"axis"`          // A-H
-	HomeRPM      float64 `json:"home_rpm"`      // Speed for Home()
+	SerialDevice string  `json:"serial_device"`   // path to /dev/ttyXXXX file
+	Axis         string  `json:"controller_axis"` // A-H
+	HomeRPM      float64 `json:"home_rpm"`        // Speed for Home()
 
 	// Set the per phase current (when using stepper amp)
 	// https://www.galil.com/download/comref/com4103/index.html#amplifier_gain.html
@@ -156,15 +160,15 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 	}
 
 	if m.StepsPerRotation <= 0 {
-		m.StepsPerRotation = 200
+		m.StepsPerRotation = 200 // standard for most steppers
 	}
 
 	if m.MaxRPM <= 0 {
-		m.MaxRPM = 1000
+		m.MaxRPM = 1000 // arbitrary high value
 	}
 
 	if m.MaxAcceleration <= 0 {
-		m.MaxAcceleration = 1000
+		m.MaxAcceleration = 1000 // rpm/s, arbitrary/safe value (1s to max)
 	}
 
 	if m.HomeRPM <= 0 {
@@ -268,7 +272,7 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 		return nil, fmt.Errorf("unsupported amplifier model(s) found, amp1: %s, amp2, %s", ctrl.ampModel1, ctrl.ampModel2)
 	}
 
-	// Add to the map if it's valid
+	// Add to the map if it's a known amp
 	if ctrl.ampModel1 == "44140" {
 		ctrl.activeAxes["A"] = false
 		ctrl.activeAxes["B"] = false
@@ -440,23 +444,43 @@ func (m *Motor) posToSteps(pos float64) int32 {
 	return goal
 }
 
-// SetPower sets the percentage of power the motor should employ between 0-1.
+// SetPower instructs the motor to go in a specific direction at a percentage
+// of power between -1 and 1. Scaled to MaxRPM.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
-	// Need this because the UI currently sends SetPower(0) instead of Stop()
-	if powerPct == 0 {
-		return m.Stop(ctx)
-	}
-	return errors.New("power not supported for stepper motors")
-}
-
-// Go instructs the motor to go in a specific direction at a percentage
-// of power between -1 and 1. Scaled to maxRPM.
-func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 	if math.Abs(powerPct) < 0.001 {
 		return m.Stop(ctx)
 	}
 
-	return m.GoFor(ctx, powerPct*m.MaxRPM, 100000)
+	m.c.mu.Lock()
+	defer m.c.mu.Unlock()
+	m.jogging = true
+
+	rawSpeed := m.rpmToV(powerPct * m.MaxRPM)
+	if math.Signbit(powerPct) {
+		rawSpeed *= -1
+	}
+
+	// Jog
+	_, err := m.c.sendCmd(fmt.Sprintf("JG%s=%d", m.Axis, rawSpeed))
+	if err != nil {
+		return err
+	}
+
+	// Begin action
+	_, err = m.c.sendCmd(fmt.Sprintf("BG%s", m.Axis))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Motor) stopJog() error {
+	if m.jogging {
+		m.jogging = false
+		_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
+		return err
+	}
+	return nil
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -497,7 +521,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 		}
 	}()
 
-	var fails int
+	startTime := time.Now()
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
@@ -518,10 +542,9 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 			break
 		}
 
-		if fails >= 6000 {
+		if time.Since(startTime) >= homeTimeout {
 			return errors.New("timed out during GoTillStop")
 		}
-		fails++
 	}
 
 	return nil
@@ -546,6 +569,7 @@ func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 func (m *Motor) Stop(ctx context.Context) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
+	m.jogging = false
 	_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
 	return err
 }
@@ -573,6 +597,8 @@ func (m *Motor) isStopped() (bool, error) {
 		return false, err
 	}
 
+	// Stop codes that indicate the motor is NOT actually stopped
+	// https://www.galil.com/download/comref/com4103/index.html#stop_code.html
 	if sc == 0 || sc == 30 || sc == 50 || sc == 60 || sc == 100 {
 		return false, nil
 	}
@@ -608,7 +634,7 @@ func (m *Motor) Home(ctx context.Context) error {
 		}
 	}()
 
-	var fails int
+	startTime := time.Now()
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during Home")
@@ -626,14 +652,14 @@ func (m *Motor) Home(ctx context.Context) error {
 			return err
 		}
 
+		// stop code 10 indicates homing sequence finished
 		if sc == 10 {
 			return nil
 		}
 
-		if fails >= 3000 {
+		if time.Since(startTime) >= homeTimeout {
 			return errors.New("timed out during Home")
 		}
-		fails++
 	}
 }
 
@@ -642,8 +668,14 @@ func (m *Motor) startHome() error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 
+	// Exit jog mode if in it
+	err := m.stopJog()
+	if err != nil {
+		return err
+	}
+
 	// Speed (stage 1)
-	_, err := m.c.sendCmd(fmt.Sprintf("SP%s=%d", m.Axis, m.rpmToV(m.HomeRPM)))
+	_, err = m.c.sendCmd(fmt.Sprintf("SP%s=%d", m.Axis, m.rpmToV(m.HomeRPM)))
 	if err != nil {
 		return err
 	}
@@ -654,11 +686,13 @@ func (m *Motor) startHome() error {
 		return err
 	}
 
+	// Homing action
 	_, err = m.c.sendCmd(fmt.Sprintf("HM%s", m.Axis))
 	if err != nil {
 		return err
 	}
 
+	// Begin action
 	_, err = m.c.sendCmd(fmt.Sprintf("BG%s", m.Axis))
 	if err != nil {
 		return err
@@ -669,8 +703,14 @@ func (m *Motor) startHome() error {
 
 // Must be run inside a lock.
 func (m *Motor) doGoTo(rpm float64, position float64) error {
+	// Exit jog mode if in it
+	err := m.stopJog()
+	if err != nil {
+		return err
+	}
+
 	// Position tracking mode
-	_, err := m.c.sendCmd(fmt.Sprintf("PT%s=1", m.Axis))
+	_, err = m.c.sendCmd(fmt.Sprintf("PT%s=1", m.Axis))
 	if err != nil {
 		return err
 	}

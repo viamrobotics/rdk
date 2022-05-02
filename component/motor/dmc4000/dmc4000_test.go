@@ -17,48 +17,57 @@ import (
 )
 
 // check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves the go routines stuck waiting).
-func check(tb testing.TB, actual interface{}, assert func(actual interface{}, expected ...interface{}) string, expected ...interface{}) {
-	tb.Helper()
+func check(
+	resChan chan string,
+	actual interface{},
+	assert func(actual interface{}, expected ...interface{}) string, expected ...interface{},
+) {
 	if result := assert(actual, expected...); result != "" {
-		tb.Error(result)
+		resChan <- result
 	}
 }
 
 var txMu sync.Mutex
 
-func waitTx() {
+func waitTx(tb testing.TB, resChan chan string) {
+	tb.Helper()
 	txMu.Lock()
 	defer txMu.Unlock()
+	for {
+		res := <-resChan
+		if res == "DONE" {
+			return
+		}
+		tb.Error(res)
+	}
 }
 
-func checkTx(t *testing.T, c chan string, expects []string) {
-	t.Helper()
+func checkTx(resChan chan string, c chan string, expects []string) {
 	defer txMu.Unlock()
 	for _, expected := range expects {
 		tx := <-c
-		check(t, tx, test.ShouldResemble, expected)
+		check(resChan, tx, test.ShouldResemble, expected)
 		c <- ":"
 	}
+	resChan <- "DONE"
 }
 
-func checkRx(t *testing.T, c chan string, expects []string, sends []string) {
-	t.Helper()
+func checkRx(resChan chan string, c chan string, expects []string, sends []string) {
 	defer txMu.Unlock()
 	for i, expected := range expects {
 		tx := <-c
-		check(t, tx, test.ShouldResemble, expected)
+		check(resChan, tx, test.ShouldResemble, expected)
 		c <- sends[i]
 	}
+	resChan <- "DONE"
 }
 
 func TestDMC4000Motor(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	c := make(chan string)
+	resChan := make(chan string, 1024)
 	r := inject.Robot{}
-	// r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-	// 	return b, nil
-	// }
 
 	mc := dmc4000.Config{
 		SerialDevice:  "testchan",
@@ -79,7 +88,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 	// These are the setup register writes
 	txMu.Lock()
-	go checkRx(t, c,
+	go checkRx(resChan, c,
 		[]string{
 			"EO 0",
 			"ID",
@@ -108,18 +117,17 @@ func TestDMC4000Motor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		txMu.Lock()
-		go checkTx(t, c, []string{
+		go checkTx(resChan, c, []string{
 			"STA",
 		})
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
 	}()
 	_motor, ok := m.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
 	stoppableMotor, ok := _motor.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
-
-	waitTx()
+	waitTx(t, resChan)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
 		features, err := _motor.GetFeatures(ctx)
@@ -128,44 +136,57 @@ func TestDMC4000Motor(t *testing.T) {
 	})
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
-		// Test power should fail
-		test.That(t, _motor.SetPower(ctx, 0.5), test.ShouldNotBeNil)
-
 		// Test 0 (aka "stop")
 		txMu.Lock()
-		go checkTx(t, c, []string{
+		go checkTx(resChan, c, []string{
 			"STA",
 		})
 		test.That(t, _motor.SetPower(ctx, 0), test.ShouldBeNil)
-		waitTx()
+
+		// Test 0.5 of max power
+		txMu.Lock()
+		go checkTx(resChan, c, []string{
+			"JGA=32000",
+			"BGA",
+		})
+		test.That(t, _motor.SetPower(ctx, 0.5), test.ShouldBeNil)
+
+		// Test -0.5 of max power
+		txMu.Lock()
+		go checkTx(resChan, c, []string{
+			"JGA=-32000",
+			"BGA",
+		})
+		test.That(t, _motor.SetPower(ctx, -0.5), test.ShouldBeNil)
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor Stop testing", func(t *testing.T) {
 		txMu.Lock()
-		go checkTx(t, c, []string{
+		go checkTx(resChan, c, []string{
 			"STA",
 		})
 		test.That(t, _motor.Stop(ctx), test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor position testing", func(t *testing.T) {
 		// Check at 4.0 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{"RPA"},
 			[]string{" 51200\r\n:"},
 		)
 		pos, err := _motor.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 4.0)
-		waitTx()
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor GoFor with positive rpm and positive revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -185,7 +206,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Check with position at 4.0 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -205,7 +226,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Check with position at 1.2 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -222,13 +243,13 @@ func TestDMC4000Motor(t *testing.T) {
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, 6.6), test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor GoFor with negative rpm and positive revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -248,7 +269,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Check with position at 4.0 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -268,7 +289,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Check with position at 1.2 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -285,13 +306,13 @@ func TestDMC4000Motor(t *testing.T) {
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, 6.6), test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor GoFor with positive rpm and negative revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -311,7 +332,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Check with position at 4.0 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -331,7 +352,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Check with position at 1.2 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -348,13 +369,13 @@ func TestDMC4000Motor(t *testing.T) {
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, -6.6), test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor GoFor with negative rpm and negative revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -374,7 +395,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Check with position at 4.0 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -394,7 +415,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Check with position at 1.2 revolutions
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -411,13 +432,46 @@ func TestDMC4000Motor(t *testing.T) {
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, -6.6), test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
+	})
+
+	t.Run("motor GoFor after jogging", func(t *testing.T) {
+		// Test 0.5 of max power
+		txMu.Lock()
+		go checkTx(resChan, c, []string{
+			"JGA=32000",
+			"BGA",
+		})
+		test.That(t, _motor.SetPower(ctx, 0.5), test.ShouldBeNil)
+
+		// Check with position at 0.0 revolutions
+		txMu.Lock()
+		go checkRx(resChan, c,
+			[]string{
+				"RPA",
+				"STA",
+				"PTA=1",
+				"SPA=10666",
+				"PAA=40960",
+			},
+			[]string{
+				" 0\r\n:",
+				":",
+				":",
+				":",
+				":",
+				":",
+				":",
+			},
+		)
+		test.That(t, _motor.GoFor(ctx, -50.0, -3.2), test.ShouldBeNil)
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor is on testing", func(t *testing.T) {
 		// Off - StopCode != special cases, TotalError = 0
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"SCA",
 				"TEA",
@@ -433,7 +487,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// On - TE != 0
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"SCA",
 				"TEA",
@@ -449,7 +503,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// On - StopCodes = sepecial cases
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"SCA",
 			},
@@ -462,7 +516,7 @@ func TestDMC4000Motor(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"SCA",
 			},
@@ -475,7 +529,7 @@ func TestDMC4000Motor(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"SCA",
 			},
@@ -488,7 +542,7 @@ func TestDMC4000Motor(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"SCA",
 			},
@@ -501,7 +555,7 @@ func TestDMC4000Motor(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"SCA",
 			},
@@ -512,26 +566,26 @@ func TestDMC4000Motor(t *testing.T) {
 		on, err = _motor.IsPowered(ctx)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, err, test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor zero testing", func(t *testing.T) {
 		// No offset (and when actually off)
 		txMu.Lock()
-		go checkTx(t, c, []string{"DPA=0"})
+		go checkTx(resChan, c, []string{"DPA=0"})
 		test.That(t, _motor.ResetZeroPosition(ctx, 0), test.ShouldBeNil)
 
 		// 3.1 offset (and when actually off)
 		txMu.Lock()
-		go checkTx(t, c, []string{"DPA=39680"})
+		go checkTx(resChan, c, []string{"DPA=39680"})
 		test.That(t, _motor.ResetZeroPosition(ctx, 3.1), test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor gotillstop testing", func(t *testing.T) {
 		// No stop func
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -567,7 +621,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Always-false stopFunc
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -603,7 +657,7 @@ func TestDMC4000Motor(t *testing.T) {
 
 		// Always true stopFunc
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"RPA",
 				"PTA=1",
@@ -620,24 +674,24 @@ func TestDMC4000Motor(t *testing.T) {
 			},
 		)
 		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor do raw command", func(t *testing.T) {
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{"testTX"},
 			[]string{" testRX\r\n:"},
 		)
 		resp, err := _motor.Do(ctx, map[string]interface{}{"command": "raw", "raw_input": "testTX"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["return"], test.ShouldEqual, "testRX")
-		waitTx()
+		waitTx(t, resChan)
 	})
 
 	t.Run("motor do home command", func(t *testing.T) {
 		txMu.Lock()
-		go checkRx(t, c,
+		go checkRx(resChan, c,
 			[]string{
 				"SPA=10666",
 				"HVA=1066",
@@ -670,6 +724,6 @@ func TestDMC4000Motor(t *testing.T) {
 		resp, err := _motor.Do(ctx, map[string]interface{}{"command": "home"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldBeNil)
-		waitTx()
+		waitTx(t, resChan)
 	})
 }
