@@ -28,12 +28,8 @@ func TestRadiusClusteringValidate(t *testing.T) {
 	cfg.MinPtsInSegment = 5
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "clustering_radius_mm must be greater than 0")
-	// invalid mean k
-	cfg.ClusteringRadiusMm = 5
-	err = cfg.CheckValid()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "mean_k_filtering must be greater than 0")
-
 	// valid
+	cfg.ClusteringRadiusMm = 5
 	cfg.MeanKFiltering = 5
 	err = cfg.CheckValid()
 	test.That(t, err, test.ShouldBeNil)

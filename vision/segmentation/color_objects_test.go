@@ -51,12 +51,8 @@ func TestColorObjectsValidate(t *testing.T) {
 	cfg.Color = "#GGGGGG"
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "couldn't parse hex")
-	// not a valid meanK
-	cfg.Color = "#123456"
-	cfg.MeanK = -5
-	err = cfg.CheckValid()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "mean_k must be greater than 0")
 	// not a valid sigma
+	cfg.Color = "#123456"
 	cfg.MeanK = 5
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must be greater than 0")
