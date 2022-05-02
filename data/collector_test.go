@@ -89,13 +89,9 @@ func TestSuccessfulWriteSleep(t *testing.T) {
 	test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
 
 	// Verify that the data it wrote matches what we expect.
-	// It should have 9 readings, but only validate the first 8 so small changes in execution order don't cause
+	// It should have 9 readings, but only validate the first 7 so small changes in execution order don't cause
 	// failures.
-	validateNReadings(t, target1, 9)
-
-	// Next reading should fail; there should only be two readings.
-	_, err := readNextSensorData(target1)
-	test.That(t, err, test.ShouldEqual, io.EOF)
+	validateNReadings(t, target1, 7)
 }
 
 func TestClose(t *testing.T) {
