@@ -534,7 +534,6 @@ func TestWebWithStreams(t *testing.T) {
 	// robot when the service starts! Make it so this is not the case.
 	robot := &inject.Robot{}
 	rs := map[resource.Name]interface{}{camera.Named(camera1Key): cam1}
-	// setupRobotWithResources(robot, rs)
 	robot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named(camera1Key)}
 	}
@@ -546,7 +545,6 @@ func TestWebWithStreams(t *testing.T) {
 			return robot.ResourceByName(name)
 		}
 	}
-	// ctx := context.Background())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start service
@@ -576,8 +574,6 @@ func TestWebWithStreams(t *testing.T) {
 		}
 	}
 	rs[camera.Named(camera2Key)] = cam2
-	// setupRobotWithResources(robot, rs)
-
 	updateable, ok := svc.(resource.Updateable)
 	test.That(t, ok, test.ShouldBeTrue)
 	err = updateable.Update(ctx, rs)
@@ -589,24 +585,6 @@ func TestWebWithStreams(t *testing.T) {
 	cancel()
 	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
 }
-
-// func setupRobotWithResources(robot *inject.Robot, resourceMap map[resource.Name]interface{}) {
-// 	robot.ResourceNamesFunc = func() []resource.Name {
-// 		result := []resource.Name{}
-// 		for name := range resourceMap {
-// 			result = append(result, name)
-// 		}
-// 		return result
-// 	}
-// 	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-// 		res, ok := resourceMap[name]
-// 		if ok {
-// 			return robot.ResourceByName(name)
-// 		} else {
-// 			return res, nil
-// 		}
-// 	}
-// }
 
 func setupRobotCtx() (context.Context, robot.Robot) {
 	injectArm := &inject.Arm{}
