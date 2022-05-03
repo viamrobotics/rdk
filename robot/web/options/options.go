@@ -1,4 +1,4 @@
-// Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
+// Package weboptions defines Options for configuring a web server
 package weboptions
 
 import (
@@ -199,6 +199,7 @@ func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
 	return hosts
 }
 
+// LocalHostWithPort returns a properly formatted localhost address with port.
 func LocalHostWithPort(listenerTCPAddr *net.TCPAddr) string {
 	return fmt.Sprintf("localhost%s", listenerPortStr(listenerTCPAddr))
 }
