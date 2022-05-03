@@ -41,6 +41,7 @@
     </script>
     {{ if .External }}
     <script src="/static/rdk/control.js"></script>
+    <script src="/static/rdk/control_helpers.js"></script>
     <script src="/static/rdk/third-party/vue.js"></script>
     <link rel="stylesheet" href="/static/rdk/dls/dls.css" />
     <script type="module">
@@ -48,6 +49,7 @@
     </script>
     {{ else }}
     <script src="/static/control.js"></script>
+    <script src="/static/control_helpers.js"></script>
     <script src="/static/third-party/vue.js"></script>
     <link rel="stylesheet" href="/static/dls/dls.css" />
     <script type="module">
@@ -246,29 +248,29 @@
               return "";
             },
             getSegmenterNames: function () {
-              let req = new objectSegmentationApi.GetSegmentersRequest();
-              objectSegmentationService.getSegmenters(req, {}, (err, resp) => {
+              let req = new visionApi.GetSegmenterNamesRequest();
+              visionService.getSegmenterNames(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
                   console.log("error getting segmenter names");
                   console.log(err);
                   return;
                 }
-                theData.segmenterNames = resp.getSegmentersList();
+                theData.segmenterNames = resp.getSegmenterNamesList();
               });
             },
             getSegmenterParameters: function (name) {
               this.segmentAlgo = name;
-              let req = new objectSegmentationApi.GetSegmenterParametersRequest();
+              let req = new visionApi.GetSegmenterParametersRequest();
               req.setSegmenterName(name);
-              objectSegmentationService.getSegmenterParameters(req, {}, (err, resp) => {
+              visionService.getSegmenterParameters(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
                   console.log("error getting segmenter parameters for " + name);
                   console.log(err);
                   return;
                 }
-                theData.segmenterParameterNames = resp.getParametersList();
+                theData.segmenterParameterNames = resp.getSegmenterParametersList();
                 theData.segmenterParameters = {};
               });
             },
@@ -498,46 +500,43 @@
               this.baseRunStatus = true;
               switch (action) {
                 case "straight":
-                  req = new baseApi.MoveStraightRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value);
-                  req.setDistanceMm(document.getElementById("distance").value * amount);
-                  baseService.moveStraight(req, {}, (err, resp) => {
+                  BaseControlHelper.moveStraight(name, 
+                    document.getElementById("distance").value * amount, 
+                    document.getElementById("speed").value, 
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
-                  });
+                    });
                   break;
                 case "arc":
-                  req = new baseApi.MoveArcRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value);
-                  req.setDistanceMm(document.getElementById("distance").value * amount);
-                  req.setAngleDeg(angle);
-                  baseService.moveArc(req, {}, (err, resp) => {
+                  BaseControlHelper.moveArc(name,
+                    document.getElementById("distance").value * amount,
+                    document.getElementById("speed").value,
+                    angle,
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
-                  });
+                    });
                   break;
                 case "angle":
-                  req = new baseApi.SpinRequest();
-                  req.setName(name);
-                  req.setDegsPerSec(document.getElementById("speed").value);
-                  req.setAngleDeg(angle);
-                  baseService.spin(req, {}, (err, resp) => {
+                  BaseControlHelper.spin(name, 
+                    angle, 
+                    document.getElementById("speed").value, 
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
-                  });
+                    });
                   break;
               }
             },
-          handleBaseActionStop : function(name) {
+            handleBaseActionStop : function(name) {
               console.log('baseActionHandlerStop');
               let req = new baseApi.StopRequest();
               req.setName(name);
               baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
               this.baseRunStatus = false;
-          },
-          handleBaseAction : function(movementMode, movementType, spinType, direction) {
+            },
+            handleBaseAction : function(movementMode, movementType, spinType, direction) {
               this.baseRunStatus = true;
               console.log('baseActionHandler');
               console.log(movementMode);
@@ -551,50 +550,46 @@
                   movementType === "Continous" &&
                   direction === "Forwards"
               ) {
-                  req = new baseApi.MoveStraightRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value)
-                  req.setDistanceMm(document.getElementById("distance").value * 1);
-                  baseService.moveStraight(req, {}, (err, resp) => {
+                  BaseControlHelper.moveStraight(name, 
+                    document.getElementById("distance").value * 1, 
+                    document.getElementById("speed").value, 
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
-                  });
+                    });
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
                   direction === "Forwards"
               ) {
-                  req = new baseApi.MoveStraightRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value)
-                  req.setDistanceMm(document.getElementById("distance").value * 1);
-                  baseService.moveStraight(req, {}, (err, resp) => {
+                  BaseControlHelper.moveStraight(name, 
+                    document.getElementById("distance").value * 1, 
+                    document.getElementById("speed").value, 
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
-                  });
+                    });
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Continous" &&
                   direction === "Backwards"
               ) {
-                  req = new baseApi.MoveStraightRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value)
-                  req.setDistanceMm(document.getElementById("distance").value * -1);
-                  baseService.moveStraight(req, {}, (err, resp) => {
+                  BaseControlHelper.moveStraight(name, 
+                    document.getElementById("distance").value * -1, 
+                    document.getElementById("speed").value, 
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
-                  });
+                    });
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
                   direction === "Backwards"
               ) {
-                  req = new baseApi.MoveStraightRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value)
-                  req.setDistanceMm(document.getElementById("distance").value * -1);
-                  baseService.moveStraight(req, {}, (err, resp) => {
+                  BaseControlHelper.moveStraight(name, 
+                    document.getElementById("distance").value * -1, 
+                    document.getElementById("speed").value, 
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
@@ -603,12 +598,11 @@
                   spinType === "Clockwise" &&
                   direction === "Forwards"
               ) {
-                  req = new baseApi.MoveArcRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value)
-                  req.setDistanceMm(document.getElementById("distance").value * 1);
-                  req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => {
+                  BaseControlHelper.moveArc(name,
+                    document.getElementById("distance").value * 1,
+                    document.getElementById("speed").value,
+                    document.getElementById("angle").value,
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
@@ -617,12 +611,11 @@
                   spinType === "Counterclockwise" &&
                   direction === "Forwards"
               ) {
-                  req = new baseApi.MoveArcRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value)
-                  req.setDistanceMm(document.getElementById("distance").value * 1);
-                  req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => {
+                  BaseControlHelper.moveArc(name,
+                    document.getElementById("distance").value * 1,
+                    document.getElementById("speed").value,
+                    document.getElementById("angle").value,
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
@@ -631,12 +624,11 @@
                   spinType === "Clockwise" &&
                   direction === "Backwards"
               ) {
-                  req = new baseApi.MoveArcRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value)
-                  req.setDistanceMm(document.getElementById("distance").value * -1);
-                  req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => {
+                  BaseControlHelper.moveArc(name,
+                    document.getElementById("distance").value * -1,
+                    document.getElementById("speed").value,
+                    document.getElementById("angle").value,
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
@@ -645,12 +637,11 @@
                   spinType === "Counterclockwise" &&
                   direction === "Backwards"
               ) {
-                 req = new baseApi.MoveArcRequest();
-                  req.setName(name);
-                  req.setMmPerSec(document.getElementById("speed").value)
-                  req.setDistanceMm(document.getElementById("distance").value * -1);
-                  req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => {
+                  BaseControlHelper.moveArc(name,
+                    document.getElementById("distance").value * -1,
+                    document.getElementById("speed").value,
+                    document.getElementById("angle").value,
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
@@ -658,11 +649,10 @@
                   movementMode === "Spin" &&
                   spinType === "Clockwise"
               ) {
-                  req = new baseApi.SpinRequest();
-                  req.setName(name);
-                  req.setDegsPerSec(document.getElementById("speed").value)
-                  req.setAngleDeg(document.getElementById("angle").value * 1);
-                  baseService.spin(req, {}, (err, resp) => {
+                  BaseControlHelper.spin(name, 
+                    document.getElementById("angle").value * 1, 
+                    document.getElementById("speed").value, 
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
@@ -670,11 +660,10 @@
                   movementMode === "Spin" &&
                   spinType === "Counterclockwise"
               ) {
-                  req = new baseApi.SpinRequest();
-                  req.setName(name);
-                  req.setDegsPerSec(document.getElementById("speed").value)
-                  req.setAngleDeg(document.getElementById("angle").value * -1);
-                  baseService.spin(req, {}, (err, resp) => {
+                  BaseControlHelper.spin(name, 
+                    document.getElementById("angle").value * -1, 
+                    document.getElementById("speed").value, 
+                    (err, resp) => {
                       this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
@@ -892,14 +881,14 @@
               console.log(segmenterParams);
               theData.pcdClick.calculatingSegments = true;
               theData.pcdClick.foundSegments = false;
-              let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
+              let req = new visionApi.GetObjectPointCloudsRequest();
               req.setCameraName(pcdGlobal.cameraName);
               req.setSegmenterName(segmenterName);
               req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
               const mimeType = "pointcloud/pcd";
               req.setMimeType(mimeType);
               console.log("finding object segments...");
-              objectSegmentationService.getObjectPointClouds(req, {}, (err, resp) => {
+              visionService.getObjectPointClouds(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
                   console.log("error getting segments");
