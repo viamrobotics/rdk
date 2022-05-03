@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rlog"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
