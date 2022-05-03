@@ -8,13 +8,13 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 
-	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -549,6 +549,7 @@ func TestWebWithStreams(t *testing.T) {
 
 	// Start a stream service client
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
 	streamClient := streampb.NewStreamServiceClient(conn)
 
 	// Test that only one stream is available
@@ -608,6 +609,7 @@ func TestWebAddFirstStream(t *testing.T) {
 
 	// Start a stream service client
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
 	streamClient := streampb.NewStreamServiceClient(conn)
 
 	// Test that there are no streams available
