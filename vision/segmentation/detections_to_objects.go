@@ -44,9 +44,16 @@ func DetectionsToObjects(dets []objectdetection.Detection,
 	meanK int,
 	sigma float64,
 ) ([]*vision.Object, error) {
-	statisticalFilter, err := pointcloud.StatisticalOutlierFilter(meanK, sigma)
-	if err != nil {
-		return nil, err
+	var err error
+	// make a pass-through filter if meanK or sigma is less than or equal to 0
+	filter := func(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
+		return pc, nil
+	}
+	if meanK > 0 && sigma > 0.0 {
+		filter, err = pointcloud.StatisticalOutlierFilter(meanK, sigma)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// project 2D detections to 3D objects
 	objects := make([]*vision.Object, 0, len(dets))
@@ -56,7 +63,7 @@ func DetectionsToObjects(dets []objectdetection.Detection,
 		if err != nil {
 			return nil, err
 		}
-		filtered, err := statisticalFilter(pc)
+		filtered, err := filter(pc)
 		if err != nil {
 			return nil, err
 		}
