@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -49,6 +50,7 @@ func init() {
 }
 
 type wheeledBase struct {
+	generic.Unimplemented
 	widthMm              int
 	wheelCircumferenceMm int
 	spinSlipFactor       float64

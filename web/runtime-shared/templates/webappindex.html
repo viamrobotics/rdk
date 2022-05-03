@@ -495,13 +495,17 @@
             },
             baseAction: function (name, action, amount, angle) {
               let req;
+              this.baseRunStatus = true;
               switch (action) {
                 case "straight":
                   req = new baseApi.MoveStraightRequest();
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value);
                   req.setDistanceMm(document.getElementById("distance").value * amount);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
                   break;
                 case "arc":
                   req = new baseApi.MoveArcRequest();
@@ -509,14 +513,20 @@
                   req.setMmPerSec(document.getElementById("speed").value);
                   req.setDistanceMm(document.getElementById("distance").value * amount);
                   req.setAngleDeg(angle);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
                   break;
                 case "angle":
                   req = new baseApi.SpinRequest();
                   req.setName(name);
                   req.setDegsPerSec(document.getElementById("speed").value);
                   req.setAngleDeg(angle);
-                  baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.spin(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
                   break;
               }
             },
@@ -545,7 +555,10 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * 1);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
@@ -555,7 +568,10 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * 1);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Continous" &&
@@ -565,7 +581,10 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * -1);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Straight" &&
                   movementType === "Discrete" &&
@@ -575,7 +594,10 @@
                   req.setName(name);
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * -1);
-                  baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveStraight(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Arc" &&
                   spinType === "Clockwise" &&
@@ -586,7 +608,10 @@
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * 1);
                   req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Arc" &&
                   spinType === "Counterclockwise" &&
@@ -597,7 +622,10 @@
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * 1);
                   req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Arc" &&
                   spinType === "Clockwise" &&
@@ -608,7 +636,10 @@
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * -1);
                   req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Arc" &&
                   spinType === "Counterclockwise" &&
@@ -619,7 +650,10 @@
                   req.setMmPerSec(document.getElementById("speed").value)
                   req.setDistanceMm(document.getElementById("distance").value * -1);
                   req.setAngleDeg(document.getElementById("angle").value);
-                  baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.moveArc(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Spin" &&
                   spinType === "Clockwise"
@@ -628,7 +662,10 @@
                   req.setName(name);
                   req.setDegsPerSec(document.getElementById("speed").value)
                   req.setAngleDeg(document.getElementById("angle").value * 1);
-                  baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.spin(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               } else if (
                   movementMode === "Spin" &&
                   spinType === "Counterclockwise"
@@ -637,7 +674,10 @@
                   req.setName(name);
                   req.setDegsPerSec(document.getElementById("speed").value)
                   req.setAngleDeg(document.getElementById("angle").value * -1);
-                  baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
+                  baseService.spin(req, {}, (err, resp) => {
+                      this.baseRunStatus = false;
+                      return grpcCallback(err, resp)
+                  });
               }
             },
             renderFrame: function (cameraName) {
@@ -1530,11 +1570,32 @@
       {{ end }}
     </div>
     <div id="app" v-cloak>
-      <container class="p-2">
+      <div class="p-2">
           <div style="color: red;">${ error }</div>
           <!-- ******* BASE *******  -->
-          <div class="base" v-for="base in filterResources('rdk', 'component', 'base')" :key="base.name">
-                <div class="camera" v-for="streamName in streamNames" :key="streamName">
+          <div class="base pb-4" v-for="base in filterResources('rdk', 'component', 'base')" :key="base.name">
+                <div v-if="!streamNames.length">
+                  <div class="camera">
+                    <viam-base
+                        :base-name="base.name"
+                        :connected-camera="false"
+                        :crumbs="['base', base.name]"
+                        :base-status="baseRunStatus"
+                        @forward="baseAction(base.name,'straight', 1, null)"
+                        @backward="baseAction(base.name,'straight', -1, null)"
+                        @spin-clockwise="baseAction(base.name,'angle', 1, 135)"
+                        @spin-counter-clockwise="baseAction(base.name,'angle', 1, 45)"
+                        @arc-right="baseAction(base.name,'arc', 1, 135)"
+                        @arc-left="baseAction(base.name,'arc', 1, 45)"
+                        @back-arc-right="baseAction(base.name,'arc', -1, 225)"
+                        @back-arc-left="baseAction(base.name,'arc', -1, 315)"
+                        @base-run="handleBaseAction"
+                        @base-stop="handleBaseActionStop(base.name)"
+                    ></viam-base>
+                  </div>
+                </div>
+                <div v-else>
+                  <div class="camera" v-for="streamName in streamNames" :key="streamName">
                     <viam-base
                         :base-name="base.name"
                         :stream-name="streamName"
@@ -1553,11 +1614,12 @@
                         @base-stop="handleBaseActionStop(base.name)"
                         @show-base-camera="viewPreviewCamera(streamName)"
                     ></viam-base>
+                  </div>
                 </div>
             </div>
 
           <!-- ******* GANTRY *******  -->
-          <div class="gantry" v-for="gantry in filterResources('rdk', 'component', 'gantry')" :key="gantry.name" v-if="resourceStatusByName(gantry)">
+          <div class="gantry pb-4" v-for="gantry in filterResources('rdk', 'component', 'gantry')" :key="gantry.name" v-if="resourceStatusByName(gantry)">
             <h3>Gantry ${gantry.name}</h3>
             <table  class="table-auto border-collapse border border-slate-400">
                  <th class="border border-slate-300"ead>
@@ -1584,7 +1646,7 @@
           </div>
 
           <!-- ******* IMU *******  -->
-          <div>
+          <div class="pb-4">
             <div v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()" :key="imu[1].name">
               <hr />
               <h2>IMU: ${imu[1].name}</h2>
@@ -1611,7 +1673,7 @@
           </div>
 
           <!-- ******* ARM *******  -->
-          <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
+          <div class="arm pb-4" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
             <h3>Arm ${arm.name}</h3>
             <div style="display: flex; margin-bottom: 1em">
               <table v-if="armToggle[arm.name]" border="1" style="margin-right: 1em" class="border border-slate-300">
@@ -1693,7 +1755,7 @@
           </div>
 
           <!-- ******* GRIPPER *******  -->
-          <div class="gripper" v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
+          <div class="gripper pb-4" v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
             <h3>Gripper ${ gripper.name }</h3>
             <ul>
               <li><viam-button group v-on:click="gripperAction( gripper.name, 'open')">Open</viam-button></li>
@@ -1703,7 +1765,7 @@
 
           <!-- ******* SERVO *******  -->
           <div
-            class="servo"
+            class="servo pb-4"
             v-for="servo in filterResources('rdk', 'component', 'servo')"
             :key="servo.name"
             v-if="resourceStatusByName(servo)"
@@ -1726,6 +1788,7 @@
 
           <!-- ******* MOTOR *******  -->
           <motor-detail
+            class="pb-4"
             v-for="motor in filterResources('rdk', 'component', 'motor')"
             :key="'new-' + motor.name"
             v-if="resourceStatusByName(motor)"
@@ -1738,6 +1801,7 @@
 
           <!-- ******* INPUT VIEW *******  -->
           <input-controller
+            class="pb-4"
             v-for="controller in filteredInputControllerList()"
             :key="'new-' + controller.name"
             v-if="resourceStatusByName(controller)"
@@ -1748,10 +1812,10 @@
           </input-controller>
 
           <!-- ******* WEB CONTROLS *******  -->
-          <web-gamepad v-if="hasWebGamepad()" v-on:execute="inputInject($event)" style="max-width: 1080px;"> </web-gamepad>
+          <web-gamepad class="pb-4" v-if="hasWebGamepad()" v-on:execute="inputInject($event)" style="max-width: 1080px;"> </web-gamepad>
 
                     <!-- ******* BOARD *******  -->
-          <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
+          <div class="board pb-4" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
             <h3>Board ${board.name}</h3>
             <table  class="table-auto border-collapse border border-slate-400">
 
@@ -1790,27 +1854,29 @@
           </div>
           <!-- end boards -->
 
-          <table  class="table-auto border-collapse border border-slate-400" border=1 v-if="nonEmpty(sensorNames)">
-            <tr>
-               <th class="border border-slate-300" colspan="2">Sensors</th>
-            </tr>
+          <div class="pb-4">
+            <table  class="table-auto border-collapse border border-slate-400" border=1 v-if="nonEmpty(sensorNames)">
+              <tr>
+                <th class="border border-slate-300" colspan="2">Sensors</th>
+              </tr>
 
-            <tr>
-               <th class="border border-slate-300">Name</th>
-               <th class="border border-slate-300">Type</th>
-               <th class="border border-slate-300">Readings</th>
-               <th class="border border-slate-300" colspan="2"> <viam-button group v-on:click="getReadings(sensorNames)">Get All Readings</viam-button></th>
-            </tr>
+              <tr>
+                <th class="border border-slate-300">Name</th>
+                <th class="border border-slate-300">Type</th>
+                <th class="border border-slate-300">Readings</th>
+                <th class="border border-slate-300" colspan="2"> <viam-button group v-on:click="getReadings(sensorNames)">Get All Readings</viam-button></th>
+              </tr>
 
-            <tr v-for="name in sensorNames">
-               <td class="border border-slate-300">${name.name}</td>
-               <td class="border border-slate-300">${name.subtype}</td>
-               <td class="border border-slate-300">${sensorReadings[resourceNameToString(name)]}</td>
-               <td class="border border-slate-300"> <viam-button group v-on:click="getReadings([name])">Get Readings</viam-button></td>
-            </tr>
-          </table>
+              <tr v-for="name in sensorNames">
+                <td class="border border-slate-300">${name.name}</td>
+                <td class="border border-slate-300">${name.subtype}</td>
+                <td class="border border-slate-300">${sensorReadings[resourceNameToString(name)]}</td>
+                <td class="border border-slate-300"> <viam-button group v-on:click="getReadings([name])">Get Readings</viam-button></td>
+              </tr>
+            </table>
+          </div>
           <!-- get segments -->
-          <div id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
+          <div class="pb-4" id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
             <br />
             <br />
             <viam-button group v-on:click="setNavigationMode('manual')">Manual</viam-button>
@@ -1820,25 +1886,26 @@
             <viam-button group v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
             <div id="map" v-map-mounted></div>
           </div>
-
-          <h3>Current Operations</h3>
-          <table class="table-auto border-collapse border border-slate-400">
-            <tr>
-              <th class="border border-slate-300">id</th>
-              <th class="border border-slate-300">method</th>
-              <th class="border border-slate-300">elapsed time</th>
-              <th class="border border-slate-300"></th>
-            </tr>
-            <tr v-for="o in currentOps" :key="o.id">
-              <td class="border border-slate-300">${o.id}</td>
-              <td class="border border-slate-300">${o.method}</td>
-              <td class="border border-slate-300">${(new Date()).getTime() - (o.started.seconds * 1000)}ms</td>
-              <td class="border border-slate-300"><button v-on:click="killOp(o.id)">Kill</button></td>
-            </tr>
-          </table>
+          <div class="pb-4">
+            <h3>Current Operations</h3>
+            <table class="table-auto border-collapse border border-slate-400">
+              <tr>
+                <th class="border border-slate-300">id</th>
+                <th class="border border-slate-300">method</th>
+                <th class="border border-slate-300">elapsed time</th>
+                <th class="border border-slate-300"></th>
+              </tr>
+              <tr v-for="o in currentOps" :key="o.id">
+                <td class="border border-slate-300">${o.id}</td>
+                <td class="border border-slate-300">${o.method}</td>
+                <td class="border border-slate-300">${(new Date()).getTime() - (o.started.seconds * 1000)}ms</td>
+                <td class="border border-slate-300"><button v-on:click="killOp(o.id)">Kill</button></td>
+              </tr>
+            </table>
+          </div>
 
           <!-- ******* CAMERAS *******  -->
-          <div class="camera" v-for="streamName in streamNames" :key="streamName">
+          <div class="camera pb-4" v-for="streamName in streamNames" :key="streamName">
               <camera
                       :stream-name="streamName"
                       :crumbs="[streamName]"
@@ -1869,7 +1936,7 @@
                       @select-object="doSelectObject"
               ></camera>
           </div>
-      </container>
+        </div>
     </div>
     <!-- end vue app -->
 

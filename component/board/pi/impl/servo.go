@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	picommon "go.viam.com/rdk/component/board/pi/common"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -54,6 +55,7 @@ func init() {
 
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
+	generic.Unimplemented	
 	pin      C.uint
 	min, max uint8
 }

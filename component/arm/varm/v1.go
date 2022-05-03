@@ -16,6 +16,7 @@ import (
 	"gonum.org/v1/gonum/stat"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
@@ -211,6 +212,7 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 }
 
 type armV1 struct {
+	generic.Unimplemented
 	j0Motor, j1Motor motor.Motor
 
 	j0, j1 joint
