@@ -230,10 +230,13 @@ type Service interface {
 type StreamServer struct {
 	// Server serves streams
 	Server gostream.StreamServer
-	// HasStreams is true if service has streams that require a WebRTC connection
-	HasStreams bool
 	// ImagesSources to stream from by name
 	ImagesSources map[string]gostream.ImageSource
+}
+
+// HasStreams is true if service has streams that require a WebRTC connection
+func (ss *StreamServer) HasStreams() bool {
+	return len(ss.ImagesSources) > 0
 }
 
 // New returns a new web service for the given robot.
@@ -373,7 +376,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 
 	if len(sources) == 0 {
 		noopServer, err := gostream.NewStreamServer(streams...)
-		return &StreamServer{noopServer, false, sources}, err
+		return &StreamServer{noopServer, sources}, err
 	}
 
 	for name := range sources {
@@ -395,7 +398,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 		svc.startStream(ctx, sources[stream.Name()], stream)
 	}
 
-	return &StreamServer{streamServer, true, sources}, nil
+	return &StreamServer{streamServer, sources}, nil
 }
 
 func (svc *webService) startStream(ctx context.Context, source gostream.ImageSource, stream gostream.Stream) {
@@ -511,7 +514,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	); err != nil {
 		return err
 	}
-	if svc.streamServer.HasStreams {
+	if svc.streamServer.HasStreams() {
 		// force WebRTC template rendering
 		options.WebRTC = true
 	}
