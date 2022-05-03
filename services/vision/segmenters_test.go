@@ -1,4 +1,4 @@
-package objectsegmentation
+package vision
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-func TestSegmenterRegistry(t *testing.T) {
+func TestSegmenterMap(t *testing.T) {
 	fn := func(ctx context.Context, c camera.Camera, parameters config.AttributeMap) ([]*vision.Object, error) {
 		return []*vision.Object{vision.NewEmptyObject()}, nil
 	}
@@ -21,22 +21,26 @@ func TestSegmenterRegistry(t *testing.T) {
 		VariableTwo string `json:"string_var"`
 	}{}
 	fnName := "x"
+	segMap := make(segmenterMap)
 	// no segmenter
-	test.That(t, func() { RegisterSegmenter(fnName, SegmenterRegistration{nil, []utils.TypedName{}}) }, test.ShouldPanic)
+	err := segMap.registerSegmenter(fnName, SegmenterRegistration{nil, []utils.TypedName{}})
+	test.That(t, err, test.ShouldNotBeNil)
 	// success
-	RegisterSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)})
+	err = segMap.registerSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)})
+	test.That(t, err, test.ShouldBeNil)
 	// segmenter names
-	names := SegmenterNames()
+	names := segMap.segmenterNames()
 	test.That(t, names, test.ShouldNotBeNil)
 	test.That(t, names, test.ShouldContain, fnName)
 	// look up
-	creator, err := SegmenterLookup(fnName)
+	creator, err := segMap.segmenterLookup(fnName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, creator.Segmenter, test.ShouldEqual, fn)
 	test.That(t, creator.Parameters, test.ShouldResemble, []utils.TypedName{{"int_var", "int"}, {"string_var", "string"}})
-	creator, err = SegmenterLookup("z")
+	creator, err = segMap.segmenterLookup("z")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
 	test.That(t, creator, test.ShouldBeNil)
 	// duplicate
-	test.That(t, func() { RegisterSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)}) }, test.ShouldPanic)
+	err = segMap.registerSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)})
+	test.That(t, err, test.ShouldNotBeNil)
 }

@@ -1,26 +1,29 @@
-package objectsegmentation
+package vision
 
 import (
 	"bytes"
 	"context"
 
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
+	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
 
-// subtypeServer implements the Object Segmentation Service.
+// subtypeServer implements the Vision Service.
 type subtypeServer struct {
-	pb.UnimplementedObjectSegmentationServiceServer
+	pb.UnimplementedVisionServiceServer
 	subtypeSvc subtype.Service
 }
 
-// NewServer constructs a object segmentation gRPC service server.
-func NewServer(s subtype.Service) pb.ObjectSegmentationServiceServer {
+// NewServer constructs a vision gRPC service server.
+func NewServer(s subtype.Service) pb.VisionServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
@@ -31,25 +34,102 @@ func (server *subtypeServer) service() (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("objectsegmentation.Service", resource)
+		return nil, utils.NewUnimplementedInterfaceError("vision.Service", resource)
 	}
 	return svc, nil
 }
 
-func (server *subtypeServer) GetSegmenters(
+func (server *subtypeServer) GetDetectorNames(
 	ctx context.Context,
-	req *pb.GetSegmentersRequest,
-) (*pb.GetSegmentersResponse, error) {
+	req *pb.GetDetectorNamesRequest,
+) (*pb.GetDetectorNamesResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetectorNames")
+	defer span.End()
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetSegmenters(ctx)
+	names, err := svc.GetDetectorNames(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetSegmentersResponse{
-		Segmenters: names,
+	return &pb.GetDetectorNamesResponse{
+		DetectorNames: names,
+	}, nil
+}
+
+func (server *subtypeServer) AddDetector(
+	ctx context.Context,
+	req *pb.AddDetectorRequest,
+) (*pb.AddDetectorResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddDetector")
+	defer span.End()
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	params := config.AttributeMap(req.DetectorParameters.AsMap())
+	cfg := DetectorConfig{
+		Name:       req.DetectorName,
+		Type:       req.DetectorModelType,
+		Parameters: params,
+	}
+	err = svc.AddDetector(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.AddDetectorResponse{}, nil
+}
+
+func (server *subtypeServer) GetDetections(
+	ctx context.Context,
+	req *pb.GetDetectionsRequest,
+) (*pb.GetDetectionsResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetections")
+	defer span.End()
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	detections, err := svc.GetDetections(ctx, req.CameraName, req.DetectorName)
+	if err != nil {
+		return nil, err
+	}
+	protoDets := make([]*pb.Detection, 0, len(detections))
+	for _, det := range detections {
+		box := det.BoundingBox()
+		if box == nil {
+			return nil, errors.New("detection has no bounding box, must return a bounding box")
+		}
+		d := &pb.Detection{
+			XMin:       int64(box.Min.X),
+			YMin:       int64(box.Min.Y),
+			XMax:       int64(box.Max.X),
+			YMax:       int64(box.Max.Y),
+			Confidence: det.Score(),
+			ClassName:  det.Label(),
+		}
+		protoDets = append(protoDets, d)
+	}
+	return &pb.GetDetectionsResponse{
+		Detections: protoDets,
+	}, nil
+}
+
+func (server *subtypeServer) GetSegmenterNames(
+	ctx context.Context,
+	req *pb.GetSegmenterNamesRequest,
+) (*pb.GetSegmenterNamesResponse, error) {
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	names, err := svc.GetSegmenterNames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetSegmenterNamesResponse{
+		SegmenterNames: names,
 	}, nil
 }
 
@@ -70,7 +150,7 @@ func (server *subtypeServer) GetSegmenterParameters(
 		typedParams[i] = &pb.TypedParameter{Name: p.Name, Type: p.Type}
 	}
 	return &pb.GetSegmenterParametersResponse{
-		Parameters: typedParams,
+		SegmenterParameters: typedParams,
 	}, nil
 }
 
