@@ -401,5 +401,5 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		}
 	}
 
-	return web.RunWeb(ctx, myRobot, options, logger)
+	return myRobot.RunWeb(ctx, options, logger)
 }

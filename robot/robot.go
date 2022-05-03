@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -57,6 +58,23 @@ type LocalRobot interface {
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
+
+	// RunWeb starts the web server on the robot's web service with web options and
+	// blocks until we close it.
+	//RunWeb(ctx context.Context, o web.Options, logger golog.Logger) error
+
+	// RunWebWithPprofLogging starts the web server on the robot's web service with the
+	// robot config and blocks until we close it. Additionally sets pprof to true for
+	// debug logging purposes
+	RunWebWithPprofLogging(ctx context.Context, cfg *config.Config, logger golog.Logger) error
+
+	// RunWeb starts the web server on the robot's web service with the robot
+	// config and blocks until we close it.
+	RunWeb(ctx context.Context, cfg *config.Config, logger golog.Logger) error
+
+	// CR erodkin: see if we need this at all. See also cr in local_robot.go
+	// Start starts the web server, will return an error if server is already up.
+	StartWeb(ctx context.Context, o weboptions.Options) error
 }
 
 // AllResourcesByName returns an array of all resources that have this simple name.

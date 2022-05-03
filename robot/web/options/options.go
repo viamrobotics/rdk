@@ -1,5 +1,5 @@
 // Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
-package web
+package weboptions
 
 import (
 	"crypto/tls"
@@ -53,8 +53,8 @@ type Options struct {
 	// Managed signifies if this server is remotely managed (e.g. from some cloud service).
 	Managed bool
 
-	// secure determines if sever communicates are secured or not.
-	secure bool
+	// Secure determines if sever communicates are secured or not.
+	Secure bool
 
 	// baked information when managed to make local UI simpler
 	BakedAuthEntity string

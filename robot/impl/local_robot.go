@@ -10,6 +10,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	// registers all components.
@@ -20,6 +22,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
@@ -59,6 +62,23 @@ type localRobot struct {
 	web web.Service
 }
 
+// Web returns the localRobot's web service. Raises if the service has not been initialized
+func (r *localRobot) Web() (web.Service, error) {
+	if r.web == nil {
+		return nil, errors.Errorf("web service was not initialized")
+	}
+	return r.web, nil
+}
+
+func (r *localRobot) robotResource(name resource.Name) interface{} {
+	switch name {
+	case web.Name:
+		return r.web
+	default:
+		return nil
+	}
+}
+
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
@@ -68,6 +88,10 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (interface{}, error) {
+	maybeResource := r.robotResource(name)
+	if maybeResource != nil {
+		return maybeResource, nil
+	}
 	return r.manager.ResourceByName(name)
 }
 
@@ -93,6 +117,7 @@ func (r *localRobot) OperationManager() *operation.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
+	// CR erodkin: add closing of web here
 	return r.manager.Close(ctx)
 }
 
@@ -110,6 +135,56 @@ func (r *localRobot) Logger() golog.Logger {
 	return r.logger
 }
 
+// CR erodkin: do we need to have this here and also have the web.Start method? Can we
+// get away with only having one? Or neither?
+func (r *localRobot) StartWeb(ctx context.Context, o web.Options) (err error) {
+	web := r.web
+	return web.Start(ctx, o)
+}
+
+// RunWeb starts the web server on the web service with web options and blocks until we close it.
+func (r *localRobot) RunWeb(ctx context.Context, o web.Options, logger golog.Logger) (err error) {
+	defer func() {
+		if err != nil {
+			err = goutils.FilterOutError(err, context.Canceled)
+			if err != nil {
+				logger.Errorw("error running web", "error", err)
+			}
+		}
+		err = multierr.Combine(err, goutils.TryClose(ctx, r))
+	}()
+	svc := r.web
+	if svc == nil {
+		return err
+	}
+	if err := svc.Start(ctx, o); err != nil {
+		return err
+	}
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// RunWebWithPprofLogging starts the web server on the web service with a robot config and
+// blocks until we close it. Additionally turns on Pprof logging for debugging purposes
+//func (r *localRobot) RunWebWithPprofLogging(ctx context.Context, cfg *config.Config, logger golog.Logger) error {
+//o, err := web.OptionsFromConfig(cfg)
+//if err != nil {
+//return err
+//}
+//o.Pprof = true
+//return r.runWeb(ctx, o, logger)
+//}
+
+// RunWebWithConfig starts the web server on the web service with a robot config and blocks until we close it.
+func (r *localRobot) RunWebWithConfig(ctx context.Context, cfg *config.Config, logger golog.Logger) error {
+	o, err := weboptions.OptionsFromConfig(cfg)
+	if err != nil {
+		return err
+	}
+	return r.RunWeb(ctx, o, logger)
+}
+
+// New returns a new robot with parts sourced from the given config.
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -160,6 +235,7 @@ func newWithResources(
 		return nil, err
 	}
 	r.web = webSvc
+	r.manager.addResource(web.Name, webSvc)
 
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
@@ -249,6 +325,10 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		}
 		resources[n] = res
 	}
+
+	// CR erodkin: is this right?
+	resources[web.Name] = r.web
+
 	for _, name := range defaultSvc {
 		svc, err := r.ResourceByName(name)
 		if err != nil {

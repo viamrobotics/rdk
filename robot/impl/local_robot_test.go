@@ -745,6 +745,7 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
+	// CR erodkin: modify this comment maybe?
 	// 11 declared resources + default web, sensors, status, and metadata service
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
@@ -816,6 +817,7 @@ func TestStatusService(t *testing.T) {
 	svc, err := status.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 
+	// CR erodkin: update here
 	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1"), status.Name, web.Name}
 	rArm, err := arm.FromRobot(r, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
