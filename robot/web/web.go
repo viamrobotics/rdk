@@ -47,6 +47,8 @@ import (
 	"go.viam.com/rdk/web"
 )
 
+const Name = "web"
+
 // robotWebApp hosts a web server to interact with a robot in addition to hosting
 // a gRPC/REST server.
 type robotWebApp struct {

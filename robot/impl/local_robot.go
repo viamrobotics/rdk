@@ -79,12 +79,15 @@ func (r *localRobot) webService() (web.Service, error) {
 	return webSvc, nil
 }
 
-// Web returns the localRobot's web service. Raises if the service has not been initialized
-func (r *localRobot) Web() (web.Service, error) {
-	if r.web == nil {
+// web returns the localRobot's web service. Raises if the service has not been initialized
+func (r *localRobot) web() (web.Service, error) {
+	service := r.internalServices[web.Name]
+
+	if webSvc, ok := service.(web.Service); !ok {
 		return nil, errors.Errorf("web service was not initialized")
+	} else {
+		return webSvc, nil
 	}
-	return r.web, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
