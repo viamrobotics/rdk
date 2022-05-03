@@ -184,9 +184,8 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 
 	var tfParent *PoseInFrame
 	var err error
-	if _, ok := object.(*GeometriesInFrame); ok && len(srcFrame.DoF()) != 0 {
+	if _, ok := object.(*GeometriesInFrame); ok {
 		// don't want to apply the final transformation when that is taken care of by the geometries
-		// except in the case where geometry is tied to a static frame
 		tfParent, err = sfs.transformFromParent(positions, sfs.parents[srcFrame], sfs.GetFrame(dst))
 	} else {
 		tfParent, err = sfs.transformFromParent(positions, srcFrame, sfs.GetFrame(dst))

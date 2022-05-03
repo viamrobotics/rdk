@@ -172,18 +172,6 @@ func (ms *motionService) Move(
 	}
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
-	// add constraints to motion planning query
-	// for _, obstaclesInFrame := range worldState.GetObstacles() {
-	// 	obstacles, err := referenceframe.ProtobufToGeometriesInFrame(obstaclesInFrame)
-	// 	if err != nil {
-	// 		return false, err
-	// 	}
-	// }
-
-	// for _, obstacle := range obstacles.Geometries() {
-	// 	frameSys.TransformGeometry
-	// }
-
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	output, err := solver.SolvePose(ctx, input, goalPose.Pose(), componentName.Name, solvingFrame)
 	if err != nil {
