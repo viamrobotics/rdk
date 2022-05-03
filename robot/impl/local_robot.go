@@ -79,6 +79,23 @@ func (r *localRobot) webService() (web.Service, error) {
 	return webSvc, nil
 }
 
+// Web returns the localRobot's web service. Raises if the service has not been initialized
+func (r *localRobot) Web() (web.Service, error) {
+	if r.web == nil {
+		return nil, errors.Errorf("web service was not initialized")
+	}
+	return r.web, nil
+}
+
+func (r *localRobot) robotResource(name resource.Name) interface{} {
+	switch name {
+	case web.Name:
+		return r.web
+	default:
+		return nil
+	}
+}
+
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
@@ -88,6 +105,10 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (interface{}, error) {
+	maybeResource := r.robotResource(name)
+	if maybeResource != nil {
+		return maybeResource, nil
+	}
 	return r.manager.ResourceByName(name)
 }
 
@@ -186,7 +207,6 @@ func newWithResources(
 
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
-
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
