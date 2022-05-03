@@ -89,7 +89,7 @@ func TestWriteViam(t *testing.T) {
 		opt.SetMetric(destGrad)
 		opt.AddConstraint("whiteboard", validFunc)
 
-		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame.Name(), fs.World().Name(), opt)
+		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame.Name(), fs.World().Name(), nil, opt)
 		test.That(t, err, test.ShouldBeNil)
 		return waysteps[len(waysteps)-1]
 	}

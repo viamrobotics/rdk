@@ -96,17 +96,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 			return nil, err
 		}
 		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
-		// TODO(rb) make this worldstate, once that is incorporated
-		obstacles := map[string]spatial.Geometry{}
-		interactionSpaces := map[string]spatial.Geometry{}
-		if len(obstacles) == 0 {
-			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
-		} else {
-			collisionConst := NewCollisionConstraint(mp.Frame(), obstacles, interactionSpaces)
-			if collisionConst != nil {
-				opt.AddConstraint("self-collision", collisionConst)
-			}
-		}
+		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
 	}
 
 	utils.PanicCapturingGo(func() {
