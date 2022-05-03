@@ -338,7 +338,7 @@ func (svc *webService) Close(ctx context.Context) error {
 // TODO: use in makeStreamServer as iterator pattern?
 func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) error {
 	// TODO: check if stream service and server are initialized?
-	if svc.streamServer == nil {
+	if svc.streamServer == nil || svc.streamServer.Server == nil {
 		return nil
 	}
 	sources := allSourcesToDisplay(theRobot)
