@@ -28,7 +28,7 @@ export default class ViamRange extends Vue {
 
 
   @Prop({ required: true }) value!: number | string;
-  @Prop({ required: true, type: Array }) options!: object[];
+  @Prop({ required: true, type: Array }) options!: Record<string, unknown>[];
 
   get innerValue(): number | string {
     return this.value;
@@ -44,7 +44,7 @@ export default class ViamRange extends Vue {
     return foundOption[this.labelKey]
   }
 
-  getOptionByKey(key: number | string): object | undefined {
+  getOptionByKey(key: number | string): Record<string, unknown> | undefined {
     return find(this.options, {[this.valueKey]: key })
   }  
   select (key: string | number) : void {
