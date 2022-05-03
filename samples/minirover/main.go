@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -234,10 +233,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	options, err := web.OptionsFromConfig(cfg)
-	if err != nil {
-		return err
-	}
-	options.Pprof = true
-	return web.RunWeb(ctx, myRobot, options, logger)
+	return myRobot.RunWebWithPprofLogging(ctx, cfg, logger)
 }
