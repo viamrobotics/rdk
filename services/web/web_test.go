@@ -535,17 +535,7 @@ func TestWebWithStreams(t *testing.T) {
 	// robot when the service starts! Make it so this is not the case.
 	robot := &inject.Robot{}
 	rs := map[resource.Name]interface{}{camera.Named(camera1Key): cam1}
-	robot.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named(camera1Key)}
-	}
-	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		switch name {
-		case camera.Named(camera1Key):
-			return cam1, nil
-		default:
-			return robot.ResourceByName(name)
-		}
-	}
+	robot.MockResourcesFromMap(rs)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start service
@@ -571,20 +561,8 @@ func TestWebWithStreams(t *testing.T) {
 	test.That(t, resp.Names, test.ShouldHaveLength, 1)
 
 	// Add another camera and update
-	robot.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named(camera1Key), camera.Named(camera2Key)}
-	}
-	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		switch name {
-		case camera.Named(camera1Key):
-			return cam1, nil
-		case camera.Named(camera2Key):
-			return cam2, nil
-		default:
-			return robot.ResourceByName(name)
-		}
-	}
 	rs[camera.Named(camera2Key)] = cam2
+	robot.MockResourcesFromMap(rs)
 	updateable, ok := svc.(resource.Updateable)
 	test.That(t, ok, test.ShouldBeTrue)
 	err = updateable.Update(ctx, rs)
