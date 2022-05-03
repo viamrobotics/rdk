@@ -38,6 +38,18 @@ func TestColorObjects(t *testing.T) {
 	objects, err := segmentation.ColorObjects(context.Background(), cam, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
+	// create config with no mean_k filtering
+	cfg = config.AttributeMap{
+		"tolerance":             0.025,
+		"detect_color":          "#6D2814",
+		"mean_k":                -1,
+		"sigma":                 1.5,
+		"min_points_in_segment": 1000,
+	}
+	// run segmenter
+	objects, err = segmentation.ColorObjects(context.Background(), cam, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, objects, test.ShouldHaveLength, 1)
 }
 
 func TestColorObjectsValidate(t *testing.T) {
@@ -51,12 +63,8 @@ func TestColorObjectsValidate(t *testing.T) {
 	cfg.Color = "#GGGGGG"
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "couldn't parse hex")
-	// not a valid meanK
-	cfg.Color = "#123456"
-	cfg.MeanK = -5
-	err = cfg.CheckValid()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "mean_k must be greater than 0")
 	// not a valid sigma
+	cfg.Color = "#123456"
 	cfg.MeanK = 5
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must be greater than 0")

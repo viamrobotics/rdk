@@ -1,4 +1,4 @@
-package objectdetection
+package vision
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 )
 
 func TestColorDetector(t *testing.T) {
-	inp := &Config{
+	inp := &DetectorConfig{
 		Name: "my_color_detector",
 		Type: "color",
 		Parameters: config.AttributeMap{
