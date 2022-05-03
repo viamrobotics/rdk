@@ -170,20 +170,20 @@ func TestConfigValidation(t *testing.T) {
 	cfg.DataDirectory = name2
 
 	err = runtimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("no data folder was found in [%v]", cfg.DataDirectory))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%v/data directory does not exist", name2))
 
 	// ---- Note: Test os.Stat / ioutil.ReadDir
 	err = os.Mkdir(name2+"/data", os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = runtimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("no map folder was found in [%v]", cfg.DataDirectory))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%v/map directory does not exist", name2))
 
 	err = os.Mkdir(name2+"/map", os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = runtimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("no config folder was found in [%v]", cfg.DataDirectory))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%v/config directory does not exist", name2))
 
 	// Sensor Mode test
 	cfg.ConfigParams["mode"] = "rgbd"
@@ -282,20 +282,11 @@ func TestOrbSLAMData(t *testing.T) {
 	}
 	ss.camera = cam
 
-	err = ss.slamLib.getAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
-	test.That(t, err, test.ShouldBeError, errors.New("jpeg: image is too large to encode"))
-
 	cam = &inject.Camera{}
 	cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
 	}
 	ss.camera = cam
-
-	err = ss.slamLib.getAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = ss.slamLib.getAndSaveData(ss.cancelCtx, ss.camera, "rgbd", ss.dataDirectory, ss.logger)
-	test.That(t, err, test.ShouldBeError, errors.New("want image/both but don't have *rimage.ImageWithDepth"))
 
 	err = resetFolder(name)
 	test.That(t, err, test.ShouldBeNil)

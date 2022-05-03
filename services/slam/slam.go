@@ -94,7 +94,7 @@ func runtimeConfigValidation(svcConfig *AttrConfig) error {
 	for _, subdirectoryName := range [3]string{"data", "map", "config"} {
 		subdirectoryPath := filepath.Join(svcConfig.DataDirectory, subdirectoryName)
 		if _, err := os.Stat(subdirectoryPath); os.IsNotExist(err) {
-			return errors.Errorf("directory does not exist [%v]", subdirectoryPath)
+			return errors.Errorf("%v directory does not exist", subdirectoryPath)
 		}
 	}
 
