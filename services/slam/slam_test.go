@@ -65,7 +65,7 @@ func TestGeneralSLAMService(t *testing.T) {
 	slamSvc, err := New(ctx, r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ss := slamSvc.GetSLAMServiceData()
+	ss := slamSvc.getSLAMServiceData()
 
 	// cam := &fake.Camera{}
 	cam := &inject.Camera{}
@@ -105,18 +105,18 @@ func TestConfigValidation(t *testing.T) {
 		InputFilePattern: "100:300:5",
 	}
 
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	// No sesnor test
 	cfg.Sensors = []string{}
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeNil)
 	cfg.Sensors = []string{"rplidar"}
 
 	// Mode SLAM Library test
 	cfg.ConfigParams["mode"] = ""
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	testSlamType := slamType{
@@ -124,22 +124,22 @@ func TestConfigValidation(t *testing.T) {
 		ModeFileType:     map[string]string{"2d": ".pcd", "3d": ".pcd"},
 	}
 
-	testMetadata := Metadata{
+	testMetadata := metadata{
 		AlgoName: "test",
 		SlamType: testSlamType,
 		SlamMode: map[string]bool{"test2": false},
 	}
 
-	slamLibraries["test"] = DenseSlamAlgo{Metadata: testMetadata}
+	slamLibraries["test"] = denseSlamAlgo{metadata: testMetadata}
 	cfg.Algorithm = "test"
 	cfg.Sensors = []string{"test_sensor"}
 	cfg.ConfigParams["mode"] = "test1"
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("invalid mode (%v) specified for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
 
 	cfg.ConfigParams["mode"] = "test2"
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("specified mode (%v) is not supported for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
 
@@ -151,12 +151,12 @@ func TestConfigValidation(t *testing.T) {
 
 	// Input File Pattern test
 	cfg.InputFilePattern = "dd:300:3"
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("input_file_pattern (%v) does not match the regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
 
 	cfg.InputFilePattern = "500:300:3"
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
 
@@ -169,37 +169,37 @@ func TestConfigValidation(t *testing.T) {
 
 	cfg.DataDirectory = name2
 
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("no data folder was found in [%v]", cfg.DataDirectory))
 
 	// ---- Note: Test os.Stat / ioutil.ReadDir
 	err = os.Mkdir(name2+"/data", os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("no map folder was found in [%v]", cfg.DataDirectory))
 
 	err = os.Mkdir(name2+"/map", os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("no config folder was found in [%v]", cfg.DataDirectory))
 
 	// Sensor Mode test
 	cfg.ConfigParams["mode"] = "rgbd"
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("specified mode (%v) is not supported for camera [%v]", cfg.ConfigParams["mode"], cfg.Sensors[0]))
 
 	// Sensor test
 	cfg.Sensors = []string{"intelrealsense"}
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("%v is not one of the valid sensors for valid sensor for %v", cfg.Sensors[0], cfg.Algorithm))
 
 	// Valid Algo
 	cfg.Algorithm = "wrong_algo"
-	err = RunTimeConfigValidation(cfg)
+	err = runtimeConfigValidation(cfg)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", cfg.Algorithm))
 
 	err = resetFolder(name2)
@@ -233,14 +233,14 @@ func TestCartographerData(t *testing.T) {
 	slamSvc, err := New(ctx, r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ss := slamSvc.GetSLAMServiceData()
+	ss := slamSvc.getSLAMServiceData()
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pointcloud.New(), nil
 	}
 	ss.camera = cam
 
-	_ = ss.slamLib.GetAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
+	_ = ss.slamLib.getAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = resetFolder(name)
@@ -274,7 +274,7 @@ func TestOrbSLAMData(t *testing.T) {
 	slamSvc, err := New(ctx, r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ss := slamSvc.GetSLAMServiceData()
+	ss := slamSvc.getSLAMServiceData()
 
 	cam := &inject.Camera{}
 	cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -282,7 +282,7 @@ func TestOrbSLAMData(t *testing.T) {
 	}
 	ss.camera = cam
 
-	err = ss.slamLib.GetAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
+	err = ss.slamLib.getAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
 	test.That(t, err, test.ShouldBeError, errors.New("jpeg: image is too large to encode"))
 
 	cam = &inject.Camera{}
@@ -291,10 +291,10 @@ func TestOrbSLAMData(t *testing.T) {
 	}
 	ss.camera = cam
 
-	err = ss.slamLib.GetAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
+	err = ss.slamLib.getAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ss.slamLib.GetAndSaveData(ss.cancelCtx, ss.camera, "rgbd", ss.dataDirectory, ss.logger)
+	err = ss.slamLib.getAndSaveData(ss.cancelCtx, ss.camera, "rgbd", ss.dataDirectory, ss.logger)
 	test.That(t, err, test.ShouldBeError, errors.New("want image/both but don't have *rimage.ImageWithDepth"))
 
 	err = resetFolder(name)
