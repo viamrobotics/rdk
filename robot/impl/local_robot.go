@@ -58,16 +58,19 @@ type localRobot struct {
 	operations *operation.Manager
 	logger     golog.Logger
 
-	// internal services
-	web web.Service
+	// services internal to a localRobot. Currently just web, more to come.
+	internalServices map[string]resource.Updateable
 }
 
-// Web returns the localRobot's web service. Raises if the service has not been initialized
-func (r *localRobot) Web() (web.Service, error) {
-	if r.web == nil {
+// web returns the localRobot's web service. Raises if the service has not been initialized
+func (r *localRobot) web() (web.Service, error) {
+	service := r.internalServices[web.Name]
+
+	if webSvc, ok := service.(web.Service); !ok {
 		return nil, errors.Errorf("web service was not initialized")
+	} else {
+		return webSvc, nil
 	}
-	return r.web, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -104,7 +107,9 @@ func (r *localRobot) OperationManager() *operation.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-	r.web.Close(ctx)
+	for _, svc := range r.internalServices {
+		goutils.TryClose(ctx, svc)
+	}
 	return r.manager.Close(ctx)
 }
 
@@ -123,7 +128,12 @@ func (r *localRobot) Logger() golog.Logger {
 }
 
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	return r.web.Start(ctx, o)
+	webSvc, err := r.web()
+
+	if err != nil {
+		return err
+	}
+	return webSvc.Start(ctx, o)
 }
 
 // RunWeb starts the web server on the web service with web options and blocks until we close it.
@@ -137,8 +147,8 @@ func (r *localRobot) RunWeb(ctx context.Context, o weboptions.Options, logger go
 		}
 		err = multierr.Combine(err, goutils.TryClose(ctx, r))
 	}()
-	svc := r.web
-	if svc == nil {
+	svc, err := r.web()
+	if err != nil {
 		return err
 	}
 	if err := svc.Start(ctx, o); err != nil {
@@ -198,11 +208,8 @@ func newWithResources(
 		r.manager.addResource(name, svc)
 	}
 
-	// ethan TODO(RSDK-299): having to duplicate this for al the robot-specific services
-	// is a bit of a pain, and more importantly creates unwieldy code. Consider if we
-	// can have a "roboSvc" list similar to "defaultSvc" to avoid repetition
-	// robot-specific resources
-	r.web = web.New(ctx, r, logger)
+	r.internalServices = make(map[string]resource.Updateable)
+	r.internalServices[web.Name] = web.New(ctx, r, logger)
 
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
@@ -313,9 +320,10 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		}
 	}
 
-	err := r.web.Update(ctx, resources)
-	if err != nil {
-		return err
+	for _, updateable := range r.internalServices {
+		if err := updateable.Update(ctx, resources); err != nil {
+			return err
+		}
 	}
 
 	return nil
