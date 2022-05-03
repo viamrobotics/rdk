@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -160,10 +158,9 @@ type Service interface {
 
 // SlamService is the structure of the slam service.
 type slamService struct {
-	camera   camera.Camera
-	slamLib  SLAM
-	slamMode string
-	// algoProcess      pexec.ProcessConfig
+	camera           camera.Camera
+	slamLib          SLAM
+	slamMode         string
 	configParams     map[string]string
 	dataDirectory    string
 	inputFilePattern string
@@ -171,10 +168,9 @@ type slamService struct {
 	port       int
 	dataFreqHz float64
 
-	cancelCtx               context.Context
-	cancelFunc              func()
-	logger                  golog.Logger
-	activeBackgroundWorkers *sync.WaitGroup
+	cancelCtx  context.Context
+	cancelFunc func()
+	logger     golog.Logger
 }
 
 func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (camera.Camera, error) {
@@ -209,57 +205,42 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	// Runtime Validation Check
-	if err := RuntimeConfigValidation(svcConfig); err != nil {
+	if err := runtimeConfigValidation(svcConfig); err != nil {
 		logger.Warnf("runtime slam config error: %v", err)
 		return &slamService{}, nil
 	}
 
-	// ------------- Get Camera ------------
 	cam, err := configureCamera(svcConfig, r, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	// ---------- Get Random Port ----------
 	p, err := goutils.TryReserveRandomPort()
 	if err != nil {
 		return nil, errors.Errorf("error trying to return a random port %v", err)
 	}
 
-	// -------- Get Data Frequency ---------
-	freq := float64(1000.0 / svcConfig.DataRateMs)
-
-	// ------- Get Cancel Protocols --------
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-
-	// ------- Get SLAM Lib --------
-	slamLib := slamLibraries[svcConfig.Algorithm]
-
-	// ------- Get SLAM Mode --------
-	slamMode := strings.ToLower(svcConfig.ConfigParams["mode"])
 
 	// SLAM Service Object
 	slamSvc := &slamService{
 		camera:           cam,
-		slamLib:          slamLib,
-		slamMode:         slamMode,
+		slamLib:          slamLibraries[svcConfig.Algorithm],
+		slamMode:         strings.ToLower(svcConfig.ConfigParams["mode"]),
 		configParams:     svcConfig.ConfigParams,
 		dataDirectory:    svcConfig.DataDirectory,
 		inputFilePattern: svcConfig.InputFilePattern,
 		port:             p,
-		dataFreqHz:       freq,
+		dataFreqHz:       float64(1000.0 / svcConfig.DataRateMs),
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
 	}
 
-	// Data Process
 	if err := slamSvc.startDataProcess(ctx); err != nil {
 		return nil, errors.Errorf("error with slam service data process: %q", err)
 	}
 
-	// SLAM Process
 	if err := slamSvc.startSLAMProcess(ctx); err != nil {
 		return nil, errors.Errorf("error with slam service slam process: %q", err)
 	}
@@ -270,37 +251,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 // TBD 05/03/2022: Data processing loop in new PR (see slamlibarary.go GetandSaveData functions as well)
 // startDataProcess is the main control loops for sending data from camera to the data directory for processing.
 func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
-	if slamSvc.camera == nil {
-		return nil
-	}
-
-	slamSvc.activeBackgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer slamSvc.activeBackgroundWorkers.Done()
-
-		for {
-			select {
-			case <-slamSvc.cancelCtx.Done():
-				return
-			default:
-			}
-
-			timer := time.NewTimer(time.Second / time.Duration(slamSvc.dataFreqHz))
-			select {
-			case <-slamSvc.cancelCtx.Done():
-				timer.Stop()
-				return
-			case <-timer.C:
-			}
-
-			// Get data from desired camera
-			if err := slamSvc.slamLib.getAndSaveData(slamSvc.cancelCtx, slamSvc.camera, slamSvc.slamMode,
-				slamSvc.dataDirectory, slamSvc.logger); err != nil {
-				panic(err)
-			}
-		}
-	})
-
 	return nil
 }
 
