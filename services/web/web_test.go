@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 
+	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -559,6 +560,16 @@ func TestWebWithStreams(t *testing.T) {
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Start a stream service client
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	streamClient := streampb.NewStreamServiceClient(conn)
+
+	// Validate available streams
+	resp, err := streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Names, test.ShouldContain, camera1Key)
+	test.That(t, resp.Names, test.ShouldHaveLength, 1)
+
 	// Add another camera and update
 	robot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named(camera1Key), camera.Named(camera2Key)}
@@ -579,13 +590,18 @@ func TestWebWithStreams(t *testing.T) {
 	err = updateable.Update(ctx, rs)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Do streams initialize?
-	// TODO: maybe we can start the stream and verify that Next is called on the
-	// underyinglying cameras.
+	// Test that new streams are available
+	resp, err = streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Names, test.ShouldContain, camera1Key)
+	test.That(t, resp.Names, test.ShouldContain, camera2Key)
+	test.That(t, resp.Names, test.ShouldHaveLength, 2)
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()
+	test.That(t, utils.TryClose(ctx, streamClient), test.ShouldBeNil)
 	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func setupRobotCtx() (context.Context, robot.Robot) {
