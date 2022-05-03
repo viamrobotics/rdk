@@ -105,7 +105,7 @@
                         <div class="relative">
                           <ViamSelect :options="cameraOptions"
                                       v-model="selectedValue"
-                                      @change="$emit('show-base-camera')">
+                                      @selected="$emit('show-base-camera')">
                           </ViamSelect>
                         </div>
                       </div>
