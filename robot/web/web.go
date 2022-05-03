@@ -1,3 +1,4 @@
+// Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
 package web
 
 import (
@@ -43,8 +44,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
 )
-
-const Name = "web"
 
 // robotWebApp hosts a web server to interact with a robot in addition to hosting
 // a gRPC/REST server.

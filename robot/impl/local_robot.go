@@ -35,6 +35,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const webName = "web"
+
 var (
 	_ = robot.LocalRobot(&localRobot{})
 
@@ -64,13 +66,13 @@ type localRobot struct {
 
 // web returns the localRobot's web service. Raises if the service has not been initialized
 func (r *localRobot) web() (web.Service, error) {
-	service := r.internalServices[web.Name]
+	service := r.internalServices[webName]
 
-	if webSvc, ok := service.(web.Service); !ok {
-		return nil, errors.Errorf("web service was not initialized")
-	} else {
-		return webSvc, nil
+	webSvc, ok := service.(web.Service)
+	if !ok {
+		return nil, errors.New("web service was not initialized")
 	}
+	return webSvc, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -108,7 +110,9 @@ func (r *localRobot) OperationManager() *operation.Manager {
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
 	for _, svc := range r.internalServices {
-		goutils.TryClose(ctx, svc)
+		if err := goutils.TryClose(ctx, svc); err != nil {
+			return err
+		}
 	}
 	return r.manager.Close(ctx)
 }
@@ -129,7 +133,6 @@ func (r *localRobot) Logger() golog.Logger {
 
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
 	webSvc, err := r.web()
-
 	if err != nil {
 		return err
 	}
@@ -209,7 +212,7 @@ func newWithResources(
 	}
 
 	r.internalServices = make(map[string]resource.Updateable)
-	r.internalServices[web.Name] = web.New(ctx, r, logger)
+	r.internalServices[webName] = web.New(ctx, r, logger)
 
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err

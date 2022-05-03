@@ -644,20 +644,3 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 
 	return context.Background(), injectRobot
 }
-
-func setupInjectRobot() (*inject.Robot, *mock) {
-	web1 := &mock{}
-	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return web1, nil
-	}
-	return r, web1
-}
-
-type mock struct {
-	web.Service
-
-	startCount int
-}
-
-func (m *mock) Start(context.Context, weboptions.Options) error { m.startCount++; return nil }
