@@ -581,8 +581,6 @@ func TestWebWithStreams(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
-// TODO: we can never add stream servers unless there is least one camera on the
-// robot when the service starts! Make it so this is not the case.
 func TestWebAddFirstStream(t *testing.T) {
 	const (
 		camera1Key = "camera1"
