@@ -18,8 +18,8 @@ import (
 )
 
 var slamLibraries = map[string]SLAM{
-	"cartographer": DenseSlamAlgo{Metadata: cartographerMetadata},
-	"orbslamv3":    SparseSlamAlgo{Metadata: orbslamv3Metadata},
+	"cartographer": denseSlamAlgo{metadata: cartographerMetadata},
+	"orbslamv3":    sparseSlamAlgo{metadata: orbslamv3Metadata},
 }
 
 // Define general slam types. Sparse slam for RGB pixel images which need to go through
@@ -40,14 +40,14 @@ type slamType struct {
 }
 
 // Define currently implemented slam libraries.
-var cartographerMetadata = Metadata{
+var cartographerMetadata = metadata{
 	AlgoName:       "cartographer",
 	SlamType:       denseSlam,
 	SlamMode:       map[string]bool{"2d": true, "3d": false},
 	BinaryLocation: "",
 }
 
-var orbslamv3Metadata = Metadata{
+var orbslamv3Metadata = metadata{
 	AlgoName:       "orbslamv3",
 	SlamType:       sparseSlam,
 	SlamMode:       map[string]bool{"mono": true, "rgbd": true},
@@ -55,7 +55,7 @@ var orbslamv3Metadata = Metadata{
 }
 
 // Metadata contains all pertinant information for defining a SLAM library/algorithm including the sparse/dense definition.
-type Metadata struct {
+type metadata struct {
 	AlgoName       string
 	SlamType       slamType
 	SlamMode       map[string]bool
@@ -63,32 +63,32 @@ type Metadata struct {
 }
 
 // SparseSlamAlgo is a data structure for all sparse slam libraries/algorithms.
-type SparseSlamAlgo struct {
-	Metadata
+type sparseSlamAlgo struct {
+	metadata
 	SlamType slamType
 }
 
 // DenseSlamAlgo is a data structure for all dense slam libraries/algorithms.
-type DenseSlamAlgo struct {
-	Metadata
+type denseSlamAlgo struct {
+	metadata
 	SlamType slamType
 }
 
 // SLAM interface includes definitions for SLAM functions that may vary based on library.
 type SLAM interface {
-	GetAndSaveData(ctx context.Context, cam camera.Camera, mode string, dataDirectory string, logger golog.Logger) error
-	GetMetadata() Metadata
+	getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dataDirectory string, logger golog.Logger) error
+	getMetadata() metadata
 }
 
 // ------------------------------------------------------------------------------------
 
 // GetMetadata for the implemented SLAM library/algorithm.
-func (s Metadata) GetMetadata() Metadata {
+func (s metadata) getMetadata() metadata {
 	return s
 }
 
-// GetAndSaveData implements the data extraction for dense algos and saving to the specified directory.
-func (algo DenseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, logger golog.Logger) error {
+// getAndSaveData implements the data extraction for dense algos and saving to the specified directory.
+func (algo denseSlamAlgo) getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, logger golog.Logger) error {
 	// Get NextPointCloud
 	pointcloud, err := cam.NextPointCloud(ctx)
 	if err != nil {
@@ -103,7 +103,7 @@ func (algo DenseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera,
 	timeStamp := time.Now()
 
 	// Create file
-	fileMode := algo.Metadata.SlamType.ModeFileType[mode]
+	fileMode := algo.metadata.SlamType.ModeFileType[mode]
 	f, err := os.Create(dd + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + fileMode)
 	if err != nil {
 		return err
@@ -121,8 +121,9 @@ func (algo DenseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera,
 	return f.Close()
 }
 
-// GetAndSaveData implements the data extraction for sparse algos and saving to the specified directory.
-func (algo SparseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, logger golog.Logger) error {
+// TBD 05/03/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
+// getAndSaveData implements the data extraction for sparse algos and saving to the specified directory.
+func (algo sparseSlamAlgo) getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, logger golog.Logger) error {
 	// Get Image
 	img, _, err := cam.Next(ctx)
 	if err != nil {
@@ -137,13 +138,13 @@ func (algo SparseSlamAlgo) GetAndSaveData(ctx context.Context, cam camera.Camera
 	timeStamp := time.Now()
 
 	// Create file
-	fileMode := algo.Metadata.SlamType.ModeFileType[mode]
+	fileMode := algo.metadata.SlamType.ModeFileType[mode]
 	f, err := os.Create(dd + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + fileMode)
 	if err != nil {
 		return err
 	}
 
-	// Write iamge file based on mode
+	// Write image file based on mode
 	w := bufio.NewWriter(f)
 
 	switch mode {

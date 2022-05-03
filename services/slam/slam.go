@@ -3,8 +3,8 @@ package slam
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -55,13 +55,13 @@ func (config *AttrConfig) Validate(path string) error {
 }
 
 // RunTimeConfigValidation ensures all parts of the config are valid at runtime but will not close out server.
-func RunTimeConfigValidation(svcConfig *AttrConfig) error {
+func runtimeConfigValidation(svcConfig *AttrConfig) error {
 	slamLib, ok := slamLibraries[svcConfig.Algorithm]
 	if !ok {
 		return errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
 	}
 
-	slamAlgoMetadata := slamLib.GetMetadata()
+	slamAlgoMetadata := slamLib.getMetadata()
 
 	// TODO 04/28/2022: Do camera checks not based on name but camera model. Currently not possible to get model type from camera object
 	// See: https://viam.atlassian.net/jira/software/c/projects/PRODUCT/boards/16?modal=detail&selectedIssue=PRODUCT-61
@@ -93,35 +93,11 @@ func RunTimeConfigValidation(svcConfig *AttrConfig) error {
 		return errors.Errorf("file directory [%v] could not be found", svcConfig.DataDirectory)
 	}
 
-	files, err := ioutil.ReadDir(svcConfig.DataDirectory)
-	if err != nil {
-		return errors.Errorf("checking files in provided data driectory [%v]", svcConfig.DataDirectory)
-	}
-
-	var configBool bool
-	var mapBool bool
-	var dataBool bool
-	for _, f := range files {
-		if f.Name() == "data" {
-			dataBool = true
+	for _, subdirectoryName := range [3]string{"data", "map", "config"} {
+		subdirectoryPath := filepath.Join(svcConfig.DataDirectory, subdirectoryName)
+		if _, err := os.Stat(subdirectoryPath); os.IsNotExist(err) {
+			return errors.Errorf("directory does not exist [%v]", subdirectoryPath)
 		}
-		if f.Name() == "map" {
-			mapBool = true
-		}
-		if f.Name() == "config" {
-			configBool = true
-		}
-	}
-	if !dataBool {
-		return errors.Errorf("no data folder was found in [%v]", svcConfig.DataDirectory)
-	}
-
-	if !mapBool {
-		return errors.Errorf("no map folder was found in [%v]", svcConfig.DataDirectory)
-	}
-
-	if !configBool {
-		return errors.Errorf("no config folder was found in [%v]", svcConfig.DataDirectory)
 	}
 
 	// Check Input File Pattern
@@ -176,9 +152,9 @@ type AttrConfig struct {
 
 // Service describes the functions that are available to the service.
 type Service interface {
-	GetSLAMServiceData() slamService
-	StartDataProcess(ctx context.Context) error
-	StartSLAMProcess(ctx context.Context) error
+	getSLAMServiceData() slamService
+	startDataProcess(ctx context.Context) error
+	startSLAMProcess(ctx context.Context) error
 	Close(ctx context.Context) error
 }
 
@@ -201,20 +177,7 @@ type slamService struct {
 	activeBackgroundWorkers *sync.WaitGroup
 }
 
-// New returns a new slam service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
-	}
-
-	// Runtime Validation Check
-	if err := RunTimeConfigValidation(svcConfig); err != nil {
-		logger.Warnf("runtime slam config error: %v", err)
-		return &slamService{}, nil
-	}
-
-	// ------------- Get Camera ------------
+func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (camera.Camera, error) {
 	var cam camera.Camera
 	var err error
 	if len(svcConfig.Sensors) > 0 {
@@ -234,6 +197,28 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	} else {
 		logger.Info("Running in non-live mode")
 		cam = nil
+	}
+
+	return cam, nil
+}
+
+// New returns a new slam service for the given robot.
+func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+	}
+
+	// Runtime Validation Check
+	if err := RuntimeConfigValidation(svcConfig); err != nil {
+		logger.Warnf("runtime slam config error: %v", err)
+		return &slamService{}, nil
+	}
+
+	// ------------- Get Camera ------------
+	cam, err := configureCamera(svcConfig, r, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	// ---------- Get Random Port ----------
@@ -270,20 +255,21 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	}
 
 	// Data Process
-	if err := slamSvc.StartDataProcess(ctx); err != nil {
+	if err := slamSvc.startDataProcess(ctx); err != nil {
 		return nil, errors.Errorf("error with slam service data process: %q", err)
 	}
 
 	// SLAM Process
-	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
+	if err := slamSvc.startSLAMProcess(ctx); err != nil {
 		return nil, errors.Errorf("error with slam service slam process: %q", err)
 	}
 
 	return slamSvc, nil
 }
 
-// StartDataProcess is the main control loops for sending data from camera to the data directory for processing.
-func (slamSvc *slamService) StartDataProcess(ctx context.Context) error {
+// TBD 05/03/2022: Data processing loop in new PR (see slamlibarary.go GetandSaveData functions as well)
+// startDataProcess is the main control loops for sending data from camera to the data directory for processing.
+func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 	if slamSvc.camera == nil {
 		return nil
 	}
@@ -299,8 +285,7 @@ func (slamSvc *slamService) StartDataProcess(ctx context.Context) error {
 			default:
 			}
 
-			tDelta := int(1000000000 / slamSvc.dataFreqHz)
-			timer := time.NewTimer(time.Duration(tDelta)) // nanoseconds
+			timer := time.NewTimer(time.Second / time.Duration(slamSvc.dataFreqHz))
 			select {
 			case <-slamSvc.cancelCtx.Done():
 				timer.Stop()
@@ -309,7 +294,7 @@ func (slamSvc *slamService) StartDataProcess(ctx context.Context) error {
 			}
 
 			// Get data from desired camera
-			if err := slamSvc.slamLib.GetAndSaveData(slamSvc.cancelCtx, slamSvc.camera, slamSvc.slamMode,
+			if err := slamSvc.slamLib.getAndSaveData(slamSvc.cancelCtx, slamSvc.camera, slamSvc.slamMode,
 				slamSvc.dataDirectory, slamSvc.logger); err != nil {
 				panic(err)
 			}
@@ -319,16 +304,19 @@ func (slamSvc *slamService) StartDataProcess(ctx context.Context) error {
 	return nil
 }
 
-// StartSLAMProcess starts up the SLAM library process by calling the executable binary.
-func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
+// TODO 05/03/2022: Implement SLAM starting and stopping processes (see JIRA ticket:
+// https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-104)
+// startSLAMProcess starts up the SLAM library process by calling the executable binary.
+func (slamSvc *slamService) startSLAMProcess(ctx context.Context) error {
 	return nil
 }
 
-// GetSLAMServiceData returns the SLSAM Service implementation and associated data.
-func (slamSvc *slamService) GetSLAMServiceData() slamService {
+// GetSLAMServiceData returns the SLAM Service implementation and associated data.
+func (slamSvc *slamService) getSLAMServiceData() slamService {
 	return *slamSvc
 }
 
+// TODO 05/03/2022: Implement closeout of slam service and subprocesses
 // Close out of all slam related processes.
 func (slamSvc *slamService) Close(ctx context.Context) error {
 	return nil
