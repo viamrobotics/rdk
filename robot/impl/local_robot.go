@@ -101,15 +101,6 @@ func (r *localRobot) Web() (web.Service, error) {
 	return r.web, nil
 }
 
-func (r *localRobot) robotResource(name resource.Name) interface{} {
-	switch name {
-	case web.Name:
-		return r.web
-	default:
-		return nil
-	}
-}
-
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
@@ -119,10 +110,6 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (interface{}, error) {
-	maybeResource := r.robotResource(name)
-	if maybeResource != nil {
-		return maybeResource, nil
-	}
 	return r.manager.ResourceByName(name)
 }
 
@@ -153,6 +140,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 			return err
 		}
 	}
+
 	return r.manager.Close(ctx)
 }
 
