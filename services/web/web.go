@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"net/url"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -263,7 +262,6 @@ type webService struct {
 
 // Start starts the web server, will return an error if server is already up.
 func (svc *webService) Start(ctx context.Context, o Options) error {
-	svc.logger.Info("-- MP: starting --")
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
@@ -330,7 +328,6 @@ func (svc *webService) Close(ctx context.Context) error {
 		svc.cancelFunc()
 		svc.cancelFunc = nil
 	}
-	fmt.Printf("-- MP: there are %d goroutines --", runtime.NumGoroutine())
 	svc.activeBackgroundWorkers.Wait()
 	return nil
 }
@@ -339,22 +336,17 @@ func (svc *webService) Close(ctx context.Context) error {
 func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) error {
 	// TODO: check if stream service and server are initialized?
 	if svc.streamServer == nil {
-		svc.logger.Info("-- MP: no stream server --")
 		return nil
 	}
 	sources := allSourcesToDisplay(theRobot)
-	svc.logger.Infof("-- MP: sources: %v --", sources)
 
 	for name, source := range sources {
-		svc.logger.Infof("-- MP: adding stream for source: %s --", name)
 		// Check if stream already exists for named image source
 		if _, ok := svc.streamServer.ImagesSources[name]; ok {
-			svc.logger.Infof("-- MP: stream exists! skipping...: %s --", name)
 			continue
 		}
 
 		// Configure new stream
-		svc.logger.Infof("-- MP: configuring for source: %s --", name)
 		config := defaultStreamConfig
 		config.Name = name
 		view, err := gostream.NewStream(config)
@@ -364,7 +356,6 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 
 		// Add stream server
 		if err := svc.streamServer.Server.AddStream(view); err != nil {
-			svc.logger.Infof("-- MP: added stream --")
 			return err
 		}
 
@@ -377,9 +368,7 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 }
 
 func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (*StreamServer, error) {
-	// svc.logger.Info("-- MP: making stream server --")
 	sources := allSourcesToDisplay(theRobot)
-	// svc.logger.Infof("-- MP: found sources: %v --", sources)
 	var streams []gostream.Stream
 
 	if len(sources) == 0 {
@@ -456,7 +445,6 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 // runWeb takes the given robot and options and runs the web server. This function will
 // block until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
-	svc.logger.Info("-- MP: running web --")
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
 	if err != nil {
 		return err
@@ -485,7 +473,6 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	svc.logger.Info("-- MP: making server --")
 	svc.rpcServer, err = rpc.NewServer(svc.logger, rpcOpts...)
 	if err != nil {
 		return err
@@ -501,16 +488,12 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		grpcserver.New(svc.r),
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	); err != nil {
-		svc.logger.Infof("-- MP: error registering service server: %v --", err)
 		return err
 	}
-	svc.logger.Info("-- MP: registered service server: --")
 
 	if err := svc.initResources(ctx); err != nil {
-		svc.logger.Infof("-- MP: error initializing resources: %v --", err)
 		return err
 	}
-	svc.logger.Info("-- MP: initialized resources --")
 
 	if err := svc.initSubtypeServices(ctx); err != nil {
 		return err
