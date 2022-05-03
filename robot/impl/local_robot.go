@@ -64,7 +64,7 @@ type localRobot struct {
 	internalServices map[string]resource.Updateable
 }
 
-// web returns the localRobot's web service. Raises if the service has not been initialized
+// web returns the localRobot's web service. Raises if the service has not been initialized.
 func (r *localRobot) web() (web.Service, error) {
 	service := r.internalServices[webName]
 
