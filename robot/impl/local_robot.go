@@ -79,7 +79,7 @@ func (r *localRobot) webService() (web.Service, error) {
 	return webSvc, nil
 }
 
-// web returns the localRobot's web service. Raises if the service has not been initialized
+// web returns the localRobot's web service. Raises if the service has not been initialized.
 func (r *localRobot) web() (web.Service, error) {
 	service := r.internalServices[webName]
 
