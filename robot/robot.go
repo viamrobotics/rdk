@@ -61,18 +61,12 @@ type LocalRobot interface {
 
 	// RunWeb starts the web server on the robot's web service with web options and
 	// blocks until we close it.
-	//RunWeb(ctx context.Context, o web.Options, logger golog.Logger) error
-
-	// RunWebWithPprofLogging starts the web server on the robot's web service with the
-	// robot config and blocks until we close it. Additionally sets pprof to true for
-	// debug logging purposes
-	RunWebWithPprofLogging(ctx context.Context, cfg *config.Config, logger golog.Logger) error
+	RunWeb(ctx context.Context, o weboptions.Options, logger golog.Logger) error
 
 	// RunWeb starts the web server on the robot's web service with the robot
 	// config and blocks until we close it.
-	RunWeb(ctx context.Context, cfg *config.Config, logger golog.Logger) error
+	RunWebWithConfig(ctx context.Context, cfg *config.Config, logger golog.Logger) error
 
-	// CR erodkin: see if we need this at all. See also cr in local_robot.go
 	// Start starts the web server, will return an error if server is already up.
 	StartWeb(ctx context.Context, o weboptions.Options) error
 }

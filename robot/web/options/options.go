@@ -61,9 +61,9 @@ type Options struct {
 	BakedAuthCreds  rpc.Credentials
 }
 
-// NewOptions returns a default set of options which will have the
+// New returns a default set of options which will have the
 // web server run on config.DefaultBindAddress.
-func NewOptions() Options {
+func New() Options {
 	return Options{
 		Pprof: false,
 		Network: config.NetworkConfig{
@@ -77,7 +77,7 @@ func NewOptions() Options {
 
 // OptionsFromConfig returns an Options populated by the config passed in.
 func OptionsFromConfig(cfg *config.Config) (Options, error) {
-	options := NewOptions()
+	options := New()
 
 	options.Auth = cfg.Auth
 	options.Network = cfg.Network
@@ -146,21 +146,21 @@ func OptionsFromConfig(cfg *config.Config) (Options, error) {
 
 // Hosts configurations.
 type Hosts struct {
-	names    []string
-	internal []string
-	external []string
+	Names    []string
+	Internal []string
+	External []string
 }
 
 // GetHosts derives host configurations from options.
 func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
 	hosts := Hosts{
-		names:    []string{options.FQDN},
-		external: []string{options.FQDN},
-		internal: []string{options.FQDN},
+		Names:    []string{options.FQDN},
+		External: []string{options.FQDN},
+		Internal: []string{options.FQDN},
 	}
 
 	listenerAddr := listenerTCPAddr.String()
-	localhostWithPort := localHostWithPort(listenerTCPAddr)
+	localhostWithPort := LocalHostWithPort(listenerTCPAddr)
 
 	addSignalingHost := func(host string, set []string, seen map[string]bool) []string {
 		if _, ok := seen[host]; ok {
@@ -176,13 +176,13 @@ func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
 		// allow signaling for non-unique entities.
 		// This eases WebRTC connections.
 		if options.FQDN != listenerAddr {
-			hosts.external = addSignalingHost(listenerAddr, hosts.external, seenExternalSignalingHosts)
-			hosts.internal = addSignalingHost(listenerAddr, hosts.internal, seenInternalSignalingHosts)
+			hosts.External = addSignalingHost(listenerAddr, hosts.External, seenExternalSignalingHosts)
+			hosts.Internal = addSignalingHost(listenerAddr, hosts.Internal, seenInternalSignalingHosts)
 		}
 		if listenerTCPAddr.IP.IsLoopback() {
 			// plus localhost alias
-			hosts.external = addSignalingHost(localhostWithPort, hosts.external, seenExternalSignalingHosts)
-			hosts.internal = addSignalingHost(localhostWithPort, hosts.internal, seenInternalSignalingHosts)
+			hosts.External = addSignalingHost(localhostWithPort, hosts.External, seenExternalSignalingHosts)
+			hosts.Internal = addSignalingHost(localhostWithPort, hosts.Internal, seenInternalSignalingHosts)
 		}
 	}
 
@@ -190,16 +190,16 @@ func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
 		// only add the local FQDN here since we will already have DefaultFQDN
 		// in the case that FQDNs was empty, avoiding a duplicate host. If FQDNs
 		// is non-empty, we don't care about having a default for signaling/naming.
-		hosts.names = append(hosts.names, options.LocalFQDN)
-		hosts.internal = addSignalingHost(options.LocalFQDN, hosts.internal, seenInternalSignalingHosts)
+		hosts.Names = append(hosts.Names, options.LocalFQDN)
+		hosts.Internal = addSignalingHost(options.LocalFQDN, hosts.Internal, seenInternalSignalingHosts)
 		localFQDNWithPort := fmt.Sprintf("%s%s", options.LocalFQDN, listenerPortStr(listenerTCPAddr))
-		hosts.internal = addSignalingHost(localFQDNWithPort, hosts.internal, seenInternalSignalingHosts)
+		hosts.Internal = addSignalingHost(localFQDNWithPort, hosts.Internal, seenInternalSignalingHosts)
 	}
 
 	return hosts
 }
 
-func localHostWithPort(listenerTCPAddr *net.TCPAddr) string {
+func LocalHostWithPort(listenerTCPAddr *net.TCPAddr) string {
 	return fmt.Sprintf("localhost%s", listenerPortStr(listenerTCPAddr))
 }
 

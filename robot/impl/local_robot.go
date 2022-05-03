@@ -58,7 +58,7 @@ type localRobot struct {
 	operations *operation.Manager
 	logger     golog.Logger
 
-	// robot-specific services
+	// internal services
 	web web.Service
 }
 
@@ -70,15 +70,6 @@ func (r *localRobot) Web() (web.Service, error) {
 	return r.web, nil
 }
 
-func (r *localRobot) robotResource(name resource.Name) interface{} {
-	switch name {
-	case web.Name:
-		return r.web
-	default:
-		return nil
-	}
-}
-
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
@@ -88,10 +79,6 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (interface{}, error) {
-	maybeResource := r.robotResource(name)
-	if maybeResource != nil {
-		return maybeResource, nil
-	}
 	return r.manager.ResourceByName(name)
 }
 
@@ -117,7 +104,7 @@ func (r *localRobot) OperationManager() *operation.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-	// CR erodkin: add closing of web here
+	r.web.Close(ctx)
 	return r.manager.Close(ctx)
 }
 
@@ -135,15 +122,12 @@ func (r *localRobot) Logger() golog.Logger {
 	return r.logger
 }
 
-// CR erodkin: do we need to have this here and also have the web.Start method? Can we
-// get away with only having one? Or neither?
-func (r *localRobot) StartWeb(ctx context.Context, o web.Options) (err error) {
-	web := r.web
-	return web.Start(ctx, o)
+func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
+	return r.web.Start(ctx, o)
 }
 
 // RunWeb starts the web server on the web service with web options and blocks until we close it.
-func (r *localRobot) RunWeb(ctx context.Context, o web.Options, logger golog.Logger) (err error) {
+func (r *localRobot) RunWeb(ctx context.Context, o weboptions.Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil {
 			err = goutils.FilterOutError(err, context.Canceled)
@@ -163,17 +147,6 @@ func (r *localRobot) RunWeb(ctx context.Context, o web.Options, logger golog.Log
 	<-ctx.Done()
 	return ctx.Err()
 }
-
-// RunWebWithPprofLogging starts the web server on the web service with a robot config and
-// blocks until we close it. Additionally turns on Pprof logging for debugging purposes
-//func (r *localRobot) RunWebWithPprofLogging(ctx context.Context, cfg *config.Config, logger golog.Logger) error {
-//o, err := web.OptionsFromConfig(cfg)
-//if err != nil {
-//return err
-//}
-//o.Pprof = true
-//return r.runWeb(ctx, o, logger)
-//}
 
 // RunWebWithConfig starts the web server on the web service with a robot config and blocks until we close it.
 func (r *localRobot) RunWebWithConfig(ctx context.Context, cfg *config.Config, logger golog.Logger) error {
@@ -229,13 +202,7 @@ func newWithResources(
 	// is a bit of a pain, and more importantly creates unwieldy code. Consider if we
 	// can have a "roboSvc" list similar to "defaultSvc" to avoid repetition
 	// robot-specific resources
-	newCfg := config.Service{Type: config.ServiceType(web.SubtypeName)}
-	webSvc, err := web.New(ctx, r, newCfg, logger)
-	if err != nil {
-		return nil, err
-	}
-	r.web = webSvc
-	r.manager.addResource(web.Name, webSvc)
+	r.web = web.New(ctx, r, logger)
 
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
@@ -325,9 +292,6 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		}
 		resources[n] = res
 	}
-
-	// CR erodkin: is this right?
-	resources[web.Name] = r.web
 
 	for _, name := range defaultSvc {
 		svc, err := r.ResourceByName(name)
