@@ -20,7 +20,6 @@ import (
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
@@ -33,7 +32,6 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	grpcserver "go.viam.com/rdk/grpc/server"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
@@ -45,53 +43,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
 )
-
-// CR erodkin: probably delete this
-// FromRobot retrieves the web service of a robot.
-//func FromRobot(r robot.Robot) (Service, error) {
-//resource, err := r.ResourceByName(Name)
-//if err != nil {
-//return nil, err
-//}
-//web, ok := resource.(Service)
-//if !ok {
-//return nil, rutils.NewUnimplementedInterfaceError("web.Service", resource)
-//}
-//return web, nil
-//}
-
-// CR erodkin: we can get rid of RunWeb, RunWebWithConfig, probably Start. They should
-// all be within the robot/localrobot
-// RunWeb starts the web server on the web service with web options and blocks until we close it.
-func RunWeb(ctx context.Context, r robot.Robot, o weboptions.Options, logger golog.Logger) (err error) {
-	defer func() {
-		if err != nil {
-			err = utils.FilterOutError(err, context.Canceled)
-			if err != nil {
-				logger.Errorw("error running web", "error", err)
-			}
-		}
-		err = multierr.Combine(err, utils.TryClose(ctx, r))
-	}()
-	svc, err := FromRobot(r)
-	if err != nil {
-		return err
-	}
-	if err := svc.Start(ctx, o); err != nil {
-		return err
-	}
-	<-ctx.Done()
-	return ctx.Err()
-}
-
-// RunWebWithConfig starts the web server on the web service with a robot config and blocks until we close it.
-func RunWebWithConfig(ctx context.Context, r robot.Robot, cfg *config.Config, logger golog.Logger) error {
-	o, err := weboptions.OptionsFromConfig(cfg)
-	if err != nil {
-		return err
-	}
-	return RunWeb(ctx, r, o, logger)
-}
 
 // robotWebApp hosts a web server to interact with a robot in addition to hosting
 // a gRPC/REST server.
@@ -206,7 +157,10 @@ var defaultStreamConfig = x264.DefaultStreamConfig
 type Service interface {
 	// Start starts the web server
 	Start(context.Context, weboptions.Options) error
+
 	Update(context.Context, map[resource.Name]interface{}) error
+
+	Close(context.Context) error
 }
 
 // StreamServer manages streams and displays.
@@ -218,7 +172,7 @@ type StreamServer struct {
 }
 
 // New returns a new web service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 	webSvc := &webService{
 		r:            r,
 		logger:       logger,
@@ -226,7 +180,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		streamServer: nil,
 		services:     make(map[resource.Subtype]subtype.Service),
 	}
-	return webSvc, nil
+	return webSvc
 }
 
 type webService struct {
@@ -584,14 +538,14 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options weboptions.Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
 	rpcOpts := []rpc.ServerOption{
-		rpc.WithInstanceNames(hosts.names...),
+		rpc.WithInstanceNames(hosts.Names...),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
 			EnableInternalSignaling:   true,
 			ExternalSignalingDialOpts: options.SignalingDialOpts,
 			ExternalSignalingAddress:  options.SignalingAddress,
-			ExternalSignalingHosts:    hosts.external,
-			InternalSignalingHosts:    hosts.internal,
+			ExternalSignalingHosts:    hosts.External,
+			InternalSignalingHosts:    hosts.Internal,
 			Config:                    &grpc.DefaultWebRTCConfiguration,
 		}),
 	}
@@ -670,8 +624,8 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 	} else {
 		listenerAddr := listenerTCPAddr.String()
 		hosts := options.GetHosts(listenerTCPAddr)
-		authEntities := make([]string, len(hosts.internal))
-		copy(authEntities, hosts.internal)
+		authEntities := make([]string, len(hosts.Internal))
+		copy(authEntities, hosts.Internal)
 		if !options.Managed {
 			// allow authentication for non-unique entities.
 			// This eases direct connections via address.
@@ -688,7 +642,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 			}
 			if listenerTCPAddr.IP.IsLoopback() {
 				// plus localhost alias
-				authEntities = addIfNotFound(localHostWithPort(listenerTCPAddr))
+				authEntities = addIfNotFound(weboptions.LocalHostWithPort(listenerTCPAddr))
 			}
 		}
 		if options.Secure && len(options.Auth.TLSAuthEntities) != 0 {
