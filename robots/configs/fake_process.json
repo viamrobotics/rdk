@@ -8,21 +8,24 @@
         {
             "model": "fake",
             "name": "arm1",
-            "type": "arm",
-            "service_config": {
-                "data_manager": {
-                    "capture_methods": [
-                        {
-                            "method": "GetJointPositions",
-                            "capture_frequency_hz": 10
-                        },
-                        {
-                            "method": "GetEndPosition",
-                            "capture_frequency_hz": 100
-                        }
-                    ]
-                }
-            }
+            "type": "arm"
+        },
+        {
+            "model": "fake",
+            "name": "base1_int",
+            "type": "base"
+        },
+        {
+            "model": "intercept_gps",
+            "name": "base1",
+            "type": "base",
+            "attributes": {
+                "base": "base1_int",
+                "gps": "gps1",
+                "start_latitude": 40.745297,
+                "start_longitude": -74.010916
+            },
+            "depends_on": ["base1_int", "gps1"]
         },
         {
             "model": "fake",
@@ -47,7 +50,7 @@
                         "pin": "0"
                     }
                 ],
-                "digitalInterrupts":
+                "digital_interrupts":
                 [
                     {
                         "name": "encoder",
@@ -78,28 +81,23 @@
                     "b": "2",
                     "pwm": "3"
                 },
-                "ticksPerRotation": 100
+                "ticks_per_rotation": 100
             }
         },
         {
             "name": "gps1",
             "type": "gps",
             "model": "fake"
-        },
+        }, 
         {
             "name": "imu1",
             "type": "imu",
-            "model": "fake",
-            "service_config": {
-                "data_manager": {
-                    "capture_methods": [
-                        {
-                            "method": "ReadAngularVelocity",
-                            "capture_frequency_hz": 5
-                        }
-                    ]
-                }
-            }
+            "model": "fake"
+        },
+        {
+            "name": "gantry1",
+            "type": "gantry",
+            "model": "fake"
         },
         {
             "name": "sensor1",
@@ -123,29 +121,35 @@
                 "world"
             ],
             "one_shot": true
-        }
-    ],
-    "functions":
-    [
-        {
-            "name": "func1",
-            "engine": "javascript",
-            "source": "(function() { console.log(robot.gripperOpen('gripper1')); return 1}())"
         },
         {
-            "name": "func2",
-            "engine": "javascript",
-            "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
+            "id": "2",
+            "name": "bash",
+            "args":
+            [
+                "-c",
+                "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
+            ],
+            "log": true
         }
     ],
     "services":
     [
         {
-            "type": "data_manager",
+            "type": "navigation",
             "attributes": {
-                "capture_dir": "/tmp/capture"
+                "store": {
+                    "type": "memory"
+                },
+                "gps": "gps1",
+                "base": "base1"
             }
+        },
+        {
+            "type": "object_segmentation"
+        },
+        {
+            "type": "motion"
         }
     ]
- }
- 
+}
