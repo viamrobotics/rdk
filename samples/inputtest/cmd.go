@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/robot/web"
 )
 
 var logger = golog.NewDevelopmentLogger("inputtest")
@@ -35,7 +34,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	defer myRobot.Close(ctx)
 	go debugOut(ctx, myRobot)
 
-	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
+	return myRobot.RunWebWithConfig(ctx, cfg, logger)
 }
 
 func debugOut(ctx context.Context, r robot.Robot) {
