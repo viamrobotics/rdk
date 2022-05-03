@@ -277,6 +277,14 @@
             filterResources: function (namespace, type, subtype) {
               return theData.resources.filter((elem) => {
                 return elem.namespace == namespace && elem.type == type && elem.subtype == subtype;
+              }).sort((a, b) => {
+                if (a.name < b.name) {
+                  return -1;
+                }
+                if (a.name > b.name) {
+                  return 1;
+                }
+                return 0;
               });
             },
             resourceNameToSubtypeString: function (name) {
