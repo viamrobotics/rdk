@@ -226,7 +226,7 @@ type Service interface {
 	Start(context.Context, Options) error
 }
 
-// StreamServer manages streams and displays
+// StreamServer manages streams and displays.
 type StreamServer struct {
 	// Server serves streams
 	Server gostream.StreamServer
@@ -234,7 +234,7 @@ type StreamServer struct {
 	ImagesSources map[string]gostream.ImageSource
 }
 
-// HasStreams is true if service has streams that require a WebRTC connection
+// HasStreams is true if service has streams that require a WebRTC connection.
 func (ss *StreamServer) HasStreams() bool {
 	return len(ss.ImagesSources) > 0
 }
@@ -318,7 +318,10 @@ func (svc *webService) update(ctx context.Context, resources map[resource.Name]i
 	}
 
 	// update streams
-	svc.addNewStreams(ctx, svc.r)
+	err := svc.addNewStreams(ctx, svc.r)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -32,7 +32,7 @@ type Robot struct {
 	opsLock sync.Mutex
 }
 
-// MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map
+// MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
 func (r *Robot) MockResourcesFromMap(rs map[resource.Name]interface{}) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		result := []resource.Name{}
@@ -45,9 +45,8 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]interface{}) {
 		result, ok := rs[name]
 		if ok {
 			return result, nil
-		} else {
-			return r.ResourceByName(name)
 		}
+		return r.ResourceByName(name)
 	}
 }
 
