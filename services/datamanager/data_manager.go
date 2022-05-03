@@ -74,6 +74,8 @@ const defaultCaptureBufferSize = 4096
 
 // Attributes to initialize the collector for a component.
 type componentAttributes struct {
+	Name               string            `json:"name"`
+	Type               string            `json:"type"`
 	Method             string            `json:"method"`
 	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
 	CaptureQueueSize   int               `json:"capture_queue_size"`
@@ -86,13 +88,6 @@ type Config struct {
 	CaptureDir          string   `json:"capture_dir"`
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
 	SyncIntervalMins    int      `json:"sync_interval_mins"`
-}
-
-// ComponentMethodConfig describes how to configure the component/method within the service.
-type ComponentMethodConfig struct {
-	Name       string               `json:"name"`
-	Type       resource.SubtypeName `json:"type"`
-	Attributes componentAttributes
 }
 
 // TODO: Add configuration for remotes.
@@ -127,9 +122,16 @@ func (svc *Service) Close(ctx context.Context) error {
 }
 
 func (svc *Service) closeCollectors() {
+	wg := sync.WaitGroup{}
 	for _, collector := range svc.collectors {
-		collector.Collector.Close()
+		currCollector := collector
+		wg.Add(1)
+		go func() {
+			currCollector.Collector.Close()
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 // Service initializes and orchestrates data capture collectors for registered component/methods.
@@ -147,10 +149,9 @@ type Service struct {
 
 // Parameters stored for each collector.
 type collectorParams struct {
-	Collector     data.Collector
-	Attributes    componentAttributes
-	CaptureDir    string
-	ComponentType string
+	Collector  data.Collector
+	Attributes componentAttributes
+	CaptureDir string
 }
 
 // Identifier for a particular collector: component name, component type, and method name.
@@ -183,17 +184,17 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *Service) initializeOrUpdateCollector(
-	componentName string, componentType string, attributes componentAttributes, updateCaptureDir bool) (
+	attributes componentAttributes, updateCaptureDir bool) (
 	*componentMethodMetadata, error,
 ) {
 	// Create component/method metadata to check if the collector exists.
-	subtypeName := resource.SubtypeName(componentType)
+	subtypeName := resource.SubtypeName(attributes.Type)
 	metadata := data.MethodMetadata{
 		Subtype:    subtypeName,
 		MethodName: attributes.Method,
 	}
 	componentMetadata := componentMethodMetadata{
-		ComponentName:  componentName,
+		ComponentName:  attributes.Name,
 		MethodMetadata: metadata,
 	}
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
@@ -203,7 +204,8 @@ func (svc *Service) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := createDataCaptureFile(svc.captureDir, componentType, componentName)
+				targetFile, err := createDataCaptureFile(
+					svc.captureDir, attributes.Type, attributes.Name)
 				if err != nil {
 					return nil, err
 				}
@@ -222,7 +224,7 @@ func (svc *Service) initializeOrUpdateCollector(
 		resource.ResourceTypeComponent,
 		subtypeName,
 	)
-	res, err := svc.r.ResourceByName(resource.NameFromSubtype(subtype, componentName))
+	res, err := svc.r.ResourceByName(resource.NameFromSubtype(subtype, attributes.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +237,7 @@ func (svc *Service) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := createDataCaptureFile(svc.captureDir, componentType, componentName)
+	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, attributes.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -252,13 +254,15 @@ func (svc *Service) initializeOrUpdateCollector(
 	}
 
 	// Create a collector for this resource and method.
+	svc.logger.Info("Created constructor for ", attributes.Name, " ", attributes.Type, " ", interval, " ", targetFile.Name())
+
 	collector, err := (*collectorConstructor)(
-		res, componentName, interval, attributes.AdditionalParams,
+		res, attributes.Name, interval, attributes.AdditionalParams,
 		targetFile, captureQueueSize, captureBufferSize, svc.logger)
 	if err != nil {
 		return nil, err
 	}
-	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir, componentType}
+	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir}
 
 	// TODO: Handle errors more gracefully.
 	go func() {
@@ -300,8 +304,8 @@ func getServiceConfig(cfg *config.Config) (config.Service, error) {
 	return config.Service{}, errors.New("could not find data_manager service")
 }
 
-func getComponentMethodConfig(
-	component config.Component, methodConfiguration interface{}) (ComponentMethodConfig, error) {
+func getComponentAttributes(
+	component config.Component, methodConfiguration interface{}) (componentAttributes, error) {
 	// Convert a mapping into a struct by encoding/decoding json.
 	// NOTE: This was necessary since added a generic ServiceConfig of type map[string]AttributeMap
 	// into Component in resource.go. Would need to somehow apply the high-level AttributeMapConverter
@@ -309,31 +313,34 @@ func getComponentMethodConfig(
 	componentAttrs := componentAttributes{}
 	marshaled, err := json.Marshal(methodConfiguration)
 	if err != nil {
-		return ComponentMethodConfig{}, err
+		return componentAttributes{}, err
 	}
 	err = json.Unmarshal(marshaled, &componentAttrs)
 	if err != nil {
-		return ComponentMethodConfig{}, err
+		return componentAttributes{}, err
 	}
 
-	return ComponentMethodConfig{component.Name, component.Type, componentAttrs}, nil
+	componentAttrs.Name = component.Name
+	componentAttrs.Type = string(component.Type)
+
+	return componentAttrs, nil
 }
 
 // Get the component method configs associated with the data manager service.
-func (svc *Service) getComponentMethodConfigs(cfg *config.Config) ([]ComponentMethodConfig, error) {
-	componentMethodConfigs := []ComponentMethodConfig{}
+func getAllComponentAttributes(cfg *config.Config) ([]componentAttributes, error) {
+	componentAttributeConfigs := []componentAttributes{}
 	for _, c := range cfg.Components {
 		if svcConfig, ok := c.ServiceConfig["data_manager"]; ok {
 			for _, methodConfiguration := range (svcConfig["capture_methods"]).([]interface{}) {
-				componentMethodConfig, err := getComponentMethodConfig(c, methodConfiguration)
+				componentMethodConfig, err := getComponentAttributes(c, methodConfiguration)
 				if err != nil {
-					return componentMethodConfigs, err
+					return componentAttributeConfigs, err
 				}
-				componentMethodConfigs = append(componentMethodConfigs, componentMethodConfig)
+				componentAttributeConfigs = append(componentAttributeConfigs, componentMethodConfig)
 			}
 		}
 	}
-	return componentMethodConfigs, nil
+	return componentAttributeConfigs, nil
 }
 
 // Update updates the data manager service when the config has changed.
@@ -353,14 +360,14 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 
-	componentMethodConfigs, err := svc.getComponentMethodConfigs(cfg)
+	allComponentAttributes, err := getAllComponentAttributes(cfg)
 	if err != nil {
 		return err
 	}
 
 	// NOTE: Returns normally but logs an error if the data service is enabled without any
 	// components/remotes enabled. Another option is to return an error here and cause RDK to fail.
-	if len(componentMethodConfigs) == 0 {
+	if len(allComponentAttributes) == 0 {
 		svc.logger.Error("Could not find any components with data_manager service configuration")
 		return nil
 	}
@@ -370,11 +377,10 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
-	for _, componentMethodConfig := range componentMethodConfigs {
-		if componentMethodConfig.Attributes.CaptureFrequencyHz > 0 {
+	for _, attributes := range allComponentAttributes {
+		if attributes.CaptureFrequencyHz > 0 {
 			componentMetadata, err := svc.initializeOrUpdateCollector(
-				componentMethodConfig.Name, (string)(componentMethodConfig.Type),
-				componentMethodConfig.Attributes, updateCaptureDir)
+				attributes, updateCaptureDir)
 			if err != nil {
 				return err
 			}
@@ -420,9 +426,9 @@ func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins in
 			case <-ticker.C:
 				oldFiles := make([]string, 0, len(svc.collectors))
 				svc.lock.Lock()
-				for component, collector := range svc.collectors {
+				for _, collector := range svc.collectors {
 					// Create new target and set it.
-					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.ComponentType, component.ComponentName)
+					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
 					if err != nil {
 						svc.logger.Errorw("failed to create new data capture file", "error", err)
 					}
