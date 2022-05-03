@@ -366,7 +366,6 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 		}
 
 		// Stream
-		// TODO: this causes tests to hang
 		svc.startStream(ctx, source, view)
 	}
 
