@@ -94,7 +94,7 @@
                       </div>
                     </div>
                     <div
-                      class="bg-black w-48 h-48 transition-all duration-300 ease-in-out"
+                      class="w-48 h-48 transition-all duration-300 ease-in-out"
                       v-if="selectedValue !== 'NoCamera'"
                       :id="streamId"
                     ></div>
