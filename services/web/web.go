@@ -232,8 +232,6 @@ type StreamServer struct {
 	Server gostream.StreamServer
 	// HasStreams is true if service has streams that require a WebRTC connection.
 	HasStreams bool
-	// ImagesSources to stream from by name
-	ImagesSources map[string]gostream.ImageSource
 }
 
 // New returns a new web service for the given robot.
@@ -342,22 +340,20 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 	sources := allSourcesToDisplay(theRobot)
 
 	for name, source := range sources {
-		// Check if stream already exists for named image source
-		if _, ok := svc.streamServer.ImagesSources[name]; ok {
-			continue
-		}
-
 		// Configure new stream
 		config := defaultStreamConfig
 		config.Name = name
-		view, err := gostream.NewStream(config)
-		if err != nil {
-			return err
-		}
+		stream, err := svc.streamServer.Server.NewStream(config)
 
-		// Add stream server
-		if err := svc.streamServer.Server.AddStream(view); err != nil {
-			return err
+		// Skip if stream is already registered, otherwise raise any other errors
+		switch err.(type) {
+		case *gostream.ErrStreamAlreadyRegistered:
+			svc.logger.Warn(err.Error())
+			continue
+		default:
+			if err != nil {
+				return err
+			}
 		}
 
 		if !svc.streamServer.HasStreams {
@@ -365,7 +361,7 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 		}
 
 		// Stream
-		svc.startStream(ctx, source, view)
+		svc.startStream(ctx, source, stream)
 	}
 
 	return nil
@@ -377,17 +373,17 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 
 	if len(sources) == 0 {
 		noopServer, err := gostream.NewStreamServer(streams...)
-		return &StreamServer{noopServer, false, sources}, err
+		return &StreamServer{noopServer, false}, err
 	}
 
 	for name := range sources {
 		config := defaultStreamConfig
 		config.Name = name
-		view, err := gostream.NewStream(config)
+		stream, err := gostream.NewStream(config)
 		if err != nil {
 			return nil, err
 		}
-		streams = append(streams, view)
+		streams = append(streams, stream)
 	}
 
 	streamServer, err := gostream.NewStreamServer(streams...)
@@ -399,7 +395,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 		svc.startStream(ctx, sources[stream.Name()], stream)
 	}
 
-	return &StreamServer{streamServer, true, sources}, nil
+	return &StreamServer{streamServer, true}, nil
 }
 
 func (svc *webService) startStream(ctx context.Context, source gostream.ImageSource, stream gostream.Stream) {
