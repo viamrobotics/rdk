@@ -135,9 +135,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 	arrows[input.AbsoluteHat0X] = 0.0
 	arrows[input.AbsoluteHat0Y] = 0.0
 
-
 	remoteCtl := func(ctx context.Context, event input.Event) {
-
 		switch svc.controlMode {
 		case triggerSpeedControl:
 			mmPerSec, angleDeg = svc.triggerSpeedEvent(event, mmPerSec, angleDeg)
@@ -161,17 +159,17 @@ func (svc *remoteService) start(ctx context.Context) error {
 		var d int
 		var s float64
 		var a float64
-		if math.Abs(mmPerSec) < 0.15 && math.Abs(angleDeg) < 0.25 {//mmPerSec == 0 && angleDeg == 0 {
+		if math.Abs(mmPerSec) < 0.15 && math.Abs(angleDeg) < 0.25 { // mmPerSec == 0 && angleDeg == 0 {
 			// Stop
 			d = int(maxSpeed * distRatio)
 			s = 0.0
 			a = angleDeg * maxAngle * -1
-		} else if math.Abs(mmPerSec) < 0.15 { //mmPerSec == 0 {
+		} else if math.Abs(mmPerSec) < 0.15 { // mmPerSec == 0 {
 			// Spin
 			d = int(0)
 			s = angleDeg * maxSpeed
 			a = math.Abs(angleDeg * maxAngle * distRatio / 2)
-		} else if math.Abs(angleDeg) < 0.25 {// angleDeg == 0 {
+		} else if math.Abs(angleDeg) < 0.25 { // angleDeg == 0 {
 			// Move Straight
 			d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
 			s = mmPerSec * maxSpeed
@@ -285,8 +283,7 @@ func (svc *remoteService) buttonControlEvent(event input.Event, buttons map[inpu
 
 // arrowControlEvent takes inputs from the gamepad allowing the arrow buttons to control speed and angle.
 func (svc *remoteService) arrowControlEvent(event input.Event, arrows map[input.Control]float64) (float64, float64, map[input.Control]float64) {
-
-	arrows[event.Control] = -1.0*event.Value
+	arrows[event.Control] = -1.0 * event.Value
 
 	return arrows[input.AbsoluteHat0Y], arrows[input.AbsoluteHat0X], arrows
 }
@@ -298,10 +295,10 @@ func (svc *remoteService) oneJoyStickEvent(event input.Event, speed float64, ang
 
 	switch event.Control {
 	case input.AbsoluteY:
-		speed = -1.0*event.Value
+		speed = -1.0 * event.Value
 		angle = oldAngle
 	case input.AbsoluteX:
-		angle = -1.0*event.Value
+		angle = -1.0 * event.Value
 		speed = oldSpeed
 	}
 

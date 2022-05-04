@@ -46,7 +46,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	cfg := &Config{
 		BaseName:            "",
 		InputControllerName: "",
-		ControlModeName:    "",
+		ControlModeName:     "",
 	}
 
 	// New base_remote_control check
@@ -163,7 +163,6 @@ func TestBaseRemoteControl(t *testing.T) {
 		test.That(t, i[3], test.ShouldEqual, input.ButtonWest)
 	})
 
-
 	// JoystickControl
 	eventX := input.Event{
 		Control: input.AbsoluteX,
@@ -251,18 +250,18 @@ func TestBaseRemoteControl(t *testing.T) {
 	buttons[input.ButtonWest] = false
 
 	eventButtonNorthPress := input.Event{
-		Event: input.ButtonPress,
-		Control:   input.ButtonNorth,
+		Event:   input.ButtonPress,
+		Control: input.ButtonNorth,
 	}
 
 	eventButtonSouthPress := input.Event{
-		Event: input.ButtonPress,
-		Control:   input.ButtonSouth,
+		Event:   input.ButtonPress,
+		Control: input.ButtonSouth,
 	}
 
 	eventButtonNorthRelease := input.Event{
-		Event: input.ButtonRelease,
-		Control:   input.ButtonNorth,
+		Event:   input.ButtonRelease,
+		Control: input.ButtonNorth,
 	}
 
 	t.Run("button control mode for input X and B", func(t *testing.T) {
@@ -280,18 +279,18 @@ func TestBaseRemoteControl(t *testing.T) {
 	})
 
 	eventButtonEastPress := input.Event{
-		Event: input.ButtonPress,
-		Control:   input.ButtonEast,
+		Event:   input.ButtonPress,
+		Control: input.ButtonEast,
 	}
 
 	eventButtonWestPress := input.Event{
-		Event: input.ButtonPress,
-		Control:   input.ButtonWest,
+		Event:   input.ButtonPress,
+		Control: input.ButtonWest,
 	}
 
 	eventButtonEastRelease := input.Event{
-		Event: input.ButtonRelease,
-		Control:   input.ButtonEast,
+		Event:   input.ButtonRelease,
+		Control: input.ButtonEast,
 	}
 
 	t.Run("button control mode for input Y and A", func(t *testing.T) {
@@ -311,5 +310,4 @@ func TestBaseRemoteControl(t *testing.T) {
 	// Close out check
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
-
 }
