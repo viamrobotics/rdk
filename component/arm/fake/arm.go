@@ -105,7 +105,8 @@ func (a *Arm) Close() {
 	a.CloseCount++
 }
 
-// ShouldUpdate returns how the arm should be reconfigured.
+// ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See robot.ShouldUpdateAction for more information.
 func (a *Arm) ShouldUpdate(config *config.Component) robot.ShouldUpdateAction {
 	return robot.Reconfigure
 }

@@ -79,7 +79,8 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 	return b, nil
 }
 
-// ShouldUpdate returns how the board should be reconfigured.
+// ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See robot.ShouldUpdateAction for more information.
 func (b *Board) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
 	_, ok := c.ConvertedAttributes.(*board.Config)
 	if !ok {

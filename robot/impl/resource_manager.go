@@ -465,9 +465,6 @@ func (manager *resourceManager) updateServices(ctx context.Context,
 			// if we are not dealing with a reconfigurable resource
 			// we want to close the old resource and replace it with the
 			// new.
-			// if err := utils.TryClose(ctx, old); err != nil {
-			//	return err
-			// }
 			replacedServices = append(replacedServices, old)
 			manager.resources.Nodes[c.ResourceName()] = svc
 		}
@@ -530,11 +527,11 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 			// for the resource subtype.
 			reconfError := errors.Errorf(
 				"new type %T is reconfigurable whereas old type %T is not",
-				r, old)
+				nr, old)
 			if oldComponentIsReconfigurable {
 				reconfError = errors.Errorf(
 					"old type %T is reconfigurable whereas new type %T is not",
-					old, r)
+					old, nr)
 			}
 			return replacedComponents, reconfError
 		case oldComponentIsReconfigurable && newComponentIsReconfigurable:
@@ -548,9 +545,6 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 			// if we are not dealing with a reconfigurable resource
 			// we want to close the old resource and replace it with the
 			// new.
-			// if err := utils.TryClose(ctx, old); err != nil {
-			//	return err
-			// }
 			replacedComponents = append(replacedComponents, old)
 			manager.resources.Nodes[rName] = nr
 		}
@@ -680,7 +674,7 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 			} else if r, ok := manager.resources.FindNodeByName(dep); ok {
 				comp = *r
 			} else {
-				return errors.Errorf("componenent %s depends on non-existent component %s",
+				return errors.Errorf("componenent %q depends on non-existent component %q",
 					rName.Name, dep)
 			}
 			if _, ok := mapParents[comp]; ok {
