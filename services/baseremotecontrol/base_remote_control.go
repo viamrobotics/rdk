@@ -4,7 +4,6 @@ package baseremotecontrol
 import (
 	"context"
 	"math"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -66,7 +65,7 @@ type controlMode uint8
 type Config struct {
 	BaseName            string `json:"base"`
 	InputControllerName string `json:"input_controller"`
-	ControlModeName     string `json:"joystick_mode"`
+	ControlModeName     string `json:"control_mode"`
 }
 
 // RemoteService is the structure of the remote service.
