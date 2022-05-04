@@ -38,9 +38,11 @@ require (
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
+	github.com/maorshutman/lm v0.0.0-20190501150544-7c8d1397ebf3
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/mapstructure v1.4.3
+	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
 	github.com/pion/mediadevices v0.3.4-0.20220328105715-70261260cb6f
