@@ -279,7 +279,7 @@ func (svc *webService) Update(ctx context.Context, resources map[resource.Name]i
 	if err := svc.updateResources(resources); err != nil {
 		return err
 	}
-	return svc.addNewStreams(ctx, svc.r)
+	return svc.addNewStreams(ctx)
 }
 
 func (svc *webService) updateResources(resources map[resource.Name]interface{}) error {
@@ -334,12 +334,12 @@ func (svc *webService) streamInitialized() bool {
 	return svc.streamServer != nil && svc.streamServer.Server != nil
 }
 
-func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) error {
+func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
 		svc.logger.Warn("attempting to add stream before stream server is initialized. skipping this operation...")
 		return nil
 	}
-	sources := allSourcesToDisplay(theRobot)
+	sources := allSourcesToDisplay(svc.r)
 
 	for name, source := range sources {
 		// Configure new stream
@@ -367,8 +367,8 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 	return nil
 }
 
-func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (*StreamServer, error) {
-	sources := allSourcesToDisplay(theRobot)
+func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, error) {
+	sources := allSourcesToDisplay(svc.r)
 	var streams []gostream.Stream
 
 	if len(sources) == 0 {
@@ -499,7 +499,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	svc.streamServer, err = svc.makeStreamServer(ctx, svc.r)
+	svc.streamServer, err = svc.makeStreamServer(ctx)
 	if err != nil {
 		return err
 	}
