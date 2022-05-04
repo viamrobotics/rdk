@@ -313,8 +313,7 @@ func (svc *webService) update(ctx context.Context, resources map[resource.Name]i
 	}
 
 	// update streams
-	err := svc.addNewStreams(ctx, svc.r)
-	if err != nil {
+	if err := svc.addNewStreams(ctx, svc.r); err != nil {
 		return err
 	}
 
