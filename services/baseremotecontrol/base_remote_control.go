@@ -159,17 +159,17 @@ func (svc *remoteService) start(ctx context.Context) error {
 		var d int
 		var s float64
 		var a float64
-		if math.Abs(mmPerSec) < 0.15 && math.Abs(angleDeg) < 0.25 { // mmPerSec == 0 && angleDeg == 0 {
+		if math.Abs(mmPerSec) < 0.15 && math.Abs(angleDeg) < 0.25 {
 			// Stop
 			d = int(maxSpeed * distRatio)
 			s = 0.0
 			a = angleDeg * maxAngle * -1
-		} else if math.Abs(mmPerSec) < 0.15 { // mmPerSec == 0 {
+		} else if math.Abs(mmPerSec) < 0.15 {
 			// Spin
 			d = int(0)
 			s = angleDeg * maxSpeed
 			a = math.Abs(angleDeg * maxAngle * distRatio / 2)
-		} else if math.Abs(angleDeg) < 0.25 { // angleDeg == 0 {
+		} else if math.Abs(angleDeg) < 0.25 {
 			// Move Straight
 			d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
 			s = mmPerSec * maxSpeed
@@ -243,7 +243,10 @@ func (svc *remoteService) triggerSpeedEvent(event input.Event, speed float64, an
 		speed = math.Min(1, speed)
 	case input.AbsoluteX:
 		angle = event.Value
-	default:
+	case input.AbsoluteHat0X, input.AbsoluteHat0Y, input.AbsoluteRX, input.AbsoluteRY, input.AbsoluteY,
+		input.ButtonEStop, input.ButtonEast, input.ButtonLT, input.ButtonLThumb, input.ButtonMenu,
+		input.ButtonNorth, input.ButtonRT, input.ButtonRThumb, input.ButtonRecord, input.ButtonSelect,
+		input.ButtonSouth, input.ButtonStart, input.ButtonWest:
 	}
 
 	return speed, angle
@@ -254,12 +257,13 @@ func (svc *remoteService) buttonControlEvent(event input.Event, buttons map[inpu
 	var newSpeed float64
 	var newAngle float64
 
-	if event.Event == input.ButtonPress {
+	switch event.Event {
+	case input.ButtonPress:
 		buttons[event.Control] = true
-	}
-
-	if event.Event == input.ButtonRelease {
+	case input.ButtonRelease:
 		buttons[event.Control] = false
+	case input.AllEvents, input.ButtonChange, input.Connect, input.Disconnect, input.PositionChangeAbs,
+		input.PositionChangeRel:
 	}
 
 	if buttons[input.ButtonNorth] == buttons[input.ButtonSouth] {
@@ -300,6 +304,10 @@ func (svc *remoteService) oneJoyStickEvent(event input.Event, speed float64, ang
 	case input.AbsoluteX:
 		angle = -1.0 * event.Value
 		speed = oldSpeed
+	case input.AbsoluteHat0X, input.AbsoluteHat0Y, input.AbsoluteRX, input.AbsoluteRY, input.AbsoluteRZ,
+		input.ButtonEStop, input.ButtonEast, input.ButtonLT, input.ButtonLThumb, input.ButtonMenu,
+		input.ButtonNorth, input.ButtonRT, input.ButtonRThumb, input.ButtonRecord, input.ButtonSelect,
+		input.ButtonSouth, input.ButtonStart, input.ButtonWest, input.AbsoluteZ:
 	}
 
 	return speed, angle

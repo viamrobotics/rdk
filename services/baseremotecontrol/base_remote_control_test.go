@@ -265,15 +265,15 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("button control mode for input X and B", func(t *testing.T) {
-		mmPerSec, degsPerSec, buttons := svc2.buttonControlEvent(eventButtonNorthPress, buttons)
+		mmPerSec, degsPerSec, _ := svc2.buttonControlEvent(eventButtonNorthPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 
-		mmPerSec, degsPerSec, buttons = svc2.buttonControlEvent(eventButtonSouthPress, buttons)
+		mmPerSec, degsPerSec, _ = svc2.buttonControlEvent(eventButtonSouthPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 
-		mmPerSec, degsPerSec, buttons = svc2.buttonControlEvent(eventButtonNorthRelease, buttons)
+		mmPerSec, degsPerSec, _ = svc2.buttonControlEvent(eventButtonNorthRelease, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
@@ -294,15 +294,15 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("button control mode for input Y and A", func(t *testing.T) {
-		mmPerSec, degsPerSec, buttons := svc2.buttonControlEvent(eventButtonEastPress, buttons)
+		mmPerSec, degsPerSec, _ := svc2.buttonControlEvent(eventButtonEastPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, -1.0, .001)
 
-		mmPerSec, degsPerSec, buttons = svc2.buttonControlEvent(eventButtonWestPress, buttons)
+		mmPerSec, degsPerSec, _ = svc2.buttonControlEvent(eventButtonWestPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 
-		mmPerSec, degsPerSec, buttons = svc2.buttonControlEvent(eventButtonEastRelease, buttons)
+		mmPerSec, degsPerSec, _ = svc2.buttonControlEvent(eventButtonEastRelease, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
