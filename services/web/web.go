@@ -276,13 +276,13 @@ func (svc *webService) Start(ctx context.Context, o Options) error {
 func (svc *webService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if err := svc.updateResources(ctx, resources); err != nil {
+	if err := svc.updateResources(resources); err != nil {
 		return err
 	}
 	return svc.addNewStreams(ctx, svc.r)
 }
 
-func (svc *webService) updateResources(ctx context.Context, resources map[resource.Name]interface{}) error {
+func (svc *webService) updateResources(resources map[resource.Name]interface{}) error {
 	// so group resources by subtype
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
 	components := make(map[resource.Name]interface{})
@@ -348,14 +348,12 @@ func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) 
 		stream, err := svc.streamServer.Server.NewStream(config)
 
 		// Skip if stream is already registered, otherwise raise any other errors
-		switch err.(type) {
-		case *gostream.ErrStreamAlreadyRegistered:
-			svc.logger.Warn(err.Error())
+		var registeredError *gostream.ErrStreamAlreadyRegistered
+		if errors.As(err, &registeredError) {
+			svc.logger.Warn(registeredError.Error())
 			continue
-		default:
-			if err != nil {
-				return err
-			}
+		} else if err != nil {
+			return err
 		}
 
 		if !svc.streamServer.HasStreams {
@@ -493,7 +491,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	if err := svc.initResources(ctx); err != nil {
+	if err := svc.initResources(); err != nil {
 		return err
 	}
 
@@ -743,7 +741,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options Op
 }
 
 // Populate subtype services with robot resources.
-func (svc *webService) initResources(ctx context.Context) error {
+func (svc *webService) initResources() error {
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
 		resource, err := svc.r.ResourceByName(name)
@@ -753,7 +751,7 @@ func (svc *webService) initResources(ctx context.Context) error {
 
 		resources[name] = resource
 	}
-	if err := svc.updateResources(ctx, resources); err != nil {
+	if err := svc.updateResources(resources); err != nil {
 		return err
 	}
 
