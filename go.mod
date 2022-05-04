@@ -2,6 +2,8 @@ module go.viam.com/rdk
 
 go 1.17
 
+replace github.com/edaniels/gostream => /home/mp/git/maximpertsov/gostream
+
 require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/a8m/envsubst v1.3.0
