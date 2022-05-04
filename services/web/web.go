@@ -271,15 +271,18 @@ func (svc *webService) Start(ctx context.Context, o Options) error {
 	return svc.runWeb(cancelCtx, o)
 }
 
-// Update updates the web service when the robot has changed. Not Reconfigure because this should happen at a different point in the
-// lifecycle.
+// Update updates the web service when the robot has changed. Not Reconfigure because
+// this should happen at a different point in the lifecycle.
 func (svc *webService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	return svc.update(ctx, resources)
+	if err := svc.updateResources(ctx, resources); err != nil {
+		return err
+	}
+	return svc.addNewStreams(ctx, svc.r)
 }
 
-func (svc *webService) update(ctx context.Context, resources map[resource.Name]interface{}) error {
+func (svc *webService) updateResources(ctx context.Context, resources map[resource.Name]interface{}) error {
 	// so group resources by subtype
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
 	components := make(map[resource.Name]interface{})
@@ -312,11 +315,6 @@ func (svc *webService) update(ctx context.Context, resources map[resource.Name]i
 		}
 	}
 
-	// update streams
-	if err := svc.addNewStreams(ctx, svc.r); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -330,6 +328,10 @@ func (svc *webService) Close(ctx context.Context) error {
 	}
 	svc.activeBackgroundWorkers.Wait()
 	return nil
+}
+
+func (svc *webService) streamInitialized() bool {
+	return svc.streamServer == nil || svc.streamServer.Server == nil
 }
 
 func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) error {
@@ -750,7 +752,7 @@ func (svc *webService) initResources(ctx context.Context) error {
 
 		resources[name] = resource
 	}
-	if err := svc.update(ctx, resources); err != nil {
+	if err := svc.updateResources(ctx, resources); err != nil {
 		return err
 	}
 
