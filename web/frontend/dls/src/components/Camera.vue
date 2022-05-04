@@ -152,11 +152,7 @@
                     Download Raw Data
                   </ViamButton>
                 </div>
-                <div
-                  class="clear-both h-96"
-                  id="pcd"
-                  @click="pcdClick"
-                ></div>
+                <div class="clear-both h-96" id="pcd" @click="pcdClick"></div>
                 <div class="float-right">
                   <span class="text-xs">Controls</span>
                   <popper

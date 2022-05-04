@@ -53,20 +53,22 @@
                   <div>
                     <div>
                       <div class="flex">
-                        <NumberInput v-model="increment"
-                                      class="w-32"
-                                     inputId="distance"
-                                     label="Increment (mm)"></NumberInput>
-                         <NumberInput v-model="speed"
-                                      class="ml-4 w-32"
-                                     inputId="speed"
-                                     label="Speed (mm/sec)"></NumberInput>
+                        <NumberInput
+                          v-model="increment"
+                          class="w-40"
+                          inputId="distance"
+                          label="Increment (mm)"
+                        ></NumberInput>
+                        <NumberInput
+                          v-model="speed"
+                          class="ml-4 w-40"
+                          inputId="speed"
+                          label="Speed (mm/sec)"
+                        ></NumberInput>
                       </div>
                     </div>
                     <div class="flex pt-6">
-                      <KeyboardInput
-                        @keyboard-ctl="keyboardCtl"
-                      >
+                      <KeyboardInput @keyboard-ctl="keyboardCtl">
                       </KeyboardInput>
                     </div>
                   </div>
@@ -114,7 +116,7 @@
                 />
               </div>
             </div>
-            <div class="flex pt-2">
+            <div class="flex items-center pt-4">
               <div class="column pr-2" v-if="movementMode === 'Straight'">
                 <p class="text-xs">Movement Type</p>
                 <RadioButtons
@@ -136,30 +138,39 @@
                   v-on:selectOption="setDirection($event)"
                 />
               </div>
-              <ViamInput
-                type="number"
-                color="primary"
-                group="False"
-                variant="primary"
+              <NumberInput
                 v-model="speed"
+                class="ml-4 w-32"
                 inputId="speed"
-                class="text-xs pr-2 w-32"
-                >Speed (mm/sec)
-              </ViamInput>
-              <ViamInput
-                v-if="movementMode === 'Straight' || movementMode === 'Arc'"
-                type="number"
-                color="primary"
-                group="False"
-                variant="primary"
+                label="Speed (mm/sec)"
+              ></NumberInput>
+              <NumberInput
                 v-model="increment"
+                v-if="movementMode === 'Straight' || movementMode === 'Arc'"
+                class="ml-4 w-32"
                 inputId="distance"
                 :disabled="movementType === 'Continous'"
-                class="text-xs pr-2 w-32"
-                >Distance (mm)
-              </ViamInput>
+                label="Distance (mm)"
+              ></NumberInput>
+              <div class="column pt-4 flex-grow flex justify-end">
+                <ViamButton
+                  color="success"
+                  group
+                  variant="primary"
+                  v-if="movementMode === 'Straight'"
+                  :disabled="baseStatus"
+                  @click="baseRun()"
+                >
+                  <template v-slot:icon>
+                    <ViamIcon color="white" :path="mdiPlayCircleOutline"
+                      >RUN</ViamIcon
+                    >
+                  </template>
+                  RUN
+                </ViamButton>
+              </div>
             </div>
-            <div class="flex">
+            <div class="flex pt-4">
               <div
                 class="column pr-2"
                 v-if="movementMode === 'Spin' || movementMode === 'Arc'"
@@ -186,13 +197,12 @@
                   name="Max Clustering Radius"
                 ></Range>
               </div>
-            </div>
-            <div class="flex flex-row-reverse">
-              <div>
+              <div class="column pt-5 flex-grow flex justify-end">
                 <ViamButton
                   color="success"
                   group
                   variant="primary"
+                  v-if="movementMode === 'Spin' || movementMode === 'Arc'"
                   :disabled="baseStatus"
                   @click="baseRun()"
                 >
@@ -333,7 +343,12 @@ export default class Base extends Vue {
       this.maxHeight = 500;
     }
   }
-  keyboardCtl(keysPressed: any): void {
+  keyboardCtl(keysPressed: {
+    forward: boolean;
+    backward: boolean;
+    right: boolean;
+    left: boolean;
+  }): void {
     let toEmit = {
       baseName: this.baseName,
       forward: keysPressed.forward,

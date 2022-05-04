@@ -6,6 +6,7 @@
         variant="primary"
         v-for="option in options"
         v-bind:key="option"
+        class="button-in-radio"
         :color="selected === option ? 'black' : 'primary'"
         v-on:click="selectOption(option)"
         :disabled="isDisabled(option)"
@@ -61,4 +62,8 @@ export default class RadioButtons extends Vue {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.button-in-radio {
+  padding: 5px 16px;
+}
+</style>

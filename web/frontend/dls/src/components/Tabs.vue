@@ -8,9 +8,9 @@
     v-bind="data.attrs"
     v-on="listeners"
   >
-  <div class="tabs-container absolute flex">
-    <slot />
-  </div>
+    <div class="tabs-container absolute flex">
+      <slot />
+    </div>
   </component>
 </template>
 
@@ -25,11 +25,11 @@ export default class ViamTabs extends Vue {
 }
 </script>
 <style>
-  .tabs-container {
-    top: -1px;
-  }
-  .tabs-root-container{
-    height: 34px;
-    border-bottom-color: black;
-  }
+.tabs-container {
+  top: -1px;
+}
+.tabs-root-container {
+  height: 34px;
+  border-bottom-color: black;
+}
 </style>
