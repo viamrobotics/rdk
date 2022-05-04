@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -15,6 +16,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	rgrpc "go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -516,6 +518,122 @@ func TestWebUpdate(t *testing.T) {
 
 	test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc2), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+}
+
+func TestWebWithStreams(t *testing.T) {
+	const (
+		camera1Key = "camera1"
+		camera2Key = "camera2"
+	)
+
+	// Start a robot with a camera
+	robot := &inject.Robot{}
+	cam1 := &inject.Camera{}
+	rs := map[resource.Name]interface{}{camera.Named(camera1Key): cam1}
+	robot.MockResourcesFromMap(rs)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start service
+	logger := golog.NewTestLogger(t)
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := web.NewOptions()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	svc, err := web.New(ctx, robot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Start a stream service client
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	streamClient := streampb.NewStreamServiceClient(conn)
+
+	// Test that only one stream is available
+	resp, err := streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Names, test.ShouldContain, camera1Key)
+	test.That(t, resp.Names, test.ShouldHaveLength, 1)
+
+	// Add another camera and update
+	cam2 := &inject.Camera{}
+	rs[camera.Named(camera2Key)] = cam2
+	robot.MockResourcesFromMap(rs)
+	updateable, ok := svc.(resource.Updateable)
+	test.That(t, ok, test.ShouldBeTrue)
+	err = updateable.Update(ctx, rs)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test that new streams are available
+	resp, err = streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Names, test.ShouldContain, camera1Key)
+	test.That(t, resp.Names, test.ShouldContain, camera2Key)
+	test.That(t, resp.Names, test.ShouldHaveLength, 2)
+
+	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
+	cancel()
+	test.That(t, utils.TryClose(ctx, streamClient), test.ShouldBeNil)
+	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+}
+
+func TestWebAddFirstStream(t *testing.T) {
+	const (
+		camera1Key = "camera1"
+	)
+
+	// Start a robot without a camera
+	robot := &inject.Robot{}
+	rs := map[resource.Name]interface{}{}
+	robot.MockResourcesFromMap(rs)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start service
+	logger := golog.NewTestLogger(t)
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := web.NewOptions()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	svc, err := web.New(ctx, robot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Start a stream service client
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	streamClient := streampb.NewStreamServiceClient(conn)
+
+	// Test that there are no streams available
+	resp, err := streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Names, test.ShouldHaveLength, 0)
+
+	// Add first camera and update
+	cam1 := &inject.Camera{}
+	rs[camera.Named(camera1Key)] = cam1
+	robot.MockResourcesFromMap(rs)
+	updateable, ok := svc.(resource.Updateable)
+	test.That(t, ok, test.ShouldBeTrue)
+	err = updateable.Update(ctx, rs)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test that new streams are available
+	resp, err = streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Names, test.ShouldContain, camera1Key)
+	test.That(t, resp.Names, test.ShouldHaveLength, 1)
+
+	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
+	cancel()
+	test.That(t, utils.TryClose(ctx, streamClient), test.ShouldBeNil)
+	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
