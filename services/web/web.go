@@ -334,7 +334,7 @@ func (svc *webService) Close(ctx context.Context) error {
 
 func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) error {
 	if svc.streamServer == nil || svc.streamServer.Server == nil {
-		return nil
+		return errors.New("unable to add stream because stream server was not initialized")
 	}
 	sources := allSourcesToDisplay(theRobot)
 
