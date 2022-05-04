@@ -1,9 +1,14 @@
 <template>
-  <div class="flex viam-number-input-root h-8">
+<div class="flex-col">
+  <slot name="label">
+      <span class="text-xs">{{label}}</span>
+  </slot>
+  <div class="flex h-8">
     <input
       ref="input"
       class="viam-number-input border-black outline-none h-full w-full"
       type="tel"
+      :id="inputId"
       :value="innerValue"
       :placeholder="placeholder"
       :readonly="readonly"
@@ -32,6 +37,8 @@
       ></ViamIcon>
     </div>
   </div>
+</div>
+  
 </template>
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
@@ -52,6 +59,10 @@ const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
 export default class NumberInput extends Vue {
   @Prop({ default: -Infinity })
   public min!: number;
+  @Prop({ default: null })
+  public label!: string;
+  @Prop({ default: null })
+  public inputId!: string;
   @Prop({ default: Infinity })
   public max!: number;
   @Prop({ default: false })

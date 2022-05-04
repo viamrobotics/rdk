@@ -13,7 +13,7 @@
         variant="primary"
         @mouseup="setKeyPressed(key, false)"
         @mousedown="setKeyPressed(key, true)"
-        class="w-15 h-10 m-1 bg-white dark:bg-gray-900 border-gray-500"
+        class="h-10 m-1 bg-white dark:bg-gray-900 border-gray-500"
         :class="{
           'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200':
             pressedKeys[key],
@@ -22,7 +22,7 @@
         <template v-slot:icon>
           <ViamIcon :path="keyIcons[key]">Check</ViamIcon>
         </template>
-        <span class="text-3xl">{{ keyLetters[key] }}</span>
+        <span class="text-2xl">{{ keyLetters[key] }}</span>
       </ViamButton>
     </div>
   </div>

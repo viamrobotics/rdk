@@ -54,28 +54,14 @@
                     <div>
                       <div class="flex">
                         <input id="angle" type="hidden" value="45" />
-                        <ViamInput
-                          type="number"
-                          color="primary"
-                          group="False"
-                          variant="primary"
-                          class="pr-2 w-32"
-                          inputId="distance"
-                          v-model="increment"
-                        >
-                          <span class="text-xs">Increment (mm)</span>
-                        </ViamInput>
-                        <ViamInput
-                          type="number"
-                          color="primary"
-                          group="False"
-                          variant="primary"
-                          class="pr-2 w-32"
-                          inputId="speed"
-                          v-model="speed"
-                        >
-                          <span class="text-xs">Speed (mm/sec)</span>
-                        </ViamInput>
+                        <NumberInput v-model="increment"
+                                      class="w-32"
+                                     inputId="distance"
+                                     label="Increment (mm)"></NumberInput>
+                         <NumberInput v-model="speed"
+                                      class="ml-4 w-32"
+                                     inputId="speed"
+                                     label="Speed (mm/sec)"></NumberInput>
                       </div>
                     </div>
                     <div class="flex pt-6">
@@ -238,6 +224,7 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import "vue-class-component/hooks";
 import Collapse from "./Collapse.vue";
+import NumberInput from "./NumberInput.vue";
 import Breadcrumbs from "./Breadcrumbs.vue";
 import ViamIcon from "./ViamIcon.vue";
 import {
@@ -260,6 +247,7 @@ import ViamButton from "./Button.vue";
     Tabs,
     Tab,
     ViamButton,
+    NumberInput,
   },
 })
 export default class Base extends Vue {
