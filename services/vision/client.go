@@ -1,11 +1,13 @@
-package objectsegmentation
+package vision
 
 import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
 
 	"github.com/edaniels/golog"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -13,21 +15,22 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
+	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
-// client is a client that implements the Object Segmentation Service.
+// client is a client that implements the Vision Service.
 type client struct {
 	conn   rpc.ClientConn
-	client pb.ObjectSegmentationServiceClient
+	client pb.VisionServiceClient
 	logger golog.Logger
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
-	grpcClient := pb.NewObjectSegmentationServiceClient(conn)
+	grpcClient := pb.NewVisionServiceClient(conn)
 	sc := &client{
 		conn:   conn,
 		client: grpcClient,
@@ -56,12 +59,59 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) GetSegmenters(ctx context.Context) ([]string, error) {
-	resp, err := c.client.GetSegmenters(ctx, &pb.GetSegmentersRequest{})
+func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetectorNames")
+	defer span.End()
+	resp, err := c.client.GetDetectorNames(ctx, &pb.GetDetectorNamesRequest{})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Segmenters, nil
+	return resp.DetectorNames, nil
+}
+
+func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddDetector")
+	defer span.End()
+	params, err := structpb.NewStruct(cfg.Parameters)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.AddDetector(ctx, &pb.AddDetectorRequest{
+		DetectorName:       cfg.Name,
+		DetectorModelType:  cfg.Type,
+		DetectorParameters: params,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetections")
+	defer span.End()
+	resp, err := c.client.GetDetections(ctx, &pb.GetDetectionsRequest{
+		CameraName:   cameraName,
+		DetectorName: detectorName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	detections := make([]objdet.Detection, 0, len(resp.Detections))
+	for _, d := range resp.Detections {
+		box := image.Rect(int(d.XMin), int(d.YMin), int(d.XMax), int(d.YMax))
+		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
+		detections = append(detections, det)
+	}
+	return detections, nil
+}
+
+func (c *client) GetSegmenterNames(ctx context.Context) ([]string, error) {
+	resp, err := c.client.GetSegmenterNames(ctx, &pb.GetSegmenterNamesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.SegmenterNames, nil
 }
 
 func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
@@ -71,8 +121,8 @@ func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName strin
 	if err != nil {
 		return nil, err
 	}
-	params := make([]utils.TypedName, len(resp.Parameters))
-	for i, p := range resp.Parameters {
+	params := make([]utils.TypedName, len(resp.SegmenterParameters))
+	for i, p := range resp.SegmenterParameters {
 		params[i] = utils.TypedName{p.Name, p.Type}
 	}
 	return params, nil

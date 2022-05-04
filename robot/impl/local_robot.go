@@ -22,12 +22,12 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
-	"go.viam.com/rdk/services/objectsegmentation"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/utils"
 )
@@ -43,7 +43,7 @@ var (
 		web.Name,
 		datamanager.Name,
 		framesystem.Name,
-		objectsegmentation.Name,
+		vision.Name,
 	}
 )
 
@@ -108,8 +108,12 @@ func (r *localRobot) Logger() golog.Logger {
 	return r.logger
 }
 
-// New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+func newWithResources(
+	ctx context.Context,
+	cfg *config.Config,
+	resources map[resource.Name]interface{},
+	logger golog.Logger,
+) (robot.LocalRobot, error) {
 	r := &localRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{
@@ -143,9 +147,12 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 		}
 		r.manager.addResource(name, svc)
 	}
-
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
+	}
+
+	for name, res := range resources {
+		r.manager.addResource(name, res)
 	}
 
 	// update default services - done here so that all resources have been created and can be addressed.
@@ -155,6 +162,11 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 
 	successful = true
 	return r, nil
+}
+
+// New returns a new robot with parts sourced from the given config.
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+	return newWithResources(ctx, cfg, nil, logger)
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
@@ -268,4 +280,10 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 		return nil, err
 	}
 	return New(ctx, processedCfg, logger)
+}
+
+// RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
+// to support more streamlined reconfiguration functionality.
+func RobotFromResources(ctx context.Context, resources map[resource.Name]interface{}, logger golog.Logger) (robot.LocalRobot, error) {
+	return newWithResources(ctx, &config.Config{}, resources, logger)
 }
