@@ -1,0 +1,20 @@
+{  
+  "services": [
+    {
+      "type": "vision",
+      "attributes": {
+        "register_detectors": [
+          {
+             "name": "detector_3", 
+             "type": "color",
+             "parameters": {
+                "detect_color" : "#CD934A",
+                "tolerance": 0.06,
+                "segment_size": 1000
+             }
+          }
+        ]
+      }
+    }
+  ]
+}
