@@ -100,6 +100,16 @@ func TestServerAddDetector(t *testing.T) {
 		DetectorParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
+	// did it add the detector
+	detRequest := &pb.GetDetectorNamesRequest{}
+	detResp, err := server.GetDetectorNames(context.Background(), detRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, detResp.GetDetectorNames(), test.ShouldContain, "test")
+	// did it also add the segmenter
+	segRequest := &pb.GetSegmenterNamesRequest{}
+	segResp, err := server.GetSegmenterNames(context.Background(), segRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segResp.GetSegmenterNames(), test.ShouldContain, "test")
 	// failure
 	resp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		DetectorName:       "failing",
