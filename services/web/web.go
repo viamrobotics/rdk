@@ -331,12 +331,13 @@ func (svc *webService) Close(ctx context.Context) error {
 }
 
 func (svc *webService) streamInitialized() bool {
-	return svc.streamServer == nil || svc.streamServer.Server == nil
+	return svc.streamServer != nil && svc.streamServer.Server != nil
 }
 
 func (svc *webService) addNewStreams(ctx context.Context, theRobot robot.Robot) error {
-	if svc.streamServer == nil || svc.streamServer.Server == nil {
-		return errors.New("unable to add stream because stream server was not initialized")
+	if !svc.streamInitialized() {
+		svc.logger.Warn("attempting to add stream before stream server is initialized. skipping this operation...")
+		return nil
 	}
 	sources := allSourcesToDisplay(theRobot)
 
