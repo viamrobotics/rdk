@@ -134,7 +134,6 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec f
 	// Arc math
 	rpmLR, revLR := base.arcMath(distanceMm, mmPerSec, angleDeg)
 
-	// fmt.Printf("rpm_left: %v | rpm_right: %v\n\n", rpmLR[0], rpmLR[1])
 	// Send motor commands
 	var err error
 	for _, m := range base.left {

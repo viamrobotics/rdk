@@ -142,7 +142,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 		case buttonControl:
 			mmPerSec, angleDeg, buttons = svc.buttonControlEvent(event, buttons)
 		case arrowControl:
-			mmPerSec, angleDeg, arrows = svc.arrowControlEvent(event, arrows)
+			mmPerSec, angleDeg, arrows = svc.arrowEvent(event, arrows)
 		case oneJoyStickControl:
 			fallthrough
 		default:
@@ -159,22 +159,32 @@ func (svc *remoteService) start(ctx context.Context) error {
 		var d int
 		var s float64
 		var a float64
-		if math.Abs(mmPerSec) < 0.15 && math.Abs(angleDeg) < 0.25 {
+
+		var i int
+		if math.Abs(mmPerSec) < 0.15 {
+			i++
+		}
+		if math.Abs(angleDeg) < 0.25 {
+			i += 2
+		}
+
+		switch i {
+		case 3:
 			// Stop
 			d = int(maxSpeed * distRatio)
 			s = 0.0
 			a = angleDeg * maxAngle * -1
-		} else if math.Abs(mmPerSec) < 0.15 {
-			// Spin
-			d = int(0)
-			s = angleDeg * maxSpeed
-			a = math.Abs(angleDeg * maxAngle * distRatio / 2)
-		} else if math.Abs(angleDeg) < 0.25 {
+		case 2:
 			// Move Straight
 			d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
 			s = mmPerSec * maxSpeed
 			a = math.Abs(angleDeg * maxAngle * distRatio)
-		} else {
+		case 1:
+			// Spin
+			d = int(0)
+			s = angleDeg * maxSpeed
+			a = math.Abs(angleDeg * maxAngle * distRatio / 2)
+		default:
 			// Move Arc
 			d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
 			s = mmPerSec * maxSpeed
@@ -268,25 +278,29 @@ func (svc *remoteService) buttonControlEvent(event input.Event, buttons map[inpu
 
 	if buttons[input.ButtonNorth] == buttons[input.ButtonSouth] {
 		newSpeed = 0.0
-	} else if buttons[input.ButtonNorth] {
-		newSpeed = 1.0
 	} else {
-		newSpeed = -1.0
+		if buttons[input.ButtonNorth] {
+			newSpeed = 1.0
+		} else {
+			newSpeed = -1.0
+		}
 	}
 
 	if buttons[input.ButtonEast] == buttons[input.ButtonWest] {
 		newAngle = 0.0
-	} else if buttons[input.ButtonEast] {
-		newAngle = -1.0
 	} else {
-		newAngle = 1.0
+		if buttons[input.ButtonEast] {
+			newAngle = -1.0
+		} else {
+			newAngle = 1.0
+		}
 	}
 
 	return newSpeed, newAngle, buttons
 }
 
 // arrowControlEvent takes inputs from the gamepad allowing the arrow buttons to control speed and angle.
-func (svc *remoteService) arrowControlEvent(event input.Event, arrows map[input.Control]float64) (float64, float64, map[input.Control]float64) {
+func (svc *remoteService) arrowEvent(event input.Event, arrows map[input.Control]float64) (float64, float64, map[input.Control]float64) {
 	arrows[event.Control] = -1.0 * event.Value
 
 	return arrows[input.AbsoluteHat0Y], arrows[input.AbsoluteHat0X], arrows
