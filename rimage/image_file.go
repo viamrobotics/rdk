@@ -115,6 +115,28 @@ func CloneImage(img image.Image) *Image {
 	return ConvertImage(img)
 }
 
+// SaveImage takes an image.Image and saves it to a jpeg at the given
+// file location and also returns the location back.
+func SaveImage(pic image.Image, loc string) error {
+	f, err := os.Create(loc)
+	if err != nil {
+		return errors.Wrapf(err, "can't save at location %s", loc)
+	}
+	defer func() { //nolint:gosec
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	// Specify the quality, between 0-100
+	opt := jpeg.Options{Quality: 90}
+	err = jpeg.Encode(f, pic, &opt)
+	if err != nil {
+		return errors.Wrapf(err, "the 'image' will not encode")
+	}
+	return nil
+}
+
 func fastConvertNRGBA(dst *Image, src *image.NRGBA) {
 	for y := 0; y < dst.height; y++ {
 		for x := 0; x < dst.width; x++ {
