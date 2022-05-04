@@ -1,7 +1,0 @@
-{  
-  "services": [
-    {
-      "type": "object_detection"
-    }
-  ]
-}
