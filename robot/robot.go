@@ -44,11 +44,13 @@ type Robot interface {
 type ShouldUpdateAction int
 
 const (
-	// None Nothing happens the resource and its children will not be affected.
+	// None is returned when the new configuration doesn't change the the resource.
 	None ShouldUpdateAction = iota
-	// Reconfigure The resource will be reconfigured and its children will be destroyed and re-created.
+	// Reconfigure is returned when the resource should be updated without recreating its proxies.
+	// Note that two instances (old&new) will coexist, all dependcies will be destroyed and recreated.
 	Reconfigure
-	// Rebuild The resource will be rebuilt and ties children will be destroyed and re-created.
+	// Rebuild is returned when the resource and it's proxies should be drestroyed and recreated,
+	// all dependcies will be destroyed and recreated.
 	Rebuild
 )
 

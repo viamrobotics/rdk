@@ -47,12 +47,9 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 // for an existing one. It understands how to rollback and commit
 // changes as safe as it possibly can.
 type draftRobot struct {
-	original *localRobot
-	diff     *config.Diff
-	manager  *resourceManager
-
-	// additions and removals consist of modifications as well since we treat
-	// any modification as a removal to commit and an addition to rollback.
+	original  *localRobot
+	diff      *config.Diff
+	manager   *resourceManager
 	leftovers PartsMergeResult
 	removals  *resourceManager
 }
@@ -76,7 +73,7 @@ func (draft *draftRobot) RemoteNames() []string {
 	return draft.original.RemoteNames()
 }
 
-// ResourceNames returns a list of all known resource namesR.
+// ResourceNames returns a list of all known resource names.
 func (draft *draftRobot) ResourceNames() []resource.Name {
 	return draft.original.ResourceNames()
 }
@@ -109,7 +106,7 @@ func (draft *draftRobot) newResource(ctx context.Context, config config.Componen
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
-		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
+		return nil, errors.Errorf("unknown component subtype: %q and/or model: %q", rName.Subtype, config.Model)
 	}
 	newResource, err := f.Constructor(ctx, draft, config, draft.original.logger)
 	if err != nil {

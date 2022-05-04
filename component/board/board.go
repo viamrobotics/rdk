@@ -398,7 +398,8 @@ func (r *reconfigurableBoard) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, r.actual)
 }
 
-// ShouldUpdate returns how the board should be reconfigured.
+// ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See robot.ShouldUpdateAction for more information.
 func (r *reconfigurableBoard) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
 	obj, canUpdate := r.actual.(interface {
 		ShouldUpdate(config *config.Component) robot.ShouldUpdateAction
