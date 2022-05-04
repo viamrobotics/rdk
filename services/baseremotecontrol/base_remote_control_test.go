@@ -231,13 +231,13 @@ func TestBaseRemoteControl(t *testing.T) {
 		Value:   1.0,
 	}
 	t.Run("arrow control mode for input X", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := svc2.arrowControlEvent(eventHat0X, arrows)
+		mmPerSec, degsPerSec, _ := svc2.arrowEvent(eventHat0X, arrows)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, -1.0, .001)
 	})
 
 	t.Run("arrow control mode for input Y", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := svc2.arrowControlEvent(eventHat0Y, arrows)
+		mmPerSec, degsPerSec, _ := svc2.arrowEvent(eventHat0Y, arrows)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, -1.0, .001)
 	})
