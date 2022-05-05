@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// TBD 05/04/2022: Needs more work wonce GRPC is included (future PR)
+// TBD 05/04/2022: Needs more work wonce GRPC is included (future PR).
 func init() {
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
