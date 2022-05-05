@@ -80,12 +80,12 @@ type (
 	// Results with other types of data are not guaranteed.
 	CreateStatus func(ctx context.Context, resource interface{}) (interface{}, error)
 
-	// Discover tries to find potential configurations for a component. The return type
-	// is expected to be comprised of string keys (or it should be possible to decompose
-	// it into string keys) and values comprised of primitives, list of primitives, maps
+	// Discover tries to find potential configurations for a subtype. The return type is
+	// expected to be comprised of string keys (or it should be possible to decompose it
+	// into string keys) and values comprised of primitives, list of primitives, maps
 	// with string keys (or at least can be decomposed into one), or lists of the
 	// aforementioned type of maps. Results with other types of data are not guaranteed.
-	Discover func(ctx context.Context, resource interface{}) (interface{}, error)
+	Discover func(ctx context.Context) (interface{}, error)
 
 	// A RegisterSubtypeRPCService will register the subtype service to the grpc server.
 	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error
@@ -94,7 +94,6 @@ type (
 	// TODO: Remove as part of #227.
 	CreateRPCClient func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
-
 // Component stores a resource constructor (mandatory) and a Frame building function (optional).
 type Component struct {
 	RegDebugInfo

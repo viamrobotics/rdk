@@ -48,10 +48,10 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) Discover(ctx context.Context, resourceNames []resource.Name) ([]Discovery, error) {
-	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
-	for _, name := range resourceNames {
-		names = append(names, protoutils.ResourceNameToProto(name))
+func (c *client) Discover(ctx context.Context, subtypeNames []resource.SubtypeName) ([]Discovery, error) {
+	names := make([]*commonpb.ResourceName, 0, len(subtypeNames))
+	for _, name := range subtypeNames {
+		names = append(names, protoutils.ResourceNameToProto(subtypeNames))
 	}
 
 	resp, err := c.client.Discover(ctx, &pb.DiscoverRequest{ResourceNames: names})

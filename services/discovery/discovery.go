@@ -39,18 +39,18 @@ func init() {
 	})
 }
 
-// Discovery holds a resource name and its corresponding discovery. Discovery is expected
+// Discovery holds a subtype name and its corresponding discovery. Discovery is expected
 // to be comprised of string keys and values comprised of primitives, list of primitives,
 // maps with string keys (or at least can be decomposed into one), or lists of the
 // forementioned type of maps. Results with other types of data are not guaranteed.
 type Discovery struct {
-	Name       resource.Name
+	Name       resource.SubtypeName
 	Discovered interface{}
 }
 
-// A Service returns discoveries for resources when queried.
+// A Service returns discoveries for subtype when queried.
 type Service interface {
-	Discover(ctx context.Context, resourceNames []resource.Name) ([]Discovery, error)
+	Discover(ctx context.Context, subtypeNames []resource.SubtypeName) ([]Discovery, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -82,58 +82,41 @@ func FromRobot(r robot.Robot) (Service, error) {
 // New returns a new discovery service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	s := &discoveryService{
-		resources: map[resource.Name]interface{}{},
-		logger:    logger,
+		subtypes: map[resource.SubtypeName]interface{}{},
+		logger:   logger,
 	}
 	return s, nil
 }
 
 type discoveryService struct {
-	mu        sync.RWMutex
-	resources map[resource.Name]interface{}
-	logger    golog.Logger
+	mu       sync.RWMutex
+	subtypes map[resource.SubtypeName]interface{}
+	logger   golog.Logger
 }
 
-// Discover takes a list of resource names and returns their corresponding discoveries.
-// If no names are passed in, return all discoveries.
-func (s *discoveryService) Discover(ctx context.Context, resourceNames []resource.Name) ([]Discovery, error) {
-	s.mu.RLock()
-	// make a shallow copy of resources and then unlock
-	resources := make(map[resource.Name]interface{}, len(s.resources))
-	for name, resource := range s.resources {
-		resources[name] = resource
-	}
-	s.mu.RUnlock()
-
-	namesToDedupe := resourceNames
-	// if no names, return all
-	if len(namesToDedupe) == 0 {
-		namesToDedupe = make([]resource.Name, 0, len(resources))
-		for n := range resources {
-			namesToDedupe = append(namesToDedupe, n)
-		}
+// Discover takes a list of subtype names and returns their corresponding discoveries.
+func (s *discoveryService) Discover(ctx context.Context, subtypeNames []resource.SubtypeName) ([]Discovery, error) {
+	// get subtypes by name
+	subtypesByName := map[resource.SubtypeName]*registry.ResourceSubtype{}
+	for subtype, registration := range registry.RegisteredResourceSubtypes() {
+		subtypesByName[subtype.ResourceSubtype] = &registration
 	}
 
-	// dedupe resourceNames
-	deduped := make(map[resource.Name]struct{}, len(namesToDedupe))
-	for _, val := range namesToDedupe {
-		deduped[val] = struct{}{}
+	// dedupe subtypeNames
+	deduped := make(map[resource.SubtypeName]struct{}, len(subtypeNames))
+	for _, name := range subtypeNames {
+		deduped[name] = struct{}{}
 	}
 
 	discoveries := make([]Discovery, 0, len(deduped))
 	for name := range deduped {
-		resource, ok := resources[name]
-		if !ok {
-			return nil, utils.NewResourceNotFoundError(name)
-		}
-
-		// if resource subtype has an associated Discover method, use that
+		// if subtype has an associated Discover method, use that
 		// otherwise return true to indicate resource exists
 		var discovery interface{} = struct{}{}
 		var err error
-		subtype := registry.ResourceSubtypeLookup(name.Subtype)
-		if subtype != nil && subtype.Discovered != nil {
-			discovery, err = subtype.Discovered(ctx, resource)
+		registration, ok := subtypesByName[name]
+		if ok && registration != nil && registration.Discovered != nil {
+			discovery, err = registration.Discovered(ctx)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to get discovery from %q", name)
 			}
@@ -141,17 +124,4 @@ func (s *discoveryService) Discover(ctx context.Context, resourceNames []resourc
 		discoveries = append(discoveries, Discovery{Name: name, Discovered: discovery})
 	}
 	return discoveries, nil
-}
-
-// Update updates the discovery service when the robot has changed.
-func (s *discoveryService) Update(ctx context.Context, r map[resource.Name]interface{}) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	resources := map[resource.Name]interface{}{}
-	for n, res := range r {
-		resources[n] = res
-	}
-	s.resources = resources
-	return nil
 }
