@@ -83,7 +83,14 @@ func TestGeneralSLAMService(t *testing.T) {
 
 func TestConfigValidation(t *testing.T) {
 	// Validate Tests
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 	cfg := &AttrConfig{Algorithm: "test_algo"}
+
+	cam := &inject.Camera{}
+	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pointcloud.New(), nil
+	}
 
 	p := "path"
 	err := cfg.Validate(p)
@@ -105,43 +112,32 @@ func TestConfigValidation(t *testing.T) {
 		InputFilePattern: "100:300:5",
 	}
 
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// No sesnor test
 	cfg.Sensors = []string{}
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeNil)
 	cfg.Sensors = []string{"rplidar"}
 
 	// Mode SLAM Library test
 	cfg.ConfigParams["mode"] = ""
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	testSlamType := slamType{
-		SupportedCameras: map[string][]string{"test_sensor": {"test1", "test2"}},
-		ModeFileType:     map[string]string{"2d": ".pcd", "3d": ".pcd"},
-	}
 
 	testMetadata := metadata{
 		AlgoName: "test",
-		SlamType: testSlamType,
 		SlamMode: map[string]bool{"test2": false},
 	}
 
-	slamLibraries["test"] = denseSlamAlgo{metadata: testMetadata}
+	slamLibraries["test"] = denseAlgo{metadata: testMetadata}
 	cfg.Algorithm = "test"
 	cfg.Sensors = []string{"test_sensor"}
 	cfg.ConfigParams["mode"] = "test1"
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("invalid mode (%v) specified for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
-
-	cfg.ConfigParams["mode"] = "test2"
-	err = runtimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("specified mode (%v) is not supported for algorithm [%v]", cfg.ConfigParams["mode"], cfg.Algorithm))
+		errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 
 	cfg.Algorithm = "cartographer"
 	cfg.Sensors = []string{"rplidar"}
@@ -151,12 +147,12 @@ func TestConfigValidation(t *testing.T) {
 
 	// Input File Pattern test
 	cfg.InputFilePattern = "dd:300:3"
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("input_file_pattern (%v) does not match the regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
 
 	cfg.InputFilePattern = "500:300:3"
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
 
@@ -169,37 +165,33 @@ func TestConfigValidation(t *testing.T) {
 
 	cfg.DataDirectory = name2
 
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%v/data directory does not exist", name2))
 
 	// ---- Note: Test os.Stat / ioutil.ReadDir
 	err = os.Mkdir(name2+"/data", os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%v/map directory does not exist", name2))
 
 	err = os.Mkdir(name2+"/map", os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%v/config directory does not exist", name2))
 
 	// Sensor Mode test
 	cfg.ConfigParams["mode"] = "rgbd"
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("specified mode (%v) is not supported for camera [%v]", cfg.ConfigParams["mode"], cfg.Sensors[0]))
+		errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 
-	// Sensor test
-	cfg.Sensors = []string{"intelrealsense"}
-	err = runtimeConfigValidation(cfg)
-	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("%v is not one of the valid sensors for valid sensor for %v", cfg.Sensors[0], cfg.Algorithm))
+	// TODO: sensor and saving data checks once GetAndSaveData is implemented
 
 	// Valid Algo
 	cfg.Algorithm = "wrong_algo"
-	err = runtimeConfigValidation(cfg)
+	err = runtimeConfigValidation(ctx, cfg, cam, logger)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", cfg.Algorithm))
 
 	err = resetFolder(name2)
@@ -240,7 +232,7 @@ func TestCartographerData(t *testing.T) {
 	}
 	ss.camera = cam
 
-	_ = ss.slamLib.getAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
+	_, _ = ss.slamLib.getAndSaveData(ss.cancelCtx, ss.camera, ss.slamMode, ss.dataDirectory, ss.logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = resetFolder(name)
