@@ -196,11 +196,6 @@ func (draft *draftRobot) clearLeftovers(ctx context.Context) error {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
 		}
 	}
-	for _, x := range draft.leftovers.ReplacedServicesComponents {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resources"))
-		}
-	}
 	return allErrs
 }
 
