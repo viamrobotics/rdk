@@ -12,6 +12,8 @@ window.boardApi = require('./gen/proto/api/component/board/v1/board_pb.js');
 const { BoardServiceClient } = require('./gen/proto/api/component/board/v1/board_pb_service.js');
 window.cameraApi = require('./gen/proto/api/component/camera/v1/camera_pb.js');
 const { CameraServiceClient } = require('./gen/proto/api/component/camera/v1/camera_pb_service.js');
+window.discoveryApi = require('./gen/proto/api/service/discovery/v1/discovery_pb.js');
+const { DiscoveryServiceClient } = require('./gen/proto/api/service/discovery/v1/discovery_pb_service.js');
 window.gantryApi = require('./gen/proto/api/component/gantry/v1/gantry_pb.js');
 const { GantryServiceClient } = require('./gen/proto/api/component/gantry/v1/gantry_pb_service.js');
 window.gripperApi = require('./gen/proto/api/component/gripper/v1/gripper_pb.js');
@@ -113,6 +115,7 @@ let connect = async (authEntity, creds) => {
 	window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.discoveryService = new DiscoveryServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.imuService = new IMUServiceClient(window.webrtcHost, { transport: transportFactory });
