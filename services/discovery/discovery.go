@@ -1,4 +1,4 @@
-// Package discovery discovers components and potential discoverys
+// Package discovery implements a discovery service.
 package discovery
 
 import (
@@ -6,17 +6,16 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
-	"github.com/pion/mediadevices/pkg/driver"
-	"github.com/pion/mediadevices/pkg/prop"
+	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	servicepb "go.viam.com/rdk/proto/api/service/discovery/v1"
+	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -24,9 +23,9 @@ func init() {
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
-				&servicepb.DiscoveryService_ServiceDesc,
+				&pb.DiscoveryService_ServiceDesc,
 				NewServer(subtypeSvc),
-				servicepb.RegisterDiscoveryServiceHandlerFromEndpoint,
+				pb.RegisterDiscoveryServiceHandlerFromEndpoint,
 			)
 		},
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
@@ -37,32 +36,21 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
-	},
-	)
-	cType := config.ServiceType(SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &Config{})
+	})
 }
 
-// CameraConfig is collection of discovery options for a camera.
-type CameraConfig struct {
-	Label      string
-	Status     driver.State
-	Properties []prop.Media
+// Discovery holds a resource name and its corresponding discovery. Discovery is expected
+// to be comprised of string keys and values comprised of primitives, list of primitives,
+// maps with string keys (or at least can be decomposed into one), or lists of the
+// forementioned type of maps. Results with other types of data are not guaranteed.
+type Discovery struct {
+	Name       resource.Name
+	Discovered interface{}
 }
 
-// A Service controls the discovery for a robot.
+// A Service returns discoveries for resources when queried.
 type Service interface {
-	GetCameras(ctx context.Context) ([]CameraConfig, error)
+	Discover(ctx context.Context, resourceNames []resource.Name) ([]Discovery, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -78,77 +66,92 @@ var Subtype = resource.NewSubtype(
 // Name is the DiscoveryService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// Config describes how to configure the service.
-type Config struct{}
-
-// Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) error {
-	return nil
+// FromRobot retrieves the discovery service of a robot.
+func FromRobot(r robot.Robot) (Service, error) {
+	resource, err := r.ResourceByName(Name)
+	if err != nil {
+		return nil, err
+	}
+	svc, ok := resource.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("discovery.Service", resource)
+	}
+	return svc, nil
 }
 
 // New returns a new discovery service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	configSvc := &configService{
-		r:          r,
-		logger:     logger,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+	s := &discoveryService{
+		resources: map[resource.Name]interface{}{},
+		logger:    logger,
 	}
-	return configSvc, nil
+	return s, nil
 }
 
-type configService struct {
-	mu sync.RWMutex
-	r  robot.Robot
-
-	logger                  golog.Logger
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+type discoveryService struct {
+	mu        sync.RWMutex
+	resources map[resource.Name]interface{}
+	logger    golog.Logger
 }
 
-func (svc *configService) GetCameras(ctx context.Context) ([]CameraConfig, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-
-	var result []CameraConfig
-	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
-	for _, d := range drivers {
-		driverInfo := d.Info()
-
-		props, err := getProperties(d)
-		if len(props) == 0 || err != nil {
-			// Skip if there are no properties or if there is an error obtaining
-			// properties
-			// TODO: log error
-			continue
-		}
-
-		conf := CameraConfig{
-			Label:      driverInfo.Label,
-			Status:     d.Status(),
-			Properties: []prop.Media{},
-		}
-
-		for _, prop := range props {
-			conf.Properties = append(conf.Properties, prop)
-		}
-		result = append(result, conf)
+// Discover takes a list of resource names and returns their corresponding discoveries.
+// If no names are passed in, return all discoveries.
+func (s *discoveryService) Discover(ctx context.Context, resourceNames []resource.Name) ([]Discovery, error) {
+	s.mu.RLock()
+	// make a shallow copy of resources and then unlock
+	resources := make(map[resource.Name]interface{}, len(s.resources))
+	for name, resource := range s.resources {
+		resources[name] = resource
 	}
-	return result, nil
+	s.mu.RUnlock()
+
+	namesToDedupe := resourceNames
+	// if no names, return all
+	if len(namesToDedupe) == 0 {
+		namesToDedupe = make([]resource.Name, 0, len(resources))
+		for n := range resources {
+			namesToDedupe = append(namesToDedupe, n)
+		}
+	}
+
+	// dedupe resourceNames
+	deduped := make(map[resource.Name]struct{}, len(namesToDedupe))
+	for _, val := range namesToDedupe {
+		deduped[val] = struct{}{}
+	}
+
+	discoveries := make([]Discovery, 0, len(deduped))
+	for name := range deduped {
+		resource, ok := resources[name]
+		if !ok {
+			return nil, utils.NewResourceNotFoundError(name)
+		}
+
+		// if resource subtype has an associated Discover method, use that
+		// otherwise return true to indicate resource exists
+		var discovery interface{} = struct{}{}
+		var err error
+		subtype := registry.ResourceSubtypeLookup(name.Subtype)
+		if subtype != nil && subtype.Discovered != nil {
+			discovery, err = subtype.Discovered(ctx, resource)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get discovery from %q", name)
+			}
+		}
+		discoveries = append(discoveries, Discovery{Name: name, Discovered: discovery})
+	}
+	return discoveries, nil
 }
 
-func getProperties(d driver.Driver) ([]prop.Media, error) {
-	// Need to open driver to get properties
-	if d.Status() == driver.StateClosed {
-		err := d.Open()
-		if err != nil {
-			return nil, err
-		}
-		// TODO: it's unclear if it's okay to just keep the driver open
-		// TODO: if we do need to close, handle errors
-		defer d.Close()
+// Update updates the discovery service when the robot has changed.
+func (s *discoveryService) Update(ctx context.Context, r map[resource.Name]interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	resources := map[resource.Name]interface{}{}
+	for n, res := range r {
+		resources[n] = res
 	}
-	return d.Properties(), nil
+	s.resources = resources
+	return nil
 }

@@ -4,13 +4,13 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/pion/mediadevices/pkg/driver"
-	"github.com/pion/mediadevices/pkg/frame"
-	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 type client struct {
@@ -48,30 +48,24 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) GetCameras(ctx context.Context) ([]CameraConfig, error) {
-	resp, err := c.client.GetCameras(ctx, &pb.GetCamerasRequest{})
+func (c *client) Discover(ctx context.Context, resourceNames []resource.Name) ([]Discovery, error) {
+	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
+	for _, name := range resourceNames {
+		names = append(names, protoutils.ResourceNameToProto(name))
+	}
+
+	resp, err := c.client.Discover(ctx, &pb.DiscoverRequest{ResourceNames: names})
 	if err != nil {
 		return nil, err
 	}
-	result := []CameraConfig{}
-	for _, conf := range resp.GetCameras() {
-		camConf := CameraConfig{
-			Label:      conf.Label,
-			Status:     driver.State(conf.Status),
-			Properties: []prop.Media{},
-		}
 
-		for _, p := range conf.Properties {
-			property := prop.Media{
-				Video: prop.Video{
-					Width:       int(p.Video.Width),
-					Height:      int(p.Video.Height),
-					FrameFormat: frame.Format(p.Video.FrameFormat),
-				},
-			}
-			camConf.Properties = append(camConf.Properties, property)
-		}
-		result = append(result, camConf)
+	discoveries := make([]Discovery, 0, len(resp.Discovery))
+	for _, discovery := range resp.Discovery {
+		discoveries = append(
+			discoveries, Discovery{
+				Name:       protoutils.ResourceNameFromProto(discovery.Name),
+				Discovered: discovery.Discovered.AsMap(),
+			})
 	}
-	return result, nil
+	return discoveries, nil
 }

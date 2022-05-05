@@ -18,7 +18,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DiscoveryServiceClient interface {
-	GetCameras(ctx context.Context, in *GetCamerasRequest, opts ...grpc.CallOption) (*GetCamerasResponse, error)
+	// Discover returns the list of all discoveryes requested. An empty request signifies
+	// all resources.
+	Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error)
 }
 
 type discoveryServiceClient struct {
@@ -29,9 +31,9 @@ func NewDiscoveryServiceClient(cc grpc.ClientConnInterface) DiscoveryServiceClie
 	return &discoveryServiceClient{cc}
 }
 
-func (c *discoveryServiceClient) GetCameras(ctx context.Context, in *GetCamerasRequest, opts ...grpc.CallOption) (*GetCamerasResponse, error) {
-	out := new(GetCamerasResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.service.discovery.v1.DiscoveryService/GetCameras", in, out, opts...)
+func (c *discoveryServiceClient) Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error) {
+	out := new(DiscoverResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.discovery.v1.DiscoveryService/Discover", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +44,9 @@ func (c *discoveryServiceClient) GetCameras(ctx context.Context, in *GetCamerasR
 // All implementations must embed UnimplementedDiscoveryServiceServer
 // for forward compatibility
 type DiscoveryServiceServer interface {
-	GetCameras(context.Context, *GetCamerasRequest) (*GetCamerasResponse, error)
+	// Discover returns the list of all discoveryes requested. An empty request signifies
+	// all resources.
+	Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error)
 	mustEmbedUnimplementedDiscoveryServiceServer()
 }
 
@@ -50,8 +54,8 @@ type DiscoveryServiceServer interface {
 type UnimplementedDiscoveryServiceServer struct {
 }
 
-func (UnimplementedDiscoveryServiceServer) GetCameras(context.Context, *GetCamerasRequest) (*GetCamerasResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCameras not implemented")
+func (UnimplementedDiscoveryServiceServer) Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
 }
 func (UnimplementedDiscoveryServiceServer) mustEmbedUnimplementedDiscoveryServiceServer() {}
 
@@ -66,20 +70,20 @@ func RegisterDiscoveryServiceServer(s grpc.ServiceRegistrar, srv DiscoveryServic
 	s.RegisterService(&DiscoveryService_ServiceDesc, srv)
 }
 
-func _DiscoveryService_GetCameras_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetCamerasRequest)
+func _DiscoveryService_Discover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DiscoverRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DiscoveryServiceServer).GetCameras(ctx, in)
+		return srv.(DiscoveryServiceServer).Discover(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.service.discovery.v1.DiscoveryService/GetCameras",
+		FullMethod: "/proto.api.service.discovery.v1.DiscoveryService/Discover",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DiscoveryServiceServer).GetCameras(ctx, req.(*GetCamerasRequest))
+		return srv.(DiscoveryServiceServer).Discover(ctx, req.(*DiscoverRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -92,8 +96,8 @@ var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DiscoveryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetCameras",
-			Handler:    _DiscoveryService_GetCameras_Handler,
+			MethodName: "Discover",
+			Handler:    _DiscoveryService_Discover_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -31,20 +31,38 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_DiscoveryService_GetCameras_0(ctx context.Context, marshaler runtime.Marshaler, client DiscoveryServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetCamerasRequest
+var (
+	filter_DiscoveryService_Discover_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+)
+
+func request_DiscoveryService_Discover_0(ctx context.Context, marshaler runtime.Marshaler, client DiscoveryServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq DiscoverRequest
 	var metadata runtime.ServerMetadata
 
-	msg, err := client.GetCameras(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_DiscoveryService_Discover_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.Discover(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_DiscoveryService_GetCameras_0(ctx context.Context, marshaler runtime.Marshaler, server DiscoveryServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetCamerasRequest
+func local_request_DiscoveryService_Discover_0(ctx context.Context, marshaler runtime.Marshaler, server DiscoveryServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq DiscoverRequest
 	var metadata runtime.ServerMetadata
 
-	msg, err := server.GetCameras(ctx, &protoReq)
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_DiscoveryService_Discover_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := server.Discover(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -55,18 +73,18 @@ func local_request_DiscoveryService_GetCameras_0(ctx context.Context, marshaler 
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterDiscoveryServiceHandlerFromEndpoint instead.
 func RegisterDiscoveryServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server DiscoveryServiceServer) error {
 
-	mux.Handle("GET", pattern_DiscoveryService_GetCameras_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_DiscoveryService_Discover_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.discovery.v1.DiscoveryService/GetCameras", runtime.WithHTTPPathPattern("/viam/api/v1/service/discovery/cameras"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.discovery.v1.DiscoveryService/Discover", runtime.WithHTTPPathPattern("/viam/api/v1/service/discovery"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_DiscoveryService_GetCameras_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_DiscoveryService_Discover_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -74,7 +92,7 @@ func RegisterDiscoveryServiceHandlerServer(ctx context.Context, mux *runtime.Ser
 			return
 		}
 
-		forward_DiscoveryService_GetCameras_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_DiscoveryService_Discover_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -119,23 +137,23 @@ func RegisterDiscoveryServiceHandler(ctx context.Context, mux *runtime.ServeMux,
 // "DiscoveryServiceClient" to call the correct interceptors.
 func RegisterDiscoveryServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client DiscoveryServiceClient) error {
 
-	mux.Handle("GET", pattern_DiscoveryService_GetCameras_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_DiscoveryService_Discover_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.discovery.v1.DiscoveryService/GetCameras", runtime.WithHTTPPathPattern("/viam/api/v1/service/discovery/cameras"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.discovery.v1.DiscoveryService/Discover", runtime.WithHTTPPathPattern("/viam/api/v1/service/discovery"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_DiscoveryService_GetCameras_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_DiscoveryService_Discover_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_DiscoveryService_GetCameras_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_DiscoveryService_Discover_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -143,9 +161,9 @@ func RegisterDiscoveryServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 }
 
 var (
-	pattern_DiscoveryService_GetCameras_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "discovery", "cameras"}, ""))
+	pattern_DiscoveryService_Discover_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "service", "discovery"}, ""))
 )
 
 var (
-	forward_DiscoveryService_GetCameras_0 = runtime.ForwardResponseMessage
+	forward_DiscoveryService_Discover_0 = runtime.ForwardResponseMessage
 )

@@ -4,36 +4,31 @@ option java_package = "com.viam.rdk.proto.api.service.discovery.v1";
 
 package proto.api.service.discovery.v1;
 
+import "google/protobuf/struct.proto";
+import "google/protobuf/duration.proto";
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
 
-// A DiscoveryService declares the gRPC contract for a Discovery service
+// A DiscoveryService services keeps track of all discovery associated with a robot
 service DiscoveryService {
-  rpc GetCameras(GetCamerasRequest) returns (GetCamerasResponse) {
+  // Discover returns the list of all discoveryes requested. An empty request signifies
+  // all resources.
+  rpc Discover(DiscoverRequest) returns (DiscoverResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/discovery/cameras"
+      get: "/viam/api/v1/service/discovery"
     };
   }
 }
 
-message GetCamerasRequest {}
-
-message GetCamerasResponse {
-  repeated CameraConfig cameras = 1;
+message Discovery {
+  common.v1.ResourceName name = 1;
+  google.protobuf.Struct discovered = 2;
 }
 
-message CameraConfig {
-  string label = 1;
-  string status = 2;
-  repeated Property properties = 3;
+message DiscoverRequest {
+  repeated common.v1.ResourceName resource_names = 1;
 }
 
-message Property {
-  Video video = 1;
-}
-
-message Video {
-  int32 width = 1;
-  int32 height = 2;
-  string frame_format = 3;
+message DiscoverResponse {
+  repeated Discovery discovery = 1;
 }
