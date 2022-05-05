@@ -160,26 +160,18 @@ func (svc *remoteService) start(ctx context.Context) error {
 		var s float64
 		var a float64
 
-		var i int
-		if math.Abs(mmPerSec) < 0.15 {
-			i++
-		}
-		if math.Abs(angleDeg) < 0.25 {
-			i += 2
-		}
-
-		switch i {
-		case 3:
+		switch {
+		case math.Abs(mmPerSec) < 0.15 && math.Abs(angleDeg) < 0.25:
 			// Stop
 			d = int(maxSpeed * distRatio)
 			s = 0.0
 			a = angleDeg * maxAngle * -1
-		case 2:
+		case math.Abs(angleDeg) < 0.25:
 			// Move Straight
 			d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
 			s = mmPerSec * maxSpeed
 			a = math.Abs(angleDeg * maxAngle * distRatio)
-		case 1:
+		case math.Abs(mmPerSec) < 0.15:
 			// Spin
 			d = int(0)
 			s = angleDeg * maxSpeed
