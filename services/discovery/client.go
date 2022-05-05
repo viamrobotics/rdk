@@ -1,4 +1,4 @@
-package configuration
+package discovery
 
 import (
 	"context"
@@ -10,17 +10,17 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/service/configuration/v1"
+	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
 )
 
 type client struct {
 	conn   rpc.ClientConn
-	client pb.ConfigurationServiceClient
+	client pb.DiscoveryServiceClient
 	logger golog.Logger
 }
 
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
-	grpcClient := pb.NewConfigurationServiceClient(conn)
+	grpcClient := pb.NewDiscoveryServiceClient(conn)
 	sc := &client{
 		conn:   conn,
 		client: grpcClient,

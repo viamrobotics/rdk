@@ -1,5 +1,5 @@
-// Package configuration discovers components and potential configurations
-package configuration
+// Package discovery discovers components and potential discoverys
+package discovery
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	servicepb "go.viam.com/rdk/proto/api/service/configuration/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/discovery/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -24,9 +24,9 @@ func init() {
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
-				&servicepb.ConfigurationService_ServiceDesc,
+				&servicepb.DiscoveryService_ServiceDesc,
 				NewServer(subtypeSvc),
-				servicepb.RegisterConfigurationServiceHandlerFromEndpoint,
+				servicepb.RegisterDiscoveryServiceHandlerFromEndpoint,
 			)
 		},
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
@@ -53,29 +53,29 @@ func init() {
 	}, &Config{})
 }
 
-// CameraConfig is collection of configuration options for a camera.
+// CameraConfig is collection of discovery options for a camera.
 type CameraConfig struct {
 	Label      string
 	Status     driver.State
 	Properties []prop.Media
 }
 
-// A Service controls the configuration for a robot.
+// A Service controls the discovery for a robot.
 type Service interface {
 	GetCameras(ctx context.Context) ([]CameraConfig, error)
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("configuration")
+const SubtypeName = resource.SubtypeName("discovery")
 
-// Subtype is a constant that identifies the configuration service resource subtype.
+// Subtype is a constant that identifies the discovery service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
 	SubtypeName,
 )
 
-// Name is the ConfigurationService's typed resource name.
+// Name is the DiscoveryService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
 // Config describes how to configure the service.
@@ -86,7 +86,7 @@ func (config *Config) Validate(path string) error {
 	return nil
 }
 
-// New returns a new configuration service for the given robot.
+// New returns a new discovery service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	configSvc := &configService{

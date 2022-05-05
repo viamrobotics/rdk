@@ -1,21 +1,21 @@
-package configuration
+package discovery
 
 import (
 	"context"
 
-	pb "go.viam.com/rdk/proto/api/service/configuration/v1"
+	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the contract from configuration.proto.
+// subtypeServer implements the contract from discovery.proto.
 type subtypeServer struct {
-	pb.UnimplementedConfigurationServiceServer
+	pb.UnimplementedDiscoveryServiceServer
 	subtypeSvc subtype.Service
 }
 
 // NewServer constructs a framesystem gRPC service server.
-func NewServer(s subtype.Service) pb.ConfigurationServiceServer {
+func NewServer(s subtype.Service) pb.DiscoveryServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
@@ -26,7 +26,7 @@ func (server *subtypeServer) service() (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("configuration.Service", resource)
+		return nil, utils.NewUnimplementedInterfaceError("discovery.Service", resource)
 	}
 	return svc, nil
 }
