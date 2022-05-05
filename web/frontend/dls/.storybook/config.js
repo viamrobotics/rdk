@@ -26,6 +26,8 @@ import Camera from '../src/components/Camera';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { faCheckSquare } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import ViamInfoButton from '../src/components/ViamInfoButton';
+
 
 library.add(faCheckSquare)
 
@@ -49,6 +51,9 @@ Vue.component('Tabs', Tabs);
 Vue.component('Base', Base);
 Vue.component('RadioButtons', RadioButtons);
 Vue.component('Camera', Camera);
+Vue.component('ViamInfoButton', ViamInfoButton);
+
+
 
 const req = require.context('../src/stories', true, /.stories.js$/);
 function loadStories() {

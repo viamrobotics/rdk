@@ -1,26 +1,36 @@
 <template>
-  <popper trigger="clickToOpen"
-          root-class="viam-info-popper"	
-          :options="{
-          placement: 'top'}">
-      <div class="popper">
-        <div class="viam-info-content">
-            <slot>
-              <ul>
-                <li class="text-left" :key="i" v-for="line, i in infoRows">{{line}}</li>
-              </ul>
-            </slot>
-        </div>
-      
-        <div class="viam-info-button-arrow">
-
-        </div>
+  <popper
+    trigger="clickToOpen"
+    data-cy="viam-info-button-root"
+    root-class="viam-info-popper"
+    class="inline-flex align-middle"
+    :options="{
+      placement: 'top',
+    }"
+  >
+    <div class="popper">
+      <div class="viam-info-content">
+        <slot>
+          <ul>
+            <li
+              data-cy="viam-info-row-item"
+              class="text-left"
+              :key="i"
+              v-for="(line, i) in infoRows"
+            >
+              {{ line }}
+            </li>
+          </ul>
+        </slot>
       </div>
 
-      <button slot="reference">
-        <slot name="icon">
-          <ViamIcon color="grey" :path="iconPath"></ViamIcon>
-        </slot>
+      <div class="viam-info-button-arrow"></div>
+    </div>
+
+    <button data-cy="viam-info-button-container" slot="reference">
+      <slot name="icon">
+        <ViamIcon color="grey" :path="iconPath"></ViamIcon>
+      </slot>
     </button>
   </popper>
 </template>
@@ -28,16 +38,17 @@
 import Popper from "vue-popperjs";
 // import "vue-popperjs/dist/vue-popper.css";
 import { Component, Prop, Vue } from "vue-property-decorator";
+import ViamIcon from "./ViamIcon.vue";
 
 @Component({
   components: {
     Popper,
+    ViamIcon,
   },
 })
 export default class ViamInfoButton extends Vue {
   @Prop({ default: () => [], type: Array }) infoRows!: Array<string>;
   @Prop({ required: true, type: String }) iconPath!: string;
-
 }
 </script>
 <style>

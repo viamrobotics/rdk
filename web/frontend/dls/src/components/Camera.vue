@@ -96,8 +96,10 @@
             </div>
             <div class="pt-4">
               <span class="pr-2">Point Cloud Data</span>
-              <viam-info-button :iconPath="mdiInformationOutline"
-                                  :infoRows="['When turned on, point cloud will be recalculated']">
+              <viam-info-button
+                :iconPath="mdiInformationOutline"
+                :infoRows="['When turned on, point cloud will be recalculated']"
+              >
               </viam-info-button>
               <ViamSwitch
                 centered
@@ -136,16 +138,13 @@
                     Download Raw Data
                   </ViamButton>
                 </div>
-                <div
-                  class="clear-both h-96"
-                  id="pcd"
-                  @click="pcdClick"
-                ></div>
+                <div class="clear-both h-96" id="pcd" @click="pcdClick"></div>
                 <div class="float-right">
                   <span class="text-xs">Controls</span>
-                  <viam-info-button :iconPath="mdiInformationOutline"
-                                    :infoRows="infoControls">
-
+                  <viam-info-button
+                    :iconPath="mdiInformationOutline"
+                    :infoRows="infoControls"
+                  >
                   </viam-info-button>
                 </div>
                 <div class="grid grid-cols-1 divide-y clear-both">
@@ -377,7 +376,7 @@ import {
     ViamSwitch,
     ViamIcon,
     RadioButtons,
-    ViamInfoButton
+    ViamInfoButton,
   },
 })
 export default class Base extends Vue {
@@ -412,10 +411,10 @@ export default class Base extends Vue {
   min = 0;
   max = 500;
   infoControls = [
-    'Rotate - Left/Click + Drag',
-    'Pan - Right/Two Finger Click + Drag',
-    'Zoom - Wheel/Two Finger Scroll'
-  ]
+    "Rotate - Left/Click + Drag",
+    "Pan - Right/Two Finger Click + Drag",
+    "Zoom - Wheel/Two Finger Scroll",
+  ];
 
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
