@@ -12,7 +12,7 @@ import (
 func TestStoreToCache(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := FromReader(context.Background(), "", strings.NewReader(`{}`), logger)
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
 
 	test.That(t, err, test.ShouldBeNil)
 
