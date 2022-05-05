@@ -5,41 +5,52 @@ option java_package = "com.viam.rdk.proto.api.robot.v1";
 package proto.api.robot.v1;
 
 import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
 
-
 // A RobotService encompasses all functionality of some robot comprised of parts, local and remote.
 service RobotService {
-  // DoAction runs an action on the underlying robot.
-  rpc DoAction(DoActionRequest) returns (DoActionResponse) {
+  rpc GetOperations(GetOperationsRequest) returns (GetOperationsResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/do_action"
-    };  
+      get: "/viam/api/v1/operations/list"
+    };    
   }
 
-  // ResourceRunCommand runs an arbitrary command on a resource if it supports it.
-  rpc ResourceRunCommand(ResourceRunCommandRequest) returns (ResourceRunCommandResponse) {
+  rpc CancelOperation(CancelOperationRequest) returns (CancelOperationResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/resource/{resource_name}/run_command"
-    };
+      post: "/viam/api/v1/operations/cancel"
+    };    
   }
-
+  
+  rpc BlockForOperation(BlockForOperationRequest) returns (BlockForOperationResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/operations/block"
+    };    
+  }
 }
 
-message DoActionRequest {
-  string name = 1;
+message Operation {
+  string id = 1;
+  string method = 2;
+  google.protobuf.Struct arguments = 3;
+  google.protobuf.Timestamp started = 4;
+};
+
+message GetOperationsRequest { }
+
+message GetOperationsResponse {
+  repeated Operation operations = 1;
 }
 
-message DoActionResponse {}
-
-message ResourceRunCommandRequest {
-  // Note(erd): okay in v1 because names are unique. v2 should be a VRN
-  string resource_name = 1;
-  string command_name = 2;
-  google.protobuf.Struct args = 3;
+message CancelOperationRequest {
+  string id = 1;
 }
 
-message ResourceRunCommandResponse {
-  google.protobuf.Struct result = 1;
+message CancelOperationResponse {}
+
+message BlockForOperationRequest {
+    string id = 1;
 }
+
+message BlockForOperationResponse {}

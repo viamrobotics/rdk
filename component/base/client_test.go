@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
@@ -65,7 +66,8 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	brokenBase.MoveStraightFunc = func(
 		ctx context.Context,
 		distanceMm int, mmPerSec float64,
-		block bool) error {
+		block bool,
+	) error {
 		return errors.New(errMsg)
 	}
 	brokenBase.MoveArcFunc = func(
@@ -115,6 +117,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(base.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, baseSvc)
 
+	generic.RegisterService(rpcServer, baseSvc)
+	workingBase.DoFunc = generic.EchoFunc
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -141,6 +146,12 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		expectedArgs := []interface{}{distance, mmPerSec, shouldBlock}
 		test.That(t, argsReceived["MoveStraight"], test.ShouldResemble, expectedArgs)
+
+		// Do
+		resp, err := workingBaseClient.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		err = workingBaseClient.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)

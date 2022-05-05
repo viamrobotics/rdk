@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	servicepb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -57,6 +58,7 @@ type Service interface {
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
+		supplementalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
 }
 
@@ -113,6 +115,7 @@ func (ms *motionService) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
 ) (bool, error) {
+	operation.CancelOtherWithLabel(ctx, "motion-service")
 	logger := ms.r.Logger()
 
 	// get goal frame
@@ -122,7 +125,7 @@ func (ms *motionService) Move(
 	}
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r)
+	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
 	if err != nil {
 		return false, err
 	}
@@ -195,6 +198,7 @@ func (ms *motionService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
+	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {
 		destinationFrame = referenceframe.World
@@ -206,5 +210,6 @@ func (ms *motionService) GetPose(
 			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
 		),
 		destinationFrame,
+		supplementalTransforms,
 	)
 }

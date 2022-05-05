@@ -49,7 +49,7 @@ export default Vue.extend({
     description: String,
     size: {
       type: [Number, String],
-      default: 24,
+      default: 20,
     },
     horizontal: Boolean,
     vertical: Boolean,

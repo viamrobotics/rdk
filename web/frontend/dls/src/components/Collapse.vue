@@ -7,16 +7,19 @@
     <div
       class="flex items-center border border-black p-2"
       :class="{
-        'cursor-pointer': !disabled,
         'flex-row-reverse': iconLeft,
       }"
-      @click="toggleExpand()"
     >
-      <div class="flex-1">
+      <div data-cy="collapse-container" class="flex-1 cursor-pointer" @click="toggleExpand()">
         <slot />
       </div>
 
-      <div>
+      <div
+        :class="{
+          'cursor-pointer': !disabled,
+        }"
+        @click="toggleExpand()"
+      >
         <svg
           width="24"
           height="24"
@@ -46,6 +49,7 @@
         'transition-all duration-300 ease-in-out',
         { 'overflow-y-hidden': !expandedCompleted },
       ]"
+      data-cy="collapse-content"
       :style="{ maxHeight: maxHeight + 'px' }"
     >
       <div ref="content">

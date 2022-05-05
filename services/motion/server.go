@@ -62,7 +62,10 @@ func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 		return nil, errors.New("must provide component name")
 	}
 
-	pose, err := svc.GetPose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame)
+	pose, err := svc.GetPose(
+		ctx, protoutils.ResourceNameFromProto(req.ComponentName),
+		req.DestinationFrame, req.GetSupplementalTransforms(),
+	)
 	if err != nil {
 		return nil, err
 	}

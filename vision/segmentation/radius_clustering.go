@@ -10,20 +10,8 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
-
-// RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
-const RadiusClusteringSegmenter = "radius_clustering"
-
-func init() {
-	RegisterSegmenter(RadiusClusteringSegmenter,
-		Registration{
-			Segmenter(RadiusClustering),
-			utils.JSONTags(RadiusClusteringConfig{}),
-		})
-}
 
 // RadiusClusteringConfig specifies the necessary parameters for 3D object finding.
 type RadiusClusteringConfig struct {
@@ -43,9 +31,6 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 	}
 	if rcc.ClusteringRadiusMm <= 0 {
 		return errors.Errorf("clustering_radius_mm must be greater than 0, got %v", rcc.ClusteringRadiusMm)
-	}
-	if rcc.MeanKFiltering <= 0 {
-		return errors.Errorf("mean_k_filtering must be greater than 0, got %v", rcc.MeanKFiltering)
 	}
 	return nil
 }
@@ -92,14 +77,16 @@ func RadiusClusteringOnPointCloud(ctx context.Context, cloud pc.PointCloud, cfg 
 	if err != nil {
 		return nil, err
 	}
-	// filter out the noise on the point cloud
-	filter, err := pc.StatisticalOutlierFilter(cfg.MeanKFiltering, 1.25)
-	if err != nil {
-		return nil, err
-	}
-	nonPlane, err = filter(nonPlane)
-	if err != nil {
-		return nil, err
+	// filter out the noise on the point cloud if mean K is greater than 0
+	if cfg.MeanKFiltering > 0.0 {
+		filter, err := pc.StatisticalOutlierFilter(cfg.MeanKFiltering, 1.25)
+		if err != nil {
+			return nil, err
+		}
+		nonPlane, err = filter(nonPlane)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// do the segmentation
 	segments, err := segmentPointCloudObjects(nonPlane, cfg.ClusteringRadiusMm, cfg.MinPtsInSegment)
