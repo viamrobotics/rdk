@@ -233,7 +233,7 @@ func (svc *remoteService) controllerInputs() []input.Control {
 	return []input.Control{}
 }
 
-// triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left jostick to
+// triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
 // control the angle.
 func (svc *remoteService) triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
 	switch event.Control {
@@ -245,10 +245,7 @@ func (svc *remoteService) triggerSpeedEvent(event input.Event, speed float64, an
 		speed = math.Min(1, speed)
 	case input.AbsoluteX:
 		angle = event.Value
-	case input.AbsoluteHat0X, input.AbsoluteHat0Y, input.AbsoluteRX, input.AbsoluteRY, input.AbsoluteY,
-		input.ButtonEStop, input.ButtonEast, input.ButtonLT, input.ButtonLThumb, input.ButtonMenu,
-		input.ButtonNorth, input.ButtonRT, input.ButtonRThumb, input.ButtonRecord, input.ButtonSelect,
-		input.ButtonSouth, input.ButtonStart, input.ButtonWest:
+	default:
 	}
 
 	return speed, angle
@@ -256,46 +253,48 @@ func (svc *remoteService) triggerSpeedEvent(event input.Event, speed float64, an
 
 // buttonControlEvent takes inputs from the gamepad allowing the X and B buttons to control speed and Y and A buttons to control angle.
 func (svc *remoteService) buttonControlEvent(event input.Event, buttons map[input.Control]bool) (float64, float64, map[input.Control]bool) {
-	var newSpeed float64
-	var newAngle float64
+	var speed float64
+	var angle float64
 
 	switch event.Event {
 	case input.ButtonPress:
 		buttons[event.Control] = true
 	case input.ButtonRelease:
 		buttons[event.Control] = false
-	case input.AllEvents, input.ButtonChange, input.Connect, input.Disconnect, input.PositionChangeAbs,
-		input.PositionChangeRel:
+	default:
 	}
 
 	if buttons[input.ButtonNorth] == buttons[input.ButtonSouth] {
-		newSpeed = 0.0
+		speed = 0.0
 	} else {
 		if buttons[input.ButtonNorth] {
-			newSpeed = 1.0
+			speed = 1.0
 		} else {
-			newSpeed = -1.0
+			speed = -1.0
 		}
 	}
 
 	if buttons[input.ButtonEast] == buttons[input.ButtonWest] {
-		newAngle = 0.0
+		angle = 0.0
 	} else {
 		if buttons[input.ButtonEast] {
-			newAngle = -1.0
+			angle = -1.0
 		} else {
-			newAngle = 1.0
+			angle = 1.0
 		}
 	}
 
-	return newSpeed, newAngle, buttons
+	return speed, angle, buttons
 }
 
 // arrowControlEvent takes inputs from the gamepad allowing the arrow buttons to control speed and angle.
 func (svc *remoteService) arrowEvent(event input.Event, arrows map[input.Control]float64) (float64, float64, map[input.Control]float64) {
 	arrows[event.Control] = -1.0 * event.Value
 
-	return arrows[input.AbsoluteHat0Y], arrows[input.AbsoluteHat0X], arrows
+	speed := arrows[input.AbsoluteHat0Y]
+	angle := arrows[input.AbsoluteHat0X]
+
+	return speed, angle, arrows
 }
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
@@ -310,10 +309,7 @@ func (svc *remoteService) oneJoyStickEvent(event input.Event, speed float64, ang
 	case input.AbsoluteX:
 		angle = -1.0 * event.Value
 		speed = oldSpeed
-	case input.AbsoluteHat0X, input.AbsoluteHat0Y, input.AbsoluteRX, input.AbsoluteRY, input.AbsoluteRZ,
-		input.ButtonEStop, input.ButtonEast, input.ButtonLT, input.ButtonLThumb, input.ButtonMenu,
-		input.ButtonNorth, input.ButtonRT, input.ButtonRThumb, input.ButtonRecord, input.ButtonSelect,
-		input.ButtonSouth, input.ButtonStart, input.ButtonWest, input.AbsoluteZ:
+	default:
 	}
 
 	return speed, angle
