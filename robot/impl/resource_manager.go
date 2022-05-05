@@ -356,19 +356,15 @@ func (manager *resourceManager) UpdateConfig(ctx context.Context,
 	if err != nil {
 		return leftovers, err
 	}
-	replacedServices, err := manager.updateServices(ctx, added.Services, modified.Services, robot)
-	leftovers.ReplacedServicesComponents = replacedServices
-	if err != nil {
+	if err := manager.updateServices(ctx, added.Services, modified.Services, robot); err != nil {
 		return leftovers, err
 	}
 	if err := manager.updateComponentsGraph(added.Components, modified.Components, logger, robot); err != nil {
 		return leftovers, err
 	}
-	replacedComponents, err := manager.updateComponents(ctx, logger, robot)
-	if err != nil {
+	if err := manager.updateComponents(ctx, logger, robot); err != nil {
 		return leftovers, err
 	}
-	leftovers.ReplacedServicesComponents = append(leftovers.ReplacedServicesComponents, replacedComponents...)
 	return leftovers, nil
 }
 
@@ -410,11 +406,47 @@ func (manager *resourceManager) updateRemotes(ctx context.Context,
 	return replacedRemotes, nil
 }
 
+func (manager *resourceManager) reconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
+	oldPart, oldResourceIsReconfigurable := old.(resource.Reconfigurable)
+	newPart, newResourceIsReconfigurable := newR.(resource.Reconfigurable)
+	switch {
+	case oldResourceIsReconfigurable != newResourceIsReconfigurable:
+		// this is an indicator of a serious constructor problem
+		// for the resource subtype.
+		reconfError := errors.Errorf(
+			"new type %T is reconfigurable whereas old type %T is not",
+			newR, old)
+		if oldResourceIsReconfigurable {
+			reconfError = errors.Errorf(
+				"old type %T is reconfigurable whereas new type %T is not",
+				old, newR)
+		}
+		return nil, reconfError
+	case oldResourceIsReconfigurable && newResourceIsReconfigurable:
+		// if we are dealing with a reconfigurable resource
+		// use the new resource to reconfigure the old one.
+		if err := oldPart.Reconfigure(ctx, newPart); err != nil {
+			return nil, err
+		}
+		return old, nil
+	case !oldResourceIsReconfigurable && !newResourceIsReconfigurable:
+		// if we are not dealing with a reconfigurable resource
+		// we want to close the old resource and replace it with the
+		// new.
+		if err := utils.TryClose(ctx, old); err != nil {
+			return nil, err
+		}
+		return newR, nil
+	default:
+		return nil, errors.Errorf("unexpected outcome during reconfiguration of type %T and type %T",
+			old, newR)
+	}
+}
+
 func (manager *resourceManager) updateServices(ctx context.Context,
 	addedServices []config.Service,
 	modifiedServices []config.Service,
-	robot *draftRobot) ([]interface{}, error) {
-	var replacedServices []interface{}
+	robot *draftRobot) error {
 	for _, c := range addedServices {
 		// DataManagerService has to be specifically excluded since it's defined in the config but is a default
 		// service that we only want to reconfigure rather than reinstantiate with New().
@@ -423,7 +455,7 @@ func (manager *resourceManager) updateServices(ctx context.Context,
 		}
 		svc, err := robot.newService(ctx, c)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		manager.addResource(c.ResourceName(), svc)
 	}
@@ -433,51 +465,26 @@ func (manager *resourceManager) updateServices(ctx context.Context,
 		}
 		svc, err := robot.newService(ctx, c)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		old, ok := manager.resources.Nodes[c.ResourceName()]
 		if !ok {
-			return nil, errors.Errorf("couldn't find %q service while we are trying to modify it", c.ResourceName())
+			return errors.Errorf("couldn't find %q service while we are trying to modify it", c.ResourceName())
 		}
-		oldPart, oldServiceIsReconfigurable := old.(resource.Reconfigurable)
-		newPart, newServiceIsReconfigurable := svc.(resource.Reconfigurable)
-		switch {
-		case oldServiceIsReconfigurable != newServiceIsReconfigurable:
-			// this is an indicator of a serious constructor problem
-			// for the resource subtype.
-			reconfError := errors.Errorf(
-				"new type %T is reconfigurable whereas old type %T is not",
-				svc, old)
-			if oldServiceIsReconfigurable {
-				reconfError = errors.Errorf(
-					"old type %T is reconfigurable whereas new type %T is not",
-					old, svc)
-			}
-			return nil, reconfError
-		case oldServiceIsReconfigurable && newServiceIsReconfigurable:
-			// if we are dealing with a reconfigurable resource
-			// use the new resource to reconfigure the old one.
-			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-				return nil, err
-			}
-			manager.resources.Nodes[c.ResourceName()] = old
-		case !oldServiceIsReconfigurable && !newServiceIsReconfigurable:
-			// if we are not dealing with a reconfigurable resource
-			// we want to close the old resource and replace it with the
-			// new.
-			replacedServices = append(replacedServices, old)
-			manager.resources.Nodes[c.ResourceName()] = svc
+		rr, err := manager.reconfigureResource(ctx, old, svc)
+		if err != nil {
+			return err
 		}
+		manager.resources.Nodes[c.ResourceName()] = rr
 	}
-	return replacedServices, nil
+	return nil
 }
 
 func (manager *resourceManager) updateComponent(ctx context.Context,
 	rName resource.Name,
 	conf config.Component,
 	old interface{},
-	r *draftRobot) ([]interface{}, error) {
-	var replacedComponents []interface{}
+	r *draftRobot) error {
 	obj, canValidate := old.(interface {
 		ShouldUpdate(config *config.Component) robot.ShouldUpdateAction
 	})
@@ -487,11 +494,11 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 	}
 	switch res {
 	case robot.None:
-		return replacedComponents, nil
+		return nil
 	case robot.Reconfigure:
 		sg, err := manager.resources.SubGraphFrom(rName)
 		if err != nil {
-			return replacedComponents, err
+			return err
 		}
 		sorted := sg.TopologicalSort()
 		for _, x := range sorted {
@@ -505,7 +512,7 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 				}
 			}
 			if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
-				return replacedComponents, err
+				return err
 			}
 			wrapper := &resourceUpdateWrapper{
 				real:       nil,
@@ -517,41 +524,17 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 		}
 		nr, err := r.newResource(ctx, conf)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		oldPart, oldComponentIsReconfigurable := old.(resource.Reconfigurable)
-		newPart, newComponentIsReconfigurable := nr.(resource.Reconfigurable)
-		switch {
-		case oldComponentIsReconfigurable != newComponentIsReconfigurable:
-			// this is an indicator of a serious constructor problem
-			// for the resource subtype.
-			reconfError := errors.Errorf(
-				"new type %T is reconfigurable whereas old type %T is not",
-				nr, old)
-			if oldComponentIsReconfigurable {
-				reconfError = errors.Errorf(
-					"old type %T is reconfigurable whereas new type %T is not",
-					old, nr)
-			}
-			return replacedComponents, reconfError
-		case oldComponentIsReconfigurable && newComponentIsReconfigurable:
-			// if we are dealing with a reconfigurable resource
-			// use the new resource to reconfigure the old one.
-			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-				return replacedComponents, err
-			}
-			manager.resources.Nodes[rName] = old
-		case !oldComponentIsReconfigurable && !newComponentIsReconfigurable:
-			// if we are not dealing with a reconfigurable resource
-			// we want to close the old resource and replace it with the
-			// new.
-			replacedComponents = append(replacedComponents, old)
-			manager.resources.Nodes[rName] = nr
+		rr, err := manager.reconfigureResource(ctx, old, nr)
+		if err != nil {
+			return err
 		}
+		manager.resources.Nodes[rName] = rr
 	case robot.Rebuild:
 		sg, err := manager.resources.SubGraphFrom(rName)
 		if err != nil {
-			return replacedComponents, err
+			return err
 		}
 		sorted := sg.TopologicalSort()
 		for _, x := range sorted {
@@ -565,7 +548,7 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 				}
 			}
 			if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
-				return replacedComponents, err
+				return err
 			}
 			wrapper := &resourceUpdateWrapper{
 				real:       nil,
@@ -576,21 +559,20 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 			manager.resources.Nodes[x] = wrapper
 		}
 		if err := utils.TryClose(ctx, manager.resources.Nodes[rName]); err != nil {
-			return replacedComponents, err
+			return err
 		}
 		nr, err := r.newResource(ctx, conf)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		manager.resources.Nodes[rName] = nr
 	}
-	return replacedComponents, nil
+	return nil
 }
 
 func (manager *resourceManager) updateComponents(ctx context.Context,
 	logger golog.Logger,
-	robot *draftRobot) ([]interface{}, error) {
-	var replacedComponents []interface{}
+	robot *draftRobot) error {
 	sorted := manager.resources.ReverseTopologicalSort()
 	for _, c := range sorted {
 		wrapper, ok := manager.resources.Nodes[c].(*resourceUpdateWrapper)
@@ -601,18 +583,17 @@ func (manager *resourceManager) updateComponents(ctx context.Context,
 			logger.Infof("building the component %q with config %+v", c.Name, wrapper.config)
 			r, err := robot.newResource(ctx, wrapper.config)
 			if err != nil {
-				return replacedComponents, err
+				return err
 			}
 			manager.resources.Nodes[c] = r
 		} else if wrapper.isModified {
-			replaced, err := manager.updateComponent(ctx, c, wrapper.config, wrapper.real, robot)
+			err := manager.updateComponent(ctx, c, wrapper.config, wrapper.real, robot)
 			if err != nil {
-				return replacedComponents, err
+				return err
 			}
-			replacedComponents = append(replacedComponents, replaced...)
 		}
 	}
-	return replacedComponents, nil
+	return nil
 }
 
 func (manager *resourceManager) updateComponentsGraph(addedComponents []config.Component,
@@ -726,9 +707,8 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (interface{},
 
 // PartsMergeResult is the result of merging in parts together.
 type PartsMergeResult struct {
-	ReplacedProcesses          []pexec.ManagedProcess
-	ReplacedRemotes            []*remoteRobot
-	ReplacedServicesComponents []interface{}
+	ReplacedProcesses []pexec.ManagedProcess
+	ReplacedRemotes   []*remoteRobot
 }
 
 // Process integrates the results into the given manager.
