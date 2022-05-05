@@ -214,6 +214,7 @@
           pcdClick: {},
           sensorReadings: {},
           resources: [],
+          discoveredCameras: [],
           sensorNames: [],
           streamNames: [],
           intervalId: null,
@@ -1103,6 +1104,7 @@
 
           if (resourcesChanged === true) {
             querySensors();
+            discoveryCameras();
 
             if (shouldRestartStatusStream === true) {
               restartStatusStream();
@@ -1128,7 +1130,23 @@
             pResolve(null);
           });
         };
-
+        const discoveryCameras = async function() {
+          let pResolve;
+          let pReject;
+          p = new Promise((resolve, reject) => {
+            pResolve = resolve;
+            pReject = reject;
+          });
+          discoveryService.getCameras(new discoveryApi.GetCamerasRequest(), {}, function(err, resp) {
+            grpcCallback(err, resp, false)
+            if (err) {
+              pReject(err);
+              return;
+            }
+            theData.discoveredCameras = resp.toObject().camerasList
+            pResolve(null);
+          });
+        }
         // query stream service every 0.5s
         const streamServiceCallback = function (err, resp) {
           grpcCallback(err, resp, false);
@@ -1846,6 +1864,28 @@
               </tr>
             </table>
           </div>
+          <!-- camera configs -->
+          <table border=1 v-if="nonEmpty(discoveredCameras)">
+            <tr>
+              <th colspan="3">Available Cameras</th>
+            </tr>
+            <tr>
+              <th>Label</th>
+              <th>Status</th>
+              <th>Resolutions</th>
+            </tr>
+            <tr v-for="conf in discoveredCameras">
+              <td>${conf.label}</td>
+              <td>${conf.status}</td>
+              <td>
+                <select v-if="nonEmpty(conf.propertiesList)">
+                  <option v-for="prop in conf.propertiesList">
+                    ${prop.video.width}x${prop.video.height} (${prop.video.frameFormat})
+                  </option>
+                </select>
+              </td>
+            </tr>
+          </table>
           <!-- get segments -->
           <div class="pb-4" id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
             <br />
