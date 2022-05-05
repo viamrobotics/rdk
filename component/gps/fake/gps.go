@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -129,6 +130,7 @@ func (g *GPS) Do(ctx context.Context, args map[string]interface{}) (map[string]i
 }
 
 type interceptingGPSBase struct {
+	generic.Unimplemented
 	b       base.Base
 	g       *GPS
 	bearing float64 // [0-360)
