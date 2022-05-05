@@ -8,8 +8,6 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"go.viam.com/utils/pexec"
-
-	functionvm "go.viam.com/rdk/function/vm"
 )
 
 // A Diff is the difference between two configs, left and right
@@ -29,7 +27,6 @@ type ModifiedConfigDiff struct {
 	Remotes    []Remote
 	Components []Component
 	Processes  []pexec.ProcessConfig
-	Functions  []functionvm.FunctionConfig
 	Services   []Service
 }
 
@@ -62,8 +59,6 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 		return nil, err
 	}
 	different = componentsDifferent || different
-	functionsDifferent := diffFunctions(left.Functions, right.Functions, &diff)
-	different = functionsDifferent || different
 	servicesDifferent, err := diffServices(left.Services, right.Services, &diff)
 	if err != nil {
 		return nil, err
@@ -229,48 +224,6 @@ func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
 		return false
 	}
 	diff.Modified.Processes = append(diff.Modified.Processes, right)
-	return true
-}
-
-func diffFunctions(left, right []functionvm.FunctionConfig, diff *Diff) bool {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]functionvm.FunctionConfig)
-	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
-	}
-
-	var removed []int
-
-	var different bool
-	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
-		if ok {
-			functionDifferent := diffFunction(l, r, diff)
-			different = functionDifferent || different
-			continue
-		}
-		diff.Added.Functions = append(diff.Added.Functions, r)
-		different = true
-	}
-
-	for k := range leftM {
-		removed = append(removed, leftIndex[k])
-		different = true
-	}
-	sort.Ints(removed)
-	for _, idx := range removed {
-		diff.Removed.Functions = append(diff.Removed.Functions, left[idx])
-	}
-	return different
-}
-
-func diffFunction(left, right functionvm.FunctionConfig, diff *Diff) bool {
-	if reflect.DeepEqual(left, right) {
-		return false
-	}
-	diff.Modified.Functions = append(diff.Modified.Functions, right)
 	return true
 }
 

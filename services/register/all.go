@@ -8,9 +8,10 @@ import (
 	_ "go.viam.com/rdk/services/configuration"
 	_ "go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/framesystem"
+	_ "go.viam.com/rdk/services/metadata"
 	_ "go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/navigation"
-	_ "go.viam.com/rdk/services/objectsegmentation"
 	_ "go.viam.com/rdk/services/sensors"
+	_ "go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/web"
 )

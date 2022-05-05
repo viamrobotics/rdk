@@ -13,6 +13,7 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -41,7 +42,7 @@ func init() {
 			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).UniqueID), nil
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor, modelname,
+	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -58,6 +59,7 @@ type Sensor struct {
 	Name          string
 	OneWireID     string
 	OneWireFamily string
+	generic.Unimplemented
 }
 
 // ReadTemperatureCelsius returns current temperature in celsius.

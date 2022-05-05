@@ -8,6 +8,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/data"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
@@ -75,6 +76,7 @@ type Gantry interface {
 	// GetLengths is the length of gantries in meters
 	GetLengths(ctx context.Context) ([]float64, error)
 
+	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
 }
@@ -137,6 +139,12 @@ func (g *reconfigurableGantry) ProxyFor() interface{} {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual
+}
+
+func (g *reconfigurableGantry) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Do(ctx, cmd)
 }
 
 // GetPosition returns the position in meters.

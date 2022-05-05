@@ -12,10 +12,6 @@ window.boardApi = require('./gen/proto/api/component/board/v1/board_pb.js');
 const { BoardServiceClient } = require('./gen/proto/api/component/board/v1/board_pb_service.js');
 window.cameraApi = require('./gen/proto/api/component/camera/v1/camera_pb.js');
 const { CameraServiceClient } = require('./gen/proto/api/component/camera/v1/camera_pb_service.js');
-window.configurationApi = require('./gen/proto/api/service/configuration/v1/configuration_pb.js');
-const { ConfigurationServiceClient } = require('./gen/proto/api/service/configuration/v1/configuration_pb_service.js');
-window.forceMatrixApi = require('./gen/proto/api/component/forcematrix/v1/force_matrix_pb.js');
-const { ForceMatrixServiceClient } = require('./gen/proto/api/component/forcematrix/v1/force_matrix_pb_service.js');
 window.gantryApi = require('./gen/proto/api/component/gantry/v1/gantry_pb.js');
 const { GantryServiceClient } = require('./gen/proto/api/component/gantry/v1/gantry_pb_service.js');
 window.gripperApi = require('./gen/proto/api/component/gripper/v1/gripper_pb.js');
@@ -30,8 +26,8 @@ window.navigationApi = require('./gen/proto/api/service/navigation/v1/navigation
 const { NavigationServiceClient } = require('./gen/proto/api/service/navigation/v1/navigation_pb_service.js');
 window.motionApi = require('./gen/proto/api/service/motion/v1/motion_pb.js');
 const { MotionServiceClient } = require('./gen/proto/api/service/motion/v1/motion_pb_service.js');
-window.objectSegmentationApi = require('./gen/proto/api/service/objectsegmentation/v1/object_segmentation_pb.js');
-const { ObjectSegmentationServiceClient } = require('./gen/proto/api/service/objectsegmentation/v1/object_segmentation_pb_service.js');
+window.visionApi = require('./gen/proto/api/service/vision/v1/vision_pb.js');
+const { VisionServiceClient } = require('./gen/proto/api/service/vision/v1/vision_pb_service.js');
 window.sensorsApi = require('./gen/proto/api/service/sensors/v1/sensors_pb.js');
 const { SensorsServiceClient } = require('./gen/proto/api/service/sensors/v1/sensors_pb_service.js');
 window.servoApi = require('./gen/proto/api/component/servo/v1/servo_pb.js');
@@ -83,8 +79,24 @@ let connect = async (authEntity, creds) => {
 			video.playsInline = true;
 			const streamName = event.streams[0].id;
 			const streamContainer = document.getElementById(`stream-${streamName}`);
-			streamContainer.getElementsByTagName("button")[0].remove();
-			streamContainer.appendChild(video);
+			if (streamContainer && streamContainer.getElementsByTagName("video").length > 0) {
+				streamContainer.getElementsByTagName("video")[0].remove();
+			}
+			if (streamContainer) {
+				streamContainer.appendChild(video);
+			}
+			const videoPreview = document.createElement('video');
+			videoPreview.srcObject = event.streams[0];
+			videoPreview.autoplay = true;
+			videoPreview.controls = false;
+			videoPreview.playsInline = true;
+			const streamPreviewContainer = document.getElementById(`stream-preview-${streamName}`);
+			if (streamPreviewContainer && streamPreviewContainer.getElementsByTagName("video").length > 0) {
+				streamPreviewContainer.getElementsByTagName("video")[0].remove();
+			}
+			if (streamPreviewContainer) {
+				streamPreviewContainer.appendChild(videoPreview);
+			}
 		}
 	} else {
 		transportFactory = await dialDirect(impliedURL, opts);
@@ -99,10 +111,8 @@ let connect = async (authEntity, creds) => {
 	// TODO: these should be created as needed for #272
 	window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
-    window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
-	window.configurationService = new ConfigurationServiceClient(window.webrtcHost, { transport: transportFactory });
-	window.forceMatrixService = new ForceMatrixServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.imuService = new IMUServiceClient(window.webrtcHost, { transport: transportFactory });
@@ -110,9 +120,16 @@ let connect = async (authEntity, creds) => {
 	window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.navigationService = new NavigationServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.motionService = new MotionServiceClient(window.webrtcHost, { transport: transportFactory });
-	window.objectSegmentationService = new ObjectSegmentationServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.visionService = new VisionServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.statusService = new StatusServiceClient(window.webrtcHost, { transport: transportFactory });
 }
 window.connect = connect;
+
+window.rcDebug = false;
+window.rcLogConditionally = function (req) {
+	if (rcDebug) {
+		console.log("gRPC call: ", req);
+	}
+}

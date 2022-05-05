@@ -12,8 +12,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/metadata/service"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/framesystem"
@@ -36,9 +38,53 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	defer r.Close(context.Background())
 
 	// use fake registrations to have a FrameSystem return
-	fs, err := framesystem.RobotFrameSystem(context.Background(), r)
+	testPose := spatialmath.NewPoseFromAxisAngle(
+		r3.Vector{X: 1., Y: 2., Z: 3.},
+		r3.Vector{X: 0., Y: 1., Z: 0.},
+		math.Pi/2,
+	)
+
+	transformMsgs := []*commonpb.Transform{
+		{
+			ReferenceFrame: "frame1",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "pieceArm",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+		{
+			ReferenceFrame: "frame2",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "pieceGripper",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+		{
+			ReferenceFrame: "frame2a",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "frame2",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+		{
+			ReferenceFrame: "frame2c",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "frame2",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+		{
+			ReferenceFrame: "frame3",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "world",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+	}
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transformMsgs)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 8) // 4 frames defined, 8 frames when including the offset
+	// 4 frames defined + 5 from transforms, 18 frames when including the offset,
+	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 18)
 
 	// see if all frames are present and if their frames are correct
 	test.That(t, fs.GetFrame("world"), test.ShouldNotBeNil)
@@ -129,9 +175,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig2.json"), logger) // no world node
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t,
-		err, test.ShouldBeError, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'"))
-
+	test.That(t, err, test.ShouldBeError, framesystem.NewMissingParentError("pieceArm", "base"))
 	cfg, err = config.Read(
 		context.Background(),
 		rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig3.json"),
@@ -149,6 +193,51 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
+
+	testPose := spatialmath.NewPoseFromAxisAngle(
+		r3.Vector{X: 1., Y: 2., Z: 3.},
+		r3.Vector{X: 0., Y: 1., Z: 0.},
+		math.Pi/2,
+	)
+
+	transformMsgs := []*commonpb.Transform{
+		{
+			ReferenceFrame: "frame1",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "pieceArm",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+		{
+			ReferenceFrame: "frame2",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "noParent",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+	}
+	cfg, err = config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer r.Close(context.Background())
+
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transformMsgs)
+	test.That(t, err, test.ShouldBeError, framesystem.NewMissingParentError("frame2", "noParent"))
+	test.That(t, fs, test.ShouldBeNil)
+
+	transformMsgs = []*commonpb.Transform{
+		{
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "pieceArm",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+	}
+	fs, err = framesystem.RobotFrameSystem(context.Background(), r, transformMsgs)
+	test.That(t, err, test.ShouldBeError, config.NewMissingReferenceFrameError(&commonpb.Transform{}))
+	test.That(t, fs, test.ShouldBeNil)
 }
 
 func TestServiceWithRemote(t *testing.T) {
@@ -156,9 +245,7 @@ func TestServiceWithRemote(t *testing.T) {
 	// make the remote robots
 	remoteConfig, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	metadataSvc, err := service.New()
-	test.That(t, err, test.ShouldBeNil)
-	ctx := service.ContextWithService(context.Background(), metadataSvc)
+	ctx := context.Background()
 	remoteRobot, err := robotimpl.New(ctx, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -179,7 +266,7 @@ func TestServiceWithRemote(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "foo",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Frame: &config.Frame{
 					Parent: referenceframe.World,
@@ -187,7 +274,7 @@ func TestServiceWithRemote(t *testing.T) {
 			},
 			{
 				Name:  "myParentIsRemote",
-				Type:  config.ComponentTypeGripper,
+				Type:  gripper.SubtypeName,
 				Model: "fake",
 				Frame: &config.Frame{
 					Parent: "bar.pieceArm",
@@ -223,20 +310,60 @@ func TestServiceWithRemote(t *testing.T) {
 		},
 	}
 
-	metadataSvc2, err := service.New()
-	test.That(t, err, test.ShouldBeNil)
-	ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
-
 	// make local robot
-	r2, err := robotimpl.New(ctx2, localConfig, logger)
+	testPose := spatialmath.NewPoseFromAxisAngle(
+		r3.Vector{X: 1., Y: 2., Z: 3.},
+		r3.Vector{X: 0., Y: 1., Z: 0.},
+		math.Pi/2,
+	)
+
+	transformMsgs := []*commonpb.Transform{
+		{
+			ReferenceFrame: "frame1",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "pieceArm",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+		{
+			ReferenceFrame: "frame2",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "pieceGripper",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+		{
+			ReferenceFrame: "frame2a",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "frame2",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+		{
+			ReferenceFrame: "frame2c",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "frame2",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+		{
+			ReferenceFrame: "frame3",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "world",
+				Pose:           spatialmath.PoseToProtobuf(testPose),
+			},
+		},
+	}
+
+	r2, err := robotimpl.New(context.Background(), localConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fs, err := framesystem.RobotFrameSystem(context.Background(), r2)
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r2, transformMsgs)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 24)
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
 	// run the frame system service
 	fsServ, err := framesystem.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
-	allParts, err := fsServ.Config(context.Background())
+	allParts, err := fsServ.Config(context.Background(), transformMsgs)
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", allParts)
 }
