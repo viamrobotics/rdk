@@ -3,9 +3,13 @@ package discovery
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // subtypeServer implements the contract from discovery.proto.
@@ -31,36 +35,41 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) GetCameras(ctx context.Context, req *pb.GetCamerasRequest) (
-	*pb.GetCamerasResponse, error,
-) {
+func (server *subtypeServer) Discovery(ctx context.Context, req *pb.DiscoverRequest) (*pb.DiscoverResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	cameras, err := svc.GetCameras(ctx)
+	resourceNames := make([]resource.Name, 0, len(req.ResourceNames))
+	for _, name := range req.ResourceNames {
+		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
+	}
+
+	discoveries, err := svc.Discover(ctx, resourceNames)
 	if err != nil {
 		return nil, err
 	}
-	respCams := []*pb.CameraConfig{}
-	for _, conf := range cameras {
-		camConf := &pb.CameraConfig{
-			Label:      conf.Label,
-			Status:     string(conf.Status),
-			Properties: []*pb.Property{},
-		}
 
-		for _, p := range conf.Properties {
-			video := &pb.Video{
-				Width:       int32(p.Video.Width),
-				Height:      int32(p.Video.Height),
-				FrameFormat: string(p.Video.FrameFormat),
-			}
-			property := &pb.Property{Video: video}
-
-			camConf.Properties = append(camConf.Properties, property)
+	discoveriesP := make([]*pb.Discovery, 0, len(discoveries))
+	for _, discovery := range discoveries {
+		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
+		// conversion necessary.
+		encoded, err := protoutils.InterfaceToMap(discovery.Discovered)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Name)
 		}
-		respCams = append(respCams, camConf)
+		discoveryP, err := structpb.NewStruct(encoded)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Name)
+		}
+		discoveriesP = append(
+			discoveriesP,
+			&pb.Discovery{
+				Name:       protoutils.ResourceNameToProto(discovery.Name),
+				Discovered: discoveryP,
+			},
+		)
 	}
-	return &pb.GetCamerasResponse{Cameras: respCams}, nil
+
+	return &pb.DiscoverResponse{Discovery: discoveriesP}, nil
 }
