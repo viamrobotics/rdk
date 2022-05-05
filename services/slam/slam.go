@@ -54,7 +54,7 @@ func (config *AttrConfig) Validate(path string) error {
 }
 
 // RunTimeConfigValidation ensures all parts of the config are valid at runtime but will not close out server.
-func runtimeConfigValidation(svcConfig *AttrConfig) error {
+func runtimeConfigValidation(ctx context.Context, svcConfig *AttrConfig, cam camera.Camera, logger golog.Logger) error {
 	slamLib, ok := slamLibraries[svcConfig.Algorithm]
 	if !ok {
 		return errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
@@ -62,27 +62,22 @@ func runtimeConfigValidation(svcConfig *AttrConfig) error {
 
 	slamAlgoMetadata := slamLib.getMetadata()
 
-	// TODO 04/28/2022: Do camera checks not based on name but camera model. Currently not possible to get model type from camera object
-	// See: https://viam.atlassian.net/jira/software/c/projects/PRODUCT/boards/16?modal=detail&selectedIssue=PRODUCT-61
-	// Check Sensor File Type
-	if len(svcConfig.Sensors) != 0 {
-		for _, sensor := range svcConfig.Sensors {
-			if _, ok := slamAlgoMetadata.SlamType.SupportedCameras[sensor]; !ok {
-				return errors.Errorf("%v is not one of the valid sensors for valid sensor for %v", sensor, svcConfig.Algorithm)
-			}
+	// Check sensor and mode combination
+	if svcConfig.ConfigParams["mode"] != "" {
+		mode := svcConfig.ConfigParams["mode"]
+		modeCheck, ok := slamAlgoMetadata.SlamMode[svcConfig.ConfigParams["mode"]]
+		if !ok || !modeCheck {
+			return errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", svcConfig.Algorithm, mode)
+		}
 
-			// Check mode and camera
-			if svcConfig.ConfigParams["mode"] != "" {
-				cameraSupportedModes := slamAlgoMetadata.SlamType.SupportedCameras[sensor]
-				var result bool
-				for _, supportedModes := range cameraSupportedModes {
-					if supportedModes == svcConfig.ConfigParams["mode"] {
-						result = true
-					}
-				}
-				if !result {
-					return errors.Errorf("specified mode (%v) is not supported for camera [%v]", svcConfig.ConfigParams["mode"], sensor)
-				}
+		if len(svcConfig.Sensors) != 0 {
+			path, err := slamLib.getAndSaveData(ctx, cam, mode, "/tmp/", logger)
+			if err != nil {
+				return errors.Errorf("getting data with specified sensor and desired mode %v", mode)
+			}
+			err = os.RemoveAll(path)
+			if err != nil {
+				return errors.New("removing generated file during validation")
 			}
 		}
 	}
@@ -206,14 +201,14 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	if err := runtimeConfigValidation(svcConfig); err != nil {
-		logger.Warnf("runtime slam config error: %v", err)
-		return &slamService{}, nil
-	}
-
 	cam, err := configureCamera(svcConfig, r, logger)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := runtimeConfigValidation(ctx, svcConfig, cam, logger); err != nil {
+		logger.Warnf("runtime slam config error: %v", err)
+		return &slamService{}, nil
 	}
 
 	p, err := goutils.TryReserveRandomPort()

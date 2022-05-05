@@ -10,38 +10,19 @@ import (
 )
 
 var slamLibraries = map[string]SLAM{
-	"cartographer": denseSlamAlgo{metadata: cartographerMetadata},
-	"orbslamv3":    sparseSlamAlgo{metadata: orbslamv3Metadata},
-}
-
-// Define general slam types. Sparse slam for RGB pixel images which need to go through
-// feature extraction and dense slam that operates on pointclouds commonly produced by lidars.
-var denseSlam = slamType{
-	SupportedCameras: map[string][]string{"rplidar": {"2d"}, "velodyne": {"3d, 2d"}},
-	ModeFileType:     map[string]string{"2d": ".pcd", "3d": ".pcd"},
-}
-
-var sparseSlam = slamType{
-	SupportedCameras: map[string][]string{"intelrealsense": {"rgbd, mono"}},
-	ModeFileType:     map[string]string{"mono": ".jpeg", "rgbd": ".both"},
-}
-
-type slamType struct {
-	SupportedCameras map[string][]string
-	ModeFileType     map[string]string
+	"cartographer": denseAlgo{metadata: cartographerMetadata},
+	"orbslamv3":    sparseAlgo{metadata: orbslamv3Metadata},
 }
 
 // Define currently implemented slam libraries.
 var cartographerMetadata = metadata{
 	AlgoName:       "cartographer",
-	SlamType:       denseSlam,
 	SlamMode:       map[string]bool{"2d": true, "3d": false},
 	BinaryLocation: "",
 }
 
 var orbslamv3Metadata = metadata{
 	AlgoName:       "orbslamv3",
-	SlamType:       sparseSlam,
 	SlamMode:       map[string]bool{"mono": true, "rgbd": true},
 	BinaryLocation: "",
 }
@@ -49,26 +30,23 @@ var orbslamv3Metadata = metadata{
 // Metadata contains all pertinant information for defining a SLAM library/algorithm including the sparse/dense definition.
 type metadata struct {
 	AlgoName       string
-	SlamType       slamType
 	SlamMode       map[string]bool
 	BinaryLocation string
 }
 
 // SparseSlamAlgo is a data structure for all sparse slam libraries/algorithms.
-type sparseSlamAlgo struct {
+type sparseAlgo struct {
 	metadata
-	SlamType slamType
 }
 
 // DenseSlamAlgo is a data structure for all dense slam libraries/algorithms.
-type denseSlamAlgo struct {
+type denseAlgo struct {
 	metadata
-	SlamType slamType
 }
 
 // SLAM interface includes definitions for SLAM functions that may vary based on library.
 type SLAM interface {
-	getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dataDirectory string, logger golog.Logger) error
+	getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dataDirectory string, logger golog.Logger) (string, error)
 	getMetadata() metadata
 }
 
@@ -78,12 +56,12 @@ func (s metadata) getMetadata() metadata {
 }
 
 // getAndSaveData implements the data extraction for dense algos and saving to the specified directory.
-func (algo denseSlamAlgo) getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, logger golog.Logger) error {
-	return nil
+func (algo denseAlgo) getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, l golog.Logger) (string, error) {
+	return dd + "temp.txt", nil
 }
 
 // TBD 05/03/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
 // getAndSaveData implements the data extraction for sparse algos and saving to the specified directory.
-func (algo sparseSlamAlgo) getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, logger golog.Logger) error {
-	return nil
+func (algo sparseAlgo) getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, l golog.Logger) (string, error) {
+	return dd + "temp.txt", nil
 }
