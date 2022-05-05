@@ -50,6 +50,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	// New base_remote_control check
+	cfg.ControlModeName = "joystickControl"
 	tmpSvc, err := New(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
@@ -136,13 +137,13 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Controller event by mode
-	t.Run("controller events one joy stick control mode", func(t *testing.T) {
+	t.Run("controller events joystick control mode", func(t *testing.T) {
 		i := svc.controllerInputs()
 		test.That(t, i[0], test.ShouldEqual, input.AbsoluteX)
 		test.That(t, i[1], test.ShouldEqual, input.AbsoluteY)
 	})
 
-	t.Run("controller events one trigger speed control mode", func(t *testing.T) {
+	t.Run("controller events trigger speed control mode", func(t *testing.T) {
 		i := svc1.controllerInputs()
 		test.That(t, i[0], test.ShouldEqual, input.AbsoluteX)
 		test.That(t, i[1], test.ShouldEqual, input.AbsoluteZ)
@@ -174,13 +175,13 @@ func TestBaseRemoteControl(t *testing.T) {
 		Value:   1.0,
 	}
 
-	t.Run("one joy stick control mode for input X", func(t *testing.T) {
+	t.Run("joy stick control mode for input X", func(t *testing.T) {
 		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventX, 0.5, 0.6)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.5, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, -1.0, .001)
 	})
 
-	t.Run("one joy stick control mode for input Y", func(t *testing.T) {
+	t.Run("joy stick control mode for input Y", func(t *testing.T) {
 		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventY, 0.5, 0.6)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
