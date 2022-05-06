@@ -3,6 +3,7 @@ package slam
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/edaniels/golog"
 
@@ -50,18 +51,19 @@ type SLAM interface {
 	getMetadata() metadata
 }
 
-// GetMetadata for the implemented SLAM library/algorithm.
+// Gets metadata for the implemented SLAM library/algorithm.
 func (s metadata) getMetadata() metadata {
 	return s
 }
 
+// TODO 05/06/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
 // getAndSaveData implements the data extraction for dense algos and saving to the specified directory.
 func (algo denseAlgo) getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, l golog.Logger) (string, error) {
-	return dd + "temp.txt", nil
+	return filepath.Join(dd, "temp.txt"), nil
 }
 
-// TBD 05/03/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
+// TODO 05/03/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
 // getAndSaveData implements the data extraction for sparse algos and saving to the specified directory.
 func (algo sparseAlgo) getAndSaveData(ctx context.Context, cam camera.Camera, mode string, dd string, l golog.Logger) (string, error) {
-	return dd + "temp.txt", nil
+	return filepath.Join(dd, "temp.txt"), nil
 }
