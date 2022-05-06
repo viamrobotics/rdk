@@ -207,7 +207,13 @@ func TestCartographerData(t *testing.T) {
 	}
 	ss.camera = cam
 
+	err = runtimeServiceValidation(&ss)
+	test.That(t, err, test.ShouldBeNil)
+
 	_, _ = ss.getAndSaveDataDense()
+	test.That(t, err, test.ShouldBeNil)
+
+	ss.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = resetFolder(name)
@@ -254,6 +260,12 @@ func TestOrbSLAMData(t *testing.T) {
 		return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
 	}
 	ss.camera = cam
+
+	err = runtimeServiceValidation(&ss)
+	test.That(t, err, test.ShouldBeNil)
+
+	ss.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
 
 	err = resetFolder(name)
 	test.That(t, err, test.ShouldBeNil)
