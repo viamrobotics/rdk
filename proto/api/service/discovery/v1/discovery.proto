@@ -11,8 +11,7 @@ import "proto/api/common/v1/common.proto";
 
 // A DiscoveryService services keeps track of all discovery associated with a robot
 service DiscoveryService {
-  // Discover returns the list of all discoveryes requested. An empty request signifies
-  // all resources.
+  // Discover returns the list of all discoveries requested.
   rpc Discover(DiscoverRequest) returns (DiscoverResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/service/discovery"
@@ -21,12 +20,12 @@ service DiscoveryService {
 }
 
 message Discovery {
-  common.v1.ResourceName name = 1;
+  string subtype_name = 1
   google.protobuf.Struct discovered = 2;
 }
 
 message DiscoverRequest {
-  repeated common.v1.ResourceName resource_names = 1;
+  repeated string subtype_name = 1;
 }
 
 message DiscoverResponse {
