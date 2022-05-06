@@ -266,7 +266,7 @@ export default class Base extends Vue {
   movementMode = "Straight";
   movementType = "Continous";
   direction = "Forwards";
-  spinType = "";
+  spinType = "Clockwise";
   increment = 1000;
   maxClusteringRadius = 90;
 
@@ -292,7 +292,7 @@ export default class Base extends Vue {
     this.movementMode = "Straight";
     this.movementType = "Continous";
     this.direction = "Forwards";
-    this.spinType = "";
+    this.spinType = "Clockwise";
   }
 
   setMovementMode(e: string): void {
