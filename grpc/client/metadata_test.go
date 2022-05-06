@@ -1,4 +1,4 @@
-package metadata_test
+package client_test
 
 import (
 	"context"
@@ -12,11 +12,14 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/metadata"
+	"go.viam.com/rdk/robot/metadata"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -32,6 +35,19 @@ var (
 		},
 	)}
 )
+
+// CR erodkin: see if we can still have this only defined in one place
+func newServer(injectMetadata *inject.Metadata) (pb.MetadataServiceServer, error) {
+	subtypeSvcMap := map[resource.Name]interface{}{
+		metadata.Name: injectMetadata,
+	}
+
+	subtypeSvc, err := subtype.New(subtypeSvcMap)
+	if err != nil {
+		return nil, err
+	}
+	return server.NewMetadataServer(subtypeSvc), nil
+}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -52,12 +68,12 @@ func TestClient(t *testing.T) {
 	// failing
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = metadata.NewClient(cancelCtx, listener1.Addr().String(), logger)
+	_, err = client.NewMetadataClient(cancelCtx, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
 	// working
-	client, err := metadata.NewClient(context.Background(), listener1.Addr().String(), logger)
+	client, err := client.NewMetadataClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
@@ -86,10 +102,10 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := metadata.NewClient(ctx, listener.Addr().String(), logger)
+	client1, err := client.NewMetadataClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := metadata.NewClient(ctx, listener.Addr().String(), logger)
+	client2, err := client.NewMetadataClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 

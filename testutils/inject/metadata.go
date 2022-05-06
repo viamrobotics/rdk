@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/metadata"
+	"go.viam.com/rdk/robot/metadata"
 )
 
 // Metadata is an injected metadata.

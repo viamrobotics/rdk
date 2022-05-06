@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/metadata"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
@@ -35,14 +34,16 @@ import (
 
 type internalServiceName string
 
-const webName internalServiceName = "web"
+const (
+	webName      internalServiceName = "web"
+	metadataName internalServiceName = "metadata"
+)
 
 var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
 	defaultSvc = []resource.Name{
-		metadata.Name,
 		sensors.Name,
 		status.Name,
 		datamanager.Name,

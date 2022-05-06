@@ -1,5 +1,7 @@
-// Package metadata contains a gRPC based metadata service client.
-package metadata
+// Package client contains a gRPC based metadata service client.
+// CR erodkin: probably we should get rid of this module entirely, move
+// relevant functionality into client.go
+package client
 
 import (
 	"context"
@@ -11,6 +13,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/metadata"
 )
 
 // client is a client satisfies the MetadataServiceClient.
@@ -22,7 +25,7 @@ type client struct {
 }
 
 // newSvcClientFromConn constructs a new client using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) Service {
+func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) metadata.Service {
 	mc := &client{
 		conn:   conn,
 		client: pb.NewMetadataServiceClient(conn),
@@ -31,8 +34,8 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) Service {
 	return mc
 }
 
-// NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (Service, error) {
+// NewMetadataClient constructs a new client that is served at the given address.
+func NewMetadataClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (metadata.Service, error) {
 	conn, err := grpc.Dial(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
@@ -42,8 +45,8 @@ func NewClient(ctx context.Context, address string, logger golog.Logger, opts ..
 	return mc, nil
 }
 
-// NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(_ctx context.Context, conn rpc.ClientConn, _name string, logger golog.Logger) Service {
+// newClientFromConn constructs a new Client from connection passed in.
+func newClientFromConn(_ctx context.Context, conn rpc.ClientConn, _name string, logger golog.Logger) metadata.Service {
 	return newSvcClientFromConn(conn, logger)
 }
 

@@ -6,10 +6,8 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/metadata"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/robot/metadata"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -24,17 +22,18 @@ func (m *mock) Resources(ctx context.Context) ([]resource.Name, error) {
 
 var metadataName = []resource.Name{metadata.Name}
 
-func newServer(injectMetadata *inject.Metadata) (pb.MetadataServiceServer, error) {
-	subtypeSvcMap := map[resource.Name]interface{}{
-		metadata.Name: injectMetadata,
-	}
+// CR erodkin: get rid of this probably
+//func newServer(injectMetadata *inject.Metadata) (pb.MetadataServiceServer, error) {
+//subtypeSvcMap := map[resource.Name]interface{}{
+//metadata.Name: injectMetadata,
+//}
 
-	subtypeSvc, err := subtype.New(subtypeSvcMap)
-	if err != nil {
-		return nil, err
-	}
-	return metadata.NewServer(subtypeSvc), nil
-}
+//subtypeSvc, err := subtype.New(subtypeSvcMap)
+//if err != nil {
+//return nil, err
+//}
+//return metadata.NewServer(subtypeSvc), nil
+//}
 
 func setupInjectRobot() (*inject.Robot, *mock) {
 	svc := &mock{}
