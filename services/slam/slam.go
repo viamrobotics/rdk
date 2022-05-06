@@ -262,7 +262,8 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	}
 
 	if err := runtimeServiceValidation(slamSvc); err != nil {
-		return nil, err
+		logger.Warnf("runtime slam service error: %v", err)
+		return &slamService{}, nil
 	}
 
 	if err := slamSvc.startDataProcess(ctx); err != nil {
