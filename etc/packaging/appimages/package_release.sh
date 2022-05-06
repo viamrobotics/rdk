@@ -6,7 +6,7 @@ set -e
 # It then creates stable and v1.2.3 appimages.
 
 CUR_TAG=`git tag --points-at`
-if [[ $CUR_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]$ ]]
+if [[ $CUR_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
 then
 	NEWEST_TAG=`git tag -l "v*.*.*" | sort -Vr | head -n1`
 	if [[ $CUR_TAG == $NEWEST_TAG ]]
