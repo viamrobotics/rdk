@@ -109,6 +109,32 @@
       }
     }
   },
+  "calibrate": {
+    "chess1.jpeg": {
+      "hash": "76f220e42b87d6e4ca73048b4c52078f",
+      "size": 72757
+    },
+    "chess2.jpeg": {
+      "hash": "9e36ca773201a20e8b08c56a70af3e40",
+      "size": 68572
+    },
+    "chess3.jpeg": {
+      "hash": "aa92ffca2e4005f934a9f819b02ea5b1",
+      "size": 69955
+    },
+    "chessOUT1nums.jpeg": {
+      "hash": "3842cad0a482ff1fcdbd9f69dec9ad56",
+      "size": 112816
+    },
+    "chessOUT2nums.jpeg": {
+      "hash": "b8f1da20a197280cf17846d5b76d67f1",
+      "size": 106186
+    },
+    "chessOUT3nums.jpeg": {
+      "hash": "f0faa3ae4222a733bb1b0d939bcf66b9",
+      "size": 107752
+    }
+  },
   "chess": {
     "boardseliot1": {
       "board0-0.94.svg": {

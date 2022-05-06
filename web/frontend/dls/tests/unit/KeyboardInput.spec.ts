@@ -19,33 +19,11 @@ describe("ViamButton", () => {
   });
 
   it("check forward key fires event", async () => {
-    testEventFire(["forward"], "forward");
-  });
-  it("check backward key fires event", async () => {
-    testEventFire(["backward"], "backward");
-  });
-  it("check left key fires event", async () => {
-    testEventFire(["left"], "spin-counter-clockwise");
-  });
-  it("check right key fires event", async () => {
-    testEventFire(["right"], "spin-clockwise");
+    testEventFire(["forward"], "keyboard-ctl");
   });
 
-  it("check right key fires event", async () => {
-    testEventFire(["right"], "spin-clockwise");
-  });
-
-  //here are several buttons checkers
+  // multiple buttons
   it("check forward&right keys fires event", async () => {
-    testEventFire(["forward", "right"], "arc-right");
-  });
-  it("check forward&left keys fires event", async () => {
-    testEventFire(["forward", "left"], "arc-left");
-  });
-  it("check backward&left keys fires event", async () => {
-    testEventFire(["backward", "left"], "back-arc-left");
-  });
-  it("check backward&right keys fires event", async () => {
-    testEventFire(["backward", "right"], "back-arc-right");
+    testEventFire(["forward", "right"], "keyboard-ctl");
   });
 });
