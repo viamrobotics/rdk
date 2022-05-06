@@ -1,7 +1,7 @@
+// Package odometry implements functions for visual odometry
 package odometry
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r2"
@@ -39,7 +39,6 @@ func getPlaneInliers(pts3d []r3.Vector, normal r3.Vector, offset, threshold floa
 	inliers := make([]int, 0, len(pts3d))
 	for i, pt := range pts3d {
 		dist := distToPlane(pt, normal, offset)
-		fmt.Println("dist : ", dist)
 		if dist < threshold {
 			inliers = append(inliers, i)
 		}
@@ -56,7 +55,7 @@ func getAverageHeightGroundPoints(groundPoints []r3.Vector, pitch float64) float
 	height := 0.
 	for _, pt := range groundPoints {
 		height += getCameraHeightFromGroundPoint(pt, pitch)
-		//height += pt.Y
+		// height += pt.Y
 	}
 	return height / float64(len(groundPoints))
 }
@@ -90,7 +89,7 @@ func getTriangleNormalVector(tri3d []r3.Vector) r3.Vector {
 	return normal
 }
 
-// GetTriangulatedPointCloudFrom2DKeyPoints gets the traingulated 3D point cloud from the matched 2D keypoints and the
+// GetTriangulatedPointCloudFrom2DKeyPoints gets the triangulated 3D point cloud from the matched 2D keypoints and the
 // second camera pose.
 func GetTriangulatedPointCloudFrom2DKeyPoints(pts1, pts2 []r2.Point, pose *transform.CamPose) ([]r3.Vector, error) {
 	// homogenize 2d keypoints in image coordinates
@@ -122,6 +121,9 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 		pts2dDelaunay[i] = delaunay.Point{pt.X, pt.Y}
 	}
 	tri, err := delaunay.Triangulate(pts2dDelaunay)
+	if err != nil {
+		return nil, err
+	}
 	triangleMap := tri.GetTranglesPointsMap()
 	// get 3D triangles
 	triangles3D := make([][]r3.Vector, len(triangleMap))
@@ -138,10 +140,10 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	groundFound := false
 	for _, triangle := range triangles3D {
 		normal, offset := estimatePlaneFrom3Points(triangle[0], triangle[1], triangle[2])
-		normalNorm := normal.Norm()
-		fmt.Println("normal : ", normal.Mul(1./normalNorm))
+		// normalNorm := normal.Norm()
+		// fmt.Println("normal : ", normal.Mul(1./normalNorm))
 		angularDiff := math.Abs(normal.Dot(r3.Vector{0, 0, 1})) / normal.Norm()
-		fmt.Println(angularDiff)
+		// fmt.Println(angularDiff)
 		// if current normal vector is almost collinear with Y unit vector
 		if angularDiff > thresholdNormalAngle {
 			inliers := getPlaneInliers(p3d, normal, offset, thresholdPlaneInlier)

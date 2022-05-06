@@ -2,20 +2,20 @@ package odometry
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/edaniels/golog"
-	"github.com/golang/geo/r2"
-	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/utils/artifact"
-	"gonum.org/v1/gonum/mat"
 	"io/ioutil"
 	"math"
 	"math/rand"
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/rimage/transform"
 )
 
 func generatePointZEqualsZeroPlane(n int) []r3.Vector {
@@ -117,7 +117,8 @@ func TestGetPlaneInliers(t *testing.T) {
 
 func TestEstimatePitch(t *testing.T) {
 	// get pose from kitti odometry dataset
-	poseData := []float64{9.999996e-01, -9.035185e-04, -2.101169e-04, 1.289128e-03,
+	poseData := []float64{
+		9.999996e-01, -9.035185e-04, -2.101169e-04, 1.289128e-03,
 		9.037964e-04, 9.999987e-01, 1.325646e-03, -1.821616e-02,
 		2.089193e-04, -1.325834e-03, 9.999991e-01, 1.310643e+00,
 	}
@@ -134,23 +135,20 @@ func TestEstimatePitch(t *testing.T) {
 	pt := r3.Vector{10, 1.73, 1.5}
 	height := getCameraHeightFromGroundPoint(pt, pitch)
 	test.That(t, math.Abs(height-pt.Y), test.ShouldBeLessThan, 0.03)
-
 }
 
 func TestEstimateCameraHeight(t *testing.T) {
 	gt := readJSONGroundTruth()
 	pts1 := convert2DSliceToVectorSlice(gt.Pts1)
 	pts2 := convert2DSliceToVectorSlice(gt.Pts2)
-	//pts1H := transform.Convert2DPointsToHomogeneousPoints(pts1)
-	//pts2H := transform.Convert2DPointsToHomogeneousPoints(pts2)
+	// pts1H := transform.Convert2DPointsToHomogeneousPoints(pts1)
+	// pts2H := transform.Convert2DPointsToHomogeneousPoints(pts2)
 	T := convert2DSliceToDense(gt.T)
 	R := convert2DSliceToDense(gt.R)
 	poseMat := mat.NewDense(3, 4, nil)
 	poseMat.Augment(R, T)
-	fmt.Println(mat.Formatted(poseMat))
 	pose := transform.NewCamPoseFromMat(poseMat)
 	height, err := EstimateCameraHeight(pts1, pts2, pose, 0.97, 0.005)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println(height)
-
+	test.That(t, height, test.ShouldBeLessThan, 0)
 }
