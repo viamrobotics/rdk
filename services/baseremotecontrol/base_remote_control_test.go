@@ -98,6 +98,18 @@ func TestBaseRemoteControl(t *testing.T) {
 	svc3, ok := tmpSvc3.(*remoteService)
 	test.That(t, ok, test.ShouldBeTrue)
 
+	cfg.ControlModeName = "fail"
+	tmpSvc4, err := New(ctx, fakeRobot,
+		config.Service{
+			Name:                "base_remote_control",
+			Type:                "base_remote_control",
+			ConvertedAttributes: cfg,
+		},
+		rlog.Logger)
+	test.That(t, err, test.ShouldBeNil)
+	svc4, ok := tmpSvc4.(*remoteService)
+	test.That(t, ok, test.ShouldBeTrue)
+
 	// Controller import failure
 	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		if name.Subtype == base.Subtype {
@@ -162,6 +174,12 @@ func TestBaseRemoteControl(t *testing.T) {
 		test.That(t, i[1], test.ShouldEqual, input.ButtonSouth)
 		test.That(t, i[2], test.ShouldEqual, input.ButtonEast)
 		test.That(t, i[3], test.ShouldEqual, input.ButtonWest)
+	})
+
+	t.Run("controller events button no mode", func(t *testing.T) {
+		svc4.controlMode = 8
+		i := svc4.controllerInputs()
+		test.That(t, len(i), test.ShouldEqual, 0)
 	})
 
 	// JoystickControl
@@ -318,6 +336,9 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	err = svc3.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = svc4.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Close out check
