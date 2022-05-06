@@ -17,6 +17,10 @@ func TestGetDetectorNames(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("names %v", names)
 	test.That(t, names, test.ShouldContain, "detector_3")
+	// check that segmenter was added too
+	segNames, err := srv.GetSegmenterNames(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segNames, test.ShouldContain, "detector_3")
 }
 
 func TestGetDetections(t *testing.T) {
@@ -55,6 +59,10 @@ func TestAddDetector(t *testing.T) {
 	names, err := srv.GetDetectorNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldContain, "test")
+	// test that segmenter was also added
+	segNames, err := srv.GetSegmenterNames(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segNames, test.ShouldContain, "test")
 	// failure
 	cfg.Name = "will_fail"
 	cfg.Type = "wrong_type"

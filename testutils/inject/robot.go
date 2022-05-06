@@ -32,6 +32,24 @@ type Robot struct {
 	opsLock sync.Mutex
 }
 
+// MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
+func (r *Robot) MockResourcesFromMap(rs map[resource.Name]interface{}) {
+	r.ResourceNamesFunc = func() []resource.Name {
+		result := []resource.Name{}
+		for name := range rs {
+			result = append(result, name)
+		}
+		return result
+	}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		result, ok := rs[name]
+		if ok {
+			return result, nil
+		}
+		return r.ResourceByName(name)
+	}
+}
+
 // RemoteByName calls the injected RemoteByName or the real version.
 func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 	if r.RemoteByNameFunc == nil {
