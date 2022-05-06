@@ -306,7 +306,7 @@ func TestMotorABNoEncoder(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor no encoder GoFor testing", func(t *testing.T) {
-		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeError, errors.New("not supported, define max_rpm attribute"))
+		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeError, errors.New("not supported, define max_rpm attribute > 0"))
 	})
 }
 
