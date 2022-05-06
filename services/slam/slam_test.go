@@ -81,29 +81,20 @@ func TestGeneralSLAMService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+// Validate Tests.
 func TestConfigValidation(t *testing.T) {
-	// Validate Tests
 	logger := golog.NewTestLogger(t)
-	cfg := &AttrConfig{Algorithm: "test_algo"}
 
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pointcloud.New(), nil
 	}
 
-	p := "path"
-	err := cfg.Validate(p)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("error validating \"%v\": algorithm specified not in implemented list", p))
-
-	cfg.Algorithm = "cartographer"
-	err = cfg.Validate("path")
-	test.That(t, err, test.ShouldBeNil)
-
 	// Runtime Validation Tests
 	name1, err := createTempFolderArchiecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
-	cfg = &AttrConfig{
+	cfg := &AttrConfig{
 		Algorithm:        "cartographer",
 		Sensors:          []string{"rplidar"},
 		ConfigParams:     map[string]string{"mode": "2d"},
@@ -127,7 +118,6 @@ func TestConfigValidation(t *testing.T) {
 
 	testMetadata := metadata{
 		AlgoName: "test",
-		SLAMType: denseSLAM,
 		SlamMode: map[string]bool{"test2": false},
 	}
 

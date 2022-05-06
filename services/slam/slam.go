@@ -44,15 +44,6 @@ var Subtype = resource.NewSubtype(
 // Name is the slam service's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
-	if _, ok := slamLibraries[config.Algorithm]; !ok {
-		return goutils.NewConfigValidationError(path, errors.New("algorithm specified not in implemented list"))
-	}
-
-	return nil
-}
-
 // runtimeConfigValidation ensures all parts of the config are valid at runtime but will not close out server.
 func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 	slamLib, ok := slamLibraries[svcConfig.Algorithm]
@@ -70,28 +61,12 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 	}
 
 	// Check Data Directory Architecture - create new one if issue accessing folder
-	if _, err := os.Stat(svcConfig.DataDirectory); err != nil {
-		// return errors.Errorf("file directory [%v] could not be found", svcConfig.DataDirectory)
-		logger.Warnf("directory [%v] could not be found, creating one with approiate folder architecture", svcConfig.DataDirectory)
-		if err := os.Mkdir(svcConfig.DataDirectory, os.ModePerm); err != nil {
-			return errors.Errorf("issue creating directory at %v: %v", svcConfig.DataDirectory, err)
-		}
-
-		for _, subdirectoryName := range [3]string{"data", "map", "config"} {
-			subdirectoryPath := filepath.Join(svcConfig.DataDirectory, subdirectoryName)
-			if err := os.Mkdir(subdirectoryPath, os.ModePerm); err != nil {
-				return errors.Errorf("issue creating subdirectory %v: %v", subdirectoryPath, err)
-			}
-		}
-	}
-
-	// Check Sub Directories - create new one if issue accessing folder
-	for _, subdirectoryName := range [3]string{"data", "map", "config"} {
-		subdirectoryPath := filepath.Join(svcConfig.DataDirectory, subdirectoryName)
-		if _, err := os.Stat(subdirectoryPath); os.IsNotExist(err) {
-			logger.Warnf("%v directory does not exist", subdirectoryPath)
-			if err := os.Mkdir(subdirectoryPath, os.ModePerm); err != nil {
-				return errors.Errorf("issue creating subdirectory %v: %v", subdirectoryPath, err)
+	for _, directoryName := range [4]string{"", "data", "map", "config"} {
+		directoryPath := filepath.Join(svcConfig.DataDirectory, directoryName)
+		if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
+			logger.Warnf("%v directory does not exist", directoryPath)
+			if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
+				return errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
 			}
 		}
 	}
@@ -140,13 +115,18 @@ func runtimeServiceValidation(slamSvc *slamService) error {
 	if slamSvc.camera != nil {
 		var err error
 		var path string
-		switch slamSvc.slamLib.SLAMType {
-		case sparseSLAM:
+
+		// TODO 05/05/2022: This will be remvoed once GRPC data transfer is available as the responsibility for
+		// calling the right algorithms (Next vs NextPointCloud) will be held by the slam libararies themselves
+		// Note: if GRPC data transfer is delayed to after other algorthims (or user custom algos) are being
+		// added this point will be revisited
+		switch slamSvc.slamLib.AlgoName {
+		case "orbslamv3":
 			path, err = slamSvc.getAndSaveDataSparse()
-		case denseSLAM:
-			path, err = slamSvc.getAndSaveDataSparse()
+		case "cartographer":
+			path, err = slamSvc.getAndSaveDataDense()
 		default:
-			return errors.Errorf("invalid slam type %v given for algrothim %v", slamSvc.slamLib.SLAMType, slamSvc.slamLib.AlgoName)
+			return errors.Errorf("invalid slam algrothim %v", slamSvc.slamLib.AlgoName)
 		}
 		if err != nil {
 			return errors.Errorf("getting data with specified sensor and desired mode %v", slamSvc.slamMode)
