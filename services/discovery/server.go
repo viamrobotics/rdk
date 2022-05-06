@@ -45,7 +45,7 @@ func (server *subtypeServer) Discovery(ctx context.Context, req *pb.DiscoverRequ
 		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
 	}
 
-	discoveries, err := svc.Discover(ctx, subtypeNames)
+	discoveries, err := svc.Discover(ctx, resourceNames)
 	if err != nil {
 		return nil, err
 	}
