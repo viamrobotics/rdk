@@ -250,6 +250,7 @@ func (svc *remoteService) triggerSpeedEvent(event input.Event, speed float64, an
 	case input.AbsoluteX:
 		angle = event.Value
 	default:
+		return speed, angle
 	}
 
 	return speed, angle
@@ -267,6 +268,7 @@ func (svc *remoteService) buttonControlEvent(event input.Event, buttons map[inpu
 	case input.ButtonRelease:
 		buttons[event.Control] = false
 	default:
+		return 0.0, 0.0, buttons
 	}
 
 	if buttons[input.ButtonNorth] == buttons[input.ButtonSouth] {
@@ -316,6 +318,7 @@ func (svc *remoteService) oneJoyStickEvent(event input.Event, speed float64, ang
 		angle = -1.0 * event.Value
 		speed = oldSpeed
 	default:
+		return 0.0, 0.0
 	}
 
 	return speed, angle

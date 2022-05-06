@@ -189,7 +189,18 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	eventY := input.Event{
+		Event:   input.PositionChangeAbs,
 		Control: input.AbsoluteY,
+		Value:   1.0,
+	}
+
+	eventHat0X := input.Event{
+		Control: input.AbsoluteHat0X,
+		Value:   1.0,
+	}
+
+	eventHat0Y := input.Event{
+		Control: input.AbsoluteHat0Y,
 		Value:   1.0,
 	}
 
@@ -203,6 +214,12 @@ func TestBaseRemoteControl(t *testing.T) {
 		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventY, 0.5, 0.6)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
+	})
+
+	t.Run("joy stick control mode for input Hat0X (invalid event)", func(t *testing.T) {
+		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventHat0X, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.0, .001)
+		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	// TriggerSpeedControl
@@ -234,21 +251,18 @@ func TestBaseRemoteControl(t *testing.T) {
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.8, .001)
 	})
 
+	t.Run("trigger speed control mode for input Y (invalid event)", func(t *testing.T) {
+		mmPerSec, degsPerSec := svc1.triggerSpeedEvent(eventY, 0.8, 0.8)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.8, .001)
+		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.8, .001)
+	})
+
 	// ArrowControl
 
 	arrows := make(map[input.Control]float64)
 	arrows[input.AbsoluteHat0X] = 0.0
 	arrows[input.AbsoluteHat0Y] = 0.0
 
-	eventHat0X := input.Event{
-		Control: input.AbsoluteHat0X,
-		Value:   1.0,
-	}
-
-	eventHat0Y := input.Event{
-		Control: input.AbsoluteHat0Y,
-		Value:   1.0,
-	}
 	t.Run("arrow control mode for input X", func(t *testing.T) {
 		mmPerSec, degsPerSec, _ := svc2.arrowEvent(eventHat0X, arrows)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0, .001)
@@ -324,6 +338,12 @@ func TestBaseRemoteControl(t *testing.T) {
 		mmPerSec, degsPerSec, _ = svc3.buttonControlEvent(eventButtonEastRelease, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
+	})
+
+	t.Run("button control mode for input joystick Y (invalid event)", func(t *testing.T) {
+		mmPerSec, degsPerSec, _ := svc3.buttonControlEvent(eventY, buttons)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.0, .001)
+		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	err = svc.Close(ctx)
