@@ -54,6 +54,7 @@ lint-go: tool-install
 
 lint-web:
 	cd web/frontend/dls && npm run lint
+	cd web/frontend && npm run lint
 
 cover:
 	./etc/test.sh cover
