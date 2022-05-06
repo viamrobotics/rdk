@@ -25,7 +25,8 @@ deb-install: deb-server
 	sudo dpkg -i etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)_$(SERVER_DEB_VER)+*.deb
 
 appimage: buf-go server
-	cd etc/packaging/appimages && appimage-builder --recipe viam-server-`uname -m`.yml
+	cd etc/packaging/appimages && appimage-builder --recipe viam-server-latest-`uname -m`.yml
+	cd etc/packaging/appimages && ./package_release.sh
 	mkdir -p etc/packaging/appimages/deploy/
 	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
 	chmod 755 etc/packaging/appimages/deploy/*.AppImage
