@@ -7,7 +7,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -49,12 +48,12 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) Discover(ctx context.Context, subtypeNames []resource.SubtypeName) ([]Discovery, error) {
-	names := make([]*commonpb.ResourceName, 0, len(subtypeNames))
+	names := make([]string, 0, len(subtypeNames))
 	for _, name := range subtypeNames {
-		names = append(names, protoutils.ResourceNameToProto(subtypeNames))
+		names = append(names, string(name))
 	}
 
-	resp, err := c.client.Discover(ctx, &pb.DiscoverRequest{ResourceNames: names})
+	resp, err := c.client.Discover(ctx, &pb.DiscoverRequest{SubtypeNames: names})
 	if err != nil {
 		return nil, err
 	}

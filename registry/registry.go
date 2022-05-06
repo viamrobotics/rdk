@@ -80,6 +80,8 @@ type (
 	// Results with other types of data are not guaranteed.
 	CreateStatus func(ctx context.Context, resource interface{}) (interface{}, error)
 
+    // TODO: this should be defined for a subtype and model
+    //
 	// Discover tries to find potential configurations for a subtype. The return type is
 	// expected to be comprised of string keys (or it should be possible to decompose it
 	// into string keys) and values comprised of primitives, list of primitives, maps
