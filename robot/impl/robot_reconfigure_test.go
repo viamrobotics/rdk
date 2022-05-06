@@ -25,9 +25,9 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/metadata"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
@@ -40,7 +40,6 @@ var serviceNames = []resource.Name{
 	datamanager.Name,
 	framesystem.Name,
 	vision.Name,
-	metadata.Name,
 }
 
 func TestRobotReconfigure(t *testing.T) {

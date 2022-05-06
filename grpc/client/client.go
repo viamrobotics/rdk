@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/metadata"
+	"go.viam.com/rdk/robot/metadata"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -60,7 +60,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		return nil, err
 	}
 
-	metadataClient, err := metadata.NewClient(ctx, address, logger, rOpts.dialOptions...)
+	metadataClient, err := newMetadataClient(ctx, address, logger, rOpts.dialOptions...)
 	if err != nil {
 		return nil, err
 	}

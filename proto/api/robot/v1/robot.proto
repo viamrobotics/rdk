@@ -30,6 +30,22 @@ service RobotService {
   }
 }
 
+// A MetadataService services all resources associated with a robot
+service MetadataService {
+  // Resources returns the list of all resources.
+  rpc Resources(ResourcesRequest) returns (ResourcesResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/robot/metadata"
+    };
+  }
+}
+
+message ResourcesRequest {}
+
+message ResourcesResponse {
+  repeated common.v1.ResourceName resources = 1;
+}
+
 message Operation {
   string id = 1;
   string method = 2;

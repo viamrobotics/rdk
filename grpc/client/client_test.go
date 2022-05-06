@@ -42,8 +42,8 @@ import (
 	metadatapb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot/metadata"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -435,7 +435,7 @@ func getMetadataServer(injectMetadata *inject.Metadata) (metadatapb.MetadataServ
 		return nil, err
 	}
 
-	return metadata.NewServer(subtypeSvc), nil
+	return server.NewMetadataServer(subtypeSvc), nil
 }
 
 func TestClientRefresh(t *testing.T) {

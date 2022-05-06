@@ -1,5 +1,5 @@
-// Package metadata contains a gRPC based metadata service server.
-package metadata
+// Package server contains a gRPC based metadata service server.
+package server
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/robot/metadata"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -17,17 +18,18 @@ type server struct {
 	subtypeSvc subtype.Service
 }
 
-// NewServer constructs a gRPC metadata server.
-func NewServer(s subtype.Service) pb.MetadataServiceServer {
+// NewMetadataServer constructs a gRPC metadata server.
+func NewMetadataServer(s subtype.Service) pb.MetadataServiceServer {
 	return &server{subtypeSvc: s}
 }
 
-func (server *server) service() (Service, error) {
-	resource := server.subtypeSvc.Resource(Name.String())
+// CR erodkin: this will need some work since we want to dump metadata.Name probably
+func (server *server) service() (metadata.Service, error) {
+	resource := server.subtypeSvc.Resource(metadata.Name.String())
 	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Name)
+		return nil, utils.NewResourceNotFoundError(metadata.Name)
 	}
-	svc, ok := resource.(Service)
+	svc, ok := resource.(metadata.Service)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("metadata.Service", resource)
 	}
