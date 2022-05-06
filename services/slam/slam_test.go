@@ -111,18 +111,18 @@ func TestConfigValidation(t *testing.T) {
 		InputFilePattern: "100:300:5",
 	}
 
-	err = runtimeConfigValidation(cfg, cam, logger)
+	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// No sesnor test
 	cfg.Sensors = []string{}
-	err = runtimeConfigValidation(cfg, cam, logger)
+	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	cfg.Sensors = []string{"rplidar"}
 
 	// Mode SLAM Library test
 	cfg.ConfigParams["mode"] = ""
-	err = runtimeConfigValidation(cfg, cam, logger)
+	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	testMetadata := metadata{
@@ -135,7 +135,7 @@ func TestConfigValidation(t *testing.T) {
 	cfg.Algorithm = "test"
 	cfg.Sensors = []string{"test_sensor"}
 	cfg.ConfigParams["mode"] = "test1"
-	err = runtimeConfigValidation(cfg, cam, logger)
+	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 
@@ -147,43 +147,21 @@ func TestConfigValidation(t *testing.T) {
 
 	// Input File Pattern test
 	cfg.InputFilePattern = "dd:300:3"
-	err = runtimeConfigValidation(cfg, cam, logger)
+	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("input_file_pattern (%v) does not match the regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
 
 	cfg.InputFilePattern = "500:300:3"
-	err = runtimeConfigValidation(cfg, cam, logger)
+	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
 
 	err = resetFolder(name1)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Directory test
-	name2, err := createTempFolderArchiecture(false)
-	test.That(t, err, test.ShouldBeNil)
-
-	cfg.DataDirectory = name2
-
-	err = runtimeConfigValidation(cfg, cam, logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%v/data directory does not exist", name2))
-
-	// ---- Note: Test os.Stat / ioutil.ReadDir
-	err = os.Mkdir(name2+"/data", os.ModePerm)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = runtimeConfigValidation(cfg, cam, logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%v/map directory does not exist", name2))
-
-	err = os.Mkdir(name2+"/map", os.ModePerm)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = runtimeConfigValidation(cfg, cam, logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%v/config directory does not exist", name2))
-
 	// Sensor Mode test
 	cfg.ConfigParams["mode"] = "rgbd"
-	err = runtimeConfigValidation(cfg, cam, logger)
+	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 
@@ -191,11 +169,8 @@ func TestConfigValidation(t *testing.T) {
 
 	// Valid Algo
 	cfg.Algorithm = "wrong_algo"
-	err = runtimeConfigValidation(cfg, cam, logger)
+	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", cfg.Algorithm))
-
-	err = resetFolder(name2)
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestCartographerData(t *testing.T) {
@@ -285,6 +260,7 @@ func TestOrbSLAMData(t *testing.T) {
 	// TODO: image with depth test
 }
 
+// nolint:unparam
 func createTempFolderArchiecture(validArch bool) (string, error) {
 	name, err := ioutil.TempDir("/tmp", "*")
 	if err != nil {

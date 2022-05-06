@@ -54,7 +54,7 @@ func (config *AttrConfig) Validate(path string) error {
 }
 
 // runtimeConfigValidation ensures all parts of the config are valid at runtime but will not close out server.
-func runtimeConfigValidation(svcConfig *AttrConfig, cam camera.Camera, logger golog.Logger) error {
+func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 	slamLib, ok := slamLibraries[svcConfig.Algorithm]
 	if !ok {
 		return errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
@@ -69,15 +69,30 @@ func runtimeConfigValidation(svcConfig *AttrConfig, cam camera.Camera, logger go
 		}
 	}
 
-	// Check Data Directory Architecture
+	// Check Data Directory Architecture - create new one if issue accessing folder
 	if _, err := os.Stat(svcConfig.DataDirectory); err != nil {
-		return errors.Errorf("file directory [%v] could not be found", svcConfig.DataDirectory)
+		// return errors.Errorf("file directory [%v] could not be found", svcConfig.DataDirectory)
+		logger.Warnf("directory [%v] could not be found, creating one with approiate folder architecture", svcConfig.DataDirectory)
+		if err := os.Mkdir(svcConfig.DataDirectory, os.ModePerm); err != nil {
+			return errors.Errorf("issue creating directory at %v: %v", svcConfig.DataDirectory, err)
+		}
+
+		for _, subdirectoryName := range [3]string{"data", "map", "config"} {
+			subdirectoryPath := filepath.Join(svcConfig.DataDirectory, subdirectoryName)
+			if err := os.Mkdir(subdirectoryPath, os.ModePerm); err != nil {
+				return errors.Errorf("issue creating subdirectory %v: %v", subdirectoryPath, err)
+			}
+		}
 	}
 
+	// Check Sub Directories - create new one if issue accessing folder
 	for _, subdirectoryName := range [3]string{"data", "map", "config"} {
 		subdirectoryPath := filepath.Join(svcConfig.DataDirectory, subdirectoryName)
 		if _, err := os.Stat(subdirectoryPath); os.IsNotExist(err) {
-			return errors.Errorf("%v directory does not exist", subdirectoryPath)
+			logger.Warnf("%v directory does not exist", subdirectoryPath)
+			if err := os.Mkdir(subdirectoryPath, os.ModePerm); err != nil {
+				return errors.Errorf("issue creating subdirectory %v: %v", subdirectoryPath, err)
+			}
 		}
 	}
 
@@ -219,7 +234,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, err
 	}
 
-	if err := runtimeConfigValidation(svcConfig, cam, logger); err != nil {
+	if err := runtimeConfigValidation(svcConfig, logger); err != nil {
 		logger.Warnf("runtime slam config error: %v", err)
 		return &slamService{}, nil
 	}
@@ -287,12 +302,14 @@ func (slamSvc *slamService) Close(ctx context.Context) error {
 
 // TODO 05/06/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
 // getAndSaveData implements the data extraction for sparse algos and saving to the specified directory.
+// nolint:unparam
 func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 	return filepath.Join(slamSvc.dataDirectory, "temp.txt"), nil
 }
 
 // TODO 05/03/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
 // getAndSaveData implements the data extraction for dense algos and saving to the specified directory.
+// nolint:unparam
 func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
 	return filepath.Join(slamSvc.dataDirectory, "temp.txt"), nil
 }
