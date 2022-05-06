@@ -1,9 +1,10 @@
 // Package slam implements simultaneous localization and mapping
 package slam
 
-// slamType is the type of slam being performed, either sprase or dense.
+// slamType is the type of slam being performed, either sparse or dense.
 type slamType uint8
 
+// The types of SLAM avaialble for SLAM library definitions.
 const (
 	denseSLAM = slamType(iota)
 	sparseSLAM
