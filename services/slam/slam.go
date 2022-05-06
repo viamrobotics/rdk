@@ -116,7 +116,7 @@ func runtimeServiceValidation(slamSvc *slamService) error {
 		var err error
 		var path string
 
-		// TODO 05/05/2022: This will be remvoed once GRPC data transfer is available as the responsibility for
+		// TODO 05/05/2022: This will be removed once GRPC data transfer is available as the responsibility for
 		// calling the right algorithms (Next vs NextPointCloud) will be held by the slam libararies themselves
 		// Note: if GRPC data transfer is delayed to after other algorithms (or user custom algos) are being
 		// added this point will be revisited
@@ -126,7 +126,7 @@ func runtimeServiceValidation(slamSvc *slamService) error {
 		case "cartographer":
 			path, err = slamSvc.getAndSaveDataDense()
 		default:
-			return errors.Errorf("invalid slam algrothim %v", slamSvc.slamLib.AlgoName)
+			return errors.Errorf("invalid slam algorithm %v", slamSvc.slamLib.AlgoName)
 		}
 		if err != nil {
 			return errors.Errorf("getting data with specified sensor and desired mode %v", slamSvc.slamMode)
