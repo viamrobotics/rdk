@@ -53,32 +53,19 @@ func (config *AttrConfig) Validate(path string) error {
 	return nil
 }
 
-// runTimeConfigValidation ensures all parts of the config are valid at runtime but will not close out server.
-func runtimeConfigValidation(ctx context.Context, svcConfig *AttrConfig, cam camera.Camera, logger golog.Logger) error {
+// runtimeConfigValidation ensures all parts of the config are valid at runtime but will not close out server.
+func runtimeConfigValidation(svcConfig *AttrConfig, cam camera.Camera, logger golog.Logger) error {
 	slamLib, ok := slamLibraries[svcConfig.Algorithm]
 	if !ok {
 		return errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
 	}
 
-	slamAlgoMetadata := slamLib.getMetadata()
-
 	// Check sensor and mode combination
 	if svcConfig.ConfigParams["mode"] != "" {
 		mode := svcConfig.ConfigParams["mode"]
-		modeCheck, ok := slamAlgoMetadata.SlamMode[svcConfig.ConfigParams["mode"]]
+		modeCheck, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
 		if !ok || !modeCheck {
 			return errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", svcConfig.Algorithm, mode)
-		}
-
-		if len(svcConfig.Sensors) != 0 {
-			path, err := slamLib.getAndSaveData(ctx, cam, mode, "/tmp/", logger)
-			if err != nil {
-				return errors.Errorf("getting data with specified sensor and desired mode %v", mode)
-			}
-			err = os.RemoveAll(path)
-			if err != nil {
-				return errors.New("removing generated file during validation")
-			}
 		}
 	}
 
@@ -121,7 +108,7 @@ func runtimeConfigValidation(ctx context.Context, svcConfig *AttrConfig, cam cam
 
 	// Check Slam Mode Compatibility with Slam Library
 	if svcConfig.ConfigParams["mode"] != "" {
-		result, ok := slamAlgoMetadata.SlamMode[svcConfig.ConfigParams["mode"]]
+		result, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
 		if !ok {
 			return errors.Errorf("invalid mode (%v) specified for algorithm [%v]", svcConfig.ConfigParams["mode"], svcConfig.Algorithm)
 		}
@@ -130,6 +117,30 @@ func runtimeConfigValidation(ctx context.Context, svcConfig *AttrConfig, cam cam
 		}
 	}
 
+	return nil
+}
+
+// runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and cam given.
+func runtimeServiceValidation(slamSvc *slamService) error {
+	if slamSvc.camera != nil {
+		var err error
+		var path string
+		switch slamSvc.slamLib.SLAMType {
+		case sparseSLAM:
+			path, err = slamSvc.getAndSaveDataSparse()
+		case denseSLAM:
+			path, err = slamSvc.getAndSaveDataSparse()
+		default:
+			return errors.Errorf("invalid slam type %v given for algrothim %v", slamSvc.slamLib.SLAMType, slamSvc.slamLib.AlgoName)
+		}
+		if err != nil {
+			return errors.Errorf("getting data with specified sensor and desired mode %v", slamSvc.slamMode)
+		}
+		err = os.RemoveAll(path)
+		if err != nil {
+			return errors.New("removing generated file during validation")
+		}
+	}
 	return nil
 }
 
@@ -155,7 +166,7 @@ type Service interface {
 // SlamService is the structure of the slam service.
 type slamService struct {
 	camera           camera.Camera
-	slamLib          SLAM
+	slamLib          metadata
 	slamMode         string
 	configParams     map[string]string
 	dataDirectory    string
@@ -208,7 +219,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, err
 	}
 
-	if err := runtimeConfigValidation(ctx, svcConfig, cam, logger); err != nil {
+	if err := runtimeConfigValidation(svcConfig, cam, logger); err != nil {
 		logger.Warnf("runtime slam config error: %v", err)
 		return &slamService{}, nil
 	}
@@ -233,6 +244,10 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
+	}
+
+	if err := runtimeServiceValidation(slamSvc); err != nil {
+		return nil, err
 	}
 
 	if err := slamSvc.startDataProcess(ctx); err != nil {
@@ -268,4 +283,16 @@ func (slamSvc *slamService) getSLAMServiceData() slamService {
 // Close out of all slam related processes.
 func (slamSvc *slamService) Close(ctx context.Context) error {
 	return nil
+}
+
+// TODO 05/06/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
+// getAndSaveData implements the data extraction for sparse algos and saving to the specified directory.
+func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
+	return filepath.Join(slamSvc.dataDirectory, "temp.txt"), nil
+}
+
+// TODO 05/03/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
+// getAndSaveData implements the data extraction for dense algos and saving to the specified directory.
+func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
+	return filepath.Join(slamSvc.dataDirectory, "temp.txt"), nil
 }
