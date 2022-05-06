@@ -266,15 +266,15 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("button control mode for input X and B", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := svc2.buttonControlEvent(eventButtonNorthPress, buttons)
+		mmPerSec, degsPerSec, _ := svc3.buttonControlEvent(eventButtonNorthPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 
-		mmPerSec, degsPerSec, _ = svc2.buttonControlEvent(eventButtonSouthPress, buttons)
+		mmPerSec, degsPerSec, _ = svc3.buttonControlEvent(eventButtonSouthPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 
-		mmPerSec, degsPerSec, _ = svc2.buttonControlEvent(eventButtonNorthRelease, buttons)
+		mmPerSec, degsPerSec, _ = svc3.buttonControlEvent(eventButtonNorthRelease, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
@@ -295,18 +295,30 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("button control mode for input Y and A", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := svc2.buttonControlEvent(eventButtonEastPress, buttons)
+		mmPerSec, degsPerSec, _ := svc3.buttonControlEvent(eventButtonEastPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, -1.0, .001)
 
-		mmPerSec, degsPerSec, _ = svc2.buttonControlEvent(eventButtonWestPress, buttons)
+		mmPerSec, degsPerSec, _ = svc3.buttonControlEvent(eventButtonWestPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 
-		mmPerSec, degsPerSec, _ = svc2.buttonControlEvent(eventButtonEastRelease, buttons)
+		mmPerSec, degsPerSec, _ = svc3.buttonControlEvent(eventButtonEastRelease, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
+
+	err = svc.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = svc1.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = svc2.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = svc3.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Close out check
 	err = utils.TryClose(context.Background(), svc)
