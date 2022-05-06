@@ -53,7 +53,7 @@ func (config *AttrConfig) Validate(path string) error {
 	return nil
 }
 
-// RunTimeConfigValidation ensures all parts of the config are valid at runtime but will not close out server.
+// runTimeConfigValidation ensures all parts of the config are valid at runtime but will not close out server.
 func runtimeConfigValidation(ctx context.Context, svcConfig *AttrConfig, cam camera.Camera, logger golog.Logger) error {
 	slamLib, ok := slamLibraries[svcConfig.Algorithm]
 	if !ok {
@@ -169,11 +169,13 @@ type slamService struct {
 	logger     golog.Logger
 }
 
+// configureCamera will check the config to see if a camera is desired and if so, grab the camera from
+// the robot as well as get the intrinsic assocated with it.
 func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (camera.Camera, error) {
 	var cam camera.Camera
 	var err error
 	if len(svcConfig.Sensors) > 0 {
-		logger.Info("Running in live mode")
+		logger.Debug("Running in live mode")
 		cam, err = camera.FromRobot(r, svcConfig.Sensors[0])
 		if err != nil {
 			return nil, errors.Errorf("error with get camera for slam service: %q", err)
@@ -187,7 +189,7 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 			}
 		}
 	} else {
-		logger.Info("Running in non-live mode")
+		logger.Debug("Running in non-live mode")
 		cam = nil
 	}
 
@@ -244,7 +246,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return slamSvc, nil
 }
 
-// TBD 05/03/2022: Data processing loop in new PR (see slamlibarary.go GetandSaveData functions as well)
+// TBD 05/03/2022: Data processing loop in new PR (see slamlibarary.go GetandSaveData functions as well).
 // startDataProcess is the main control loops for sending data from camera to the data directory for processing.
 func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 	return nil
@@ -262,7 +264,7 @@ func (slamSvc *slamService) getSLAMServiceData() slamService {
 	return *slamSvc
 }
 
-// TODO 05/03/2022: Implement closeout of slam service and subprocesses
+// TODO 05/03/2022: Implement closeout of slam service and subprocesses.
 // Close out of all slam related processes.
 func (slamSvc *slamService) Close(ctx context.Context) error {
 	return nil
