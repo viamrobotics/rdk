@@ -12,8 +12,6 @@ updates:
       - github-octocat
     schedule:
       interval: "daily"
-    allow:
-      - dependency-type: "direct"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
@@ -23,8 +21,6 @@ updates:
     directory: "web/frontend"
     schedule:
       interval: "daily"
-    allow:
-      - dependency-type: "direct"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
@@ -33,8 +29,6 @@ updates:
     directory: "web/frontend/dls"
     schedule:
       interval: "daily"
-    allow:
-      - dependency-type: "direct"
     ignore:
       - dependency-name: "proto"
       - dependency-name: "*"
@@ -44,8 +38,6 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    allow:
-      - dependency-type: "direct"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
