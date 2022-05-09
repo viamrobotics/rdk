@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/metadata"
@@ -43,11 +43,6 @@ func NewMetadataClient(ctx context.Context, address string, logger golog.Logger,
 
 	mc := newSvcClientFromConn(conn, logger)
 	return mc, nil
-}
-
-// newClientFromConn constructs a new Client from connection passed in.
-func newClientFromConn(_ctx context.Context, conn rpc.ClientConn, _name string, logger golog.Logger) metadata.Service {
-	return newSvcClientFromConn(conn, logger)
 }
 
 // Close cleanly closes the underlying connections.

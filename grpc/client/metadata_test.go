@@ -1,5 +1,8 @@
 package client_test
 
+// CR erodkin: probably we should delete this module entirely and move relevant testing
+// into client_test.go
+
 import (
 	"context"
 	"net"
@@ -15,7 +18,7 @@ import (
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/metadata"
@@ -36,7 +39,7 @@ var (
 	)}
 )
 
-// CR erodkin: see if we can still have this only defined in one place
+// CR erodkin: see if we can still have this only defined in one place.
 func newServer(injectMetadata *inject.Metadata) (pb.MetadataServiceServer, error) {
 	subtypeSvcMap := map[resource.Name]interface{}{
 		metadata.Name: injectMetadata,

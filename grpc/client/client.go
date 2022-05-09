@@ -19,10 +19,10 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robot/metadata"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -35,7 +35,8 @@ type RobotClient struct {
 	address        string
 	conn           rpc.ClientConn
 	client         pb.RobotServiceClient
-	metadataClient metadata.Service
+	metadataConn   rpc.ClientConn
+	metadataClient pb.MetadataServiceClient
 
 	namesMu       *sync.RWMutex
 	resourceNames []resource.Name
@@ -60,10 +61,13 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		return nil, err
 	}
 
-	metadataClient, err := newMetadataClient(ctx, address, logger, rOpts.dialOptions...)
+	// CR erodkin: make sure defining it identically is okay!
+	metadataConn, err := grpc.Dial(ctx, address, logger, rOpts.dialOptions...)
 	if err != nil {
 		return nil, err
 	}
+
+	metadataClient := pb.NewMetadataServiceClient(metadataConn)
 
 	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
@@ -72,6 +76,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		address:                 address,
 		conn:                    conn,
 		client:                  client,
+		metadataConn:            metadataConn,
 		metadataClient:          metadataClient,
 		cancelBackgroundWorkers: cancel,
 		namesMu:                 &sync.RWMutex{},
@@ -82,7 +87,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
-		return nil, multierr.Combine(err, utils.TryClose(ctx, metadataClient), conn.Close())
+		return nil, multierr.Combine(err, metadataConn.Close(), conn.Close())
 	}
 
 	if rOpts.refreshEvery != 0 {
@@ -101,7 +106,7 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
 
-	return multierr.Combine(rc.conn.Close(), utils.TryClose(ctx, rc.metadataClient))
+	return multierr.Combine(rc.conn.Close(), rc.metadataConn.Close())
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
@@ -140,6 +145,21 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 	return resourceClient, nil
 }
 
+func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, error) {
+	resp, err := rc.metadataClient.Resources(ctx, &pb.ResourcesRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	resources := make([]resource.Name, 0, len(resp.Resources))
+
+	for _, name := range resp.Resources {
+		newName := protoutils.ResourceNameFromProto(name)
+		resources = append(resources, newName)
+	}
+	return resources, nil
+}
+
 // Refresh manually updates the underlying parts of the robot based
 // on its metadata response.
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
@@ -147,7 +167,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	defer rc.namesMu.Unlock()
 
 	// call metadata service.
-	names, err := rc.metadataClient.Resources(ctx)
+	names, err := rc.resources(ctx)
 	// only return if it is not unimplemented - means a bigger error came up
 	if err != nil && grpcstatus.Code(err) != codes.Unimplemented {
 		return err

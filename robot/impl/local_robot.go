@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 
@@ -35,8 +36,7 @@ import (
 type internalServiceName string
 
 const (
-	webName      internalServiceName = "web"
-	metadataName internalServiceName = "metadata"
+	webName internalServiceName = "web"
 )
 
 var (
@@ -92,14 +92,6 @@ func webService(r robot.LocalRobot) (web.Service, error) {
 		return nil, errors.New("web service was not initialized")
 	}
 	return webSvc, nil
-}
-
-// Web returns the localRobot's web service. Raises if the service has not been initialized
-func (r *localRobot) Web() (web.Service, error) {
-	if r.web == nil {
-		return nil, errors.Errorf("web service was not initialized")
-	}
-	return r.web, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
