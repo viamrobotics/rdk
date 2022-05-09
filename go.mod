@@ -13,7 +13,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20220331015535-41ae4448d72e
+	github.com/edaniels/gostream v0.0.0-20220504163643-eb2e5f5e15fc
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.5.1
@@ -36,9 +36,11 @@ require (
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
+	github.com/maorshutman/lm v0.0.0-20190501150544-7c8d1397ebf3
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/mapstructure v1.4.3
+	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
 	github.com/pion/mediadevices v0.3.4-0.20220328105715-70261260cb6f
