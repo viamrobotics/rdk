@@ -29,7 +29,7 @@ jobs:
       run: make clean-all appimage
 
     - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v0.4.3
+      uses: google-github-actions/auth@v0.7.1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
@@ -62,7 +62,7 @@ jobs:
         make clean-all appimage
 
     - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v0.4.3
+      uses: google-github-actions/auth@v0.7.1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
