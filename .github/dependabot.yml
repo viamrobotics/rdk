@@ -15,8 +15,9 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-    assignees: #TODO: make list
+    assignees: # TODO: make list
       - stevebriskin
+      - mcvella
   - package-ecosystem: "npm"
     directory: "web/frontend"
     schedule:
@@ -30,7 +31,7 @@ updates:
     schedule:
       interval: "daily"
     ignore:
-      - dependency-name: "proto"
+      - dependency-name: "proto" # generated proto code
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     open-pull-requests-limit: 0
@@ -41,5 +42,5 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-    assignees: #TODO: make list
+    assignees: # TODO: make list
       - Otterverse
