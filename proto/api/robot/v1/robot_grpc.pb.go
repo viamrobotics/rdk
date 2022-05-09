@@ -19,6 +19,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RobotServiceClient interface {
 	GetOperations(ctx context.Context, in *GetOperationsRequest, opts ...grpc.CallOption) (*GetOperationsResponse, error)
+	// Resources returns the list of all resources.
+	Resources(ctx context.Context, in *ResourcesRequest, opts ...grpc.CallOption) (*ResourcesResponse, error)
 	CancelOperation(ctx context.Context, in *CancelOperationRequest, opts ...grpc.CallOption) (*CancelOperationResponse, error)
 	BlockForOperation(ctx context.Context, in *BlockForOperationRequest, opts ...grpc.CallOption) (*BlockForOperationResponse, error)
 }
@@ -34,6 +36,15 @@ func NewRobotServiceClient(cc grpc.ClientConnInterface) RobotServiceClient {
 func (c *robotServiceClient) GetOperations(ctx context.Context, in *GetOperationsRequest, opts ...grpc.CallOption) (*GetOperationsResponse, error) {
 	out := new(GetOperationsResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/GetOperations", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) Resources(ctx context.Context, in *ResourcesRequest, opts ...grpc.CallOption) (*ResourcesResponse, error) {
+	out := new(ResourcesResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/Resources", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +74,8 @@ func (c *robotServiceClient) BlockForOperation(ctx context.Context, in *BlockFor
 // for forward compatibility
 type RobotServiceServer interface {
 	GetOperations(context.Context, *GetOperationsRequest) (*GetOperationsResponse, error)
+	// Resources returns the list of all resources.
+	Resources(context.Context, *ResourcesRequest) (*ResourcesResponse, error)
 	CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error)
 	BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
@@ -74,6 +87,9 @@ type UnimplementedRobotServiceServer struct {
 
 func (UnimplementedRobotServiceServer) GetOperations(context.Context, *GetOperationsRequest) (*GetOperationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetOperations not implemented")
+}
+func (UnimplementedRobotServiceServer) Resources(context.Context, *ResourcesRequest) (*ResourcesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Resources not implemented")
 }
 func (UnimplementedRobotServiceServer) CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelOperation not implemented")
@@ -108,6 +124,24 @@ func _RobotService_GetOperations_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).GetOperations(ctx, req.(*GetOperationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_Resources_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResourcesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).Resources(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/Resources",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).Resources(ctx, req.(*ResourcesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -160,100 +194,16 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_GetOperations_Handler,
 		},
 		{
+			MethodName: "Resources",
+			Handler:    _RobotService_Resources_Handler,
+		},
+		{
 			MethodName: "CancelOperation",
 			Handler:    _RobotService_CancelOperation_Handler,
 		},
 		{
 			MethodName: "BlockForOperation",
 			Handler:    _RobotService_BlockForOperation_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/api/robot/v1/robot.proto",
-}
-
-// MetadataServiceClient is the client API for MetadataService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type MetadataServiceClient interface {
-	// Resources returns the list of all resources.
-	Resources(ctx context.Context, in *ResourcesRequest, opts ...grpc.CallOption) (*ResourcesResponse, error)
-}
-
-type metadataServiceClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewMetadataServiceClient(cc grpc.ClientConnInterface) MetadataServiceClient {
-	return &metadataServiceClient{cc}
-}
-
-func (c *metadataServiceClient) Resources(ctx context.Context, in *ResourcesRequest, opts ...grpc.CallOption) (*ResourcesResponse, error) {
-	out := new(ResourcesResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.MetadataService/Resources", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// MetadataServiceServer is the server API for MetadataService service.
-// All implementations must embed UnimplementedMetadataServiceServer
-// for forward compatibility
-type MetadataServiceServer interface {
-	// Resources returns the list of all resources.
-	Resources(context.Context, *ResourcesRequest) (*ResourcesResponse, error)
-	mustEmbedUnimplementedMetadataServiceServer()
-}
-
-// UnimplementedMetadataServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedMetadataServiceServer struct {
-}
-
-func (UnimplementedMetadataServiceServer) Resources(context.Context, *ResourcesRequest) (*ResourcesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Resources not implemented")
-}
-func (UnimplementedMetadataServiceServer) mustEmbedUnimplementedMetadataServiceServer() {}
-
-// UnsafeMetadataServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to MetadataServiceServer will
-// result in compilation errors.
-type UnsafeMetadataServiceServer interface {
-	mustEmbedUnimplementedMetadataServiceServer()
-}
-
-func RegisterMetadataServiceServer(s grpc.ServiceRegistrar, srv MetadataServiceServer) {
-	s.RegisterService(&MetadataService_ServiceDesc, srv)
-}
-
-func _MetadataService_Resources_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ResourcesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MetadataServiceServer).Resources(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.MetadataService/Resources",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetadataServiceServer).Resources(ctx, req.(*ResourcesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// MetadataService_ServiceDesc is the grpc.ServiceDesc for MetadataService service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var MetadataService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "proto.api.robot.v1.MetadataService",
-	HandlerType: (*MetadataServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Resources",
-			Handler:    _MetadataService_Resources_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -17,6 +17,13 @@ service RobotService {
     };    
   }
 
+  // Resources returns the list of all resources.
+  rpc Resources(ResourcesRequest) returns (ResourcesResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/robot/metadata"
+    };
+  }
+
   rpc CancelOperation(CancelOperationRequest) returns (CancelOperationResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/operations/cancel"
@@ -27,16 +34,6 @@ service RobotService {
     option (google.api.http) = {
       post: "/viam/api/v1/operations/block"
     };    
-  }
-}
-
-// A MetadataService services all resources associated with a robot
-service MetadataService {
-  // Resources returns the list of all resources.
-  rpc Resources(ResourcesRequest) returns (ResourcesResponse) {
-    option (google.api.http) = {
-      get: "/viam/api/v1/robot/metadata"
-    };
   }
 }
 
