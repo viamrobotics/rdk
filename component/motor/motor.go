@@ -296,9 +296,9 @@ type Config struct {
 	EncoderA         string  `json:"encoder,omitempty"`          // name of the digital interrupt that is the encoder a
 	EncoderB         string  `json:"encoder_b,omitempty"`        // name of the digital interrupt that is hall encoder b
 	RampRate         float64 `json:"ramp_rate,omitempty"`        // how fast to ramp power to motor when using rpm control
-	MaxRPM           float64 `json:"max_rpm"`                    // RPM
+	MaxRPM           float64 `json:"max_rpm,omitempty"`          // RPM
 	MaxAcceleration  float64 `json:"max_acceleration,omitempty"` // RPM per second
-	TicksPerRotation int     `json:"ticks_per_rotation"`
+	TicksPerRotation int     `json:"ticks_per_rotation,omitempty"`
 }
 
 // RegisterConfigAttributeConverter registers a Config converter.
