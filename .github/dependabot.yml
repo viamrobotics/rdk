@@ -1,8 +1,39 @@
 version: 2
+registries:
+  github-octocat:
+    type: git
+    url: https://github.com
+    username: x-access-token
+    password: ${{ secrets.DEP_GITHUB_TOKEN }}
 updates:
-  - package-ecosystem: "npm"
-    directory: " web/frontend/dls"
+  - package-ecosystem: "gomod"
+    directory: "/"
+    registries:
+      - github-octocat
     schedule:
       interval: "daily"
+    allow:
+      - dependency-type: "all"
+  - package-ecosystem: "npm"
+    directory: "web/frontend"
+    schedule:
+      interval: "daily"
+    allow:
+      - dependency-type: "all"
+    open-pull-requests-limit: 0
+  - package-ecosystem: "npm"
+    directory: "web/frontend/dls"
+    schedule:
+      interval: "daily"
+    allow:
+      - dependency-type: "all"
     ignore:
       - dependency-name: "proto"
+    open-pull-requests-limit: 0
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    allow:
+      - dependency-type: "all"
+    open-pull-requests-limit: 0
