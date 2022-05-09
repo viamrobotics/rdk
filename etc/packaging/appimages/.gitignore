@@ -1,0 +1,8 @@
+AppDir/
+appimage-builder-cache/
+deploy/
+
+viam-server*.yml
+-viam-server-latest-*.yml
+*.AppImage
+*.zsync

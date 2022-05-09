@@ -32,14 +32,14 @@ window.BaseControlHelper = {
     rcLogConditionally(req);
     baseService.spin(req, {}, cb);
   },
-}
+};
 
 // Leaving in window scope for tunning. Should be const or in inputs
 window.keyboardBaseDefaults = {
-  maxSpeed : 300.0,
-  maxAngle : 425.0,
-  distRatio : 10
-}
+  maxSpeed : 300,
+  maxAngle : 425,
+  distRatio : 10,
+};
 
 /*
   Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
@@ -50,24 +50,24 @@ window.computeKeyboardBaseControls = function(keysPressed) {
   let angleDeg;
 
   if (keysPressed.forward && keysPressed.backward) {
-    mmPerSec = 0.0;
+    mmPerSec = 0;
   } else if (keysPressed.forward) {
-    mmPerSec = 1.0;
+    mmPerSec = 1;
   } else if (keysPressed.backward) {
-    mmPerSec = -1.0;
+    mmPerSec = -1;
   } else {
-    mmPerSec = 0.0;
+    mmPerSec = 0;
   }
 
   // Angle
   if (keysPressed.right && keysPressed.left) {
-    angleDeg = 0.0;
+    angleDeg = 0;
   } else if (keysPressed.right) {
-    angleDeg = -1.0;
+    angleDeg = -1;
   } else if (keysPressed.left) {
-    angleDeg = 1.0;
+    angleDeg = 1;
   } else {
-    angleDeg = 0.0;
+    angleDeg = 0;
   }
 
   let distance;
@@ -75,17 +75,17 @@ window.computeKeyboardBaseControls = function(keysPressed) {
   let angle;
 
   let moveType; // for logging only
-  if (mmPerSec == 0 && angleDeg == 0) {
+  if (mmPerSec === 0 && angleDeg === 0) {
     moveType = 'Stop';
     distance = keyboardBaseDefaults.maxSpeed * keyboardBaseDefaults.distRatio;
-    speed = 0.0;
+    speed = 0;
     angle = angleDeg * keyboardBaseDefaults.maxAngle * -1;
-  } else if (mmPerSec == 0) {
+  } else if (mmPerSec === 0) {
     moveType = 'Spin';
     distance = 0;
     speed = angleDeg * keyboardBaseDefaults.maxSpeed;
     angle = Math.abs(angleDeg * keyboardBaseDefaults.maxAngle * keyboardBaseDefaults.distRatio / 2);
-  } else if (angleDeg == 0) {
+  } else if (angleDeg === 0) {
     moveType = 'Straight';
     distance = Math.abs(mmPerSec * keyboardBaseDefaults.maxSpeed * keyboardBaseDefaults.distRatio);
     speed = mmPerSec * keyboardBaseDefaults.maxSpeed;
@@ -97,6 +97,6 @@ window.computeKeyboardBaseControls = function(keysPressed) {
     angle = angleDeg * keyboardBaseDefaults.maxAngle * keyboardBaseDefaults.distRatio * 2 - 1;
   }
 
-  console.log("%s: s = %f | a = %f | Dist = %f | Speed = %f | Angle = %f", moveType, mmPerSec, angleDeg, distance, speed, angle);
+  console.log('%s: s = %f | a = %f | Dist = %f | Speed = %f | Angle = %f', moveType, mmPerSec, angleDeg, distance, speed, angle);
   return {distance, speed, angle};
-}
+};
