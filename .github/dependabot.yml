@@ -8,6 +8,8 @@ registries:
 updates:
   - package-ecosystem: "gomod"
     directory: "/"
+    registries:
+      - github-octocat
     schedule:
       interval: "daily"
     allow:
