@@ -7,7 +7,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-black p-2"
+          class="border-l border-r border-b border-black p-2"
           :style="{ height: maxHeight + 'px' }"
         >
           <Container>
@@ -89,7 +89,7 @@
                 </div>
               </div>
               <div
-                class="bg-black clear-both h-fit transition-all duration-300 ease-in-out"
+                class="clear-both h-fit transition-all duration-300 ease-in-out"
                 v-if="camera"
                 :id="streamId"
               ></div>
@@ -152,11 +152,7 @@
                     Download Raw Data
                   </ViamButton>
                 </div>
-                <div
-                  class="bg-black clear-both h-96"
-                  id="pcd"
-                  @click="pcdClick"
-                ></div>
+                <div class="clear-both h-96" id="pcd" @click="pcdClick"></div>
                 <div class="float-right">
                   <span class="text-xs">Controls</span>
                   <popper

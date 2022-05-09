@@ -9,6 +9,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -60,6 +61,7 @@ type Gripper interface {
 	// returns true if we grabbed something.
 	Grab(ctx context.Context) (bool, error)
 
+	generic.Generic
 	referenceframe.ModelFramer
 }
 
@@ -107,6 +109,12 @@ func (g *reconfigurableGripper) ProxyFor() interface{} {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual
+}
+
+func (g *reconfigurableGripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Do(ctx, cmd)
 }
 
 func (g *reconfigurableGripper) Open(ctx context.Context) error {

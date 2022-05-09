@@ -47,14 +47,14 @@ import VueSlideBar from "vue-slide-bar";
   },
 })
 export default class ViamRange extends Vue {
-  @Prop({ default: 100 }) max!: number;
-  @Prop({ default: 0 }) min!: number;
-  @Prop({ default: 10 }) step!: number;
+  @Prop({ default: 100, type: Number }) max!: number;
+  @Prop({ default: 0, type: Number }) min!: number;
+  @Prop({ default: 10, type: Number }) step!: number;
   @Prop({ default: "" }) name!: string;
   @Prop({ default: "DefaultId" }) id!: string;
   @Prop({ default: "" }) unit!: string;
-  @Prop({ required: true }) value!: number;
-  @Prop({ default: false }) hideTickLabels!: boolean;
+  @Prop({ required: true, type: Number }) value!: number;
+  @Prop({ default: false, type: Boolean }) hideTickLabels!: boolean;
 
   get innerValue(): number {
     return this.value;

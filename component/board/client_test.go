@@ -10,12 +10,11 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -35,16 +34,21 @@ func newBoardWithStatus(injectStatus *commonpb.BoardStatus) *inject.Board {
 
 func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()) {
 	t.Helper()
+	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 
 	boardSvc, err := subtype.New(map[resource.Name]interface{}{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterBoardServiceServer(gServer, board.NewServer(boardSvc))
+	resourceSubtype := registry.ResourceSubtypeLookup(board.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc)
 
-	go gServer.Serve(listener)
-	return listener, func() { gServer.Stop() }
+	generic.RegisterService(rpcServer, boardSvc)
+
+	go rpcServer.Serve(listener)
+	return listener, func() { rpcServer.Stop() }
 }
 
 func TestFailingClient(t *testing.T) {
@@ -71,6 +75,13 @@ func TestWorkingClient(t *testing.T) {
 
 	testWorkingClient := func(t *testing.T, client board.Board) {
 		t.Helper()
+
+		// Do
+		injectBoard.DoFunc = generic.EchoFunc
+		resp, err := client.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		// Status
 		injectStatus := &commonpb.BoardStatus{}

@@ -90,7 +90,7 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 		return nil, err
 	}
 	opt := motionplan.NewDefaultPlannerOptions()
-	opt.AddConstraint("collision", motionplan.NewCollisionConstraintFromFrame(model, obstacleGeometries))
+	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(model, obstacleGeometries, map[string]spatial.Geometry{}))
 
 	// plan
 	waypoints, err := cbert.Plan(ctx, goal, start, opt)
