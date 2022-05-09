@@ -265,30 +265,29 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	return &componentMetadata, nil
 }
 
-type diskStatus struct {
-	All         uint64
-	Used        uint64
-	Free        uint64
-	Avail       uint64
-	PercentUsed int
-}
+// type diskStatus struct {
+// 	All         uint64
+// 	Used        uint64
+// 	Free        uint64
+// 	Avail       uint64
+// 	PercentUsed int
+// }
 
-func diskUsage(path string) (disk diskStatus) {
+func (svc *Service) diskUsagePercentage() (int, error) {
 	fs := syscall.Statfs_t{}
-	err := syscall.Statfs(path, &fs)
+	err := syscall.Statfs("/", &fs)
 	if err != nil {
-		return
+		return -1, err
 	}
-	disk.All = fs.Blocks * uint64(fs.Bsize)
-	disk.Avail = fs.Bavail * uint64(fs.Bsize)
-	disk.Free = fs.Bfree * uint64(fs.Bsize)
-	disk.Used = disk.All - disk.Free
-	disk.PercentUsed = int(100 * disk.Used / (disk.Used + disk.Avail))
-	return disk
+	all := fs.Blocks * uint64(fs.Bsize)
+	avail := fs.Bavail * uint64(fs.Bsize)
+	free := fs.Bfree * uint64(fs.Bsize)
+	used := all - free
+	return int(100 * used / (used + avail)), nil
 }
 
 func (svc *Service) checkStorage() {
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(time.Second * 5)
 	defer ticker.Stop()
 	var wg sync.WaitGroup
 
@@ -299,8 +298,11 @@ func (svc *Service) checkStorage() {
 			return
 		case <-ticker.C:
 			wg.Add(1)
-			du := diskUsage("/")                         // From root? Should get du across entire filesystem?
-			if du.PercentUsed >= svc.maxStoragePercent { // Should we add some margin, e.g. a few % within maxStoragePercent?
+			percentUsed, err := svc.diskUsagePercentage() // From root? Should get du across entire filesystem?
+			if err != nil {
+				svc.logger.Errorw("failed to check disk usage", "error", err)
+			}
+			if percentUsed >= svc.maxStoragePercent { // Should we add some margin, e.g. a few % within maxStoragePercent?
 				if svc.enableAutoDelete {
 					// TODO: Add deletion logic for oldest file(s)
 				} else {
@@ -362,7 +364,7 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	updateMaxPercentStorage := svc.maxStoragePercent != svcConfig.MaxStoragePercent
 	if updateEnableAutoDelete || updateMaxPercentStorage {
 		// Kick this off earlier and just send an update here?
-		svc.checkStorage()
+		go svc.checkStorage()
 	}
 	svc.enableAutoDelete = svcConfig.EnableAutoDelete
 	svc.maxStoragePercent = svcConfig.MaxStoragePercent
@@ -392,12 +394,18 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 
 func (svc *Service) closeCollectors() {
 	wg := sync.WaitGroup{}
-	for _, collector := range svc.collectors {
+	for key, collector := range svc.collectors {
 		currCollector := collector
+		currKey := key
 		wg.Add(1)
 		go func() {
-			currCollector.Collector.Close()
-			currCollector.Collector = nil // Should we have a bool instead? collector_disabled/closed?
+			svc.lock.Lock()
+			defer svc.lock.Unlock()
+			if currCollector.Collector != nil {
+				currCollector.Collector.Close()
+				currCollector.Collector = nil // Should we have a bool instead? collector_disabled/closed?
+				svc.collectors[currKey] = currCollector
+			}
 			wg.Done()
 		}()
 	}
@@ -407,6 +415,7 @@ func (svc *Service) closeCollectors() {
 func (svc *Service) reinitializeClosedCollectors() error {
 	for _, collector := range svc.collectors {
 		if collector.Collector == nil {
+			svc.logger.Info("collector is nil! ", collector.Attributes.Method)
 			_, err := svc.initializeOrUpdateCollector(collector.ComponentName, collector.Attributes, false)
 			if err != nil {
 				return err
