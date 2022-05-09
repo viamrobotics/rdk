@@ -12,8 +12,32 @@ import (
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.
-type CollectorConstructor func(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (Collector, error)
+type CollectorConstructor func(resource interface{}, params CollectorParams) (Collector, error)
+
+// CollectorParams contain the parameters needed to construct a Collector.
+type CollectorParams struct {
+	ComponentName string
+	Interval      time.Duration
+	MethodParams  map[string]string
+	Target        *os.File
+	QueueSize     int
+	BufferSize    int
+	Logger        golog.Logger
+}
+
+// Validate validates that p contains all required parameters.
+func (p CollectorParams) Validate() error {
+	if p.Target == nil {
+		return errors.New("missing required parameter target")
+	}
+	if p.Logger == nil {
+		return errors.New("missing required parameter logger")
+	}
+	if p.ComponentName == "" {
+		return errors.New("missing required parameter component name")
+	}
+	return nil
+}
 
 // MethodMetadata contains the metadata identifying a component method that we are going to capture and collect.
 type MethodMetadata struct {

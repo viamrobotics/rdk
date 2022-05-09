@@ -101,7 +101,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		r:                 r,
 		logger:            logger,
 		captureDir:        viamCaptureDotDir,
-		collectors:        make(map[componentMethodMetadata]collectorParams),
+		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers: sync.WaitGroup{},
 		lock:              sync.Mutex{},
 		cancelCtx:         cancelCtx,
@@ -129,10 +129,10 @@ type Service struct {
 	r                 robot.Robot
 	logger            golog.Logger
 	captureDir        string
-	collectors        map[componentMethodMetadata]collectorParams
-	syncer            syncManager
 	maxStoragePercent int
 	enableAutoDelete  bool
+	collectors        map[componentMethodMetadata]collectorAndConfig
+	syncer            syncManager
 
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
@@ -142,11 +142,9 @@ type Service struct {
 }
 
 // Parameters stored for each collector.
-type collectorParams struct {
-	Collector     data.Collector
-	Attributes    componentAttributes
-	CaptureDir    string
-	ComponentName string
+type collectorAndConfig struct {
+	Collector  data.Collector
+	Attributes componentAttributes
 }
 
 // Identifier for a particular collector: component name, component type, and method name.
@@ -247,13 +245,20 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	}
 
 	// Create a collector for this resource and method.
-	collector, err := (*collectorConstructor)(
-		res, componentName, interval, attributes.AdditionalParams,
-		targetFile, captureQueueSize, captureBufferSize, svc.logger)
+	params := data.CollectorParams{
+		ComponentName: componentName,
+		Interval:      interval,
+		MethodParams:  attributes.AdditionalParams,
+		Target:        targetFile,
+		QueueSize:     captureQueueSize,
+		BufferSize:    captureBufferSize,
+		Logger:        svc.logger,
+	}
+	collector, err := (*collectorConstructor)(res, params)
 	if err != nil {
 		return nil, err
 	}
-	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir, componentName}
+	svc.collectors[componentMetadata] = collectorAndConfig{collector, attributes}
 
 	// TODO: Handle errors more gracefully.
 	go func() {
@@ -264,14 +269,6 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 
 	return &componentMetadata, nil
 }
-
-// type diskStatus struct {
-// 	All         uint64
-// 	Used        uint64
-// 	Free        uint64
-// 	Avail       uint64
-// 	PercentUsed int
-// }
 
 func (svc *Service) diskUsagePercentage() (int, error) {
 	fs := syscall.Statfs_t{}
@@ -375,9 +372,10 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 		if attributes.CaptureFrequencyHz > 0 {
 			componentMetadata, err := svc.initializeOrUpdateCollector(componentName, attributes, updateCaptureDir)
 			if err != nil {
-				return err
+				svc.logger.Errorw("failed to initialize or update collector", "error", err)
+			} else {
+				newCollectorMetadata[*componentMetadata] = true
 			}
-			newCollectorMetadata[*componentMetadata] = true
 		}
 	}
 
@@ -413,10 +411,9 @@ func (svc *Service) closeCollectors() {
 }
 
 func (svc *Service) reinitializeClosedCollectors() error {
-	for _, collector := range svc.collectors {
+	for metadata, collector := range svc.collectors {
 		if collector.Collector == nil {
-			svc.logger.Info("collector is nil! ", collector.Attributes.Method)
-			_, err := svc.initializeOrUpdateCollector(collector.ComponentName, collector.Attributes, false)
+			_, err := svc.initializeOrUpdateCollector(metadata.ComponentName, collector.Attributes, false)
 			if err != nil {
 				return err
 			}
