@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -98,6 +99,7 @@ func init() {
 }
 
 type oneAxis struct {
+	generic.Unimplemented
 	name string
 
 	board board.Board

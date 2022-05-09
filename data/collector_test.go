@@ -48,8 +48,8 @@ func TestNewCollector(t *testing.T) {
 }
 
 // Test that SensorData is written correctly and can be read, and that interval is respected and that capture()
-// is called floor(time_passed/interval) times.
-func TestSuccessfulWrite(t *testing.T) {
+// is called floor(time_passed/interval) times in the ticker (interval >= 2ms) case.
+func TestSuccessfulWriteTicker(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
@@ -64,20 +64,34 @@ func TestSuccessfulWrite(t *testing.T) {
 	test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
 
 	// Verify that the data it wrote matches what we expect (two SensorData's containing dummyReading).
-	_, _ = target1.Seek(0, 0)
-	// Give 20ms of leeway so slight changes in execution ordering don't impact the test.
 	// floor(70/25) = 2
-	for i := 0; i < 2; i++ {
-		read, err := readNextSensorData(target1)
-		if err != nil {
-			t.Fatalf("failed to read SensorData from file: %v", err)
-		}
-		test.That(t, proto.Equal(dummyReadingProto, read.Data), test.ShouldBeTrue)
-	}
+	validateNReadings(t, target1, 2)
 
 	// Next reading should fail; there should only be two readings.
 	_, err := readNextSensorData(target1)
 	test.That(t, err, test.ShouldEqual, io.EOF)
+}
+
+// Test that SensorData is written correctly and can be read, and that interval is respected and that capture()
+// is called floor(time_passed/interval) times in the sleep (interval <2ms) case.
+func TestSuccessfulWriteSleep(t *testing.T) {
+	l := golog.NewTestLogger(t)
+	target1, _ := ioutil.TempFile("", "whatever")
+	defer os.Remove(target1.Name())
+	c := NewCollector(
+		dummyCapturer, time.Millisecond, map[string]string{"name": "test"}, target1, queueSize, bufferSize, l)
+	go c.Collect()
+
+	// Verify that it writes to the file at all.
+	time.Sleep(time.Microsecond * 9900)
+	c.Close()
+	fileSize := getFileSize(target1)
+	test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
+
+	// Verify that the data it wrote matches what we expect.
+	// It should have 9 readings, but only validate the first 7 so small changes in execution order don't cause
+	// failures.
+	validateNReadings(t, target1, 7)
 }
 
 func TestClose(t *testing.T) {
@@ -145,6 +159,7 @@ func TestSwallowsErrors(t *testing.T) {
 	}()
 	time.Sleep(30 * time.Millisecond)
 	c.Close()
+
 	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
 	// write an error log for a few instructions after .Close() is called, and this test is reading from the logger).
 	time.Sleep(10 * time.Millisecond)
@@ -171,12 +186,25 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	go c.Collect()
 	time.Sleep(30 * time.Millisecond)
 	c.Close()
+
 	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
 	// write an error log for a few instructions after .Close() is called, and this test is reading from the logger).
 	time.Sleep(10 * time.Millisecond)
 
 	test.That(t, logs.FilterLevelExact(zapcore.DebugLevel).Len(), test.ShouldBeGreaterThan, 0)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
+}
+
+func validateNReadings(t *testing.T, file *os.File, n int) {
+	t.Helper()
+	_, _ = file.Seek(0, 0)
+	for i := 0; i < n; i++ {
+		read, err := readNextSensorData(file)
+		if err != nil {
+			t.Fatalf("failed to read SensorData from file: %v", err)
+		}
+		test.That(t, proto.Equal(dummyReadingProto, read.Data), test.ShouldBeTrue)
+	}
 }
 
 func getFileSize(f *os.File) int64 {

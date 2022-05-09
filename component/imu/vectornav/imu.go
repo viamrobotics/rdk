@@ -13,6 +13,7 @@ import (
 	rdkutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -55,6 +56,7 @@ type vectornav struct {
 	bdVX float64
 	bdVY float64
 	bdVZ float64
+	generic.Unimplemented
 }
 
 const (

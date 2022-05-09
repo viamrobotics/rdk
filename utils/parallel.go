@@ -6,6 +6,8 @@ import (
 	"math"
 	"runtime"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"go.viam.com/utils"
 )
@@ -115,4 +117,40 @@ func ParallelForEachPixel(size image.Point, f func(x int, y int)) {
 		}
 	}
 	waitGroup.Wait()
+}
+
+// SimpleFunc is for RunInParallel.
+type SimpleFunc func(ctx context.Context) error
+
+// RunInParallel turns all functions in parallel
+// return is elapsed time and n error.
+func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) {
+	start := time.Now()
+	ctx, cancel := context.WithCancel(ctx)
+
+	var wg sync.WaitGroup
+
+	var anError atomic.Value
+
+	helper := func(f SimpleFunc) {
+		defer wg.Done()
+		err := f(ctx)
+		if err != nil {
+			anError.Store(err)
+			cancel()
+		}
+	}
+
+	for _, f := range fs {
+		wg.Add(1)
+		go helper(f)
+	}
+
+	wg.Wait()
+
+	err := anError.Load()
+	if err == nil {
+		return time.Since(start), nil
+	}
+	return time.Since(start), err.(error)
 }

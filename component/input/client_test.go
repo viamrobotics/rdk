@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/input"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
@@ -76,6 +77,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(input.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, inputControllerSvc)
 
+	injectInputController.DoFunc = generic.EchoFunc
+	generic.RegisterService(rpcServer, inputControllerSvc)
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -95,6 +99,12 @@ func TestClient(t *testing.T) {
 			logger,
 		)
 		test.That(t, err, test.ShouldBeNil)
+
+		// Do
+		resp, err := inputController1Client.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		controlList, err := inputController1Client.GetControls(context.Background())
 		test.That(t, err, test.ShouldBeNil)

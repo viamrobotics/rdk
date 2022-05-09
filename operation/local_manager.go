@@ -34,6 +34,7 @@ type myContextKeyType string
 
 const theContextKey = myContextKeyType("opkey")
 
+// New creates a new operation, cancels previous, returns a new context and function to call when done.
 func (cm *LocalCallManager) New(ctx context.Context) (context.Context, func()) {
 	if ctx.Value(theContextKey) != nil {
 		return ctx, func() {}
@@ -63,12 +64,35 @@ func (cm *LocalCallManager) New(ctx context.Context) (context.Context, func()) {
 	}
 }
 
-// return true if it finished, false if cancelled.
+// TimedWait returns true if it finished, false if cancelled.
 func (cm *LocalCallManager) TimedWait(ctx context.Context, dur time.Duration) bool {
 	ctx, finish := cm.New(ctx)
 	defer finish()
 
 	return utils.SelectContextOrWait(ctx, dur)
+}
+
+// WaitForSuccess will call testFunc ever pollTime until it returns true or an error.
+func (cm *LocalCallManager) WaitForSuccess(
+	ctx context.Context,
+	pollTime time.Duration,
+	testFunc func(ctx context.Context) (bool, error)) error {
+	ctx, finish := cm.New(ctx)
+	defer finish()
+
+	for {
+		res, err := testFunc(ctx)
+		if err != nil {
+			return err
+		}
+		if res {
+			return nil
+		}
+
+		if !utils.SelectContextOrWait(ctx, pollTime) {
+			return ctx.Err()
+		}
+	}
 }
 
 func (cm *LocalCallManager) cancelInLock() {
