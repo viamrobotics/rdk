@@ -1,13 +1,12 @@
 <template>
-  <popper
+  <Popper
     trigger="clickToOpen"
     data-cy="viam-info-button-root"
     root-class="viam-info-popper"
     class="inline-flex align-middle"
     :options="{
       placement: 'top',
-    }"
-  >
+    }">
     <div class="popper">
       <div class="viam-info-content">
         <slot>
@@ -32,7 +31,7 @@
         <ViamIcon color="grey" :path="iconPath"></ViamIcon>
       </slot>
     </button>
-  </popper>
+  </Popper>
 </template>
 <script lang="ts">
 import Popper from "vue-popperjs";
