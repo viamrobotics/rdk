@@ -79,14 +79,6 @@ func readJSONGroundTruth() *poseGroundTruth {
 	return &gt
 }
 
-func TestGetTriangleNormalVector(t *testing.T) {
-	points := []r3.Vector{{0, 0, 0}, {0, 1, 0}, {1, 0, 0}}
-	normal := getTriangleNormalVector(points)
-	test.That(t, normal.X, test.ShouldEqual, 0)
-	test.That(t, normal.Y, test.ShouldEqual, 0)
-	test.That(t, normal.Z, test.ShouldEqual, -1)
-}
-
 func TestPlaneFrom3PointsDistance(t *testing.T) {
 	points := []r3.Vector{{0, 0, 0}, {0, 1, 0}, {1, 0, 0}}
 	normal, offset := estimatePlaneFrom3Points(points[0], points[1], points[2])
