@@ -284,7 +284,7 @@ func (svc *Service) diskUsagePercentage() (int, error) {
 }
 
 func (svc *Service) checkStorage() {
-	ticker := time.NewTicker(time.Second * 5)
+	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	var wg sync.WaitGroup
 
@@ -295,7 +295,7 @@ func (svc *Service) checkStorage() {
 			return
 		case <-ticker.C:
 			wg.Add(1)
-			percentUsed, err := svc.diskUsagePercentage() // From root? Should get du across entire filesystem?
+			percentUsed, err := svc.diskUsagePercentage()
 			if err != nil {
 				svc.logger.Errorw("failed to check disk usage", "error", err)
 			}
@@ -304,13 +304,13 @@ func (svc *Service) checkStorage() {
 					// TODO: Add deletion logic for oldest file(s)
 				} else {
 					// If auto-delete is disabled, simply stop collecting. If disk space frees up,
-					// we will reset collectors with previous configuration.
-					// If the user updates the config in the meantime, we will update the map
-					// of collectors.
+					// reset collectors with previous configuration.
+					// Note: If the user updates the config in the meantime, we still update the map
+					// of collectors, e.g. remove collectors.
 					svc.closeCollectors()
 				}
 			} else {
-				// Handle case where we previously closed/paused collectors and now disk usage has freed up
+				// Reinitialize any previously paused collectors now that disk usage has freed up.
 				err := svc.reinitializeClosedCollectors()
 				if err != nil {
 					svc.logger.Warn("Issue reinitializing closed collector", err)
