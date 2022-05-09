@@ -18,7 +18,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-func TestGeneralSLAMService(t *testing.T) {
+func createSLAMService(t *testing.T, attrCfg *AttrConfig) (Service, error) {
 	cfgService := config.Service{Name: "test", Type: "slam"}
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
@@ -28,12 +28,16 @@ func TestGeneralSLAMService(t *testing.T) {
 		return nil, rdkutils.NewResourceNotFoundError(n)
 	}
 
-	_, err := New(ctx, r, cfgService, logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("expected *slam.AttrConfig but got %v", cfgService.ConvertedAttributes))
+	cfgService.ConvertedAttributes = attrCfg
 
-	cfgService.ConvertedAttributes = &AttrConfig{}
+	return New(ctx, r, cfgService, logger)
 
-	_, err = New(ctx, r, cfgService, logger)
+}
+
+// General SLAM Tests
+func TestGeneralSLAMService(t *testing.T) {
+
+	_, err := createSLAMService(t, &AttrConfig{})
 	test.That(t, err, test.ShouldBeNil)
 
 	name1, err := createTempFolderArchiecture(true)
@@ -46,9 +50,8 @@ func TestGeneralSLAMService(t *testing.T) {
 		DataDirectory:    name1,
 		InputFilePattern: "100:300:5",
 	}
-	cfgService.ConvertedAttributes = attrCfg
 
-	_, err = New(ctx, r, cfgService, logger)
+	_, err = createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("error with get camera for slam service: \"resource \\\"rdk:component:camera/%v\\\" not found\"", attrCfg.Sensors[0]))
 
@@ -59,24 +62,20 @@ func TestGeneralSLAMService(t *testing.T) {
 		DataDirectory:    name1,
 		InputFilePattern: "100:300:5",
 		DataRateMs:       100,
+		MapRateSec:       5,
 	}
-	cfgService.ConvertedAttributes = attrCfg
 
-	slamSvc, err := New(ctx, r, cfgService, logger)
+	slams, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, slams.getSLAMServiceData().dataFreqHz, test.ShouldAlmostEqual, 10.0)
+	test.That(t, slams.getSLAMServiceData().mapRateSec, test.ShouldEqual, 5)
 
-	ss := slamSvc.getSLAMServiceData()
+	attrCfg.DataRateMs = 0
+	attrCfg.MapRateSec = 0
+	slams, err = createSLAMService(t, attrCfg)
+	test.That(t, slams.getSLAMServiceData().dataFreqHz, test.ShouldAlmostEqual, 5.0)
+	test.That(t, slams.getSLAMServiceData().mapRateSec, test.ShouldEqual, 60)
 
-	// cam := &fake.Camera{}
-	cam := &inject.Camera{}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		return pointcloud.New(), nil
-	}
-	ss.camera = cam
-
-	// err = ss.startDataProcess(ctx)
-	// ss.cancelCtx.Done()
-	// test.That(t, err, test.ShouldBeNil)
 	err = resetFolder(name1)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -105,66 +104,75 @@ func TestConfigValidation(t *testing.T) {
 	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// No sesnor test
-	cfg.Sensors = []string{}
-	err = runtimeConfigValidation(cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	cfg.Sensors = []string{"rplidar"}
+	// No sensor test
+	t.Run("run test of config with no sensor", func(t *testing.T) {
+		cfg.Sensors = []string{}
+		err = runtimeConfigValidation(cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		cfg.Sensors = []string{"rplidar"}
+	})
 
 	// Mode SLAM Library test
-	cfg.ConfigParams["mode"] = ""
-	err = runtimeConfigValidation(cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("SLAM config mode tests", func(t *testing.T) {
+		cfg.ConfigParams["mode"] = ""
+		err = runtimeConfigValidation(cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	testMetadata := metadata{
-		AlgoName: "test",
-		SlamMode: map[string]bool{"test2": false},
-	}
+		testMetadata := metadata{
+			AlgoName: "test",
+			SlamMode: map[string]bool{"test2": false},
+		}
 
-	slamLibraries["test"] = testMetadata
-	cfg.Algorithm = "test"
-	cfg.Sensors = []string{"test_sensor"}
-	cfg.ConfigParams["mode"] = "test1"
-	err = runtimeConfigValidation(cfg, logger)
-	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
+		slamLibraries["test"] = testMetadata
+		cfg.Algorithm = "test"
+		cfg.Sensors = []string{"test_sensor"}
+		cfg.ConfigParams["mode"] = "test1"
+		err = runtimeConfigValidation(cfg, logger)
+		test.That(t, err, test.ShouldBeError,
+			errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 
-	cfg.Algorithm = "cartographer"
-	cfg.Sensors = []string{"rplidar"}
-	cfg.ConfigParams["mode"] = "2d"
+		cfg.Algorithm = "cartographer"
+		cfg.Sensors = []string{"rplidar"}
+		cfg.ConfigParams["mode"] = "2d"
 
-	delete(slamLibraries, "test")
+		delete(slamLibraries, "test")
+
+		cfg.ConfigParams["mode"] = "rgbd"
+		err = runtimeConfigValidation(cfg, logger)
+		test.That(t, err, test.ShouldBeError,
+			errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
+
+	})
 
 	// Input File Pattern test
-	cfg.InputFilePattern = "dd:300:3"
-	err = runtimeConfigValidation(cfg, logger)
-	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("input_file_pattern (%v) does not match the regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
+	t.Run("SLAM config input file pattern tests", func(t *testing.T) {
+		cfg.ConfigParams["mode"] = "2d"
+		cfg.InputFilePattern = "dd:300:3"
+		err = runtimeConfigValidation(cfg, logger)
+		test.That(t, err, test.ShouldBeError,
+			errors.Errorf("input_file_pattern (%v) does not match the regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
 
-	cfg.InputFilePattern = "500:300:3"
-	err = runtimeConfigValidation(cfg, logger)
-	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
+		cfg.InputFilePattern = "500:300:3"
+		err = runtimeConfigValidation(cfg, logger)
+		test.That(t, err, test.ShouldBeError,
+			errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
 
-	err = resetFolder(name1)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Sensor Mode test
-	cfg.ConfigParams["mode"] = "rgbd"
-	err = runtimeConfigValidation(cfg, logger)
-	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
+		err = resetFolder(name1)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
 	// TODO: sensor and saving data checks once GetAndSaveData is implemented
 
-	// Valid Algo
-	cfg.Algorithm = "wrong_algo"
-	err = runtimeConfigValidation(cfg, logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", cfg.Algorithm))
+	// Check if valid algorithm
+	t.Run("SLAM config check on specified algorithm", func(t *testing.T) {
+		cfg.Algorithm = "wrong_algo"
+		err = runtimeConfigValidation(cfg, logger)
+		test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", cfg.Algorithm))
+	})
 }
 
+// Cartographer Specific Tests (config)
 func TestCartographerData(t *testing.T) {
-	cfgService := config.Service{Name: "test", Type: "slam"}
 
 	name, err := createTempFolderArchiecture(true)
 	test.That(t, err, test.ShouldBeNil)
@@ -177,41 +185,32 @@ func TestCartographerData(t *testing.T) {
 		InputFilePattern: "100:300:5",
 		DataRateMs:       100,
 	}
-	cfgService.ConvertedAttributes = attrCfg
 
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-
-	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
-		return nil, rdkutils.NewResourceNotFoundError(n)
-	}
-
-	slamSvc, err := New(ctx, r, cfgService, logger)
+	slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	ss := slamSvc.getSLAMServiceData()
+	slams := slamSvc.getSLAMServiceData()
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pointcloud.New(), nil
 	}
-	ss.camera = cam
+	slams.camera = cam
 
-	err = runtimeServiceValidation(&ss)
+	err = runtimeServiceValidation(&slams)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, _ = ss.getAndSaveDataDense()
+	_, _ = slams.getAndSaveDataDense()
 	test.That(t, err, test.ShouldBeNil)
 
-	ss.Close(ctx)
+	slams.Close(slams.cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = resetFolder(name)
 	test.That(t, err, test.ShouldBeNil)
 }
 
+// OrbSLAMv3 Specific Tests (config)
 func TestOrbSLAMData(t *testing.T) {
-	cfgService := config.Service{Name: "test", Type: "slam"}
 
 	name, err := createTempFolderArchiecture(true)
 	test.That(t, err, test.ShouldBeNil)
@@ -224,42 +223,156 @@ func TestOrbSLAMData(t *testing.T) {
 		InputFilePattern: "100:300:5",
 		DataRateMs:       100,
 	}
-	cfgService.ConvertedAttributes = attrCfg
 
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-
-	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
-		return nil, rdkutils.NewResourceNotFoundError(n)
-	}
-
-	slamSvc, err := New(ctx, r, cfgService, logger)
+	slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	ss := slamSvc.getSLAMServiceData()
-
+	slams := slamSvc.getSLAMServiceData()
 	cam := &inject.Camera{}
+
 	cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return image.NewNRGBA(image.Rect(0, 0, 501024, 1024)), nil, nil
 	}
-	ss.camera = cam
+	slams.camera = cam
 
 	cam = &inject.Camera{}
 	cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
 	}
-	ss.camera = cam
+	slams.camera = cam
 
-	err = runtimeServiceValidation(&ss)
+	err = runtimeServiceValidation(&slams)
 	test.That(t, err, test.ShouldBeNil)
 
-	ss.Close(ctx)
+	slams.Close(slams.cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = resetFolder(name)
 	test.That(t, err, test.ShouldBeNil)
+
 	// TODO: image with depth test
+}
+
+// OrbSLAMv3 Specific Tests (config)
+func TestGetDataAndSaveDense(t *testing.T) {
+
+	name, err := createTempFolderArchiecture(true)
+	test.That(t, err, test.ShouldBeNil)
+
+	attrCfg := &AttrConfig{
+		Algorithm:        "cartographer",
+		Sensors:          []string{},
+		ConfigParams:     map[string]string{"mode": "2d"},
+		DataDirectory:    name,
+		InputFilePattern: "100:300:5",
+		DataRateMs:       100,
+	}
+
+	slamS, err := createSLAMService(t, attrCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	slamSvc := slamS.getSLAMServiceData()
+
+	err = slamSvc.startSLAMProcess(slamSvc.cancelCtx)
+	test.That(t, err, test.ShouldBeNil)
+
+	cam := &inject.Camera{}
+	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pointcloud.New(), nil
+	}
+
+	slamSvc.camera = cam
+
+	filename, err := slamSvc.getAndSaveDataDense()
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = os.Stat(filename)
+	test.That(t, err, test.ShouldBeNil)
+
+	temp_dd := slamSvc.dataDirectory
+	slamSvc.dataDirectory = "gibberish"
+	filename, err = slamSvc.getAndSaveDataDense()
+	test.That(t, err, test.ShouldBeError, errors.Errorf("open %v: no such file or directory", filename))
+
+	_, err = os.Stat(filename)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("stat %v: no such file or directory", filename))
+
+	slamSvc.dataDirectory = temp_dd
+	cam_err := &inject.Camera{}
+	cam_err.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pointcloud.New(), errors.New("camera data error!")
+	}
+
+	slamSvc.camera = cam_err
+	filename, err = slamSvc.getAndSaveDataDense()
+	test.That(t, err, test.ShouldBeError, errors.New("camera data error!"))
+	test.That(t, filename, test.ShouldBeEmpty)
+
+	err = resetFolder(name)
+	test.That(t, err, test.ShouldBeNil)
+
+}
+
+func TestGetDataAndSaveSparse(t *testing.T) {
+
+	name, err := createTempFolderArchiecture(true)
+	test.That(t, err, test.ShouldBeNil)
+
+	attrCfg := &AttrConfig{
+		Algorithm:        "orbslamv3",
+		Sensors:          []string{},
+		ConfigParams:     map[string]string{"mode": "rgbd"},
+		DataDirectory:    name,
+		InputFilePattern: "100:300:5",
+		DataRateMs:       100,
+	}
+
+	slamS, err := createSLAMService(t, attrCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	slamSvc := slamS.getSLAMServiceData()
+
+	err = slamSvc.startSLAMProcess(slamSvc.cancelCtx)
+	test.That(t, err, test.ShouldBeNil)
+
+	cam := &inject.Camera{}
+	cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+		return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+	}
+
+	slamSvc.camera = cam
+
+	_, err = slamSvc.getAndSaveDataSparse()
+	test.That(t, err, test.ShouldBeError, errors.New("want image/both but don't have *rimage.ImageWithDepth"))
+
+	slamSvc.slamMode = "mono"
+
+	filename, err := slamSvc.getAndSaveDataSparse()
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = os.Stat(filename)
+	test.That(t, err, test.ShouldBeNil)
+
+	slamSvc.dataDirectory = "gibberish"
+	filename, err = slamSvc.getAndSaveDataSparse()
+	test.That(t, err, test.ShouldBeError, errors.Errorf("open %v: no such file or directory", filename))
+
+	_, err = os.Stat(filename)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("stat %v: no such file or directory", filename))
+
+	cam_err := &inject.Camera{}
+	cam_err.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+		return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, errors.New("camera data error!")
+	}
+
+	slamSvc.camera = cam_err
+	filename, err = slamSvc.getAndSaveDataSparse()
+	test.That(t, err, test.ShouldBeError, errors.New("camera data error!"))
+	test.That(t, filename, test.ShouldBeEmpty)
+
+	err = resetFolder(name)
+	test.That(t, err, test.ShouldBeNil)
+
 }
 
 // nolint:unparam
