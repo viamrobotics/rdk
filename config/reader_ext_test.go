@@ -1,4 +1,4 @@
-package config_ext
+package config_test
 
 import (
 	"context"
