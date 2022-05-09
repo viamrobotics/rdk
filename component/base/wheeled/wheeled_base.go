@@ -61,11 +61,11 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	mgr operation.LocalCallManager
+	opMgr operation.SingleOperationManager
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
-	ctx, done := base.mgr.New(ctx)
+	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
 	// Stop the motors if the speed is 0
@@ -98,7 +98,7 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
-	ctx, done := base.mgr.New(ctx)
+	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
 	// Stop the motors if the speed or distance are 0
@@ -125,7 +125,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 }
 
 func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	ctx, done := base.mgr.New(ctx)
+	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
 	// Stop the motors if the speed is 0

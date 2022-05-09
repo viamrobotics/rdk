@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"math"
 	"runtime"
@@ -122,8 +123,7 @@ func ParallelForEachPixel(size image.Point, f func(x int, y int)) {
 // SimpleFunc is for RunInParallel.
 type SimpleFunc func(ctx context.Context) error
 
-// RunInParallel turns all functions in parallel
-// return is elapsed time and n error.
+// RunInParallel runs all functions in parallel, return is elapsed time and n error.
 func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) {
 	start := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
@@ -133,7 +133,13 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 	var anError atomic.Value
 
 	helper := func(f SimpleFunc) {
-		defer wg.Done()
+		defer func() {
+			if thePanic := recover(); thePanic != nil {
+				anError.Store(fmt.Errorf("got panic running something in parallel: %v", thePanic))
+				cancel()
+			}
+			wg.Done()
+		}()
 		err := f(ctx)
 		if err != nil {
 			anError.Store(err)
@@ -149,8 +155,9 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 	wg.Wait()
 
 	err := anError.Load()
+	elapsed := time.Since(start)
 	if err == nil {
-		return time.Since(start), nil
+		return elapsed, nil
 	}
-	return time.Since(start), err.(error)
+	return elapsed, err.(error)
 }

@@ -189,7 +189,7 @@ type EncodedMotor struct {
 	cancelCtx       context.Context
 	cancel          func()
 	loop            *control.ControlLoop
-	mgr             operation.LocalCallManager
+	opMgr           operation.SingleOperationManager
 
 	generic.Unimplemented
 }
@@ -462,14 +462,14 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	ctx, done := m.mgr.New(ctx)
+	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
 	if err := m.goForInternal(ctx, rpm, revolutions); err != nil {
 		return err
 	}
 
-	return m.mgr.WaitForSuccess(
+	return m.opMgr.WaitForSuccess(
 		ctx,
 		time.Millisecond,
 		func(ctx context.Context) (bool, error) {
