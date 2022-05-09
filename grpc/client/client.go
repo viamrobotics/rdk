@@ -32,11 +32,9 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	address        string
-	conn           rpc.ClientConn
-	client         pb.RobotServiceClient
-	metadataConn   rpc.ClientConn
-	metadataClient pb.MetadataServiceClient
+	address string
+	conn    rpc.ClientConn
+	client  pb.RobotServiceClient
 
 	namesMu       *sync.RWMutex
 	resourceNames []resource.Name
@@ -61,14 +59,6 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		return nil, err
 	}
 
-	// CR erodkin: make sure defining it identically is okay!
-	metadataConn, err := grpc.Dial(ctx, address, logger, rOpts.dialOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	metadataClient := pb.NewMetadataServiceClient(metadataConn)
-
 	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
 
@@ -76,8 +66,6 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		address:                 address,
 		conn:                    conn,
 		client:                  client,
-		metadataConn:            metadataConn,
-		metadataClient:          metadataClient,
 		cancelBackgroundWorkers: cancel,
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
@@ -87,7 +75,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
-		return nil, multierr.Combine(err, metadataConn.Close(), conn.Close())
+		return nil, multierr.Combine(err, conn.Close())
 	}
 
 	if rOpts.refreshEvery != 0 {
@@ -106,7 +94,7 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
 
-	return multierr.Combine(rc.conn.Close(), rc.metadataConn.Close())
+	return rc.conn.Close()
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
@@ -146,7 +134,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, error) {
-	resp, err := rc.metadataClient.Resources(ctx, &pb.ResourcesRequest{})
+	resp, err := rc.client.Resources(ctx, &pb.ResourcesRequest{})
 	if err != nil {
 		return nil, err
 	}

@@ -11,8 +11,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/metadata"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -36,27 +34,15 @@ var serverOneResourceResponse = []*commonpb.ResourceName{
 	},
 }
 
-// CR erodkin: see if we can still have this only defined in one place.
-func newServer(injectMetadata *inject.Metadata) (pb.MetadataServiceServer, error) {
-	subtypeSvcMap := map[resource.Name]interface{}{
-		metadata.Name: injectMetadata,
-	}
-
-	subtypeSvc, err := subtype.New(subtypeSvcMap)
-	if err != nil {
-		return nil, err
-	}
-	return server.NewMetadataServer(subtypeSvc), nil
-}
-
 func TestServer(t *testing.T) {
 	t.Run("Metadata", func(t *testing.T) {
 		injectMetadata := &inject.Metadata{}
-		server, err := newServer(injectMetadata)
-		test.That(t, err, test.ShouldBeNil)
 		injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
 			return []resource.Name{}, nil
 		}
+
+		server := server.New(&inject.Robot{}, injectMetadata)
+
 		resourceResp, err := server.Resources(context.Background(), &pb.ResourcesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp, test.ShouldResemble, emptyResources)
