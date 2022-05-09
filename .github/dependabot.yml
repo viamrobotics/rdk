@@ -12,6 +12,13 @@ updates:
       interval: "daily"
     allow:
       - dependency-type: "all"
+    open-pull-requests-limit: 0
+  - package-ecosystem: "npm"
+    directory: "web/frontend/dls"
+    schedule:
+      interval: "daily"
+    allow:
+      - dependency-type: "all"
     ignore:
       - dependency-name: "proto"
     open-pull-requests-limit: 0
