@@ -14,12 +14,22 @@ updates:
       interval: "daily"
     allow:
       - dependency-type: "all"
+    ignore:
+      - dependency-name: "github.com/blend/go-sdk" # indirect and missing version
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    assignees: #TODO: make list
+      - stevebriskin
+      - mcvella
   - package-ecosystem: "npm"
     directory: "web/frontend"
     schedule:
       interval: "daily"
     allow:
       - dependency-type: "all"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     open-pull-requests-limit: 0
   - package-ecosystem: "npm"
     directory: "web/frontend/dls"
@@ -28,7 +38,9 @@ updates:
     allow:
       - dependency-type: "all"
     ignore:
-      - dependency-name: "proto"
+      - dependency-name: "proto" # generated proto files
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     open-pull-requests-limit: 0
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -36,4 +48,8 @@ updates:
       interval: "daily"
     allow:
       - dependency-type: "all"
-    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    assignees: #TODO: make list
+      - Otterverse
