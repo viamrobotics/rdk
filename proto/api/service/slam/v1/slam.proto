@@ -27,34 +27,34 @@ service SLAMService {
 }
 
 message GetPositionRequest {
-// Name of slam service
-string name = 1;
+  // Name of slam service
+  string name = 1;
 }
 
 message GetPositionResponse {
-// Current position of the robot within the World frame.
-common.v1.PoseInFrame pose = 1;
+  // Current position of the robot within the World frame.
+  common.v1.PoseInFrame pose = 1;
 }
 
 message GetMapRequest {
-// Name of slam service
-string name = 1;
-// Requested MIME type of response (image/jpeg or image/pcd)
-string mime_type = 2;
-// Optional parameter for image/jpeg mime_type, used to project point
-// cloud into a 2D image.
-common.v1.Pose camera_position = 3;
-// Optional parameter for image/jpeg mime_type, defaults to false.    
-// Tells us whether to include the robot position on the 2D image.
-bool include_robot_marker = 4;
+  // Name of slam service
+  string name = 1;
+  // Requested MIME type of response (image/jpeg or image/pcd)
+  string mime_type = 2;
+  // Optional parameter for image/jpeg mime_type, used to project point
+  // cloud into a 2D image.
+  common.v1.Pose camera_position = 3;
+  // Optional parameter for image/jpeg mime_type, defaults to false.    
+  // Tells us whether to include the robot position on the 2D image.
+  bool include_robot_marker = 4;
 }
 
 message GetMapResponse {
-// Image or point cloud of mime_type.
-oneof map {
-  common.v1.PointCloudObject point_cloud = 1; 
-  bytes image = 2; 
-}
-// Actual MIME type of response (image/jpeg or image/pcd)
-string mime_type = 3;
+  // Image or point cloud of mime_type.
+  oneof map {
+    common.v1.PointCloudObject point_cloud = 1; 
+    bytes image = 2; 
+  }
+  // Actual MIME type of response (image/jpeg or image/pcd)
+  string mime_type = 3;
 }
