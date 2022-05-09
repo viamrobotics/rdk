@@ -39,7 +39,6 @@ import (
 	servopb "go.viam.com/rdk/proto/api/component/servo/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	framepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
-	metadatapb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot/metadata"
@@ -427,7 +426,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func getMetadataServer(injectMetadata *inject.Metadata) (metadatapb.MetadataServiceServer, error) {
+func getMetadataServer(injectMetadata *inject.Metadata) (pb.MetadataServiceServer, error) {
 	subtypeSvcMap := map[resource.Name]interface{}{metadata.Name: injectMetadata}
 
 	subtypeSvc, err := subtype.New(subtypeSvcMap)
@@ -448,7 +447,7 @@ func TestClientRefresh(t *testing.T) {
 	injectMetadata := &inject.Metadata{}
 	metadataServer, err := getMetadataServer(injectMetadata)
 	test.That(t, err, test.ShouldBeNil)
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
+	pb.RegisterMetadataServiceServer(gServer, metadataServer)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -678,7 +677,7 @@ func TestClientDialerOption(t *testing.T) {
 	injectMetadata := &inject.Metadata{}
 	metadataServer, err := getMetadataServer(injectMetadata)
 	test.That(t, err, test.ShouldBeNil)
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
+	pb.RegisterMetadataServiceServer(gServer, metadataServer)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()

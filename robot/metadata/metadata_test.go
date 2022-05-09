@@ -22,19 +22,6 @@ func (m *mock) Resources(ctx context.Context) ([]resource.Name, error) {
 
 var metadataName = []resource.Name{metadata.Name}
 
-// CR erodkin: get rid of this probably
-//func newServer(injectMetadata *inject.Metadata) (pb.MetadataServiceServer, error) {
-//subtypeSvcMap := map[resource.Name]interface{}{
-//metadata.Name: injectMetadata,
-//}
-
-//subtypeSvc, err := subtype.New(subtypeSvcMap)
-//if err != nil {
-//return nil, err
-//}
-//return metadata.NewServer(subtypeSvc), nil
-//}
-
 func setupInjectRobot() (*inject.Robot, *mock) {
 	svc := &mock{}
 	robot := &inject.Robot{}
@@ -67,8 +54,7 @@ func TestFromRobot(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	svc, err := metadata.New()
-	test.That(t, err, test.ShouldBeNil)
+	svc := metadata.New()
 	test.That(t, svc, test.ShouldNotBeNil)
 
 	resources, err := svc.Resources(context.Background())

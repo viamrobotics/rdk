@@ -5,7 +5,7 @@ import (
 	"context"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/robot/metadata"
 	"go.viam.com/rdk/subtype"
@@ -23,7 +23,7 @@ func NewMetadataServer(s subtype.Service) pb.MetadataServiceServer {
 	return &server{subtypeSvc: s}
 }
 
-// CR erodkin: this will need some work since we want to dump metadata.Name probably
+// CR erodkin: this will need some work since we want to dump metadata.Name probably.
 func (server *server) service() (metadata.Service, error) {
 	resource := server.subtypeSvc.Resource(metadata.Name.String())
 	if resource == nil {

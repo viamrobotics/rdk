@@ -669,7 +669,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 			}
 			if listenerTCPAddr.IP.IsLoopback() {
 				// plus localhost alias
-				authEntities = addIfNotFound(LocalHostWithPort(listenerTCPAddr))
+				authEntities = addIfNotFound(weboptions.LocalHostWithPort(listenerTCPAddr))
 			}
 		}
 		if options.Secure && len(options.Auth.TLSAuthEntities) != 0 {

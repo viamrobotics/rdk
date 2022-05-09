@@ -56,28 +56,6 @@ type metadataService struct {
 	resources []resource.Name
 }
 
-// CR erodkin: probably we want to get rid of this init entirely
-//func init() {
-//registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-//RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-//return rpcServer.RegisterServiceServer(
-//ctx,
-//&pb.MetadataService_ServiceDesc,
-//NewServer(subtypeSvc),
-//pb.RegisterMetadataServiceHandlerFromEndpoint,
-//)
-//},
-//RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-//return newClientFromConn(ctx, conn, name, logger)
-//},
-//})
-//registry.RegisterService(Subtype, registry.Service{
-//Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-//return New()
-//},
-//})
-//}
-
 // Resources returns the list of resources.
 func (svc *metadataService) Resources(ctx context.Context) ([]resource.Name, error) {
 	resources := []resource.Name{}
