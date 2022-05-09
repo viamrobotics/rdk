@@ -13,27 +13,41 @@ updates:
     schedule:
       interval: "daily"
     allow:
-      - dependency-type: "all"
+      - dependency-type: "direct"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    assignees: #TODO: make list
+      - stevebriskin
   - package-ecosystem: "npm"
     directory: "web/frontend"
     schedule:
       interval: "daily"
     allow:
-      - dependency-type: "all"
+      - dependency-type: "direct"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     open-pull-requests-limit: 0
   - package-ecosystem: "npm"
     directory: "web/frontend/dls"
     schedule:
       interval: "daily"
     allow:
-      - dependency-type: "all"
+      - dependency-type: "direct"
     ignore:
       - dependency-name: "proto"
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     open-pull-requests-limit: 0
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
     allow:
-      - dependency-type: "all"
-    open-pull-requests-limit: 0
+      - dependency-type: "direct"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    assignees: #TODO: make list
+      - Otterverse
