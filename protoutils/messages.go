@@ -85,6 +85,10 @@ func toInterface(data interface{}) (interface{}, error) {
 		}
 	case reflect.String:
 		newData = reflect.ValueOf(data).String()
+	case reflect.Uint8:
+		newData = reflect.ValueOf(data).Uint()
+	case reflect.Int8:
+		newData = reflect.ValueOf(data).Int()
 	default:
 		newData = data
 	}
@@ -120,6 +124,9 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 	}
 	res := map[string]interface{}{}
 	value := reflect.ValueOf(data)
+	if value.IsNil() {
+		return res, nil
+	}
 	value = reflect.Indirect(value)
 	for i := 0; i < t.NumField(); i++ {
 		sField := t.Field(i)
@@ -152,6 +159,7 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		res[key] = data
 	}
 	return res, nil
