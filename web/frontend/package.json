@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "license": "Apache-2.0",
   "dependencies": {
-    "@improbable-eng/grpc-web": "^0.13.0",
+    "@improbable-eng/grpc-web": "^0.15.0",
     "@viamrobotics/rpc": "0.1.20",
     "google-protobuf": "^3.14.0",
     "three": "^0.137.0"
