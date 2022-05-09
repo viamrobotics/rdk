@@ -2,12 +2,16 @@
 package slam
 
 import (
+	"bufio"
 	"context"
+	"image/jpeg"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -15,8 +19,10 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -170,9 +176,10 @@ type slamService struct {
 	port       int
 	dataFreqHz float64
 
-	cancelCtx  context.Context
-	cancelFunc func()
-	logger     golog.Logger
+	cancelCtx               context.Context
+	cancelFunc              func()
+	logger                  golog.Logger
+	activeBackgroundWorkers *sync.WaitGroup
 }
 
 // configureCamera will check the config to see if a camera is desired and if so, grab the camera from
@@ -267,6 +274,44 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 // https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-104)
 // startSLAMProcess starts up the SLAM library process by calling the executable binary.
 func (slamSvc *slamService) startSLAMProcess(ctx context.Context) error {
+	if slamSvc.camera == nil {
+		return nil
+	}
+
+	slamSvc.activeBackgroundWorkers.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer slamSvc.activeBackgroundWorkers.Done()
+
+		for {
+			select {
+			case <-slamSvc.cancelCtx.Done():
+				return
+			default:
+			}
+
+			timer := time.NewTimer(time.Second / time.Duration(slamSvc.dataFreqHz))
+			select {
+			case <-slamSvc.cancelCtx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
+
+			// Get data from desired camera
+			switch slamSvc.slamLib.AlgoName {
+			case "cartographer":
+				if _, err := slamSvc.getAndSaveDataDense(); err != nil {
+					panic(err)
+				}
+			case "orbslamv3":
+				if _, err := slamSvc.getAndSaveDataSparse(); err != nil {
+					panic(err)
+				}
+			default:
+				panic(errors.New("error invalid algrothim specified"))
+			}
+		}
+	})
 	return nil
 }
 
@@ -278,19 +323,92 @@ func (slamSvc *slamService) getSLAMServiceData() slamService {
 // TODO 05/03/2022: Implement closeout of slam service and subprocesses.
 // Close out of all slam related processes.
 func (slamSvc *slamService) Close(ctx context.Context) error {
+	slamSvc.cancelCtx.Done()
 	return nil
 }
 
-// TODO 05/06/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
 // getAndSaveData implements the data extraction for sparse algos and saving to the specified directory.
-// nolint:unparam
 func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
-	return filepath.Join(slamSvc.dataDirectory, "temp.txt"), nil
+	// Get Image
+	img, _, err := slamSvc.camera.Next(slamSvc.cancelCtx)
+	if err != nil {
+		if err.Error() == "bad scan: OpTimeout" {
+			slamSvc.logger.Warnf("Skipping this scan due to error: %v", err)
+			return "", nil
+		}
+		return "", err
+	}
+
+	// Get timestamp for file name
+	timeStamp := time.Now()
+
+	// Create file
+	var file_type string
+	if slamSvc.slamMode == "both" {
+		file_type = ".both"
+	} else {
+		file_type = ".jpeg"
+	}
+	filename := slamSvc.dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + file_type
+	f, err := os.Create(filename)
+	if err != nil {
+		return filename, err
+	}
+
+	// Write image file based on mode
+	w := bufio.NewWriter(f)
+
+	switch slamSvc.slamMode {
+	case "mono":
+		if err := jpeg.Encode(w, img, nil); err != nil {
+			return filename, err
+		}
+	case "rgbd":
+		iwd, ok := img.(*rimage.ImageWithDepth)
+		if !ok {
+			return filename, errors.Errorf("want %s but don't have %T", utils.MimeTypeBoth, iwd)
+		}
+		if err := rimage.EncodeBoth(iwd, w); err != nil {
+			return filename, err
+		}
+	}
+	if err = w.Flush(); err != nil {
+		return filename, err
+	}
+	return filename, f.Close()
 }
 
-// TODO 05/03/2022: Data processing loop in new PR (see slam.go startDataProcessing function)
 // getAndSaveData implements the data extraction for dense algos and saving to the specified directory.
-// nolint:unparam
 func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
-	return filepath.Join(slamSvc.dataDirectory, "temp.txt"), nil
+	// Get NextPointCloud
+	pointcloud, err := slamSvc.camera.NextPointCloud(slamSvc.cancelCtx)
+	if err != nil {
+		if err.Error() == "bad scan: OpTimeout" {
+			slamSvc.logger.Warnf("Skipping this scan due to error: %v", err)
+			return "", nil
+		}
+		return "", err
+	}
+
+	// Get timestamp for file name
+	timeStamp := time.Now()
+
+	// Create file
+	file_type := ".pcd"
+	filename := slamSvc.dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + file_type
+	f, err := os.Create(filename)
+	if err != nil {
+		return filename, err
+	}
+
+	w := bufio.NewWriter(f)
+
+	// Write PCD file based on mode
+	if err = pc.ToPCD(pointcloud, w, 1); err != nil {
+		return filename, err
+	}
+	if err = w.Flush(); err != nil {
+		return filename, err
+	}
+	return filename, f.Close()
 }
