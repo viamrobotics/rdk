@@ -36,7 +36,6 @@
 </template>
 <script lang="ts">
 import Popper from "vue-popperjs";
-// import "vue-popperjs/dist/vue-popper.css";
 import { Component, Prop, Vue } from "vue-property-decorator";
 import ViamIcon from "./ViamIcon.vue";
 
