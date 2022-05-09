@@ -96,11 +96,11 @@
             </div>
             <div class="pt-4">
               <span class="pr-2">Point Cloud Data</span>
-              <viam-info-button
+              <ViamInfoButton
                 :iconPath="mdiInformationOutline"
                 :infoRows="['When turned on, point cloud will be recalculated']"
               >
-              </viam-info-button>
+              </ViamInfoButton>
               <ViamSwitch
                 centered
                 name="pcd"
