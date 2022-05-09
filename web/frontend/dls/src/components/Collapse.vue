@@ -10,7 +10,11 @@
         'flex-row-reverse': iconLeft,
       }"
     >
-      <div data-cy="collapse-container" class="flex-1 cursor-pointer" @click="toggleExpand()">
+      <div
+        data-cy="collapse-container"
+        class="flex-1 cursor-pointer"
+        @click="toggleExpand()"
+      >
         <slot />
       </div>
 
