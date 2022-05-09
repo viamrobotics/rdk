@@ -391,10 +391,17 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 }
 
 func (svc *Service) closeCollectors() {
+	wg := sync.WaitGroup{}
 	for _, collector := range svc.collectors {
-		collector.Collector.Close()
-		collector.Collector = nil // Should we have a bool instead? collector_disabled/closed?
+		currCollector := collector
+		wg.Add(1)
+		go func() {
+			currCollector.Collector.Close()
+			currCollector.Collector = nil // Should we have a bool instead? collector_disabled/closed?
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 func (svc *Service) reinitializeClosedCollectors() error {
