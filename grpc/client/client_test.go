@@ -223,6 +223,14 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	framepb.RegisterFrameSystemServiceServer(gServer2, framesystem.NewServer(frameSysSvc2))
 
+	injectMetadata := &inject.Metadata{}
+	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+		return finalResources, nil
+	}
+	metadataServer, err := getMetadataServer(injectMetadata)
+	test.That(t, err, test.ShouldBeNil)
+	pb.RegisterMetadataServiceServer(gServer2, metadataServer)
+
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
 	go gServer2.Serve(listener2)
@@ -354,6 +362,10 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
+
+	resources, err := client.resources(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resources, test.ShouldResemble, finalResources)
 
 	arm1, err = arm.FromRobot(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
