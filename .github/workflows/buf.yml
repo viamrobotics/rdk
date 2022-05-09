@@ -37,7 +37,7 @@ jobs:
           - 'viamrobotics/rust-sdk'
     steps:
       - name: Notify Proto Watchers
-        uses: peter-evans/repository-dispatch@v1
+        uses: peter-evans/repository-dispatch@v2
         with:
           token: ${{ secrets.GIT_ACCESS_TOKEN }}
           repository: ${{ matrix.repo }}
