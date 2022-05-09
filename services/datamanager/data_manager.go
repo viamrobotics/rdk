@@ -302,9 +302,10 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 		if attributes.CaptureFrequencyHz > 0 {
 			componentMetadata, err := svc.initializeOrUpdateCollector(componentName, attributes, updateCaptureDir)
 			if err != nil {
-				return err
+				svc.logger.Errorw("failed to initialize or update collector", "error", err)
+			} else {
+				newCollectorMetadata[*componentMetadata] = true
 			}
-			newCollectorMetadata[*componentMetadata] = true
 		}
 	}
 
