@@ -175,6 +175,7 @@ type slamService struct {
 
 	port       int
 	dataFreqHz float64
+	mapRateSec int
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -231,6 +232,22 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, errors.Errorf("error trying to return a random port %v", err)
 	}
 
+	var dataRate int
+	if svcConfig.DataRateMs == 0 {
+		logger.Info("no data rate (ms) specified, using default of 200 ms")
+		dataRate = 200
+	} else {
+		dataRate = svcConfig.DataRateMs
+	}
+
+	var mapRate int
+	if svcConfig.MapRateSec == 0 {
+		logger.Info("no map rate (s) specified, using default of 60 s")
+		mapRate = 60
+	} else {
+		mapRate = svcConfig.MapRateSec
+	}
+
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
@@ -242,7 +259,8 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		dataDirectory:    svcConfig.DataDirectory,
 		inputFilePattern: svcConfig.InputFilePattern,
 		port:             p,
-		dataFreqHz:       float64(1000.0 / svcConfig.DataRateMs),
+		dataFreqHz:       float64(1000.0 / dataRate),
+		mapRateSec:       mapRate,
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
