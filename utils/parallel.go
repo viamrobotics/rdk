@@ -2,14 +2,15 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"math"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
 
@@ -130,19 +131,27 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 
 	var wg sync.WaitGroup
 
-	var anError atomic.Value
+	var bigError error
+	var bigErrorMutex sync.Mutex
+	storeError := func(err error) {
+		bigErrorMutex.Lock()
+		defer bigErrorMutex.Unlock()
+		if bigError == nil || !errors.Is(err, context.Canceled) {
+			bigError = multierr.Combine(bigError, err)
+		}
+	}
 
 	helper := func(f SimpleFunc) {
 		defer func() {
 			if thePanic := recover(); thePanic != nil {
-				anError.Store(fmt.Errorf("got panic running something in parallel: %v", thePanic))
+				storeError(fmt.Errorf("got panic running something in parallel: %v", thePanic))
 				cancel()
 			}
 			wg.Done()
 		}()
 		err := f(ctx)
 		if err != nil {
-			anError.Store(err)
+			storeError(err)
 			cancel()
 		}
 	}
@@ -153,11 +162,5 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 	}
 
 	wg.Wait()
-
-	err := anError.Load()
-	elapsed := time.Since(start)
-	if err == nil {
-		return elapsed, nil
-	}
-	return elapsed, err.(error)
+	return time.Since(start), bigError
 }
