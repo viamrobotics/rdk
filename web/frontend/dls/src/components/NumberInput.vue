@@ -12,7 +12,7 @@
         :value="innerValue"
         :placeholder="placeholder"
         :readonly="!canBeEditted"
-        @keydown="handleArrows"
+        @keydown="handleKeyboardArrowKeys"
         @input="inputEventHandler"
         @paste="pasteEventHandler"
         :class="{
@@ -113,7 +113,7 @@ export default class NumberInput extends Vue {
     (this.$refs.input as HTMLInputElement).focus();
     handler();
   }
-  handleArrows(event: KeyboardEvent): void {
+  handleKeyboardArrowKeys(event: KeyboardEvent): void {
     if (!this.canBeEditted) return;
     if (event.key === "ArrowUp") this.increase();
     else if (event.key === "ArrowDown") this.decrease();
