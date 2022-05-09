@@ -132,7 +132,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return errors.New("unsupported")
 }
 
-// ResetZeroPosition always returns an error.
+// ResetZeroPosition resets the zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	m.position = offset
 	return nil

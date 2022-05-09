@@ -28,4 +28,11 @@ func TestRunInParallel(t *testing.T) {
 	elapsed, err = RunInParallel(context.Background(), []SimpleFunc{wait100ms, wait100ms, errFunc})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, elapsed, test.ShouldBeLessThan, 10*time.Millisecond)
+
+	panicFunc := func(ctx context.Context) error {
+		panic(1)
+	}
+
+	_, err = RunInParallel(context.Background(), []SimpleFunc{panicFunc})
+	test.That(t, err, test.ShouldNotBeNil)
 }

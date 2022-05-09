@@ -103,7 +103,7 @@ type Motor struct {
 	maxRPM                   float64
 	dirFlip                  bool
 
-	mgr    operation.LocalCallManager
+	opMgr  operation.SingleOperationManager
 	logger golog.Logger
 
 	generic.Unimplemented
@@ -188,7 +188,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 //  SetPower instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
-	m.mgr.CancelRunning()
+	m.opMgr.CancelRunning()
 
 	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx)
@@ -257,7 +257,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		return nil
 	}
 
-	if m.mgr.TimedWait(ctx, waitDur) {
+	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
 		return m.Stop(ctx)
 	}
 	return nil
