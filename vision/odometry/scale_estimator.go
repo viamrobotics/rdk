@@ -2,6 +2,7 @@
 package odometry
 
 import (
+	"errors"
 	"math"
 
 	"github.com/golang/geo/r2"
@@ -11,7 +12,8 @@ import (
 	"go.viam.com/rdk/vision/delaunay"
 )
 
-// estimatePitchFromCameraPose gets a rough estimation of the camera pitch (angle of camera axis with ground plane).
+// estimatePitchFromCameraPose gets a rough estimation of the camera pitch (angle of camera axis with ground plane
+// in radians).
 func estimatePitchFromCameraPose(pose *transform.CamPose) float64 {
 	pitch := math.Asin(pose.Translation.At(1, 0))
 	return pitch
@@ -51,7 +53,11 @@ func getCameraHeightFromGroundPoint(pt r3.Vector, pitch float64) float64 {
 }
 
 // getAverageHeightGroundPoints returns the average height of 3d ground points wrt to the gr.
+// pitch angle should be expressed in radians.
 func getAverageHeightGroundPoints(groundPoints []r3.Vector, pitch float64) float64 {
+	if len(groundPoints) < 1 {
+		panic("no ground points to get height from")
+	}
 	height := 0.
 	for _, pt := range groundPoints {
 		height += getCameraHeightFromGroundPoint(pt, pitch)
@@ -81,21 +87,13 @@ func getSelected3DFeatures(f3d []r3.Vector, ids []int) []r3.Vector {
 	return f3dSelected
 }
 
-// getTriangleNormalVector returns the normal vector of a 3D triangle.
-func getTriangleNormalVector(tri3d []r3.Vector) r3.Vector {
-	u := tri3d[1].Sub(tri3d[0])
-	v := tri3d[2].Sub(tri3d[0])
-	normal := u.Cross(v)
-	return normal
-}
-
-// GetTriangulatedPointCloudFrom2DKeyPoints gets the triangulated 3D point cloud from the matched 2D keypoints and the
+// GetTriangulated3DPointsFrom2DKeypoints gets the triangulated 3D point cloud from the matched 2D keypoints and the
 // second camera pose.
-func GetTriangulatedPointCloudFrom2DKeyPoints(pts1, pts2 []r2.Point, pose *transform.CamPose) ([]r3.Vector, error) {
+func GetTriangulated3DPointsFrom2DKeypoints(pts1, pts2 []r2.Point, pose *transform.CamPose) ([]r3.Vector, error) {
 	// homogenize 2d keypoints in image coordinates
 	pts1H := transform.Convert2DPointsToHomogeneousPoints(pts1)
 	pts2H := transform.Convert2DPointsToHomogeneousPoints(pts2)
-	// get triangulated 3d points between the two frames
+	// get triangulated 3d points in camera1 reference
 	pts3d, err := transform.GetLinearTriangulatedPoints(pose.PoseMat, pts1H, pts2H)
 	if err != nil {
 		return nil, err
@@ -107,7 +105,7 @@ func GetTriangulatedPointCloudFrom2DKeyPoints(pts1, pts2 []r2.Point, pose *trans
 func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	thresholdNormalAngle, thresholdPlaneInlier float64) ([]r3.Vector, error) {
 	// get 3D features
-	f3d, err := GetTriangulatedPointCloudFrom2DKeyPoints(pts1, pts2, pose)
+	f3d, err := GetTriangulated3DPointsFrom2DKeypoints(pts1, pts2, pose)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +113,8 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	pitch := estimatePitchFromCameraPose(pose)
 	// remap 3d features
 	p3d := remap3dFeatures(f3d, pitch)
-	// get 2d Delaunay triangulation
+	// get 2d Delaunay triangulation; 2D Delaunay triangulation can be obtained from either pts1 or pts2, as there is a
+	// bijection between the 2 sets
 	pts2dDelaunay := make([]delaunay.Point, len(pts1))
 	for i, pt := range pts1 {
 		pts2dDelaunay[i] = delaunay.Point{pt.X, pt.Y}
@@ -124,7 +123,7 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	if err != nil {
 		return nil, err
 	}
-	triangleMap := tri.GetTranglesPointsMap()
+	triangleMap := tri.GetTrianglesPointsMap()
 	// get 3D triangles
 	triangles3D := make([][]r3.Vector, len(triangleMap))
 	for k, triangle := range triangleMap {
@@ -160,7 +159,8 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 		pointsGround := getSelected3DFeatures(p3d, inliersGround)
 		return pointsGround, nil
 	}
-	return nil, nil
+	err = errors.New("no ground plane points found")
+	return nil, err
 }
 
 // EstimateCameraHeight estimates the camera height wrt to ground plane.
@@ -174,9 +174,4 @@ func EstimateCameraHeight(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	pitch := estimatePitchFromCameraPose(pose)
 	height := getAverageHeightGroundPoints(pointsGround, pitch)
 	return height, nil
-}
-
-// GetEstimatedScaleFactor returns the estimated absolute scale factor for camera pose translation.
-func GetEstimatedScaleFactor(camHeight, estimatedCamHeight float64) float64 {
-	return camHeight / estimatedCamHeight
 }
