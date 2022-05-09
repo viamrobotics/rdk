@@ -63,4 +63,3 @@ export default class ViamRange extends Vue {
   }
 }
 </script>
-<style></style>
