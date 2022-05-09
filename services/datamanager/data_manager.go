@@ -72,6 +72,9 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
+// Default maximum storage percentage.
+const defaultMaxStoragePercent = 90
+
 // Attributes to initialize the collector for a component.
 type componentAttributes struct {
 	Type               string            `json:"type"`
@@ -101,12 +104,14 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		r:                 r,
 		logger:            logger,
 		captureDir:        viamCaptureDotDir,
+		maxStoragePercent: defaultMaxStoragePercent,
 		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers: sync.WaitGroup{},
 		lock:              sync.Mutex{},
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 	}
+	go dataManagerSvc.continuouslyCheckStorage()
 
 	return dataManagerSvc, nil
 }
@@ -283,18 +288,15 @@ func (svc *Service) diskUsagePercentage() (int, error) {
 	return int(100 * used / (used + avail)), nil
 }
 
-func (svc *Service) checkStorage() {
+func (svc *Service) continuouslyCheckStorage() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
-	var wg sync.WaitGroup
 
 	for {
 		select {
 		case <-svc.cancelCtx.Done():
-			wg.Wait()
 			return
 		case <-ticker.C:
-			wg.Add(1)
 			percentUsed, err := svc.diskUsagePercentage()
 			if err != nil {
 				svc.logger.Errorw("failed to check disk usage", "error", err)
@@ -352,19 +354,9 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 	svc.enableAutoDelete = svcConfig.EnableAutoDelete
+	svc.maxStoragePercent = svcConfig.MaxStoragePercent
 	// nolint:contextcheck
 	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
-
-	// If auto-delete off, stop writing to disk after max percent storage
-	// If auto-delete on, delete oldest file after max percent storage?
-	updateEnableAutoDelete := svc.enableAutoDelete != svcConfig.EnableAutoDelete
-	updateMaxPercentStorage := svc.maxStoragePercent != svcConfig.MaxStoragePercent
-	if updateEnableAutoDelete || updateMaxPercentStorage {
-		// Kick this off earlier and just send an update here?
-		go svc.checkStorage()
-	}
-	svc.enableAutoDelete = svcConfig.EnableAutoDelete
-	svc.maxStoragePercent = svcConfig.MaxStoragePercent
 
 	// Initialize or add a collector based on changes to the config.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
