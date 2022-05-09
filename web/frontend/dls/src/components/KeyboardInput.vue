@@ -87,7 +87,7 @@ export default class KeyboardInput extends Vue {
 
   handleKeysStateInstantly(): void {
     this.emitEvent("keyboard-ctl");
-  };
+  }
 
   emitEvent = throttle((eventName: string) => {
     this.emitEventInstantly(eventName);

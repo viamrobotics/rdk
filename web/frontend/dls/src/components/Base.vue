@@ -69,9 +69,7 @@
                       </div>
                     </div>
                     <div class="flex pt-6">
-                      <KeyboardInput
-                        @keyboard-ctl="keyboardCtl"
-                      >
+                      <KeyboardInput @keyboard-ctl="keyboardCtl">
                       </KeyboardInput>
                     </div>
                   </div>
