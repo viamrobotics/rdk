@@ -28,12 +28,12 @@ func TestFourWheelBase1(t *testing.T) {
 
 	cfg := config.Component{
 		Attributes: config.AttributeMap{
-			"widthMm":              100,
-			"wheelCircumferenceMm": 1000,
-			"frontRight":           "fr-m",
-			"frontLeft":            "fl-m",
-			"backRight":            "br-m",
-			"backLeft":             "bl-m",
+			"width_mm":               100,
+			"wheel_circumference_mm": 1000,
+			"front_right":            "fr-m",
+			"front_left":             "fl-m",
+			"back_right":             "br-m",
+			"back_left":              "bl-m",
 		},
 	}
 	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
@@ -67,7 +67,7 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 
 	t.Run("straight no speed", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 1000, 0, true)
+		err := base.MoveStraight(ctx, 1000, 0)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = base.WaitForMotorsToStop(ctx)
@@ -81,7 +81,7 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 
 	t.Run("straight no distance", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 0, 1000, true)
+		err := base.MoveStraight(ctx, 0, 1000)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = base.WaitForMotorsToStop(ctx)
@@ -124,18 +124,6 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 
 	test.That(t, base.Close(context.Background()), test.ShouldBeNil)
-	t.Run("go no block", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 10000, 1000, false)
-		test.That(t, err, test.ShouldBeNil)
-		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, isOn, test.ShouldBeTrue)
-		}
-
-		err = base.Stop(ctx)
-		test.That(t, err, test.ShouldBeNil)
-	})
 	t.Run("go block", func(t *testing.T) {
 		go func() {
 			time.Sleep(time.Millisecond * 10)
@@ -145,7 +133,7 @@ func TestFourWheelBase1(t *testing.T) {
 			}
 		}()
 
-		err := base.MoveStraight(ctx, 10000, 1000, true)
+		err := base.MoveStraight(ctx, 10000, 1000)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -172,19 +160,6 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rpms, test.ShouldAlmostEqual, 7.5, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
 	})
-	t.Run("spin no block", func(t *testing.T) {
-		err := base.Spin(ctx, 5, 5, false)
-		test.That(t, err, test.ShouldBeNil)
-
-		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, isOn, test.ShouldBeTrue)
-		}
-
-		err = base.Stop(ctx)
-		test.That(t, err, test.ShouldBeNil)
-	})
 	t.Run("spin block", func(t *testing.T) {
 		go func() {
 			time.Sleep(time.Millisecond * 10)
@@ -194,7 +169,7 @@ func TestFourWheelBase1(t *testing.T) {
 			}
 		}()
 
-		err := base.Spin(ctx, 5, 5, true)
+		err := base.Spin(ctx, 5, 5)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -206,7 +181,7 @@ func TestFourWheelBase1(t *testing.T) {
 	// Arc tests
 
 	t.Run("arc no speed", func(t *testing.T) {
-		err := base.MoveArc(ctx, 1000, 0, 10, true)
+		err := base.MoveArc(ctx, 1000, 0, 10)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = base.WaitForMotorsToStop(ctx)

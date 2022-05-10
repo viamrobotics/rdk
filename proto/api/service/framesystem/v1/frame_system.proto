@@ -14,7 +14,7 @@ service FrameSystemService {
       get: "/viam/api/v1/service/frame_system/config"
     };
   }
-  
+
   rpc TransformPose(TransformPoseRequest) returns (TransformPoseResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/service/frame_system/transform_pose"
@@ -28,15 +28,26 @@ message Config {
   bytes model_json = 3; 
 }
 
-message ConfigRequest {}
+message ConfigRequest {
+  // pose information on any additional reference frames that are needed
+  // to supplement the robot's frame system
+  repeated common.v1.Transform supplemental_transforms = 1;
+}
 
 message ConfigResponse {
   repeated Config frame_system_configs = 1;
 }
 
 message TransformPoseRequest {
+  // the original pose to transform along with the reference frame in
+  // which it was observed
   common.v1.PoseInFrame source = 1;
+  // the reference frame into which the source pose should be transformed,
+  // if unset this defaults to the "world" reference frame
   string destination = 2;
+  // pose information on any additional reference frames that are needed
+  // to perform the transform
+  repeated common.v1.Transform supplemental_transforms = 3;
 }
 
 message TransformPoseResponse {

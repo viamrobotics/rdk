@@ -4,7 +4,7 @@
           "type" : "camera",
           "model" : "velodyne",
           "attributes" : {
-	          "ttlMilliseconds" : 5000
+	          "ttl_ms" : 5000
           }
         }
     ]

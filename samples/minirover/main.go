@@ -16,7 +16,6 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/perf"
 
-	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
@@ -25,7 +24,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/vision/segmentation"
-	webserver "go.viam.com/rdk/web/server"
 )
 
 // TODO.
@@ -36,106 +34,6 @@ const (
 
 var logger = golog.NewDevelopmentLogger("minirover")
 
-func init() {
-	action.RegisterAction("dock", func(ctx context.Context, r robot.Robot) {
-		err := dock(ctx, r)
-		if err != nil {
-			logger.Errorf("error docking: %s", err)
-		}
-	})
-}
-
-func dock(ctx context.Context, r robot.Robot) error {
-	return errors.New("no dock")
-	/*
-		logger.Info("docking started")
-
-		cam, err := camera.FromRobot(r,"back")
-		if err != nil {
-			return err
-		}
-
-		base, err := base.FromRobot(r,"pierre")
-		if err != nil {
-			return err
-		}
-
-		theLidar, ok := r.LidarByName("lidarOnBase")
-		if !ok {
-			return errors.New("no lidar lidarOnBase")
-		}
-
-		for tries := 0; tries < 5; tries++ {
-
-			ms, err := theLidar.Scan(ctx, lidar.ScanOptions{})
-			if err != nil {
-				return err
-			}
-			back := ms.ClosestToDegree(180)
-			logger.Debugf("distance to back: %#v", back)
-
-			if back.Distance() < .55 {
-				logger.Info("docking close enough")
-				return nil
-			}
-
-			x, y, err := dockNextMoveCompute(ctx, cam)
-			if err != nil {
-				logger.Infof("failed to compute, will try again: %s", err)
-				continue
-			}
-			logger.Debugf("x: %v y: %v\n", x, y)
-
-			angle := x * -15
-			logger.Debugf("turning %v degrees", angle)
-			err = base.Spin(ctx, angle, 10, true)
-			if err != nil {
-				return err
-			}
-
-			amount := 100.0 - (100.0 * y)
-			logger.Debugf("moved %v millis", amount)
-			err = base.MoveStraight(ctx, int(-1*amount), 50, true)
-			if err != nil {
-				return err
-			}
-
-			tries = 0
-		}
-
-		return errors.New("failed to dock")
-	*/
-}
-
-/*
-// return delta x, delta y, error
-func dockNextMoveCompute(ctx context.Context, cam gostream.ImageSource) (float64, float64, error) {
-	ctx, span := trace.StartSpan(ctx, "dockNextMoveCompute")
-	defer span.End()
-
-	logger.Debug("dock - next")
-	img, closer, err := cam.Next(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer closer()
-
-	logger.Debug("dock - convert")
-	ri := rimage.ConvertImage(img)
-
-	logger.Debug("dock - findBlack")
-	p, _, err := findBlack(ctx, ri, nil)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	logger.Debugf("black: %v", p)
-
-	x := 2 * float64((ri.Width()/2)-p.X) / float64(ri.Width())
-	y := 2 * float64((ri.Height()/2)-p.Y) / float64(ri.Height())
-	return x, y, nil
-}.
-*/
 func findTopInSegment(img *segmentation.SegmentedImage, segment int) image.Point {
 	mid := img.Width() / 2
 	for y := 0; y < img.Height(); y++ {
@@ -321,7 +219,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -336,7 +234,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	options := web.NewOptions()
+	options, err := web.OptionsFromConfig(cfg)
+	if err != nil {
+		return err
+	}
 	options.Pprof = true
-	return webserver.RunWeb(ctx, myRobot, options, logger)
+	return web.RunWeb(ctx, myRobot, options, logger)
 }

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -69,11 +70,12 @@ type gripperV1 struct {
 
 	model                 referenceframe.Model
 	numBadCurrentReadings int
+	generic.Unimplemented
 }
 
 // newGripperV1 Returns a gripperV1.
 func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg config.Component, logger golog.Logger) (*gripperV1, error) {
-	pressureLimit := cfg.Attributes.Int("pressureLimit", 800)
+	pressureLimit := cfg.Attributes.Int("pressure_limit", 800)
 	_motor, err := motor.FromRobot(r, "g")
 	if err != nil {
 		return nil, err

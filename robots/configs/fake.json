@@ -73,5 +73,10 @@
                 "ticks_per_rotation": 100
             }
         }
+    ],
+    "services": [
+        {
+            "type": "vision"
+        }
     ]
 }

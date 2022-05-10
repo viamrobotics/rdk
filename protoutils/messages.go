@@ -13,7 +13,6 @@ import (
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
 func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 	return &commonpb.ResourceName{
-		Uuid:      name.UUID,
 		Namespace: string(name.Namespace),
 		Type:      string(name.ResourceType),
 		Subtype:   string(name.ResourceSubtype),

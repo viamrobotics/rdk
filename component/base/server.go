@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/subtype"
 )
@@ -40,6 +41,7 @@ func (s *subtypeServer) MoveStraight(
 	ctx context.Context,
 	req *pb.MoveStraightRequest,
 ) (*pb.MoveStraightResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -49,7 +51,7 @@ func (s *subtypeServer) MoveStraight(
 	if reqMmPerSec != 0 {
 		mmPerSec = reqMmPerSec
 	}
-	err = base.MoveStraight(ctx, int(req.DistanceMm), mmPerSec, req.GetBlock())
+	err = base.MoveStraight(ctx, int(req.DistanceMm), mmPerSec)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +64,7 @@ func (s *subtypeServer) MoveArc(
 	ctx context.Context,
 	req *pb.MoveArcRequest,
 ) (*pb.MoveArcResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -71,7 +74,7 @@ func (s *subtypeServer) MoveArc(
 	if reqMmPerSec != 0 {
 		mmPerSec = reqMmPerSec
 	}
-	err = base.MoveArc(ctx, int(req.GetDistanceMm()), mmPerSec, req.GetAngleDeg(), req.GetBlock())
+	err = base.MoveArc(ctx, int(req.GetDistanceMm()), mmPerSec, req.GetAngleDeg())
 	if err != nil {
 		return nil, err
 	}
@@ -84,6 +87,7 @@ func (s *subtypeServer) Spin(
 	ctx context.Context,
 	req *pb.SpinRequest,
 ) (*pb.SpinResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -93,7 +97,7 @@ func (s *subtypeServer) Spin(
 	if reqDegsPerSec != 0 {
 		degsPerSec = reqDegsPerSec
 	}
-	err = base.Spin(ctx, req.GetAngleDeg(), degsPerSec, req.GetBlock())
+	err = base.Spin(ctx, req.GetAngleDeg(), degsPerSec)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +109,7 @@ func (s *subtypeServer) Stop(
 	ctx context.Context,
 	req *pb.StopRequest,
 ) (*pb.StopResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err

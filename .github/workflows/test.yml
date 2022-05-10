@@ -10,9 +10,8 @@ on:
         required: true
       CODECOV_TOKEN:
         required: true
-
-env:
-  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
+      REPO_READ_TOKEN:
+        required: true
 
 jobs:
   build_and_test:
@@ -32,11 +31,13 @@ jobs:
 
     - name: Verify no uncommitted changes from "make build lint"
       run: |
+        sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
+
         git init
         git add .
         chown -R testbot .
         sudo -u testbot bash -lc 'make build lint'
-        GEN_DIFF=$(git diff)
+        GEN_DIFF=$(git status -s)
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build lint" resulted in changes not in git' 1>&2
             git status
@@ -51,6 +52,7 @@ jobs:
         echo "$ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS" | base64 -d > artifact_google_creds.json
         export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=`pwd`/artifact_google_creds.json
         sudo -u testbot bash -lc 'make cover'
+        sudo -u testbot bash -lc 'make test-web'
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1

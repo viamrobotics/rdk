@@ -31,7 +31,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
 	rdkutils "go.viam.com/rdk/utils"
-	webserver "go.viam.com/rdk/web/server"
 )
 
 const (
@@ -55,27 +54,27 @@ type Boat struct {
 }
 
 // MoveStraight TODO.
-func (b *Boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
-	if block {
-		return errors.New("boat can't block for move straight yet")
-	}
-
+func (b *Boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
 	speed := (mmPerSec * 60.0) / float64(millisPerRotation)
 	rotations := float64(distanceMm) / millisPerRotation
 
-	return multierr.Combine(
-		b.starboard.GoFor(ctx, speed, rotations),
-		b.port.GoFor(ctx, speed, rotations),
+	_, err := rdkutils.RunInParallel(
+		ctx,
+		[]rdkutils.SimpleFunc{
+			func(ctx context.Context) error { return b.starboard.GoFor(ctx, speed, rotations) },
+			func(ctx context.Context) error { return b.port.GoFor(ctx, speed, rotations) },
+		},
 	)
+	return err
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *Boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
+func (b *Boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
 	return errors.New("boat can't move in arc yet")
 }
 
 // Spin TODO.
-func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	return errors.New("boat can't spin yet")
 }
 
@@ -89,6 +88,11 @@ func (b *Boat) Close(ctx context.Context) error {
 	defer b.activeBackgroundWorkers.Wait()
 	b.cancel()
 	return b.Stop(ctx)
+}
+
+// Do is unimplemented.
+func (b *Boat) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, errors.New("Do() unimplemented")
 }
 
 // StartRC TODO.
@@ -384,11 +388,6 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0), logger)
-	if err != nil {
-		return err
-	}
-
 	// register boat as base properly
 	registry.RegisterComponent(base.Subtype, "viam-boat1", registry.Component{
 		Constructor: func(
@@ -400,6 +399,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			return newBoat(ctx, r)
 		},
 	})
+
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
+	if err != nil {
+		return err
+	}
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
@@ -425,5 +429,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		recordDepthWorker(ctx, depth1)
 	}, activeBackgroundWorkers.Done)
 
-	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }

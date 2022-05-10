@@ -20,6 +20,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -41,6 +42,7 @@ func init() {
 }
 
 type serialNMEAGPS struct {
+	generic.Unimplemented
 	mu     sync.RWMutex
 	dev    io.ReadWriteCloser
 	logger golog.Logger
@@ -65,12 +67,12 @@ type ntripInfo struct {
 
 const (
 	pathAttrName      = "path"
-	ntripAddrAttrName = "ntripAddr"
-	ntripUserAttrName = "ntripUsername"
-	ntripPassAttrName = "ntripPassword"
-	ntripPathAttrName = "ntripPath"
-	ntripBaudAttrName = "ntripBaud"
-	ntripSendNmeaName = "ntripSendNMEA"
+	ntripAddrAttrName = "ntrip_addr"
+	ntripUserAttrName = "ntrip_username"
+	ntripPassAttrName = "ntrip_password"
+	ntripPathAttrName = "ntrip_path"
+	ntripBaudAttrName = "ntrip_baud"
+	ntripSendNmeaName = "ntrip_send_nmea"
 )
 
 func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
@@ -91,24 +93,24 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	if g.ntripClient.url != "" {
 		g.ntripClient.username = config.Attributes.String(ntripUserAttrName)
 		if g.ntripClient.username == "" {
-			g.logger.Info("ntripUsername set to empty")
+			g.logger.Info("ntrip_username set to empty")
 		}
 		g.ntripClient.password = config.Attributes.String(ntripPassAttrName)
 		if g.ntripClient.password == "" {
-			g.logger.Info("ntripPassword set to empty")
+			g.logger.Info("ntrip_password set to empty")
 		}
 		g.ntripClient.writepath = config.Attributes.String(ntripPathAttrName)
 		if g.ntripClient.writepath == "" {
-			g.logger.Info("ntripPath will use same path for writing RCTM messages to gps")
+			g.logger.Info("ntrip_path will use same path for writing RCTM messages to gps")
 			g.ntripClient.writepath = serialPath
 		}
 		g.ntripClient.wbaud = config.Attributes.Int(ntripBaudAttrName, 38400)
 		if g.ntripClient.wbaud == 38400 {
-			g.logger.Info("ntripBaud using default baud rate 38400")
+			g.logger.Info("ntrip_baud using default baud rate 38400")
 		}
 		g.ntripClient.sendNMEA = config.Attributes.Bool(ntripSendNmeaName, false)
 		if !g.ntripClient.sendNMEA {
-			g.logger.Info("ntripSendNMEA set to false")
+			g.logger.Info("ntrip_send_nmea set to false")
 		}
 		g.startNtripClientRequest()
 		g.Start()

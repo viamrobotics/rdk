@@ -20,12 +20,15 @@ const _ = grpc.SupportPackageIsVersion7
 type BaseServiceClient interface {
 	// MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
 	// and a given speed, expressed in millimeters per second
+	// This method blocks until completed or cancelled
 	MoveStraight(ctx context.Context, in *MoveStraightRequest, opts ...grpc.CallOption) (*MoveStraightResponse, error)
 	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
 	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
+	// This method blocks until completed or cancelled
 	MoveArc(ctx context.Context, in *MoveArcRequest, opts ...grpc.CallOption) (*MoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
+	// This method blocks until completed or cancelled
 	Spin(ctx context.Context, in *SpinRequest, opts ...grpc.CallOption) (*SpinResponse, error)
 	// Stop stops a robot's base
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
@@ -81,12 +84,15 @@ func (c *baseServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...g
 type BaseServiceServer interface {
 	// MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
 	// and a given speed, expressed in millimeters per second
+	// This method blocks until completed or cancelled
 	MoveStraight(context.Context, *MoveStraightRequest) (*MoveStraightResponse, error)
 	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
 	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
+	// This method blocks until completed or cancelled
 	MoveArc(context.Context, *MoveArcRequest) (*MoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
+	// This method blocks until completed or cancelled
 	Spin(context.Context, *SpinRequest) (*SpinResponse, error)
 	// Stop stops a robot's base
 	Stop(context.Context, *StopRequest) (*StopResponse, error)

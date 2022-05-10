@@ -1,6 +1,0 @@
-gen/*
-!gen/__init__.py
-
-tmp
-viam.json
-viam.tgz

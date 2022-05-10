@@ -48,6 +48,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	i, err := input.FromRobot(r, testInputControllerName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, i, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := i.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -150,7 +163,6 @@ func TestInputControllerName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "48d8bd5e-629b-51c1-8bf8-f2f308942012",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: input.SubtypeName,
@@ -162,7 +174,6 @@ func TestInputControllerName(t *testing.T) {
 			"all fields included",
 			testInputControllerName,
 			resource.Name{
-				UUID: "6a00798b-dab4-5abc-b3d9-7fc45f9cfea0",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: input.SubtypeName,
@@ -184,7 +195,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = input.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Controller", nil))
 
 	reconfInput2, err := input.WrapWithReconfigurable(reconfInput1)
 	test.That(t, err, test.ShouldBeNil)
@@ -244,3 +255,7 @@ func (m *mock) GetControls(ctx context.Context) ([]input.Control, error) {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

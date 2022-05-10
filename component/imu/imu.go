@@ -11,6 +11,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/imu/v1"
@@ -75,6 +76,7 @@ type IMU interface {
 	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
 	ReadAcceleration(ctx context.Context) (r3.Vector, error)
 	ReadMagnetometer(ctx context.Context) (r3.Vector, error)
+	generic.Generic
 }
 
 var (
@@ -144,6 +146,13 @@ func (r *reconfigurableIMU) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+// Do passes generic commands/data.
+func (r *reconfigurableIMU) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 // ReadAngularVelocity returns angular velocity from the gyroscope deg_per_sec.

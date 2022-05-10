@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 )
@@ -84,4 +85,8 @@ func (c *client) GetPosition(ctx context.Context) (uint8, error) {
 		return 0, err
 	}
 	return uint8(resp.PositionDeg), nil
+}
+
+func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

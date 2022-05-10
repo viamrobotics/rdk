@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -51,8 +52,10 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) {
-	resp, err := c.client.Config(ctx, &pb.ConfigRequest{})
+func (c *client) Config(ctx context.Context, additionalTransforms []*commonpb.Transform) (Parts, error) {
+	resp, err := c.client.Config(ctx, &pb.ConfigRequest{
+		SupplementalTransforms: additionalTransforms,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -65,17 +68,19 @@ func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) 
 		}
 		result = append(result, part)
 	}
-	return result, nil
+	return Parts(result), nil
 }
 
 func (c *client) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
 	destination string,
+	additionalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	resp, err := c.client.TransformPose(ctx, &pb.TransformPoseRequest{
-		Destination: destination,
-		Source:      referenceframe.PoseInFrameToProtobuf(query),
+		Destination:            destination,
+		Source:                 referenceframe.PoseInFrameToProtobuf(query),
+		SupplementalTransforms: additionalTransforms,
 	})
 	if err != nil {
 		return nil, err

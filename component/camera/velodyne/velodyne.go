@@ -16,6 +16,7 @@ import (
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
@@ -79,7 +80,7 @@ func init() {
 			logger golog.Logger,
 		) (interface{}, error) {
 			port := config.Attributes.Int("port", 2368)
-			ttl := config.Attributes.Int("ttlMilliseconds", 0)
+			ttl := config.Attributes.Int("ttl_ms", 0)
 			if ttl == 0 {
 				return nil, errors.New("need to specify a ttl")
 			}
@@ -89,6 +90,7 @@ func init() {
 }
 
 type client struct {
+	generic.Unimplemented
 	bindAddress     string
 	ttlMilliseconds int
 

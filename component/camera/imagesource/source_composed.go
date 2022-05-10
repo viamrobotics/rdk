@@ -34,7 +34,7 @@ func init() {
 			return newDepthToPretty(r, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_to_pretty",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_to_pretty",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -56,7 +56,7 @@ func init() {
 			return newOverlay(r, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "overlay",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "overlay",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

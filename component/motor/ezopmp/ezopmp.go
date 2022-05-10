@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -38,7 +39,7 @@ func init() {
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeMotor,
+		motor.SubtypeName,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
@@ -62,6 +63,7 @@ type Ezopmp struct {
 	logger      golog.Logger
 	maxPowerPct float64
 	maxFlowRate float64
+	generic.Unimplemented
 }
 
 // available commands.
