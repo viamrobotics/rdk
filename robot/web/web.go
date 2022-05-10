@@ -388,8 +388,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return errors.Errorf("expected *net.TCPAddr but got %T", listener.Addr())
 	}
 
-	options.Secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
-	if options.SignalingAddress == "" && !options.Secure {
+	options.secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
+	if options.SignalingAddress == "" && !options.secure {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithInsecure())
 	}
 
@@ -496,7 +496,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	})
 
 	var scheme string
-	if options.Secure {
+	if options.secure {
 		scheme = "https"
 	} else {
 		scheme = "http"
@@ -518,7 +518,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		var serveErr error
-		if options.Secure {
+		if options.secure {
 			serveErr = httpServer.ServeTLS(listener, options.Network.TLSCertFile, options.Network.TLSKeyFile)
 		} else {
 			serveErr = httpServer.Serve(listener)
@@ -534,14 +534,14 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
 	rpcOpts := []rpc.ServerOption{
-		rpc.WithInstanceNames(hosts.Names...),
+		rpc.WithInstanceNames(hosts.names...),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
 			EnableInternalSignaling:   true,
 			ExternalSignalingDialOpts: options.SignalingDialOpts,
 			ExternalSignalingAddress:  options.SignalingAddress,
-			ExternalSignalingHosts:    hosts.External,
-			InternalSignalingHosts:    hosts.Internal,
+			ExternalSignalingHosts:    hosts.external,
+			InternalSignalingHosts:    hosts.internal,
 			Config:                    &grpc.DefaultWebRTCConfiguration,
 		}),
 	}
@@ -620,8 +620,8 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options Op
 	} else {
 		listenerAddr := listenerTCPAddr.String()
 		hosts := options.GetHosts(listenerTCPAddr)
-		authEntities := make([]string, len(hosts.Internal))
-		copy(authEntities, hosts.Internal)
+		authEntities := make([]string, len(hosts.internal))
+		copy(authEntities, hosts.internal)
 		if !options.Managed {
 			// allow authentication for non-unique entities.
 			// This eases direct connections via address.
@@ -641,7 +641,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options Op
 				authEntities = addIfNotFound(LocalHostWithPort(listenerTCPAddr))
 			}
 		}
-		if options.Secure && len(options.Auth.TLSAuthEntities) != 0 {
+		if options.secure && len(options.Auth.TLSAuthEntities) != 0 {
 			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities, nil))
 		}
 		for _, handler := range options.Auth.Handlers {
@@ -731,7 +731,7 @@ func (svc *webService) initHTTPServer(listenerTCPAddr *net.TCPAddr, options Opti
 	httpServer.Addr = listenerTCPAddr.String()
 	httpServer.Handler = mux
 
-	if !options.Secure {
+	if !options.secure {
 		http2Server, err := utils.NewHTTP2Server()
 		if err != nil {
 			return nil, err
