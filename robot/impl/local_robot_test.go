@@ -151,7 +151,6 @@ func TestConfigRemote(t *testing.T) {
 		},
 	}
 
-	test.That(t, err, test.ShouldBeNil)
 	ctx2 := context.Background()
 	r2, err := robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)

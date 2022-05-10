@@ -28,7 +28,8 @@ type Server struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  func()
-	metadata                metadata.Service
+	// CR erodkin: do we need this? can we get metadata from our robot.Robot?
+	metadata metadata.Service
 }
 
 // New constructs a gRPC service server for a Robot.
@@ -111,6 +112,8 @@ func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperatio
 	}
 }
 
+// CR erodkin: I think this is how we get resources now, which is creating some issues for
+// local_robot_test.go?
 func (server *Server) Resources(ctx context.Context, _ *pb.ResourcesRequest) (*pb.ResourcesResponse, error) {
 	svc := server.metadata
 

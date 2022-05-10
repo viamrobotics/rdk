@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -75,6 +76,8 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
+		// CR erodkin: delete
+		fmt.Println("refresh failed")
 		return nil, multierr.Combine(err, conn.Close())
 	}
 
@@ -136,6 +139,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, error) {
 	resp, err := rc.client.Resources(ctx, &pb.ResourcesRequest{})
 	if err != nil {
+		// CR erodkin: delete
+		fmt.Println("error getting resources")
 		return nil, err
 	}
 
