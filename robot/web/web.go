@@ -1,3 +1,4 @@
+// Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
 package web
 
 import (
@@ -40,76 +41,11 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/subtype"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
 )
-
-// SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("web")
-
-// Subtype is a constant that identifies the web service resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
-
-// Name is the WebService's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
-
-// FromRobot retrieves the web service of a robot.
-func FromRobot(r robot.Robot) (Service, error) {
-	resource, err := r.ResourceByName(Name)
-	if err != nil {
-		return nil, err
-	}
-	web, ok := resource.(Service)
-	if !ok {
-		return nil, rutils.NewUnimplementedInterfaceError("web.Service", resource)
-	}
-	return web, nil
-}
-
-// RunWeb starts the web server on the web service with web options and blocks until we close it.
-func RunWeb(ctx context.Context, r robot.Robot, o Options, logger golog.Logger) (err error) {
-	defer func() {
-		if err != nil {
-			err = utils.FilterOutError(err, context.Canceled)
-			if err != nil {
-				logger.Errorw("error running web", "error", err)
-			}
-		}
-		err = multierr.Combine(err, utils.TryClose(ctx, r))
-	}()
-	svc, err := FromRobot(r)
-	if err != nil {
-		return err
-	}
-	if err := svc.Start(ctx, o); err != nil {
-		return err
-	}
-	<-ctx.Done()
-	return ctx.Err()
-}
-
-// RunWebWithConfig starts the web server on the web service with a robot config and blocks until we close it.
-func RunWebWithConfig(ctx context.Context, r robot.Robot, cfg *config.Config, logger golog.Logger) error {
-	o, err := OptionsFromConfig(cfg)
-	if err != nil {
-		return err
-	}
-	return RunWeb(ctx, r, o, logger)
-}
-
-func init() {
-	registry.RegisterService(Subtype, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return New(ctx, r, c, logger)
-		},
-	},
-	)
-}
 
 // robotWebApp hosts a web server to interact with a robot in addition to hosting
 // a gRPC/REST server.
@@ -117,7 +53,7 @@ type robotWebApp struct {
 	template *template.Template
 	theRobot robot.Robot
 	logger   golog.Logger
-	options  Options
+	options  weboptions.Options
 }
 
 // Init does template initialization work.
@@ -223,7 +159,7 @@ var defaultStreamConfig = x264.DefaultStreamConfig
 // A Service controls the web server for a robot.
 type Service interface {
 	// Start starts the web server
-	Start(context.Context, Options) error
+	Start(context.Context, weboptions.Options) error
 }
 
 // StreamServer manages streams and displays.
@@ -235,7 +171,7 @@ type StreamServer struct {
 }
 
 // New returns a new web service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 	webSvc := &webService{
 		r:            r,
 		logger:       logger,
@@ -243,7 +179,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		streamServer: nil,
 		services:     make(map[resource.Subtype]subtype.Service),
 	}
-	return webSvc, nil
+	return webSvc
 }
 
 type webService struct {
@@ -259,7 +195,7 @@ type webService struct {
 }
 
 // Start starts the web server, will return an error if server is already up.
-func (svc *webService) Start(ctx context.Context, o Options) error {
+func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
@@ -269,6 +205,34 @@ func (svc *webService) Start(ctx context.Context, o Options) error {
 	svc.cancelFunc = cancelFunc
 
 	return svc.runWeb(cancelCtx, o)
+}
+
+// RunWeb starts the web server on the robot with web options and blocks until we close it.
+func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger golog.Logger) (err error) {
+	defer func() {
+		if err != nil {
+			err = utils.FilterOutError(err, context.Canceled)
+			if err != nil {
+				logger.Errorw("error running web", "error", err)
+			}
+		}
+		err = multierr.Combine(err, utils.TryClose(ctx, r))
+	}()
+
+	if err := r.StartWeb(ctx, o); err != nil {
+		return err
+	}
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// RunWebWithConfig starts the web server on the robot with a robot config and blocks until we close it.
+func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Config, logger golog.Logger) error {
+	o, err := weboptions.FromConfig(cfg)
+	if err != nil {
+		return err
+	}
+	return RunWeb(ctx, r, o, logger)
 }
 
 // Update updates the web service when the robot has changed. Not Reconfigure because
@@ -419,7 +383,7 @@ func (w ssStreamContextWrapper) Context() context.Context {
 }
 
 // installWeb prepares the given mux to be able to serve the UI for the robot.
-func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options Options) error {
+func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options weboptions.Options) error {
 	app := &robotWebApp{theRobot: theRobot, logger: svc.logger, options: options}
 	if err := app.Init(); err != nil {
 		return err
@@ -444,7 +408,7 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 
 // runWeb takes the given robot and options and runs the web server. This function will
 // block until the context is done.
-func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
+func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (err error) {
 	listener, err := net.Listen("tcp", options.Network.BindAddress)
 	if err != nil {
 		return err
@@ -455,8 +419,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return errors.Errorf("expected *net.TCPAddr but got %T", listener.Addr())
 	}
 
-	options.secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
-	if options.SignalingAddress == "" && !options.secure {
+	options.Secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
+	if options.SignalingAddress == "" && !options.Secure {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithInsecure())
 	}
 
@@ -563,7 +527,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	})
 
 	var scheme string
-	if options.secure {
+	if options.Secure {
 		scheme = "https"
 	} else {
 		scheme = "http"
@@ -585,7 +549,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		var serveErr error
-		if options.secure {
+		if options.Secure {
 			serveErr = httpServer.ServeTLS(listener, options.Network.TLSCertFile, options.Network.TLSKeyFile)
 		} else {
 			serveErr = httpServer.Serve(listener)
@@ -598,17 +562,17 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 }
 
 // Initialize RPC Server options.
-func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options Options) ([]rpc.ServerOption, error) {
+func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options weboptions.Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
 	rpcOpts := []rpc.ServerOption{
-		rpc.WithInstanceNames(hosts.names...),
+		rpc.WithInstanceNames(hosts.Names...),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
 			EnableInternalSignaling:   true,
 			ExternalSignalingDialOpts: options.SignalingDialOpts,
 			ExternalSignalingAddress:  options.SignalingAddress,
-			ExternalSignalingHosts:    hosts.external,
-			InternalSignalingHosts:    hosts.internal,
+			ExternalSignalingHosts:    hosts.External,
+			InternalSignalingHosts:    hosts.Internal,
 			Config:                    &grpc.DefaultWebRTCConfiguration,
 		}),
 	}
@@ -673,7 +637,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options Opti
 }
 
 // Initialize authentication handler options.
-func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options Options) ([]rpc.ServerOption, error) {
+func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options weboptions.Options) ([]rpc.ServerOption, error) {
 	rpcOpts := []rpc.ServerOption{}
 
 	if options.Managed && len(options.Auth.Handlers) == 1 {
@@ -687,8 +651,8 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options Op
 	} else {
 		listenerAddr := listenerTCPAddr.String()
 		hosts := options.GetHosts(listenerTCPAddr)
-		authEntities := make([]string, len(hosts.internal))
-		copy(authEntities, hosts.internal)
+		authEntities := make([]string, len(hosts.Internal))
+		copy(authEntities, hosts.Internal)
 		if !options.Managed {
 			// allow authentication for non-unique entities.
 			// This eases direct connections via address.
@@ -705,10 +669,10 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options Op
 			}
 			if listenerTCPAddr.IP.IsLoopback() {
 				// plus localhost alias
-				authEntities = addIfNotFound(localHostWithPort(listenerTCPAddr))
+				authEntities = addIfNotFound(weboptions.LocalHostWithPort(listenerTCPAddr))
 			}
 		}
-		if options.secure && len(options.Auth.TLSAuthEntities) != 0 {
+		if options.Secure && len(options.Auth.TLSAuthEntities) != 0 {
 			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities, nil))
 		}
 		for _, handler := range options.Auth.Handlers {
@@ -784,7 +748,7 @@ func (svc *webService) initSubtypeServices(ctx context.Context) error {
 }
 
 // Initialize HTTP server.
-func (svc *webService) initHTTPServer(listenerTCPAddr *net.TCPAddr, options Options) (*http.Server, error) {
+func (svc *webService) initHTTPServer(listenerTCPAddr *net.TCPAddr, options weboptions.Options) (*http.Server, error) {
 	mux, err := svc.initMux(options)
 	if err != nil {
 		return nil, err
@@ -798,7 +762,7 @@ func (svc *webService) initHTTPServer(listenerTCPAddr *net.TCPAddr, options Opti
 	httpServer.Addr = listenerTCPAddr.String()
 	httpServer.Handler = mux
 
-	if !options.secure {
+	if !options.Secure {
 		http2Server, err := utils.NewHTTP2Server()
 		if err != nil {
 			return nil, err
@@ -813,7 +777,7 @@ func (svc *webService) initHTTPServer(listenerTCPAddr *net.TCPAddr, options Opti
 }
 
 // Initialize multiplexer between http handlers.
-func (svc *webService) initMux(options Options) (*goji.Mux, error) {
+func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	mux := goji.NewMux()
 	if err := svc.installWeb(mux, svc.r, options); err != nil {
 		return nil, err
