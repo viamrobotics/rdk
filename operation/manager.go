@@ -76,6 +76,21 @@ func (sm *SingleOperationManager) NewTimedWaitOp(ctx context.Context, dur time.D
 	return utils.SelectContextOrWait(ctx, dur)
 }
 
+type IsPoweredInterface interface {
+	IsPowered(ctx context.Context) (bool, error)
+}
+
+func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTime time.Duration, powered IsPoweredInterface) error {
+	return sm.WaitForSuccess(
+		ctx,
+		pollTime,
+		func(ctx context.Context) (bool, error) {
+			res, err := powered.IsPowered(ctx)
+			return !res, err
+		},
+	)
+}
+
 // WaitForSuccess will call testFunc every pollTime until it returns true or an error.
 func (sm *SingleOperationManager) WaitForSuccess(
 	ctx context.Context,
