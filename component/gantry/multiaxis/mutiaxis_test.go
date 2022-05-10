@@ -48,7 +48,7 @@ func createFakeRobot() *inject.Robot {
 		case gantry.Subtype:
 			return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1}, nil }}, nil
 		case motor.Subtype:
-			return &fm.Motor{PositionSupported: true}, nil
+			return &fm.Motor{}, nil
 		}
 		return nil, utils.NewResourceNotFoundError(name)
 	}
