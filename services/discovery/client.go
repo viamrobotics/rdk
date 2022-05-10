@@ -7,9 +7,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
@@ -48,22 +46,29 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) Discover(ctx context.Context, resourceNames []resource.Name) ([]Discovery, error) {
-	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
-	for _, name := range resourceNames {
-		names = append(names, protoutils.ResourceNameToProto(name))
+func (c *client) Discover(ctx context.Context, keys []Key) ([]Discovery, error) {
+	pbKeys := make([]*pb.Key, 0, len(keys))
+	for _, key := range keys {
+		pbKeys = append(
+			pbKeys,
+			&pb.Key{Subtype: string(key.subtypeName), Model: key.model},
+		)
 	}
 
-	resp, err := c.client.Discover(ctx, &pb.DiscoverRequest{ResourceNames: names})
+	resp, err := c.client.Discover(ctx, &pb.DiscoverRequest{Keys: pbKeys})
 	if err != nil {
 		return nil, err
 	}
 
 	discoveries := make([]Discovery, 0, len(resp.Discovery))
 	for _, discovery := range resp.Discovery {
+		key := Key{
+			subtypeName: resource.SubtypeName(discovery.Key.Subtype),
+			model:       discovery.Key.Model,
+		}
 		discoveries = append(
 			discoveries, Discovery{
-				Name:       protoutils.ResourceNameFromProto(discovery.Name),
+				Key:        key,
 				Discovered: discovery.Discovered.AsMap(),
 			})
 	}

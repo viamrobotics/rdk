@@ -9,7 +9,7 @@ import "google/protobuf/duration.proto";
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
 
-// A DiscoveryService services keeps track of all discovery associated with a robot
+// A DiscoveryService services keeps track of all discovery associated with a robot.
 service DiscoveryService {
   // Discover returns the list of all discoveries requested.
   rpc Discover(DiscoverRequest) returns (DiscoverResponse) {
@@ -19,13 +19,18 @@ service DiscoveryService {
   }
 }
 
+message Key {
+  string subtype = 1;
+  string model = 2;
+}
+
 message Discovery {
-  common.v1.ResourceName name = 1;
+  Key key = 1;
   google.protobuf.Struct discovered = 2;
 }
 
 message DiscoverRequest {
-  repeated common.v1.ResourceName resource_names = 1;
+  repeated Key keys = 1;
 }
 
 message DiscoverResponse {

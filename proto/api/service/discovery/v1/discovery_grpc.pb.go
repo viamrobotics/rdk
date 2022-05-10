@@ -18,8 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DiscoveryServiceClient interface {
-	// Discover returns the list of all discoveryes requested. An empty request signifies
-	// all resources.
+	// Discover returns the list of all discoveries requested.
 	Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error)
 }
 
@@ -44,8 +43,7 @@ func (c *discoveryServiceClient) Discover(ctx context.Context, in *DiscoverReque
 // All implementations must embed UnimplementedDiscoveryServiceServer
 // for forward compatibility
 type DiscoveryServiceServer interface {
-	// Discover returns the list of all discoveryes requested. An empty request signifies
-	// all resources.
+	// Discover returns the list of all discoveries requested.
 	Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error)
 	mustEmbedUnimplementedDiscoveryServiceServer()
 }
