@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/media"
 	"github.com/pion/mediadevices"
+	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -15,14 +16,18 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/utils"
 )
+
+const model = "webcam"
 
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"webcam",
+		model,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
@@ -36,7 +41,7 @@ func init() {
 			return NewWebcamSource(attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "webcam",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -54,6 +59,58 @@ func init() {
 			result.AttrConfig = cameraAttrs
 			return result, nil
 		}, &WebcamAttrs{})
+
+	discovery.RegisterDiscoveryFunction(camera.SubtypeName, model, Discover)
+}
+
+// CameraConfig is collection of configuration options for a camera.
+type CameraConfig struct {
+	Label      string
+	Status     driver.State
+	Properties []prop.Media
+}
+
+// Discover webcam attributes.
+func Discover(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error) {
+	var result []CameraConfig
+	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
+	for _, d := range drivers {
+		driverInfo := d.Info()
+
+		props, err := getProperties(d)
+		if len(props) == 0 || err != nil {
+			// Skip if there are no properties or if there is an error obtaining
+			// properties
+			// TODO: log error
+			continue
+		}
+
+		conf := CameraConfig{
+			Label:      driverInfo.Label,
+			Status:     d.Status(),
+			Properties: []prop.Media{},
+		}
+
+		for _, prop := range props {
+			conf.Properties = append(conf.Properties, prop)
+		}
+		result = append(result, conf)
+	}
+	return result, nil
+}
+
+func getProperties(d driver.Driver) ([]prop.Media, error) {
+	// Need to open driver to get properties
+	if d.Status() == driver.StateClosed {
+		err := d.Open()
+		if err != nil {
+			return nil, err
+		}
+		// TODO: it's unclear if it's okay to just keep the driver open
+		// TODO: if we do need to close, handle errors
+		defer d.Close()
+	}
+	return d.Properties(), nil
 }
 
 // WebcamAttrs is the attribute struct for webcams.
