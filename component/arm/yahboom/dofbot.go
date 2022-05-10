@@ -286,6 +286,9 @@ func (a *dofBot) ModelFrame() referenceframe.Model {
 
 // Open opens the gripper.
 func (a *dofBot) Open(ctx context.Context) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -308,6 +311,9 @@ const (
 // (position > grabAngle) or the position changes little (< minMovement)
 // between iterations.
 func (a *dofBot) Grab(ctx context.Context) (bool, error) {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
