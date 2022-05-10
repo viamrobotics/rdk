@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -57,6 +58,9 @@ type LocalRobot interface {
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
+
+	// StartWeb starts the web server, will return an error if server is already up.
+	StartWeb(ctx context.Context, o weboptions.Options) error
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

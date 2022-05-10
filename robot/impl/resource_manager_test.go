@@ -428,7 +428,8 @@ func TestManagerClone(t *testing.T) {
 
 	_, ok := manager.processManager.RemoveProcessByID("1")
 	test.That(t, ok, test.ShouldBeTrue)
-	manager.processManager.Stop()
+	err = manager.processManager.Stop()
+	test.That(t, err, test.ShouldBeNil)
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	armNames = append(armNames, rdktestutils.AddSuffixes(armNames, "_r1", "_r2")...)
