@@ -1,5 +1,4 @@
-// Package weboptions defines Options for configuring a web server
-package weboptions
+package web
 
 import (
 	"crypto/tls"
@@ -61,9 +60,9 @@ type Options struct {
 	BakedAuthCreds  rpc.Credentials
 }
 
-// New returns a default set of options which will have the
+// NewOptions returns a default set of options which will have the
 // web server run on config.DefaultBindAddress.
-func New() Options {
+func NewOptions() Options {
 	return Options{
 		Pprof: false,
 		Network: config.NetworkConfig{
@@ -77,7 +76,7 @@ func New() Options {
 
 // OptionsFromConfig returns an Options populated by the config passed in.
 func OptionsFromConfig(cfg *config.Config) (Options, error) {
-	options := New()
+	options := NewOptions()
 
 	options.Auth = cfg.Auth
 	options.Network = cfg.Network

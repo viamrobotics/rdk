@@ -428,5 +428,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		recordDepthWorker(ctx, depth1)
 	}, activeBackgroundWorkers.Done)
 
-	return myRobot.RunWebWithConfig(ctx, cfg, logger)
+	return robotimpl.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }

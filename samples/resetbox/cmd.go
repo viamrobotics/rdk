@@ -312,7 +312,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	defer box.Close()
 
 	box.home(ctx)
-	return myRobot.RunWebWithConfig(ctx, cfg, logger)
+	return robotimpl.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }
 
 //nolint:unused

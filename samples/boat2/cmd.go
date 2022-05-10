@@ -572,5 +572,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	go runRC2(ctx, myB)
 	go runAngularVelocityKeeper(ctx, myB)
 
-	return myRobot.RunWebWithConfig(ctx, cfg, logger)
+	return robotimpl.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }

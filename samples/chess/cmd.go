@@ -668,5 +668,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			}()
 		}
 	})
-	return myRobot.RunWebWithConfig(ctx, cfg, logger)
+	return robotimpl.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }

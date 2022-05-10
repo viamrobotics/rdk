@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/web"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
@@ -35,7 +34,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const webName = "web"
+type internalServiceName string
+
+const webName internalServiceName = "web"
 
 var (
 	_ = robot.LocalRobot(&localRobot{})
@@ -61,12 +62,16 @@ type localRobot struct {
 	logger     golog.Logger
 
 	// services internal to a localRobot. Currently just web, more to come.
-	internalServices map[string]resource.Updateable
+	internalServices map[internalServiceName]interface{}
 }
 
 // web returns the localRobot's web service. Raises if the service has not been initialized.
-func (r *localRobot) web() (web.Service, error) {
-	service := r.internalServices[webName]
+func webService(r robot.LocalRobot) (web.Service, error) {
+	robot, ok := r.(*localRobot)
+	if !ok {
+		return nil, errors.New("LocalRobot input did not match localRobot implementation")
+	}
+	service := robot.internalServices[webName]
 
 	webSvc, ok := service.(web.Service)
 	if !ok {
@@ -131,8 +136,9 @@ func (r *localRobot) Logger() golog.Logger {
 	return r.logger
 }
 
-func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	webSvc, err := r.web()
+// StartWeb starts the web server, will return an error if server is already up.
+func StartWeb(ctx context.Context, r robot.LocalRobot, o web.Options) (err error) {
+	webSvc, err := webService(r)
 	if err != nil {
 		return err
 	}
@@ -140,7 +146,7 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 }
 
 // RunWeb starts the web server on the web service with web options and blocks until we close it.
-func (r *localRobot) RunWeb(ctx context.Context, o weboptions.Options, logger golog.Logger) (err error) {
+func RunWeb(ctx context.Context, r robot.LocalRobot, o web.Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil {
 			err = goutils.FilterOutError(err, context.Canceled)
@@ -150,7 +156,7 @@ func (r *localRobot) RunWeb(ctx context.Context, o weboptions.Options, logger go
 		}
 		err = multierr.Combine(err, goutils.TryClose(ctx, r))
 	}()
-	svc, err := r.web()
+	svc, err := webService(r)
 	if err != nil {
 		return err
 	}
@@ -162,12 +168,12 @@ func (r *localRobot) RunWeb(ctx context.Context, o weboptions.Options, logger go
 }
 
 // RunWebWithConfig starts the web server on the web service with a robot config and blocks until we close it.
-func (r *localRobot) RunWebWithConfig(ctx context.Context, cfg *config.Config, logger golog.Logger) error {
-	o, err := weboptions.OptionsFromConfig(cfg)
+func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Config, logger golog.Logger) error {
+	o, err := web.OptionsFromConfig(cfg)
 	if err != nil {
 		return err
 	}
-	return r.RunWeb(ctx, o, logger)
+	return RunWeb(ctx, r, o, logger)
 }
 
 // New returns a new robot with parts sourced from the given config.
@@ -211,7 +217,7 @@ func newWithResources(
 		r.manager.addResource(name, svc)
 	}
 
-	r.internalServices = make(map[string]resource.Updateable)
+	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
 
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
@@ -323,9 +329,11 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		}
 	}
 
-	for _, updateable := range r.internalServices {
-		if err := updateable.Update(ctx, resources); err != nil {
-			return err
+	for _, svc := range r.internalServices {
+		if updateable, ok := svc.(resource.Updateable); ok {
+			if err := updateable.Update(ctx, resources); err != nil {
+				return err
+			}
 		}
 	}
 
