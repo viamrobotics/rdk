@@ -81,5 +81,4 @@ func TestSingleOperationManager(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, count, test.ShouldEqual, int64(5))
 	})
-
 }
