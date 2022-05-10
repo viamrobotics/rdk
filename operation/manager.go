@@ -76,10 +76,12 @@ func (sm *SingleOperationManager) NewTimedWaitOp(ctx context.Context, dur time.D
 	return utils.SelectContextOrWait(ctx, dur)
 }
 
+// IsPoweredInterface is a utility so can wait on IsPowered easily.
 type IsPoweredInterface interface {
 	IsPowered(ctx context.Context) (bool, error)
 }
 
+// WaitTillNotPowered waits until IsPowered returns false.
 func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTime time.Duration, powered IsPoweredInterface) error {
 	return sm.WaitForSuccess(
 		ctx,

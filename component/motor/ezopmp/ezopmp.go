@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	
+
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -223,7 +223,7 @@ func (m *Ezopmp) writeRegWithCheck(ctx context.Context, command []byte) error {
 // for this pump, it goes between 0.5ml to 105ml/min.
 func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64) error {
 	m.opMgr.CancelRunning()
-	
+
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 
@@ -249,7 +249,7 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64) error {
 func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin float64, mins float64) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
-	
+
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.5:
 		return errors.New("motor cannot move this slowly")
