@@ -13,10 +13,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -39,7 +42,7 @@ func init() {
 
 	registry.RegisterComponent(base.Subtype, "wheeled", wheeledBaseComp)
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeBase,
+		base.SubtypeName,
 		"wheeled",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
@@ -49,6 +52,7 @@ func init() {
 }
 
 type wheeledBase struct {
+	generic.Unimplemented
 	widthMm              int
 	wheelCircumferenceMm int
 	spinSlipFactor       float64
@@ -56,9 +60,14 @@ type wheeledBase struct {
 	left      []motor.Motor
 	right     []motor.Motor
 	allMotors []motor.Motor
+
+	opMgr operation.SingleOperationManager
 }
 
-func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+	ctx, done := base.opMgr.New(ctx)
+	defer done()
+
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		err := base.Stop(ctx)
@@ -71,27 +80,27 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
+	fs := []rdkutils.SimpleFunc{}
+
 	// Send motor commands
-	var err error
 	for _, m := range base.left {
-		err = multierr.Combine(err, m.GoFor(ctx, -rpm, revolutions))
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, -rpm, revolutions) })
 	}
 	for _, m := range base.right {
-		err = multierr.Combine(err, m.GoFor(ctx, rpm, revolutions))
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rpm, revolutions) })
 	}
 
+	_, err := rdkutils.RunInParallel(ctx, fs)
 	if err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
 	}
-
-	if !block {
-		return nil
-	}
-
-	return base.WaitForMotorsToStop(ctx)
+	return nil
 }
 
-func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+	ctx, done := base.opMgr.New(ctx)
+	defer done()
+
 	// Stop the motors if the speed or distance are 0
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
 		err := base.Stop(ctx)
@@ -112,14 +121,13 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 		}
 	}
 
-	if !block {
-		return nil
-	}
-
 	return base.WaitForMotorsToStop(ctx)
 }
 
-func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
+func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
+	ctx, done := base.opMgr.New(ctx)
+	defer done()
+
 	// Stop the motors if the speed is 0
 	if math.Abs(mmPerSec) < 0.0001 {
 		err := base.Stop(ctx)
@@ -144,10 +152,6 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec f
 
 	if err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
-	}
-
-	if !block {
-		return nil
 	}
 
 	return base.WaitForMotorsToStop(ctx)
@@ -264,27 +268,27 @@ func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
-	frontLeft, err := motor.FromRobot(r, config.Attributes.String("frontLeft"))
+	frontLeft, err := motor.FromRobot(r, config.Attributes.String("front_left"))
 	if err != nil {
-		return nil, errors.Wrap(err, "frontLeft motor not found")
+		return nil, errors.Wrap(err, "front_left motor not found")
 	}
-	frontRight, err := motor.FromRobot(r, config.Attributes.String("frontRight"))
+	frontRight, err := motor.FromRobot(r, config.Attributes.String("front_right"))
 	if err != nil {
-		return nil, errors.Wrap(err, "frontRight motor not found")
+		return nil, errors.Wrap(err, "front_right motor not found")
 	}
-	backLeft, err := motor.FromRobot(r, config.Attributes.String("backLeft"))
+	backLeft, err := motor.FromRobot(r, config.Attributes.String("back_left"))
 	if err != nil {
-		return nil, errors.Wrap(err, "backLeft motor not found")
+		return nil, errors.Wrap(err, "back_left motor not found")
 	}
-	backRight, err := motor.FromRobot(r, config.Attributes.String("backRight"))
+	backRight, err := motor.FromRobot(r, config.Attributes.String("back_right"))
 	if err != nil {
-		return nil, errors.Wrap(err, "backRight motor not found")
+		return nil, errors.Wrap(err, "back_right motor not found")
 	}
 
 	base := &wheeledBase{
-		widthMm:              config.Attributes.Int("widthMm", 0),
-		wheelCircumferenceMm: config.Attributes.Int("wheelCircumferenceMm", 0),
-		spinSlipFactor:       config.Attributes.Float64("spinSlipFactor", 1.0),
+		widthMm:              config.Attributes.Int("width_mm", 0),
+		wheelCircumferenceMm: config.Attributes.Int("wheel_circumference_mm", 0),
+		spinSlipFactor:       config.Attributes.Float64("spin_slip_factor", 1.0),
 		left:                 []motor.Motor{frontLeft, backLeft},
 		right:                []motor.Motor{frontRight, backRight},
 	}

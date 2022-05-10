@@ -36,7 +36,7 @@ type constraintHandler struct {
 // CheckConstraintPath will interpolate between two joint inputs and check that `true` is returned for all constraints
 // in all intermediate positions. If failing on an intermediate position, it will return that position.
 func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution float64) (bool, *ConstraintInput) {
-	// ensure we have cartesian positions
+	// ensure we have cartesian positions+
 	err := resolveInputsToPositions(ci)
 	if err != nil {
 		return false, nil
@@ -44,7 +44,10 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	steps := getSteps(ci.StartPos, ci.EndPos, resolution)
 
 	var lastGood []referenceframe.Input
-	interpC := ci
+	// Seed with just the start position to walk the path
+	interpC := &ConstraintInput{Frame: ci.Frame}
+	interpC.StartInput = ci.StartInput
+	interpC.EndInput = ci.StartInput
 
 	for i := 1; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
@@ -117,16 +120,41 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	return true, score
 }
 
-// NewCollisionConstraint creates a constraint function that will decide if the StartInput of a given ConstraintInput
-// is valid. This function will check for collisions between the geometries in the provided input's frame.
-// Collisions present in the provided reference CollisionGraph will not be ignored.
-func NewCollisionConstraint(external map[string]spatial.Geometry, reference *CollisionGraph) Constraint {
-	f := func(cInput *ConstraintInput) (bool, float64) {
+// NewCollisionConstraint takes a frame and geometries representing obstacles and interaction spaces and will construct a collision
+// avoidance constraint from them.
+func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSpaces map[string]spatial.Geometry) Constraint {
+	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
+	zeroVols, err := frame.Geometries(make([]referenceframe.Input, len(frame.DoF())))
+	if err != nil && len(zeroVols) == 0 {
+		return nil // no geometries defined for frame
+	}
+	internalEntities, err := NewObjectCollisionEntities(zeroVols)
+	if err != nil {
+		return nil
+	}
+	obstacleEntities, err := NewObjectCollisionEntities(obstacles)
+	if err != nil {
+		return nil
+	}
+	spaceEntities, err := NewSpaceCollisionEntities(interactionSpaces)
+	if err != nil {
+		return nil
+	}
+	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities})
+	if err != nil {
+		return nil
+	}
+
+	constraint := func(cInput *ConstraintInput) (bool, float64) {
 		internal, err := cInput.Frame.Geometries(cInput.StartInput)
 		if err != nil && internal == nil {
 			return false, 0
 		}
-		cg, err := CheckUniqueCollisions(internal, external, reference)
+		internalEntities, err := NewObjectCollisionEntities(internal)
+		if err != nil {
+			return false, 0
+		}
+		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG)
 		if err != nil {
 			return false, 0
 		}
@@ -140,25 +168,7 @@ func NewCollisionConstraint(external map[string]spatial.Geometry, reference *Col
 		}
 		return true, sum
 	}
-	return f
-}
-
-// NewCollisionConstraintFromFrame takes a frame and external geometries and will construct a self-collision constraint from them.
-func NewCollisionConstraintFromFrame(frame referenceframe.Frame, externalObstacles map[string]spatial.Geometry) Constraint {
-	// Add self-collision check if available
-	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
-	dof := len(frame.DoF())
-	zeroInput := make([]referenceframe.Input, dof)
-	zeroVols, err := frame.Geometries(zeroInput)
-	if zeroVols == nil && err != nil {
-		// No geometries defined for frame
-		return nil
-	}
-	zeroCG, err := CheckCollisions(zeroVols, externalObstacles)
-	if err != nil {
-		return nil
-	}
-	return NewCollisionConstraint(externalObstacles, zeroCG)
+	return constraint
 }
 
 // NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.

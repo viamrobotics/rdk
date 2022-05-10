@@ -17,14 +17,12 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/grpc"
-	metadataclient "go.viam.com/rdk/grpc/metadata/client"
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/metadata"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -37,7 +35,7 @@ type RobotClient struct {
 	address        string
 	conn           rpc.ClientConn
 	client         pb.RobotServiceClient
-	metadataClient *metadataclient.MetadataServiceClient
+	metadataClient metadata.Service
 
 	namesMu       *sync.RWMutex
 	resourceNames []resource.Name
@@ -62,13 +60,14 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		return nil, err
 	}
 
-	metadataClient, err := metadataclient.New(ctx, address, logger, rOpts.dialOptions...)
+	metadataClient, err := metadata.NewClient(ctx, address, logger, rOpts.dialOptions...)
 	if err != nil {
 		return nil, err
 	}
 
 	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
+
 	rc := &RobotClient{
 		address:                 address,
 		conn:                    conn,
@@ -80,16 +79,19 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		logger:                  logger,
 		closeContext:            closeCtx,
 	}
+
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
-		return nil, multierr.Combine(err, metadataClient.Close(), conn.Close())
+		return nil, multierr.Combine(err, utils.TryClose(ctx, metadataClient), conn.Close())
 	}
+
 	if rOpts.refreshEvery != 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
 			rc.RefreshEvery(closeCtx, rOpts.refreshEvery)
 		}, rc.activeBackgroundWorkers.Done)
 	}
+
 	return rc, nil
 }
 
@@ -99,7 +101,7 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
 
-	return multierr.Combine(rc.conn.Close(), rc.metadataClient.Close())
+	return multierr.Combine(rc.conn.Close(), utils.TryClose(ctx, rc.metadataClient))
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
@@ -152,10 +154,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	}
 	if err == nil {
 		rc.resourceNames = make([]resource.Name, 0, len(names))
-		for _, name := range names {
-			newName := protoutils.ResourceNameFromProto(name)
-			rc.resourceNames = append(rc.resourceNames, newName)
-		}
+		rc.resourceNames = append(rc.resourceNames, names...)
 	}
 	return nil
 }
@@ -165,25 +164,16 @@ func (rc *RobotClient) RemoteNames() []string {
 	return nil
 }
 
-// FunctionNames returns the names of all known functions.
-func (rc *RobotClient) FunctionNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-
-	names := []string{}
-	for _, v := range rc.resourceNames {
-		if v.ResourceType == resource.ResourceTypeFunction {
-			names = append(names, v.Name)
-		}
-	}
-	return names
-}
-
 // ProcessManager returns a useless process manager for the sake of
 // satisfying the robot.Robot interface. Maybe it should not be part
 // of the interface!
 func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
+}
+
+// OperationManager returns nil.
+func (rc *RobotClient) OperationManager() *operation.Manager {
+	return nil
 }
 
 // ResourceNames returns all resource names.
@@ -200,19 +190,6 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 		)
 	}
 	return names
-}
-
-// FrameSystem returns the robot's underlying frame system.
-func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	fs, err := framesystem.FromRobot(rc)
-	if err != nil {
-		return nil, err
-	}
-	parts, err := fs.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return framesystem.NewFrameSystemFromParts(name, prefix, parts, rc.logger)
 }
 
 // Logger returns the logger being used for this robot.

@@ -8,27 +8,11 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	functionvm "go.viam.com/rdk/function/vm"
-	"go.viam.com/rdk/testutils/inject"
 )
-
-func init() {
-	injectEngine1 := &inject.Engine{}
-	injectEngine1.ValidateSourceFunc = func(_ string) error {
-		return nil
-	}
-	functionvm.RegisterEngine(functionvm.EngineName("foo"), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-	functionvm.RegisterEngine(functionvm.EngineName("bar"), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-	functionvm.RegisterEngine(functionvm.EngineName("baz"), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-}
 
 func TestDiffConfigs(t *testing.T) {
 	config1 := config.Config{
@@ -47,7 +31,7 @@ func TestDiffConfigs(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "arm1",
-				Type:  config.ComponentTypeArm,
+				Type:  arm.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"one": float64(1),
@@ -55,7 +39,7 @@ func TestDiffConfigs(t *testing.T) {
 			},
 			{
 				Name:  "base1",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"two": float64(2),
@@ -64,7 +48,7 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:  "board1",
 				Model: "fake",
-				Type:  config.ComponentTypeBoard,
+				Type:  board.SubtypeName,
 				ConvertedAttributes: &board.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -94,22 +78,6 @@ func TestDiffConfigs(t *testing.T) {
 				Log:  true,
 			},
 		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func1",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "foo",
-					Source: "1",
-				},
-			},
-			{
-				Name: "func2",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "bar",
-					Source: "2",
-				},
-			},
-		},
 	}
 
 	config2 := config.ModifiedConfigDiff{
@@ -128,7 +96,7 @@ func TestDiffConfigs(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "arm1",
-				Type:  config.ComponentTypeArm,
+				Type:  arm.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"two": float64(2),
@@ -136,7 +104,7 @@ func TestDiffConfigs(t *testing.T) {
 			},
 			{
 				Name:  "base1",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"three": float64(3),
@@ -145,7 +113,7 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:  "board1",
 				Model: "fake",
-				Type:  config.ComponentTypeBoard,
+				Type:  board.SubtypeName,
 				ConvertedAttributes: &board.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -173,22 +141,6 @@ func TestDiffConfigs(t *testing.T) {
 				Name: "bash",
 				Args: []string{"-c", "trap \"exit 0\" SIGINT; while true; do echo hello; sleep 2; done"},
 				Log:  true,
-			},
-		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func1",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "foo",
-					Source: "1+1",
-				},
-			},
-			{
-				Name: "func2",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "bar",
-					Source: "2+2",
-				},
 			},
 		},
 	}
@@ -263,12 +215,12 @@ func TestDiffConfigs(t *testing.T) {
 					Components: []config.Component{
 						{
 							Name:  "base2",
-							Type:  config.ComponentTypeBase,
+							Type:  base.SubtypeName,
 							Model: "fake",
 						},
 						{
 							Name:  "board2",
-							Type:  config.ComponentTypeBoard,
+							Type:  board.SubtypeName,
 							Model: "fake",
 							ConvertedAttributes: &board.Config{
 								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
@@ -281,15 +233,6 @@ func TestDiffConfigs(t *testing.T) {
 							Name: "bash",
 							Args: []string{"-c", "trap \"exit 0\" SIGINT; while true; do echo world; sleep 2; done"},
 							Log:  true,
-						},
-					},
-					Functions: []functionvm.FunctionConfig{
-						{
-							Name: "func3",
-							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-								Engine: "baz",
-								Source: "3",
-							},
 						},
 					},
 				},
@@ -307,7 +250,7 @@ func TestDiffConfigs(t *testing.T) {
 					Components: []config.Component{
 						{
 							Name:  "arm1",
-							Type:  config.ComponentTypeArm,
+							Type:  arm.SubtypeName,
 							Model: "fake",
 							Attributes: config.AttributeMap{
 								"two": float64(2),
@@ -315,7 +258,7 @@ func TestDiffConfigs(t *testing.T) {
 						},
 						{
 							Name:  "board1",
-							Type:  config.ComponentTypeBoard,
+							Type:  board.SubtypeName,
 							Model: "fake",
 							ConvertedAttributes: &board.Config{
 								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
@@ -330,21 +273,12 @@ func TestDiffConfigs(t *testing.T) {
 							OneShot: true,
 						},
 					},
-					Functions: []functionvm.FunctionConfig{
-						{
-							Name: "func1",
-							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-								Engine: "foo",
-								Source: "1+1",
-							},
-						},
-					},
 				},
 				Removed: &config.Config{
 					Components: []config.Component{
 						{
 							Name:  "base1",
-							Type:  config.ComponentTypeBase,
+							Type:  base.SubtypeName,
 							Model: "fake",
 							Attributes: config.AttributeMap{
 								"two": float64(2),
@@ -357,15 +291,6 @@ func TestDiffConfigs(t *testing.T) {
 							Name: "bash",
 							Args: []string{"-c", "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"},
 							Log:  true,
-						},
-					},
-					Functions: []functionvm.FunctionConfig{
-						{
-							Name: "func2",
-							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-								Engine: "bar",
-								Source: "2",
-							},
 						},
 					},
 				},

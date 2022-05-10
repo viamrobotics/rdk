@@ -14,6 +14,7 @@ import (
 	"go.viam.com/dynamixel/servo/s_model"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -48,12 +49,13 @@ func getPortMutex(port string) *sync.Mutex {
 type wx250s struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
+	generic.Unimplemented
 }
 
 // newGripper TODO.
 func newGripper(attributes config.AttributeMap, logger golog.Logger) (*wx250s, error) {
-	usbPort := attributes.String("usbPort")
-	jServo := findServo(usbPort, attributes.String("baudRate"), logger)
+	usbPort := attributes.String("usb_port")
+	jServo := findServo(usbPort, attributes.String("baud_rate"), logger)
 	err := jServo.SetTorqueEnable(true)
 	newGripper := wx250s{
 		jServo:   jServo,

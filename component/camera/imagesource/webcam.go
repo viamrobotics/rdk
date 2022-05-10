@@ -36,7 +36,7 @@ func init() {
 			return NewWebcamSource(attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "webcam",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "webcam",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -65,10 +65,10 @@ type WebcamAttrs struct {
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
-	minWidth := 680
+	minWidth := 0
 	maxWidth := 4096
 	idealWidth := 800
-	minHeight := 400
+	minHeight := 0
 	maxHeight := 2160
 	idealHeight := 600
 

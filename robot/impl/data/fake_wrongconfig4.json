@@ -1,10 +1,4 @@
 {
-    "services": [
-        {
-            "name": "frame_system",
-            "type": "frame_system"
-        }
-    ],
     "components": [
         {
             "model": "fake",
@@ -69,18 +63,6 @@
           "attributes": {
             "relative": true
           }
-        }
-    ],
-    "functions": [
-        {
-          "name": "func1",
-          "engine": "javascript",
-          "source": "(function() { console.log(robot.gripperOpen('gripper1')); return 1}())"
-        },
-        {
-          "name": "func2",
-          "engine": "javascript",
-          "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
         }
     ]
 }

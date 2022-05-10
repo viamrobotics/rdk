@@ -151,7 +151,7 @@ func TestLineFollow(t *testing.T) {
 	opt := NewDefaultPlannerOptions()
 	opt.SetPathDist(gradFunc)
 	opt.AddConstraint("whiteboard", validFunc)
-	ok, _ := opt.CheckConstraintPath(
+	ok, lastGood := opt.CheckConstraintPath(
 		&ConstraintInput{
 			StartInput: frame.JointPosToInputs(mp1),
 			EndInput:   frame.JointPosToInputs(mp2),
@@ -159,17 +159,23 @@ func TestLineFollow(t *testing.T) {
 		},
 		1,
 	)
-
 	test.That(t, ok, test.ShouldBeFalse)
+	// lastGood.StartInput should pass constraints, while lastGood.EndInput should fail`
+	lastGood.Frame = sf
+	pass, _ := opt.CheckConstraints(lastGood)
+	test.That(t, pass, test.ShouldBeTrue)
+	lastGood.StartInput = lastGood.EndInput
+	lastGood.StartPos = nil
+	pass, _ = opt.CheckConstraints(lastGood)
+	test.That(t, pass, test.ShouldBeFalse)
 }
 
 func TestCollisionConstraint(t *testing.T) {
-	zeroInput := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	cases := []struct {
 		input    []frame.Input
 		expected bool
 	}{
-		{zeroInput, true},
+		{frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), true},
 		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true},
 		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false},
 		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false},
@@ -185,12 +191,8 @@ func TestCollisionConstraint(t *testing.T) {
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	zeroVols, _ := model.Geometries(zeroInput)
-	test.That(t, zeroVols, test.ShouldNotBeNil)
-	zeroCG, err := CheckCollisions(zeroVols, obstacles)
-	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(obstacles, zeroCG))
+	handler.AddConstraint("collision", NewCollisionConstraint(model, obstacles, map[string]spatial.Geometry{}))
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {

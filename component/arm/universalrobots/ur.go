@@ -20,8 +20,10 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -52,7 +54,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, modelname,
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -67,6 +69,7 @@ func ur5eModel() (referenceframe.Model, error) {
 
 // URArm TODO.
 type URArm struct {
+	generic.Unimplemented
 	io.Closer
 	mu                      *sync.Mutex
 	muMove                  sync.Mutex
@@ -81,6 +84,7 @@ type URArm struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	mp                      motionplan.MotionPlanner
 	model                   referenceframe.Model
+	opMgr                   operation.SingleOperationManager
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -235,6 +239,9 @@ func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := ua.opMgr.New(ctx)
+	defer done()
+
 	joints, err := ua.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -259,6 +266,9 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 
 // MoveToJointPositionRadians TODO.
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
+	ctx, done := ua.opMgr.New(ctx)
+	defer done()
+
 	ua.muMove.Lock()
 	defer ua.muMove.Unlock()
 

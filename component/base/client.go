@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 )
@@ -69,12 +70,11 @@ func clientFromSvcClient(sc *serviceClient, name string) Base {
 	return &client{sc, name}
 }
 
-func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
 	_, err := c.client.MoveStraight(ctx, &pb.MoveStraightRequest{
 		Name:       c.name,
 		DistanceMm: int64(distanceMm),
 		MmPerSec:   mmPerSec,
-		Block:      block,
 	})
 	if err != nil {
 		return err
@@ -82,13 +82,12 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 	return nil
 }
 
-func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
+func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
 	_, err := c.client.MoveArc(ctx, &pb.MoveArcRequest{
 		Name:       c.name,
 		MmPerSec:   mmPerSec,
 		AngleDeg:   angleDeg,
 		DistanceMm: int64(distanceMm),
-		Block:      block,
 	})
 	if err != nil {
 		return err
@@ -96,12 +95,11 @@ func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, 
 	return nil
 }
 
-func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	_, err := c.client.Spin(ctx, &pb.SpinRequest{
 		Name:       c.name,
 		AngleDeg:   angleDeg,
 		DegsPerSec: degsPerSec,
-		Block:      block,
 	})
 	if err != nil {
 		return err
@@ -120,4 +118,8 @@ func (c *client) Stop(ctx context.Context) error {
 // Close cleanly closes the underlying connections.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
+}
+
+func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }
