@@ -1,4 +1,4 @@
-// package weboptions provides Options for configuring a web server
+// Package weboptions provides Options for configuring a web server
 package weboptions
 
 import (
