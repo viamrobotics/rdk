@@ -3,10 +3,10 @@ package discovery
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -44,13 +44,13 @@ func init() {
 // maps with string keys (or at least can be decomposed into one), or lists of the
 // forementioned type of maps. Results with other types of data are not guaranteed.
 type Discovery struct {
-	Name       resource.Name
+	Key        Key
 	Discovered interface{}
 }
 
 // A Service returns discoveries for resources when queried.
 type Service interface {
-	Discover(ctx context.Context, resourceNames []resource.Name) ([]Discovery, error)
+	Discover(ctx context.Context, keys []Key) ([]Discovery, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -88,57 +88,42 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return s, nil
 }
 
-type discoveryService struct {
-	mu        sync.RWMutex
-	resources map[resource.Name]interface{}
-	logger    golog.Logger
-}
-
-// Discover takes a list of resource names and returns their corresponding discoveries.
-// If no names are passed in, return all discoveries.
-func (s *discoveryService) Discover(ctx context.Context, resourceNames []resource.Name) ([]Discovery, error) {
-	s.mu.RLock()
-	// make a shallow copy of resources and then unlock
-	resources := make(map[resource.Name]interface{}, len(s.resources))
-	for name, resource := range s.resources {
-		resources[name] = resource
-	}
-	s.mu.RUnlock()
-
-	namesToDedupe := resourceNames
-	// if no names, return all
-	if len(namesToDedupe) == 0 {
-		namesToDedupe = make([]resource.Name, 0, len(resources))
-		for n := range resources {
-			namesToDedupe = append(namesToDedupe, n)
-		}
+type (
+	discoveryService struct {
+		mu        sync.RWMutex
+		resources map[resource.Name]interface{}
+		logger    golog.Logger
 	}
 
-	// dedupe resourceNames
-	deduped := make(map[resource.Name]struct{}, len(namesToDedupe))
-	for _, val := range namesToDedupe {
-		deduped[val] = struct{}{}
+	Key struct {
+		subtypeName resource.SubtypeName
+		model       string
+	}
+)
+
+// Discover takes a list of subtype and model name pairs and returns their corresponding
+// discoveries.
+func (s *discoveryService) Discover(ctx context.Context, keys []Key) ([]Discovery, error) {
+	// dedupe keys
+	deduped := make(map[Key]struct{}, len(keys))
+	for _, k := range keys {
+		deduped[k] = struct{}{}
 	}
 
 	discoveries := make([]Discovery, 0, len(deduped))
-	for name := range deduped {
-		resource, ok := resources[name]
+	for key := range deduped {
+		discoveryFunction, ok := DiscoveryFunctionLookup(key.subtypeName, key.model)
 		if !ok {
-			return nil, utils.NewResourceNotFoundError(name)
+			return nil, fmt.Errorf("no discovery function registered for %q and model %q.", key.subtypeName, key.model)
 		}
 
-		// if resource subtype has an associated Discover method, use that
-		// otherwise return true to indicate resource exists
-		var discovery interface{} = struct{}{}
-		var err error
-		subtype := registry.ResourceSubtypeLookup(name.Subtype)
-		if subtype != nil && subtype.Discovered != nil {
-			discovery, err = subtype.Discovered(ctx, resource)
+		if discoveryFunction != nil {
+			discovery, err := discoveryFunction(ctx, key.subtypeName, key.model)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get discovery from %q", name)
+				return nil, fmt.Errorf("failed to get discovery for subtype %q and model %q", key.subtypeName, key.model)
 			}
+			discoveries = append(discoveries, Discovery{Key: key, Discovered: discovery})
 		}
-		discoveries = append(discoveries, Discovery{Name: name, Discovered: discovery})
 	}
 	return discoveries, nil
 }

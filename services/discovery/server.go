@@ -40,36 +40,37 @@ func (server *subtypeServer) Discovery(ctx context.Context, req *pb.DiscoverRequ
 	if err != nil {
 		return nil, err
 	}
-	resourceNames := make([]resource.Name, 0, len(req.ResourceNames))
-	for _, name := range req.ResourceNames {
-		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
+	keys := make([]Key, 0, len(req.Keys))
+	for _, key := range req.Keys {
+		keys = append(keys, Key{resource.SubtypeName(key.Subtype), key.Model})
 	}
 
-	discoveries, err := svc.Discover(ctx, resourceNames)
+	discoveries, err := svc.Discover(ctx, keys)
 	if err != nil {
 		return nil, err
 	}
 
-	discoveriesP := make([]*pb.Discovery, 0, len(discoveries))
+	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
 	for _, discovery := range discoveries {
 		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
 		// conversion necessary.
 		encoded, err := protoutils.InterfaceToMap(discovery.Discovered)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Name)
+			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Key)
 		}
-		discoveryP, err := structpb.NewStruct(encoded)
+		pbDiscovery, err := structpb.NewStruct(encoded)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Name)
+			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Key)
 		}
-		discoveriesP = append(
-			discoveriesP,
+		pbKey := &pb.Key{Subtype: discovery.Key.model, Model: discovery.Key.model}
+		pbDiscoveries = append(
+			pbDiscoveries,
 			&pb.Discovery{
-				Name:       protoutils.ResourceNameToProto(discovery.Name),
-				Discovered: discoveryP,
+				Key:        pbKey,
+				Discovered: pbDiscovery,
 			},
 		)
 	}
 
-	return &pb.DiscoverResponse{Discovery: discoveriesP}, nil
+	return &pb.DiscoverResponse{Discovery: pbDiscoveries}, nil
 }
