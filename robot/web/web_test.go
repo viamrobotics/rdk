@@ -40,7 +40,7 @@ func TestWebStart(t *testing.T) {
 
 	svc := web.New(ctx, injectRobot, logger)
 
-	err := svc.Start(ctx, weboptions.NewOptions())
+	err := svc.Start(ctx, weboptions.New())
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1, err := arm.NewClient(context.Background(), arm1String, "localhost:8080", logger)
@@ -50,7 +50,7 @@ func TestWebStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
-	err = svc.Start(context.Background(), weboptions.NewOptions())
+	err = svc.Start(context.Background(), weboptions.New())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "already started")
 
@@ -66,7 +66,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := weboptions.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 
@@ -103,7 +103,7 @@ func TestWebWithAuth(t *testing.T) {
 
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
-			options := weboptions.NewOptions()
+			options := weboptions.New()
 			addr := fmt.Sprintf("localhost:%d", port)
 			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
@@ -242,7 +242,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := weboptions.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Network.TLSConfig = &tls.Config{
@@ -380,7 +380,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := weboptions.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -399,7 +399,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 
 	port, err = utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options = weboptions.NewOptions()
+	options = weboptions.New()
 	addr = fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -423,7 +423,7 @@ func TestWebUpdate(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := weboptions.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	err = svc.Start(ctx, options)
@@ -532,7 +532,7 @@ func TestWebWithStreams(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := weboptions.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	svc := web.New(ctx, robot, logger)
@@ -590,7 +590,7 @@ func TestWebAddFirstStream(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := weboptions.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	svc := web.New(ctx, robot, logger)

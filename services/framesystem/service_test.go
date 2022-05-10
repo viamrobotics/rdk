@@ -253,7 +253,7 @@ func TestServiceWithRemote(t *testing.T) {
 	}()
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := weboptions.NewOptions()
+	options := weboptions.New()
 	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
 	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)

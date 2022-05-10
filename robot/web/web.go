@@ -207,7 +207,7 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	return svc.runWeb(cancelCtx, o)
 }
 
-// RunWeb starts the web server on the web service with web options and blocks until we close it.
+// RunWeb starts the web server on the robot with web options and blocks until we close it.
 func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil {
@@ -226,9 +226,9 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 	return ctx.Err()
 }
 
-// RunWebWithConfig starts the web server on the web service with a robot config and blocks until we close it.
+// RunWebWithConfig starts the web server on the robot with a robot config and blocks until we close it.
 func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Config, logger golog.Logger) error {
-	o, err := weboptions.OptionsFromConfig(cfg)
+	o, err := weboptions.FromConfig(cfg)
 	if err != nil {
 		return err
 	}
