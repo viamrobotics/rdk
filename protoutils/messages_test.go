@@ -40,15 +40,19 @@ type structTest struct {
 }
 
 var (
-	simpleStruct      = SimpleStruct{X: 1.1, Y: 2.2, Z: 3.3}
-	typedStringStruct = TypedStringStruct{TypedString: TypedString("hello")}
-	sliceStruct       = SliceStruct{Degrees: []float64{1.1, 2.2, 3.3}}
-	mapStruct         = MapStruct{Status: map[string]string{"foo": "bar"}}
-	pointerStruct     = PointerStruct{&simpleStruct}
-	nestedMapStruct   = NestedMapStruct{Status: map[string]SimpleStruct{"foo": simpleStruct}}
-	nestedStruct      = NestedStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
-	noTagStruct       = NoTagsStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
-	embeddedStruct    = EmbeddedStruct{simpleStruct, sliceStruct}
+	simpleStruct       = SimpleStruct{X: 1.1, Y: 2.2, Z: 3.3}
+	typedStringStruct  = TypedStringStruct{TypedString: TypedString("hello")}
+	sliceStruct        = SliceStruct{Degrees: []float64{1.1, 2.2, 3.3}}
+	mapStruct          = MapStruct{Status: map[string]string{"foo": "bar"}}
+	pointerStruct      = PointerStruct{&simpleStruct}
+	nestedMapStruct    = NestedMapStruct{Status: map[string]SimpleStruct{"foo": simpleStruct}}
+	nestedStruct       = NestedStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
+	noTagStruct        = NoTagsStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
+	embeddedStruct     = EmbeddedStruct{simpleStruct, sliceStruct}
+	emptyPointerStruct = EmptyPointerStruct{EmptyStruct: nil}
+	singleByteStruct   = SingleUintStruct{UintValue: uint16(1)}
+
+	nilPointerResembleVal = EmptyPointerStruct{EmptyStruct: &EmptyStruct{}}
 
 	structTests = []structTest{
 		{"simple struct", simpleStruct, map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}, SimpleStruct{}},
@@ -95,6 +99,16 @@ var (
 				"SimpleStruct": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3},
 			},
 			EmbeddedStruct{},
+		}, {
+			"nil pointer struct",
+			emptyPointerStruct,
+			map[string]interface{}{"empty_struct": map[string]interface{}{}},
+			EmptyPointerStruct{},
+		}, {
+			"struct with uint",
+			singleByteStruct,
+			map[string]interface{}{"UintValue": uint(1)},
+			SingleUintStruct{},
 		},
 	}
 )
@@ -121,18 +135,35 @@ func TestInterfaceToMap(t *testing.T) {
 	for _, tc := range structTests {
 		map1, err := InterfaceToMap(tc.Data)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, map1, test.ShouldResemble, tc.Expected)
+		switch tc.TestName {
+		case "struct with uint":
+			test.That(t, map1["UintValue"], test.ShouldEqual, 1)
+		default:
+			test.That(t, map1, test.ShouldResemble, tc.Expected)
+		}
 
 		newStruct, err := structpb.NewStruct(map1)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newStruct.AsMap(), test.ShouldResemble, tc.Expected)
+		switch tc.TestName {
+		case "struct with uint":
+			test.That(t, newStruct.AsMap()["UintValue"], test.ShouldEqual, 1)
+		default:
+			test.That(t, newStruct.AsMap(), test.ShouldResemble, tc.Expected)
+		}
 
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &tc.Return})
 		test.That(t, err, test.ShouldBeNil)
 		err = decoder.Decode(newStruct.AsMap())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, tc.Return, test.ShouldResemble, tc.Data)
+		switch tc.TestName {
+		case "nil pointer struct":
+			test.That(t, tc.Return, test.ShouldResemble, nilPointerResembleVal)
+		default:
+			test.That(t, tc.Return, test.ShouldResemble, tc.Data)
+		}
+
 	}
+
 }
 
 func TestMarshalMap(t *testing.T) {
@@ -179,17 +210,32 @@ func TestStructToMap(t *testing.T) {
 	for _, tc := range structTests {
 		map1, err := structToMap(tc.Data)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, map1, test.ShouldResemble, tc.Expected)
+		switch tc.TestName {
+		case "struct with uint":
+			test.That(t, map1["UintValue"], test.ShouldEqual, 1)
+		default:
+			test.That(t, map1, test.ShouldResemble, tc.Expected)
+		}
 
 		newStruct, err := structpb.NewStruct(map1)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newStruct.AsMap(), test.ShouldResemble, tc.Expected)
+		switch tc.TestName {
+		case "struct with uint":
+			test.That(t, newStruct.AsMap()["UintValue"], test.ShouldEqual, 1)
+		default:
+			test.That(t, newStruct.AsMap(), test.ShouldResemble, tc.Expected)
+		}
 
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &tc.Return})
 		test.That(t, err, test.ShouldBeNil)
 		err = decoder.Decode(newStruct.AsMap())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, tc.Return, test.ShouldResemble, tc.Data)
+		switch tc.TestName {
+		case "nil pointer struct":
+			test.That(t, tc.Return, test.ShouldResemble, nilPointerResembleVal)
+		default:
+			test.That(t, tc.Return, test.ShouldResemble, tc.Data)
+		}
 	}
 }
 func TestMarshalSlice(t *testing.T) {
@@ -203,7 +249,7 @@ func TestMarshalSlice(t *testing.T) {
 	embeddedMatrix := [][][]float64{matrix}
 	objects := []SliceStruct{{Degrees: degs}}
 	objectList := [][]SliceStruct{objects}
-	maps := []map[string]interface{}{{"hello": "world"}, {"foo": 1}}
+	maps := []map[string]interface{}{{"hello": "world"}, {"foo": 1.1}}
 	mapsOfLists := []map[string][]string{{"hello": {"world"}}, {"foo": {"bar"}}}
 	mixed := []interface{}{degs, matrix, objects}
 
@@ -218,7 +264,7 @@ func TestMarshalSlice(t *testing.T) {
 		{"list of list of simple lists", embeddedMatrix, 1, []interface{}{[]interface{}{[]interface{}{1.1, 2.2, 3.3}}}},
 		{"list of objects", objects, 1, []interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}}},
 		{"list of lists of objects", objectList, 1, []interface{}{[]interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}}}},
-		{"list of maps", maps, 2, []interface{}{map[string]interface{}{"hello": "world"}, map[string]interface{}{"foo": 1}}},
+		{"list of maps", maps, 2, []interface{}{map[string]interface{}{"hello": "world"}, map[string]interface{}{"foo": 1.1}}},
 		{
 			"list of maps of lists",
 			mapsOfLists,
@@ -252,6 +298,7 @@ type SimpleStruct struct {
 	Z float64 `json:"z"`
 }
 
+type EmptyStruct struct{}
 type TypedStringStruct struct {
 	TypedString TypedString `json:"typed_string"`
 }
@@ -280,6 +327,10 @@ type PointerStruct struct {
 	SimpleStruct *SimpleStruct `json:"simple_struct"`
 }
 
+type EmptyPointerStruct struct {
+	EmptyStruct *EmptyStruct `json:"empty_struct"`
+}
+
 type NestedStruct struct {
 	SimpleStruct SimpleStruct `json:"simple_struct"`
 	SliceStruct  SliceStruct  `json:"slice_struct"`
@@ -292,4 +343,8 @@ type NoTagsStruct struct {
 type EmbeddedStruct struct {
 	SimpleStruct
 	SliceStruct
+}
+
+type SingleUintStruct struct {
+	UintValue uint16
 }

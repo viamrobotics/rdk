@@ -251,7 +251,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 	return b, nil
 }
 
-func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
 	speed := 0.7
 	if distanceMm >= 9*1000 {
 		speed = 1.0
@@ -285,11 +285,11 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
+func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
 	return errors.New("boat can't move in arc yet")
 }
 
-func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	b.lastSpin = angleDeg
 	b.previousSpins = append(b.previousSpins, b.lastSpin)
 
