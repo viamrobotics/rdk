@@ -18,8 +18,8 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -253,11 +253,9 @@ func TestServiceWithRemote(t *testing.T) {
 	}()
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.New()
 	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
-	svc, err := web.FromRobot(remoteRobot)
-	test.That(t, err, test.ShouldBeNil)
-	err = svc.Start(ctx, options)
+	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 	addr := fmt.Sprintf("localhost:%d", port)
 
