@@ -71,6 +71,7 @@ type Gantry interface {
 
 	// MoveToPosition is in meters
 	// The worldState argument should be treated as optional by all implementing drivers
+	// This will block until done or this or a new operation cancels this
 	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState) error
 
 	// GetLengths is the length of gantries in meters
