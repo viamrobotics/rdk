@@ -45,13 +45,12 @@ var (
 	sliceStruct        = SliceStruct{Degrees: []float64{1.1, 2.2, 3.3}}
 	mapStruct          = MapStruct{Status: map[string]string{"foo": "bar"}}
 	pointerStruct      = PointerStruct{&simpleStruct}
-	emptyPointerStruct = EmptyPointerStruct{EmptyStruct: nil}
 	nestedMapStruct    = NestedMapStruct{Status: map[string]SimpleStruct{"foo": simpleStruct}}
 	nestedStruct       = NestedStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
 	noTagStruct        = NoTagsStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
 	embeddedStruct     = EmbeddedStruct{simpleStruct, sliceStruct}
-
-	singleByteStruct = SingleUintStruct{UintValue: uint16(1)}
+	emptyPointerStruct = EmptyPointerStruct{EmptyStruct: nil}
+	singleByteStruct   = SingleUintStruct{UintValue: uint16(1)}
 
 	nilPointerResembleVal = EmptyPointerStruct{EmptyStruct: &EmptyStruct{}}
 
@@ -111,13 +110,6 @@ var (
 			map[string]interface{}{"UintValue": uint(1)},
 			SingleUintStruct{},
 		},
-	}
-
-	uintStructTest = structTest{
-		"struct with nil value",
-		singleByteStruct,
-		map[string]interface{}{"UintValue": uint(1)},
-		SingleUintStruct{},
 	}
 )
 
