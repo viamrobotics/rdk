@@ -35,7 +35,7 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) Discovery(ctx context.Context, req *pb.DiscoverRequest) (*pb.DiscoverResponse, error) {
+func (server *subtypeServer) Discover(ctx context.Context, req *pb.DiscoverRequest) (*pb.DiscoverResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
