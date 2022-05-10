@@ -129,13 +129,14 @@ func runtimeServiceValidation(slamSvc *slamService) error {
 		switch slamSvc.slamLib.AlgoName {
 		case "orbslamv3":
 			path, err = slamSvc.getAndSaveDataSparse()
+		// nolint:goconst
 		case "cartographer":
 			path, err = slamSvc.getAndSaveDataDense()
 		default:
 			return errors.Errorf("invalid slam algorithm %v", slamSvc.slamLib.AlgoName)
 		}
 		if err != nil {
-			return errors.Errorf("getting data with specified sensor and desired mode %v", slamSvc.slamMode)
+			return errors.Errorf("getting data with specified sensor and desired mode %v: %v", slamSvc.slamMode, err)
 		}
 		err = os.RemoveAll(path)
 		if err != nil {
@@ -173,9 +174,9 @@ type slamService struct {
 	dataDirectory    string
 	inputFilePattern string
 
-	port       int
-	dataFreqHz float64
-	mapRateSec int
+	port        int
+	dataRateSec int
+	mapRateSec  int
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -234,7 +235,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	var dataRate int
 	if svcConfig.DataRateMs == 0 {
-		logger.Info("no data rate (ms) specified, using default of 200 ms")
 		dataRate = 200
 	} else {
 		dataRate = svcConfig.DataRateMs
@@ -242,7 +242,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	var mapRate int
 	if svcConfig.MapRateSec == 0 {
-		logger.Info("no map rate (s) specified, using default of 60 s")
 		mapRate = 60
 	} else {
 		mapRate = svcConfig.MapRateSec
@@ -252,23 +251,24 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	// SLAM Service Object
 	slamSvc := &slamService{
-		camera:           cam,
-		slamLib:          slamLibraries[svcConfig.Algorithm],
-		slamMode:         strings.ToLower(svcConfig.ConfigParams["mode"]),
-		configParams:     svcConfig.ConfigParams,
-		dataDirectory:    svcConfig.DataDirectory,
-		inputFilePattern: svcConfig.InputFilePattern,
-		port:             p,
-		dataFreqHz:       float64(1000.0 / dataRate),
-		mapRateSec:       mapRate,
-		cancelCtx:        cancelCtx,
-		cancelFunc:       cancelFunc,
-		logger:           logger,
+		camera:                  cam,
+		slamLib:                 slamLibraries[svcConfig.Algorithm],
+		slamMode:                strings.ToLower(svcConfig.ConfigParams["mode"]),
+		configParams:            svcConfig.ConfigParams,
+		dataDirectory:           svcConfig.DataDirectory,
+		inputFilePattern:        svcConfig.InputFilePattern,
+		port:                    p,
+		dataRateSec:             dataRate,
+		mapRateSec:              mapRate,
+		cancelCtx:               cancelCtx,
+		cancelFunc:              cancelFunc,
+		logger:                  logger,
+		activeBackgroundWorkers: &sync.WaitGroup{},
 	}
 
 	if err := runtimeServiceValidation(slamSvc); err != nil {
 		logger.Warnf("runtime slam service error: %v", err)
-		return &slamService{}, nil
+		return slamSvc, nil
 	}
 
 	if err := slamSvc.startDataProcess(ctx); err != nil {
@@ -282,9 +282,58 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return slamSvc, nil
 }
 
-// TBD 05/03/2022: Data processing loop in new PR (see slamlibarary.go GetandSaveData functions as well).
+// TODO 05/10/2022: Remove from SLAM service once GRPC data transfer is available.
 // startDataProcess is the main control loops for sending data from camera to the data directory for processing.
 func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
+	if slamSvc.camera == nil {
+		return nil
+	}
+	slamSvc.activeBackgroundWorkers.Add(1)
+	goutils.PanicCapturingGo(func() {
+		ticker := time.NewTicker(time.Millisecond * time.Duration(slamSvc.dataRateSec))
+		defer ticker.Stop()
+		defer slamSvc.activeBackgroundWorkers.Done()
+
+		dataLock := &sync.Mutex{}
+		dataWorker := &sync.WaitGroup{}
+
+		for {
+			if err := slamSvc.cancelCtx.Err(); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					slamSvc.logger.Errorw("unexpected error in SLAM data process", "error", err)
+				}
+				dataWorker.Wait()
+				return
+			}
+
+			select {
+			case <-slamSvc.cancelCtx.Done():
+				dataWorker.Wait()
+				return
+			case <-ticker.C:
+				dataLock.Lock()
+				dataWorker.Add(1)
+				dataLock.Unlock()
+
+				goutils.PanicCapturingGo(func() {
+					defer dataWorker.Done()
+					switch slamSvc.slamLib.AlgoName {
+
+					case "cartographer":
+						if _, err := slamSvc.getAndSaveDataDense(); err != nil {
+							panic(err)
+						}
+					case "orbslamv3":
+						if _, err := slamSvc.getAndSaveDataSparse(); err != nil {
+							panic(err)
+						}
+					default:
+						panic(errors.New("error invalid algrothim specified"))
+					}
+				})
+			}
+		}
+	})
 	return nil
 }
 
@@ -292,44 +341,6 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 // https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-104)
 // startSLAMProcess starts up the SLAM library process by calling the executable binary.
 func (slamSvc *slamService) startSLAMProcess(ctx context.Context) error {
-	if slamSvc.camera == nil {
-		return nil
-	}
-
-	slamSvc.activeBackgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer slamSvc.activeBackgroundWorkers.Done()
-
-		for {
-			select {
-			case <-slamSvc.cancelCtx.Done():
-				return
-			default:
-			}
-
-			timer := time.NewTimer(time.Second / time.Duration(slamSvc.dataFreqHz))
-			select {
-			case <-slamSvc.cancelCtx.Done():
-				timer.Stop()
-				return
-			case <-timer.C:
-			}
-
-			// Get data from desired camera
-			switch slamSvc.slamLib.AlgoName {
-			case "cartographer":
-				if _, err := slamSvc.getAndSaveDataDense(); err != nil {
-					panic(err)
-				}
-			case "orbslamv3":
-				if _, err := slamSvc.getAndSaveDataSparse(); err != nil {
-					panic(err)
-				}
-			default:
-				panic(errors.New("error invalid algrothim specified"))
-			}
-		}
-	})
 	return nil
 }
 
@@ -341,11 +352,12 @@ func (slamSvc *slamService) getSLAMServiceData() slamService {
 // TODO 05/03/2022: Implement closeout of slam service and subprocesses.
 // Close out of all slam related processes.
 func (slamSvc *slamService) Close(ctx context.Context) error {
-	slamSvc.cancelCtx.Done()
+	slamSvc.cancelFunc()
 	return nil
 }
 
-// getAndSaveData implements the data extraction for sparse algos and saving to the specified directory.
+// getAndSaveData implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in the
+// config. It returns the full filepath for each file saved along with any error associaetdw with the data creation or saving.
 func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 	// Get Image
 	img, _, err := slamSvc.camera.Next(slamSvc.cancelCtx)
@@ -357,17 +369,18 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 		return "", err
 	}
 
-	// Get timestamp for file name
-	timeStamp := time.Now()
-
 	// Create file
-	var file_type string
-	if slamSvc.slamMode == "both" {
-		file_type = ".both"
-	} else {
-		file_type = ".jpeg"
+	var fileType string
+	switch slamSvc.slamMode {
+	// nolint:goconst
+	case "mono":
+		fileType = ".jpeg"
+	// nolint:goconst
+	case "rgbd":
+		fileType = ".both"
 	}
-	filename := slamSvc.dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + file_type
+
+	filename := createTimestampFilename(slamSvc.dataDirectory, fileType)
 	f, err := os.Create(filename)
 	if err != nil {
 		return filename, err
@@ -382,6 +395,7 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 			return filename, err
 		}
 	case "rgbd":
+		// TODO 05/10/2022: the file type saving may change here based on John N.'s recommendation (whether to use both or two images)
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
 			return filename, errors.Errorf("want %s but don't have %T", utils.MimeTypeBoth, iwd)
@@ -396,7 +410,8 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 	return filename, f.Close()
 }
 
-// getAndSaveData implements the data extraction for dense algos and saving to the specified directory.
+// getAndSaveData implements the data extraction for dense algos and saving to the directory path (data subfolder) specified in the
+// config. It returns the full filepath for each file saved along with any error associaetd with the data creation or saving.
 func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
 	// Get NextPointCloud
 	pointcloud, err := slamSvc.camera.NextPointCloud(slamSvc.cancelCtx)
@@ -408,12 +423,9 @@ func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
 		return "", err
 	}
 
-	// Get timestamp for file name
-	timeStamp := time.Now()
-
 	// Create file
-	file_type := ".pcd"
-	filename := slamSvc.dataDirectory + "/data/data_" + timeStamp.UTC().Format("2006-01-02T15_04_05.0000") + file_type
+	fileType := ".pcd"
+	filename := createTimestampFilename(slamSvc.dataDirectory, fileType)
 	f, err := os.Create(filename)
 	if err != nil {
 		return filename, err
@@ -429,4 +441,11 @@ func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
 		return filename, err
 	}
 	return filename, f.Close()
+}
+
+func createTimestampFilename(dataDirectory string, fileType string) string {
+	timeStamp := time.Now()
+	filename := filepath.Join(dataDirectory, "/data/data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
+
+	return filename
 }
