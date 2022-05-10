@@ -1,4 +1,5 @@
-package web
+// package weboptions provides Options for configuring a web server
+package weboptions
 
 import (
 	"crypto/tls"
@@ -52,8 +53,8 @@ type Options struct {
 	// Managed signifies if this server is remotely managed (e.g. from some cloud service).
 	Managed bool
 
-	// secure determines if sever communicates are secured or not.
-	secure bool
+	// Secure determines if sever communicates are secured or not.
+	Secure bool
 
 	// baked information when managed to make local UI simpler
 	BakedAuthEntity string
@@ -145,17 +146,17 @@ func OptionsFromConfig(cfg *config.Config) (Options, error) {
 
 // Hosts configurations.
 type Hosts struct {
-	names    []string
-	internal []string
-	external []string
+	Names    []string
+	Internal []string
+	External []string
 }
 
 // GetHosts derives host configurations from options.
 func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
 	hosts := Hosts{
-		names:    []string{options.FQDN},
-		external: []string{options.FQDN},
-		internal: []string{options.FQDN},
+		Names:    []string{options.FQDN},
+		External: []string{options.FQDN},
+		Internal: []string{options.FQDN},
 	}
 
 	listenerAddr := listenerTCPAddr.String()
@@ -175,13 +176,13 @@ func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
 		// allow signaling for non-unique entities.
 		// This eases WebRTC connections.
 		if options.FQDN != listenerAddr {
-			hosts.external = addSignalingHost(listenerAddr, hosts.external, seenExternalSignalingHosts)
-			hosts.internal = addSignalingHost(listenerAddr, hosts.internal, seenInternalSignalingHosts)
+			hosts.External = addSignalingHost(listenerAddr, hosts.External, seenExternalSignalingHosts)
+			hosts.Internal = addSignalingHost(listenerAddr, hosts.Internal, seenInternalSignalingHosts)
 		}
 		if listenerTCPAddr.IP.IsLoopback() {
 			// plus localhost alias
-			hosts.external = addSignalingHost(localhostWithPort, hosts.external, seenExternalSignalingHosts)
-			hosts.internal = addSignalingHost(localhostWithPort, hosts.internal, seenInternalSignalingHosts)
+			hosts.External = addSignalingHost(localhostWithPort, hosts.External, seenExternalSignalingHosts)
+			hosts.Internal = addSignalingHost(localhostWithPort, hosts.Internal, seenInternalSignalingHosts)
 		}
 	}
 
@@ -189,10 +190,10 @@ func (options *Options) GetHosts(listenerTCPAddr *net.TCPAddr) Hosts {
 		// only add the local FQDN here since we will already have DefaultFQDN
 		// in the case that FQDNs was empty, avoiding a duplicate host. If FQDNs
 		// is non-empty, we don't care about having a default for signaling/naming.
-		hosts.names = append(hosts.names, options.LocalFQDN)
-		hosts.internal = addSignalingHost(options.LocalFQDN, hosts.internal, seenInternalSignalingHosts)
+		hosts.Names = append(hosts.Names, options.LocalFQDN)
+		hosts.Internal = addSignalingHost(options.LocalFQDN, hosts.Internal, seenInternalSignalingHosts)
 		localFQDNWithPort := fmt.Sprintf("%s%s", options.LocalFQDN, listenerPortStr(listenerTCPAddr))
-		hosts.internal = addSignalingHost(localFQDNWithPort, hosts.internal, seenInternalSignalingHosts)
+		hosts.Internal = addSignalingHost(localFQDNWithPort, hosts.Internal, seenInternalSignalingHosts)
 	}
 
 	return hosts

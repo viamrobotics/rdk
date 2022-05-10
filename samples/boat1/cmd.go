@@ -29,6 +29,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robot/web"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -428,5 +429,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		recordDepthWorker(ctx, depth1)
 	}, activeBackgroundWorkers.Done)
 
-	return robotimpl.RunWebWithConfig(ctx, myRobot, cfg, logger)
+	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }

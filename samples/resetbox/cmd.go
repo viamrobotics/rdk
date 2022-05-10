@@ -21,6 +21,7 @@ import (
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robot/web"
 )
 
 const (
@@ -312,7 +313,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	defer box.Close()
 
 	box.home(ctx)
-	return robotimpl.RunWebWithConfig(ctx, myRobot, cfg, logger)
+	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }
 
 //nolint:unused

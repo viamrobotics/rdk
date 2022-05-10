@@ -32,7 +32,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
@@ -93,9 +93,9 @@ func TestConfigRemote(t *testing.T) {
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	addr := fmt.Sprintf("localhost:%d", port)
-	options := web.NewOptions()
+	options := weboptions.NewOptions()
 	options.Network.BindAddress = addr
-	err = robotimpl.StartWeb(ctx, r, options)
+	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteConfig := &config.Config{
@@ -273,7 +273,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
-			options := web.NewOptions()
+			options := weboptions.NewOptions()
 			addr := fmt.Sprintf("localhost:%d", port)
 			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
@@ -301,7 +301,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				options.BakedAuthEntity = "blah"
 				options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 			}
-			err = robotimpl.StartWeb(ctx, r, options)
+			err = r.StartWeb(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
 			entityName := tc.EntityName
@@ -480,7 +480,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.NewOptions()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Network.TLSConfig = &tls.Config{
@@ -507,7 +507,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	options.BakedAuthEntity = "blah"
 	options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 
-	err = robotimpl.StartWeb(ctx, r, options)
+	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteTLSConfig := options.Network.TLSConfig.Clone()

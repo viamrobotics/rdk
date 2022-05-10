@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/navigation"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -572,5 +573,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	go runRC2(ctx, myB)
 	go runAngularVelocityKeeper(ctx, myB)
 
-	return robotimpl.RunWebWithConfig(ctx, myRobot, cfg, logger)
+	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }

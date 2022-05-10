@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
 type wrappedLogger struct {
@@ -379,7 +380,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}()
 	defer cancel()
 
-	options, err := web.OptionsFromConfig(processedConfig)
+	options, err := weboptions.OptionsFromConfig(processedConfig)
 	if err != nil {
 		return err
 	}
@@ -401,5 +402,5 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		}
 	}
 
-	return robotimpl.RunWeb(ctx, myRobot, options, logger)
+	return web.RunWeb(ctx, myRobot, options, logger)
 }

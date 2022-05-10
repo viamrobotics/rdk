@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -234,10 +235,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	options, err := web.OptionsFromConfig(cfg)
+	options, err := weboptions.OptionsFromConfig(cfg)
 	if err != nil {
 		return err
 	}
 	options.Pprof = true
-	return robotimpl.RunWeb(ctx, myRobot, options, logger)
+	return web.RunWeb(ctx, myRobot, options, logger)
 }
