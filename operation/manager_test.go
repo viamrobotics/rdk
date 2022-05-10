@@ -2,6 +2,7 @@ package operation
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -63,4 +64,22 @@ func TestSingleOperationManager(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, count, test.ShouldEqual, int64(5))
 	})
+
+	t.Run("WaitForSuccess-error", func(t *testing.T) {
+		count := int64(0)
+
+		err := som.WaitForSuccess(
+			ctx,
+			time.Millisecond,
+			func(ctx context.Context) (bool, error) {
+				if atomic.AddInt64(&count, 1) == 5 {
+					return false, errors.New("blah")
+				}
+				return false, nil
+			},
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, count, test.ShouldEqual, int64(5))
+	})
+
 }
