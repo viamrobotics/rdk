@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/metadata"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
@@ -61,6 +62,9 @@ type LocalRobot interface {
 
 	// StartWeb starts the web server, will return an error if server is already up.
 	StartWeb(ctx context.Context, o weboptions.Options) error
+
+	// Metadata returns the robot's metadata service
+	Metadata() (metadata.Service, error)
 }
 
 // AllResourcesByName returns an array of all resources that have this simple name.

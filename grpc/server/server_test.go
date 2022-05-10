@@ -37,9 +37,6 @@ var serverOneResourceResponse = []*commonpb.ResourceName{
 func TestServer(t *testing.T) {
 	t.Run("Metadata", func(t *testing.T) {
 		injectMetadata := &inject.Metadata{}
-		injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
-			return []resource.Name{}, nil
-		}
 
 		server := server.New(&inject.Robot{}, injectMetadata)
 

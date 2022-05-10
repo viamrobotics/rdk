@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"strings"
 
@@ -147,19 +148,24 @@ func (manager *resourceManager) processConfig(
 	robot *localRobot,
 	logger golog.Logger,
 ) error {
+	// CR erodkin: delete println here
 	if err := manager.newProcesses(ctx, config.Processes); err != nil {
+		fmt.Println("here")
 		return err
 	}
 
 	if err := manager.newRemotes(ctx, config.Remotes, logger); err != nil {
+		fmt.Println("hereb")
 		return err
 	}
 
 	if err := manager.newComponents(ctx, config.Components, robot); err != nil {
+		fmt.Println("herec")
 		return err
 	}
 
 	if err := manager.newServices(ctx, config.Services, robot); err != nil {
+		fmt.Println("hered")
 		return err
 	}
 
@@ -289,6 +295,8 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 			}
 		}
 		if outerError != nil {
+			// CR erodkin: delete me
+			fmt.Println("outer error stuff")
 			return outerError
 		}
 	}
