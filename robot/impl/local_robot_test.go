@@ -155,11 +155,10 @@ func TestConfigRemote(t *testing.T) {
 	ctx2 := context.Background()
 	r2, err := robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	metadataSvc2, err := metadata.FromRobot(r2)
+	metadataSvc2, err := r2.Metadata()
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		metadata.Name,
 		framesystem.Name,
 		vision.Name,
 		sensors.Name,
@@ -363,7 +362,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
-				metadataSvc2, err = metadata.FromRobot(r2)
+				metadataSvc2, err = r2.Metadata()
 				test.That(t, err, test.ShouldBeNil)
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
@@ -383,7 +382,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
-				metadataSvc2, err = metadata.FromRobot(r2)
+				metadataSvc2, err = r2.Metadata()
 				test.That(t, err, test.ShouldBeNil)
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
@@ -394,7 +393,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				metadata.Name,
 				framesystem.Name,
 				vision.Name,
 				sensors.Name,
@@ -588,11 +586,10 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	remoteConfig.Remotes[0].Address = options.FQDN
 	r2, err = robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	metadataSvc2, err := metadata.FromRobot(r2)
+	metadataSvc2, err := r2.Metadata()
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		metadata.Name,
 		framesystem.Name,
 		vision.Name,
 		sensors.Name,
@@ -729,13 +726,13 @@ func TestMetadataUpdate(t *testing.T) {
 
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, err := metadata.FromRobot(r)
+	svc, err := r.Metadata()
 	test.That(t, err, test.ShouldBeNil)
 
 	resources, err := svc.Resources(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 11)
+	test.That(t, len(resources), test.ShouldEqual, 10)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
@@ -751,7 +748,6 @@ func TestMetadataUpdate(t *testing.T) {
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
-		metadata.Name,
 	}
 
 	svcResources, err := svc.Resources(ctx)
