@@ -85,9 +85,9 @@ func toInterface(data interface{}) (interface{}, error) {
 		}
 	case reflect.String:
 		newData = reflect.ValueOf(data).String()
-	case reflect.Uint8:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		newData = reflect.ValueOf(data).Uint()
-	case reflect.Int8:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		newData = reflect.ValueOf(data).Int()
 	default:
 		newData = data
@@ -124,7 +124,7 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 	}
 	res := map[string]interface{}{}
 	value := reflect.ValueOf(data)
-	if value.IsNil() {
+	if value.Kind() == reflect.Ptr && value.IsNil() {
 		return res, nil
 	}
 	value = reflect.Indirect(value)
