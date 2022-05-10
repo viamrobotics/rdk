@@ -183,7 +183,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 			a = angleDeg*maxAngle*distRatio*2 - 1
 		}
 
-		if err := svc.base.MoveArc(ctx, d, s, a, true); err != nil {
+		if err := svc.base.MoveArc(ctx, d, s, a); err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)
 		} else {
 			oldMmPerSec = mmPerSec
