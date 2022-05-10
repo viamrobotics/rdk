@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/web"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
@@ -80,8 +79,12 @@ func (r *localRobot) webService() (web.Service, error) {
 }
 
 // web returns the localRobot's web service. Raises if the service has not been initialized.
-func (r *localRobot) web() (web.Service, error) {
-	service := r.internalServices[webName]
+func webService(r robot.LocalRobot) (web.Service, error) {
+	robot, ok := r.(*localRobot)
+	if !ok {
+		return nil, errors.New("LocalRobot input did not match localRobot implementation")
+	}
+	service := robot.internalServices[webName]
 
 	webSvc, ok := service.(web.Service)
 	if !ok {
