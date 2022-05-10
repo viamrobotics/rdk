@@ -534,7 +534,7 @@ func TestWebWithStreams(t *testing.T) {
 	options := web.NewOptions()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
-	svc, err := web.New(ctx, robot, config.Service{}, logger)
+	svc := web.New(ctx, robot, logger)
 	test.That(t, err, test.ShouldBeNil)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -592,7 +592,7 @@ func TestWebAddFirstStream(t *testing.T) {
 	options := web.NewOptions()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
-	svc, err := web.New(ctx, robot, config.Service{}, logger)
+	svc := web.New(ctx, robot, logger)
 	test.That(t, err, test.ShouldBeNil)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
