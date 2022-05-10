@@ -69,7 +69,7 @@ type localRobot struct {
 func webService(r robot.LocalRobot) (web.Service, error) {
 	robot, ok := r.(*localRobot)
 	if !ok {
-		return nil, errors.New("LocalRobot input did not match localRobot implementation")
+		return nil, errors.New("LocalRobot is not of expected type localRobot")
 	}
 	service := robot.internalServices[webName]
 
@@ -176,7 +176,6 @@ func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Confi
 	return RunWeb(ctx, r, o, logger)
 }
 
-// New returns a new robot with parts sourced from the given config.
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
