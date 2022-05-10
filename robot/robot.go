@@ -46,6 +46,9 @@ type Refresher interface {
 	Refresh(ctx context.Context) error
 }
 
+// InternalServiceName is an identifier for a LocalRobot's internal services.
+type InternalServiceName string
+
 // A LocalRobot is a Robot that can have its parts modified.
 type LocalRobot interface {
 	Robot
@@ -57,6 +60,10 @@ type LocalRobot interface {
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
+
+	// InternalServiceByName returns the LocalRobot's internal service of the associated
+	// name. It returns an error if the service has not been initialized.
+	InternalServiceByName(name InternalServiceName) (interface{}, error)
 }
 
 // AllResourcesByName returns an array of all resources that have this simple name.
