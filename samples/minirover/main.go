@@ -235,7 +235,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	options, err := weboptions.OptionsFromConfig(cfg)
+	options, err := weboptions.FromConfig(cfg)
 	if err != nil {
 		return err
 	}

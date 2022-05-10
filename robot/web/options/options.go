@@ -61,9 +61,9 @@ type Options struct {
 	BakedAuthCreds  rpc.Credentials
 }
 
-// NewOptions returns a default set of options which will have the
+// New returns a default set of options which will have the
 // web server run on config.DefaultBindAddress.
-func NewOptions() Options {
+func New() Options {
 	return Options{
 		Pprof: false,
 		Network: config.NetworkConfig{
@@ -75,9 +75,9 @@ func NewOptions() Options {
 	}
 }
 
-// OptionsFromConfig returns an Options populated by the config passed in.
-func OptionsFromConfig(cfg *config.Config) (Options, error) {
-	options := NewOptions()
+// FromConfig returns an Options populated by the config passed in.
+func FromConfig(cfg *config.Config) (Options, error) {
+	options := New()
 
 	options.Auth = cfg.Auth
 	options.Network = cfg.Network

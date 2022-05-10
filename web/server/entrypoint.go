@@ -380,7 +380,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}()
 	defer cancel()
 
-	options, err := weboptions.OptionsFromConfig(processedConfig)
+	options, err := weboptions.FromConfig(processedConfig)
 	if err != nil {
 		return err
 	}

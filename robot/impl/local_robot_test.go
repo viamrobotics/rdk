@@ -93,7 +93,7 @@ func TestConfigRemote(t *testing.T) {
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	addr := fmt.Sprintf("localhost:%d", port)
-	options := weboptions.NewOptions()
+	options := weboptions.New()
 	options.Network.BindAddress = addr
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -273,7 +273,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
-			options := weboptions.NewOptions()
+			options := weboptions.New()
 			addr := fmt.Sprintf("localhost:%d", port)
 			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
@@ -480,7 +480,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := weboptions.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Network.TLSConfig = &tls.Config{
