@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/metadata"
-	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
 // A Robot encompasses all functionality of some robot comprised
