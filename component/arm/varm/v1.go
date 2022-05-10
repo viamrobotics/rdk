@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -218,6 +219,8 @@ type armV1 struct {
 	j0, j1 joint
 	mp     motionplan.MotionPlanner
 	model  referenceframe.Model
+
+	opMgr operation.SingleOperationManager
 }
 
 // GetEndPosition computes and returns the current cartesian position.
@@ -231,6 +234,9 @@ func (a *armV1) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -259,6 +265,9 @@ func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, 
 
 // MoveToJointPositions TODO.
 func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	if len(pos.Degrees) != 2 {
 		return errors.New("need exactly 2 joints")
 	}
