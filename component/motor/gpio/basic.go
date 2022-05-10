@@ -3,17 +3,16 @@ package gpio
 import (
 	"context"
 	"math"
-	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/operation"
 )
 
 // NewMotor constructs a new GPIO based motor on the given board using the
@@ -41,7 +40,6 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		maxRPM:      mc.MaxRPM,
 		dirFlip:     mc.DirectionFlip,
 		logger:      logger,
-		cancelMu:    &sync.Mutex{},
 	}
 
 	if mc.Pins.A != "" {
@@ -105,10 +103,9 @@ type Motor struct {
 	maxRPM                   float64
 	dirFlip                  bool
 
-	cancelMu      *sync.Mutex
-	cancelForFunc func()
-	waitCh        chan struct{}
-	logger        golog.Logger
+	opMgr  operation.SingleOperationManager
+	logger golog.Logger
+
 	generic.Unimplemented
 }
 
@@ -191,9 +188,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 //  SetPower instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
-	m.cancelMu.Lock()
-	m.cancelWaitProcesses()
-	m.cancelMu.Unlock()
+	m.opMgr.CancelRunning()
 
 	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx)
@@ -245,11 +240,11 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 }
 
 // GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
-// for this so power is deteremiend via a linear relationship with the maxRPM and the distance
+// for this so power is determined via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	if m.maxRPM == 0 {
-		return errors.New("not supported, define max_rpm attribute")
+		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
@@ -258,38 +253,14 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		return err
 	}
 
-	// Begin go process to track timing and turn off motors after estimated distances has been traveled
-	ctxWithTimeout, cancelForFunc := context.WithTimeout(context.Background(), waitDur)
-	waitCh := make(chan struct{})
-
-	m.cancelMu.Lock()
-	m.cancelWaitProcesses()
-	m.waitCh = waitCh
-	m.cancelForFunc = cancelForFunc
-	m.cancelMu.Unlock()
-
-	goutils.PanicCapturingGo(func() {
-		defer close(m.waitCh)
-		<-ctxWithTimeout.Done()
-		if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-			// this has to be new context as previous one is likely timedout
-			//nolint:contextcheck
-			err := m.Stop(context.Background())
-			if err != nil {
-				m.logger.Errorw("failed to turn off motor", "error", err)
-			}
-		}
-	})
-
-	return nil
-}
-
-// cancelWaitProcesses provides the interrupt protocol for the time based GoFor implmenetation.
-func (m *Motor) cancelWaitProcesses() {
-	if m.cancelForFunc != nil {
-		m.cancelForFunc()
-		<-m.waitCh
+	if revolutions == 0 {
+		return nil
 	}
+
+	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
+		return m.Stop(ctx)
+	}
+	return nil
 }
 
 // IsPowered returns if the motor is currently on or off.
