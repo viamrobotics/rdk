@@ -2,10 +2,6 @@ package arm
 
 import (
 	"context"
-	"os"
-	"time"
-
-	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/data"
 )
@@ -27,8 +23,7 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-func newGetEndPositionCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
+func newGetEndPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
@@ -37,15 +32,14 @@ func newGetEndPositionCollector(resource interface{}, name string, interval time
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := arm.GetEndPosition(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, getEndPosition.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, getEndPosition.String(), err)
 		}
 		return v, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
+	return data.NewCollector(cFunc, params)
 }
 
-func newGetJointPositionsCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
+func newGetJointPositionsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
@@ -54,11 +48,11 @@ func newGetJointPositionsCollector(resource interface{}, name string, interval t
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := arm.GetJointPositions(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, getJointPositions.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, getJointPositions.String(), err)
 		}
 		return v, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
+	return data.NewCollector(cFunc, params)
 }
 
 func assertArm(resource interface{}) (Arm, error) {
