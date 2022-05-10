@@ -230,12 +230,15 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float6
 		return err
 	}
 
+	if revolutions == 0 {
+		return nil
+	}
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
 }
 
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm float64, revolutions float64) error {
 	if revolutions == 0 {
-		return errors.New("revolutions can't be 0 for a stepper motor")
+		revolutions = 1000000.0
 	}
 	var d int64 = 1
 
