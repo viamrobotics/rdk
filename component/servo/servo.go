@@ -51,7 +51,7 @@ var Subtype = resource.NewSubtype(
 // A Servo represents a physical servo connected to a board.
 type Servo interface {
 	// Move moves the servo to the given angle (0-180 degrees)
-	// This will block until done or this or a new operation cancels this
+	// This will block until done or a new operation cancels this one
 	Move(ctx context.Context, angleDeg uint8) error
 
 	// GetPosition returns the current set angle (degrees) of the servo.

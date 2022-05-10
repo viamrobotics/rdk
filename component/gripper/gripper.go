@@ -55,12 +55,12 @@ func Named(name string) resource.Name {
 // A Gripper represents a physical robotic gripper.
 type Gripper interface {
 	// Open opens the gripper.
-	// This will block until done or this or a new operation cancels this
+	// This will block until done or a new operation cancels this one
 	Open(ctx context.Context) error
 
 	// Grab makes the gripper grab.
 	// returns true if we grabbed something.
-	// This will block until done or this or a new operation cancels this
+	// This will block until done or a new operation cancels this one
 	Grab(ctx context.Context) (bool, error)
 
 	generic.Generic
