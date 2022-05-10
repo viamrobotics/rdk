@@ -34,9 +34,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-type internalServiceName string
-
-const webName internalServiceName = "web"
+const webName robot.InternalServiceName = "web"
 
 var (
 	_ = robot.LocalRobot(&localRobot{})
@@ -62,20 +60,28 @@ type localRobot struct {
 	logger     golog.Logger
 
 	// services internal to a localRobot. Currently just web, more to come.
-	internalServices map[internalServiceName]interface{}
+	internalServices map[robot.InternalServiceName]interface{}
+}
+
+func (r *localRobot) InternalServiceByName(name robot.InternalServiceName) (interface{}, error) {
+	svc := r.internalServices[name]
+	if svc == nil {
+		return nil, errors.Errorf("no service initialized for name %v", name)
+	}
+
+	return svc, nil
 }
 
 // web returns the localRobot's web service. Raises if the service has not been initialized.
 func webService(r robot.LocalRobot) (web.Service, error) {
-	robot, ok := r.(*localRobot)
-	if !ok {
-		return nil, errors.New("LocalRobot is not of expected type localRobot")
+	svc, err := r.InternalServiceByName(webName)
+	if err != nil {
+		return nil, err
 	}
-	service := robot.internalServices[webName]
 
-	webSvc, ok := service.(web.Service)
+	webSvc, ok := svc.(web.Service)
 	if !ok {
-		return nil, errors.New("web service was not initialized")
+		return nil, errors.New("unexpected service associated with web InternalServiceName")
 	}
 	return webSvc, nil
 }
@@ -216,7 +222,7 @@ func newWithResources(
 		r.manager.addResource(name, svc)
 	}
 
-	r.internalServices = make(map[internalServiceName]interface{})
+	r.internalServices = make(map[robot.InternalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
 
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
