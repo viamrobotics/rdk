@@ -63,6 +63,11 @@ func init() {
 	discovery.RegisterDiscoveryFunction(camera.SubtypeName, model, Discover)
 }
 
+// CameraConfigs is a list of CameraConfig objects
+type CameraConfigs struct {
+	configs []CameraConfig
+}
+
 // CameraConfig is collection of configuration options for a camera.
 type CameraConfig struct {
 	Label      string
@@ -96,7 +101,7 @@ func Discover(ctx context.Context, subtypeName resource.SubtypeName, model strin
 		}
 		result = append(result, conf)
 	}
-	return result, nil
+	return CameraConfigs{configs: result}, nil
 }
 
 func getProperties(d driver.Driver) ([]prop.Media, error) {
