@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/robot/web"
 )
 
 var logger = golog.NewDevelopmentLogger("simpleserver")
@@ -38,5 +37,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return err
 	}
 
-	return web.RunWebWithConfig(ctx, myRobot, &config.Config{}, logger)
+	return robotimpl.RunWebWithConfig(ctx, myRobot, &config.Config{}, logger)
 }
