@@ -9,27 +9,23 @@
     }">
     <div class="popper">
       <div class="viam-info-content">
-        <slot>
-          <ul>
-            <li
-              data-cy="viam-info-row-item"
-              class="text-left"
-              :key="i"
-              v-for="(line, i) in infoRows"
-            >
-              {{ line }}
-            </li>
-          </ul>
-        </slot>
+        <ul>
+          <li
+            data-cy="viam-info-row-item"
+            class="text-left"
+            :key="i"
+            v-for="(line, i) in infoRows"
+          >
+            {{ line }}
+          </li>
+        </ul>
       </div>
 
       <div class="viam-info-button-arrow"></div>
     </div>
 
     <button data-cy="viam-info-button-container" slot="reference">
-      <slot name="icon">
-        <ViamIcon color="grey" :path="iconPath"></ViamIcon>
-      </slot>
+      <ViamIcon color="grey" :path="iconPath"></ViamIcon>
     </button>
   </Popper>
 </template>
