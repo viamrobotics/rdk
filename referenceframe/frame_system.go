@@ -309,8 +309,8 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 	return positions
 }
 
-func (sfs *simpleFrameSystem) getSrcToWorldTransform(inputMap map[string][]Input, src Frame) (spatial.Pose, error) {
-	if src != nil && !sfs.frameExists(src.Name()) {
+func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Input, src Frame) (spatial.Pose, error) {
+	if !sfs.frameExists(src.Name()) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", src.Name())
 	}
 
@@ -326,31 +326,20 @@ func (sfs *simpleFrameSystem) getSrcToWorldTransform(inputMap map[string][]Input
 	return srcToWorld, err
 }
 
-func (sfs *simpleFrameSystem) getWorldToDstTransform(inputMap map[string][]Input, target Frame) (spatial.Pose, error) {
-	if target == nil || !sfs.frameExists(target.Name()) {
-		return nil, fmt.Errorf("target frame %s not found in FrameSystem", target.Name())
-	}
-	dstToWorld, err := sfs.composeTransforms(target, inputMap)
-	if err != nil && dstToWorld == nil {
-		return nil, err
-	}
-	return spatial.PoseInverse(dstToWorld), err
-}
-
 // Returns the relative pose between the parent and the destination frame.
 func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, dst Frame) (*PoseInFrame, error) {
 	// catch all errors together to allow for hypothetical calculations that result in errors
 	var errAll error
-	worldToDst, err := sfs.getWorldToDstTransform(inputMap, dst)
+	dstToWorld, err := sfs.getFrameToWorldTransform(inputMap, dst)
 	multierr.AppendInto(&errAll, err)
-	srcToWorld, err := sfs.getSrcToWorldTransform(inputMap, src)
+	srcToWorld, err := sfs.getFrameToWorldTransform(inputMap, src)
 	multierr.AppendInto(&errAll, err)
-	if errAll != nil && (worldToDst == nil || srcToWorld == nil) {
+	if errAll != nil && (dstToWorld == nil || srcToWorld == nil) {
 		return nil, errAll
 	}
 
 	// transform from source to world, world to target parent
-	return &PoseInFrame{dst.Name(), spatial.Compose(worldToDst, srcToWorld)}, nil
+	return &PoseInFrame{dst.Name(), spatial.Compose(spatial.PoseInverse(dstToWorld), srcToWorld)}, nil
 }
 
 // compose the quaternions from the input frame to the world referenceframe.
