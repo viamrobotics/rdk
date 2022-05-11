@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
+
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor/fake"
@@ -269,6 +271,29 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rotations[0], test.ShouldEqual, 1.0)
 		test.That(t, rpms[1], test.ShouldEqual, -60.0)
 		test.That(t, rotations[1], test.ShouldEqual, 1.0)
+	})
+
+	t.Run("setPowerMath", func(t *testing.T) {
+		l, r := base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{})
+		test.That(t, l, test.ShouldEqual, 1)
+		test.That(t, r, test.ShouldEqual, 1)
+
+		l, r = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{})
+		test.That(t, l, test.ShouldEqual, -1)
+		test.That(t, r, test.ShouldEqual, -1)
+
+		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: 1})
+		test.That(t, l, test.ShouldEqual, -1)
+		test.That(t, r, test.ShouldEqual, 1)
+
+		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: -1})
+		test.That(t, l, test.ShouldEqual, 1)
+		test.That(t, r, test.ShouldEqual, -1)
+
+		l, r = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 1})
+		test.That(t, l, test.ShouldEqual, 0.5)
+		test.That(t, r, test.ShouldEqual, 1)
+
 	})
 }
 

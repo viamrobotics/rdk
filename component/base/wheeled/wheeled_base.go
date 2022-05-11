@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -80,21 +81,7 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
-	fs := []rdkutils.SimpleFunc{}
-
-	// Send motor commands
-	for _, m := range base.left {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, -rpm, revolutions) })
-	}
-	for _, m := range base.right {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rpm, revolutions) })
-	}
-
-	_, err := rdkutils.RunInParallel(ctx, fs)
-	if err != nil {
-		return multierr.Combine(err, base.Stop(ctx))
-	}
-	return nil
+	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
@@ -113,15 +100,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	// Straight math
 	rpm, rotations := base.straightDistanceToMotorInfo(distanceMm, mmPerSec)
 
-	// Send motor commands
-	for _, m := range base.allMotors {
-		err := m.GoFor(ctx, rpm, rotations)
-		if err != nil {
-			return multierr.Combine(err, base.Stop(ctx))
-		}
-	}
-
-	return base.WaitForMotorsToStop(ctx)
+	return base.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
 func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
@@ -140,21 +119,66 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec f
 	// Arc math
 	rpmLR, revLR := base.arcMath(distanceMm, mmPerSec, angleDeg)
 
-	// Send motor commands
-	var err error
+	return base.runAll(ctx, rpmLR[0], revLR[0], rpmLR[1], revLR[1])
+}
+
+func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
+	fs := []rdkutils.SimpleFunc{}
+
 	for _, m := range base.left {
-		err = multierr.Combine(err, m.GoFor(ctx, rpmLR[0], revLR[0]))
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations) })
 	}
 
 	for _, m := range base.right {
-		err = multierr.Combine(err, m.GoFor(ctx, rpmLR[1], revLR[1]))
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations) })
+	}
+
+	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+		return multierr.Combine(err, base.Stop(ctx))
+	}
+	return nil
+}
+
+func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
+	lPowers := []float64{}
+	rPowers := []float64{}
+
+	if math.Abs(linear.Y) > .01 {
+		lPowers = append(lPowers, linear.Y)
+		rPowers = append(rPowers, linear.Y)
+	}
+	
+	if math.Abs(angular.Z) > .01 {
+		lPowers = append(lPowers, -1 * angular.Z)
+		rPowers = append(rPowers, angular.Z)
+	}
+
+	lPower := rdkutils.Average(lPowers)
+	rPower := rdkutils.Average(rPowers)
+
+	return lPower, rPower
+}
+
+func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	base.opMgr.CancelRunning(ctx)
+
+	lPower, rPower := base.setPowerMath(linear, angular)
+	
+	// Send motor commands
+	var err error
+	for _, m := range base.left {
+		err = multierr.Combine(err, m.SetPower(ctx, lPower))
+	}
+
+	for _, m := range base.right {
+		err = multierr.Combine(err, m.SetPower(ctx, rPower))
 	}
 
 	if err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
 	}
 
-	return base.WaitForMotorsToStop(ctx)
+	return nil
 }
 
 // returns rpm, revolutions for a spin motion.
