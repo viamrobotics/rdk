@@ -93,9 +93,7 @@ func DefaultConstraint(
 
 	// Add self-collision check if available
 	collisionConst := NewCollisionConstraint(f, map[string]spatial.Geometry{}, map[string]spatial.Geometry{})
-	if collisionConst != nil {
-		opt.AddConstraint("self-collision", collisionConst)
-	}
+	opt.AddConstraint("self-collision", collisionConst)
 	return opt
 }
 

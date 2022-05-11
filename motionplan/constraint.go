@@ -89,7 +89,9 @@ func (c *constraintHandler) AddConstraint(name string, cons Constraint) {
 	if c.constraints == nil {
 		c.constraints = map[string]Constraint{}
 	}
-	c.constraints[name] = cons
+	if cons != nil {
+		c.constraints[name] = cons
+	}
 }
 
 // RemoveConstraint will remove the given constraint.
