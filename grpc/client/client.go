@@ -112,6 +112,11 @@ func (rc *RobotClient) Changed() <-chan bool {
 }
 
 func (rc *RobotClient) connect(ctx context.Context) error {
+	if rc.conn != nil {
+		if err := rc.conn.Close(); err != nil {
+			return err
+		}
+	}
 	conn, err := grpc.Dial(ctx, rc.address, rc.logger, rc.dialOptions...)
 	if err != nil {
 		return err
@@ -119,11 +124,6 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	client := pb.NewRobotServiceClient(conn)
 	metadataClient := metadata.NewClientFromConn(ctx, conn, "", rc.logger)
 
-	if rc.conn != nil {
-		if err := rc.conn.Close(); err != nil {
-			return err
-		}
-	}
 	rc.conn = conn
 	rc.client = client
 	rc.metadataClient = metadataClient
