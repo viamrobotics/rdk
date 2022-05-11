@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/utils"
@@ -101,6 +102,7 @@ func Discover(ctx context.Context, subtypeName resource.SubtypeName, model strin
 		}
 		result = append(result, conf)
 	}
+	rlog.Logger.Debugw("MP: got camera configs", "configs", result)
 	return CameraConfigs{configs: result}, nil
 }
 

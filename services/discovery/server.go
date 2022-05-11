@@ -7,6 +7,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -58,6 +59,7 @@ func (server *subtypeServer) Discover(ctx context.Context, req *pb.DiscoverReque
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Key)
 		}
+		rlog.Logger.Debugw("MP: got encoded value", "discovery", encoded)
 		pbDiscovered, err := structpb.NewStruct(encoded)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Key)
