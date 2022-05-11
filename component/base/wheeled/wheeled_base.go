@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -155,6 +156,42 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec f
 	}
 
 	return base.WaitForMotorsToStop(ctx)
+}
+
+func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	lPowers := []float64{}
+	rPowers := []float64{}
+
+	if math.Abs(linear.Y) > .01 {
+		lPowers = append(lPowers, linear.Y)
+		rPowers = append(rPowers, linear.Y)
+	}
+	
+	if math.Abs(angular.Z) > .01 {
+		lPowers = append(lPowers, angular.Z)
+		rPowers = append(rPowers, -1 * angular.Z)
+	}
+
+	lPower := rdkutils.Average(lPowers)
+	rPower := rdkutils.Average(rPowers)
+	
+	
+	// Send motor commands
+	var err error
+	for _, m := range base.left {
+		err = multierr.Combine(err, m.SetPower(ctx, lPower))
+	}
+
+	for _, m := range base.right {
+		err = multierr.Combine(err, m.SetPower(ctx, rPower))
+	}
+
+	if err != nil {
+		return multierr.Combine(err, base.Stop(ctx))
+	}
+
+	return nil
+
 }
 
 // returns rpm, revolutions for a spin motion.
