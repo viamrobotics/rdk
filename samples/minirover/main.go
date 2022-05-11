@@ -22,7 +22,8 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -234,7 +235,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	options, err := web.OptionsFromConfig(cfg)
+	options, err := weboptions.FromConfig(cfg)
 	if err != nil {
 		return err
 	}
