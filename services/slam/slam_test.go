@@ -40,7 +40,7 @@ func TestGeneralSLAMService(t *testing.T) {
 	_, err := createSLAMService(t, &AttrConfig{})
 	test.That(t, err, test.ShouldBeNil)
 
-	name1, err := createTempFolderArchiecture(true)
+	name1, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
@@ -96,7 +96,7 @@ func TestConfigValidation(t *testing.T) {
 	}
 
 	// Runtime Validation Tests
-	name1, err := createTempFolderArchiecture(true)
+	name1, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	cfg := &AttrConfig{
@@ -126,7 +126,7 @@ func TestConfigValidation(t *testing.T) {
 
 		testMetadata := metadata{
 			AlgoName: "test",
-			SlamMode: map[string]fileType{},
+			SlamMode: map[string]mode{},
 		}
 
 		slamLibraries["test"] = testMetadata
@@ -178,7 +178,7 @@ func TestConfigValidation(t *testing.T) {
 
 // Cartographer Specific Tests (config).
 func TestCartographerData(t *testing.T) {
-	name, err := createTempFolderArchiecture(true)
+	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
@@ -215,7 +215,7 @@ func TestCartographerData(t *testing.T) {
 
 // GetAndSaveDataDense Tests for poitncloud data.
 func TestGetAndSaveDataCartographer(t *testing.T) {
-	name, err := createTempFolderArchiecture(true)
+	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
@@ -276,7 +276,7 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 
 // Cartographer data process tests.
 func TestDataProcessCartographer(t *testing.T) {
-	name, err := createTempFolderArchiecture(true)
+	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
@@ -318,7 +318,7 @@ func TestDataProcessCartographer(t *testing.T) {
 
 // OrbSLAMv3 Specific Tests (config).
 func TestORBSLAMData(t *testing.T) {
-	name, err := createTempFolderArchiecture(true)
+	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
@@ -363,7 +363,7 @@ func TestORBSLAMData(t *testing.T) {
 
 // GetAndSaveDataSparse Tests for image data.
 func TestGetAndSaveDataORBSLAM(t *testing.T) {
-	name, err := createTempFolderArchiecture(true)
+	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
@@ -425,9 +425,9 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// ORBSLAM data process tests.
+// ORBSLAM data process tests.s.
 func TestDataProcessORBSLAM(t *testing.T) {
-	name, err := createTempFolderArchiecture(true)
+	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
@@ -468,7 +468,7 @@ func TestDataProcessORBSLAM(t *testing.T) {
 }
 
 // nolint:unparam
-func createTempFolderArchiecture(validArch bool) (string, error) {
+func createTempFolderArchitecture(validArch bool) (string, error) {
 	name, err := ioutil.TempDir("/tmp", "*")
 	if err != nil {
 		return "nil", err

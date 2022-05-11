@@ -3,13 +3,13 @@ package slam
 
 type (
 	slamLibrary uint8
-	fileType    uint8
+	mode        uint8
 )
 
 const (
 	cartographer = slamLibrary(iota)
 	orbslamv3
-	mono = fileType(iota)
+	mono = mode(iota)
 	rgbd
 	twod
 )
@@ -23,14 +23,14 @@ var slamLibraries = map[string]metadata{
 var cartographerMetadata = metadata{
 	AlgoName:       "cartographer",
 	AlgoType:       cartographer,
-	SlamMode:       map[string]fileType{"2d": twod},
+	SlamMode:       map[string]mode{"2d": twod},
 	BinaryLocation: "",
 }
 
 var orbslamv3Metadata = metadata{
 	AlgoName:       "orbslamv3",
 	AlgoType:       orbslamv3,
-	SlamMode:       map[string]fileType{"mono": mono, "rgbd": rgbd},
+	SlamMode:       map[string]mode{"mono": mono, "rgbd": rgbd},
 	BinaryLocation: "",
 }
 
@@ -38,6 +38,6 @@ var orbslamv3Metadata = metadata{
 type metadata struct {
 	AlgoName       string
 	AlgoType       slamLibrary
-	SlamMode       map[string]fileType
+	SlamMode       map[string]mode
 	BinaryLocation string
 }
