@@ -29,7 +29,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/robot/web"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -54,27 +54,27 @@ type Boat struct {
 }
 
 // MoveStraight TODO.
-func (b *Boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
-	if block {
-		return errors.New("boat can't block for move straight yet")
-	}
-
+func (b *Boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
 	speed := (mmPerSec * 60.0) / float64(millisPerRotation)
 	rotations := float64(distanceMm) / millisPerRotation
 
-	return multierr.Combine(
-		b.starboard.GoFor(ctx, speed, rotations),
-		b.port.GoFor(ctx, speed, rotations),
+	_, err := rdkutils.RunInParallel(
+		ctx,
+		[]rdkutils.SimpleFunc{
+			func(ctx context.Context) error { return b.starboard.GoFor(ctx, speed, rotations) },
+			func(ctx context.Context) error { return b.port.GoFor(ctx, speed, rotations) },
+		},
 	)
+	return err
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *Boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
+func (b *Boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
 	return errors.New("boat can't move in arc yet")
 }
 
 // Spin TODO.
-func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	return errors.New("boat can't spin yet")
 }
 

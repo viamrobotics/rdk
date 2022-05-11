@@ -8,7 +8,8 @@ import "google/api/annotations.proto";
 
 service BaseService {
   // MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
-  // and a given speed, expressed in millimeters per second 
+  // and a given speed, expressed in millimeters per second
+  // This method blocks until completed or cancelled
   rpc MoveStraight(MoveStraightRequest) returns (MoveStraightResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/move_straight"
@@ -17,6 +18,7 @@ service BaseService {
 
   // MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
   // a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
+  // This method blocks until completed or cancelled
   rpc MoveArc(MoveArcRequest) returns (MoveArcResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/move_arc"
@@ -25,6 +27,7 @@ service BaseService {
 
   // Spin spins a robot's base by an given angle, expressed in degrees, and a given 
   // angular speed, expressed in degrees per second
+  // This method blocks until completed or cancelled
   rpc Spin(SpinRequest) returns (SpinResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/spin"
@@ -46,9 +49,6 @@ message MoveStraightRequest {
   int64 distance_mm = 2;
   // Desired travel velocity in millimeters/second
   double mm_per_sec = 3;
-  // Whether the movement should block all other
-  // movement commands to base until this movement is complete
-  bool block = 4;
 }
 
 message MoveStraightResponse {}
@@ -62,9 +62,6 @@ message MoveArcRequest {
   double mm_per_sec = 3;
   // Desired angle in degrees
   double angle_deg = 4;
-  // Whether the movement should block all other
-  // movement commands to base until this movement is complete
-  bool block = 5;
 }
 
 message MoveArcResponse {}
@@ -76,9 +73,6 @@ message SpinRequest {
   double angle_deg = 2;
   // Desired angular velocity
   double degs_per_sec = 3;
-  // Whether the movement should block all other
-  // movement commands to base until this movement is complete
-  bool block = 4;
 }
 
 message SpinResponse {}
