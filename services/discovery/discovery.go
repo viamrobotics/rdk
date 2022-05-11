@@ -118,11 +118,11 @@ func (s *discoveryService) Discover(ctx context.Context, keys []Key) ([]Discover
 		}
 
 		if discoveryFunction != nil {
-			discovery, err := discoveryFunction(ctx, key.subtypeName, key.model)
+			discovered, err := discoveryFunction(ctx, key.subtypeName, key.model)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get discovery for subtype %q and model %q", key.subtypeName, key.model)
 			}
-			discoveries = append(discoveries, Discovery{Key: key, Discovered: discovery})
+			discoveries = append(discoveries, Discovery{Key: key, Discovered: discovered})
 		}
 	}
 	return discoveries, nil

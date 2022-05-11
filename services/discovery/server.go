@@ -58,7 +58,7 @@ func (server *subtypeServer) Discover(ctx context.Context, req *pb.DiscoverReque
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Key)
 		}
-		pbDiscovery, err := structpb.NewStruct(encoded)
+		pbDiscovered, err := structpb.NewStruct(encoded)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Key)
 		}
@@ -67,7 +67,7 @@ func (server *subtypeServer) Discover(ctx context.Context, req *pb.DiscoverReque
 			pbDiscoveries,
 			&pb.Discovery{
 				Key:        pbKey,
-				Discovered: pbDiscovery,
+				Discovered: pbDiscovered,
 			},
 		)
 	}
