@@ -74,7 +74,7 @@ func createFakeRobot() *inject.Robot {
 				return injectGPIOPin, nil
 			}}, nil
 		case motor.Subtype:
-			return &fake.Motor{PositionSupported: true}, nil
+			return &fake.Motor{}, nil
 		}
 		return nil, utils.NewResourceNotFoundError(name)
 	}

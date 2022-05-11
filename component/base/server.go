@@ -51,7 +51,7 @@ func (s *subtypeServer) MoveStraight(
 	if reqMmPerSec != 0 {
 		mmPerSec = reqMmPerSec
 	}
-	err = base.MoveStraight(ctx, int(req.DistanceMm), mmPerSec, req.GetBlock())
+	err = base.MoveStraight(ctx, int(req.DistanceMm), mmPerSec)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (s *subtypeServer) MoveArc(
 	if reqMmPerSec != 0 {
 		mmPerSec = reqMmPerSec
 	}
-	err = base.MoveArc(ctx, int(req.GetDistanceMm()), mmPerSec, req.GetAngleDeg(), req.GetBlock())
+	err = base.MoveArc(ctx, int(req.GetDistanceMm()), mmPerSec, req.GetAngleDeg())
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (s *subtypeServer) Spin(
 	if reqDegsPerSec != 0 {
 		degsPerSec = reqDegsPerSec
 	}
-	err = base.Spin(ctx, req.GetAngleDeg(), degsPerSec, req.GetBlock())
+	err = base.Spin(ctx, req.GetAngleDeg(), degsPerSec)
 	if err != nil {
 		return nil, err
 	}
