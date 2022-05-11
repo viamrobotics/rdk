@@ -43,9 +43,11 @@ func (server *subtypeServer) Discover(ctx context.Context, req *pb.DiscoverReque
 	}
 	keys := make([]Key, 0, len(req.Keys))
 	for _, key := range req.Keys {
+		rlog.Logger.Debugf("MP: (subtype, model) value has value: (%s, %s), type: (%T, %T)", key.Subtype, key.Model, key.Subtype, key.Model)
 		keys = append(keys, Key{resource.SubtypeName(key.Subtype), key.Model})
 	}
 
+	rlog.Logger.Debugw("MP: build keys for request", "req", req, "keys", keys)
 	discoveries, err := svc.Discover(ctx, keys)
 	if err != nil {
 		return nil, err
@@ -55,6 +57,7 @@ func (server *subtypeServer) Discover(ctx context.Context, req *pb.DiscoverReque
 	for _, discovery := range discoveries {
 		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
 		// conversion necessary.
+		rlog.Logger.Debugw("MP: got raw value", "discovery", discovery)
 		encoded, err := protoutils.InterfaceToMap(discovery.Discovered)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Key)
