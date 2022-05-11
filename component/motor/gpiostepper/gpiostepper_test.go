@@ -39,8 +39,10 @@ func Test1(t *testing.T) {
 
 	mc.Pins.Step = "c"
 
-	m, err := newGPIOStepper(ctx, b, mc, logger)
+	mm, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	m := mm.(*gpioStepper)
 
 	t.Run("motor test supports position reporting", func(t *testing.T) {
 		features, err := m.GetFeatures(ctx)
@@ -55,7 +57,7 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with positive rpm and positive revolutions", func(t *testing.T) {
-		err = m.GoFor(ctx, 100, 2)
+		err = m.goForInternal(ctx, 100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
 		on, err := m.IsPowered(ctx)
@@ -75,7 +77,7 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with negative rpm and positive revolutions", func(t *testing.T) {
-		err = m.GoFor(ctx, -100, 2)
+		err = m.goForInternal(ctx, -100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
 		on, err := m.IsPowered(ctx)
@@ -95,7 +97,7 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with positive rpm and negative revolutions", func(t *testing.T) {
-		err = m.GoFor(ctx, 100, -2)
+		err = m.goForInternal(ctx, 100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
 		on, err := m.IsPowered(ctx)
@@ -115,7 +117,7 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with negative rpm and negative revolutions", func(t *testing.T) {
-		err = m.GoFor(ctx, -100, -2)
+		err = m.goForInternal(ctx, -100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
 		on, err := m.IsPowered(ctx)
@@ -135,7 +137,7 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with large # of revolutions", func(t *testing.T) {
-		err = m.GoFor(ctx, 100, 200)
+		err = m.goForInternal(ctx, 100, 200)
 		test.That(t, err, test.ShouldBeNil)
 
 		on, err := m.IsPowered(ctx)

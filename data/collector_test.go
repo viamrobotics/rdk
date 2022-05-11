@@ -43,8 +43,22 @@ var (
 )
 
 func TestNewCollector(t *testing.T) {
-	c := NewCollector(nil, time.Second, nil, nil, queueSize, bufferSize, nil)
-	test.That(t, c, test.ShouldNotBeNil)
+	// If missing parameters should return an error.
+	c1, err1 := NewCollector(nil, CollectorParams{})
+
+	test.That(t, c1, test.ShouldBeNil)
+	test.That(t, err1, test.ShouldNotBeNil)
+
+	// If not missing parameters, should not return an error.
+	target1, _ := ioutil.TempFile("", "whatever")
+	c2, err2 := NewCollector(nil, CollectorParams{
+		ComponentName: "name",
+		Logger:        golog.NewTestLogger(t),
+		Target:        target1,
+	})
+
+	test.That(t, c2, test.ShouldNotBeNil)
+	test.That(t, err2, test.ShouldBeNil)
 }
 
 // Test that SensorData is written correctly and can be read, and that interval is respected and that capture()
@@ -53,8 +67,16 @@ func TestSuccessfulWriteTicker(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	c := NewCollector(
-		dummyCapturer, time.Millisecond*25, map[string]string{"name": "test"}, target1, queueSize, bufferSize, l)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 25,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        l,
+	}
+	c, _ := NewCollector(dummyCapturer, params)
 	go c.Collect()
 
 	// Verify that it writes to the file at all.
@@ -78,8 +100,16 @@ func TestSuccessfulWriteSleep(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	c := NewCollector(
-		dummyCapturer, time.Millisecond, map[string]string{"name": "test"}, target1, queueSize, bufferSize, l)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        l,
+	}
+	c, _ := NewCollector(dummyCapturer, params)
 	go c.Collect()
 
 	// Verify that it writes to the file at all.
@@ -99,8 +129,16 @@ func TestClose(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	c := NewCollector(
-		dummyCapturer, time.Millisecond*15, map[string]string{"name": "test"}, target1, queueSize, bufferSize, l)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 15,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        l,
+	}
+	c, _ := NewCollector(dummyCapturer, params)
 	go c.Collect()
 	time.Sleep(time.Millisecond * 25)
 
@@ -120,8 +158,16 @@ func TestSetTarget(t *testing.T) {
 	defer os.Remove(target1.Name())
 	defer os.Remove(target2.Name())
 
-	c := NewCollector(
-		dummyCapturer, time.Millisecond*15, map[string]string{"name": "test"}, target1, queueSize, bufferSize, l)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 15,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        l,
+	}
+	c, _ := NewCollector(dummyCapturer, params)
 	go c.Collect()
 	time.Sleep(time.Millisecond * 30)
 
@@ -147,8 +193,16 @@ func TestSwallowsErrors(t *testing.T) {
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		return nil, errors.New("error")
 	})
-	c := NewCollector(
-		errorCapturer, time.Millisecond*10, map[string]string{"name": "test"}, target1, queueSize, bufferSize, logger)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 10,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        logger,
+	}
+	c, _ := NewCollector(errorCapturer, params)
 	errorChannel := make(chan error)
 	defer close(errorChannel)
 	go func() {
@@ -181,8 +235,16 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
 	})
-	c := NewCollector(
-		errorCapturer, time.Millisecond*10, map[string]string{"name": "test"}, target1, queueSize, bufferSize, logger)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 10,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        logger,
+	}
+	c, _ := NewCollector(errorCapturer, params)
 	go c.Collect()
 	time.Sleep(30 * time.Millisecond)
 	c.Close()
