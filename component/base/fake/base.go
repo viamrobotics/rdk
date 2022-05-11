@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/generic"
@@ -49,6 +50,11 @@ func (b *Base) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, an
 
 // Spin does nothing.
 func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+	return nil
+}
+
+// SetPower does nothing.
+func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	return nil
 }
 
