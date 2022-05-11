@@ -95,7 +95,8 @@ func (c *collector) Collect() error {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
-	c.capture()
+	c.backgroundWorkers.Add(1)
+	utils.PanicCapturingGo(c.capture)
 	return c.write()
 }
 
@@ -104,17 +105,16 @@ func (c *collector) Collect() error {
 // avoid wasting CPU on a thread that's idling for the vast majority of the time.
 // [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
 func (c *collector) capture() {
-	c.backgroundWorkers.Add(1)
+	defer c.backgroundWorkers.Done()
 
 	if c.interval < time.Millisecond*2 {
-		utils.PanicCapturingGo(c.sleepBasedCapture)
+		c.sleepBasedCapture()
 	} else {
-		utils.PanicCapturingGo(c.tickerBasedCapture)
+		c.tickerBasedCapture()
 	}
 }
 
 func (c *collector) sleepBasedCapture() {
-	defer c.backgroundWorkers.Done()
 	next := time.Now().Add(c.interval)
 	captureWorkers := sync.WaitGroup{}
 
@@ -146,7 +146,6 @@ func (c *collector) sleepBasedCapture() {
 }
 
 func (c *collector) tickerBasedCapture() {
-	defer c.backgroundWorkers.Done()
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 	captureWorkers := sync.WaitGroup{}
