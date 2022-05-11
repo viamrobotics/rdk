@@ -457,7 +457,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 
 // Jog moves indefinitely at the specified RPM.
 func (m *Motor) Jog(ctx context.Context, rpm float64) error {
-	m.opMgr.CancelRunning()
+	m.opMgr.CancelRunning(ctx)
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	m.jogging = true

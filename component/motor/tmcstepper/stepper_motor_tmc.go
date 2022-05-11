@@ -372,13 +372,13 @@ func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error)
 // SetPower sets the motor at a particular rpm based on the percent of
 // maxRPM supplied by powerPct (between -1 and 1).
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
-	m.opMgr.CancelRunning()
+	m.opMgr.CancelRunning(ctx)
 	return m.doJog(ctx, powerPct*m.maxRPM)
 }
 
 // Jog sets a fixed RPM.
 func (m *Motor) Jog(ctx context.Context, rpm float64) error {
-	m.opMgr.CancelRunning()
+	m.opMgr.CancelRunning(ctx)
 	return m.doJog(ctx, rpm)
 }
 
@@ -494,7 +494,7 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 
 // Stop stops the motor.
 func (m *Motor) Stop(ctx context.Context) error {
-	m.opMgr.CancelRunning()
+	m.opMgr.CancelRunning(ctx)
 	return m.doJog(ctx, 0)
 }
 
