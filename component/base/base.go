@@ -6,9 +6,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-
+	
 	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
@@ -70,6 +71,8 @@ type Base interface {
 	// This method blocks until completed or cancelled
 	Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error
 
+	SetPower(ctx context.Context, linear, angular r3.Vector) error
+	
 	// Stop stops the base. It is assumed the base stops immediately.
 	Stop(ctx context.Context) error
 
@@ -141,6 +144,12 @@ func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg float64, degsPer
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Spin(ctx, angleDeg, degsPerSec)
+}
+
+func (r *reconfigurableBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.SetPower(ctx, linear, angular)
 }
 
 func (r *reconfigurableBase) Stop(ctx context.Context) error {
