@@ -92,10 +92,7 @@ func TestRobotReconfigure(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := robot.Metadata()
-		test.That(t, err, test.ShouldBeNil)
-		resources, err := svc.Resources(ctx)
-		test.That(t, err, test.ShouldBeNil)
+		resources := robot.ResourceNames()
 		test.That(t, len(resources), test.ShouldEqual, 10)
 
 		armNames := []resource.Name{arm.Named("arm1")}
@@ -209,11 +206,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot, err := New(ctx, emptyConf, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		svc, err := robot.Metadata()
-		test.That(t, err, test.ShouldBeNil)
-
-		resources, err := svc.Resources(ctx)
-		test.That(t, err, test.ShouldBeNil)
+		resources := robot.ResourceNames()
 		test.That(t, len(resources), test.ShouldEqual, 5)
 
 		defer func() {
@@ -302,8 +295,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		resources, err = svc.Resources(ctx)
-		test.That(t, err, test.ShouldBeNil)
+		resources = robot.ResourceNames()
 		test.That(t, len(resources), test.ShouldEqual, 10)
 	})
 

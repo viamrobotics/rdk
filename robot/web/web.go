@@ -42,7 +42,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
 )
@@ -449,7 +448,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if err := svc.rpcServer.RegisterServiceServer(
 		ctx,
 		&pb.RobotService_ServiceDesc,
-		grpcserver.New(svc.r, &inject.Metadata{}),
+		grpcserver.New(svc.r),
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	); err != nil {
 		return err

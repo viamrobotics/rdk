@@ -14,8 +14,6 @@ type Metadata struct {
 }
 
 // Resources calls the injected Resources or the real version.
-// CR erodkin: this does not work as we'd like, if ResourcesFunc is nil then we get into
-// infinite recursion
 func (m *Metadata) Resources(ctx context.Context) ([]resource.Name, error) {
 	if m.ResourcesFunc == nil {
 		return m.Service.Resources(ctx)
