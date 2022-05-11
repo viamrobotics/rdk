@@ -4,6 +4,7 @@ package roboclaw
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/CPRT/roboclaw"
 	"github.com/edaniels/golog"
@@ -11,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -107,11 +109,14 @@ type roboclawMotor struct {
 	addr uint8
 
 	logger golog.Logger
+	opMgr  operation.SingleOperationManager
 
 	generic.Unimplemented
 }
 
 func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64) error {
+	m.opMgr.CancelRunning(ctx)
+
 	switch m.conf.Number {
 	case 1:
 		return m.conn.DutyM1(m.addr, int16(powerPct*32767))
@@ -123,17 +128,26 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64) error {
 }
 
 func (m *roboclawMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	ticks := uint32(revolutions * float64(m.conf.TicksPerRotation))
 	ticksPerSecond := int32((rpm * float64(m.conf.TicksPerRotation)) / 60)
 
+	var err error
+
 	switch m.conf.Number {
 	case 1:
-		return m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, ticks, true)
+		err = m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, ticks, true)
 	case 2:
-		return m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, ticks, true)
+		err = m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, ticks, true)
 	default:
 		panic("impossible")
 	}
+	if err != nil {
+		return err
+	}
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
 }
 
 func (m *roboclawMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {

@@ -16,11 +16,11 @@ type SingleOperationManager struct {
 	currentOp *anOp
 }
 
-// CancelRunning cancel's a current operation.
-func (sm *SingleOperationManager) CancelRunning() {
+// CancelRunning cancel's a current operation unless it's mine.
+func (sm *SingleOperationManager) CancelRunning(ctx context.Context) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	sm.cancelInLock()
+	sm.cancelInLock(ctx)
 }
 
 // OpRunning returns if there is a current operation.
@@ -30,24 +30,25 @@ func (sm *SingleOperationManager) OpRunning() bool {
 	return sm.currentOp != nil
 }
 
+type somCtxKey byte
+
+const somCtxKeySingleOp = somCtxKey(iota)
+
 // New creates a new operation, cancels previous, returns a new context and function to call when done.
 func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, func()) {
-	type ctxKey byte
-	const ctxKeySingleOp = ctxKey(iota)
-
 	// handle nested ops
-	if ctx.Value(ctxKeySingleOp) != nil {
+	if ctx.Value(somCtxKeySingleOp) != nil {
 		return ctx, func() {}
 	}
 
 	sm.mu.Lock()
 
 	// first cancel any old operation
-	sm.cancelInLock()
+	sm.cancelInLock(ctx)
 
 	theOp := &anOp{}
 
-	ctx = context.WithValue(ctx, ctxKeySingleOp, theOp)
+	ctx = context.WithValue(ctx, somCtxKeySingleOp, theOp)
 
 	theOp.ctx, theOp.cancelFunc = context.WithCancel(ctx)
 	theOp.waitCh = make(chan bool)
@@ -116,12 +117,14 @@ func (sm *SingleOperationManager) WaitForSuccess(
 	}
 }
 
-func (sm *SingleOperationManager) cancelInLock() {
+func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
+	myOp := ctx.Value(somCtxKeySingleOp)
 	op := sm.currentOp
 
-	if op == nil {
+	if op == nil || myOp == op {
 		return
 	}
+
 	op.cancelFunc()
 	<-op.waitCh
 
