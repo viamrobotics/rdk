@@ -150,11 +150,6 @@ func (svc *remoteService) start(ctx context.Context) error {
 			mmPerSec, angleDeg, arrows = svc.arrowEvent(event, arrows)
 		case joyStickControl:
 			mmPerSec, angleDeg = svc.oneJoyStickEvent(event, mmPerSec, angleDeg)
-			err := svc.base.SetPower(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{Z: angleDeg})
-			if err != nil {
-				svc.logger.Errorw("error with moving base to desired position", "error", err)
-			}
-			return
 		}
 
 		// Skip minor adjustments in instructions as to not overload system
