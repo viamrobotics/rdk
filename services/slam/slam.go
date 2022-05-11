@@ -60,8 +60,8 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 	// Check sensor and mode combination
 	if svcConfig.ConfigParams["mode"] != "" {
 		mode := svcConfig.ConfigParams["mode"]
-		modeCheck, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
-		if !ok || !modeCheck {
+		_, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
+		if !ok { // || !modeCheck {
 			return errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", svcConfig.Algorithm, mode)
 		}
 	}
@@ -104,13 +104,13 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 
 	// Check Slam Mode Compatibility with Slam Library
 	if svcConfig.ConfigParams["mode"] != "" {
-		result, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
+		_, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
 		if !ok {
 			return errors.Errorf("invalid mode (%v) specified for algorithm [%v]", svcConfig.ConfigParams["mode"], svcConfig.Algorithm)
 		}
-		if !result {
-			return errors.Errorf("specified mode (%v) is not supported for algorithm [%v]", svcConfig.ConfigParams["mode"], svcConfig.Algorithm)
-		}
+		// if !result {
+		// 	return errors.Errorf("specified mode (%v) is not supported for algorithm [%v]", svcConfig.ConfigParams["mode"], svcConfig.Algorithm)
+		// }
 	}
 
 	return nil
@@ -126,11 +126,10 @@ func runtimeServiceValidation(slamSvc *slamService) error {
 		// calling the right algorithms (Next vs NextPointCloud) will be held by the slam libararies themselves
 		// Note: if GRPC data transfer is delayed to after other algorithms (or user custom algos) are being
 		// added this point will be revisited
-		switch slamSvc.slamLib.AlgoName {
-		case "orbslamv3":
+		switch slamSvc.slamLib.AlgoType {
+		case orbslamv3:
 			path, err = slamSvc.getAndSaveDataSparse()
-		// nolint:goconst
-		case "cartographer":
+		case cartographer:
 			path, err = slamSvc.getAndSaveDataDense()
 		default:
 			return errors.Errorf("invalid slam algorithm %v", slamSvc.slamLib.AlgoName)
@@ -169,7 +168,7 @@ type Service interface {
 type slamService struct {
 	camera           camera.Camera
 	slamLib          metadata
-	slamMode         string
+	slamMode         fileType
 	configParams     map[string]string
 	dataDirectory    string
 	inputFilePattern string
@@ -233,6 +232,10 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, errors.Errorf("error trying to return a random port %v", err)
 	}
 
+	slamLib := slamLibraries[svcConfig.Algorithm]
+	slamModeName := strings.ToLower(svcConfig.ConfigParams["mode"])
+	slamMode := slamLib.SlamMode[slamModeName]
+
 	var dataRate int
 	if svcConfig.DataRateMs == 0 {
 		dataRate = 200
@@ -253,7 +256,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	slamSvc := &slamService{
 		camera:                  cam,
 		slamLib:                 slamLibraries[svcConfig.Algorithm],
-		slamMode:                strings.ToLower(svcConfig.ConfigParams["mode"]),
+		slamMode:                slamMode,
 		configParams:            svcConfig.ConfigParams,
 		dataDirectory:           svcConfig.DataDirectory,
 		inputFilePattern:        svcConfig.InputFilePattern,
@@ -317,13 +320,12 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 
 				goutils.PanicCapturingGo(func() {
 					defer dataWorker.Done()
-					switch slamSvc.slamLib.AlgoName {
-
-					case "cartographer":
+					switch slamSvc.slamLib.AlgoType {
+					case cartographer:
 						if _, err := slamSvc.getAndSaveDataDense(); err != nil {
 							panic(err)
 						}
-					case "orbslamv3":
+					case orbslamv3:
 						if _, err := slamSvc.getAndSaveDataSparse(); err != nil {
 							panic(err)
 						}
@@ -372,12 +374,12 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 	// Create file
 	var fileType string
 	switch slamSvc.slamMode {
-	// nolint:goconst
-	case "mono":
+	case mono:
 		fileType = ".jpeg"
-	// nolint:goconst
-	case "rgbd":
+	case rgbd:
 		fileType = ".both"
+	default:
+		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
 
 	filename := createTimestampFilename(slamSvc.dataDirectory, fileType)
@@ -390,11 +392,11 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 	w := bufio.NewWriter(f)
 
 	switch slamSvc.slamMode {
-	case "mono":
+	case mono:
 		if err := jpeg.Encode(w, img, nil); err != nil {
 			return filename, err
 		}
-	case "rgbd":
+	case rgbd:
 		// TODO 05/10/2022: the file type saving may change here based on John N.'s recommendation (whether to use both or two images)
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
@@ -403,6 +405,7 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 		if err := rimage.EncodeBoth(iwd, w); err != nil {
 			return filename, err
 		}
+		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
 	if err = w.Flush(); err != nil {
 		return filename, err

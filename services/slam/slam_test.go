@@ -126,7 +126,7 @@ func TestConfigValidation(t *testing.T) {
 
 		testMetadata := metadata{
 			AlgoName: "test",
-			SlamMode: map[string]bool{"test2": false},
+			SlamMode: map[string]fileType{},
 		}
 
 		slamLibraries["test"] = testMetadata
@@ -393,7 +393,7 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 	_, err = slamSvc.getAndSaveDataSparse()
 	test.That(t, err, test.ShouldBeError, errors.New("want image/both but don't have *rimage.ImageWithDepth"))
 
-	slamSvc.slamMode = "mono"
+	slamSvc.slamMode = mono
 
 	filename, err := slamSvc.getAndSaveDataSparse()
 	test.That(t, err, test.ShouldBeNil)
