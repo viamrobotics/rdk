@@ -166,6 +166,7 @@ type Service interface {
 
 // SlamService is the structure of the slam service.
 type slamService struct {
+	cameraName       string
 	camera           camera.Camera
 	slamLib          metadata
 	slamMode         fileType
@@ -185,29 +186,32 @@ type slamService struct {
 
 // configureCamera will check the config to see if a camera is desired and if so, grab the camera from
 // the robot as well as get the intrinsic assocated with it.
-func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (camera.Camera, error) {
+func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, camera.Camera, error) {
 	var cam camera.Camera
+	var cameraName string
 	var err error
 	if len(svcConfig.Sensors) > 0 {
 		logger.Debug("Running in live mode")
-		cam, err = camera.FromRobot(r, svcConfig.Sensors[0])
+		cameraName := svcConfig.Sensors[0]
+		cam, err = camera.FromRobot(r, cameraName)
 		if err != nil {
-			return nil, errors.Errorf("error with get camera for slam service: %q", err)
+			return "", nil, errors.Errorf("error with get camera for slam service: %q", err)
 		}
 
 		proj := camera.Projector(cam) // will be nil if no intrinsics
 		if proj != nil {
 			_, ok := proj.(*transform.PinholeCameraIntrinsics)
 			if !ok {
-				return nil, errors.New("error camera intrinsics were not defined properly")
+				return "", nil, errors.New("error camera intrinsics were not defined properly")
 			}
 		}
 	} else {
 		logger.Debug("Running in non-live mode")
+		cameraName = ""
 		cam = nil
 	}
 
-	return cam, nil
+	return cameraName, cam, nil
 }
 
 // New returns a new slam service for the given robot.
@@ -217,7 +221,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	cam, err := configureCamera(svcConfig, r, logger)
+	cameraName, cam, err := configureCamera(svcConfig, r, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -254,6 +258,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	// SLAM Service Object
 	slamSvc := &slamService{
+		cameraName:              cameraName,
 		camera:                  cam,
 		slamLib:                 slamLibraries[svcConfig.Algorithm],
 		slamMode:                slamMode,
@@ -378,11 +383,11 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 		fileType = ".jpeg"
 	case rgbd:
 		fileType = ".both"
-	default:
+	case twod:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
 
-	filename := createTimestampFilename(slamSvc.dataDirectory, fileType)
+	filename := createTimestampFilename(slamSvc.cameraName, slamSvc.dataDirectory, fileType)
 	f, err := os.Create(filename)
 	if err != nil {
 		return filename, err
@@ -405,6 +410,7 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 		if err := rimage.EncodeBoth(iwd, w); err != nil {
 			return filename, err
 		}
+	case twod:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
 	if err = w.Flush(); err != nil {
@@ -428,7 +434,7 @@ func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
 
 	// Create file
 	fileType := ".pcd"
-	filename := createTimestampFilename(slamSvc.dataDirectory, fileType)
+	filename := createTimestampFilename(slamSvc.cameraName, slamSvc.dataDirectory, fileType)
 	f, err := os.Create(filename)
 	if err != nil {
 		return filename, err
@@ -446,9 +452,9 @@ func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
 	return filename, f.Close()
 }
 
-func createTimestampFilename(dataDirectory string, fileType string) string {
+func createTimestampFilename(cameraName, dataDirectory, fileType string) string {
 	timeStamp := time.Now()
-	filename := filepath.Join(dataDirectory, "/data/data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
+	filename := filepath.Join(dataDirectory, "/data/"+cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
 
 	return filename
 }
