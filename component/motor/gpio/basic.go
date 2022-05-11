@@ -188,7 +188,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 //  SetPower instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
-	m.opMgr.CancelRunning()
+	m.opMgr.CancelRunning(ctx)
 
 	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx)
@@ -270,6 +270,7 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
 func (m *Motor) Stop(ctx context.Context) error {
+	m.opMgr.CancelRunning(ctx)
 	m.on = false
 	return m.setPWM(ctx, 0)
 }

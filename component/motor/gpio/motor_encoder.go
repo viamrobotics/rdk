@@ -264,6 +264,7 @@ func (m *EncodedMotor) fixPowerPct(powerPct float64) float64 {
 
 // SetPower sets the power of the motor to the given percentage value between 0 and 1.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64) error {
+	m.opMgr.CancelRunning(ctx)
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.setPower(ctx, powerPct, false)
@@ -469,14 +470,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 		return err
 	}
 
-	return m.opMgr.WaitForSuccess(
-		ctx,
-		time.Millisecond,
-		func(ctx context.Context) (bool, error) {
-			res, err := m.IsPowered(ctx)
-			return !res, err
-		},
-	)
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm float64, revolutions float64) error {
@@ -583,6 +577,9 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition flo
 
 // GoTillStop moves until physically stopped (though with a ten second timeout) or stopFunc() returns true.
 func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	if err := m.GoFor(ctx, rpm, 0); err != nil {
 		return err
 	}
