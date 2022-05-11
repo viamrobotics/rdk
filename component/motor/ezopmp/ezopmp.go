@@ -8,6 +8,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -17,6 +18,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -63,6 +65,7 @@ type Ezopmp struct {
 	logger      golog.Logger
 	maxPowerPct float64
 	maxFlowRate float64
+	opMgr       operation.SingleOperationManager
 	generic.Unimplemented
 }
 
@@ -219,6 +222,8 @@ func (m *Ezopmp) writeRegWithCheck(ctx context.Context, command []byte) error {
 // Negative power implies a backward directional rotational
 // for this pump, it goes between 0.5ml to 105ml/min.
 func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64) error {
+	m.opMgr.CancelRunning(ctx)
+
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 
@@ -242,6 +247,9 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64) error {
 // GoFor sets a constant flow rate
 // mLPerMin = rpm, mins = revolutions.
 func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin float64, mins float64) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.5:
 		return errors.New("motor cannot move this slowly")
@@ -251,7 +259,10 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin float64, mins float64) erro
 
 	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
-	return m.writeRegWithCheck(ctx, command)
+	if err := m.writeRegWithCheck(ctx, command); err != nil {
+		return err
+	}
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
 }
 
 // GoTo uses the Dose Over Time Command in the EZO-PMP datasheet
@@ -266,7 +277,10 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin float64, mins float64) error
 
 	commandString := "D," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
-	return m.writeRegWithCheck(ctx, command)
+	if err := m.writeRegWithCheck(ctx, command); err != nil {
+		return err
+	}
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
 }
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.
@@ -300,6 +314,7 @@ func (m *Ezopmp) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *Ezopmp) Stop(ctx context.Context) error {
+	m.opMgr.CancelRunning(ctx)
 	command := []byte(stop)
 	return m.writeRegWithCheck(ctx, command)
 }

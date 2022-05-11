@@ -16,8 +16,10 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -58,9 +60,14 @@ type wheeledBase struct {
 	left      []motor.Motor
 	right     []motor.Motor
 	allMotors []motor.Motor
+
+	opMgr operation.SingleOperationManager
 }
 
-func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+	ctx, done := base.opMgr.New(ctx)
+	defer done()
+
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		err := base.Stop(ctx)
@@ -73,27 +80,27 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
+	fs := []rdkutils.SimpleFunc{}
+
 	// Send motor commands
-	var err error
 	for _, m := range base.left {
-		err = multierr.Combine(err, m.GoFor(ctx, -rpm, revolutions))
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, -rpm, revolutions) })
 	}
 	for _, m := range base.right {
-		err = multierr.Combine(err, m.GoFor(ctx, rpm, revolutions))
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rpm, revolutions) })
 	}
 
+	_, err := rdkutils.RunInParallel(ctx, fs)
 	if err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
 	}
-
-	if !block {
-		return nil
-	}
-
-	return base.WaitForMotorsToStop(ctx)
+	return nil
 }
 
-func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+	ctx, done := base.opMgr.New(ctx)
+	defer done()
+
 	// Stop the motors if the speed or distance are 0
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
 		err := base.Stop(ctx)
@@ -114,14 +121,13 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 		}
 	}
 
-	if !block {
-		return nil
-	}
-
 	return base.WaitForMotorsToStop(ctx)
 }
 
-func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
+func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
+	ctx, done := base.opMgr.New(ctx)
+	defer done()
+
 	// Stop the motors if the speed is 0
 	if math.Abs(mmPerSec) < 0.0001 {
 		err := base.Stop(ctx)
@@ -146,10 +152,6 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec f
 
 	if err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
-	}
-
-	if !block {
-		return nil
 	}
 
 	return base.WaitForMotorsToStop(ctx)
