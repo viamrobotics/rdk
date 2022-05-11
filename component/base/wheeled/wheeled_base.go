@@ -140,30 +140,36 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 }
 
 func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
-	lPowers := []float64{}
-	rPowers := []float64{}
+	x := linear.Y
+	y := angular.Z
 
-	if math.Abs(linear.Y) > .01 {
-		lPowers = append(lPowers, linear.Y)
-		rPowers = append(rPowers, linear.Y)
-	}
-	
-	if math.Abs(angular.Z) > .01 {
-		lPowers = append(lPowers, -1 * angular.Z)
-		rPowers = append(rPowers, angular.Z)
-	}
+	// convert to polar coordinates
+	r := math.Hypot(x, y)
+	t := math.Atan2(y, x)
 
-	lPower := rdkutils.Average(lPowers)
-	rPower := rdkutils.Average(rPowers)
+	// rotate by 45 degrees
+	t += math.Pi / 4
 
-	return lPower, rPower
+	// back to cartesian
+	left := r * math.Cos(t)
+	right := r * math.Sin(t)
+
+	// rescale the new coords
+	left *= math.Sqrt(2)
+	right *= math.Sqrt(2)
+
+	// clamp to -1/+1
+	left = math.Max(-1, math.Min(left, 1))
+	right = math.Max(-1, math.Min(right, 1))
+
+	return left, right
 }
 
 func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	base.opMgr.CancelRunning(ctx)
 
 	lPower, rPower := base.setPowerMath(linear, angular)
-	
+
 	// Send motor commands
 	var err error
 	for _, m := range base.left {

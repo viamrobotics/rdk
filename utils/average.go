@@ -37,16 +37,3 @@ func (ra *RollingAverage) Average() int {
 	}
 	return int(sum / int64(len(ra.data)))
 }
-
-func Average(ns []float64) float64 {
-	if len(ns) == 0 {
-		return 0
-	}
-
-	total := 0.0
-	for _, n := range ns {
-		total += n
-	}
-
-	return total / float64(len(ns))
-}
