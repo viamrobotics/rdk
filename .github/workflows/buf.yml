@@ -33,8 +33,7 @@ jobs:
     strategy:
       matrix:
         repo:
-          - 'viamrobotics/python-sdk'
-          - 'viamrobotics/rust-sdk'
+          - ['viamrobotics/python-sdk','viamrobotics/rust-sdk']
     steps:
       - name: Notify Proto Watchers
         uses: peter-evans/repository-dispatch@v1
