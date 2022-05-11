@@ -10,8 +10,8 @@
           color="danger"
           group
           variant="primary"
-          :disabled="!baseStatus && selectedItem !== 'keyboard'"
-          @click="baseStop()"
+          :disabled="!baseStatus"
+          @click="baseStop"
         >
           <template v-slot:icon>
             <ViamIcon color="white" :path="mdiCloseOctagonOutline"
@@ -320,7 +320,9 @@ export default class Base extends Vue {
       this.direction
     );
   }
-  baseStop(): void {
+  baseStop(e: Event): void {
+    e.preventDefault();
+    e.stopPropagation();
     this.$emit(
       "base-stop",
       this.movementMode,
