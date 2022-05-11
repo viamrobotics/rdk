@@ -222,7 +222,7 @@ func (m *Ezopmp) writeRegWithCheck(ctx context.Context, command []byte) error {
 // Negative power implies a backward directional rotational
 // for this pump, it goes between 0.5ml to 105ml/min.
 func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64) error {
-	m.opMgr.CancelRunning()
+	m.opMgr.CancelRunning(ctx)
 
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
@@ -314,7 +314,7 @@ func (m *Ezopmp) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *Ezopmp) Stop(ctx context.Context) error {
-	m.opMgr.CancelRunning()
+	m.opMgr.CancelRunning(ctx)
 	command := []byte(stop)
 	return m.writeRegWithCheck(ctx, command)
 }
