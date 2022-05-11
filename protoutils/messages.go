@@ -53,6 +53,19 @@ func InterfaceToMap(data interface{}) (map[string]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+    case reflect.Slice:
+        typed, ok := data.([]interface{})
+        if !ok {
+            return nil, errors.Errorf("data of type %T and kind %s not a struct or a map-like object", data, t.Kind().String())
+        }
+        res := []interface{}{}
+        for _, item := range typed {
+            resItem, err := InterfaceToMap(item)
+            if err != nil {
+                return nil, err
+            }
+            res = append(res, resItem)
+        }
 	default:
 		return nil, errors.Errorf("data of type %T and kind %s not a struct or a map-like object", data, t.Kind().String())
 	}
