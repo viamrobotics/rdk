@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 )
 
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
@@ -44,6 +45,7 @@ func InterfaceToMap(data interface{}) (map[string]interface{}, error) {
 	var err error
 	switch t.Kind() {
 	case reflect.Struct:
+        rlog.Logger.Debugw("MP: I'm a struct!", "data", data)
 		res, err = structToMap(data)
 		if err != nil {
 			return nil, err
