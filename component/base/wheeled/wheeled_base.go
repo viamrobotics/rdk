@@ -139,7 +139,7 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	return nil
 }
 
-func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
 	lPowers := []float64{}
 	rPowers := []float64{}
 
@@ -149,13 +149,20 @@ func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector
 	}
 	
 	if math.Abs(angular.Z) > .01 {
-		lPowers = append(lPowers, angular.Z)
-		rPowers = append(rPowers, -1 * angular.Z)
+		lPowers = append(lPowers, -1 * angular.Z)
+		rPowers = append(rPowers, angular.Z)
 	}
 
 	lPower := rdkutils.Average(lPowers)
 	rPower := rdkutils.Average(rPowers)
-	
+
+	return lPower, rPower
+}
+
+func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	base.opMgr.CancelRunning(ctx)
+
+	lPower, rPower := base.setPowerMath(linear, angular)
 	
 	// Send motor commands
 	var err error
@@ -172,7 +179,6 @@ func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector
 	}
 
 	return nil
-
 }
 
 // returns rpm, revolutions for a spin motion.
