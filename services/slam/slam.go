@@ -169,7 +169,7 @@ type slamService struct {
 	cameraName       string
 	camera           camera.Camera
 	slamLib          metadata
-	slamMode         fileType
+	slamMode         mode
 	configParams     map[string]string
 	dataDirectory    string
 	inputFilePattern string
@@ -454,7 +454,7 @@ func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
 
 func createTimestampFilename(cameraName, dataDirectory, fileType string) string {
 	timeStamp := time.Now()
-	filename := filepath.Join(dataDirectory, "/data/"+cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
+	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
 
 	return filename
 }
