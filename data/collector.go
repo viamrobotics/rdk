@@ -5,6 +5,7 @@ package data
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -209,22 +210,25 @@ func (c *collector) getAndPushNextReading() {
 
 // NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
 // specified Interval, and appends the resulting reading to target.
-func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File, queueSize int,
-	bufferSize int, logger golog.Logger) Collector {
+func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) {
+	if err := params.Validate(); err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
+	}
+
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
-		queue:             make(chan *v1.SensorData, queueSize),
-		interval:          interval,
-		params:            params,
+		queue:             make(chan *v1.SensorData, params.QueueSize),
+		interval:          params.Interval,
+		params:            params.MethodParams,
 		lock:              &sync.Mutex{},
-		logger:            logger,
-		target:            target,
-		writer:            bufio.NewWriterSize(target, bufferSize),
+		logger:            params.Logger,
+		target:            params.Target,
+		writer:            bufio.NewWriterSize(params.Target, params.BufferSize),
 		cancelCtx:         cancelCtx,
 		cancel:            cancelFunc,
 		backgroundWorkers: sync.WaitGroup{},
 		capturer:          capturer,
-	}
+	}, nil
 }
 
 func (c *collector) write() error {

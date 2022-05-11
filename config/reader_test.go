@@ -1,4 +1,4 @@
-package config_test
+package config
 
 import (
 	"context"
@@ -7,140 +7,51 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/resource"
 )
 
-func TestFromReaderValidate(t *testing.T) {
+func TestStoreToCache(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	_, err := config.FromReader(context.Background(), "somepath", strings.NewReader(""), logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected end")
+	ctx := context.Background()
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
 
-	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": 1}`), logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "unmarshal")
-
-	conf, err := config.FromReader(context.Background(), "somepath", strings.NewReader(`{}`), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conf, test.ShouldResemble, &config.Config{
-		ConfigFilePath: "somepath",
-		Network: config.NetworkConfig{
-			NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080", BindAddressDefaultSet: true},
-		},
-	})
 
-	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": {}}`), logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
-
-	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"components": [{}]}`), logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-
-	conf, err = config.FromReader(context.Background(),
-		"somepath",
-		strings.NewReader(`{"components": [{"name": "foo", "type": "arm"}]}`),
-		logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conf, test.ShouldResemble, &config.Config{
-		ConfigFilePath: "somepath",
-		Components: []config.Component{
-			{
-				Name: "foo",
-				Type: arm.SubtypeName,
-			},
-		},
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080", BindAddressDefaultSet: true}},
-	})
-
-	badComponentMapConverter := func() {
-		config.RegisterComponentAttributeMapConverter(resource.SubtypeName("somecomponent"),
-			"somemodel",
-			func(attributes config.AttributeMap) (interface{}, error) {
-				return &conf, nil
-			}, nil)
+	cloud := &Cloud{
+		ManagedBy:        "acme",
+		SignalingAddress: "abc",
+		ID:               "forCachingTest",
+		Secret:           "ghi",
+		FQDN:             "fqdn",
+		LocalFQDN:        "localFqdn",
+		TLSCertificate:   "cert",
+		TLSPrivateKey:    "key",
 	}
-	test.That(t, badComponentMapConverter, test.ShouldPanic)
+	cfg.Cloud = cloud
 
-	badServiceMapConverter := func() {
-		config.RegisterServiceAttributeMapConverter(config.ServiceType("someservice"), func(attributes config.AttributeMap) (interface{}, error) {
-			return &conf, nil
-		}, nil)
-	}
-	test.That(t, badServiceMapConverter, test.ShouldPanic)
-}
-
-func TestTransformAttributeMapToStruct(t *testing.T) {
-	type myType struct {
-		A          string            `json:"a"`
-		B          string            `json:"b"`
-		Attributes map[string]string `json:"attributes"`
-	}
-
-	var mt myType
-	attrs := config.AttributeMap{
-		"a": "1",
-		"b": "2",
-		"c": "3",
-		"d": "4",
-		"e": 5,
-	}
-	transformed, err := config.TransformAttributeMapToStruct(&mt, attrs)
+	// store our config to the cloud
+	err = storeToCache(cfg.Cloud.ID, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myType{
-		A: "1",
-		B: "2",
-		Attributes: map[string]string{
-			"c": "3",
-			"d": "4",
-		},
-	})
 
-	mt = myType{Attributes: map[string]string{}}
-	transformed, err = config.TransformAttributeMapToStruct(&mt, attrs)
+	// read config from cloud, confirm consistency
+	cloudCfg, _, err := readFromCloud(ctx, cfg.Cloud, true, true, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myType{
-		A: "1",
-		B: "2",
-		Attributes: map[string]string{
-			"c": "3",
-			"d": "4",
-		},
-	})
+	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
-	type myExtendedType struct {
-		A          string              `json:"a"`
-		B          string              `json:"b"`
-		Attributes config.AttributeMap `json:"attributes"`
-	}
+	// Modify our config
+	newRemote := Remote{Name: "test", Address: "foo", Prefix: true}
+	cfg.Remotes = append(cfg.Remotes, newRemote)
 
-	var met myExtendedType
-	transformed, err = config.TransformAttributeMapToStruct(&met, attrs)
+	// read config from cloud again, confirm that the cached config differs from cfg
+	cloudCfg2, _, err := readFromCloud(ctx, cfg.Cloud, true, true, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
-		A: "1",
-		B: "2",
-		Attributes: config.AttributeMap{
-			"c": "3",
-			"d": "4",
-			"e": 5,
-		},
-	})
+	test.That(t, cloudCfg2, test.ShouldNotResemble, cfg)
 
-	met = myExtendedType{Attributes: config.AttributeMap{}}
-	transformed, err = config.TransformAttributeMapToStruct(&met, attrs)
+	// store the updated config to the cloud
+	err = storeToCache(cfg.Cloud.ID, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
-		A: "1",
-		B: "2",
-		Attributes: config.AttributeMap{
-			"c": "3",
-			"d": "4",
-			"e": 5,
-		},
-	})
+
+	// read updated cloud config, confirm that it now matches our updated cfg
+	cloudCfg3, _, err := readFromCloud(ctx, cfg.Cloud, true, true, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
 }
