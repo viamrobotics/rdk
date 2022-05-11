@@ -436,9 +436,9 @@ type SetPowerRequest struct {
 
 	// Name of a base
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Desired linear velocity % as -1 -> 1
+	// Desired linear power percentage as -1 -> 1
 	Linear *v1.Vector3 `protobuf:"bytes,2,opt,name=linear,proto3" json:"linear,omitempty"`
-	// Desired angular velocity % as -1 -> 1
+	// Desired angular power percentage % as -1 -> 1
 	Angular *v1.Vector3 `protobuf:"bytes,3,opt,name=angular,proto3" json:"angular,omitempty"`
 }
 
