@@ -122,7 +122,6 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec f
 }
 
 func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
-
 	fs := []rdkutils.SimpleFunc{}
 
 	for _, m := range base.left {
