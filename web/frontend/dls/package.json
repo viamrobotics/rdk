@@ -26,7 +26,6 @@
     "lodash": "^4.17.21",
     "postcss": "^7.0.39",
     "proto": "file:../../../dist/js/proto",
-    "robot": "^0.3.0",
     "storybook": "^6.4.22",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.2.17",
     "vue": "^2.6.11",
