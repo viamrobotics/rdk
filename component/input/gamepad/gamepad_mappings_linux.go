@@ -14,14 +14,14 @@ var GamepadMappings = map[string]Mapping{
 	// 8BitDo Pro 2 Wireless, S-input mode
 	"Pro Controller": {
 		Axes: map[evdev.AbsoluteType]input.Control{
-			0:  input.AbsoluteX,
-			1:  input.AbsoluteY,
-			310:  input.AbsoluteZ,
-			3:  input.AbsoluteRX,
-			4:  input.AbsoluteRY,
-			311:  input.AbsoluteRZ,
-			16: input.AbsoluteHat0X,
-			17: input.AbsoluteHat0Y,
+			0:   input.AbsoluteX,
+			1:   input.AbsoluteY,
+			310: input.AbsoluteZ,
+			3:   input.AbsoluteRX,
+			4:   input.AbsoluteRY,
+			311: input.AbsoluteRZ,
+			16:  input.AbsoluteHat0X,
+			17:  input.AbsoluteHat0Y,
 		},
 		Buttons: map[evdev.KeyType]input.Control{
 			304: input.ButtonSouth,
