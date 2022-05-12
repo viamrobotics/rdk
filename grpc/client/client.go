@@ -134,7 +134,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, error) {
-	resp, err := rc.client.Resources(ctx, &pb.ResourcesRequest{})
+	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
 		return nil, err
 	}

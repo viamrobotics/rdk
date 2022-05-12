@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var emptyResources = &pb.ResourcesResponse{
+var emptyResources = &pb.ResourceNamesResponse{
 	Resources: []*commonpb.ResourceName{},
 }
 
@@ -40,13 +40,13 @@ func TestServer(t *testing.T) {
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 
-		resourceResp, err := server.Resources(context.Background(), &pb.ResourcesRequest{})
+		resourceResp, err := server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp, test.ShouldResemble, emptyResources)
 
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{serverNewResource} }
 
-		resourceResp, err = server.Resources(context.Background(), &pb.ResourcesRequest{})
+		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
 	})
