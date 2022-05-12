@@ -2,6 +2,7 @@ package datamanager
 
 import (
 	"context"
+	"syscall"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -39,32 +40,12 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestCheckStorage(t *testing.T) {
-	cfg := &Config{
-		CaptureDir:        "/path/to/capture",
-		MaxStoragePercent: 80,
-		EnableAutoDelete:  false,
-		ComponentAttributes: map[string]componentAttributes{
-			"imu1": {
-				Type:               "imu",
-				Method:             "ReadAngularVelocity",
-				CaptureFrequencyHz: 10,
-				AdditionalParams: map[string]string{
-					"param1": "thing",
-					"param2": "thing2",
-				},
-			},
-		},
-	}
-	cfgService := config.Service{
-		Type:                "data_manager",
-		ConvertedAttributes: cfg,
-	}
+type MockSysCallImplementation struct{}
 
-	logger := golog.NewTestLogger(t)
-	r := &inject.Robot{}
+func (MockSysCallImplementation) Statfs(path string, stat *syscall.Statfs_t) error {
+	return syscall.Statfs(path, stat)
+}
 
-	_, err := New(context.Background(), r, cfgService, logger)
+func TestDiskUsage(t *testing.T) {
 
-	test.That(t, err, test.ShouldBeNil)
 }

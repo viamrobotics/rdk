@@ -275,17 +275,38 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	return &componentMetadata, nil
 }
 
-func (svc *Service) diskUsagePercentage() (int, error) {
+type DiskStatus struct {
+	All         uint64
+	Used        uint64
+	Free        uint64
+	Avail       uint64
+	PercentUsed int
+}
+
+type SysCall interface {
+	Statfs(string, *syscall.Statfs_t) error
+}
+
+type SysCallImplementation struct{}
+
+func (SysCallImplementation) Statfs(path string, stat *syscall.Statfs_t) error {
+	return syscall.Statfs(path, stat)
+}
+
+func DiskUsage(sysCall SysCall) (DiskStatus, error) {
+	disk := DiskStatus{}
 	fs := syscall.Statfs_t{}
-	err := syscall.Statfs("/", &fs)
+	err := sysCall.Statfs("/", &fs)
 	if err != nil {
-		return -1, err
+		return disk, err
 	}
-	all := fs.Blocks * uint64(fs.Bsize)
-	avail := fs.Bavail * uint64(fs.Bsize)
-	free := fs.Bfree * uint64(fs.Bsize)
-	used := all - free
-	return int(100 * used / (used + avail)), nil
+
+	disk.All = fs.Blocks * uint64(fs.Bsize)
+	disk.Avail = fs.Bavail * uint64(fs.Bsize)
+	disk.Free = fs.Bfree * uint64(fs.Bsize)
+	disk.Used = disk.All - disk.Free
+	disk.PercentUsed = int(100 * disk.Used / (disk.Used + disk.Avail))
+	return disk, nil
 }
 
 func (svc *Service) continuouslyCheckStorage() {
@@ -297,11 +318,11 @@ func (svc *Service) continuouslyCheckStorage() {
 		case <-svc.cancelCtx.Done():
 			return
 		case <-ticker.C:
-			percentUsed, err := svc.diskUsagePercentage()
+			du, err := DiskUsage(SysCallImplementation{})
 			if err != nil {
 				svc.logger.Errorw("failed to check disk usage", "error", err)
 			}
-			if percentUsed >= svc.maxStoragePercent { // Should we add some margin, e.g. a few % within maxStoragePercent?
+			if du.PercentUsed >= svc.maxStoragePercent {
 				if svc.enableAutoDelete {
 					// TODO: Add deletion logic for oldest file(s)
 				} else {
@@ -384,9 +405,11 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 
 func (svc *Service) closeCollectors() {
 	wg := sync.WaitGroup{}
-	for key, collector := range svc.collectors {
+	for metadata, collector := range svc.collectors {
+		// Note: Had to add these because otherwise get a loopclosure warning:
+		// 'loop variable captured by func literal'
 		currCollector := collector
-		currKey := key
+		currMetadata := metadata
 		wg.Add(1)
 		go func() {
 			svc.lock.Lock()
@@ -394,7 +417,7 @@ func (svc *Service) closeCollectors() {
 			if currCollector.Collector != nil {
 				currCollector.Collector.Close()
 				currCollector.Collector = nil // Should we have a bool instead? collector_disabled/closed?
-				svc.collectors[currKey] = currCollector
+				svc.collectors[currMetadata] = currCollector
 			}
 			wg.Done()
 		}()
