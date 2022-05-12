@@ -352,6 +352,8 @@ func (x *xArm) Close(ctx context.Context) error {
 
 // MoveToJointPositions moves the arm to the requested joint positions.
 func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+	ctx, done := x.opMgr.New(ctx)
+	defer done()
 	to := referenceframe.JointPosToInputs(newPositions)
 	curPos, err := x.GetJointPositions(ctx)
 	if err != nil {
@@ -400,6 +402,8 @@ func (x *xArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := x.opMgr.New(ctx)
+	defer done()
 	joints, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return err
