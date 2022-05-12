@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -318,6 +319,9 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 			if err := updateable.Update(ctx, resources); err != nil {
 				return err
 			}
+		} else {
+			// CR erodkin: delete
+			fmt.Printf("failed to update resource! %v", svc)
 		}
 	}
 

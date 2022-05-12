@@ -53,6 +53,8 @@ func newResourceManager(
 
 // addRemote adds a remote to the manager.
 func (manager *resourceManager) addRemote(r *remoteRobot, c config.Remote) {
+	// CR erodkin: delete me
+	fmt.Printf("adding remote %v to robot %v\n", c.Name, r)
 	manager.remotes[c.Name] = r
 }
 
@@ -286,6 +288,8 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 				outerError = errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 			} else {
 				configCopy := config
+				// CR erodkin: delete me. probably should grep to find other Printfs
+				fmt.Printf("adding remote %v\n", configCopy.Name)
 				manager.addRemote(newRemoteRobot(robotClient, configCopy), configCopy)
 				outerError = nil
 				break
@@ -295,6 +299,7 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 			return outerError
 		}
 	}
+	// CR erodkin: delete me
 	fmt.Printf("remotes: %v", remotes)
 	return nil
 }
