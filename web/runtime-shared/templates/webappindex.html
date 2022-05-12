@@ -1065,7 +1065,7 @@
           });
           let resourcesChanged = false;
           let shouldRestartStatusStream = false;
-          metadataService.resources(new metadataApi.ResourcesRequest(), {}, function (err, resp) {
+          robotService.resources(new robotApi.ResourcesRequest(), {}, function (err, resp) {
             grpcCallback(err, resp, false);
             if (err) {
               pReject(err);
