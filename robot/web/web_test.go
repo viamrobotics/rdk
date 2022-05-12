@@ -22,7 +22,8 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -37,10 +38,9 @@ func TestWebStart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx()
 
-	svc, err := web.New(ctx, injectRobot, config.Service{}, logger)
-	test.That(t, err, test.ShouldBeNil)
+	svc := web.New(ctx, injectRobot, logger)
 
-	err = svc.Start(ctx, web.NewOptions())
+	err := svc.Start(ctx, weboptions.New())
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1, err := arm.NewClient(context.Background(), arm1String, "localhost:8080", logger)
@@ -50,7 +50,7 @@ func TestWebStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
-	err = svc.Start(context.Background(), web.NewOptions())
+	err = svc.Start(context.Background(), weboptions.New())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "already started")
 
@@ -62,12 +62,11 @@ func TestWebStartOptions(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx()
 
-	svc, err := web.New(ctx, injectRobot, config.Service{}, logger)
-	test.That(t, err, test.ShouldBeNil)
+	svc := web.New(ctx, injectRobot, logger)
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 
@@ -100,12 +99,11 @@ func TestWebWithAuth(t *testing.T) {
 		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
-			svc, err := web.New(ctx, injectRobot, config.Service{}, logger)
-			test.That(t, err, test.ShouldBeNil)
+			svc := web.New(ctx, injectRobot, logger)
 
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
-			options := web.NewOptions()
+			options := weboptions.New()
 			addr := fmt.Sprintf("localhost:%d", port)
 			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
@@ -233,8 +231,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx()
 
-	svc, err := web.New(ctx, injectRobot, config.Service{}, logger)
-	test.That(t, err, test.ShouldBeNil)
+	svc := web.New(ctx, injectRobot, logger)
 
 	altName := primitive.NewObjectID().Hex()
 	cert, _, _, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -245,7 +242,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Network.TLSConfig = &tls.Config{
@@ -379,12 +376,11 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx()
 
-	svc, err := web.New(ctx, injectRobot, config.Service{}, logger)
-	test.That(t, err, test.ShouldBeNil)
+	svc := web.New(ctx, injectRobot, logger)
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -399,12 +395,11 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
-	svc, err = web.New(ctx, injectRobot, config.Service{}, logger)
-	test.That(t, err, test.ShouldBeNil)
+	svc = web.New(ctx, injectRobot, logger)
 
 	port, err = utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options = web.NewOptions()
+	options = weboptions.New()
 	addr = fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -424,12 +419,11 @@ func TestWebUpdate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, robot := setupRobotCtx()
 
-	svc, err := web.New(ctx, robot, config.Service{}, logger)
-	test.That(t, err, test.ShouldBeNil)
+	svc := web.New(ctx, robot, logger)
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	err = svc.Start(ctx, options)
@@ -472,8 +466,7 @@ func TestWebUpdate(t *testing.T) {
 		return injectArm, nil
 	}
 
-	svc2, err := web.New(ctx, robot2, config.Service{}, logger)
-	test.That(t, err, test.ShouldBeNil)
+	svc2 := web.New(ctx, robot2, logger)
 
 	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -539,10 +532,10 @@ func TestWebWithStreams(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
-	svc, err := web.New(ctx, robot, config.Service{}, logger)
+	svc := web.New(ctx, robot, logger)
 	test.That(t, err, test.ShouldBeNil)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -597,10 +590,10 @@ func TestWebAddFirstStream(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
-	svc, err := web.New(ctx, robot, config.Service{}, logger)
+	svc := web.New(ctx, robot, logger)
 	test.That(t, err, test.ShouldBeNil)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -651,48 +644,3 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 
 	return context.Background(), injectRobot
 }
-
-func setupInjectRobot() (*inject.Robot, *mock) {
-	web1 := &mock{}
-	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return web1, nil
-	}
-	return r, web1
-}
-
-func TestFromRobot(t *testing.T) {
-	r, web1 := setupInjectRobot()
-
-	rWeb, err := web.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, rWeb, test.ShouldNotBeNil)
-
-	err = rWeb.Start(context.Background(), web.NewOptions())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, web1.startCount, test.ShouldEqual, 1)
-
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return "not web", nil
-	}
-
-	rWeb, err = web.FromRobot(r)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("web.Service", "string"))
-	test.That(t, rWeb, test.ShouldBeNil)
-
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return nil, rutils.NewResourceNotFoundError(name)
-	}
-
-	rWeb, err = web.FromRobot(r)
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(web.Name))
-	test.That(t, rWeb, test.ShouldBeNil)
-}
-
-type mock struct {
-	web.Service
-
-	startCount int
-}
-
-func (m *mock) Start(context.Context, web.Options) error { m.startCount++; return nil }

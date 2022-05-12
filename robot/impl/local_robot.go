@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	// registers all components.
@@ -19,6 +20,8 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
@@ -28,9 +31,12 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/utils"
 )
+
+type internalServiceName string
+
+const webName internalServiceName = "web"
 
 var (
 	_ = robot.LocalRobot(&localRobot{})
@@ -40,7 +46,6 @@ var (
 		metadata.Name,
 		sensors.Name,
 		status.Name,
-		web.Name,
 		datamanager.Name,
 		framesystem.Name,
 		vision.Name,
@@ -55,6 +60,23 @@ type localRobot struct {
 	config     *config.Config
 	operations *operation.Manager
 	logger     golog.Logger
+
+	// services internal to a localRobot. Currently just web, more to come.
+	internalServices map[internalServiceName]interface{}
+}
+
+// web returns the localRobot's web service. Raises if the service has not been initialized.
+func (r *localRobot) webService() (web.Service, error) {
+	svc := r.internalServices[webName]
+	if svc == nil {
+		return nil, errors.New("web service not initialized")
+	}
+
+	webSvc, ok := svc.(web.Service)
+	if !ok {
+		return nil, errors.New("unexpected service associated with web InternalServiceName")
+	}
+	return webSvc, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -91,6 +113,11 @@ func (r *localRobot) OperationManager() *operation.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
+	for _, svc := range r.internalServices {
+		if err := goutils.TryClose(ctx, svc); err != nil {
+			return err
+		}
+	}
 	return r.manager.Close(ctx)
 }
 
@@ -106,6 +133,15 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 // Logger returns the logger the robot is using.
 func (r *localRobot) Logger() golog.Logger {
 	return r.logger
+}
+
+// StartWeb starts the web server, will return an error if server is already up.
+func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
+	webSvc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return webSvc.Start(ctx, o)
 }
 
 func newWithResources(
@@ -147,6 +183,10 @@ func newWithResources(
 		}
 		r.manager.addResource(name, svc)
 	}
+
+	r.internalServices = make(map[internalServiceName]interface{})
+	r.internalServices[webName] = web.New(ctx, r, logger)
+
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
@@ -225,6 +265,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		}
 		resources[n] = res
 	}
+
 	for _, name := range defaultSvc {
 		svc, err := r.ResourceByName(name)
 		if err != nil {
@@ -241,6 +282,15 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 			}
 		}
 	}
+
+	for _, svc := range r.internalServices {
+		if updateable, ok := svc.(resource.Updateable); ok {
+			if err := updateable.Update(ctx, resources); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

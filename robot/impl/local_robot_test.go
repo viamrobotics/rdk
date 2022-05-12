@@ -32,13 +32,13 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
@@ -93,11 +93,9 @@ func TestConfigRemote(t *testing.T) {
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	addr := fmt.Sprintf("localhost:%d", port)
-	options := web.NewOptions()
+	options := weboptions.New()
 	options.Network.BindAddress = addr
-	svc, err := web.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	err = svc.Start(ctx, options)
+	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteConfig := &config.Config{
@@ -275,7 +273,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
-			options := web.NewOptions()
+			options := weboptions.New()
 			addr := fmt.Sprintf("localhost:%d", port)
 			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
@@ -303,9 +301,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				options.BakedAuthEntity = "blah"
 				options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 			}
-			svc, err := web.FromRobot(r)
-			test.That(t, err, test.ShouldBeNil)
-			err = svc.Start(ctx, options)
+			err = r.StartWeb(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
 			entityName := tc.EntityName
@@ -484,7 +480,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Network.TLSConfig = &tls.Config{
@@ -511,9 +507,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	options.BakedAuthEntity = "blah"
 	options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 
-	svc, err := r.ResourceByName(web.Name)
-	test.That(t, err, test.ShouldBeNil)
-	err = svc.(web.Service).Start(ctx, options)
+	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteTLSConfig := options.Network.TLSConfig.Clone()
@@ -745,7 +739,7 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 11 declared resources + default web, sensors, status, and metadata service
+	// 5 declared resources + default sensors, status, and metadata service
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
@@ -816,7 +810,7 @@ func TestStatusService(t *testing.T) {
 	svc, err := status.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1"), status.Name, web.Name}
+	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1"), status.Name}
 	rArm, err := arm.FromRobot(r, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
 	armStatus, err := arm.CreateStatus(context.Background(), rArm)
@@ -825,7 +819,6 @@ func TestStatusService(t *testing.T) {
 		arm.Named("pieceArm"): armStatus,
 		gps.Named("gps1"):     struct{}{},
 		status.Name:           struct{}{},
-		web.Name:              struct{}{},
 	}
 
 	statuses, err := svc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
@@ -836,12 +829,12 @@ func TestStatusService(t *testing.T) {
 
 	statuses, err = svc.GetStatus(context.Background(), resourceNames)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 4)
 
-	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
-	test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
-	test.That(t, statuses[2].Status, test.ShouldResemble, expected[statuses[2].Name])
-	test.That(t, statuses[3].Status, test.ShouldResemble, expected[statuses[3].Name])
+	expectedStatusLength := 3
+	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
 
+	for idx := 0; idx < expectedStatusLength; idx++ {
+		test.That(t, statuses[idx].Status, test.ShouldResemble, expected[statuses[idx].Name])
+	}
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
