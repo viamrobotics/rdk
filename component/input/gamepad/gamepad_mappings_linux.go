@@ -12,6 +12,7 @@ import (
 // GamepadMappings contains all the axes/button translations for each model.
 var GamepadMappings = map[string]Mapping{
 	// 8BitDo Pro 2 Wireless, S-input mode
+	// Also the Nintendo Switch Pro Controller
 	"Pro Controller": {
 		Axes: map[evdev.AbsoluteType]input.Control{
 			0:  input.AbsoluteX,
