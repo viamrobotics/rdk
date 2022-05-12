@@ -90,7 +90,7 @@ const (
 	ButtonPress EventType = "ButtonPress"
 	// Key release.
 	ButtonRelease EventType = "ButtonRelease"
-	// Key release.
+	// Key is held down. This will likely be a repeated event.
 	ButtonHold EventType = "ButtonHold"
 	// Both up and down for convenience during registration, not typically emitted.
 	ButtonChange EventType = "ButtonChange"
