@@ -19,7 +19,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-func createSLAMService(t *testing.T, attrCfg *AttrConfig) (Service, error) {
+func createSLAMService(t *testing.T, attrCfg *AttrConfig) (*slamService, error) {
 	t.Helper()
 	cfgService := config.Service{Name: "test", Type: "slam"}
 	logger := golog.NewTestLogger(t)
@@ -32,13 +32,19 @@ func createSLAMService(t *testing.T, attrCfg *AttrConfig) (Service, error) {
 
 	cfgService.ConvertedAttributes = attrCfg
 
-	return New(ctx, r, cfgService, logger)
+	svc := New(ctx, r, cfgService, logger)
+
+	if svc == nil {
+		return nil, errors.New("error creating slam service")
+	}
+
+	return svc.(*slamService), nil
 }
 
 // General SLAM Tests.
 func TestGeneralSLAMService(t *testing.T) {
 	_, err := createSLAMService(t, &AttrConfig{})
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, errors.New("error creating slam service"))
 
 	name1, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
@@ -52,8 +58,7 @@ func TestGeneralSLAMService(t *testing.T) {
 	}
 
 	_, err = createSLAMService(t, attrCfg)
-	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("error with get camera for slam service: \"resource \\\"rdk:component:camera/%v\\\" not found\"", attrCfg.Sensors[0]))
+	test.That(t, err, test.ShouldBeError, errors.New("error creating slam service"))
 
 	attrCfg = &AttrConfig{
 		Algorithm:        "cartographer",
@@ -65,19 +70,17 @@ func TestGeneralSLAMService(t *testing.T) {
 		MapRateSec:       5,
 	}
 
-	slams, err := createSLAMService(t, attrCfg)
+	slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, slams.getSLAMServiceData().dataRateSec, test.ShouldEqual, 100)
-	test.That(t, slams.getSLAMServiceData().mapRateSec, test.ShouldEqual, 5)
+	test.That(t, slamSvc.dataRateSec, test.ShouldEqual, 100)
+	test.That(t, slamSvc.mapRateSec, test.ShouldEqual, 5)
 
 	attrCfg.DataRateMs = 0
 	attrCfg.MapRateSec = 0
-	slams, err = createSLAMService(t, attrCfg)
+	slamSvc, err = createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, slams.getSLAMServiceData().dataRateSec, test.ShouldEqual, 200)
-	test.That(t, slams.getSLAMServiceData().mapRateSec, test.ShouldEqual, 60)
-
-	slamSvc := slams.getSLAMServiceData()
+	test.That(t, slamSvc.dataRateSec, test.ShouldEqual, 200)
+	test.That(t, slamSvc.mapRateSec, test.ShouldEqual, 60)
 
 	err = slamSvc.Close(slamSvc.cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
@@ -190,17 +193,16 @@ func TestCartographerData(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamS, err := createSLAMService(t, attrCfg)
+	slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	slamSvc := slamS.getSLAMServiceData()
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pointcloud.New(), nil
 	}
 	slamSvc.camera = cam
 
-	err = runtimeServiceValidation(&slamSvc)
+	err = runtimeServiceValidation(slamSvc)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, _ = slamSvc.getAndSaveDataDense()
@@ -227,10 +229,8 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamS, err := createSLAMService(t, attrCfg)
+	slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
-
-	slamSvc := slamS.getSLAMServiceData()
 
 	err = slamSvc.startSLAMProcess(slamSvc.cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
@@ -288,10 +288,8 @@ func TestDataProcessCartographer(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamS, err := createSLAMService(t, attrCfg)
+	slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
-
-	slamSvc := slamS.getSLAMServiceData()
 
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -330,10 +328,9 @@ func TestORBSLAMData(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamS, err := createSLAMService(t, attrCfg)
+	slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	slamSvc := slamS.getSLAMServiceData()
 	cam := &inject.Camera{}
 
 	cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -347,7 +344,7 @@ func TestORBSLAMData(t *testing.T) {
 	}
 	slamSvc.camera = cam
 
-	err = runtimeServiceValidation(&slamSvc)
+	err = runtimeServiceValidation(slamSvc)
 	test.That(t, err, test.ShouldBeNil)
 
 	// TODO: image with depth test
@@ -375,10 +372,8 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamS, err := createSLAMService(t, attrCfg)
+	slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
-
-	slamSvc := slamS.getSLAMServiceData()
 
 	err = slamSvc.startSLAMProcess(slamSvc.cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
@@ -439,10 +434,8 @@ func TestDataProcessORBSLAM(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamS, err := createSLAMService(t, attrCfg)
+	slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
-
-	slamSvc := slamS.getSLAMServiceData()
 
 	cam := &inject.Camera{}
 	cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
