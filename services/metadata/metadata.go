@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -99,11 +98,6 @@ func (svc *metadataService) Update(ctx context.Context, curResources map[resourc
 
 	resources := []resource.Name{}
 	for name := range curResources {
-		// TODO(ethan) (RSDK-294): consider whether this web exemption is appropriate
-		// in the long term
-		if name == web.Name {
-			continue
-		}
 		resources = append(resources, name)
 	}
 
