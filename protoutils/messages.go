@@ -2,6 +2,7 @@
 package protoutils
 
 import (
+	"fmt"
 	"google.golang.org/protobuf/types/known/structpb"
 	"reflect"
 	"strings"
@@ -65,11 +66,12 @@ func InterfaceToMap(data interface{}) (map[string]interface{}, error) {
 func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 	encoded, err := InterfaceToMap(i)
 	if err != nil {
-		return nil, errors.Errorf("unable to convert interface %v to a form acceptable to structpb.NewStruct: %v", i, err)
+		return nil, errors.Wrap(err,
+			fmt.Sprintf("unable to convert interface %v to a form acceptable to structpb.NewStruct", i))
 	}
 	ret, err := structpb.NewStruct(encoded)
 	if err != nil {
-		return nil, errors.Errorf("unable to construct structpb.Struct from map %v: %v", encoded, err)
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to construct structpb.Struct from map %v", encoded))
 	}
 	return ret, nil
 }
