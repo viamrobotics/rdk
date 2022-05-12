@@ -1065,7 +1065,7 @@
           });
           let resourcesChanged = false;
           let shouldRestartStatusStream = false;
-          robotService.resources(new robotApi.ResourcesRequest(), {}, function (err, resp) {
+          robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, function (err, resp) {
             grpcCallback(err, resp, false);
             if (err) {
               pReject(err);

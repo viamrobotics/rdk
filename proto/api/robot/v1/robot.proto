@@ -17,8 +17,8 @@ service RobotService {
     };    
   }
 
-  // Resources returns the list of all resources.
-  rpc Resources(ResourcesRequest) returns (ResourcesResponse) {
+  // ResourceNames returns the list of all resources.
+  rpc ResourceNames(ResourceNamesRequest) returns (ResourceNamesResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/robot/metadata"
     };
@@ -37,9 +37,9 @@ service RobotService {
   }
 }
 
-message ResourcesRequest {}
+message ResourceNamesRequest {}
 
-message ResourcesResponse {
+message ResourceNamesResponse {
   repeated common.v1.ResourceName resources = 1;
 }
 

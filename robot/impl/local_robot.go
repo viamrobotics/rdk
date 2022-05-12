@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robot/metadata"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
@@ -188,7 +187,6 @@ func newWithResources(
 
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
-	r.internalServices[metadataName] = metadata.New()
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
