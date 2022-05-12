@@ -290,6 +290,26 @@ func TestMarshalSlice(t *testing.T) {
 	}
 }
 
+func TestStructToStructPb(t *testing.T) {
+	for _, tc := range structTests {
+		switch tc.TestName {
+		case "struct with uint":
+			// uint is a special case, because proto structs only have a concept of NumberValue, which is a float64.
+			// Because of this, we need to cast it to a float64 when making the comparison.
+			protoStruct, err := StructToStructPb(tc.Data)
+			test.That(t, err, test.ShouldBeNil)
+			protoMap := protoStruct.AsMap()
+			for k, v := range tc.Expected {
+				test.That(t, float64(v.(uint)), test.ShouldResemble, protoMap[k])
+			}
+		default:
+			protoStruct, err := StructToStructPb(tc.Data)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, protoStruct.AsMap(), test.ShouldResemble, tc.Expected)
+		}
+	}
+}
+
 type TypedString string
 
 type SimpleStruct struct {
