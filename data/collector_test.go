@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/rdk/protoutils"
-
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
