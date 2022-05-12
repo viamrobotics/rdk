@@ -32,7 +32,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/chess"
 )

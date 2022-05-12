@@ -166,12 +166,12 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 	return &interceptingGPSBase{b: b, g: fakeG}, nil
 }
 
-func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
 	loc, err := b.g.ReadLocation(ctx)
 	if err != nil {
 		return err
 	}
-	err = b.b.MoveStraight(ctx, distanceMm, mmPerSec, true)
+	err = b.b.MoveStraight(ctx, distanceMm, mmPerSec)
 	if err != nil {
 		return err
 	}
@@ -184,12 +184,12 @@ func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, 
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *interceptingGPSBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
+func (b *interceptingGPSBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
 	return nil
 }
 
-func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-	err := b.b.Spin(ctx, angleDeg, degsPerSec, true)
+func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+	err := b.b.Spin(ctx, angleDeg, degsPerSec)
 	if err != nil {
 		return err
 	}
