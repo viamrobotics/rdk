@@ -98,7 +98,7 @@
                   />
                 </div>
               </div>
-              <div class="flex items-center pt-4"  v-if="movementMode === 'Straight' || movementMode === 'Arc'">
+              <div :class="spinTabClass" class="items-center pt-4">
                 <div class="column pr-2" v-if="movementMode === 'Straight'">
                   <p class="text-xs">Movement Type</p>
                   <RadioButtons
@@ -109,7 +109,9 @@
                   />
                 </div>
                 <div
+                  v-if="movementMode === 'Straight' || movementMode === 'Arc'"
                   class="column pr-2">
+                  
                   <p class="text-xs">Direction</p>
                   <RadioButtons
                     :options="['Forwards', 'Backwards']"
@@ -130,17 +132,10 @@
                   inputId="distance"
                   :disabled="movementType === 'Continous'"
                   label="Distance (mm)"
+                  v-if="movementMode === 'Straight' || movementMode === 'Arc'"
                 ></NumberInput>
               </div>
-              <div class="flex pt-4" v-if="movementMode === 'Spin' || movementMode === 'Arc'">
-                <div class="column pr-2" v-if="movementMode === 'Spin'">
-                    <NumberInput
-                      v-model="speed"
-                      class="w-32"
-                      inputId="speed"
-                      label="Speed (mm/sec)"
-                    ></NumberInput>
-                </div>
+              <div :class="spinTabClass" class="pt-4" v-if="movementMode === 'Spin' || movementMode === 'Arc'">
                 <div class="column pr-2">
                   <p class="text-xs">Movement Type</p>
                   <RadioButtons
@@ -155,6 +150,7 @@
                   <Range
                     id="angle"
                     :min="0"
+                    :key="movementMode"
                     :max="360"
                     :step="90"
                     v-model="maxClusteringRadius"
@@ -249,6 +245,12 @@ export default class Base extends Vue {
     { value: "NoCamera", label: "No Camera" },
     { value: "Camera1", label: "Camera1" },
   ];
+
+  get spinTabClass(): string {
+    if (this.movementMode === 'Spin')
+      return 'inline-flex'
+    return 'flex';
+  }
 
   get rangeLabel(): string {
 
