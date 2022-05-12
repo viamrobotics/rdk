@@ -82,14 +82,9 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
-	resourcesFunc := func() []resource.Name {
-		var empty []resource.Name
-		return empty
-	}
-	injectRobot1 := &inject.Robot{}
-	injectRobot1.ResourceNamesFunc = resourcesFunc
-	injectRobot2 := &inject.Robot{}
-	injectRobot2.ResourceNamesFunc = resourcesFunc
+	resourcesFunc := func() []resource.Name { return []resource.Name{} }
+	injectRobot1 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	injectRobot2 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
@@ -426,6 +421,7 @@ func TestClient(t *testing.T) {
 	pos, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
+
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
