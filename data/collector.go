@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
@@ -187,7 +186,7 @@ func (c *collector) getAndPushNextReading() {
 		c.logger.Errorw("error while capturing data", "error", err)
 		return
 	}
-	pbReading, err := StructToStructPb(reading)
+	pbReading, err := protoutils.StructToStructPb(reading)
 	if err != nil {
 		c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
 		return
@@ -250,20 +249,6 @@ func (c *collector) appendMessage(msg *v1.SensorData) error {
 		return err
 	}
 	return nil
-}
-
-// StructToStructPb converts an arbitrary Go struct to a *structpb.Struct. Only exported fields are included in the
-// returned proto.
-func StructToStructPb(i interface{}) (*structpb.Struct, error) {
-	encoded, err := protoutils.InterfaceToMap(i)
-	if err != nil {
-		return nil, errors.Errorf("unable to convert interface %v to a form acceptable to structpb.NewStruct: %v", i, err)
-	}
-	ret, err := structpb.NewStruct(encoded)
-	if err != nil {
-		return nil, errors.Errorf("unable to construct structpb.Struct from map %v: %v", encoded, err)
-	}
-	return ret, nil
 }
 
 // InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.Subtype was
