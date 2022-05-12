@@ -90,6 +90,8 @@ const (
 	ButtonPress EventType = "ButtonPress"
 	// Key release.
 	ButtonRelease EventType = "ButtonRelease"
+	// Key release.
+	ButtonHold EventType = "ButtonHold"
 	// Both up and down for convenience during registration, not typically emitted.
 	ButtonChange EventType = "ButtonChange"
 	// Absolute position is reported via Value, a la joysticks.
@@ -120,6 +122,8 @@ const (
 	ButtonNorth  Control = "ButtonNorth"
 	ButtonLT     Control = "ButtonLT"
 	ButtonRT     Control = "ButtonRT"
+	ButtonLT2    Control = "ButtonLT2"
+	ButtonRT2    Control = "ButtonRT2"
 	ButtonLThumb Control = "ButtonLThumb"
 	ButtonRThumb Control = "ButtonRThumb"
 	ButtonSelect Control = "ButtonSelect"

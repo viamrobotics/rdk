@@ -202,6 +202,8 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 					eventOut.Event = input.ButtonPress
 				} else if eventIn.Event.Value == 0 {
 					eventOut.Event = input.ButtonRelease
+				} else if eventIn.Event.Value == 2 {
+					eventOut.Event = input.ButtonHold
 				}
 			case evdev.EventEffect, evdev.EventEffectStatus, evdev.EventLED, evdev.EventMisc,
 				evdev.EventPower, evdev.EventRelative, evdev.EventRepeat, evdev.EventSound,
