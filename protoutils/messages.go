@@ -45,7 +45,7 @@ func InterfaceToMap(data interface{}) (map[string]interface{}, error) {
 	var err error
 	switch t.Kind() {
 	case reflect.Struct:
-        rlog.Logger.Debugw("MP: I'm a struct!", "data", data)
+		rlog.Logger.Debugf("MP: I'm a struct! %#v", data)
 		res, err = structToMap(data)
 		if err != nil {
 			return nil, err
@@ -117,35 +117,42 @@ func isEmptyValue(v reflect.Value) bool {
 // structToMap attempts to coerce a struct into a form acceptable by grpc. Ignores omitempty tags
 func structToMap(data interface{}) (map[string]interface{}, error) {
 	t := reflect.TypeOf(data)
+	rlog.Logger.Debugf("MP: my type is %T, kind %#v", data, t.Kind())
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
+		rlog.Logger.Debug("MP: I'm not a struct?")
 		return nil, errors.Errorf("data of type %T is not a struct", data)
 	}
 	res := map[string]interface{}{}
 	value := reflect.ValueOf(data)
 	if value.Kind() == reflect.Ptr && value.IsNil() {
+		rlog.Logger.Debug("MP: I'm a non-nil pointer")
 		return res, nil
 	}
 	value = reflect.Indirect(value)
+	rlog.Logger.Debugf("MP: My indirect value is: %#v", value)
 	for i := 0; i < t.NumField(); i++ {
 		sField := t.Field(i)
 		tag := sField.Tag.Get("json")
 		key := sField.Name
 
 		if tag == "-" {
+			rlog.Logger.Debugw("MP: bad tag", "tag", tag)
 			continue
 		}
 
 		// tag name should be first element of tag string
 		tagName := strings.Split(tag, ",")[0]
 		if tagName != "" {
+			rlog.Logger.Debugw("MP: bad tag name", "tag name", tagName)
 			key = tagName
 		}
 
 		// skip unexported fields
 		if !value.Field(i).CanInterface() {
+			rlog.Logger.Debugw("MP: cannot interface", "field num", i)
 			continue
 		}
 
@@ -157,6 +164,8 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 		}
 
 		data, err := toInterface(field)
+		rlog.Logger.Debugw("MP: got field", "value", data, "error", err)
+
 		if err != nil {
 			return nil, err
 		}
