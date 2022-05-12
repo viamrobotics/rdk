@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -108,8 +109,9 @@ func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperatio
 	}
 }
 
-// CR erodkin: do we need this to return an err?
 func (server *Server) Resources(ctx context.Context, _ *pb.ResourcesRequest) (*pb.ResourcesResponse, error) {
+	// CR erodkin: delete
+	fmt.Println("getting resources from Server")
 	all := server.r.ResourceNames()
 
 	rNames := make([]*commonpb.ResourceName, 0, len(all))
