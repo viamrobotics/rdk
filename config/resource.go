@@ -172,7 +172,7 @@ func (config *Service) ResourceName() resource.Name {
 	)
 }
 
-// ResourceName returns the  ResourceName for the component.
+// ResourceName returns the  ResourceName for the component within a service_config.
 func (config *ComponentLevelServiceConfig) ResourceName() resource.Name {
 	cType := string(config.Type)
 	return resource.NewName(
