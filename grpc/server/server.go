@@ -5,7 +5,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -109,11 +108,9 @@ func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperatio
 	}
 }
 
-func (server *Server) Resources(ctx context.Context, _ *pb.ResourcesRequest) (*pb.ResourcesResponse, error) {
-	// CR erodkin: delete
-	fmt.Println("getting resources from Server")
-	all := server.r.ResourceNames()
-
+// Resources returns the list of resources.
+func (s *Server) Resources(ctx context.Context, _ *pb.ResourcesRequest) (*pb.ResourcesResponse, error) {
+	all := s.r.ResourceNames()
 	rNames := make([]*commonpb.ResourceName, 0, len(all))
 	for _, m := range all {
 		rNames = append(
