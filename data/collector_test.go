@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"go.viam.com/rdk/protoutils"
+
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
@@ -18,6 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
+	"go.viam.com/rdk/protoutils"
 )
 
 type exampleReading struct {
@@ -25,7 +28,7 @@ type exampleReading struct {
 }
 
 func (r *exampleReading) toProto() *structpb.Struct {
-	msg, err := StructToStructPb(r)
+	msg, err := protoutils.StructToStructPb(r)
 	if err != nil {
 		return nil
 	}
