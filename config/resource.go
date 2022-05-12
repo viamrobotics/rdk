@@ -24,16 +24,23 @@ type ResourceConfig interface {
 	Set(val string) error
 }
 
+// Component-level configuration for a service.
+type ComponentLevelServiceConfig struct {
+	Type                resource.SubtypeName `json:"type"`
+	Attributes          AttributeMap         `json:"attributes"`
+	ConvertedAttributes interface{}          `json:"-"`
+}
+
 // A Component describes the configuration of a component.
 type Component struct {
 	Name string `json:"name"`
 
-	Type          resource.SubtypeName    `json:"type"`
-	SubType       string                  `json:"subtype"`
-	Model         string                  `json:"model"`
-	Frame         *Frame                  `json:"frame,omitempty"`
-	DependsOn     []string                `json:"depends_on"`
-	ServiceConfig map[string]AttributeMap `json:"service_config"`
+	Type          resource.SubtypeName          `json:"type"`
+	SubType       string                        `json:"subtype"`
+	Model         string                        `json:"model"`
+	Frame         *Frame                        `json:"frame,omitempty"`
+	DependsOn     []string                      `json:"depends_on"`
+	ServiceConfig []ComponentLevelServiceConfig `json:"service_config"`
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`
@@ -156,6 +163,17 @@ func (config *Service) String() string {
 
 // ResourceName returns the  ResourceName for the component.
 func (config *Service) ResourceName() resource.Name {
+	cType := string(config.Type)
+	return resource.NewName(
+		resource.ResourceNamespaceRDK,
+		resource.ResourceTypeService,
+		resource.SubtypeName(cType),
+		cType,
+	)
+}
+
+// ResourceName returns the  ResourceName for the component.
+func (config *ComponentLevelServiceConfig) ResourceName() resource.Name {
 	cType := string(config.Type)
 	return resource.NewName(
 		resource.ResourceNamespaceRDK,

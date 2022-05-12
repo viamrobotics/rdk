@@ -3,7 +3,6 @@ package datamanager
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -73,14 +72,18 @@ const defaultCaptureQueueSize = 250
 const defaultCaptureBufferSize = 4096
 
 // Attributes to initialize the collector for a component.
-type componentAttributes struct {
-	Name               string            `json:"name"`
-	Type               string            `json:"type"`
-	Method             string            `json:"method"`
-	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
-	CaptureQueueSize   int               `json:"capture_queue_size"`
-	CaptureBufferSize  int               `json:"capture_buffer_size"`
-	AdditionalParams   map[string]string `json:"additional_params"`
+type dataCaptureConfig struct {
+	Name               string               `json:"name"`
+	Type               resource.SubtypeName `json:"type"`
+	Method             string               `json:"method"`
+	CaptureFrequencyHz float32              `json:"capture_frequency_hz"`
+	CaptureQueueSize   int                  `json:"capture_queue_size"`
+	CaptureBufferSize  int                  `json:"capture_buffer_size"`
+	AdditionalParams   map[string]string    `json:"additional_params"`
+}
+
+type dataCaptureConfigs struct {
+	Attributes []dataCaptureConfig `json:"capture_methods"`
 }
 
 // Config describes how to configure the service.
@@ -90,7 +93,7 @@ type Config struct {
 	SyncIntervalMins    int      `json:"sync_interval_mins"`
 }
 
-// TODO: Add configuration for remotes.
+// TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
@@ -137,6 +140,7 @@ func (svc *Service) closeCollectors() {
 // Service initializes and orchestrates data capture collectors for registered component/methods.
 type Service struct {
 	r          robot.Robot
+	name       resource.Name
 	logger     golog.Logger
 	captureDir string
 	collectors map[componentMethodMetadata]collectorAndConfig
@@ -150,7 +154,7 @@ type Service struct {
 // Parameters stored for each collector.
 type collectorAndConfig struct {
 	Collector  data.Collector
-	Attributes componentAttributes
+	Attributes dataCaptureConfig
 }
 
 // Identifier for a particular collector: component name, component type, and method name.
@@ -171,8 +175,8 @@ func getFileTimestampName() string {
 }
 
 // Create a timestamped file within the given capture directory.
-func createDataCaptureFile(captureDir string, subtypeName string, componentName string) (*os.File, error) {
-	fileDir := filepath.Join(captureDir, subtypeName, componentName)
+func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, componentName string) (*os.File, error) {
+	fileDir := filepath.Join(captureDir, string(subtypeName), componentName)
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
@@ -183,7 +187,7 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *Service) initializeOrUpdateCollector(
-	attributes componentAttributes, updateCaptureDir bool) (
+	attributes dataCaptureConfig, updateCaptureDir bool) (
 	*componentMethodMetadata, error,
 ) {
 	// Create component/method metadata to check if the collector exists.
@@ -266,6 +270,7 @@ func (svc *Service) initializeOrUpdateCollector(
 	if err != nil {
 		return nil, err
 	}
+
 	svc.collectors[componentMetadata] = collectorAndConfig{collector, attributes}
 
 	// TODO: Handle errors more gracefully.
@@ -299,48 +304,39 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 }
 
 // Get the config associated with the data manager service.
-func getServiceConfig(cfg *config.Config) (config.Service, error) {
+func (svc *Service) getServiceConfig(cfg *config.Config) (config.Service, bool) {
 	for _, c := range cfg.Services {
+		// Compare service type and name.
 		if c.ResourceName() == Name {
-			return c, nil
+			return c, true
 		}
 	}
-	return config.Service{}, errors.New("could not find data_manager service")
+	return config.Service{}, false
 }
 
-func getComponentAttributes(
-	component config.Component, methodConfiguration interface{}) (componentAttributes, error) {
-	// Convert a mapping into a struct by encoding/decoding json.
-	// NOTE: This was necessary since added a generic ServiceConfig of type map[string]AttributeMap
-	// into Component in resource.go. Would need to somehow apply the high-level AttributeMapConverter
-	// to this nested AttributeMap, or register a different converter.
-	componentAttrs := componentAttributes{}
-	marshaled, err := json.Marshal(methodConfiguration)
-	if err != nil {
-		return componentAttributes{}, err
-	}
-	err = json.Unmarshal(marshaled, &componentAttrs)
-	if err != nil {
-		return componentAttributes{}, err
-	}
-
-	componentAttrs.Name = component.Name
-	componentAttrs.Type = string(component.Type)
-
-	return componentAttrs, nil
-}
-
-// Get the component method configs associated with the data manager service.
-func getAllComponentAttributes(cfg *config.Config) ([]componentAttributes, error) {
-	componentAttributeConfigs := []componentAttributes{}
+// Get the component attribute configs associated with the data manager service.
+func (svc *Service) getAllComponentAttributes(cfg *config.Config) ([]dataCaptureConfig, error) {
+	componentAttributeConfigs := []dataCaptureConfig{}
 	for _, c := range cfg.Components {
-		if svcConfig, ok := c.ServiceConfig["data_manager"]; ok {
-			for _, methodConfiguration := range (svcConfig["capture_methods"]).([]interface{}) {
-				componentMethodConfig, err := getComponentAttributes(c, methodConfiguration)
+		// Iterate over all component-level service configs of type data_manager.
+		for _, componentSvcConfig := range c.ServiceConfig {
+			if componentSvcConfig.ResourceName() == Name {
+				var attrs dataCaptureConfigs
+				configs, err := config.TransformAttributeMapToStruct(&attrs, componentSvcConfig.Attributes)
 				if err != nil {
 					return componentAttributeConfigs, err
 				}
-				componentAttributeConfigs = append(componentAttributeConfigs, componentMethodConfig)
+				convertedConfigs, ok := configs.(*dataCaptureConfigs)
+				if !ok {
+					return componentAttributeConfigs, utils.NewUnexpectedTypeError(convertedConfigs, configs)
+				}
+
+				// Add the method configuration to the result.
+				for _, attrs := range convertedConfigs.Attributes {
+					attrs.Name = c.Name
+					attrs.Type = c.Type
+					componentAttributeConfigs = append(componentAttributeConfigs, attrs)
+				}
 			}
 		}
 	}
@@ -349,11 +345,10 @@ func getAllComponentAttributes(cfg *config.Config) ([]componentAttributes, error
 
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
-	c, err := getServiceConfig(cfg)
+	c, ok := svc.getServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
-	if err != nil {
+	if !ok {
 		svc.closeCollectors()
-		// nolint:nilerr
 		return nil
 	}
 
@@ -364,15 +359,13 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 
-	allComponentAttributes, err := getAllComponentAttributes(cfg)
+	allComponentAttributes, err := svc.getAllComponentAttributes(cfg)
 	if err != nil {
 		return err
 	}
 
-	// NOTE: Returns normally but logs an error if the data service is enabled without any
-	// components/remotes enabled. Another option is to return an error here and cause RDK to fail.
 	if len(allComponentAttributes) == 0 {
-		svc.logger.Error("Could not find any components with data_manager service configuration")
+		svc.logger.Warn("Could not find any components with data_manager service configuration")
 		return nil
 	}
 
