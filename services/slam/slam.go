@@ -210,7 +210,7 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 	return cameraName, cam, nil
 }
 
-// New returns a new slam service for the given robot.
+// New returns a new slam service for the given robot. Will not error out as to prevent server shutdown.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) Service {
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
@@ -294,7 +294,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 }
 
 // TODO 05/10/2022: Remove from SLAM service once GRPC data transfer is available.
-// startDataProcess is the main control loops for sending data from camera to the data directory for processing.
+// startDataProcess is the background control loop for sending data from camera to the data directory for processing.
 func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 	if slamSvc.camera == nil {
 		return nil
@@ -324,6 +324,7 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 			case <-ticker.C:
 				dataWorker.Add(1)
 
+				// Split off go routine to handle data processing without affecting timing
 				goutils.PanicCapturingGo(func() {
 					defer dataWorker.Done()
 					switch slamSvc.slamLib.AlgoType {
@@ -357,7 +358,6 @@ func (slamSvc *slamService) startSLAMProcess(ctx context.Context) error {
 // Close out of all slam related processes.
 func (slamSvc *slamService) Close(ctx context.Context) error {
 	slamSvc.cancelFunc()
-	slamSvc.cancelFunc()
 	slamSvc.activeBackgroundWorkers.Wait()
 	return nil
 }
@@ -381,6 +381,7 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 	case mono:
 		fileType = ".jpeg"
 	case rgbd:
+		// TODO 05/12/2022:Soon wil be deprecated into pointcloud files or rgb and monochromatic depth file. We will want picture pair.
 		fileType = ".both"
 	case twod:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
@@ -401,7 +402,9 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 			return filename, err
 		}
 	case rgbd:
-		// TODO 05/10/2022: the file type saving may change here based on John N.'s recommendation (whether to use both or two images)
+		// TODO 05/10/2022: the file type saving may change here based on John N.'s recommendation (whether to use poitntcloud or two images).
+		// Both file types soon will be deprecated.
+		// https://docs.google.com/document/d/1Fa8DY-a2dPhoGNLaUlsEgQ28kbgVexaacBtJrkwnwQQ/edit#heading=h.rhjz058xy3j5
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
 			return filename, errors.Errorf("want %s but don't have %T", utils.MimeTypeBoth, iwd)
@@ -451,6 +454,7 @@ func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
 	return filename, f.Close()
 }
 
+// Creates a file in the proper format with timestamp and sensor information.
 func createTimestampFilename(cameraName, dataDirectory, fileType string) string {
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
