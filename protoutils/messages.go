@@ -2,6 +2,7 @@
 package protoutils
 
 import (
+	"google.golang.org/protobuf/types/known/structpb"
 	"reflect"
 	"strings"
 
@@ -57,6 +58,20 @@ func InterfaceToMap(data interface{}) (map[string]interface{}, error) {
 		return nil, errors.Errorf("data of type %T and kind %s not a struct or a map-like object", data, t.Kind().String())
 	}
 	return res, nil
+}
+
+// StructToStructPb converts an arbitrary Go struct to a *structpb.Struct. Only exported fields are included in the
+// returned proto.
+func StructToStructPb(i interface{}) (*structpb.Struct, error) {
+	encoded, err := InterfaceToMap(i)
+	if err != nil {
+		return nil, errors.Errorf("unable to convert interface %v to a form acceptable to structpb.NewStruct: %v", i, err)
+	}
+	ret, err := structpb.NewStruct(encoded)
+	if err != nil {
+		return nil, errors.Errorf("unable to construct structpb.Struct from map %v: %v", encoded, err)
+	}
+	return ret, nil
 }
 
 func toInterface(data interface{}) (interface{}, error) {
