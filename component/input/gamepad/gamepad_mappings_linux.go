@@ -35,7 +35,8 @@ var GamepadMappings = map[string]Mapping{
 			313: input.ButtonStart,
 			314: input.ButtonLThumb,
 			315: input.ButtonRThumb,
-			139: input.ButtonMenu,
+			316: input.ButtonRecord,
+			317: input.ButtonMenu,
 		},
 	},
 	// Wireless, X-input mode
