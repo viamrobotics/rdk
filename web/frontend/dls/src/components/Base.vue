@@ -50,27 +50,9 @@
             <div>
               <div>
                 <div class="grid grid-cols-2">
-                  <div>
-                    <div>
-                      <div class="flex">
-                        <NumberInput
-                          v-model="increment"
-                          class="w-40"
-                          inputId="distance"
-                          label="Increment (mm)"
-                        ></NumberInput>
-                        <NumberInput
-                          v-model="speed"
-                          class="ml-4 w-40"
-                          inputId="speed"
-                          label="Speed (mm/sec)"
-                        ></NumberInput>
-                      </div>
-                    </div>
-                    <div class="flex pt-6">
-                      <KeyboardInput @keyboard-ctl="keyboardCtl">
-                      </KeyboardInput>
-                    </div>
+                  <div class="flex pt-6">
+                    <KeyboardInput @keyboard-ctl="keyboardCtl">
+                    </KeyboardInput>
                   </div>
                   <div class="flex" v-if="camera">
                     <div class="pr-4">
