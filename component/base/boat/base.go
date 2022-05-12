@@ -71,9 +71,7 @@ func (mc *motorConfig) computeWeights(radius float64) motorWeights {
 		angleFromCenter = utils.RadToDeg(math.Atan(mc.LateralOffset / mc.VerticalOffset))
 	}
 
-	percentDistanceFromCenterOfMass :=
-		math.Sqrt(mc.LateralOffset*mc.LateralOffset+mc.VerticalOffset*mc.VerticalOffset) /
-			radius
+	percentDistanceFromCenterOfMass := math.Hypot(mc.LateralOffset, mc.VerticalOffset) / radius
 
 	angleOffset := mc.AngleDegrees - angleFromCenter
 
@@ -100,7 +98,7 @@ func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 	fmt.Printf("linear: %v angular: %v\n", linear, angular)
 	powers := []float64{}
 	for _, mc := range bc.Motors {
-		w := mc.computeWeights(bc.Width)
+		w := mc.computeWeights(math.Hypot(bc.Width, bc.Length))
 		p := 0.0
 		if linear.Y > 0 && w.linearY > 0 {
 			p = math.Max(linear.Y, w.linearY)
@@ -121,7 +119,11 @@ func createBoat(ctx context.Context, r robot.Robot, config *boatConfig, logger g
 	if config.Width <= 0 {
 		return nil, errors.New("width has to be > 0")
 	}
-	
+
+	if config.Length <= 0 {
+		return nil, errors.New("length has to be > 0")
+	}
+
 	theBoat := &boat{cfg: config}
 
 	for _, mc := range config.Motors {
