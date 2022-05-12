@@ -140,7 +140,6 @@ func (svc *Service) closeCollectors() {
 // Service initializes and orchestrates data capture collectors for registered component/methods.
 type Service struct {
 	r          robot.Robot
-	name       resource.Name
 	logger     golog.Logger
 	captureDir string
 	collectors map[componentMethodMetadata]collectorAndConfig
@@ -191,9 +190,8 @@ func (svc *Service) initializeOrUpdateCollector(
 	*componentMethodMetadata, error,
 ) {
 	// Create component/method metadata to check if the collector exists.
-	subtypeName := resource.SubtypeName(attributes.Type)
 	metadata := data.MethodMetadata{
-		Subtype:    subtypeName,
+		Subtype:    attributes.Type,
 		MethodName: attributes.Method,
 	}
 	componentMetadata := componentMethodMetadata{
@@ -225,7 +223,7 @@ func (svc *Service) initializeOrUpdateCollector(
 	subtype := resource.NewSubtype(
 		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeComponent,
-		subtypeName,
+		attributes.Type,
 	)
 	res, err := svc.r.ResourceByName(resource.NameFromSubtype(subtype, attributes.Name))
 	if err != nil {
