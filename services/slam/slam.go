@@ -16,6 +16,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -170,6 +171,7 @@ type slamService struct {
 	camera           camera.Camera
 	slamLib          metadata
 	slamMode         mode
+	slamProcess      pexec.ProcessManager
 	configParams     map[string]string
 	dataDirectory    string
 	inputFilePattern string
@@ -262,6 +264,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		camera:                  cam,
 		slamLib:                 slamLibraries[svcConfig.Algorithm],
 		slamMode:                slamMode,
+		slamProcess:             pexec.NewProcessManager(logger),
 		configParams:            svcConfig.ConfigParams,
 		dataDirectory:           svcConfig.DataDirectory,
 		inputFilePattern:        svcConfig.InputFilePattern,
@@ -348,6 +351,18 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 // https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-104)
 // startSLAMProcess starts up the SLAM library process by calling the executable binary.
 func (slamSvc *slamService) startSLAMProcess(ctx context.Context) error {
+
+	if err := slamSvc.slamProcess.Start(ctx); err != nil {
+		return errors.Errorf("problem starting slam process", "error", err)
+	}
+	return nil
+}
+
+func (slamSvc *slamService) stopSLAMProcess(ctx context.Context) error {
+
+	if err := slamSvc.slamProcess.Stop(); err != nil {
+		return errors.Errorf("problem stopping slam process", "error", err)
+	}
 	return nil
 }
 
