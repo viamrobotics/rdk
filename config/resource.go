@@ -24,7 +24,7 @@ type ResourceConfig interface {
 	Set(val string) error
 }
 
-// Component-level configuration for a service.
+// A ComponentLevelServiceConfig describes component-level configuration for a service.
 type ComponentLevelServiceConfig struct {
 	Type                resource.SubtypeName `json:"type"`
 	Attributes          AttributeMap         `json:"attributes"`
