@@ -270,7 +270,6 @@ func (svc *Service) initializeOrUpdateCollector(
 	if err != nil {
 		return nil, err
 	}
-
 	svc.collectors[componentMetadata] = collectorAndConfig{collector, attributes}
 
 	// TODO: Handle errors more gracefully.
@@ -304,7 +303,7 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 }
 
 // Get the config associated with the data manager service.
-func (svc *Service) getServiceConfig(cfg *config.Config) (config.Service, bool) {
+func getServiceConfig(cfg *config.Config) (config.Service, bool) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
 		if c.ResourceName() == Name {
@@ -314,9 +313,9 @@ func (svc *Service) getServiceConfig(cfg *config.Config) (config.Service, bool) 
 	return config.Service{}, false
 }
 
-// Get the component attribute configs associated with the data manager service.
-func (svc *Service) getAllComponentAttributes(cfg *config.Config) ([]dataCaptureConfig, error) {
-	componentAttributeConfigs := []dataCaptureConfig{}
+// Get the component configs associated with the data manager service.
+func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
+	componentDataCaptureConfigs := []dataCaptureConfig{}
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
@@ -324,28 +323,28 @@ func (svc *Service) getAllComponentAttributes(cfg *config.Config) ([]dataCapture
 				var attrs dataCaptureConfigs
 				configs, err := config.TransformAttributeMapToStruct(&attrs, componentSvcConfig.Attributes)
 				if err != nil {
-					return componentAttributeConfigs, err
+					return componentDataCaptureConfigs, err
 				}
 				convertedConfigs, ok := configs.(*dataCaptureConfigs)
 				if !ok {
-					return componentAttributeConfigs, utils.NewUnexpectedTypeError(convertedConfigs, configs)
+					return componentDataCaptureConfigs, utils.NewUnexpectedTypeError(convertedConfigs, configs)
 				}
 
 				// Add the method configuration to the result.
 				for _, attrs := range convertedConfigs.Attributes {
 					attrs.Name = c.Name
 					attrs.Type = c.Type
-					componentAttributeConfigs = append(componentAttributeConfigs, attrs)
+					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}
 		}
 	}
-	return componentAttributeConfigs, nil
+	return componentDataCaptureConfigs, nil
 }
 
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
-	c, ok := svc.getServiceConfig(cfg)
+	c, ok := getServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
 	if !ok {
 		svc.closeCollectors()
@@ -359,7 +358,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 
-	allComponentAttributes, err := svc.getAllComponentAttributes(cfg)
+	allComponentAttributes, err := getAllDataCaptureConfigs(cfg)
 	if err != nil {
 		return err
 	}
