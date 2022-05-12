@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -67,7 +66,7 @@ type localRobot struct {
 	internalServices map[internalServiceName]interface{}
 }
 
-// web returns the localRobot's web service. Raises if the service has not been initialized.
+// webService returns the localRobot's web service. Raises if the service has not been initialized.
 func (r *localRobot) webService() (web.Service, error) {
 	svc := r.internalServices[webName]
 	if svc == nil {
@@ -77,21 +76,6 @@ func (r *localRobot) webService() (web.Service, error) {
 	webSvc, ok := svc.(web.Service)
 	if !ok {
 		return nil, errors.New("unexpected service associated with web InternalServiceName")
-	}
-	return webSvc, nil
-}
-
-// web returns the localRobot's web service. Raises if the service has not been initialized.
-func webService(r robot.LocalRobot) (web.Service, error) {
-	robot, ok := r.(*localRobot)
-	if !ok {
-		return nil, errors.New("LocalRobot input did not match localRobot implementation")
-	}
-	service := robot.internalServices[webName]
-
-	webSvc, ok := service.(web.Service)
-	if !ok {
-		return nil, errors.New("web service was not initialized")
 	}
 	return webSvc, nil
 }
@@ -319,9 +303,6 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 			if err := updateable.Update(ctx, resources); err != nil {
 				return err
 			}
-		} else {
-			// CR erodkin: delete
-			fmt.Printf("failed to update resource! %v", svc)
 		}
 	}
 

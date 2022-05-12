@@ -84,7 +84,6 @@ func TestConfigRemote(t *testing.T) {
 	ctx := context.Background()
 
 	r, err := robotimpl.New(ctx, cfg, logger)
-	fmt.Printf("r resources: %v\n", r.ResourceNames())
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -161,9 +160,6 @@ func TestConfigRemote(t *testing.T) {
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "squee"),
 		arm.Named("pieceArm"),
 		arm.Named("foo.pieceArm"),
 		arm.Named("bar.pieceArm"),
@@ -191,6 +187,16 @@ func TestConfigRemote(t *testing.T) {
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
+
+	expectedRemotes := []string{"squee", "foo", "bar"}
+	remotes2 := r2.RemoteNames()
+
+	test.That(
+		t, rtestutils.NewStringNameSet(remotes2...),
+		test.ShouldResemble,
+		rtestutils.NewStringNameSet(expectedRemotes...),
+	)
+
 	statusSvc, err := status.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -391,8 +397,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				sensors.Name,
 				status.Name,
 				datamanager.Name,
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 				arm.Named("pieceArm"),
 				arm.Named("foo.pieceArm"),
 				camera.Named("cameraOver"),
@@ -413,6 +417,16 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.ShouldResemble,
 				rtestutils.NewResourceNameSet(expected...),
 			)
+
+			remotes2 := r2.RemoteNames()
+			expectedRemotes := []string{"bar", "foo"}
+
+			test.That(
+				t, rtestutils.NewStringNameSet(remotes2...),
+				test.ShouldResemble,
+				rtestutils.NewStringNameSet(expectedRemotes...),
+			)
+
 			statusSvc, err := status.FromRobot(r2)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -586,7 +600,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
 		gps.Named("gps1"),
@@ -602,6 +615,16 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
+
+	remotes2 := r2.RemoteNames()
+	expectedRemotes := []string{"foo"}
+
+	test.That(
+		t, rtestutils.NewStringNameSet(remotes2...),
+		test.ShouldResemble,
+		rtestutils.NewStringNameSet(expectedRemotes...),
+	)
+
 	statusSvc, err := status.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
 

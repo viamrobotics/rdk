@@ -36,17 +36,16 @@ var serverOneResourceResponse = []*commonpb.ResourceName{
 
 func TestServer(t *testing.T) {
 	t.Run("Metadata", func(t *testing.T) {
-		injectMetadata := &inject.Metadata{}
-
-		server := server.New(&inject.Robot{}, injectMetadata)
+		injectRobot := &inject.Robot{}
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
+		server := server.New(injectRobot)
 
 		resourceResp, err := server.Resources(context.Background(), &pb.ResourcesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp, test.ShouldResemble, emptyResources)
 
-		injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
-			return []resource.Name{serverNewResource}, nil
-		}
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{serverNewResource} }
+
 		resourceResp, err = server.Resources(context.Background(), &pb.ResourcesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
