@@ -62,7 +62,7 @@ func (server *subtypeServer) Discover(ctx context.Context, req *pb.DiscoverReque
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Key)
 		}
-		pbKey := &pb.Key{Subtype: discovery.Key.model, Model: discovery.Key.model}
+		pbKey := &pb.Key{Subtype: string(discovery.Key.subtypeName), Model: discovery.Key.model}
 		pbDiscoveries = append(
 			pbDiscoveries,
 			&pb.Discovery{
