@@ -5,15 +5,15 @@ package slam
 // only being used now for linter issues.
 type (
 	slamLibrary uint8
-	mode        uint8
+	mode        string
 )
 
 const (
 	dense = slamLibrary(iota)
 	sparse
-	mono = mode(iota)
-	rgbd
-	twod
+	mono = mode("mono")
+	rgbd = mode("rgbd")
+	twod = mode("2d")
 )
 
 var slamLibraries = map[string]metadata{
