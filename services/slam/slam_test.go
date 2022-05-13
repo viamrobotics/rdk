@@ -2,9 +2,11 @@ package slam
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
@@ -25,7 +28,7 @@ const (
 	timePadding = 5
 )
 
-func createSLAMService(t *testing.T, attrCfg *AttrConfig) (*slamService, error) {
+func createSLAMService(t *testing.T, attrCfg *AttrConfig) (context.Context, *slamService, error) {
 	t.Helper()
 	cfgService := config.Service{Name: "test", Type: "slam"}
 	logger := golog.NewTestLogger(t)
@@ -36,20 +39,26 @@ func createSLAMService(t *testing.T, attrCfg *AttrConfig) (*slamService, error) 
 		return nil, rdkutils.NewResourceNotFoundError(n)
 	}
 
+	attrCfg.AutoStart = true
 	cfgService.ConvertedAttributes = attrCfg
 
 	svc := New(ctx, r, cfgService, logger)
 
 	if svc == nil {
-		return nil, errors.New("error creating slam service")
+		return nil, nil, errors.New("error creating slam service")
 	}
 
-	return svc.(*slamService), nil
+	slamSvc := svc.(*slamService)
+	ctx = context.Background()
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	slamSvc.cancelFunc = cancelFunc
+
+	return cancelCtx, slamSvc, nil
 }
 
 // General SLAM Tests.
 func TestGeneralSLAMService(t *testing.T) {
-	_, err := createSLAMService(t, &AttrConfig{})
+	_, _, err := createSLAMService(t, &AttrConfig{})
 	test.That(t, err, test.ShouldBeError, errors.New("error creating slam service"))
 
 	name1, err := createTempFolderArchitecture(true)
@@ -63,7 +72,7 @@ func TestGeneralSLAMService(t *testing.T) {
 		InputFilePattern: "100:300:5",
 	}
 
-	_, err = createSLAMService(t, attrCfg)
+	_, _, err = createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeError, errors.New("error creating slam service"))
 
 	attrCfg = &AttrConfig{
@@ -76,14 +85,14 @@ func TestGeneralSLAMService(t *testing.T) {
 		MapRateSec:       5,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	_, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, slamSvc.dataRateMs, test.ShouldEqual, 100)
 	test.That(t, slamSvc.mapRateSec, test.ShouldEqual, 5)
 
 	attrCfg.DataRateMs = 0
 	attrCfg.MapRateSec = 0
-	slamSvc, err = createSLAMService(t, attrCfg)
+	_, slamSvc, err = createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, slamSvc.dataRateMs, test.ShouldEqual, 200)
 	test.That(t, slamSvc.mapRateSec, test.ShouldEqual, 60)
@@ -198,7 +207,7 @@ func TestCartographerData(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	cancelCtx, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -207,14 +216,14 @@ func TestCartographerData(t *testing.T) {
 	}
 	slamSvc.camera = cam
 
-	err = runtimeServiceValidation(slamSvc)
+	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = slamSvc.getAndSaveDataDense()
+	_, err = slamSvc.getAndSaveDataDense(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
 	slamSvc.slamMode = mono
-	err = runtimeServiceValidation(slamSvc)
+	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	errCheck := errors.Errorf("error getting data in desired mode: bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	test.That(t, err, test.ShouldBeError, errCheck)
 
@@ -238,10 +247,7 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = slamSvc.startSLAMProcess(slamSvc.cancelCtx)
+	cancelCtx, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -251,7 +257,7 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 
 	slamSvc.camera = cam
 
-	filename, err := slamSvc.getAndSaveDataDense()
+	filename, err := slamSvc.getAndSaveDataDense(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = os.Stat(filename)
@@ -259,7 +265,7 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 
 	ddTemp := slamSvc.dataDirectory
 	slamSvc.dataDirectory = "gibberish"
-	filename, err = slamSvc.getAndSaveDataDense()
+	filename, err = slamSvc.getAndSaveDataDense(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("open %v: no such file or directory", filename))
 
 	_, err = os.Stat(filename)
@@ -272,7 +278,7 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 	}
 
 	slamSvc.camera = camErr
-	filename, err = slamSvc.getAndSaveDataDense()
+	filename, err = slamSvc.getAndSaveDataDense(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.New("camera data error"))
 	test.That(t, filename, test.ShouldBeEmpty)
 
@@ -296,7 +302,7 @@ func TestDataProcessCartographer(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	cancelCtx, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -307,7 +313,7 @@ func TestDataProcessCartographer(t *testing.T) {
 	slamSvc.camera = cam
 
 	n := 5
-	slamSvc.startDataProcess()
+	slamSvc.startDataProcess(cancelCtx)
 
 	// Note: timePadding is required to allow the sub processes to be fully completed during test
 	time.Sleep(time.Millisecond * time.Duration((n)*(slamSvc.dataRateMs+timePadding)))
@@ -335,7 +341,7 @@ func TestORBSLAMData(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	cancelCtx, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -351,15 +357,13 @@ func TestORBSLAMData(t *testing.T) {
 	}
 	slamSvc.camera = cam
 
-	err = runtimeServiceValidation(slamSvc)
+	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	test.That(t, err, test.ShouldBeNil)
 
 	slamSvc.slamMode = twod
-	err = runtimeServiceValidation(slamSvc)
+	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	errCheck := errors.Errorf("error getting data in desired mode: bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	test.That(t, err, test.ShouldBeError, errCheck)
-
-	slamSvc.cancelCtx = context.Background()
 
 	slamSvc.Close()
 
@@ -381,10 +385,7 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = slamSvc.startSLAMProcess(slamSvc.cancelCtx)
+	cancelCtx, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -394,12 +395,12 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 
 	slamSvc.camera = cam
 
-	_, err = slamSvc.getAndSaveDataSparse()
+	_, err = slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.New("want image/both but don't have *rimage.ImageWithDepth"))
 
 	slamSvc.slamMode = mono
 
-	filename, err := slamSvc.getAndSaveDataSparse()
+	filename, err := slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = os.Stat(filename)
@@ -407,7 +408,7 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 
 	ddTemp := slamSvc.dataDirectory
 	slamSvc.dataDirectory = "gibberish"
-	filename, err = slamSvc.getAndSaveDataSparse()
+	filename, err = slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("open %v: no such file or directory", filename))
 
 	_, err = os.Stat(filename)
@@ -419,7 +420,7 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 	}
 
 	slamSvc.camera = camErr
-	filename, err = slamSvc.getAndSaveDataSparse()
+	filename, err = slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.New("camera data error"))
 	test.That(t, filename, test.ShouldBeEmpty)
 
@@ -433,7 +434,7 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 
 	slamSvc.camera = cam
 
-	filename, err = slamSvc.getAndSaveDataSparse()
+	filename, err = slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = os.Stat(filename)
 	test.That(t, err, test.ShouldBeNil)
@@ -458,7 +459,7 @@ func TestDataProcessORBSLAM(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	cancelCtx, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -469,7 +470,7 @@ func TestDataProcessORBSLAM(t *testing.T) {
 	slamSvc.camera = cam
 
 	n := 5
-	slamSvc.startDataProcess()
+	slamSvc.startDataProcess(cancelCtx)
 
 	// Note: timePadding is required to allow the sub processes to be fully completed during test
 	time.Sleep(time.Millisecond * time.Duration((n)*(slamSvc.dataRateMs+timePadding)))
@@ -481,6 +482,47 @@ func TestDataProcessORBSLAM(t *testing.T) {
 
 	err = resetFolder(name)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+// TODO 05/13/2022: Potentially bad test type for SLAM process due to uncertain permission in test_process.sh.
+// Open question, how to test?
+func TestSLAMProcess(t *testing.T) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	logger := golog.NewTestLogger(t)
+
+	testMetadata := metadata{
+		AlgoName:       "testLib",
+		SlamMode:       map[string]mode{"mono": mono},
+		BinaryLocation: fmt.Sprintf("%s/test_process.sh", os.Getenv("PWD")),
+	}
+
+	slamSvc := &slamService{
+		logger:                  logger,
+		slamLib:                 testMetadata,
+		slamProcess:             pexec.NewProcessManager(logger),
+		cameraName:              "sensor",
+		configParams:            map[string]string{"mono": "mono"},
+		dataRateMs:              100,
+		mapRateSec:              60,
+		dataDirectory:           "/tmp/",
+		inputFilePattern:        "0:1000:0",
+		cancelFunc:              cancelFunc,
+		activeBackgroundWorkers: &sync.WaitGroup{},
+		autoStart:               false,
+	}
+
+	err := slamSvc.startSLAMProcess(cancelCtx)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = os.Stat(slamSvc.dataDirectory)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = slamSvc.stopSLAMProcess()
+	test.That(t, err, test.ShouldBeNil)
+
+	slamSvc.Close()
+
+	// test failure modes
 }
 
 // nolint:unparam
