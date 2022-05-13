@@ -5,10 +5,12 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/grpc"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 )
 
@@ -100,6 +102,18 @@ func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64)
 		Name:       c.name,
 		AngleDeg:   angleDeg,
 		DegsPerSec: degsPerSec,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	_, err := c.client.SetPower(ctx, &pb.SetPowerRequest{
+		Name:    c.name,
+		Linear:  &commonpb.Vector3{X: linear.X, Y: linear.Y, Z: linear.Z},
+		Angular: &commonpb.Vector3{X: angular.X, Y: angular.Y, Z: angular.Z},
 	})
 	if err != nil {
 		return err

@@ -238,17 +238,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 // ConfigUpdateable is implemented when component/service of a robot should be updated with the config.
 type ConfigUpdateable interface {
 	// Update updates the resource
-	Update(context.Context, config.Service) error
-}
-
-// Get the config associated with the service resource.
-func getServiceConfig(cfg *config.Config, name resource.Name) (config.Service, error) {
-	for _, c := range cfg.Services {
-		if c.ResourceName() == name {
-			return c, nil
-		}
-	}
-	return config.Service{}, errors.Errorf("could not find service config of subtype %s", name.Subtype.String())
+	Update(context.Context, *config.Config) error
 }
 
 func (r *localRobot) updateDefaultServices(ctx context.Context) error {
@@ -287,11 +277,8 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 			}
 		}
 		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
-			serviceConfig, err := getServiceConfig(r.config, name)
-			if err == nil {
-				if err := configUpdateable.Update(ctx, serviceConfig); err != nil {
-					return err
-				}
+			if err := configUpdateable.Update(ctx, r.config); err != nil {
+				return err
 			}
 		}
 	}
