@@ -5,6 +5,7 @@ option java_package = "com.viam.rdk.proto.api.component.base.v1";
 package proto.api.component.base.v1;
 
 import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
 
 service BaseService {
   // MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
@@ -31,6 +32,13 @@ service BaseService {
   rpc Spin(SpinRequest) returns (SpinResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/spin"
+    };  
+  }
+
+  // SetPower sets the linear and angular velocity of a base
+  rpc SetPower(SetPowerRequest) returns (SetPowerResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/component/base/{name}/set_power"
     };  
   }
 
@@ -83,3 +91,14 @@ message StopRequest {
 }
 
 message StopResponse {}
+
+message SetPowerRequest {
+  // Name of a base
+  string name = 1;
+  // Desired linear power percentage as -1 -> 1 
+  common.v1.Vector3 linear = 2;
+  // Desired angular power percentage % as -1 -> 1 
+  common.v1.Vector3 angular = 3;
+}
+
+message SetPowerResponse{}

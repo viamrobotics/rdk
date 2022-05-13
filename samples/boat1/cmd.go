@@ -15,6 +15,7 @@ import (
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -40,8 +41,7 @@ const (
 
 var logger = golog.NewDevelopmentLogger("boat1")
 
-// Boat TODO.
-type Boat struct {
+type boat struct {
 	theBoard        board.Board
 	starboard, port motor.Motor
 
@@ -53,8 +53,7 @@ type Boat struct {
 	cancelCtx context.Context
 }
 
-// MoveStraight TODO.
-func (b *Boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
 	speed := (mmPerSec * 60.0) / float64(millisPerRotation)
 	rotations := float64(distanceMm) / millisPerRotation
 
@@ -69,34 +68,38 @@ func (b *Boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *Boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
+func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
 	return errors.New("boat can't move in arc yet")
 }
 
 // Spin TODO.
-func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	return errors.New("boat can't spin yet")
 }
 
+func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	return errors.New("boat can't set power yet")
+}
+
 // Stop TODO.
-func (b *Boat) Stop(ctx context.Context) error {
+func (b *boat) Stop(ctx context.Context) error {
 	return multierr.Combine(b.starboard.Stop(ctx), b.port.Stop(ctx))
 }
 
 // Close TODO.
-func (b *Boat) Close(ctx context.Context) error {
+func (b *boat) Close(ctx context.Context) error {
 	defer b.activeBackgroundWorkers.Wait()
 	b.cancel()
 	return b.Stop(ctx)
 }
 
 // Do is unimplemented.
-func (b *Boat) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (b *boat) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return nil, errors.New("Do() unimplemented")
 }
 
 // StartRC TODO.
-func (b *Boat) StartRC(ctx context.Context) {
+func (b *boat) StartRC(ctx context.Context) {
 	b.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
@@ -328,7 +331,7 @@ func recordDepthWorker(ctx context.Context, depthSensor sensor.Sensor) {
 // newBoat TODO.
 func newBoat(ctx context.Context, r robot.Robot) (base.Base, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	b := &Boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
+	b := &boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
 	var err error
 	var ok bool
 	b.theBoard, err = board.FromRobot(r, "local")

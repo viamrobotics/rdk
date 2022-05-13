@@ -96,25 +96,11 @@
             </div>
             <div class="pt-4">
               <span class="pr-2">Point Cloud Data</span>
-              <popper
-                trigger="clickToOpen"
-                :options="{
-                  placement: 'bottom',
-                  modifiers: { offset: { offset: '0,10px' } },
-                }"
+              <ViamInfoButton
+                :iconPath="mdiInformationOutline"
+                :infoRows="['When turned on, point cloud will be recalculated']"
               >
-                <div class="popper">
-                  <ul>
-                    <li>When turned on, point cloud will be recalculated</li>
-                  </ul>
-                </div>
-
-                <button slot="reference">
-                  <ViamIcon color="grey" :path="mdiInformationOutline"
-                    >Info</ViamIcon
-                  >
-                </button>
-              </popper>
+              </ViamInfoButton>
               <ViamSwitch
                 centered
                 name="pcd"
@@ -155,27 +141,11 @@
                 <div class="clear-both h-96" id="pcd" @click="pcdClick"></div>
                 <div class="float-right">
                   <span class="text-xs">Controls</span>
-                  <popper
-                    trigger="clickToOpen"
-                    :options="{
-                      placement: 'bottom',
-                      modifiers: { offset: { offset: '0,10px' } },
-                    }"
+                  <viam-info-button
+                    :iconPath="mdiInformationOutline"
+                    :infoRows="infoControls"
                   >
-                    <div class="popper">
-                      <ul>
-                        <li>Rotate - Left/Click + Drag</li>
-                        <li>Pan - Right/Two Finger Click + Drag</li>
-                        <li>Zoom - Wheel/Two Finger Scroll</li>
-                      </ul>
-                    </div>
-
-                    <button slot="reference">
-                      <ViamIcon color="grey" :path="mdiInformationOutline"
-                        >Info</ViamIcon
-                      >
-                    </button>
-                  </popper>
+                  </viam-info-button>
                 </div>
                 <div class="grid grid-cols-1 divide-y clear-both">
                   <div>
@@ -388,9 +358,9 @@ import Collapse from "./Collapse.vue";
 import Breadcrumbs from "./Breadcrumbs.vue";
 import ViamSwitch from "./Switch.vue";
 import ViamIcon from "./ViamIcon.vue";
+import ViamInfoButton from "./ViamInfoButton.vue";
+
 import RadioButtons from "./RadioButtons.vue";
-import Popper from "vue-popperjs";
-import "vue-popperjs/dist/vue-popper.css";
 import {
   mdiRestore,
   mdiImageFilterCenterFocus,
@@ -404,9 +374,9 @@ import {
     Collapse,
     Breadcrumbs,
     ViamSwitch,
-    Popper,
     ViamIcon,
     RadioButtons,
+    ViamInfoButton,
   },
 })
 export default class Base extends Vue {
@@ -440,6 +410,11 @@ export default class Base extends Vue {
   speed = 0;
   min = 0;
   max = 500;
+  infoControls = [
+    "Rotate - Left/Click + Drag",
+    "Pan - Right/Two Finger Click + Drag",
+    "Zoom - Wheel/Two Finger Scroll",
+  ];
 
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
