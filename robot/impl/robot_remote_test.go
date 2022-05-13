@@ -561,5 +561,7 @@ func (w *dummyRemoteRobotWrapper) updateConnection(connected bool) {
 	defer w.mu.Unlock()
 
 	w.connected = connected
-	w.changeChan <- true
+	if w.changeChan != nil {
+		w.changeChan <- true
+	}
 }
