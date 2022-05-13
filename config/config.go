@@ -174,14 +174,15 @@ func (c Config) FindComponent(name string) *Component {
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
 // in Frame, and with the given offset as well.
 type Remote struct {
-	Name              string        `json:"name"`
-	Address           string        `json:"address"`
-	Prefix            bool          `json:"prefix"`
-	Frame             *Frame        `json:"frame,omitempty"`
-	Auth              RemoteAuth    `json:"auth"`
-	ManagedBy         string        `json:"managed_by"`
-	Insecure          bool          `json:"insecure"`
-	ReconnectInterval time.Duration `json:"reconnect_interval,omitempty"`
+	Name                    string        `json:"name"`
+	Address                 string        `json:"address"`
+	Prefix                  bool          `json:"prefix"`
+	Frame                   *Frame        `json:"frame,omitempty"`
+	Auth                    RemoteAuth    `json:"auth"`
+	ManagedBy               string        `json:"managed_by"`
+	Insecure                bool          `json:"insecure"`
+	ConnectionCheckInterval time.Duration `json:"connection_check_interval,omitempty"`
+	ReconnectInterval       time.Duration `json:"reconnect_interval,omitempty"`
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`
@@ -217,8 +218,11 @@ func (config *Remote) Validate(path string) error {
 			return utils.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
 	}
+	if config.ConnectionCheckInterval == 0 {
+		config.ConnectionCheckInterval = 10 * time.Second
+	}
 	if config.ReconnectInterval == 0 {
-		config.ReconnectInterval = 10 * time.Second
+		config.ReconnectInterval = 1 * time.Second
 	}
 	if config.Secret != "" {
 		config.Auth = RemoteAuth{

@@ -88,10 +88,10 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
-	if rOpts.reconnectEvery != 0 {
+	if rOpts.checkConnectedEvery != 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.checkConnection(closeCtx, rOpts.reconnectEvery)
+			rc.checkConnection(closeCtx, rOpts.checkConnectedEvery, rOpts.reconnectEvery)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
@@ -140,11 +140,20 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 }
 
 // checkConnection either checks if the client is still connected, or attempts to reconnect to the remote.
-func (rc *RobotClient) checkConnection(ctx context.Context, every time.Duration) {
-	ticker := time.NewTicker(every)
-	defer ticker.Stop()
+func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Duration, reconnectEvery time.Duration) {
 	for {
-		if !utils.SelectContextOrWaitChan(ctx, ticker.C) {
+		var waitTime time.Duration
+		if rc.Connected() {
+			waitTime = checkEvery
+		} else {
+			if reconnectEvery != 0 {
+				waitTime = reconnectEvery
+			} else {
+				// if reconnectEvery is unset, we will not attempt to reconnect
+				return
+			}
+		}
+		if !utils.SelectContextOrWait(ctx, waitTime) {
 			return
 		}
 		if !rc.Connected() {
@@ -182,7 +191,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, every time.Duration)
 			}
 			if outerError != nil {
 				rc.Logger().Errorw(
-					fmt.Sprintf("lost connection to remote at address %v, retrying in %v sec", rc.address, every.Seconds()),
+					fmt.Sprintf("lost connection to remote at address %v, retrying in %v sec", rc.address, reconnectEvery.Seconds()),
 					"error", outerError,
 					"address", rc.address,
 				)
