@@ -33,11 +33,11 @@
                         v-model="selectedValue"
                         @change="selectCameraView()"
                       >
-                        <option value="live">Live</option>
                         <option value="manual">Manual Refresh</option>
                         <option value="30">Every 30 seconds</option>
                         <option value="10">Every 10 seconds</option>
                         <option value="1">Every second</option>
+                        <option value="live">Live</option>
                       </select>
                       <div
                         class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
