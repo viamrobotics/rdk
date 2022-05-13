@@ -17,23 +17,19 @@ import (
 )
 
 var (
-	buttonSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("button"))
-	button1       = resource.NameFromSubtype(buttonSubtype, "button1")
-	button1Key    = discovery.Key{SubtypeName: button1.Subtype.ResourceSubtype, Model: "button1Model"}
-	button2       = resource.NameFromSubtype(buttonSubtype, "button2")
-	button2Key    = discovery.Key{SubtypeName: button2.Subtype.ResourceSubtype, Model: "button2Model"}
-	button3       = resource.NameFromSubtype(buttonSubtype, "button3")
-	button3Key    = discovery.Key{SubtypeName: button3.Subtype.ResourceSubtype, Model: "button3Model"}
-
 	workingSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("working"))
 	workingModel   = "workingModel"
-	working1       = resource.NameFromSubtype(workingSubtype, "working1")
-	working1Key    = discovery.Key{workingSubtype.ResourceSubtype, workingModel}
+	workingKey     = discovery.Key{workingSubtype.ResourceSubtype, workingModel}
 
 	failSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("fail"))
 	failModel   = "failModel"
-	fail1       = resource.NameFromSubtype(failSubtype, "fail1")
-	fail1Key    = discovery.Key{failSubtype.ResourceSubtype, failModel}
+	failKey     = discovery.Key{failSubtype.ResourceSubtype, failModel}
+
+	noDiscoverSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("nodiscover"))
+	noDiscoverModel   = "nodiscover"
+	noDiscoverKey     = discovery.Key{failSubtype.ResourceSubtype, noDiscoverModel}
+
+	missingKey = discovery.Key{failSubtype.ResourceSubtype, "missing"}
 
 	workingDiscovery = map[string]interface{}{"position": "up"}
 	errFailed        = errors.New("can't get discovery")
@@ -44,6 +40,7 @@ var (
 )
 
 func init() {
+	// Subtype with a working discovery function for a subtype model
 	registry.RegisterResourceSubtype(
 		workingSubtype,
 		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
@@ -57,6 +54,13 @@ func init() {
 		},
 	)
 
+	// Subtype without discovery function
+	registry.RegisterResourceSubtype(
+		noDiscoverSubtype,
+		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
+	)
+
+	// Subtype with a failing discovery function for a subtype model
 	registry.RegisterResourceSubtype(
 		failSubtype,
 		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
@@ -69,6 +73,19 @@ func init() {
 			return nil, errFailed
 		},
 	)
+}
+
+var discoveries = []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}}
+
+type mock struct {
+	discovery.Discovery
+
+	discoveryCount int
+}
+
+func (m *mock) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+	m.discoveryCount++
+	return discoveries, nil
 }
 
 func setupInjectRobot() (*inject.Robot, *mock) {
@@ -89,7 +106,7 @@ func TestFromRobot(t *testing.T) {
 		test.That(t, svc, test.ShouldNotBeNil)
 
 		test.That(t, svc1.discoveryCount, test.ShouldEqual, 0)
-		result, err := svc.Discover(context.Background(), []discovery.Key{button1Key})
+		result, err := svc.Discover(context.Background(), []discovery.Key{workingKey})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldResemble, discoveries)
 		test.That(t, svc1.discoveryCount, test.ShouldEqual, 1)
@@ -125,179 +142,63 @@ func TestNew(t *testing.T) {
 	})
 }
 
+func setupNewDiscoveryService(t *testing.T) discovery.Service {
+	logger := golog.NewTestLogger(t)
+	resourceMap := map[resource.Name]interface{}{}
+
+	svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	return svc
+}
+
 func TestDiscovery(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	discoveryKeys := []discovery.Key{working1Key, button1Key, fail1Key}
-	resourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource", fail1: "resource"}
-
 	t.Run("not found", func(t *testing.T) {
-		svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
+		svc := setupNewDiscoveryService(t)
+		discoveries, err := svc.Discover(context.Background(), []discovery.Key{missingKey})
+		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = svc.Discover(context.Background(), []discovery.Key{button2Key})
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button2))
 	})
 
-	t.Run("no CreateDiscovery", func(t *testing.T) {
-		svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
-		test.That(t, err, test.ShouldBeNil)
+	t.Run("no Discover", func(t *testing.T) {
+		svc := setupNewDiscoveryService(t)
 
-		resp, err := svc.Discover(context.Background(), []discovery.Key{button1Key})
+		discoveries, err := svc.Discover(context.Background(), []discovery.Key{noDiscoverKey})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, discoveries)
+		test.That(t, discoveries, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("failing resource", func(t *testing.T) {
-		svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
-		test.That(t, err, test.ShouldBeNil)
+	t.Run("failing Discover", func(t *testing.T) {
+		svc := setupNewDiscoveryService(t)
 
-		_, err = svc.Discover(context.Background(), []discovery.Key{fail1Key})
-		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get discovery from %q", fail1))
+		_, err := svc.Discover(context.Background(), []discovery.Key{failKey})
+		test.That(t, err, test.ShouldBeError, &discovery.ErrDiscover{failKey})
 	})
 
-	t.Run("many discovery", func(t *testing.T) {
-		// expected := map[resource.Name]interface{}{
-		// 	working1: workingDiscovery,
-		// 	button1:  struct{}{},
-		// }
-		svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
+	t.Run("working Discover", func(t *testing.T) {
+		svc := setupNewDiscoveryService(t)
+
+		discoveries, err := svc.Discover(context.Background(), []discovery.Key{workingKey})
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = svc.Discover(context.Background(), []discovery.Key{button2Key})
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button2))
-
-		resp, err := svc.Discover(context.Background(), []discovery.Key{working1Key})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		s := resp[0]
-		test.That(t, s.Key, test.ShouldResemble, working1Key)
-		test.That(t, s.Discovered, test.ShouldResemble, workingDiscovery)
-
-		resp, err = svc.Discover(context.Background(), []discovery.Key{working1Key, working1Key, working1Key})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		s = resp[0]
-		test.That(t, s.Key, test.ShouldResemble, working1Key)
-		test.That(t, s.Discovered, test.ShouldResemble, workingDiscovery)
-
-		// resp, err = svc.Discover(context.Background(), []discovery.Key{working1Key, button1Key})
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, len(resp), test.ShouldEqual, 2)
-		// test.That(t, resp[0].Discovered, test.ShouldResemble, expected[resp[0].Key])
-		// test.That(t, resp[1].Discovered, test.ShouldResemble, expected[resp[1].Key])
-
-		_, err = svc.Discover(context.Background(), discoveryKeys)
-		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get discovery from %q", fail1))
-	})
-}
-
-func TestUpdate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
-	discoveryKeys := []discovery.Key{button1Key, button2Key}
-	resourceMap := map[resource.Name]interface{}{button1: "resource", button2: "resource"}
-
-	t.Run("update with no resources", func(t *testing.T) {
-		svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
-		test.That(t, err, test.ShouldBeNil)
-
-		resp, err := svc.Discover(context.Background(), []discovery.Key{button1Key})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, discoveries)
-
-		err = svc.(resource.Updateable).Update(context.Background(), map[resource.Name]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = svc.Discover(context.Background(), []discovery.Key{button1Key})
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button1))
+		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}})
 	})
 
-	t.Run("update with one resource", func(t *testing.T) {
-		svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
-		test.That(t, err, test.ShouldBeNil)
+	t.Run("duplicated working Discover", func(t *testing.T) {
+		svc := setupNewDiscoveryService(t)
 
-		resp, err := svc.Discover(context.Background(), discoveryKeys)
+		discoveries, err := svc.Discover(context.Background(), []discovery.Key{workingKey, workingKey, workingKey})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Discovered, test.ShouldResemble, struct{}{})
-		test.That(t, resp[1].Discovered, test.ShouldResemble, struct{}{})
-
-		err = svc.(resource.Updateable).Update(context.Background(), map[resource.Name]interface{}{button1: "resource"})
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = svc.Discover(context.Background(), discoveryKeys)
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button2))
-
-		resp, err = svc.Discover(context.Background(), []discovery.Key{button1Key})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		test.That(t, resp, test.ShouldResemble, discoveries)
+		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}})
 	})
 
-	t.Run("update with same resources", func(t *testing.T) {
-		svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
-		test.That(t, err, test.ShouldBeNil)
+	t.Run("working and missing Discover", func(t *testing.T) {
+		svc := setupNewDiscoveryService(t)
 
-		resp, err := svc.Discover(context.Background(), discoveryKeys)
+		discoveries, err := svc.Discover(context.Background(), []discovery.Key{workingKey, missingKey})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Discovered, test.ShouldResemble, struct{}{})
-		test.That(t, resp[1].Discovered, test.ShouldResemble, struct{}{})
-
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
-		test.That(t, err, test.ShouldBeNil)
-
-		resp, err = svc.Discover(context.Background(), discoveryKeys)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Discovered, test.ShouldResemble, struct{}{})
-		test.That(t, resp[1].Discovered, test.ShouldResemble, struct{}{})
+		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}})
 	})
-
-	t.Run("update with diff resources", func(t *testing.T) {
-		svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = svc.Discover(context.Background(), []discovery.Key{button3Key})
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button3))
-
-		err = svc.(resource.Updateable).Update(
-			context.Background(),
-			map[resource.Name]interface{}{button3: "resource"},
-		)
-		test.That(t, err, test.ShouldBeNil)
-
-		resp, err := svc.Discover(context.Background(), []discovery.Key{button3Key})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		test.That(t, resp[0].Key, test.ShouldResemble, button3Key)
-		test.That(t, resp[0].Discovered, test.ShouldResemble, struct{}{})
-	})
-}
-
-var discoveries = []discovery.Discovery{{Key: button1Key, Discovered: struct{}{}}}
-
-type mock struct {
-	discovery.Service
-
-	discoveryCount int
-}
-
-func (m *mock) Discovery(ctx context.Context, resourceNames []resource.Name) ([]discovery.Discovery, error) {
-	m.discoveryCount++
-	return discoveries, nil
 }
