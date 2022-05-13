@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
@@ -95,6 +94,7 @@ func (c *collector) Collect() error {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
+	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(c.capture)
 	return c.write()
 }
@@ -104,6 +104,8 @@ func (c *collector) Collect() error {
 // avoid wasting CPU on a thread that's idling for the vast majority of the time.
 // [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
 func (c *collector) capture() {
+	defer c.backgroundWorkers.Done()
+
 	if c.interval < time.Millisecond*2 {
 		c.sleepBasedCapture()
 	} else {
@@ -113,27 +115,28 @@ func (c *collector) capture() {
 
 func (c *collector) sleepBasedCapture() {
 	next := time.Now().Add(c.interval)
+	captureWorkers := sync.WaitGroup{}
+
 	for {
 		time.Sleep(time.Until(next))
 		if err := c.cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				c.logger.Errorw("unexpected error in collector context", "error", err)
 			}
-			c.backgroundWorkers.Wait()
+			captureWorkers.Wait()
 			close(c.queue)
 			return
 		}
 
 		select {
 		case <-c.cancelCtx.Done():
-			c.backgroundWorkers.Wait()
+			captureWorkers.Wait()
 			close(c.queue)
 			return
 		default:
-			c.lock.Lock()
-			c.backgroundWorkers.Add(1)
-			c.lock.Unlock()
+			captureWorkers.Add(1)
 			utils.PanicCapturingGo(func() {
+				defer captureWorkers.Done()
 				c.getAndPushNextReading()
 			})
 		}
@@ -144,27 +147,27 @@ func (c *collector) sleepBasedCapture() {
 func (c *collector) tickerBasedCapture() {
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
+	captureWorkers := sync.WaitGroup{}
 
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				c.logger.Errorw("unexpected error in collector context", "error", err)
 			}
-			c.backgroundWorkers.Wait()
+			captureWorkers.Wait()
 			close(c.queue)
 			return
 		}
 
 		select {
 		case <-c.cancelCtx.Done():
-			c.backgroundWorkers.Wait()
+			captureWorkers.Wait()
 			close(c.queue)
 			return
 		case <-ticker.C:
-			c.lock.Lock()
-			c.backgroundWorkers.Add(1)
-			c.lock.Unlock()
+			captureWorkers.Add(1)
 			utils.PanicCapturingGo(func() {
+				defer captureWorkers.Done()
 				c.getAndPushNextReading()
 			})
 		}
@@ -172,8 +175,6 @@ func (c *collector) tickerBasedCapture() {
 }
 
 func (c *collector) getAndPushNextReading() {
-	defer c.backgroundWorkers.Done()
-
 	timeRequested := timestamppb.New(time.Now().UTC())
 	reading, err := c.capturer.Capture(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(time.Now().UTC())
@@ -185,7 +186,7 @@ func (c *collector) getAndPushNextReading() {
 		c.logger.Errorw("error while capturing data", "error", err)
 		return
 	}
-	pbReading, err := StructToStructPb(reading)
+	pbReading, err := protoutils.StructToStructPb(reading)
 	if err != nil {
 		c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
 		return
@@ -248,20 +249,6 @@ func (c *collector) appendMessage(msg *v1.SensorData) error {
 		return err
 	}
 	return nil
-}
-
-// StructToStructPb converts an arbitrary Go struct to a *structpb.Struct. Only exported fields are included in the
-// returned proto.
-func StructToStructPb(i interface{}) (*structpb.Struct, error) {
-	encoded, err := protoutils.InterfaceToMap(i)
-	if err != nil {
-		return nil, errors.Errorf("unable to convert interface %v to a form acceptable to structpb.NewStruct: %v", i, err)
-	}
-	ret, err := structpb.NewStruct(encoded)
-	if err != nil {
-		return nil, errors.Errorf("unable to construct structpb.Struct from map %v: %v", encoded, err)
-	}
-	return ret, nil
 }
 
 // InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.Subtype was

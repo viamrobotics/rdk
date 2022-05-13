@@ -81,4 +81,12 @@ func TestSingleOperationManager(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, count, test.ShouldEqual, int64(5))
 	})
+
+	t.Run("don't cancel myself", func(t *testing.T) {
+		ctx, done := som.New(context.Background())
+		defer done()
+
+		som.CancelRunning(ctx)
+		test.That(t, ctx.Err(), test.ShouldBeNil)
+	})
 }
