@@ -110,7 +110,6 @@ func Discover(ctx context.Context, subtypeName resource.SubtypeName, model strin
 		}
 		webcams = append(webcams, wc)
 	}
-	rlog.Logger.Debugw("MP: got camera configs", "configs", webcams)
 	return &pb.Webcams{Webcams: webcams}, nil
 }
 
