@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -38,6 +39,7 @@ type xArm struct {
 	moveLock *sync.Mutex
 	mp       motionplan.MotionPlanner
 	model    referenceframe.Model
+	opMgr    operation.SingleOperationManager
 }
 
 //go:embed xarm6_kinematics.json

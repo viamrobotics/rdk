@@ -25,6 +25,8 @@ import ViamBase from "./components/Base.vue";
 import KeyboardInput from "./components/KeyboardInput.vue";
 import Camera from "./components/Camera.vue";
 import ViamSelect from "./components/ViamSelect.vue";
+import ViamInfoButton from "./components/ViamInfoButton.vue";
+import Popper from "vue-popperjs";
 
 const Components: { [key: string]: VueConstructor<Vue> } = {
   MotorDetail,
@@ -47,6 +49,8 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   KeyboardInput,
   Camera,
   ViamSelect,
+  ViamInfoButton,
+  Popper,
 };
 
 Object.keys(Components).forEach((name) => {
