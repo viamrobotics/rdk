@@ -7,7 +7,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -43,13 +42,9 @@ func (server *subtypeServer) Discover(ctx context.Context, req *pb.DiscoverReque
 	}
 	keys := make([]Key, 0, len(req.Keys))
 	for _, key := range req.Keys {
-		rlog.Logger.Debugf("MP: (subtype, model) value has value: (%s, %s), type: (%T, %T)", key.Subtype, key.Model, key.Subtype, key.Model)
 		keys = append(keys, Key{resource.SubtypeName(key.Subtype), key.Model})
-		rlog.Logger.Debugf("MP: key list %#v", keys)
 	}
-	rlog.Logger.Debugf("MP: final key list %#v", keys)
 
-	rlog.Logger.Debugw("MP: build keys for request", "req", req, "keys", keys)
 	discoveries, err := svc.Discover(ctx, keys)
 	if err != nil {
 		return nil, err
@@ -59,12 +54,10 @@ func (server *subtypeServer) Discover(ctx context.Context, req *pb.DiscoverReque
 	for _, discovery := range discoveries {
 		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
 		// conversion necessary.
-		rlog.Logger.Debugf("MP: got raw value %#v", discovery)
 		encoded, err := protoutils.InterfaceToMap(discovery.Discovered)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Key)
 		}
-		rlog.Logger.Debugf("MP: got encoded value: %#v", encoded)
 		pbDiscovered, err := structpb.NewStruct(encoded)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Key)
