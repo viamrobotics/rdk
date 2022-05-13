@@ -152,13 +152,26 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor GoFor with positive rpm and positive revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
-		go checkTx(t, c, [][]byte{
-			{33, 0, 0, 0, 0},
-			{33, 0, 0, 0, 0},
-			{160, 0, 0, 0, 0},
-			{167, 0, 0, 211, 213},
-			{173, 0, 2, 128, 0},
-		})
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 0, 2, 128, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
+			},
+		)
 		test.That(t, _motor.GoFor(ctx, 50.0, 3.2), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
@@ -169,6 +182,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 0},
 				{167, 0, 0, 211, 213},
 				{173, 0, 5, 160, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
 				{0, 8, 98, 98, 7}, // Can be gibberish
@@ -176,6 +191,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, 3.2), test.ShouldBeNil)
@@ -188,6 +205,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 0},
 				{167, 0, 0, 211, 213},
 				{173, 0, 6, 24, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
 				{0, 0, 0, 0, 0},
@@ -195,6 +214,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, 6.6), test.ShouldBeNil)
@@ -202,13 +223,26 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor GoFor with negative rpm and positive revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
-		go checkTx(t, c, [][]byte{
-			{33, 0, 0, 0, 0},
-			{33, 0, 0, 0, 0},
-			{160, 0, 0, 0, 0},
-			{167, 0, 0, 211, 213},
-			{173, 255, 253, 128, 0},
-		})
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 255, 253, 128, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
+			},
+		)
 		test.That(t, _motor.GoFor(ctx, -50.0, 3.2), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
@@ -219,6 +253,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 0},
 				{167, 0, 0, 211, 213},
 				{173, 0, 0, 159, 255},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
 				{0, 8, 98, 98, 7}, // Can be gibberish
@@ -226,6 +262,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, 3.2), test.ShouldBeNil)
@@ -238,6 +276,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 0},
 				{167, 0, 0, 211, 213},
 				{173, 255, 251, 200, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
 				{0, 0, 0, 0, 0},
@@ -245,6 +285,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, 6.6), test.ShouldBeNil)
@@ -252,13 +294,26 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor GoFor with positive rpm and negative revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
-		go checkTx(t, c, [][]byte{
-			{33, 0, 0, 0, 0},
-			{33, 0, 0, 0, 0},
-			{160, 0, 0, 0, 0},
-			{167, 0, 0, 211, 213},
-			{173, 255, 253, 128, 0},
-		})
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 255, 253, 128, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
+			},
+		)
 		test.That(t, _motor.GoFor(ctx, 50.0, -3.2), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
@@ -269,6 +324,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 0},
 				{167, 0, 0, 211, 213},
 				{173, 0, 0, 159, 255},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
 				{0, 8, 98, 98, 7}, // Can be gibberish
@@ -276,6 +333,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, -3.2), test.ShouldBeNil)
@@ -288,6 +347,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 0},
 				{167, 0, 0, 211, 213},
 				{173, 255, 251, 200, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
 				{0, 0, 0, 0, 0},
@@ -295,6 +356,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, -6.6), test.ShouldBeNil)
@@ -302,13 +365,26 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor GoFor with negative rpm and negative revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
-		go checkTx(t, c, [][]byte{
-			{33, 0, 0, 0, 0},
-			{33, 0, 0, 0, 0},
-			{160, 0, 0, 0, 0},
-			{167, 0, 0, 211, 213},
-			{173, 0, 2, 128, 0},
-		})
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 0, 2, 128, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
+			},
+		)
 		test.That(t, _motor.GoFor(ctx, -50.0, -3.2), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
@@ -319,6 +395,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 0},
 				{167, 0, 0, 211, 213},
 				{173, 0, 5, 160, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
 				{0, 8, 98, 98, 7}, // Can be gibberish
@@ -326,6 +404,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, -3.2), test.ShouldBeNil)
@@ -338,6 +418,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 0},
 				{167, 0, 0, 211, 213},
 				{173, 0, 6, 24, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
 				{0, 0, 0, 0, 0},
@@ -345,6 +427,8 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
 				{0, 0, 0, 0, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, -6.6), test.ShouldBeNil)
@@ -354,12 +438,12 @@ func TestTMCStepperMotor(t *testing.T) {
 		// Off
 		go checkRx(t, c,
 			[][]byte{
-				{34, 0, 0, 0, 0},
-				{34, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
-				{0, 0, 8, 18, 3}, // Can be gibberish
-				{0, 0, 0, 0, 0},  // Zero velocity == "off"
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
 			},
 		)
 		on, err := _motor.IsPowered(ctx)
@@ -369,12 +453,12 @@ func TestTMCStepperMotor(t *testing.T) {
 		// On
 		go checkRx(t, c,
 			[][]byte{
-				{34, 0, 0, 0, 0},
-				{34, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
-				{0, 1, 6, 18, 3}, // Can be gibberish
-				{0, 0, 0, 50, 0}, // Non-Zero velocity == "on"
+				{0, 0, 0, 5, 0},
+				{0, 0, 0, 0, 0},
 			},
 		)
 		on, err = _motor.IsPowered(ctx)
@@ -384,50 +468,66 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor zero testing", func(t *testing.T) {
 		// No offset (and when actually off)
-		go checkTx(t, c, [][]byte{
-			{34, 0, 0, 0, 0},
-			{34, 0, 0, 0, 0},
-			{160, 0, 0, 0, 3},
-			{173, 0, 0, 0, 0},
-			{161, 0, 0, 0, 0},
-		})
+		go checkRx(t, c,
+			[][]byte{
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+				{160, 0, 0, 0, 3},
+				{173, 0, 0, 0, 0},
+				{161, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+		)
 		test.That(t, _motor.ResetZeroPosition(ctx, 0), test.ShouldBeNil)
 
 		// No offset (and when actually on)
 		go checkRx(t, c,
 			[][]byte{
-				{34, 0, 0, 0, 0},
-				{34, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
 			},
 			[][]byte{
-				{0, 0, 128, 0, 0},
-				{0, 0, 128, 0, 0},
+				{0, 0, 128, 0, 4},
+				{0, 0, 0, 0, 0},
 			},
 		)
 		test.That(t, _motor.ResetZeroPosition(ctx, 0), test.ShouldNotBeNil)
 
 		// 3.1 offset (and when actually off)
-		go checkTx(t, c, [][]byte{
-			{34, 0, 0, 0, 0},
-			{34, 0, 0, 0, 0},
-			{160, 0, 0, 0, 3},
-			{173, 0, 2, 108, 0},
-			{161, 0, 2, 108, 0},
-		})
+		go checkRx(t, c,
+			[][]byte{
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+				{160, 0, 0, 0, 3},
+				{173, 0, 2, 108, 0},
+				{161, 0, 2, 108, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+		)
 		test.That(t, _motor.ResetZeroPosition(ctx, 3.1), test.ShouldBeNil)
 	})
 
 	t.Run("motor gotillstop testing", func(t *testing.T) {
-		//nolint:dupl
 		go func() {
-			// GoFor
-			checkTx(t, c, [][]byte{
-				{33, 0, 0, 0, 0},
-				{33, 0, 0, 0, 0},
-				{160, 0, 0, 0, 0},
-				{167, 0, 0, 105, 234},
-				{173, 252, 242, 192, 0},
-			})
+			// Jog
+			checkTx(t, c,
+				[][]byte{
+					{160, 0, 0, 0, 2},
+					{167, 0, 0, 105, 234},
+				},
+			)
 
 			// RampStat (for velocity reached)
 			checkRx(t, c,
@@ -458,7 +558,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				},
 			)
 
-			// Deferred off and SG disable
+			// Deferred SG disable
 			checkTx(t, c, [][]byte{
 				{180, 0, 0, 0, 0},
 				{160, 0, 0, 0, 1},
@@ -468,16 +568,14 @@ func TestTMCStepperMotor(t *testing.T) {
 		// No stop func
 		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, nil), test.ShouldBeNil)
 
-		//nolint:dupl
 		go func() {
-			// GoFor
-			checkTx(t, c, [][]byte{
-				{33, 0, 0, 0, 0},
-				{33, 0, 0, 0, 0},
-				{160, 0, 0, 0, 0},
-				{167, 0, 0, 105, 234},
-				{173, 252, 242, 192, 0},
-			})
+			// Jog
+			checkTx(t, c,
+				[][]byte{
+					{160, 0, 0, 0, 2},
+					{167, 0, 0, 105, 234},
+				},
+			)
 
 			// RampStat (for velocity reached)
 			checkRx(t, c,
@@ -519,14 +617,13 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
 
 		go func() {
-			// GoFor
-			checkTx(t, c, [][]byte{
-				{33, 0, 0, 0, 0},
-				{33, 0, 0, 0, 0},
-				{160, 0, 0, 0, 0},
-				{167, 0, 0, 105, 234},
-				{173, 252, 242, 192, 0},
-			})
+			// Jog
+			checkTx(t, c,
+				[][]byte{
+					{160, 0, 0, 0, 2},
+					{167, 0, 0, 105, 234},
+				},
+			)
 
 			// Deferred off and SG disable
 			checkTx(t, c, [][]byte{

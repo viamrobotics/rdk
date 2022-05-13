@@ -300,12 +300,12 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		return g.motor.Stop(ctx)
 	})
 
-	d := -1
+	d := -1.0
 	if !zero {
-		d = 1
+		d *= -1
 	}
 
-	err := g.motor.GoFor(ctx, g.rpm, float64(d*10000))
+	err := g.motor.GoFor(ctx, d*g.rpm, 0)
 	if err != nil {
 		return 0, err
 	}
