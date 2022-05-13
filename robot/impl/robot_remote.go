@@ -157,12 +157,12 @@ func (rr *remoteRobot) startWatcher(ctx context.Context) {
 			case <-cancelCtx.Done():
 				return
 			case <-changed.Changed():
+				rr.mu.Lock()
 				if rr.robot.Connected() {
-					rr.mu.Lock()
 					newManager := managerForRemoteRobot(rr.robot)
 					rr.manager.replaceForRemote(cancelCtx, newManager)
-					rr.mu.Unlock()
 				}
+				rr.mu.Unlock()
 			}
 		}
 	}, func() {
