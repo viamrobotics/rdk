@@ -40,7 +40,7 @@ type RobotClient struct {
 	metadataClient metadata.Service
 	dialOptions    []rpc.DialOption
 
-	namesMu       *sync.RWMutex
+	mu            *sync.RWMutex
 	resourceNames []resource.Name
 
 	connected  bool
@@ -66,7 +66,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	rc := &RobotClient{
 		address:                 address,
 		cancelBackgroundWorkers: cancel,
-		namesMu:                 &sync.RWMutex{},
+		mu:                      &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		logger:                  logger,
 		closeContext:            closeCtx,
@@ -91,7 +91,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	if rOpts.reconnectEvery != 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.checkConnected(closeCtx, rOpts.reconnectEvery)
+			rc.checkConnection(closeCtx, rOpts.reconnectEvery)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
@@ -105,6 +105,8 @@ func (rc *RobotClient) Connected() bool {
 
 // Changed watches for whether the remote has changed.
 func (rc *RobotClient) Changed() <-chan bool {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
 	if rc.changeChan == nil {
 		rc.changeChan = make(chan bool)
 	}
@@ -121,9 +123,12 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
 	client := pb.NewRobotServiceClient(conn)
 	metadataClient := metadata.NewClientFromConn(ctx, conn, "", rc.logger)
-
 	rc.conn = conn
 	rc.client = client
 	rc.metadataClient = metadataClient
@@ -134,8 +139,8 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	return nil
 }
 
-// checkConnected either checks if the client is still connected, or attempts to reconnect to the remote.
-func (rc *RobotClient) checkConnected(ctx context.Context, every time.Duration) {
+// checkConnection either checks if the client is still connected, or attempts to reconnect to the remote.
+func (rc *RobotClient) checkConnection(ctx context.Context, every time.Duration) {
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 	for {
@@ -144,9 +149,8 @@ func (rc *RobotClient) checkConnected(ctx context.Context, every time.Duration) 
 		}
 		if !rc.Connected() {
 			rc.Logger().Debugf("trying to reconnect to remote at address %v", rc.address)
-			err := rc.connect(ctx)
-			if err != nil {
-				rc.Logger().Debugw(fmt.Sprintf("failed to reconnect remote at address %v", rc.address), "error", err)
+			if err := rc.connect(ctx); err != nil {
+				rc.Logger().Debugw(fmt.Sprintf("failed to reconnect remote at address %v", rc.address), "error", err, "address", rc.address)
 				continue
 			}
 			rc.Logger().Debugf("successfully reconnected remote at address %v", rc.address)
@@ -179,12 +183,15 @@ func (rc *RobotClient) checkConnected(ctx context.Context, every time.Duration) 
 			if outerError != nil {
 				rc.Logger().Errorw(
 					fmt.Sprintf("lost connection to remote at address %v, retrying in %v sec", rc.address, every.Seconds()),
-					"error",
-					outerError)
+					"error", outerError,
+					"address", rc.address,
+				)
+				rc.mu.Lock()
 				rc.connected = false
 				if rc.changeChan != nil {
 					rc.changeChan <- true
 				}
+				rc.mu.Unlock()
 			}
 		}
 	}
@@ -202,9 +209,9 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 	return rc.conn.Close()
 }
 
-func (rc *RobotClient) isDisconnected() error {
+func (rc *RobotClient) checkConnected() error {
 	if !rc.Connected() {
-		return errors.Errorf("lost connection to remote robot at %s", rc.address)
+		return errors.Errorf("not connected to remote robot at %s", rc.address)
 	}
 	return nil
 }
@@ -235,7 +242,7 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
-	if err := rc.isDisconnected(); err != nil {
+	if err := rc.checkConnected(); err != nil {
 		return nil, err
 	}
 	c := registry.ResourceSubtypeLookup(name.Subtype)
@@ -251,9 +258,9 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 // Refresh manually updates the underlying parts of the robot based
 // on its metadata response.
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
-	if err := rc.isDisconnected(); err != nil {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	if err := rc.checkConnected(); err != nil {
 		return err
 	}
 
@@ -289,9 +296,10 @@ func (rc *RobotClient) OperationManager() *operation.Manager {
 
 // ResourceNames returns all resource names.
 func (rc *RobotClient) ResourceNames() []resource.Name {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	if err := rc.isDisconnected(); err != nil {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+	if err := rc.checkConnected(); err != nil {
+		rc.Logger().Errorw("failed to get remote resource names", "error", err)
 		return []resource.Name{}
 	}
 	names := []resource.Name{}

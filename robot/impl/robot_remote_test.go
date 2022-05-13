@@ -472,7 +472,7 @@ func TestRemoteRobotDisconnected(t *testing.T) {
 
 	test.That(t, len(robot.ResourceNames()), test.ShouldEqual, 0)
 	_, err = robot.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeError, errors.New("lost connection to remote robot \"one\""))
+	test.That(t, err, test.ShouldBeError, robot.checkConnected())
 }
 
 func TestRemoteRobotReconnected(t *testing.T) {
@@ -494,7 +494,7 @@ func TestRemoteRobotReconnected(t *testing.T) {
 	wrapped.updateConnection(false)
 	test.That(t, len(robot.ResourceNames()), test.ShouldEqual, 0)
 	_, err := robot.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeError, errors.New("lost connection to remote robot \"one\""))
+	test.That(t, err, test.ShouldBeError, robot.checkConnected())
 
 	wrapped.updateConnection(true)
 	test.That(t, len(robot.ResourceNames()), test.ShouldEqual, 16)
