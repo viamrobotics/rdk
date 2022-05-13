@@ -2,6 +2,7 @@ package odometry
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"math/rand"
@@ -133,14 +134,16 @@ func TestEstimateCameraHeight(t *testing.T) {
 	gt := readJSONGroundTruth()
 	pts1 := convert2DSliceToVectorSlice(gt.Pts1)
 	pts2 := convert2DSliceToVectorSlice(gt.Pts2)
-	// pts1H := transform.Convert2DPointsToHomogeneousPoints(pts1)
-	// pts2H := transform.Convert2DPointsToHomogeneousPoints(pts2)
+	K := convert2DSliceToDense(gt.K)
 	T := convert2DSliceToDense(gt.T)
 	R := convert2DSliceToDense(gt.R)
 	poseMat := mat.NewDense(3, 4, nil)
 	poseMat.Augment(R, T)
 	pose := transform.NewCamPoseFromMat(poseMat)
-	height, err := EstimateCameraHeight(pts1, pts2, pose, 0.97, 0.005)
+	height, err := EstimateCameraHeight(pts1, pts2, pose, 0.97, 0.005, K)
 	test.That(t, err, test.ShouldBeNil)
+	heightMessage := fmt.Sprintf("Estimated Height: %f", height)
+	logger.Info(heightMessage)
 	test.That(t, height, test.ShouldBeLessThan, 0)
+	test.That(t, height, test.ShouldAlmostEqual, -0.722854, 0.0001)
 }

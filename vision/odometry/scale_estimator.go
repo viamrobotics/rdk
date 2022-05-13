@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
+	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/vision/delaunay"
@@ -87,27 +88,57 @@ func getSelected3DFeatures(f3d []r3.Vector, ids []int) []r3.Vector {
 	return f3dSelected
 }
 
-// GetTriangulated3DPointsFrom2DKeypoints gets the triangulated 3D point cloud from the matched 2D keypoints and the
-// second camera pose.
-func GetTriangulated3DPointsFrom2DKeypoints(pts1, pts2 []r2.Point, pose *transform.CamPose) ([]r3.Vector, error) {
+// GetTriangulated3DPointsFrom2DKeypoints gets the triangulated 3D point cloud from the matched 2D keypoints, the
+// second camera pose and the intrinsic camera matrix.
+func GetTriangulated3DPointsFrom2DKeypoints(pts1, pts2 []r2.Point, pose *transform.CamPose, intrinsicK *mat.Dense) ([]r3.Vector, error) {
 	// homogenize 2d keypoints in image coordinates
 	pts1H := transform.Convert2DPointsToHomogeneousPoints(pts1)
 	pts2H := transform.Convert2DPointsToHomogeneousPoints(pts2)
-	// get triangulated 3d points in camera1 reference
-	pts3d, err := transform.GetLinearTriangulatedPoints(pose.PoseMat, pts1H, pts2H)
+	// Create projection matrix: intrinsicK@Pose
+	projectionMatrix := mat.NewDense(3, 4, nil)
+	projectionMatrix.Mul(intrinsicK, pose.PoseMat)
+	// get triangulated 3d points in camera1 reference through projection matrix
+	pts3d, err := transform.GetLinearTriangulatedPoints(projectionMatrix, pts1H, pts2H)
 	if err != nil {
 		return nil, err
 	}
 	return pts3d, nil
 }
 
+// getGroundInlierPoints takes a list of 3D points, a list of 3D triangles, and two thresholds, and returns the indices
+// of the points that are inliers of the ground plane.
+func getGroundInlierPoints(p3d []r3.Vector, triangles3D [][]r3.Vector, thresholdNormalAngle, thresholdPlaneInlier float64) ([]int, error) {
+	inliersGround := make([]int, 0, len(p3d))
+	maxInliers := 0
+	groundFound := false
+	for _, triangle := range triangles3D {
+		normal, offset := estimatePlaneFrom3Points(triangle[0], triangle[1], triangle[2])
+		angularDiff := math.Abs(normal.Dot(r3.Vector{0, 1, 0})) / normal.Norm()
+		// if current normal vector is almost collinear with Y unit vector
+		if angularDiff > thresholdNormalAngle {
+			inliers := getPlaneInliers(p3d, normal, offset, thresholdPlaneInlier)
+			if len(inliers) > maxInliers {
+				maxInliers = len(inliers)
+				inliersGround = make([]int, len(inliers))
+				copy(inliersGround, inliers)
+				groundFound = true
+			}
+		}
+	}
+	if groundFound {
+		return inliersGround, nil
+	}
+	err := errors.New("ground plane not found")
+	return nil, err
+}
+
 // GetPointsOnGroundPlane gets the ids of matched keypoints that belong to the ground plane.
 func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
-	thresholdNormalAngle, thresholdPlaneInlier float64) ([]r3.Vector, error) {
-	// get 3D features
-	f3d, err := GetTriangulated3DPointsFrom2DKeypoints(pts1, pts2, pose)
+	thresholdNormalAngle, thresholdPlaneInlier float64, intrinsicK *mat.Dense) ([]int, []r3.Vector, error) {
+	// get 3D points
+	f3d, err := GetTriangulated3DPointsFrom2DKeypoints(pts1, pts2, pose, intrinsicK)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// get camera pitch
 	pitch := estimatePitchFromCameraPose(pose)
@@ -121,7 +152,7 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	}
 	tri, err := delaunay.Triangulate(pts2dDelaunay)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	triangleMap := tri.GetTrianglesPointsMap()
 	// get 3D triangles
@@ -134,39 +165,19 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	}
 	// get plane equation for every 3D triangle and get the one which normal is quasi collinear with (0, -1, 0) and
 	// with most inliers
-	inliersGround := make([]int, 0, len(p3d))
-	maxInliers := 0
-	groundFound := false
-	for _, triangle := range triangles3D {
-		normal, offset := estimatePlaneFrom3Points(triangle[0], triangle[1], triangle[2])
-		// normalNorm := normal.Norm()
-		// fmt.Println("normal : ", normal.Mul(1./normalNorm))
-		angularDiff := math.Abs(normal.Dot(r3.Vector{0, 0, 1})) / normal.Norm()
-		// fmt.Println(angularDiff)
-		// if current normal vector is almost collinear with Y unit vector
-		if angularDiff > thresholdNormalAngle {
-			inliers := getPlaneInliers(p3d, normal, offset, thresholdPlaneInlier)
-			if len(inliers) > maxInliers {
-				maxInliers = len(inliers)
-				inliersGround = make([]int, len(inliers))
-				copy(inliersGround, inliers)
-				groundFound = true
-			}
-		}
+	inliersGround, err := getGroundInlierPoints(p3d, triangles3D, thresholdNormalAngle, thresholdPlaneInlier)
+	if err != nil {
+		return nil, nil, err
 	}
 	// if found ground plane, get ground plane 3d points in original reference
-	if groundFound {
-		pointsGround := getSelected3DFeatures(p3d, inliersGround)
-		return pointsGround, nil
-	}
-	err = errors.New("no ground plane points found")
-	return nil, err
+	pointsGround := getSelected3DFeatures(p3d, inliersGround)
+	return inliersGround, pointsGround, nil
 }
 
 // EstimateCameraHeight estimates the camera height wrt to ground plane.
 func EstimateCameraHeight(pts1, pts2 []r2.Point, pose *transform.CamPose,
-	thresholdNormalAngle, thresholdPlaneInlier float64) (float64, error) {
-	pointsGround, err := GetPointsOnGroundPlane(pts1, pts2, pose, thresholdNormalAngle, thresholdPlaneInlier)
+	thresholdNormalAngle, thresholdPlaneInlier float64, intrinsicK *mat.Dense) (float64, error) {
+	_, pointsGround, err := GetPointsOnGroundPlane(pts1, pts2, pose, thresholdNormalAngle, thresholdPlaneInlier, intrinsicK)
 	if err != nil {
 		return 0, err
 	}
