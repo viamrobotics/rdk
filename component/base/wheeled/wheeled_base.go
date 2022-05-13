@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -135,6 +136,54 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
 	}
+	return nil
+}
+
+func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
+	x := linear.Y
+	y := angular.Z
+
+	// convert to polar coordinates
+	r := math.Hypot(x, y)
+	t := math.Atan2(y, x)
+
+	// rotate by 45 degrees
+	t += math.Pi / 4
+
+	// back to cartesian
+	left := r * math.Cos(t)
+	right := r * math.Sin(t)
+
+	// rescale the new coords
+	left *= math.Sqrt(2)
+	right *= math.Sqrt(2)
+
+	// clamp to -1/+1
+	left = math.Max(-1, math.Min(left, 1))
+	right = math.Max(-1, math.Min(right, 1))
+
+	return left, right
+}
+
+func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	base.opMgr.CancelRunning(ctx)
+
+	lPower, rPower := base.setPowerMath(linear, angular)
+
+	// Send motor commands
+	var err error
+	for _, m := range base.left {
+		err = multierr.Combine(err, m.SetPower(ctx, lPower))
+	}
+
+	for _, m := range base.right {
+		err = multierr.Combine(err, m.SetPower(ctx, rPower))
+	}
+
+	if err != nil {
+		return multierr.Combine(err, base.Stop(ctx))
+	}
+
 	return nil
 }
 
