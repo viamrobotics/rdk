@@ -265,13 +265,18 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) e
 }
 
 func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
-	b.opMgr.CancelRunning(ctx)
 	power := b.cfg.computePower(linear, angular)
+
+	ctx, done := b.opMgr.New(ctx)
+	defer done()
 
 	for idx, p := range power {
 		err := b.motors[idx].SetPower(ctx, p)
 		if err != nil {
 			return multierr.Combine(b.Stop(ctx), err)
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 	}
 
