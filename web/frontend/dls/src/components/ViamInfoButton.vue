@@ -1,6 +1,6 @@
 <template>
   <Popper
-    trigger="clickToOpen"
+    trigger="hover"
     data-cy="viam-info-button-root"
     root-class="viam-info-popper"
     class="inline-flex align-middle"
