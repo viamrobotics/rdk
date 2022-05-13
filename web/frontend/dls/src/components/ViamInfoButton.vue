@@ -6,7 +6,8 @@
     class="inline-flex align-middle"
     :options="{
       placement: 'top',
-    }">
+    }"
+  >
     <div class="popper">
       <div class="viam-info-content">
         <ul>

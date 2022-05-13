@@ -37,9 +37,11 @@ describe("ViamInfoButton", () => {
     button.trigger("click");
     const rowItems = wrapper.findAll("[data-cy=viam-info-row-item]");
     expect(rowItems.length).toBe(3);
-    const items = rowItems.wrappers.map(el => (el.element as HTMLElement).innerHTML.trim())
-    expect(items[0]).toBe('When turned on, point cloud will be recalculated')
-    expect(items[1]).toBe('2. Another line')
-    expect(items[2]).toBe('three is not my limit')
+    const items = rowItems.wrappers.map((el) =>
+      (el.element as HTMLElement).innerHTML.trim()
+    );
+    expect(items[0]).toBe("When turned on, point cloud will be recalculated");
+    expect(items[1]).toBe("2. Another line");
+    expect(items[2]).toBe("three is not my limit");
   });
 });
