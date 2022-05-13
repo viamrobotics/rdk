@@ -20,7 +20,7 @@ service RobotService {
   // ResourceNames returns the list of all resources.
   rpc ResourceNames(ResourceNamesRequest) returns (ResourceNamesResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/robot/metadata"
+      get: "/viam/api/v1/resources/list"
     };
   }
 

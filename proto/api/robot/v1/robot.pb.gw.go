@@ -174,7 +174,7 @@ func RegisterRobotServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/ResourceNames", runtime.WithHTTPPathPattern("/viam/api/v1/robot/metadata"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/ResourceNames", runtime.WithHTTPPathPattern("/viam/api/v1/resources/list"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -302,7 +302,7 @@ func RegisterRobotServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/ResourceNames", runtime.WithHTTPPathPattern("/viam/api/v1/robot/metadata"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/ResourceNames", runtime.WithHTTPPathPattern("/viam/api/v1/resources/list"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -364,7 +364,7 @@ func RegisterRobotServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 var (
 	pattern_RobotService_GetOperations_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "operations", "list"}, ""))
 
-	pattern_RobotService_ResourceNames_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "robot", "metadata"}, ""))
+	pattern_RobotService_ResourceNames_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "resources", "list"}, ""))
 
 	pattern_RobotService_CancelOperation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "operations", "cancel"}, ""))
 
