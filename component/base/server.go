@@ -4,9 +4,11 @@ package base
 import (
 	"context"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/subtype"
 )
@@ -51,7 +53,7 @@ func (s *subtypeServer) MoveStraight(
 	if reqMmPerSec != 0 {
 		mmPerSec = reqMmPerSec
 	}
-	err = base.MoveStraight(ctx, int(req.DistanceMm), mmPerSec, req.GetBlock())
+	err = base.MoveStraight(ctx, int(req.DistanceMm), mmPerSec)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +76,7 @@ func (s *subtypeServer) MoveArc(
 	if reqMmPerSec != 0 {
 		mmPerSec = reqMmPerSec
 	}
-	err = base.MoveArc(ctx, int(req.GetDistanceMm()), mmPerSec, req.GetAngleDeg(), req.GetBlock())
+	err = base.MoveArc(ctx, int(req.GetDistanceMm()), mmPerSec, req.GetAngleDeg())
 	if err != nil {
 		return nil, err
 	}
@@ -97,11 +99,35 @@ func (s *subtypeServer) Spin(
 	if reqDegsPerSec != 0 {
 		degsPerSec = reqDegsPerSec
 	}
-	err = base.Spin(ctx, req.GetAngleDeg(), degsPerSec, req.GetBlock())
+	err = base.Spin(ctx, req.GetAngleDeg(), degsPerSec)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.SpinResponse{}, nil
+}
+
+func (s *subtypeServer) SetPower(
+	ctx context.Context,
+	req *pb.SetPowerRequest,
+) (*pb.SetPowerResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
+	base, err := s.getBase(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	err = base.SetPower(ctx, convertVector(req.GetLinear()), convertVector(req.GetAngular()))
+	if err != nil {
+		return nil, err
+	}
+	return &pb.SetPowerResponse{}, nil
+}
+
+func convertVector(v *commonpb.Vector3) r3.Vector {
+	if v == nil {
+		return r3.Vector{}
+	}
+	return r3.Vector{X: v.X, Y: v.Y, Z: v.Z}
 }
 
 // Stop stops a robot's base.

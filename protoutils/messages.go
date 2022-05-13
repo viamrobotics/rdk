@@ -2,6 +2,8 @@
 package protoutils
 
 import (
+	"fmt"
+	"google.golang.org/protobuf/types/known/structpb"
 	"reflect"
 	"strings"
 
@@ -59,6 +61,21 @@ func InterfaceToMap(data interface{}) (map[string]interface{}, error) {
 	return res, nil
 }
 
+// StructToStructPb converts an arbitrary Go struct to a *structpb.Struct. Only exported fields are included in the
+// returned proto.
+func StructToStructPb(i interface{}) (*structpb.Struct, error) {
+	encoded, err := InterfaceToMap(i)
+	if err != nil {
+		return nil, errors.Wrap(err,
+			fmt.Sprintf("unable to convert interface %v to a form acceptable to structpb.NewStruct", i))
+	}
+	ret, err := structpb.NewStruct(encoded)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to construct structpb.Struct from map %v", encoded))
+	}
+	return ret, nil
+}
+
 func toInterface(data interface{}) (interface{}, error) {
 	t := reflect.TypeOf(data)
 	if t.Kind() == reflect.Ptr {
@@ -84,6 +101,10 @@ func toInterface(data interface{}) (interface{}, error) {
 		}
 	case reflect.String:
 		newData = reflect.ValueOf(data).String()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		newData = reflect.ValueOf(data).Uint()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		newData = reflect.ValueOf(data).Int()
 	default:
 		newData = data
 	}
@@ -119,6 +140,9 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 	}
 	res := map[string]interface{}{}
 	value := reflect.ValueOf(data)
+	if value.Kind() == reflect.Ptr && value.IsNil() {
+		return res, nil
+	}
 	value = reflect.Indirect(value)
 	for i := 0; i < t.NumField(); i++ {
 		sField := t.Field(i)
@@ -151,6 +175,7 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		res[key] = data
 	}
 	return res, nil

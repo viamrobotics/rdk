@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor/fake"
@@ -67,7 +68,7 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 
 	t.Run("straight no speed", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 1000, 0, true)
+		err := base.MoveStraight(ctx, 1000, 0)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = base.WaitForMotorsToStop(ctx)
@@ -81,7 +82,7 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 
 	t.Run("straight no distance", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 0, 1000, true)
+		err := base.MoveStraight(ctx, 0, 1000)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = base.WaitForMotorsToStop(ctx)
@@ -124,18 +125,6 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 
 	test.That(t, base.Close(context.Background()), test.ShouldBeNil)
-	t.Run("go no block", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 10000, 1000, false)
-		test.That(t, err, test.ShouldBeNil)
-		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, isOn, test.ShouldBeTrue)
-		}
-
-		err = base.Stop(ctx)
-		test.That(t, err, test.ShouldBeNil)
-	})
 	t.Run("go block", func(t *testing.T) {
 		go func() {
 			time.Sleep(time.Millisecond * 10)
@@ -145,7 +134,7 @@ func TestFourWheelBase1(t *testing.T) {
 			}
 		}()
 
-		err := base.MoveStraight(ctx, 10000, 1000, true)
+		err := base.MoveStraight(ctx, 10000, 1000)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -172,19 +161,6 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rpms, test.ShouldAlmostEqual, 7.5, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
 	})
-	t.Run("spin no block", func(t *testing.T) {
-		err := base.Spin(ctx, 5, 5, false)
-		test.That(t, err, test.ShouldBeNil)
-
-		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, isOn, test.ShouldBeTrue)
-		}
-
-		err = base.Stop(ctx)
-		test.That(t, err, test.ShouldBeNil)
-	})
 	t.Run("spin block", func(t *testing.T) {
 		go func() {
 			time.Sleep(time.Millisecond * 10)
@@ -194,7 +170,7 @@ func TestFourWheelBase1(t *testing.T) {
 			}
 		}()
 
-		err := base.Spin(ctx, 5, 5, true)
+		err := base.Spin(ctx, 5, 5)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -206,7 +182,7 @@ func TestFourWheelBase1(t *testing.T) {
 	// Arc tests
 
 	t.Run("arc no speed", func(t *testing.T) {
-		err := base.MoveArc(ctx, 1000, 0, 10, true)
+		err := base.MoveArc(ctx, 1000, 0, 10)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = base.WaitForMotorsToStop(ctx)
@@ -294,6 +270,28 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rotations[0], test.ShouldEqual, 1.0)
 		test.That(t, rpms[1], test.ShouldEqual, -60.0)
 		test.That(t, rotations[1], test.ShouldEqual, 1.0)
+	})
+
+	t.Run("setPowerMath", func(t *testing.T) {
+		l, r := base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{})
+		test.That(t, l, test.ShouldEqual, 1)
+		test.That(t, r, test.ShouldEqual, 1)
+
+		l, r = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{})
+		test.That(t, l, test.ShouldEqual, -1)
+		test.That(t, r, test.ShouldEqual, -1)
+
+		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: 1})
+		test.That(t, l, test.ShouldEqual, -1)
+		test.That(t, r, test.ShouldEqual, 1)
+
+		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: -1})
+		test.That(t, l, test.ShouldEqual, 1)
+		test.That(t, r, test.ShouldEqual, -1)
+
+		l, r = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 1})
+		test.That(t, l, test.ShouldAlmostEqual, 0, .001)
+		test.That(t, r, test.ShouldEqual, 1)
 	})
 }
 
