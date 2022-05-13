@@ -114,18 +114,20 @@ func Discover(ctx context.Context, subtypeName resource.SubtypeName, model strin
 	return &pb.Webcams{Webcams: webcams}, nil
 }
 
-func getProperties(d driver.Driver) ([]prop.Media, error) {
+func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 	// Need to open driver to get properties
 	if d.Status() == driver.StateClosed {
-		err := d.Open()
-		if err != nil {
-			return nil, err
+		errOpen := d.Open()
+		if errOpen != nil {
+			return nil, errOpen
 		}
-		// TODO: it's unclear if it's okay to just keep the driver open
-		// TODO: if we do need to close, handle errors
-		defer d.Close()
+		defer func() {
+			if errClose := d.Close(); errClose != nil {
+				err = errClose
+			}
+		}()
 	}
-	return d.Properties(), nil
+	return d.Properties(), err
 }
 
 // WebcamAttrs is the attribute struct for webcams.
