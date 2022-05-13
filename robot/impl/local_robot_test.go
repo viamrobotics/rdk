@@ -747,7 +747,7 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 5 declared resources + default sensors, status, and metadata service
+	// 5 declared resources + default sensors and status service
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
