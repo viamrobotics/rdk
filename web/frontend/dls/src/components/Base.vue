@@ -10,7 +10,6 @@
           color="danger"
           group
           variant="primary"
-          :disabled="!baseStatus"
           @click="baseStop"
         >
           <template v-slot:icon>
@@ -151,15 +150,15 @@
                 class="text-xs pr-2 w-32"
                 >Speed (mm/sec)
               </ViamInput>
+              <input type="hidden" id="distance" :value="maxDistance" v-if="(movementMode === 'Straight' && movementType === 'Continous')">
               <ViamInput
-                v-if="movementMode === 'Straight' || movementMode === 'Arc'"
+                v-if="(movementMode === 'Straight' && movementType === 'Discrete') || movementMode === 'Arc'"
                 type="number"
                 color="primary"
                 group="False"
                 variant="primary"
                 v-model="increment"
                 inputId="distance"
-                :disabled="movementType === 'Continous'"
                 class="text-xs pr-2 w-32"
                 >Distance (mm)
               </ViamInput>
@@ -198,7 +197,6 @@
                   color="success"
                   group
                   variant="primary"
-                  :disabled="baseStatus"
                   @click="baseRun()"
                 >
                   <template v-slot:icon>
@@ -269,6 +267,7 @@ export default class Base extends Vue {
   spinType = "Clockwise";
   increment = 1000;
   maxClusteringRadius = 90;
+  maxDistance = Math.pow(2, 32);
 
   speed = 200;
   angle = 0;
