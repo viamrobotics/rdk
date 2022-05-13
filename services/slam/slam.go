@@ -3,7 +3,9 @@ package slam
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"fmt"
 	"image/jpeg"
 	"os"
 	"path/filepath"
@@ -176,9 +178,9 @@ type slamService struct {
 	dataDirectory    string
 	inputFilePattern string
 
-	port        int
-	dataRateSec int
-	mapRateSec  int
+	port       int
+	dataRateMs int
+	mapRateSec int
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -269,7 +271,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		dataDirectory:           svcConfig.DataDirectory,
 		inputFilePattern:        svcConfig.InputFilePattern,
 		port:                    p,
-		dataRateSec:             dataRate,
+		dataRateMs:              dataRate,
 		mapRateSec:              mapRate,
 		cancelCtx:               cancelCtx,
 		cancelFunc:              cancelFunc,
@@ -301,7 +303,7 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 	}
 	slamSvc.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
-		ticker := time.NewTicker(time.Millisecond * time.Duration(slamSvc.dataRateSec))
+		ticker := time.NewTicker(time.Millisecond * time.Duration(slamSvc.dataRateMs))
 		defer ticker.Stop()
 		defer slamSvc.activeBackgroundWorkers.Done()
 
@@ -351,6 +353,24 @@ func (slamSvc *slamService) startDataProcess(ctx context.Context) error {
 // https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-104)
 // startSLAMProcess starts up the SLAM library process by calling the executable binary.
 func (slamSvc *slamService) startSLAMProcess(ctx context.Context) error {
+
+	sensor_arg := "-sensors=" + slamSvc.cameraName
+	config_param_args := "-config_param=" + createKeyValuePairs(slamSvc.configParams)
+	data_rate_arg := "-data_rate_ms=" + strconv.Itoa(slamSvc.dataRateMs)
+	map_rate_arg := "-map_rate_sec=" + strconv.Itoa(slamSvc.mapRateSec)
+	data_dir_arg := "-data_dir=" + slamSvc.dataDirectory
+	input_file_pattern_arg := "-input_file_pattern=" + slamSvc.inputFilePattern
+
+	cmd := []string{slamSvc.slamLib.BinaryLocation, sensor_arg, data_rate_arg, map_rate_arg, input_file_pattern_arg, data_dir_arg, config_param_args}
+
+	processCfg := pexec.ProcessConfig{
+		ID:   "0",
+		Name: "slam_" + slamSvc.slamLib.AlgoName,
+		Args: cmd,
+		Log:  true,
+	}
+
+	slamSvc.slamProcess.AddProcessFromConfig(ctx, processCfg)
 
 	if err := slamSvc.slamProcess.Start(ctx); err != nil {
 		return errors.Errorf("problem starting slam process", "error", err)
@@ -435,7 +455,7 @@ func (slamSvc *slamService) getAndSaveDataSparse() (string, error) {
 }
 
 // getAndSaveData implements the data extraction for dense algos and saving to the directory path (data subfolder) specified in the
-// config. It returns the full filepath for each file saved along with any error associaetd with the data creation or saving.
+// config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
 func (slamSvc *slamService) getAndSaveDataDense() (string, error) {
 	// Get NextPointCloud
 	pointcloud, err := slamSvc.camera.NextPointCloud(slamSvc.cancelCtx)
@@ -472,4 +492,12 @@ func createTimestampFilename(cameraName, dataDirectory, fileType string) string 
 	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
 
 	return filename
+}
+
+func createKeyValuePairs(m map[string]string) string {
+	b := new(bytes.Buffer)
+	for key, value := range m {
+		fmt.Fprintf(b, "%s=%s,", key, value)
+	}
+	return b.String()
 }
