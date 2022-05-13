@@ -30,6 +30,8 @@ type BaseServiceClient interface {
 	// angular speed, expressed in degrees per second
 	// This method blocks until completed or cancelled
 	Spin(ctx context.Context, in *SpinRequest, opts ...grpc.CallOption) (*SpinResponse, error)
+	// SetPower sets the linear and angular velocity of a base
+	SetPower(ctx context.Context, in *SetPowerRequest, opts ...grpc.CallOption) (*SetPowerResponse, error)
 	// Stop stops a robot's base
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 }
@@ -69,6 +71,15 @@ func (c *baseServiceClient) Spin(ctx context.Context, in *SpinRequest, opts ...g
 	return out, nil
 }
 
+func (c *baseServiceClient) SetPower(ctx context.Context, in *SetPowerRequest, opts ...grpc.CallOption) (*SetPowerResponse, error) {
+	out := new(SetPowerResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/SetPower", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *baseServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error) {
 	out := new(StopResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/Stop", in, out, opts...)
@@ -94,6 +105,8 @@ type BaseServiceServer interface {
 	// angular speed, expressed in degrees per second
 	// This method blocks until completed or cancelled
 	Spin(context.Context, *SpinRequest) (*SpinResponse, error)
+	// SetPower sets the linear and angular velocity of a base
+	SetPower(context.Context, *SetPowerRequest) (*SetPowerResponse, error)
 	// Stop stops a robot's base
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	mustEmbedUnimplementedBaseServiceServer()
@@ -111,6 +124,9 @@ func (UnimplementedBaseServiceServer) MoveArc(context.Context, *MoveArcRequest) 
 }
 func (UnimplementedBaseServiceServer) Spin(context.Context, *SpinRequest) (*SpinResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Spin not implemented")
+}
+func (UnimplementedBaseServiceServer) SetPower(context.Context, *SetPowerRequest) (*SetPowerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetPower not implemented")
 }
 func (UnimplementedBaseServiceServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
@@ -182,6 +198,24 @@ func _BaseService_Spin_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BaseService_SetPower_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPowerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BaseServiceServer).SetPower(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.base.v1.BaseService/SetPower",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BaseServiceServer).SetPower(ctx, req.(*SetPowerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _BaseService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StopRequest)
 	if err := dec(in); err != nil {
@@ -218,6 +252,10 @@ var BaseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Spin",
 			Handler:    _BaseService_Spin_Handler,
+		},
+		{
+			MethodName: "SetPower",
+			Handler:    _BaseService_SetPower_Handler,
 		},
 		{
 			MethodName: "Stop",
