@@ -711,7 +711,7 @@ func TestClientDisconnect(t *testing.T) {
 	test.That(t, client.Connected(), test.ShouldBeFalse)
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
 	_, err = client.ResourceByName(arm.Named("arm1"))
-	test.That(t, err.Error(), test.ShouldContainSubstring, "lost connection to remote robot")
+	test.That(t, err, test.ShouldBeError, client.checkConnected())
 }
 
 func TestClientReconnect(t *testing.T) {
@@ -752,7 +752,7 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
 	_, err = client.ResourceByName(arm.Named("arm1"))
-	test.That(t, err.Error(), test.ShouldContainSubstring, "lost connection to remote robot")
+	test.That(t, err, test.ShouldBeError, client.checkConnected())
 
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))

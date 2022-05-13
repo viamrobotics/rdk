@@ -160,9 +160,9 @@ func (rr *remoteRobot) startWatcher(ctx context.Context) {
 	})
 }
 
-func (rr *remoteRobot) isDisconnected() error {
+func (rr *remoteRobot) checkConnected() error {
 	if !rr.robot.Connected() {
-		return errors.Errorf("lost connection to remote robot %q", rr.conf.Name)
+		return errors.Errorf("not connected to remote robot %q at %s", rr.conf.Name, rr.conf.Address)
 	}
 	return nil
 }
@@ -171,7 +171,7 @@ func (rr *remoteRobot) Refresh(ctx context.Context) error {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
-	if err := rr.isDisconnected(); err != nil {
+	if err := rr.checkConnected(); err != nil {
 		return err
 	}
 	refresher, ok := rr.robot.(robot.Refresher)
@@ -198,8 +198,8 @@ func (rr *remoteRobot) replace(ctx context.Context, newRobot robot.Robot) {
 	}
 
 	rr.manager.replaceForRemote(ctx, actual.manager)
-	if err := rr.close(ctx); err != nil {
-		rr.Logger().Errorw("error closing remote robot client", "error", err)
+	if err := rr.Close(ctx); err != nil {
+		rr.Logger().Errorw("error closing replaced remote robot client", "error", err)
 	}
 	rr.robot = actual.robot
 	rr.conf = actual.conf
@@ -248,7 +248,8 @@ func (rr *remoteRobot) ResourceNames() []resource.Name {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
-	if err := rr.isDisconnected(); err != nil {
+	if err := rr.checkConnected(); err != nil {
+		rr.Logger().Errorw("failed to get remote resource names", "error", err)
 		return []resource.Name{}
 	}
 	newNames := make([]resource.Name, 0, len(rr.manager.ResourceNames()))
@@ -268,7 +269,7 @@ func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
-	if err := rr.isDisconnected(); err != nil {
+	if err := rr.checkConnected(); err != nil {
 		return nil, err
 	}
 	newName := rr.unprefixResourceName(name)
@@ -288,10 +289,6 @@ func (rr *remoteRobot) Logger() golog.Logger {
 }
 
 func (rr *remoteRobot) Close(ctx context.Context) error {
-	return rr.close(ctx)
-}
-
-func (rr *remoteRobot) close(ctx context.Context) error {
 	if rr.cancelBackgroundWorkers != nil {
 		rr.cancelBackgroundWorkers()
 	}
