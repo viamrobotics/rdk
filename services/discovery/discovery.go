@@ -5,7 +5,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
-"github.com/edaniels/golog"
+
+	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -100,6 +101,15 @@ type (
 	}
 )
 
+// ErrDiscover indicates that a Discover function has returned an error.
+type ErrDiscover struct {
+	Key Key
+}
+
+func (e *ErrDiscover) Error() string {
+	return fmt.Sprintf("failed to get discovery for subtype %q and model %q", e.Key.SubtypeName, e.Key.Model)
+}
+
 // Discover takes a list of subtype and model name pairs and returns their corresponding
 // discoveries.
 func (s *discoveryService) Discover(ctx context.Context, keys []Key) ([]Discovery, error) {
@@ -113,13 +123,14 @@ func (s *discoveryService) Discover(ctx context.Context, keys []Key) ([]Discover
 	for key := range deduped {
 		discoveryFunction, ok := DiscoveryFunctionLookup(key.SubtypeName, key.Model)
 		if !ok {
-			return nil, fmt.Errorf("no discovery function registered for %q and model %q.", key.SubtypeName, key.Model)
+			s.logger.Warnw("no discovery function registered", "subtype", key.SubtypeName, "model", key.Model)
+			continue
 		}
 
 		if discoveryFunction != nil {
 			discovered, err := discoveryFunction(ctx, key.SubtypeName, key.Model)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get discovery for subtype %q and model %q", key.SubtypeName, key.Model)
+				return nil, &ErrDiscover{key}
 			}
 			discoveries = append(discoveries, Discovery{Key: key, Discovered: discovered})
 		}
