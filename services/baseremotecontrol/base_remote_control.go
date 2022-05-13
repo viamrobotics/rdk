@@ -153,7 +153,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 		}
 
 		// Skip minor adjustments in instructions as to not overload system
-		if math.Abs(mmPerSec-oldMmPerSec) < 0.15 && math.Abs(angleDeg-oldAngleDeg) < 0.15 {
+		if math.Abs(mmPerSec-oldMmPerSec) < 0.05 && math.Abs(angleDeg-oldAngleDeg) < 0.05 {
 			return
 		}
 
