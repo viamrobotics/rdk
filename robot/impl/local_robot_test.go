@@ -620,9 +620,9 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	expectedRemotes := []string{"foo"}
 
 	test.That(
-		t, rtestutils.NewStringNameSet(remotes2...),
+		t, utils.NewStringSet(remotes2...),
 		test.ShouldResemble,
-		rtestutils.NewStringNameSet(expectedRemotes...),
+		utils.NewStringSet(expectedRemotes...),
 	)
 
 	statusSvc, err := status.FromRobot(r2)
