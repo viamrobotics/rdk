@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
@@ -18,13 +19,19 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Type is the type of service, set of implmented control modes and maxSpeed and maxAngle parameters.
-// Note: these constants are flexible and may be tweaking.
+// Constants for the system including the max speed and angle (TBD: allow to be set as config vars)
+// as well as the various control modes including oneJoystick (control via a joystick), triggerSpeed
+// (triggers control speed and joystick angle), button (four buttons X, Y, A, B to  control speed and
+// angle) and arrow (arrows buttons used to control speed and angle). A distance ratio is used as well
+// to account for the base's need for a disatnce parameter, this vlaue is arbitrarily large such that
+// holding a button/joystick in position will not cause unexpected stops to quickly.
 const (
-	oneJoyStickControl = controlMode(iota)
+	joyStickControl = controlMode(iota)
 	triggerSpeedControl
+	buttonControl
+	arrowControl
 	SubtypeName = resource.SubtypeName("base_remote_control")
-	maxSpeed    = 1000.0
+	maxSpeed    = 500.0
 	maxAngle    = 360.0
 	distRatio   = 10
 )
@@ -63,7 +70,7 @@ type controlMode uint8
 type Config struct {
 	BaseName            string `json:"base"`
 	InputControllerName string `json:"input_controller"`
-	JoyStickModeName    string `json:"joystick_mode"`
+	ControlModeName     string `json:"control_mode"`
 }
 
 // RemoteService is the structure of the remote service.
@@ -90,10 +97,16 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, err
 	}
 
-	controlMode1 := oneJoyStickControl
-
-	if svcConfig.JoyStickModeName == "triggerSpeedControl" {
+	var controlMode1 controlMode
+	switch svcConfig.ControlModeName {
+	case "triggerSpeedControl":
 		controlMode1 = triggerSpeedControl
+	case "buttonControl":
+		controlMode1 = buttonControl
+	case "joystickControl":
+		controlMode1 = joyStickControl
+	default:
+		controlMode1 = arrowControl
 	}
 
 	remoteSvc := &remoteService{
@@ -114,35 +127,85 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 func (svc *remoteService) start(ctx context.Context) error {
 	var mmPerSec float64
 	var angleDeg float64
+	var oldMmPerSec float64
+	var oldAngleDeg float64
+
+	buttons := make(map[input.Control]bool)
+	buttons[input.ButtonNorth] = false
+	buttons[input.ButtonSouth] = false
+	buttons[input.ButtonEast] = false
+	buttons[input.ButtonWest] = false
+
+	arrows := make(map[input.Control]float64)
+	arrows[input.AbsoluteHat0X] = 0.0
+	arrows[input.AbsoluteHat0Y] = 0.0
 
 	remoteCtl := func(ctx context.Context, event input.Event) {
-		if event.Event != input.PositionChangeAbs {
-			return
-		}
-
 		switch svc.controlMode {
 		case triggerSpeedControl:
 			mmPerSec, angleDeg = svc.triggerSpeedEvent(event, mmPerSec, angleDeg)
-		case oneJoyStickControl:
-			fallthrough
-		default:
+		case buttonControl:
+			mmPerSec, angleDeg, buttons = svc.buttonControlEvent(event, buttons)
+		case arrowControl:
+			mmPerSec, angleDeg, arrows = svc.arrowEvent(event, arrows)
+		case joyStickControl:
 			mmPerSec, angleDeg = svc.oneJoyStickEvent(event, mmPerSec, angleDeg)
 		}
 
-		// Set distance to large number as it will be overwritten (Note: could have a dependecy on speed)
-		var err error
-		if math.Abs(angleDeg) < 0.99 && math.Abs(mmPerSec) > 0.1 {
-			err = svc.base.MoveArc(ctx, maxSpeed*distRatio, mmPerSec*maxSpeed*-1, angleDeg*maxAngle, true)
-		} else {
-			err = svc.base.MoveArc(ctx, maxSpeed*distRatio, 0, angleDeg*maxAngle, true)
+		// Skip minor adjustments in instructions as to not overload system
+		if math.Abs(mmPerSec-oldMmPerSec) < 0.15 && math.Abs(angleDeg-oldAngleDeg) < 0.15 {
+			return
 		}
+
+		var err error
+		if svc.controlMode == joyStickControl {
+			err = svc.base.SetPower(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{Z: angleDeg})
+		} else {
+			var d int
+			var s float64
+			var a float64
+
+			switch {
+			case math.Abs(mmPerSec) < 0.15 && math.Abs(angleDeg) < 0.25:
+				// Stop
+				d = int(maxSpeed * distRatio)
+				s = 0.0
+				a = angleDeg * maxAngle * -1
+			case math.Abs(angleDeg) < 0.25:
+				// Move Straight
+				d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
+				s = mmPerSec * maxSpeed
+				a = math.Abs(angleDeg * maxAngle * distRatio)
+			case math.Abs(mmPerSec) < 0.15:
+				// Spin
+				d = int(0)
+				s = angleDeg * maxSpeed
+				a = math.Abs(angleDeg * maxAngle * distRatio / 2)
+			default:
+				// Move Arc
+				d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
+				s = mmPerSec * maxSpeed
+				a = angleDeg*maxAngle*distRatio*2 - 1
+			}
+
+			err = svc.base.MoveArc(ctx, d, s, a)
+		}
+
 		if err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)
+		} else {
+			oldMmPerSec = mmPerSec
+			oldAngleDeg = angleDeg
 		}
 	}
 
 	for _, control := range svc.controllerInputs() {
-		err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl)
+		var err error
+		if svc.controlMode == buttonControl {
+			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.ButtonChange}, remoteCtl)
+		} else {
+			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl)
+		}
 		if err != nil {
 			return err
 		}
@@ -153,7 +216,12 @@ func (svc *remoteService) start(ctx context.Context) error {
 // Close out of all remote control related systems.
 func (svc *remoteService) Close(ctx context.Context) error {
 	for _, control := range svc.controllerInputs() {
-		err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, nil)
+		var err error
+		if svc.controlMode == buttonControl {
+			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.ButtonChange}, nil)
+		} else {
+			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, nil)
+		}
 		if err != nil {
 			return err
 		}
@@ -166,38 +234,82 @@ func (svc *remoteService) controllerInputs() []input.Control {
 	switch svc.controlMode {
 	case triggerSpeedControl:
 		return []input.Control{input.AbsoluteX, input.AbsoluteZ, input.AbsoluteRZ}
-	case oneJoyStickControl:
-		fallthrough
-	default:
+	case arrowControl:
+		return []input.Control{input.AbsoluteHat0X, input.AbsoluteHat0Y}
+	case buttonControl:
+		return []input.Control{input.ButtonNorth, input.ButtonSouth, input.ButtonEast, input.ButtonWest}
+	case joyStickControl:
 		return []input.Control{input.AbsoluteX, input.AbsoluteY}
 	}
+	return []input.Control{}
 }
 
-// triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left jostick to
+// triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
 // control the angle.
 func (svc *remoteService) triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
-	oldSpeed := speed
-	oldAngle := angle
-
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteZ:
 		speed -= 0.05
 		speed = math.Max(-1, speed)
-		angle = oldAngle
 	case input.AbsoluteRZ:
 		speed += 0.05
 		speed = math.Min(1, speed)
-		angle = oldAngle
 	case input.AbsoluteX:
 		angle = event.Value
-		speed = oldSpeed
-	case input.AbsoluteY, input.AbsoluteHat0X, input.AbsoluteHat0Y, input.AbsoluteRX, input.AbsoluteRY,
-		input.ButtonEStop, input.ButtonEast, input.ButtonLT,
-		input.ButtonLThumb, input.ButtonMenu, input.ButtonNorth, input.ButtonRT, input.ButtonRThumb,
-		input.ButtonRecord, input.ButtonSelect, input.ButtonSouth, input.ButtonStart, input.ButtonWest:
+	default:
+		return speed, angle
 	}
 
-	return svc.speedAndAngleMathMag(speed, angle, oldSpeed)
+	return speed, angle
+}
+
+// buttonControlEvent takes inputs from the gamepad allowing the X and B buttons to control speed and Y and A buttons to control angle.
+func (svc *remoteService) buttonControlEvent(event input.Event, buttons map[input.Control]bool) (float64, float64, map[input.Control]bool) {
+	var speed float64
+	var angle float64
+
+	//nolint:exhaustive
+	switch event.Event {
+	case input.ButtonPress:
+		buttons[event.Control] = true
+	case input.ButtonRelease:
+		buttons[event.Control] = false
+	default:
+		return 0.0, 0.0, buttons
+	}
+
+	if buttons[input.ButtonNorth] == buttons[input.ButtonSouth] {
+		speed = 0.0
+	} else {
+		if buttons[input.ButtonNorth] {
+			speed = 1.0
+		} else {
+			speed = -1.0
+		}
+	}
+
+	if buttons[input.ButtonEast] == buttons[input.ButtonWest] {
+		angle = 0.0
+	} else {
+		if buttons[input.ButtonEast] {
+			angle = -1.0
+		} else {
+			angle = 1.0
+		}
+	}
+
+	return speed, angle, buttons
+}
+
+// arrowControlEvent takes inputs from the gamepad allowing the arrow buttons to control speed and angle.
+func (svc *remoteService) arrowEvent(event input.Event, arrows map[input.Control]float64) (float64, float64, map[input.Control]float64) {
+	arrows[event.Control] = -1.0 * event.Value
+
+	speed := arrows[input.AbsoluteHat0Y]
+	angle := arrows[input.AbsoluteHat0X]
+
+	return speed, angle, arrows
 }
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
@@ -205,40 +317,17 @@ func (svc *remoteService) oneJoyStickEvent(event input.Event, speed float64, ang
 	oldSpeed := speed
 	oldAngle := angle
 
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteY:
-		speed = event.Value
+		speed = -1.0 * event.Value
 		angle = oldAngle
 	case input.AbsoluteX:
-		angle = event.Value
+		angle = -1.0 * event.Value
 		speed = oldSpeed
-	case input.AbsoluteHat0X, input.AbsoluteHat0Y, input.AbsoluteRX, input.AbsoluteRY,
-		input.AbsoluteRZ, input.AbsoluteZ, input.ButtonEStop, input.ButtonEast, input.ButtonLT,
-		input.ButtonLThumb, input.ButtonMenu, input.ButtonNorth, input.ButtonRT, input.ButtonRThumb,
-		input.ButtonRecord, input.ButtonSelect, input.ButtonSouth, input.ButtonStart, input.ButtonWest:
-	}
-
-	return svc.speedAndAngleMathMag(speed, angle, oldSpeed)
-}
-
-// SpeedAndAngleMathMag utilizes a cut-off and the magnitude of the speed and angle to dictate mmPerSec and
-// angleDeg.
-func (svc *remoteService) speedAndAngleMathMag(speed float64, angle float64, oldSpeed float64) (float64, float64) {
-	var newSpeed float64
-	var newAngle float64
-
-	mag := math.Sqrt(speed*speed + angle*angle)
-
-	switch {
-	case math.Abs(speed) < 0.25 && mag > 0.25:
-		newSpeed = oldSpeed
-		newAngle = angle
-	case math.Abs(speed) < 0.25:
-		newSpeed = 0
-		newAngle = angle
 	default:
-		newSpeed = speed
-		newAngle = angle
+		return 0.0, 0.0
 	}
-	return newSpeed, newAngle
+
+	return speed, angle
 }
