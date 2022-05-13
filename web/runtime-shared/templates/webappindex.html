@@ -190,7 +190,6 @@
       async function updateStatus(grpcStatus) {
         var rawStatus = {};
         var status = {};
-        var motorStatuses = [];
 
         grpcStatus.forEach((s) => {
           let nameObj = s.getName().toObject();
@@ -200,14 +199,10 @@
           let nameStr = theApp.resourceNameToString(nameObj);
           rawStatus[nameStr] = statusJs;
           status[nameStr] = fixed;
-          if (nameStr.indexOf('rdk:component:motor') >= 0) {
-            motorStatuses.push(fixed.isOn)
-          }
         });
 
         theData.rawStatus = rawStatus;
         theData.status = status;
-        theData.baseRunStatus = !motorStatuses.some(x => x === false);
       }
 
       async function startup() {
