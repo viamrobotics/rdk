@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
@@ -156,34 +157,41 @@ func (svc *remoteService) start(ctx context.Context) error {
 			return
 		}
 
-		var d int
-		var s float64
-		var a float64
+		var err error
+		if svc.controlMode == joyStickControl {
+			err = svc.base.SetPower(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{Z: angleDeg})
+		} else {
+			var d int
+			var s float64
+			var a float64
 
-		switch {
-		case math.Abs(mmPerSec) < 0.15 && math.Abs(angleDeg) < 0.25:
-			// Stop
-			d = int(maxSpeed * distRatio)
-			s = 0.0
-			a = angleDeg * maxAngle * -1
-		case math.Abs(angleDeg) < 0.25:
-			// Move Straight
-			d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
-			s = mmPerSec * maxSpeed
-			a = math.Abs(angleDeg * maxAngle * distRatio)
-		case math.Abs(mmPerSec) < 0.15:
-			// Spin
-			d = int(0)
-			s = angleDeg * maxSpeed
-			a = math.Abs(angleDeg * maxAngle * distRatio / 2)
-		default:
-			// Move Arc
-			d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
-			s = mmPerSec * maxSpeed
-			a = angleDeg*maxAngle*distRatio*2 - 1
+			switch {
+			case math.Abs(mmPerSec) < 0.15 && math.Abs(angleDeg) < 0.25:
+				// Stop
+				d = int(maxSpeed * distRatio)
+				s = 0.0
+				a = angleDeg * maxAngle * -1
+			case math.Abs(angleDeg) < 0.25:
+				// Move Straight
+				d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
+				s = mmPerSec * maxSpeed
+				a = math.Abs(angleDeg * maxAngle * distRatio)
+			case math.Abs(mmPerSec) < 0.15:
+				// Spin
+				d = int(0)
+				s = angleDeg * maxSpeed
+				a = math.Abs(angleDeg * maxAngle * distRatio / 2)
+			default:
+				// Move Arc
+				d = int(math.Abs(mmPerSec * maxSpeed * distRatio))
+				s = mmPerSec * maxSpeed
+				a = angleDeg*maxAngle*distRatio*2 - 1
+			}
+
+			err = svc.base.MoveArc(ctx, d, s, a)
 		}
 
-		if err := svc.base.MoveArc(ctx, d, s, a); err != nil {
+		if err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)
 		} else {
 			oldMmPerSec = mmPerSec
