@@ -309,7 +309,7 @@ func TestDataProcessCartographer(t *testing.T) {
 	n := 5
 	slamSvc.startDataProcess()
 
-	// Note: timePading is required to allow the sub processes to be fully completed during test
+	// Note: timePadding is required to allow the sub processes to be fully completed during test
 	time.Sleep(time.Millisecond * time.Duration((n)*(slamSvc.dataRateMs+timePadding)))
 	slamSvc.Close()
 
@@ -471,7 +471,7 @@ func TestDataProcessORBSLAM(t *testing.T) {
 	n := 5
 	slamSvc.startDataProcess()
 
-	// Note: timePading is required to allow the sub processes to be fully completed during test
+	// Note: timePadding is required to allow the sub processes to be fully completed during test
 	time.Sleep(time.Millisecond * time.Duration((n)*(slamSvc.dataRateMs+timePadding)))
 	slamSvc.Close()
 
