@@ -15,16 +15,6 @@ func NewResourceNameSet(resourceNames ...resource.Name) map[resource.Name]struct
 	return set
 }
 
-// NewStringNameSet returns a flattened set of strings from a collection of strings objects
-// for the purposes of comparison in automated tests.
-func NewStringNameSet(names ...string) map[string]struct{} {
-	set := make(map[string]struct{}, len(names))
-	for _, val := range names {
-		set[val] = struct{}{}
-	}
-	return set
-}
-
 // ExtractNames takes a slice of resource.Name objects
 // and returns a slice of name strings for the purposes of comparison
 // in automated tests.
