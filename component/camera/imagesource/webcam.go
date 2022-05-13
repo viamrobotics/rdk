@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -61,12 +62,12 @@ func init() {
 			return result, nil
 		}, &WebcamAttrs{})
 
-	discovery.RegisterDiscoveryFunction(camera.SubtypeName, model, Discover)
-}
-
-// CameraConfigs is a list of CameraConfig objects
-type CameraConfigs struct {
-	configs []CameraConfig
+	// discovery.RegisterDiscoveryFunction(camera.SubtypeName, model, Discover)
+	discovery.RegisterDiscoveryFunction(camera.SubtypeName, model,
+		func(ctx context.Context, subtypeName resource.SubtypeName, model_ string) (interface{}, error) {
+			return Discover(ctx, subtypeName, model_)
+		},
+	)
 }
 
 // CameraConfig is collection of configuration options for a camera.
@@ -77,8 +78,8 @@ type CameraConfig struct {
 }
 
 // Discover webcam attributes.
-func Discover(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error) {
-	var result []CameraConfig
+func Discover(ctx context.Context, subtypeName resource.SubtypeName, model string) (*pb.Webcams, error) {
+	var webcams []*pb.Webcam
 	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
 	for _, d := range drivers {
 		driverInfo := d.Info()
@@ -91,19 +92,26 @@ func Discover(ctx context.Context, subtypeName resource.SubtypeName, model strin
 			continue
 		}
 
-		conf := CameraConfig{
+		wc := &pb.Webcam{
 			Label:      driverInfo.Label,
-			Status:     d.Status(),
-			Properties: []prop.Media{},
+			Status:     string(d.Status()),
+			Properties: make([]*pb.Property, 0, len(d.Properties())),
 		}
 
 		for _, prop := range props {
-			conf.Properties = append(conf.Properties, prop)
+			pbProp := &pb.Property{
+				Video: &pb.Video{
+					Width:       int32(prop.Video.Width),
+					Height:      int32(prop.Video.Height),
+					FrameFormat: string(prop.Video.FrameFormat),
+				},
+			}
+			wc.Properties = append(wc.Properties, pbProp)
 		}
-		result = append(result, conf)
+		webcams = append(webcams, wc)
 	}
-	rlog.Logger.Debugw("MP: got camera configs", "configs", result)
-	return CameraConfigs{configs: result}, nil
+	rlog.Logger.Debugw("MP: got camera configs", "configs", webcams)
+	return &pb.Webcams{Webcams: webcams}, nil
 }
 
 func getProperties(d driver.Driver) ([]prop.Media, error) {
