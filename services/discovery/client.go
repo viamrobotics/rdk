@@ -51,7 +51,7 @@ func (c *client) Discover(ctx context.Context, keys []Key) ([]Discovery, error) 
 	for _, key := range keys {
 		pbKeys = append(
 			pbKeys,
-			&pb.Key{Subtype: string(key.subtypeName), Model: key.model},
+			&pb.Key{Subtype: string(key.SubtypeName), Model: key.Model},
 		)
 	}
 
@@ -63,8 +63,8 @@ func (c *client) Discover(ctx context.Context, keys []Key) ([]Discovery, error) 
 	discoveries := make([]Discovery, 0, len(resp.Discovery))
 	for _, discovery := range resp.Discovery {
 		key := Key{
-			subtypeName: resource.SubtypeName(discovery.Key.Subtype),
-			model:       discovery.Key.Model,
+			SubtypeName: resource.SubtypeName(discovery.Key.Subtype),
+			Model:       discovery.Key.Model,
 		}
 		discoveries = append(
 			discoveries, Discovery{
