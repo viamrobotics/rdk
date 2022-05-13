@@ -87,6 +87,7 @@ func dialRemote(ctx context.Context, config config.Remote, logger golog.Logger, 
 			config.Address,
 			logger,
 			client.WithDialOptions(dialOpts...),
+			client.WithCheckConnectedEvery(config.ConnectionCheckInterval),
 			client.WithReconnectEvery(config.ReconnectInterval),
 		)
 		if err != nil {

@@ -688,27 +688,33 @@ func TestClientDisconnect(t *testing.T) {
 
 	go gServer.Serve(listener)
 
+	start := time.Now()
+
+	test.That(t, err, test.ShouldBeNil)
+
 	dur := 100 * time.Millisecond
 	client, err := New(
 		context.Background(),
 		listener.Addr().String(),
 		logger,
-		WithReconnectEvery(dur),
+		WithCheckConnectedEvery(dur),
+		WithReconnectEvery(2*dur),
 	)
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}()
-	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, client.Connected(), test.ShouldBeTrue)
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 1)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 
-	changeCh := client.Changed()
 	gServer.Stop()
-	test.That(t, <-changeCh, test.ShouldBeTrue)
+	test.That(t, <-client.Changed(), test.ShouldBeTrue)
 	test.That(t, client.Connected(), test.ShouldBeFalse)
+	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, dur)
+	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 2*dur)
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeError, client.checkConnected())
@@ -741,12 +747,13 @@ func TestClientReconnect(t *testing.T) {
 		context.Background(),
 		listener.Addr().String(),
 		logger,
+		WithCheckConnectedEvery(dur),
 		WithReconnectEvery(dur),
 	)
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}()
-	test.That(t, err, test.ShouldBeNil)
 	gServer.Stop()
 
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
