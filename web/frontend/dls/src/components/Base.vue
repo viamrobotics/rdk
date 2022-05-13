@@ -6,12 +6,7 @@
         <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
       </div>
       <div class="p-2 float-right">
-        <ViamButton
-          color="danger"
-          group
-          variant="primary"
-          @click="baseStop"
-        >
+        <ViamButton color="danger" group variant="primary" @click="baseStop">
           <template v-slot:icon>
             <ViamIcon color="white" :path="mdiCloseOctagonOutline"
               >STOP</ViamIcon
@@ -148,9 +143,20 @@
                 class="text-xs pr-2 w-32"
                 >Speed (mm/sec)
               </ViamInput>
-              <input type="hidden" id="distance" :value="maxDistance" v-if="(movementMode === 'Straight' && movementType === 'Continous')">
+              <input
+                type="hidden"
+                id="distance"
+                :value="maxDistance"
+                v-if="
+                  movementMode === 'Straight' && movementType === 'Continous'
+                "
+              />
               <ViamInput
-                v-if="(movementMode === 'Straight' && movementType === 'Discrete') || movementMode === 'Arc'"
+                v-if="
+                  (movementMode === 'Straight' &&
+                    movementType === 'Discrete') ||
+                  movementMode === 'Arc'
+                "
                 type="number"
                 color="primary"
                 group="False"

@@ -67,7 +67,7 @@ export default class NumberInput extends Vue {
   public placeholder!: string;
   @Prop({ default: false })
   public small!: boolean;
-  @Prop({ default: "DefaultId" }) 
+  @Prop({ default: "DefaultId" })
   id!: string;
 
   mdiChevronDown = mdiChevronDown;
