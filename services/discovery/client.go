@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -56,6 +57,7 @@ func (c *client) Discover(ctx context.Context, keys []Key) ([]Discovery, error) 
 	}
 
 	resp, err := c.client.Discover(ctx, &pb.DiscoverRequest{Keys: pbKeys})
+	fmt.Printf("response in client: %#v\n", resp)
 	if err != nil {
 		return nil, err
 	}
