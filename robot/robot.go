@@ -69,9 +69,6 @@ type RemoteRobot interface {
 
 	// Connected returns whether the remote is connected or not.
 	Connected() bool
-
-	// Changed watches for whether the remote has changed.
-	Changed() <-chan bool
 }
 
 // AllResourcesByName returns an array of all resources that have this simple name.

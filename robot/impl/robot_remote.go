@@ -98,6 +98,11 @@ func dialRemote(ctx context.Context, config config.Remote, logger golog.Logger, 
 	return nil, outerError
 }
 
+type changeable interface {
+	// Changed watches for whether the remote has changed.
+	Changed() <-chan bool
+}
+
 // A remoteRobot implements wraps an robot.Robot. It
 // assists in the un/prefixing of part names for RemoteRobots that
 // are not aware they are integrated elsewhere.
@@ -136,6 +141,10 @@ func (rr *remoteRobot) startWatcher(ctx context.Context) {
 	rr.activeBackgroundWorkers.Add(1)
 	cancelCtx, cancel := context.WithCancel(ctx)
 	rr.cancelBackgroundWorkers = cancel
+	changed, ok := rr.robot.(changeable)
+	if !ok {
+		return
+	}
 	utils.ManagedGo(func() {
 		for {
 			select {
@@ -146,7 +155,7 @@ func (rr *remoteRobot) startWatcher(ctx context.Context) {
 			select {
 			case <-cancelCtx.Done():
 				return
-			case <-rr.robot.Changed():
+			case <-changed.Changed():
 				if rr.robot.Connected() {
 					rr.mu.Lock()
 					newManager := managerForRemoteRobot(rr.robot)
