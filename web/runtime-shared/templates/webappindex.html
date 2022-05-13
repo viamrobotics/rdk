@@ -928,8 +928,26 @@
               const mimeType = "pointcloud/pcd";
               pcdLoad(`data:${mimeType};base64,${data}`);
             },
-            doSelectObject: function (selection) {
+            doPCDDownload: function(data) {
+              const mimeType = "pointcloud/pcd";
+              window.open(`data:${mimeType};base64,${data}`);
+            },
+            doSelectObject: function (selection, index) {
                 console.log(selection);
+                console.log(index);
+                switch (selection) {
+                  case "Center Point":
+                    this.doSegmentLoad(index);
+                    break;
+                  case "Bounding Box":
+                    this.doBoundingBoxLoad(index);
+                    break;
+                  case "Cropped":
+                    this.doPointLoad(index);
+                    break;
+                  default:
+                    break;
+                }
             },
             setNavigationMode: function (mode) {
               let pbMode = navigationApi.Mode.MODE_UNSPECIFIED;
@@ -1890,6 +1908,7 @@
                       :parameter-type="parameterType"
                       :segment-algo="segmentAlgo"
                       :segment-objects="objects"
+                      :find-status="pcdClick.calculatingSegments"
                       @full-image="doPCDLoad(fullcloud)"
                       @find-segments="findSegments(segmentAlgo, segmenterParameters)"
                       @change-segmenter="getSegmenterParameters"
@@ -1903,7 +1922,7 @@
                       @segment-load="doSegmentLoad"
                       @bounding-box-load="doBoundingBoxLoad"
                       @download-screenshot="renderFrame(streamName)"
-                      @download-raw-data="doPCDLoad(fullcloud)"
+                      @download-raw-data="doPCDDownload(fullcloud)"
                       @select-object="doSelectObject"
               ></camera>
           </div>
