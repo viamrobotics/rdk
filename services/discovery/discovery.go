@@ -5,8 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-
-	"github.com/edaniels/golog"
+"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -96,8 +95,8 @@ type (
 	}
 
 	Key struct {
-		subtypeName resource.SubtypeName
-		model       string
+		SubtypeName resource.SubtypeName
+		Model       string
 	}
 )
 
@@ -112,15 +111,15 @@ func (s *discoveryService) Discover(ctx context.Context, keys []Key) ([]Discover
 
 	discoveries := make([]Discovery, 0, len(deduped))
 	for key := range deduped {
-		discoveryFunction, ok := DiscoveryFunctionLookup(key.subtypeName, key.model)
+		discoveryFunction, ok := DiscoveryFunctionLookup(key.SubtypeName, key.Model)
 		if !ok {
-			return nil, fmt.Errorf("no discovery function registered for %q and model %q.", key.subtypeName, key.model)
+			return nil, fmt.Errorf("no discovery function registered for %q and model %q.", key.SubtypeName, key.Model)
 		}
 
 		if discoveryFunction != nil {
-			discovered, err := discoveryFunction(ctx, key.subtypeName, key.model)
+			discovered, err := discoveryFunction(ctx, key.SubtypeName, key.Model)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get discovery for subtype %q and model %q", key.subtypeName, key.model)
+				return nil, fmt.Errorf("failed to get discovery for subtype %q and model %q", key.SubtypeName, key.Model)
 			}
 			discoveries = append(discoveries, Discovery{Key: key, Discovered: discovered})
 		}
