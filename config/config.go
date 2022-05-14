@@ -218,12 +218,6 @@ func (config *Remote) Validate(path string) error {
 			return utils.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
 	}
-	if config.ConnectionCheckInterval == 0 {
-		config.ConnectionCheckInterval = 10 * time.Second
-	}
-	if config.ReconnectInterval == 0 {
-		config.ReconnectInterval = 1 * time.Second
-	}
 	if config.Secret != "" {
 		config.Auth = RemoteAuth{
 			Credentials: &rpc.Credentials{

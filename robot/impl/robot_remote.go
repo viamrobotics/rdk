@@ -6,6 +6,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -81,14 +82,22 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 
 func dialRemote(ctx context.Context, config config.Remote, logger golog.Logger, dialOpts ...rpc.DialOption) (robot.RemoteRobot, error) {
 	var outerError error
+	connectionCheckInterval := config.ConnectionCheckInterval
+	if connectionCheckInterval == 0 {
+		connectionCheckInterval = 10 * time.Second
+	}
+	reconnectInterval := config.ReconnectInterval
+	if reconnectInterval == 0 {
+		reconnectInterval = 1 * time.Second
+	}
 	for attempt := 0; attempt < 3; attempt++ {
 		robotClient, err := client.New(
 			ctx,
 			config.Address,
 			logger,
 			client.WithDialOptions(dialOpts...),
-			client.WithCheckConnectedEvery(config.ConnectionCheckInterval),
-			client.WithReconnectEvery(config.ReconnectInterval),
+			client.WithCheckConnectedEvery(connectionCheckInterval),
+			client.WithReconnectEvery(reconnectInterval),
 		)
 		if err != nil {
 			outerError = err
