@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
@@ -136,7 +137,7 @@ type interceptingGPSBase struct {
 	bearing float64 // [0-360)
 }
 
-func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPSBase, error) {
+func newInterceptingGPSBase(r robot.Robot, c config.Component) (base.LocalBase, error) {
 	baseName := c.Attributes.String("base")
 	if baseName == "" {
 		return nil, errors.New("'base' name must be set")
@@ -202,5 +203,9 @@ func (b *interceptingGPSBase) GetWidth(ctx context.Context) (int, error) {
 }
 
 func (b *interceptingGPSBase) Stop(ctx context.Context) error {
+	return nil
+}
+
+func (b *interceptingGPSBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	return nil
 }
