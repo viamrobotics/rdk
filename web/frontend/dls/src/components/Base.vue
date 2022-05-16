@@ -6,13 +6,7 @@
         <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
       </div>
       <div class="p-2 float-right">
-        <ViamButton
-          color="danger"
-          group
-          variant="primary"
-          :disabled="!baseStatus && selectedItem !== 'keyboard'"
-          @click="baseStop()"
-        >
+        <ViamButton color="danger" group variant="primary" @click="baseStop">
           <template v-slot:icon>
             <ViamIcon color="white" :path="mdiCloseOctagonOutline"
               >STOP</ViamIcon
@@ -149,15 +143,26 @@
                 class="text-xs pr-2 w-32"
                 >Speed (mm/sec)
               </ViamInput>
+              <input
+                type="hidden"
+                id="distance"
+                :value="maxDistance"
+                v-if="
+                  movementMode === 'Straight' && movementType === 'Continous'
+                "
+              />
               <ViamInput
-                v-if="movementMode === 'Straight' || movementMode === 'Arc'"
+                v-if="
+                  (movementMode === 'Straight' &&
+                    movementType === 'Discrete') ||
+                  movementMode === 'Arc'
+                "
                 type="number"
                 color="primary"
                 group="False"
                 variant="primary"
                 v-model="increment"
                 inputId="distance"
-                :disabled="movementType === 'Continous'"
                 class="text-xs pr-2 w-32"
                 >Distance (mm)
               </ViamInput>
@@ -196,7 +201,6 @@
                   color="success"
                   group
                   variant="primary"
-                  :disabled="baseStatus"
                   @click="baseRun()"
                 >
                   <template v-slot:icon>
@@ -264,9 +268,10 @@ export default class Base extends Vue {
   movementMode = "Straight";
   movementType = "Continous";
   direction = "Forwards";
-  spinType = "";
+  spinType = "Clockwise";
   increment = 1000;
   maxClusteringRadius = 90;
+  maxDistance = Math.pow(2, 32);
 
   speed = 200;
   angle = 0;
@@ -290,7 +295,7 @@ export default class Base extends Vue {
     this.movementMode = "Straight";
     this.movementType = "Continous";
     this.direction = "Forwards";
-    this.spinType = "";
+    this.spinType = "Clockwise";
   }
 
   setMovementMode(e: string): void {
@@ -318,7 +323,9 @@ export default class Base extends Vue {
       this.direction
     );
   }
-  baseStop(): void {
+  baseStop(e: Event): void {
+    e.preventDefault();
+    e.stopPropagation();
     this.$emit(
       "base-stop",
       this.movementMode,
