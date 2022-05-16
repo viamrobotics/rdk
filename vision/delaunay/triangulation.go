@@ -2,6 +2,7 @@
 package delaunay
 
 import (
+	"github.com/golang/geo/r3"
 	"math"
 
 	"github.com/pkg/errors"
@@ -69,8 +70,8 @@ func (t *Triangulation) Validate() error {
 	return nil
 }
 
-// GetTranglesPointsMap returns a map that had triangle ID as key, and points IDs as value.
-func (t *Triangulation) GetTranglesPointsMap() map[int][]int {
+// GetTrianglesPointsMap returns a map that had triangle ID as key, and points IDs as value.
+func (t *Triangulation) GetTrianglesPointsMap() map[int][]int {
 	triangles := make(map[int][]int)
 	ts := t.Triangles
 	currentTriangleID := 0
@@ -79,6 +80,26 @@ func (t *Triangulation) GetTranglesPointsMap() map[int][]int {
 		id1 := ts[i+1]
 		id2 := ts[i+2]
 		triangles[currentTriangleID] = []int{id0, id1, id2}
+		// update current triangle ID
+		currentTriangleID++
+	}
+	return triangles
+}
+
+// GetTriangles returns a slice that has triangle ID as index, and points IDs as value.
+func (t *Triangulation) GetTriangles(pts3d []r3.Vector) [][]r3.Vector {
+	triangles := make([][]r3.Vector, 0, len(t.Triangles))
+	ts := t.Triangles
+	currentTriangleID := 0
+	for i := 0; i < len(t.Triangles); i += 3 {
+		id0 := ts[i]
+		id1 := ts[i+1]
+		id2 := ts[i+2]
+		pt0 := pts3d[id0]
+		pt1 := pts3d[id1]
+		pt2 := pts3d[id2]
+		currentTriangle := []r3.Vector{pt0, pt1, pt2}
+		triangles = append(triangles, currentTriangle)
 		// update current triangle ID
 		currentTriangleID++
 	}
