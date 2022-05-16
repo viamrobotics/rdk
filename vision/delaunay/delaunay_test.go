@@ -1,6 +1,7 @@
 package delaunay
 
 import (
+	"github.com/golang/geo/r3"
 	"math"
 	"math/rand"
 	"testing"
@@ -205,6 +206,27 @@ func TestGetTriangleIdsMap(t *testing.T) {
 	// test that every triangle has 3 and only 3 points
 	for _, v := range idMap {
 		test.That(t, len(v), test.ShouldEqual, 3)
+	}
+}
+
+func TestGetTriangles(t *testing.T) {
+	points := circle(10000)
+	points3D := make([]r3.Vector, len(points))
+	for i, pt := range points {
+		pt3d := r3.Vector{pt.X, pt.Y, 1}
+		points3D[i] = pt3d
+	}
+	tri, err := Triangulate(points)
+	test.That(t, err, test.ShouldBeNil)
+	triangles := tri.Triangles
+	test.That(t, len(triangles)%3, test.ShouldEqual, 0)
+	triangles3D := tri.GetTriangles(points3D)
+	// test number of triangles
+	test.That(t, len(triangles3D), test.ShouldEqual, len(triangles)/3)
+	// test that every triangle has 3 and only 3 points
+	for _, v := range triangles3D {
+		test.That(t, len(v), test.ShouldEqual, 3)
+		test.That(t, v[0].Z, test.ShouldEqual, 1)
 	}
 }
 
