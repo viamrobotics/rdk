@@ -65,9 +65,7 @@
                       @click="refreshCamera()"
                     >
                       <template v-slot:icon>
-                        <ViamIcon color="white" :path="mdiRestore"
-                          >Refresh</ViamIcon
-                        >
+                        <ViamIcon color="white" :path="mdiRestore">Refresh</ViamIcon>
                       </template>
                       Refresh
                     </ViamButton>
@@ -112,17 +110,13 @@
                 <div class="float-right pb-4">
                   <ViamButton color="black" group variant="primary">
                     <template v-slot:icon>
-                      <ViamIcon color="white" :path="mdiRestore"
-                        >Refresh</ViamIcon
-                      >
+                      <ViamIcon color="white" :path="mdiRestore">Refresh</ViamIcon>
                     </template>
                     Refresh
                   </ViamButton>
                   <ViamButton color="primary" group variant="primary">
                     <template v-slot:icon>
-                      <ViamIcon :path="mdiImageFilterCenterFocus"
-                        >Center</ViamIcon
-                      >
+                      <ViamIcon :path="mdiImageFilterCenterFocus">Center</ViamIcon>
                     </template>
                     Center
                   </ViamButton>
@@ -138,14 +132,15 @@
                     Download Raw Data
                   </ViamButton>
                 </div>
-                <div class="clear-both h-96" id="pcd" @click="pcdClick"></div>
-                <div class="float-right">
-                  <span class="text-xs">Controls</span>
-                  <viam-info-button
-                    :iconPath="mdiInformationOutline"
-                    :infoRows="infoControls"
-                  >
-                  </viam-info-button>
+                <div class="table relative pb-6" id="pcd" @click="pcdClick">
+                  <div class="absolute r-0 bottom-0 right-0">
+                    <span class="text-xs">Controls</span>
+                    <ViamInfoButton
+                      :iconPath="mdiInformationOutline"
+                      :infoRows="infoControls"
+                    >
+                    </ViamInfoButton>
+                  </div>
                 </div>
                 <div class="grid grid-cols-1 divide-y clear-both">
                   <div>
@@ -198,9 +193,7 @@
                               :type="parameterType(param.getType())"
                               :v-model="segmenterParameters[param.getName()]"
                               id="param.getName()"
-                              v-model.number="
-                                segmenterParameters[param.getName()]
-                              "
+                              v-model.number="segmenterParameters[param.getName()]"
                               >{{ param.getName() }}</ViamInput
                             >
                           </div>
@@ -302,9 +295,7 @@
                       </div>
                     </div>
                     <div class="flex pt-4 pb-8">
-                      <table
-                        class="table-auto border-collapse border border-slate-400"
-                      >
+                      <table class="table-auto border-collapse border border-slate-400">
                         <tr>
                           <th class="border border-slate-300">Object</th>
                           <th class="border border-slate-300">PCD</th>
@@ -314,23 +305,17 @@
                         <tr>
                           <td class="border border-slate-300">Full Image</td>
                           <td class="border border-slate-300">
-                            <viam-button group @click="fullImage"
-                              >GO</viam-button
-                            >
+                            <viam-button group @click="fullImage">GO</viam-button>
                           </td>
                           <td class="border border-slate-300">--</td>
                         </tr>
                         <tr v-for="(seg, i) in objects" :key="seg">
                           <td class="border border-slate-300">Object ${i}</td>
                           <td class="border border-slate-300">
-                            <viam-button group @click="segmentLoad(i)"
-                              >GO</viam-button
-                            >
+                            <viam-button group @click="segmentLoad(i)">GO</viam-button>
                           </td>
                           <td class="border border-slate-300">
-                            <viam-button group @click="pointLoad(i)"
-                              >GO</viam-button
-                            >
+                            <viam-button group @click="pointLoad(i)">GO</viam-button>
                           </td>
                           <td class="border border-slate-300">
                             <viam-button group @click="boundingBoxLoad(i)"

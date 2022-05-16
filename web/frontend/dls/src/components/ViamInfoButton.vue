@@ -51,6 +51,7 @@ export default class ViamInfoButton extends Vue {
   display: none;
 }
 .viam-info-popper .popper {
+  min-width: 325px;
   border: 1px solid black;
   border-radius: 0;
   box-shadow: none;
