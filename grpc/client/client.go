@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -157,12 +156,12 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 			return
 		}
 		if !rc.Connected() {
-			rc.Logger().Debugf("trying to reconnect to remote at address %v", rc.address)
+			rc.Logger().Debugw("trying to reconnect to remote at address", "address", rc.address)
 			if err := rc.connect(ctx); err != nil {
-				rc.Logger().Debugw(fmt.Sprintf("failed to reconnect remote at address %v", rc.address), "error", err, "address", rc.address)
+				rc.Logger().Debugw("failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
-			rc.Logger().Debugf("successfully reconnected remote at address %v", rc.address)
+			rc.Logger().Debugf("successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -191,9 +190,10 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 			}
 			if outerError != nil {
 				rc.Logger().Errorw(
-					fmt.Sprintf("lost connection to remote at address %v, retrying in %v sec", rc.address, reconnectEvery.Seconds()),
+					"lost connection to remote",
 					"error", outerError,
 					"address", rc.address,
+					"reconnect_interval", reconnectEvery.Seconds(),
 				)
 				rc.mu.Lock()
 				rc.connected = false
