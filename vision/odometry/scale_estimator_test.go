@@ -137,10 +137,16 @@ func TestEstimateCameraHeight(t *testing.T) {
 	K := convert2DSliceToDense(gt.K)
 	T := convert2DSliceToDense(gt.T)
 	R := convert2DSliceToDense(gt.R)
+	intrinsics := transform.PinholeCameraIntrinsics{
+		Fx:  K.At(0, 0),
+		Fy:  K.At(1, 1),
+		Ppx: K.At(0, 2),
+		Ppy: K.At(1, 2),
+	}
 	poseMat := mat.NewDense(3, 4, nil)
 	poseMat.Augment(R, T)
 	pose := transform.NewCamPoseFromMat(poseMat)
-	height, err := EstimateCameraHeight(pts1, pts2, pose, 0.97, 0.005, K)
+	height, err := EstimateCameraHeight(pts1, pts2, pose, 0.97, 0.005, &intrinsics)
 	test.That(t, err, test.ShouldBeNil)
 	heightMessage := fmt.Sprintf("Estimated Height: %f", height)
 	logger.Info(heightMessage)
