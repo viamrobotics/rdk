@@ -8,14 +8,14 @@ import (
 	"math"
 	"os"
 
-	"gonum.org/v1/gonum/mat"
-
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
+	"gonum.org/v1/gonum/mat"
+
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/utils"
 )
 
 // DistortionModel TODO.
