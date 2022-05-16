@@ -261,7 +261,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		// TODO(RDK-119) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
-			r.logger.Debugf("not found while grabbing all resources during default svc refresh: %w", err)
+			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
 		}
 		resources[n] = res
 	}
