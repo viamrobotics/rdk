@@ -63,6 +63,14 @@ type LocalRobot interface {
 	StartWeb(ctx context.Context, o weboptions.Options) error
 }
 
+// A RemoteRobot is a Robot that was created through a connection.
+type RemoteRobot interface {
+	Robot
+
+	// Connected returns whether the remote is connected or not.
+	Connected() bool
+}
+
 // AllResourcesByName returns an array of all resources that have this simple name.
 func AllResourcesByName(r Robot, name string) []interface{} {
 	all := []interface{}{}
