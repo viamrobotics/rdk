@@ -11,9 +11,10 @@ type (
 const (
 	dense = slamLibrary(iota)
 	sparse
-	mono = mode("mono")
-	rgbd = mode("rgbd")
-	twod = mode("2d")
+	mono   = mode("mono")
+	rgbd   = mode("rgbd")
+	twod   = mode("2d")
+	threed = mode("3d")
 )
 
 var slamLibraries = map[string]metadata{
