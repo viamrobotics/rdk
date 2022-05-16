@@ -508,7 +508,6 @@ func TestSLAMProcess(t *testing.T) {
 		inputFilePattern:        "0:1000:0",
 		cancelFunc:              cancelFunc,
 		activeBackgroundWorkers: &sync.WaitGroup{},
-		autoStart:               false,
 	}
 
 	err := slamSvc.startSLAMProcess(cancelCtx)

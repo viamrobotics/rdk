@@ -423,7 +423,7 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context) (string, e
 	case rgbd:
 		// TODO 05/12/2022: Soon wil be deprecated into pointcloud files or rgb and monochromatic depth file. We will want picture pair.
 		fileType = ".both"
-	case twod:
+	case twod, threed:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
 
