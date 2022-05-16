@@ -516,13 +516,11 @@
 
               const arcInputs = window.computeKeyboardBaseControls(controls);
               console.log("Arc inputs: %o", arcInputs);
-              baseRunStatus = true;
               BaseControlHelper.moveArc(baseName,
                     arcInputs.distance,
                     arcInputs.speed,
                     arcInputs.angle,
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                     });
             },
@@ -531,7 +529,6 @@
               let req = new baseApi.StopRequest();
               req.setName(name);
               baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
-              this.baseRunStatus = false;
             },
             handleBaseAction : function(movementMode, movementType, spinType, direction) {
               this.baseRunStatus = true;
@@ -551,7 +548,6 @@
                     document.getElementById("distance").value * 1, 
                     document.getElementById("speed").value, 
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                     });
               } else if (
@@ -563,7 +559,6 @@
                     document.getElementById("distance").value * 1, 
                     document.getElementById("speed").value, 
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                     });
               } else if (
@@ -575,7 +570,6 @@
                     document.getElementById("distance").value * -1, 
                     document.getElementById("speed").value, 
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                     });
               } else if (
@@ -587,7 +581,6 @@
                     document.getElementById("distance").value * -1, 
                     document.getElementById("speed").value, 
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
               } else if (
@@ -600,7 +593,6 @@
                     document.getElementById("speed").value,
                     document.getElementById("angle").value,
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
               } else if (
@@ -613,7 +605,6 @@
                     document.getElementById("speed").value,
                     document.getElementById("angle").value,
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
               } else if (
@@ -626,7 +617,6 @@
                     document.getElementById("speed").value,
                     document.getElementById("angle").value,
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
               } else if (
@@ -639,7 +629,6 @@
                     document.getElementById("speed").value,
                     document.getElementById("angle").value,
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
               } else if (
@@ -650,7 +639,6 @@
                     document.getElementById("angle").value * 1, 
                     document.getElementById("speed").value, 
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
               } else if (
@@ -661,7 +649,6 @@
                     document.getElementById("angle").value * -1, 
                     document.getElementById("speed").value, 
                     (err, resp) => {
-                      this.baseRunStatus = false;
                       return grpcCallback(err, resp)
                   });
               }
@@ -1933,7 +1920,7 @@
                       @full-image="doPCDLoad(fullcloud)"
                       @find-segments="findSegments(segmentAlgo, segmenterParameters)"
                       @change-segmenter="getSegmenterParameters"
-                      @toggle-camera="viewManualFrame(streamName)"
+                      @toggle-camera="viewCamera(streamName)"
                       @refresh-camera="viewCameraFrame"
                       @selected-camera-view="viewCameraFrame"
                       @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
