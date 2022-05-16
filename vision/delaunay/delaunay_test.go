@@ -199,7 +199,7 @@ func TestGetTriangleIdsMap(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	triangles := tri.Triangles
 	test.That(t, len(triangles)%3, test.ShouldEqual, 0)
-	idMap := tri.GetTranglesPointsMap()
+	idMap := tri.GetTrianglesPointsMap()
 	// test number of triangles
 	test.That(t, len(idMap), test.ShouldEqual, len(triangles)/3)
 	// test that every triangle has 3 and only 3 points
