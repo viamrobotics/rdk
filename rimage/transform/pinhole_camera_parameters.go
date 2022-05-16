@@ -2,6 +2,7 @@ package transform
 
 import (
 	"encoding/json"
+	"gonum.org/v1/gonum/mat"
 	"image"
 	"image/color"
 	"io/ioutil"
@@ -366,4 +367,19 @@ func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics, 
 		}
 	}
 	return pc, nil
+}
+
+// GetCameraMatrix creates a new camera matrix and returns it.
+// Camera matrix:
+// [[fx 0 ppx],
+//  [0 fy ppy],
+//  [0 0  1]]
+func (params *PinholeCameraIntrinsics) GetCameraMatrix() *mat.Dense {
+	cameraMatrix := mat.NewDense(3, 3, nil)
+	cameraMatrix.Set(0, 0, params.Fx)
+	cameraMatrix.Set(1, 1, params.Fy)
+	cameraMatrix.Set(0, 2, params.Ppx)
+	cameraMatrix.Set(1, 2, params.Ppy)
+	cameraMatrix.Set(2, 2, 1)
+	return cameraMatrix
 }
