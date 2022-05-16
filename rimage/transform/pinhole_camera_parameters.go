@@ -2,20 +2,20 @@ package transform
 
 import (
 	"encoding/json"
-	"gonum.org/v1/gonum/mat"
 	"image"
 	"image/color"
 	"io/ioutil"
 	"math"
 	"os"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/utils"
 )
 
 // DistortionModel TODO.

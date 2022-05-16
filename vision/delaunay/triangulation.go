@@ -2,9 +2,10 @@
 package delaunay
 
 import (
-	"github.com/golang/geo/r3"
 	"math"
 
+
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 )
 

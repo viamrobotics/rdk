@@ -1,10 +1,11 @@
 package delaunay
 
 import (
-	"github.com/golang/geo/r3"
 	"math"
 	"math/rand"
 	"testing"
+
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/test"
 )
