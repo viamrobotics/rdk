@@ -403,7 +403,7 @@ export default class Base extends Vue {
   camera = !this.connectedCamera;
   pcd = !this.connectedPCD;
   maxHeight = 150;
-  selectedValue = "manual";
+  selectedValue = "live";
   streamId = "stream-" + this.streamName;
   pcdId = "pcd-" + this.streamName;
   selected = "";
