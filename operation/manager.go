@@ -21,7 +21,6 @@ func (sm *SingleOperationManager) CancelRunning(ctx context.Context) {
 	if ctx.Value(somCtxKeySingleOp) != nil {
 		return
 	}
-	
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.cancelInLock(ctx)

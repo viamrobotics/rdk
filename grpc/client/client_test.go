@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"net"
@@ -667,6 +668,112 @@ func TestClientRefresh(t *testing.T) {
 		)...))
 
 	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientDisconnect(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectMetadata := &inject.Metadata{}
+	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+		return []resource.Name{arm.Named("arm1")}, nil
+	}
+	metadataServer, err := getMetadataServer(injectMetadata)
+	test.That(t, err, test.ShouldBeNil)
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
+
+	go gServer.Serve(listener)
+
+	start := time.Now()
+
+	test.That(t, err, test.ShouldBeNil)
+
+	dur := 100 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(dur),
+		WithReconnectEvery(2*dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	}()
+
+	test.That(t, client.Connected(), test.ShouldBeTrue)
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 1)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	gServer.Stop()
+	test.That(t, <-client.Changed(), test.ShouldBeTrue)
+	test.That(t, client.Connected(), test.ShouldBeFalse)
+	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, dur)
+	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 2*dur)
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, client.checkConnected())
+}
+
+func TestClientReconnect(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	addr := fmt.Sprintf("localhost:%d", port)
+
+	listener, err := net.Listen("tcp", addr)
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectMetadata := &inject.Metadata{}
+	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+		return []resource.Name{arm.Named("arm1")}, nil
+	}
+	metadataServer, err := getMetadataServer(injectMetadata)
+	test.That(t, err, test.ShouldBeNil)
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
+
+	go gServer.Serve(listener)
+
+	dur := 100 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(dur),
+		WithReconnectEvery(dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	}()
+	gServer.Stop()
+
+	test.That(t, <-client.Changed(), test.ShouldBeTrue)
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, client.checkConnected())
+
+	gServer2 := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
+	metadatapb.RegisterMetadataServiceServer(gServer2, metadataServer)
+
+	listener, err = net.Listen("tcp", addr)
+	test.That(t, err, test.ShouldBeNil)
+	go gServer2.Serve(listener)
+	defer gServer2.Stop()
+
+	test.That(t, <-client.Changed(), test.ShouldBeTrue)
+	test.That(t, client.Connected(), test.ShouldBeTrue)
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 1)
+	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 }
 
