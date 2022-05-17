@@ -15,9 +15,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -65,10 +67,12 @@ type gripperV1 struct {
 	pressureLimit int
 
 	closeDirection, openDirection int64
+	opMgr                         operation.SingleOperationManager
 	logger                        golog.Logger
 
 	model                 referenceframe.Model
 	numBadCurrentReadings int
+	generic.Unimplemented
 }
 
 // newGripperV1 Returns a gripperV1.
@@ -290,6 +294,9 @@ func (vg *gripperV1) ModelFrame() referenceframe.Model {
 
 // Open opens the jaws.
 func (vg *gripperV1) Open(ctx context.Context) error {
+	ctx, done := vg.opMgr.New(ctx)
+	defer done()
+
 	err := vg.Stop(ctx)
 	if err != nil {
 		return err
@@ -333,6 +340,9 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 
 // Grab closes the jaws until pressure is sensed and returns true, or until closed position is reached, and returns false.
 func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
+	ctx, done := vg.opMgr.New(ctx)
+	defer done()
+
 	err := vg.Stop(ctx)
 	if err != nil {
 		return false, err

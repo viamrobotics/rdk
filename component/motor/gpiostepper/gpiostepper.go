@@ -14,8 +14,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
@@ -108,12 +110,14 @@ type gpioStepper struct {
 	logger                      golog.Logger
 
 	// state
-	lock sync.Mutex
+	lock  sync.Mutex
+	opMgr operation.SingleOperationManager
 
 	stepPosition         int64
 	threadStarted        bool
 	targetStepPosition   int64
 	targetStepsPerSecond int64
+	generic.Unimplemented
 }
 
 // validate if this config is valid.
@@ -218,8 +222,23 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
 func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
+	err := m.goForInternal(ctx, rpm, revolutions)
+	if err != nil {
+		return err
+	}
+
 	if revolutions == 0 {
-		return errors.New("revolutions can't be 0 for a stepper motor")
+		return nil
+	}
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+}
+
+func (m *gpioStepper) goForInternal(ctx context.Context, rpm float64, revolutions float64) error {
+	if revolutions == 0 {
+		revolutions = 1000000.0
 	}
 	var d int64 = 1
 
@@ -268,6 +287,9 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, positionRevolutions
 // Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 // Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
 func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	if err := m.GoFor(ctx, rpm, 0); err != nil {
 		return err
 	}

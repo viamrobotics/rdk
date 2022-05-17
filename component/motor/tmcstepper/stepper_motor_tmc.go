@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -27,6 +28,7 @@ type TMC5072Config struct {
 	ChipSelect  string  `json:"chip_select"`
 	Index       int     `json:"index"`
 	SGThresh    int32   `json:"sg_thresh"`
+	HomeRPM     float64 `json:"home_rpm"`
 	CalFactor   float64 `json:"cal_factor"`
 	RunCurrent  int32   `json:"run_current"`  // 1-32 as a percentage of rsense voltage, 15 default
 	HoldCurrent int32   `json:"hold_current"` // 1-32 as a percentage of rsense voltage, 8 default
@@ -73,10 +75,12 @@ type Motor struct {
 	index       int
 	enLowPin    board.GPIOPin
 	stepsPerRev int
+	homeRPM     float64
 	maxRPM      float64
 	maxAcc      float64
 	fClk        float64
 	logger      golog.Logger
+	opMgr       operation.SingleOperationManager
 }
 
 // TMC5072 Values.
@@ -94,9 +98,9 @@ const (
 	drvStatus = 0x6F
 
 	// add 0x20 for motor 2.
-	rampMode   = 0x20
-	xActual    = 0x21
-	vActual    = 0x22
+	rampMode = 0x20
+	xActual  = 0x21
+	// vActual    = 0x22.
 	vStart     = 0x23
 	a1         = 0x24
 	v1         = 0x25
@@ -145,6 +149,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 		csPin:       c.ChipSelect,
 		index:       c.Index,
 		stepsPerRev: c.TicksPerRotation * uSteps,
+		homeRPM:     c.HomeRPM,
 		maxRPM:      c.MaxRPM,
 		maxAcc:      c.MaxAcceleration,
 		fClk:        baseClk / c.CalFactor,
@@ -161,6 +166,10 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 	// The register is a 6 bit signed int
 	if c.SGThresh < 0 {
 		c.SGThresh = int32(64 + math.Abs(float64(c.SGThresh)))
+	}
+
+	if m.homeRPM <= 0 {
+		m.homeRPM = m.maxRPM / 4
 	}
 
 	// Hold/Run currents are 0-31 (linear scale),
@@ -363,21 +372,29 @@ func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error)
 // SetPower sets the motor at a particular rpm based on the percent of
 // maxRPM supplied by powerPct (between -1 and 1).
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
-	rpm := powerPct * m.maxRPM
+	m.opMgr.CancelRunning(ctx)
+	return m.doJog(ctx, powerPct*m.maxRPM)
+}
+
+// Jog sets a fixed RPM.
+func (m *Motor) Jog(ctx context.Context, rpm float64) error {
+	m.opMgr.CancelRunning(ctx)
+	return m.doJog(ctx, rpm)
+}
+
+func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 	mode := modeVelPos
 	if rpm < 0 {
 		mode = modeVelNeg
 	}
-
 	speed := m.rpmToV(math.Abs(rpm))
-
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, mode),
 		m.writeReg(ctx, vMax, speed),
 	)
 }
 
-// GoFor turns in the given direction the given number of times at the given speed. Does not block.
+// GoFor turns in the given direction the given number of times at the given speed.
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, rotations float64) error {
@@ -421,19 +438,50 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 // at a specific speed. Regardless of the directionality of the RPM this function will move the
 // motor towards the specified target.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	positionRevolutions *= float64(m.stepsPerRev)
-	return multierr.Combine(
+	err := multierr.Combine(
 		m.writeReg(ctx, rampMode, modePosition),
 		m.writeReg(ctx, vMax, m.rpmToV(math.Abs(rpm))),
 		m.writeReg(ctx, xTarget, int32(positionRevolutions)),
+	)
+	if err != nil {
+		return err
+	}
+
+	return m.opMgr.WaitForSuccess(
+		ctx,
+		time.Millisecond*10,
+		m.IsStopped,
 	)
 }
 
 // IsPowered returns true if the motor is currently moving.
 func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
-	vel, err := m.readReg(ctx, vActual)
-	on := vel != 0
-	return on, err
+	stop, err := m.IsStopped(ctx)
+	return !stop, err
+}
+
+// IsStopped returns true if the motor is NOT moving.
+func (m *Motor) IsStopped(ctx context.Context) (bool, error) {
+	stat, err := m.readReg(ctx, rampStat)
+	if err != nil {
+		return false, err
+	}
+	// Look for vzero flag
+	return stat&0x400 == 0x400, nil
+}
+
+// AtVelocity returns true if the motor has reached the requested velocity.
+func (m *Motor) AtVelocity(ctx context.Context) (bool, error) {
+	stat, err := m.readReg(ctx, rampStat)
+	if err != nil {
+		return false, err
+	}
+	// Look for velocity reached flag
+	return stat&0x100 == 0x100, nil
 }
 
 // Enable pulls down the hardware enable pin, activating the power stage of the chip.
@@ -446,20 +494,28 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 
 // Stop stops the motor.
 func (m *Motor) Stop(ctx context.Context) error {
-	return m.SetPower(ctx, 0)
+	m.opMgr.CancelRunning(ctx)
+	return m.doJog(ctx, 0)
+}
+
+// Home homes the motor using stallguard.
+func (m *Motor) Home(ctx context.Context) error {
+	return m.GoTillStop(ctx, m.homeRPM, nil)
 }
 
 // GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	if err := m.GoFor(ctx, rpm, 1000); err != nil {
+	if err := m.Jog(ctx, rpm); err != nil {
 		return err
 	}
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
 
 	// Disable stallguard and turn off if we fail homing
 	defer func() {
 		if err := multierr.Combine(
 			m.writeReg(ctx, swMode, 0x000),
-			m.Stop(ctx),
+			m.doJog(ctx, 0),
 		); err != nil {
 			m.logger.Error(err)
 		}
@@ -476,12 +532,12 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 			return nil
 		}
 
-		stat, err := m.readReg(ctx, rampStat)
+		ready, err := m.AtVelocity(ctx)
 		if err != nil {
 			return err
 		}
-		// Look for velocity_reached flag
-		if stat&0x100 == 0x100 {
+
+		if ready {
 			break
 		}
 
@@ -507,12 +563,11 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 			return nil
 		}
 
-		stat, err := m.readReg(ctx, rampStat)
+		stopped, err := m.IsStopped(ctx)
 		if err != nil {
 			return err
 		}
-		// Look for vzero flag
-		if stat&0x400 == 0x400 {
+		if stopped {
 			break
 		}
 
@@ -539,4 +594,28 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 		m.writeReg(ctx, xTarget, int32(offset*float64(m.stepsPerRev))),
 		m.writeReg(ctx, xActual, int32(offset*float64(m.stepsPerRev))),
 	)
+}
+
+// Do executes additional commands beyond the Motor{} interface.
+func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	name, ok := cmd["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' value")
+	}
+	switch name {
+	case "home":
+		return nil, m.Home(ctx)
+	case "jog":
+		rpmRaw, ok := cmd["rpm"]
+		if !ok {
+			return nil, errors.New("need rpm value for jog")
+		}
+		rpm, ok := rpmRaw.(float64)
+		if !ok {
+			return nil, errors.New("rpm value must be floating point")
+		}
+		return nil, m.Jog(ctx, rpm)
+	default:
+		return nil, fmt.Errorf("no such command: %s", name)
+	}
 }

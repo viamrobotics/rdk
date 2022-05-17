@@ -9,6 +9,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -54,12 +55,15 @@ func Named(name string) resource.Name {
 // A Gripper represents a physical robotic gripper.
 type Gripper interface {
 	// Open opens the gripper.
+	// This will block until done or a new operation cancels this one
 	Open(ctx context.Context) error
 
 	// Grab makes the gripper grab.
 	// returns true if we grabbed something.
+	// This will block until done or a new operation cancels this one
 	Grab(ctx context.Context) (bool, error)
 
+	generic.Generic
 	referenceframe.ModelFramer
 }
 
@@ -107,6 +111,12 @@ func (g *reconfigurableGripper) ProxyFor() interface{} {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual
+}
+
+func (g *reconfigurableGripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Do(ctx, cmd)
 }
 
 func (g *reconfigurableGripper) Open(ctx context.Context) error {

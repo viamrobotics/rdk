@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -69,6 +70,7 @@ type JoinAttrs struct {
 // the point of view of targetName. The model needs to have the entire robot available in order to build the correct offsets
 // between robot components for the frame system transform.
 type joinPointCloudSource struct {
+	generic.Unimplemented
 	sourceCameras []camera.Camera
 	sourceNames   []string
 	targetName    string

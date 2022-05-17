@@ -1,12 +1,12 @@
 import { configure } from '@storybook/vue';
 import Vue from "vue";
 import "./index.css";
-
 import InputController from '../src/components/InputController';
 import ViamBadge from '../src/components/Badge';
 import ViamButton from '../src/components/Button';
 import ViamIcon from '../src/components/ViamIcon';
 import Range from '../src/components/Range';
+import ViamSelect from '../src/components/ViamSelect';
 import ViamInput from '../src/components/ViamInput';
 import Breadcrumbs from '../src/components/Breadcrumbs';
 import Collapse from '../src/components/Collapse';
@@ -23,12 +23,14 @@ import Camera from '../src/components/Camera';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { faCheckSquare } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import ViamInfoButton from '../src/components/ViamInfoButton';
 
 library.add(faCheckSquare)
 
 Vue.component('font-awesome-icon', FontAwesomeIcon);
 Vue.component('InputController', InputController);
 Vue.component('Range', Range);
+Vue.component('ViamSelect', ViamSelect);
 Vue.component('ViamBadge', ViamBadge);
 Vue.component('ViamButton', ViamButton);
 Vue.component('ViamIcon', ViamIcon);
@@ -45,6 +47,7 @@ Vue.component('Tabs', Tabs);
 Vue.component('Base', Base);
 Vue.component('RadioButtons', RadioButtons);
 Vue.component('Camera', Camera);
+Vue.component('ViamInfoButton', ViamInfoButton);
 
 const req = require.context('../src/stories', true, /.stories.js$/);
 function loadStories() {

@@ -14,8 +14,10 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -98,6 +100,7 @@ func init() {
 }
 
 type oneAxis struct {
+	generic.Unimplemented
 	name string
 
 	board board.Board
@@ -118,6 +121,7 @@ type oneAxis struct {
 	axisTranslationOffset r3.Vector
 
 	logger golog.Logger
+	opMgr  operation.SingleOperationManager
 }
 
 type limitType string
@@ -296,12 +300,12 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		return g.motor.Stop(ctx)
 	})
 
-	d := -1
+	d := -1.0
 	if !zero {
-		d = 1
+		d *= -1
 	}
 
-	err := g.motor.GoFor(ctx, g.rpm, float64(d*10000))
+	err := g.motor.GoFor(ctx, d*g.rpm, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -367,6 +371,9 @@ func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
 
 // MoveToPosition moves along an axis using inputs in millimeters.
 func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
+
 	if len(positions) != 1 {
 		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", len(positions))
 	}

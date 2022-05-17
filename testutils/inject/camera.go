@@ -13,6 +13,7 @@ import (
 // Camera is an injected camera.
 type Camera struct {
 	camera.Camera
+	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	NextFunc           func(ctx context.Context) (image.Image, func(), error)
 	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
 	CloseFunc          func(ctx context.Context) error
@@ -40,4 +41,12 @@ func (c *Camera) Close(ctx context.Context) error {
 		return utils.TryClose(ctx, c.Camera)
 	}
 	return c.CloseFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (c *Camera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if c.DoFunc == nil {
+		return c.Camera.Do(ctx, cmd)
+	}
+	return c.DoFunc(ctx, cmd)
 }

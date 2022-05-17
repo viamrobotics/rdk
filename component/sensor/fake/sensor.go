@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -35,6 +36,7 @@ func newSensor(name string) sensor.Sensor {
 type Sensor struct {
 	mu   sync.Mutex
 	Name string
+	generic.Echo
 }
 
 // GetReadings always returns the set values.

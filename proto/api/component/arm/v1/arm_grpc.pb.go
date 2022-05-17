@@ -21,10 +21,12 @@ type ArmServiceClient interface {
 	// GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
 	GetEndPosition(ctx context.Context, in *GetEndPositionRequest, opts ...grpc.CallOption) (*GetEndPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
+	// This will block until done or a new operation cancels this one
 	MoveToPosition(ctx context.Context, in *MoveToPositionRequest, opts ...grpc.CallOption) (*MoveToPositionResponse, error)
 	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
 	GetJointPositions(ctx context.Context, in *GetJointPositionsRequest, opts ...grpc.CallOption) (*GetJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
+	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(ctx context.Context, in *MoveToJointPositionsRequest, opts ...grpc.CallOption) (*MoveToJointPositionsResponse, error)
 }
 
@@ -79,10 +81,12 @@ type ArmServiceServer interface {
 	// GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
 	GetEndPosition(context.Context, *GetEndPositionRequest) (*GetEndPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
+	// This will block until done or a new operation cancels this one
 	MoveToPosition(context.Context, *MoveToPositionRequest) (*MoveToPositionResponse, error)
 	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
 	GetJointPositions(context.Context, *GetJointPositionsRequest) (*GetJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
+	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(context.Context, *MoveToJointPositionsRequest) (*MoveToJointPositionsResponse, error)
 	mustEmbedUnimplementedArmServiceServer()
 }

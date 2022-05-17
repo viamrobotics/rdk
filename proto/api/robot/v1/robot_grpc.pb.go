@@ -18,9 +18,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RobotServiceClient interface {
-	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
-	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
 	GetOperations(ctx context.Context, in *GetOperationsRequest, opts ...grpc.CallOption) (*GetOperationsResponse, error)
+	// ResourceNames returns the list of all resources.
+	ResourceNames(ctx context.Context, in *ResourceNamesRequest, opts ...grpc.CallOption) (*ResourceNamesResponse, error)
 	CancelOperation(ctx context.Context, in *CancelOperationRequest, opts ...grpc.CallOption) (*CancelOperationResponse, error)
 	BlockForOperation(ctx context.Context, in *BlockForOperationRequest, opts ...grpc.CallOption) (*BlockForOperationResponse, error)
 }
@@ -33,18 +33,18 @@ func NewRobotServiceClient(cc grpc.ClientConnInterface) RobotServiceClient {
 	return &robotServiceClient{cc}
 }
 
-func (c *robotServiceClient) ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error) {
-	out := new(ResourceRunCommandResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/ResourceRunCommand", in, out, opts...)
+func (c *robotServiceClient) GetOperations(ctx context.Context, in *GetOperationsRequest, opts ...grpc.CallOption) (*GetOperationsResponse, error) {
+	out := new(GetOperationsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/GetOperations", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotServiceClient) GetOperations(ctx context.Context, in *GetOperationsRequest, opts ...grpc.CallOption) (*GetOperationsResponse, error) {
-	out := new(GetOperationsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/GetOperations", in, out, opts...)
+func (c *robotServiceClient) ResourceNames(ctx context.Context, in *ResourceNamesRequest, opts ...grpc.CallOption) (*ResourceNamesResponse, error) {
+	out := new(ResourceNamesResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/ResourceNames", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -73,9 +73,9 @@ func (c *robotServiceClient) BlockForOperation(ctx context.Context, in *BlockFor
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
 type RobotServiceServer interface {
-	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
-	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
 	GetOperations(context.Context, *GetOperationsRequest) (*GetOperationsResponse, error)
+	// ResourceNames returns the list of all resources.
+	ResourceNames(context.Context, *ResourceNamesRequest) (*ResourceNamesResponse, error)
 	CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error)
 	BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
@@ -85,11 +85,11 @@ type RobotServiceServer interface {
 type UnimplementedRobotServiceServer struct {
 }
 
-func (UnimplementedRobotServiceServer) ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ResourceRunCommand not implemented")
-}
 func (UnimplementedRobotServiceServer) GetOperations(context.Context, *GetOperationsRequest) (*GetOperationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetOperations not implemented")
+}
+func (UnimplementedRobotServiceServer) ResourceNames(context.Context, *ResourceNamesRequest) (*ResourceNamesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResourceNames not implemented")
 }
 func (UnimplementedRobotServiceServer) CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelOperation not implemented")
@@ -110,24 +110,6 @@ func RegisterRobotServiceServer(s grpc.ServiceRegistrar, srv RobotServiceServer)
 	s.RegisterService(&RobotService_ServiceDesc, srv)
 }
 
-func _RobotService_ResourceRunCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ResourceRunCommandRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ResourceRunCommand(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/ResourceRunCommand",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ResourceRunCommand(ctx, req.(*ResourceRunCommandRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_GetOperations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetOperationsRequest)
 	if err := dec(in); err != nil {
@@ -142,6 +124,24 @@ func _RobotService_GetOperations_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).GetOperations(ctx, req.(*GetOperationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ResourceNames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResourceNamesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ResourceNames(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/ResourceNames",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ResourceNames(ctx, req.(*ResourceNamesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -190,12 +190,12 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*RobotServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ResourceRunCommand",
-			Handler:    _RobotService_ResourceRunCommand_Handler,
-		},
-		{
 			MethodName: "GetOperations",
 			Handler:    _RobotService_GetOperations_Handler,
+		},
+		{
+			MethodName: "ResourceNames",
+			Handler:    _RobotService_ResourceNames_Handler,
 		},
 		{
 			MethodName: "CancelOperation",

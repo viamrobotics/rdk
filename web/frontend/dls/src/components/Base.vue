@@ -6,13 +6,7 @@
         <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
       </div>
       <div class="p-2 float-right">
-        <ViamButton
-          color="danger"
-          group
-          variant="primary"
-          :disabled="!baseStatus"
-          @click="baseStop()"
-        >
+        <ViamButton color="danger" group variant="primary" @click="baseStop">
           <template v-slot:icon>
             <ViamIcon color="white" :path="mdiCloseOctagonOutline"
               >STOP</ViamIcon
@@ -23,7 +17,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-black p-2 h-72"
+          class="border border-t-0 border-black pt-2 pb-4"
           :style="{ maxHeight: maxHeight + 'px' }"
         >
           <div>
@@ -37,13 +31,14 @@
               <Tab
                 :selected="selectedItem === 'discrete'"
                 @select="selectedItem = 'discrete'"
+                @click="resetDiscreteState()"
                 >Discrete</Tab
               >
             </Tabs>
           </div>
           <div
             v-if="selectedItem === 'keyboard'"
-            class="border border-black p-4"
+            class="p-4"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div>
@@ -52,18 +47,7 @@
                   <div>
                     <div>
                       <div class="flex">
-                        <input id="angle" type="hidden" value="45" />
-                        <ViamInput
-                          type="number"
-                          color="primary"
-                          group="False"
-                          variant="primary"
-                          class="pr-2 w-32"
-                          inputId="distance"
-                          v-model="increment"
-                        >
-                          <span class="text-xs">Increment (mm)</span>
-                        </ViamInput>
+                        <!-- May need a speed input
                         <ViamInput
                           type="number"
                           color="primary"
@@ -75,21 +59,11 @@
                         >
                           <span class="text-xs">Speed (mm/sec)</span>
                         </ViamInput>
+                        -->
                       </div>
                     </div>
                     <div class="flex pt-6">
-                      <KeyboardInput
-                        @arc-right="$emit('arc-right')"
-                        @arc-left="$emit('arc-left')"
-                        @back-arc-right="$emit('back-arc-right')"
-                        @back-arc-left="$emit('back-arc-left')"
-                        @forward="$emit('forward')"
-                        @backward="$emit('backward')"
-                        @spin-clockwise="$emit('spin-clockwise')"
-                        @spin-counter-clockwise="
-                          $emit('spin-counter-clockwise')
-                        "
-                      >
+                      <KeyboardInput @keyboard-ctl="keyboardCtl">
                       </KeyboardInput>
                     </div>
                   </div>
@@ -102,35 +76,17 @@
                           Select Camera
                         </p>
                         <div class="relative">
-                          <select
-                            class="form-select appearance-none block w-full px-3 py-1.5 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none"
-                            aria-label="Default select example"
-                            @change="$emit('show-base-camera')"
+                          <ViamSelect
+                            :options="cameraOptions"
                             v-model="selectedValue"
+                            @selected="$emit('show-base-camera')"
                           >
-                            <option selected value="NoCamera">No Camera</option>
-                            <option value="Camera1">Camera1</option>
-                          </select>
-                          <div
-                            class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-                          >
-                            <svg
-                              class="h-4 w-4 stroke-2"
-                              :class="['text-gray-700 dark:text-gray-300']"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              stroke-linejoin="round"
-                              stroke-linecap="round"
-                              fill="none"
-                            >
-                              <path d="M18 16L12 22L6 16" />
-                            </svg>
-                          </div>
+                          </ViamSelect>
                         </div>
                       </div>
                     </div>
                     <div
-                      class="bg-black w-48 h-48 transition-all duration-300 ease-in-out"
+                      class="w-48 h-48 transition-all duration-300 ease-in-out"
                       v-if="selectedValue !== 'NoCamera'"
                       :id="streamId"
                     ></div>
@@ -141,7 +97,7 @@
           </div>
           <div
             v-if="selectedItem === 'discrete'"
-            class="border border-black p-4 grid grid-cols-1"
+            class="pr-4 pl-4 pt-4 grid grid-cols-1"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div>
@@ -156,7 +112,7 @@
               </div>
             </div>
             <div class="flex pt-2">
-              <div class="column" v-if="movementMode === 'Straight'">
+              <div class="column pr-2" v-if="movementMode === 'Straight'">
                 <p class="text-xs">Movement Type</p>
                 <RadioButtons
                   :options="['Continous', 'Discrete']"
@@ -187,27 +143,39 @@
                 class="text-xs pr-2 w-32"
                 >Speed (mm/sec)
               </ViamInput>
+              <input
+                type="hidden"
+                id="distance"
+                :value="maxDistance"
+                v-if="
+                  movementMode === 'Straight' && movementType === 'Continous'
+                "
+              />
               <ViamInput
-                v-if="movementMode === 'Straight' || movementMode === 'Arc'"
+                v-if="
+                  (movementMode === 'Straight' &&
+                    movementType === 'Discrete') ||
+                  movementMode === 'Arc'
+                "
                 type="number"
                 color="primary"
                 group="False"
                 variant="primary"
                 v-model="increment"
                 inputId="distance"
-                :disabled="movementType === 'Continous'"
                 class="text-xs pr-2 w-32"
                 >Distance (mm)
               </ViamInput>
             </div>
             <div class="flex">
               <div
-                class="column"
+                class="column pr-2"
                 v-if="movementMode === 'Spin' || movementMode === 'Arc'"
               >
                 <p class="text-xs">Movement Type</p>
                 <RadioButtons
                   :options="['Clockwise', 'Counterclockwise']"
+                  defaultOption="Clockwise"
                   :disabledOptions="[]"
                   v-on:selectOption="setSpinType($event)"
                 />
@@ -218,9 +186,11 @@
               >
                 <Range
                   id="angle"
-                  min="0"
-                  max="360"
-                  unit="<sup class='text-xs'>O</sup>"
+                  :min="0"
+                  :max="360"
+                  :step="90"
+                  v-model="maxClusteringRadius"
+                  unit="°"
                   name="Max Clustering Radius"
                 ></Range>
               </div>
@@ -231,7 +201,6 @@
                   color="success"
                   group
                   variant="primary"
-                  :disabled="baseStatus"
                   @click="baseRun()"
                 >
                   <template v-slot:icon>
@@ -299,9 +268,17 @@ export default class Base extends Vue {
   movementMode = "Straight";
   movementType = "Continous";
   direction = "Forwards";
-  spinType = "";
-  increment = 500;
-  speed = 300;
+  spinType = "Clockwise";
+  increment = 1000;
+  maxClusteringRadius = 90;
+  maxDistance = Math.pow(2, 32);
+
+  speed = 200;
+  angle = 0;
+  cameraOptions = [
+    { value: "NoCamera", label: "No Camera" },
+    { value: "Camera1", label: "Camera1" },
+  ];
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
   }
@@ -312,6 +289,13 @@ export default class Base extends Vue {
 
   mounted(): void {
     this.resizeContent();
+  }
+
+  resetDiscreteState(): void {
+    this.movementMode = "Straight";
+    this.movementType = "Continous";
+    this.direction = "Forwards";
+    this.spinType = "Clockwise";
   }
 
   setMovementMode(e: string): void {
@@ -339,7 +323,9 @@ export default class Base extends Vue {
       this.direction
     );
   }
-  baseStop(): void {
+  baseStop(e: Event): void {
+    e.preventDefault();
+    e.stopPropagation();
     this.$emit(
       "base-stop",
       this.movementMode,
@@ -354,6 +340,16 @@ export default class Base extends Vue {
     } else {
       this.maxHeight = 500;
     }
+  }
+  keyboardCtl(keysPressed: any): void {
+    let toEmit = {
+      baseName: this.baseName,
+      forward: keysPressed.forward,
+      backward: keysPressed.backward,
+      right: keysPressed.right,
+      left: keysPressed.left,
+    };
+    this.$emit("keyboard-ctl", toEmit);
   }
 }
 </script>

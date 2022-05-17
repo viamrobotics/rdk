@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/board/v1"
@@ -215,6 +216,10 @@ func (c *client) status(ctx context.Context) (*commonpb.BoardStatus, error) {
 
 func (c *client) ModelAttributes() ModelAttributes {
 	return ModelAttributes{Remote: true}
+}
+
+func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return generic.DoFromConnection(ctx, c.conn, c.info.name, cmd)
 }
 
 // analogReaderClient satisfies a gRPC based board.AnalogReader. Refer to the interface

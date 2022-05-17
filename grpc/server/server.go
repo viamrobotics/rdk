@@ -8,17 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/robot"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
@@ -45,37 +43,6 @@ func New(r robot.Robot) pb.RobotServiceServer {
 func (s *Server) Close() {
 	s.cancel()
 	s.activeBackgroundWorkers.Wait()
-}
-
-type runCommander interface {
-	RunCommand(ctx context.Context, name string, args map[string]interface{}) (map[string]interface{}, error)
-}
-
-// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
-func (s *Server) ResourceRunCommand(
-	ctx context.Context,
-	req *pb.ResourceRunCommandRequest,
-) (*pb.ResourceRunCommandResponse, error) {
-	// TODO(RDK-38): support all resources
-	// we know only gps has this right now, so just look at sensors!
-	resource, err := s.r.ResourceByName(gps.Named(req.ResourceName))
-	if err != nil {
-		return nil, err
-	}
-	commander, ok := rdkutils.UnwrapProxy(resource).(runCommander)
-	if !ok {
-		return nil, errors.New("cannot run commands on this resource")
-	}
-	result, err := commander.RunCommand(ctx, req.CommandName, req.Args.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	resultPb, err := structpb.NewStruct(result)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
 }
 
 // GetOperations lists all running operations.
@@ -139,4 +106,17 @@ func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperatio
 			return nil, ctx.Err()
 		}
 	}
+}
+
+// ResourceNames returns the list of resources.
+func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
+	all := s.r.ResourceNames()
+	rNames := make([]*commonpb.ResourceName, 0, len(all))
+	for _, m := range all {
+		rNames = append(
+			rNames,
+			protoutils.ResourceNameToProto(m),
+		)
+	}
+	return &pb.ResourceNamesResponse{Resources: rNames}, nil
 }

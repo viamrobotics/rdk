@@ -14,8 +14,10 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -27,6 +29,7 @@ type AttrConfig struct {
 }
 
 type xArm struct {
+	generic.Unimplemented
 	dof      int
 	tid      uint16
 	conn     net.Conn
@@ -36,6 +39,7 @@ type xArm struct {
 	moveLock *sync.Mutex
 	mp       motionplan.MotionPlanner
 	model    referenceframe.Model
+	opMgr    operation.SingleOperationManager
 }
 
 //go:embed xarm6_kinematics.json

@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col w-64 h-23">
+  <div class="flex flex-col h-23">
     <div
       v-for="(lineKeys, index) in keysLayout"
       :key="index"
@@ -29,7 +29,7 @@
 </template>
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
-import { throttle, debounce} from "lodash";
+import { throttle, debounce } from "lodash";
 import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
 import ViamButton from "./Button.vue";
@@ -41,9 +41,9 @@ const PressedKeysMap: { [index: string]: string } = {
   "68": "right",
 };
 
-const inputDelay = 100;
-const eventsDelay = 500;
-
+// TODO: remove debounce if not needed
+const inputDelay = 0;
+const eventsDelay = 0;
 
 @Component({
   components: {
@@ -58,7 +58,6 @@ export default class KeyboardInput extends Vue {
     backward: false,
     right: false,
   };
-
 
   mdiRestore = mdiRestore;
   mdiReload = mdiReload;
@@ -82,35 +81,20 @@ export default class KeyboardInput extends Vue {
   //for template section
   keysLayout = [["forward"], ["left", "backward", "right"]];
 
-
-
   sendKeysState = debounce(() => {
     this.handleKeysStateInstantly();
   }, inputDelay);
 
   handleKeysStateInstantly(): void {
-    if (Object.values(this.pressedKeys).every((item) => item === false)) {
-      return;
-    }
-
-    const { forward, left, right, backward } = this.pressedKeys;
-
-    if (forward && right) this.emitEvent("arc-right");
-    else if (forward && left) this.emitEvent("arc-left");
-    else if (backward && right) this.emitEvent("back-arc-right");
-    else if (backward && left) this.emitEvent("back-arc-left");
-    else if (forward) this.emitEvent("forward");
-    else if (backward) this.emitEvent("backward");
-    else if (left) this.emitEvent("spin-counter-clockwise");
-    else if (right) this.emitEvent("spin-clockwise");
+    this.emitEvent("keyboard-ctl");
   }
+
   emitEvent = throttle((eventName: string) => {
     this.emitEventInstantly(eventName);
   }, eventsDelay);
 
   emitEventInstantly(eventName: string): void {
-    console.log(`event will be fired ${eventName}`)
-    this.$emit(eventName)
+    this.$emit(eventName, this.pressedKeys);
   }
   setKeyPressed(key: string, value = true): void {
     this.pressedKeys[key] = value;

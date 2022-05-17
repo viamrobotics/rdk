@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
@@ -61,6 +62,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(imu.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, imuSvc)
 
+	injectIMU.DoFunc = generic.EchoFunc
+	generic.RegisterService(rpcServer, imuSvc)
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -73,11 +77,16 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	//nolint:dupl
 	t.Run("IMU client 1", func(t *testing.T) {
 		// working
 		imu1Client, err := imu.NewClient(context.Background(), testIMUName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		// Do
+		resp, err := imu1Client.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		av1, err := imu1Client.ReadAngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -171,7 +180,6 @@ func TestClientZeroValues(t *testing.T) {
 	go gServer.Serve(listener1)
 	defer gServer.Stop()
 
-	//nolint:dupl
 	t.Run("IMU client", func(t *testing.T) {
 		imu1Client, err := imu.NewClient(context.Background(), testIMUName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
