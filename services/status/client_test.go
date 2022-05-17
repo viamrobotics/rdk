@@ -26,6 +26,14 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+func newServer(sMap map[resource.Name]interface{}) (pb.StatusServiceServer, error) {
+	sSvc, err := subtype.New(sMap)
+	if err != nil {
+		return nil, err
+	}
+	return status.NewServer(sSvc), nil
+}
+
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
