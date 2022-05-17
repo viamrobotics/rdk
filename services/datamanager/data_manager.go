@@ -356,7 +356,6 @@ func (svc *Service) runStorageCheckAndUpdateCollectors() {
 			if err != nil {
 				svc.logger.Errorw("failed to check disk usage", "error", err)
 			}
-			svc.logger.Info("percent used: ", du.PercentUsed, ", max: ", svc.maxStoragePercent)
 			if du.PercentUsed >= svc.maxStoragePercent {
 				if svc.enableAutoDelete {
 					// TODO: Add deletion logic for oldest file(s)
