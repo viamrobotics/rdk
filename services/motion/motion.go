@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -90,21 +90,14 @@ func FromRobot(r robot.Robot) (Service, error) {
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	fsSvc, err := framesystem.FromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-
 	return &motionService{
 		r:      r,
-		fsSvc:  fsSvc,
 		logger: logger,
 	}, nil
 }
 
 type motionService struct {
 	r      robot.Robot
-	fsSvc  framesystem.Service
 	logger golog.Logger
 }
 
@@ -203,7 +196,7 @@ func (ms *motionService) GetPose(
 	if destinationFrame == "" {
 		destinationFrame = referenceframe.World
 	}
-	return ms.fsSvc.TransformPose(
+	return ms.r.TransformPose(
 		ctx,
 		referenceframe.NewPoseInFrame(
 			componentName.Name,

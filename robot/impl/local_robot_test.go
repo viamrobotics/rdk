@@ -34,7 +34,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
@@ -116,11 +115,7 @@ func TestConfigRemote(t *testing.T) {
 				},
 			},
 		},
-		Services: []config.Service{
-			{
-				Type: "frame_system",
-			},
-		},
+		Services: []config.Service{},
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
@@ -155,7 +150,6 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		framesystem.Name,
 		vision.Name,
 		sensors.Name,
 		status.Name,
@@ -239,9 +233,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
-	frameService, err := framesystem.FromRobot(r2)
-	test.That(t, err, test.ShouldBeNil)
-	fsConfig, err := frameService.Config(context.Background(), nil)
+	fsConfig, err := r2.FrameSystemConfig(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsConfig, test.ShouldHaveLength, 12)
 
@@ -392,7 +384,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				framesystem.Name,
 				vision.Name,
 				sensors.Name,
 				status.Name,
@@ -595,7 +586,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		framesystem.Name,
 		vision.Name,
 		sensors.Name,
 		status.Name,
@@ -743,7 +733,7 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 10)
+	test.That(t, len(resources), test.ShouldEqual, 9)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
@@ -754,7 +744,6 @@ func TestMetadataUpdate(t *testing.T) {
 		gripper.Named("pieceGripper"),
 		gps.Named("gps1"),
 		gps.Named("gps2"),
-		framesystem.Name,
 		vision.Name,
 		sensors.Name,
 		status.Name,

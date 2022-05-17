@@ -17,13 +17,17 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -338,4 +342,40 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 // Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
+}
+
+func (rc *RobotClient) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{
+		SupplementalTransforms: additionalTransforms,
+	})
+	if err != nil {
+		return nil, err
+	}
+	cfgs := resp.GetFrameSystemConfigs()
+	result := make([]*config.FrameSystemPart, 0, len(cfgs))
+	for _, cfg := range cfgs {
+		part, err := config.ProtobufToFrameSystemPart(cfg)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, part)
+	}
+	return framesystemparts.Parts(result), nil
+}
+
+func (rc *RobotClient) TransformPose(
+	ctx context.Context,
+	query *referenceframe.PoseInFrame,
+	destination string,
+	additionalTransforms []*commonpb.Transform,
+) (*referenceframe.PoseInFrame, error) {
+	resp, err := rc.client.TransformPose(ctx, &pb.TransformPoseRequest{
+		Destination:            destination,
+		Source:                 referenceframe.PoseInFrameToProtobuf(query),
+		SupplementalTransforms: additionalTransforms,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }

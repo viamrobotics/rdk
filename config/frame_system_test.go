@@ -11,7 +11,7 @@ import (
 	"go.viam.com/test"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	servicepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
+	robotpb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -41,7 +41,7 @@ func TestFrameModelPart(t *testing.T) {
 	result, err := part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
 	pose := &commonpb.Pose{OZ: 1, Theta: 0} // zero pose
-	exp := &servicepb.Config{
+	exp := &robotpb.FrameSystemConfig{
 		Name: "test",
 		PoseInParentFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
@@ -70,7 +70,7 @@ func TestFrameModelPart(t *testing.T) {
 	result, err = part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
 	pose = &commonpb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
-	exp = &servicepb.Config{
+	exp = &robotpb.FrameSystemConfig{
 		Name: "test",
 		PoseInParentFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
