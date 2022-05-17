@@ -19,6 +19,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RobotServiceClient interface {
 	GetOperations(ctx context.Context, in *GetOperationsRequest, opts ...grpc.CallOption) (*GetOperationsResponse, error)
+	// ResourceNames returns the list of all resources.
+	ResourceNames(ctx context.Context, in *ResourceNamesRequest, opts ...grpc.CallOption) (*ResourceNamesResponse, error)
 	CancelOperation(ctx context.Context, in *CancelOperationRequest, opts ...grpc.CallOption) (*CancelOperationResponse, error)
 	BlockForOperation(ctx context.Context, in *BlockForOperationRequest, opts ...grpc.CallOption) (*BlockForOperationResponse, error)
 }
@@ -34,6 +36,15 @@ func NewRobotServiceClient(cc grpc.ClientConnInterface) RobotServiceClient {
 func (c *robotServiceClient) GetOperations(ctx context.Context, in *GetOperationsRequest, opts ...grpc.CallOption) (*GetOperationsResponse, error) {
 	out := new(GetOperationsResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/GetOperations", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) ResourceNames(ctx context.Context, in *ResourceNamesRequest, opts ...grpc.CallOption) (*ResourceNamesResponse, error) {
+	out := new(ResourceNamesResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/ResourceNames", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +74,8 @@ func (c *robotServiceClient) BlockForOperation(ctx context.Context, in *BlockFor
 // for forward compatibility
 type RobotServiceServer interface {
 	GetOperations(context.Context, *GetOperationsRequest) (*GetOperationsResponse, error)
+	// ResourceNames returns the list of all resources.
+	ResourceNames(context.Context, *ResourceNamesRequest) (*ResourceNamesResponse, error)
 	CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error)
 	BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
@@ -74,6 +87,9 @@ type UnimplementedRobotServiceServer struct {
 
 func (UnimplementedRobotServiceServer) GetOperations(context.Context, *GetOperationsRequest) (*GetOperationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetOperations not implemented")
+}
+func (UnimplementedRobotServiceServer) ResourceNames(context.Context, *ResourceNamesRequest) (*ResourceNamesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResourceNames not implemented")
 }
 func (UnimplementedRobotServiceServer) CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelOperation not implemented")
@@ -108,6 +124,24 @@ func _RobotService_GetOperations_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).GetOperations(ctx, req.(*GetOperationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ResourceNames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResourceNamesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ResourceNames(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/ResourceNames",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ResourceNames(ctx, req.(*ResourceNamesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -158,6 +192,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetOperations",
 			Handler:    _RobotService_GetOperations_Handler,
+		},
+		{
+			MethodName: "ResourceNames",
+			Handler:    _RobotService_ResourceNames_Handler,
 		},
 		{
 			MethodName: "CancelOperation",
