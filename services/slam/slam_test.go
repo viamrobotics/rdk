@@ -2,10 +2,12 @@ package slam
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -521,23 +523,25 @@ func TestSLAMProcess(t *testing.T) {
 		logger:                  logger,
 		slamLib:                 testMetadata,
 		slamProcess:             pexec.NewProcessManager(logger),
-		cameraName:              "sensor",
-		configParams:            map[string]string{"mono": "mono"},
-		dataRateMs:              100,
-		mapRateSec:              60,
-		dataDirectory:           "/tmp/",
-		inputFilePattern:        "0:1000:0",
+		cameraName:              "",
+		configParams:            map[string]string{},
+		dataRateMs:              0,
+		mapRateSec:              0,
+		dataDirectory:           "",
+		inputFilePattern:        "",
 		cancelFunc:              cancelFunc,
 		activeBackgroundWorkers: &sync.WaitGroup{},
 	}
 
 	cmd, err := slamSvc.startSLAMProcess(cancelCtx)
-	test.That(t, err, test.ShouldBeError,
-		errors.Errorf("problem starting slam process: error running process \"%v\": exit status 1", testMetadata.BinaryLocation))
+	test.That(t, err, test.ShouldBeNil)
 
 	latestLoggedEntry := obs.All()[len(obs.All())-1]
-	log := latestLoggedEntry.Context[0].String
-	test.That(t, log, test.ShouldEqual, testMetadata.BinaryLocation)
+	log := strings.TrimSuffix(latestLoggedEntry.Context[len(latestLoggedEntry.Context)-1].String, "\n")
+	pwdResult, err := os.Getwd()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, log, test.ShouldEqual, pwdResult)
 
 	cmdResult := []string{
 		testMetadata.BinaryLocation,
@@ -555,6 +559,18 @@ func TestSLAMProcess(t *testing.T) {
 
 	err = slamSvc.stopSLAMProcess()
 	test.That(t, err, test.ShouldBeNil)
+
+	testMetadataFail := metadata{
+		AlgoName:       "testLib_fail",
+		SlamMode:       map[string]mode{"mono": mono},
+		BinaryLocation: "fail",
+	}
+	slamSvc.slamLib = testMetadataFail
+
+	errCheck := fmt.Sprintf("\"%v\": executable file not found in $PATH", slamSvc.slamLib.BinaryLocation)
+	_, err = slamSvc.startSLAMProcess(cancelCtx)
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("problem adding slam process: error running process \"%v\": exec: %v", slamSvc.slamLib.BinaryLocation, errCheck))
 
 	closeOutSLAMService(t, slamSvc, "")
 }
