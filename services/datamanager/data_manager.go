@@ -114,10 +114,10 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers: sync.WaitGroup{},
 		lock:              sync.Mutex{},
+		collectorLookup:   data.CollectorLookup,
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 	}
-	go dataManagerSvc.continuouslyCheckStorage()
 
 	return dataManagerSvc, nil
 }
@@ -132,6 +132,7 @@ func (svc *Service) Close(ctx context.Context) error {
 		svc.syncer.Close()
 	}
 	svc.backgroundWorkers.Wait()
+	svc.cancelFunc()
 	return nil
 }
 
@@ -166,6 +167,10 @@ type Service struct {
 	enableAutoDelete  bool
 	collectors        map[componentMethodMetadata]collectorAndConfig
 	syncer            syncManager
+
+	collectorLookup    func(data.MethodMetadata) *data.CollectorConstructor
+	storageCheckTicker *time.Ticker
+	sysCall            SysCall
 
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
@@ -255,7 +260,7 @@ func (svc *Service) initializeOrUpdateCollector(
 	}
 
 	// Get collector constructor for the component subtype and method.
-	collectorConstructor := data.CollectorLookup(metadata)
+	collectorConstructor := svc.collectorLookup(metadata)
 	if collectorConstructor == nil {
 		return nil, errors.Errorf("failed to find collector for %s", metadata)
 	}
@@ -316,9 +321,9 @@ type SysCall interface {
 	Statfs(string, *syscall.Statfs_t) error
 }
 
-type SysCallImplementation struct{}
+type sysCall struct{}
 
-func (SysCallImplementation) Statfs(path string, stat *syscall.Statfs_t) error {
+func (sysCall) Statfs(path string, stat *syscall.Statfs_t) error {
 	return syscall.Statfs(path, stat)
 }
 
@@ -338,19 +343,19 @@ func DiskUsage(sysCall SysCall) (DiskStatus, error) {
 	return disk, nil
 }
 
-func (svc *Service) continuouslyCheckStorage() {
-	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
+func (svc *Service) runStorageCheckAndUpdateCollectors() {
+	defer svc.storageCheckTicker.Stop()
 
 	for {
 		select {
 		case <-svc.cancelCtx.Done():
 			return
-		case <-ticker.C:
-			du, err := DiskUsage(SysCallImplementation{})
+		case <-svc.storageCheckTicker.C:
+			du, err := DiskUsage(svc.sysCall)
 			if err != nil {
 				svc.logger.Errorw("failed to check disk usage", "error", err)
 			}
+			svc.logger.Info("percent used: ", du.PercentUsed, ", max: ", svc.maxStoragePercent)
 			if du.PercentUsed >= svc.maxStoragePercent {
 				if svc.enableAutoDelete {
 					// TODO: Add deletion logic for oldest file(s)
@@ -433,7 +438,15 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 }
 
 // Update updates the data manager service when the config has changed.
+// This will include the first time that the user saves the config, whereas
+// init() and New() are called beforehand since Data Manager is a default service.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
+	if svc.storageCheckTicker == nil {
+		svc.storageCheckTicker = time.NewTicker(time.Minute)
+		svc.sysCall = sysCall{}
+		go svc.runStorageCheckAndUpdateCollectors()
+	}
+
 	c, ok := getServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
 	if !ok {
@@ -448,7 +461,14 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 	svc.enableAutoDelete = svcConfig.EnableAutoDelete
-	svc.maxStoragePercent = svcConfig.MaxStoragePercent
+	if svcConfig.MaxStoragePercent > 0 {
+		svc.maxStoragePercent = svcConfig.MaxStoragePercent
+	} else {
+		svc.maxStoragePercent = defaultMaxStoragePercent
+	}
+
+	// TODO: Set defaults here for capture buffer size and queue size,
+	// since removing them from the config here will set to zero.
 
 	allComponentAttributes, err := getAllDataCaptureConfigs(cfg)
 	if err != nil {
