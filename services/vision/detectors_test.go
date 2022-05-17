@@ -36,7 +36,9 @@ func TestDetectorMap(t *testing.T) {
 	test.That(t, det, test.ShouldBeNil)
 	// duplicate
 	err = reg.registerDetector(fnName, fn)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "trying to register two detectors with the same name")
+	test.That(t, err, test.ShouldBeNil)
+	names = reg.detectorNames()
+	test.That(t, names, test.ShouldContain, fnName)
 }
 
 func TestRegisterTFLiteDetector(t *testing.T) {

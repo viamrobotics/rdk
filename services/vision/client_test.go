@@ -98,9 +98,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segNames, test.ShouldContain, "detect_red")
 		test.That(t, segNames, test.ShouldContain, "new_detector")
-		// failure - tries to add a detector again
-		err = client.AddDetector(context.Background(), cfg)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "trying to register two detectors with the same name")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
