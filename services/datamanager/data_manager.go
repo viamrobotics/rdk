@@ -170,7 +170,7 @@ type Service struct {
 
 	collectorLookup    func(data.MethodMetadata) *data.CollectorConstructor
 	storageCheckTicker *time.Ticker
-	sysCall            SysCall
+	sysCall            sysCall
 
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
@@ -309,6 +309,7 @@ func (svc *Service) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
+// DiskStatus contains the local disk usage.
 type DiskStatus struct {
 	All         uint64
 	Used        uint64
@@ -317,21 +318,21 @@ type DiskStatus struct {
 	PercentUsed int
 }
 
-type SysCall interface {
+type sysCall interface {
 	Statfs(string, *syscall.Statfs_t) error
 }
 
-type sysCall struct{}
+type sysCallStruct struct{}
 
-func (sysCall) Statfs(path string, stat *syscall.Statfs_t) error {
+func (sysCallStruct) Statfs(path string, stat *syscall.Statfs_t) error {
 	return syscall.Statfs(path, stat)
 }
 
-func DiskUsage(sysCall SysCall) (DiskStatus, error) {
+// DiskUsage makes a call to the underlying system to get the local disk usage.
+func DiskUsage(sys sysCall) (DiskStatus, error) {
 	disk := DiskStatus{}
 	fs := syscall.Statfs_t{}
-	err := sysCall.Statfs("/", &fs)
-	if err != nil {
+	if err := sys.Statfs("/", &fs); err != nil {
 		return disk, err
 	}
 
@@ -443,7 +444,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	if svc.storageCheckTicker == nil {
 		svc.storageCheckTicker = time.NewTicker(time.Minute)
-		svc.sysCall = sysCall{}
+		svc.sysCall = sysCallStruct{}
 		go svc.runStorageCheckAndUpdateCollectors()
 	}
 

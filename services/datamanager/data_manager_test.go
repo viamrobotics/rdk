@@ -86,7 +86,7 @@ func TestDiskUsage(t *testing.T) {
 	bFree := uint64(2)
 	mock := MockSysCallImplementation{blocks, bSize, bAvail, bFree}
 
-	diskStatus, err := DiskUsage(mock)
+	du, err := DiskUsage(mock)
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedAll := uint64(12)
@@ -94,7 +94,7 @@ func TestDiskUsage(t *testing.T) {
 	expectedFree := uint64(8)
 	expectedAvail := uint64(4)
 	expectedPercentUsed := 50
-	test.That(t, diskStatus, test.ShouldResemble,
+	test.That(t, du, test.ShouldResemble,
 		DiskStatus{expectedAll, expectedUsed, expectedFree, expectedAvail, expectedPercentUsed})
 
 	// Test 33% disk usage.
@@ -102,14 +102,14 @@ func TestDiskUsage(t *testing.T) {
 	bFree = uint64(2)
 	mock = MockSysCallImplementation{blocks, bSize, bAvail, bFree}
 
-	diskStatus, err = DiskUsage(mock)
+	du, err = DiskUsage(mock)
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedUsed = uint64(4)
 	expectedFree = uint64(8)
 	expectedAvail = uint64(8)
 	expectedPercentUsed = 33
-	test.That(t, diskStatus, test.ShouldResemble,
+	test.That(t, du, test.ShouldResemble,
 		DiskStatus{expectedAll, expectedUsed, expectedFree, expectedAvail, expectedPercentUsed})
 }
 
@@ -133,7 +133,7 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	r.MockResourcesFromMap(rs)
 
 	// Add a dummy collector constructor to the service.
-	var c = &dummyCollector{}
+	c := &dummyCollector{}
 	var dummyCollectorConstructor data.CollectorConstructor = func(
 		resource interface{}, params data.CollectorParams) (data.Collector, error) {
 		return c, nil
