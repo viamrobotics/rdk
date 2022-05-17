@@ -2,8 +2,6 @@
 const { grpc } = require('@improbable-eng/grpc-web');
 window.robotApi = require('./gen/proto/api/robot/v1/robot_pb');
 const { RobotServiceClient } = require('./gen/proto/api/robot/v1/robot_pb_service');
-window.metadataApi = require('./gen/proto/api/service/metadata/v1/metadata_pb');
-const { MetadataServiceClient } = require('./gen/proto/api/service/metadata/v1/metadata_pb_service');
 window.commonApi = require('./gen/proto/api/common/v1/common_pb');
 window.armApi = require('./gen/proto/api/component/arm/v1/arm_pb');
 const { ArmServiceClient } = require('./gen/proto/api/component/arm/v1/arm_pb_service');
@@ -109,7 +107,6 @@ const connect = async (authEntity, creds) => {
 	window.connect = () => connect(authEntity, creds);
 
 	window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
-	window.metadataService = new MetadataServiceClient(window.webrtcHost, { transport: transportFactory });
 
 	// TODO: these should be created as needed for #272
 	window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });

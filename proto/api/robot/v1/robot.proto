@@ -17,6 +17,13 @@ service RobotService {
     };    
   }
 
+  // ResourceNames returns the list of all resources.
+  rpc ResourceNames(ResourceNamesRequest) returns (ResourceNamesResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/resources/list"
+    };
+  }
+
   rpc CancelOperation(CancelOperationRequest) returns (CancelOperationResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/operations/cancel"
@@ -28,6 +35,12 @@ service RobotService {
       post: "/viam/api/v1/operations/block"
     };    
   }
+}
+
+message ResourceNamesRequest {}
+
+message ResourceNamesResponse {
+  repeated common.v1.ResourceName resources = 1;
 }
 
 message Operation {
