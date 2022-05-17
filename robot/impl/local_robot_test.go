@@ -35,7 +35,6 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
@@ -151,23 +150,16 @@ func TestConfigRemote(t *testing.T) {
 		},
 	}
 
-	test.That(t, err, test.ShouldBeNil)
 	ctx2 := context.Background()
 	r2, err := robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	metadataSvc2, err := metadata.FromRobot(r2)
-	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		metadata.Name,
 		framesystem.Name,
 		vision.Name,
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "squee"),
 		arm.Named("pieceArm"),
 		arm.Named("foo.pieceArm"),
 		arm.Named("bar.pieceArm"),
@@ -187,8 +179,7 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("bar.pieceGripper"),
 	}
 
-	resources2, err := metadataSvc2.Resources(ctx2)
-	test.That(t, err, test.ShouldBeNil)
+	resources2 := r2.ResourceNames()
 
 	test.That(
 		t,
@@ -196,6 +187,16 @@ func TestConfigRemote(t *testing.T) {
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
+
+	expectedRemotes := []string{"squee", "foo", "bar"}
+	remotes2 := r2.RemoteNames()
+
+	test.That(
+		t, utils.NewStringSet(remotes2...),
+		test.ShouldResemble,
+		utils.NewStringSet(expectedRemotes...),
+	)
+
 	statusSvc, err := status.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -344,7 +345,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			}
 
 			var r2 robot.LocalRobot
-			var metadataSvc2 metadata.Service
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
@@ -363,7 +363,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
-				metadataSvc2, err = metadata.FromRobot(r2)
 				test.That(t, err, test.ShouldBeNil)
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
@@ -383,7 +382,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
-				metadataSvc2, err = metadata.FromRobot(r2)
 				test.That(t, err, test.ShouldBeNil)
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
@@ -394,14 +392,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				metadata.Name,
 				framesystem.Name,
 				vision.Name,
 				sensors.Name,
 				status.Name,
 				datamanager.Name,
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 				arm.Named("pieceArm"),
 				arm.Named("foo.pieceArm"),
 				camera.Named("cameraOver"),
@@ -414,8 +409,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				gripper.Named("foo.pieceGripper"),
 			}
 
-			resources2, err := metadataSvc2.Resources(ctx)
-			test.That(t, err, test.ShouldBeNil)
+			resources2 := r2.ResourceNames()
 
 			test.That(
 				t,
@@ -423,6 +417,16 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.ShouldResemble,
 				rtestutils.NewResourceNameSet(expected...),
 			)
+
+			remotes2 := r2.RemoteNames()
+			expectedRemotes := []string{"bar", "foo"}
+
+			test.That(
+				t, utils.NewStringSet(remotes2...),
+				test.ShouldResemble,
+				utils.NewStringSet(expectedRemotes...),
+			)
+
 			statusSvc, err := status.FromRobot(r2)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -588,17 +592,14 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	remoteConfig.Remotes[0].Address = options.FQDN
 	r2, err = robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	metadataSvc2, err := metadata.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		metadata.Name,
 		framesystem.Name,
 		vision.Name,
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
 		gps.Named("gps1"),
@@ -606,8 +607,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		gripper.Named("pieceGripper"),
 	}
 
-	resources2, err := metadataSvc2.Resources(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	resources2 := r2.ResourceNames()
 
 	test.That(
 		t,
@@ -615,6 +615,16 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
+
+	remotes2 := r2.RemoteNames()
+	expectedRemotes := []string{"foo"}
+
+	test.That(
+		t, utils.NewStringSet(remotes2...),
+		test.ShouldResemble,
+		utils.NewStringSet(expectedRemotes...),
+	)
+
 	statusSvc, err := status.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -729,17 +739,15 @@ func TestMetadataUpdate(t *testing.T) {
 
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, err := metadata.FromRobot(r)
+
+	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	resources, err := svc.Resources(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, len(resources), test.ShouldEqual, 11)
+	test.That(t, len(resources), test.ShouldEqual, 10)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 5 declared resources + default sensors, status, and metadata service
+	// 5 declared resources + default sensors and status service
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
@@ -751,14 +759,12 @@ func TestMetadataUpdate(t *testing.T) {
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
-		metadata.Name,
 	}
 
-	svcResources, err := svc.Resources(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(svcResources), test.ShouldEqual, len(resourceNames))
+	resources = r.ResourceNames()
+	test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
 
-	test.That(t, rtestutils.NewResourceNameSet(svcResources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
+	test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
 }
 
 func TestSensorsService(t *testing.T) {

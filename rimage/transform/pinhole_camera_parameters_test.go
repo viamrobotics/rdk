@@ -170,3 +170,22 @@ func TestUndistortDepthMap(t *testing.T) {
 	test.That(t, corrected.GetDepth(0, 0), test.ShouldEqual, img.GetDepth(0, 0))
 	test.That(t, corrected.GetDepth(1279, 719), test.ShouldEqual, img.GetDepth(1279, 719))
 }
+
+func TestGetCameraMatrix(t *testing.T) {
+	intrinsics := &PinholeCameraIntrinsics{
+		Width:      0,
+		Height:     0,
+		Fx:         50,
+		Fy:         55,
+		Ppx:        320,
+		Ppy:        160,
+		Distortion: DistortionModel{},
+	}
+	intrinsicsK := intrinsics.GetCameraMatrix()
+	test.That(t, intrinsicsK, test.ShouldNotBeNil)
+	test.That(t, intrinsicsK.At(0, 0), test.ShouldEqual, intrinsics.Fx)
+	test.That(t, intrinsicsK.At(1, 1), test.ShouldEqual, intrinsics.Fy)
+	test.That(t, intrinsicsK.At(0, 2), test.ShouldEqual, intrinsics.Ppx)
+	test.That(t, intrinsicsK.At(1, 2), test.ShouldEqual, intrinsics.Ppy)
+	test.That(t, intrinsicsK.At(2, 2), test.ShouldEqual, 1)
+}
