@@ -33,15 +33,15 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	address string
-	conn    rpc.ClientConn
-	client  pb.RobotServiceClient
-	dialOptions    []rpc.DialOption
+	address     string
+	conn        rpc.ClientConn
+	client      pb.RobotServiceClient
+	dialOptions []rpc.DialOption
 
 	mu            *sync.RWMutex
 	resourceNames []resource.Name
-  
-  connected  bool
+
+	connected  bool
 	changeChan chan bool
 
 	activeBackgroundWorkers *sync.WaitGroup
@@ -126,10 +126,8 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	defer rc.mu.Unlock()
 
 	client := pb.NewRobotServiceClient(conn)
-	metadataClient := metadata.NewClientFromConn(ctx, conn, "", rc.logger)
 	rc.conn = conn
 	rc.client = client
-	rc.metadataClient = metadataClient
 	rc.connected = true
 	if rc.changeChan != nil {
 		rc.changeChan <- true
@@ -165,7 +163,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 			check := func() error {
 				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
-				if _, err := rc.metadataClient.Resources(timeoutCtx); err != nil {
+				if _, err := rc.resources(timeoutCtx); err != nil {
 					return err
 				}
 				return nil
