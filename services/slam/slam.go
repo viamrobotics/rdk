@@ -368,14 +368,26 @@ func (slamSvc *slamService) startDataProcess(cancelCtx context.Context) {
 
 // startSLAMProcess starts up the SLAM library process by calling the executable binary and giving it the necessary arguments.
 func (slamSvc *slamService) startSLAMProcess(ctx context.Context) ([]string, error) {
-	sensorArg := "-sensors=" + slamSvc.cameraName
-	configParamArg := "-config_param=" + createKeyValuePairs(slamSvc.configParams)
-	dataRateArg := "-data_rate_ms=" + strconv.Itoa(slamSvc.dataRateMs)
-	mapRateArg := "-map_rate_sec=" + strconv.Itoa(slamSvc.mapRateSec)
-	dataDirArg := "-data_dir=" + slamSvc.dataDirectory
-	inputFilePatternArg := "-input_file_pattern=" + slamSvc.inputFilePattern
+	var args []string
 
-	args := []string{sensorArg, dataDirArg, dataRateArg, mapRateArg, configParamArg, inputFilePatternArg}
+	if slamSvc.cameraName != "" {
+		args = append(args, "-sensors="+slamSvc.cameraName)
+	}
+	if len(slamSvc.configParams) != 0 {
+		args = append(args, "-config_param="+createKeyValuePairs(slamSvc.configParams))
+	}
+	if slamSvc.dataRateMs != 0 {
+		args = append(args, "-data_rate_ms="+strconv.Itoa(slamSvc.dataRateMs))
+	}
+	if slamSvc.dataRateMs != 0 {
+		args = append(args, "-map_rate_sec="+strconv.Itoa(slamSvc.mapRateSec))
+	}
+	if slamSvc.dataDirectory != "" {
+		args = append(args, "-data_dir="+slamSvc.dataDirectory)
+	}
+	if slamSvc.inputFilePattern != "" {
+		args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
+	}
 
 	processCfg := pexec.ProcessConfig{
 		ID:      "slam_" + slamSvc.slamLib.AlgoName,
