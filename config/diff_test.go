@@ -156,10 +156,10 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_empty.json",
 			"data/diff_config_empty.json",
 			config.Diff{
-				Added:    &config.Config{},
-				Modified: &config.ModifiedConfigDiff{},
-				Removed:  &config.Config{},
-				Equal:    true,
+				Added:          &config.Config{},
+				Modified:       &config.ModifiedConfigDiff{},
+				Removed:        &config.Config{},
+				ResourcesEqual: true,
 			},
 		},
 		{
@@ -167,10 +167,10 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_1.json",
 			"data/diff_config_1.json",
 			config.Diff{
-				Added:    &config.Config{},
-				Modified: &config.ModifiedConfigDiff{},
-				Removed:  &config.Config{},
-				Equal:    true,
+				Added:          &config.Config{},
+				Modified:       &config.ModifiedConfigDiff{},
+				Removed:        &config.Config{},
+				ResourcesEqual: true,
 			},
 		},
 		{
@@ -178,10 +178,10 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_empty.json",
 			"data/diff_config_1.json",
 			config.Diff{
-				Added:    &config1,
-				Modified: &config.ModifiedConfigDiff{},
-				Removed:  &config.Config{},
-				Equal:    false,
+				Added:          &config1,
+				Modified:       &config.ModifiedConfigDiff{},
+				Removed:        &config.Config{},
+				ResourcesEqual: false,
 			},
 		},
 		{
@@ -189,10 +189,10 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_1.json",
 			"data/diff_config_empty.json",
 			config.Diff{
-				Added:    &config.Config{},
-				Removed:  &config1,
-				Modified: &config.ModifiedConfigDiff{},
-				Equal:    false,
+				Added:          &config.Config{},
+				Removed:        &config1,
+				Modified:       &config.ModifiedConfigDiff{},
+				ResourcesEqual: false,
 			},
 		},
 		{
@@ -200,10 +200,10 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_1.json",
 			"data/diff_config_2.json",
 			config.Diff{
-				Added:    &config.Config{},
-				Removed:  &config.Config{},
-				Modified: &config2,
-				Equal:    false,
+				Added:          &config.Config{},
+				Removed:        &config.Config{},
+				Modified:       &config2,
+				ResourcesEqual: false,
 			},
 		},
 		{
@@ -294,7 +294,7 @@ func TestDiffConfigs(t *testing.T) {
 						},
 					},
 				},
-				Equal: false,
+				ResourcesEqual: false,
 			},
 		},
 	} {
@@ -309,7 +309,7 @@ func TestDiffConfigs(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, diff.Left, test.ShouldResemble, left)
 			test.That(t, diff.Right, test.ShouldResemble, right)
-			if tc.Expected.Equal {
+			if tc.Expected.ResourcesEqual {
 				test.That(t, diff.PrettyDiff, test.ShouldBeEmpty)
 			} else {
 				test.That(t, diff.PrettyDiff, test.ShouldNotBeEmpty)

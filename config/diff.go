@@ -14,12 +14,13 @@ import (
 // where left is usually old and right is new. So the diff is the
 // changes from left to right.
 type Diff struct {
-	Left, Right *Config
-	Added       *Config
-	Modified    *ModifiedConfigDiff
-	Removed     *Config
-	Equal       bool
-	PrettyDiff  string
+	Left, Right    *Config
+	Added          *Config
+	Modified       *ModifiedConfigDiff
+	Removed        *Config
+	ResourcesEqual bool
+	NetworkEqual   bool
+	PrettyDiff     string
 }
 
 // ModifiedConfigDiff is the modificative different between two configs.
@@ -65,7 +66,10 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 	}
 	different = servicesDifferent || different
 	different = diffProcesses(left.Processes, right.Processes, &diff) || different
-	diff.Equal = !different
+	diff.ResourcesEqual = !different
+
+	networkDifferent := diffNetwork(left, right)
+	diff.NetworkEqual = !networkDifferent
 
 	return &diff, nil
 }
@@ -273,4 +277,26 @@ func diffService(left, right Service, diff *Diff) (bool, error) {
 	}
 	diff.Modified.Services = append(diff.Modified.Services, right)
 	return true, nil
+}
+
+// diffNetwork checks if any part of the networking config is different.
+func diffNetwork(left, right *Config) bool {
+	if !reflect.DeepEqual(left.Cloud, right.Cloud) {
+		return true
+	}
+	// for network, we have to check each field separately
+	if diffNetworkConfig(left.Network, right.Network) {
+		return true
+	}
+	if !reflect.DeepEqual(left.Auth, right.Auth) {
+		return true
+	}
+	return false
+}
+
+func diffNetworkConfig(left, right NetworkConfig) bool {
+	// ignore TLSConfig, it is just generated off of Cloud config anyway
+	left.TLSConfig = nil
+	right.TLSConfig = nil
+	return !reflect.DeepEqual(left, right)
 }
