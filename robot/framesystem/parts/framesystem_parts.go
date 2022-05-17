@@ -51,10 +51,9 @@ func NewMissingParentError(partName, parentName string) error {
 	return fmt.Errorf("part with name %s references non-existent parent %s", partName, parentName)
 }
 
-// TopologicallySortParts takes a potentially un-ordered slice of frame system parts and
+// TopologicallySort takes a potentially un-ordered slice of frame system parts and
 // sorts them, beginning at the world node.
-// CR erodkin: probably rename to get rid of Parts suffix.
-func TopologicallySortParts(parts Parts) (Parts, error) {
+func TopologicallySort(parts Parts) (Parts, error) {
 	// set up directory to check existence of parents
 	existingParts := make(map[string]bool, len(parts))
 	existingParts[referenceframe.World] = true
@@ -129,8 +128,8 @@ func PartMapToPartSlice(partsMap map[string]*config.FrameSystemPart) Parts {
 	return Parts(parts)
 }
 
-// PartNames returns the names of input parts.
-func PartNames(parts Parts) []string {
+// Names returns the names of input parts.
+func Names(parts Parts) []string {
 	names := make([]string, len(parts))
 	for i, p := range parts {
 		names[i] = p.Name

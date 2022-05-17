@@ -71,7 +71,7 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 	}
 	// combine the parts, sort, and print the result
 	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
-	sortedParts, err := framesystemparts.TopologicallySortParts(allParts)
+	sortedParts, err := framesystemparts.TopologicallySort(allParts)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (svc *frameSystemService) Config(ctx context.Context, additionalTransforms 
 		}
 		allParts = append(allParts, newPart)
 	}
-	sortedParts, err := framesystemparts.TopologicallySortParts(allParts)
+	sortedParts, err := framesystemparts.TopologicallySort(allParts)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,6 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 	if !ok {
 		return utils.NewUnimplementedInterfaceError("robot.LocalRobot", svc.r)
 	}
-	// CR erodkin: re this comment: probably that time is now? Confirm and update accordingly
 	cfg, err := local.Config(ctx) // Eventually there will be another function that gathers the frame system config
 	if err != nil {
 		return err

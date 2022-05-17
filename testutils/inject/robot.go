@@ -167,6 +167,7 @@ func (r *RemoteRobot) Connected() bool {
 	return !r.Disconnected
 }
 
+// FrameSystemConfig calls the injected FrameSystemConfig or the real version.
 func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
 	if r.FrameSystemConfigFunc == nil {
 		return r.LocalRobot.FrameSystemConfig(ctx, additionalTransforms)
@@ -175,6 +176,7 @@ func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*c
 	return r.FrameSystemConfigFunc(ctx, additionalTransforms)
 }
 
+// TransformPose calls the injected TransformPose or the real version.
 func (r *Robot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,

@@ -344,6 +344,7 @@ func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
 }
 
+// FrameSystemConfig returns the info of each individual part that makes up the frame system.
 func (rc *RobotClient) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
 	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{
 		SupplementalTransforms: additionalTransforms,
@@ -363,6 +364,7 @@ func (rc *RobotClient) FrameSystemConfig(ctx context.Context, additionalTransfor
 	return framesystemparts.Parts(result), nil
 }
 
+// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,

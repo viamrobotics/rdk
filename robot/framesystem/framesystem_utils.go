@@ -58,15 +58,15 @@ func NewFrameSystemFromParts(
 		}
 	}
 	// Topologically sort parts
-	sortedParts, err := framesystemparts.TopologicallySortParts(parts)
+	sortedParts, err := framesystemparts.TopologicallySort(parts)
 	if err != nil {
 		return nil, err
 	}
 	if len(sortedParts) != len(parts) {
 		return nil, errors.Errorf(
 			"frame system has disconnected frames. connected frames: %v, all frames: %v",
-			framesystemparts.PartNames(sortedParts),
-			framesystemparts.PartNames(parts),
+			framesystemparts.Names(sortedParts),
+			framesystemparts.Names(parts),
 		)
 	}
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
