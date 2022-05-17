@@ -32,9 +32,6 @@ type Server struct {
 }
 
 // New constructs a gRPC service server for a Robot.
-// CR erodkin: kinda a bummer to add new args here. See if we can do without. if the r
-// was a LocalRobot instead then we could use a LocalRobot accessor to get hold of the
-// framesystem directly, and wouldn't need the subtype.Service?
 func New(r robot.Robot) pb.RobotServiceServer {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &Server{
@@ -126,6 +123,7 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
 }
 
+// FrameSystemConfig returns the info of each individual part that makes up the frame system.
 func (s *Server) FrameSystemConfig(
 	ctx context.Context,
 	req *pb.FrameSystemConfigRequest,
@@ -149,6 +147,7 @@ func (s *Server) FrameSystemConfig(
 	return &pb.FrameSystemConfigResponse{FrameSystemConfigs: configs}, nil
 }
 
+// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest) (*pb.TransformPoseResponse, error) {
 	dst := req.Destination
 	pF := referenceframe.ProtobufToPoseInFrame(req.Source)
