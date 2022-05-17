@@ -10,6 +10,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/data"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -73,14 +74,17 @@ type Arm interface {
 
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
+	// This will block until done or a new operation cancels this one
 	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
+	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error
 
 	// GetJointPositions returns the current joint positions of the arm.
 	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
+	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
 }
@@ -129,6 +133,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 type reconfigurableArm struct {
 	mu     sync.RWMutex
 	actual Arm
+}
+
+func (r *reconfigurableArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableArm) ProxyFor() interface{} {

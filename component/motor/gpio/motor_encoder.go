@@ -14,9 +14,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
+	"go.viam.com/rdk/operation"
 )
 
 var (
@@ -187,6 +189,9 @@ type EncodedMotor struct {
 	cancelCtx       context.Context
 	cancel          func()
 	loop            *control.ControlLoop
+	opMgr           operation.SingleOperationManager
+
+	generic.Unimplemented
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.
@@ -259,6 +264,7 @@ func (m *EncodedMotor) fixPowerPct(powerPct float64) float64 {
 
 // SetPower sets the power of the motor to the given percentage value between 0 and 1.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64) error {
+	m.opMgr.CancelRunning(ctx)
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.setPower(ctx, powerPct, false)
@@ -457,6 +463,17 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
+	if err := m.goForInternal(ctx, rpm, revolutions); err != nil {
+		return err
+	}
+
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+}
+
+func (m *EncodedMotor) goForInternal(ctx context.Context, rpm float64, revolutions float64) error {
 	m.RPMMonitorStart()
 
 	var d int64 = 1
@@ -513,6 +530,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 		}
 	}
 	m.stateMu.Unlock()
+
 	return nil
 }
 
@@ -559,6 +577,9 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition flo
 
 // GoTillStop moves until physically stopped (though with a ten second timeout) or stopFunc() returns true.
 func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	if err := m.GoFor(ctx, rpm, 0); err != nil {
 		return err
 	}

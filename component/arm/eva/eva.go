@@ -22,8 +22,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -86,6 +88,7 @@ type evaData struct {
 }
 
 type eva struct {
+	generic.Unimplemented
 	host         string
 	version      string
 	token        string
@@ -97,6 +100,8 @@ type eva struct {
 	model    referenceframe.Model
 
 	frameJSON []byte
+
+	opMgr operation.SingleOperationManager
 }
 
 func (e *eva) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
@@ -118,6 +123,9 @@ func (e *eva) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := e.opMgr.New(ctx)
+	defer done()
+
 	joints, err := e.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -130,6 +138,9 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+	ctx, done := e.opMgr.New(ctx)
+	defer done()
+
 	radians := referenceframe.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)

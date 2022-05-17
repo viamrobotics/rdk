@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	// registers all components.
@@ -19,17 +20,23 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/metadata"
-	"go.viam.com/rdk/services/objectsegmentation"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
-	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
+)
+
+type internalServiceName string
+
+const (
+	webName internalServiceName = "web"
 )
 
 var (
@@ -37,13 +44,11 @@ var (
 
 	// defaultSvc is a list of default robot services.
 	defaultSvc = []resource.Name{
-		metadata.Name,
 		sensors.Name,
 		status.Name,
-		web.Name,
 		datamanager.Name,
 		framesystem.Name,
-		objectsegmentation.Name,
+		vision.Name,
 	}
 )
 
@@ -55,6 +60,23 @@ type localRobot struct {
 	config     *config.Config
 	operations *operation.Manager
 	logger     golog.Logger
+
+	// services internal to a localRobot. Currently just web, more to come.
+	internalServices map[internalServiceName]interface{}
+}
+
+// webService returns the localRobot's web service. Raises if the service has not been initialized.
+func (r *localRobot) webService() (web.Service, error) {
+	svc := r.internalServices[webName]
+	if svc == nil {
+		return nil, errors.New("web service not initialized")
+	}
+
+	webSvc, ok := svc.(web.Service)
+	if !ok {
+		return nil, errors.New("unexpected service associated with web InternalServiceName")
+	}
+	return webSvc, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -91,6 +113,12 @@ func (r *localRobot) OperationManager() *operation.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
+	for _, svc := range r.internalServices {
+		if err := goutils.TryClose(ctx, svc); err != nil {
+			return err
+		}
+	}
+
 	return r.manager.Close(ctx)
 }
 
@@ -108,8 +136,21 @@ func (r *localRobot) Logger() golog.Logger {
 	return r.logger
 }
 
-// New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+// StartWeb starts the web server, will return an error if server is already up.
+func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
+	webSvc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return webSvc.Start(ctx, o)
+}
+
+func newWithResources(
+	ctx context.Context,
+	cfg *config.Config,
+	resources map[resource.Name]interface{},
+	logger golog.Logger,
+) (robot.LocalRobot, error) {
 	r := &localRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{
@@ -144,8 +185,14 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 		r.manager.addResource(name, svc)
 	}
 
+	r.internalServices = make(map[internalServiceName]interface{})
+	r.internalServices[webName] = web.New(ctx, r, logger)
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
+	}
+
+	for name, res := range resources {
+		r.manager.addResource(name, res)
 	}
 
 	// update default services - done here so that all resources have been created and can be addressed.
@@ -155,6 +202,11 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 
 	successful = true
 	return r, nil
+}
+
+// New returns a new robot with parts sourced from the given config.
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+	return newWithResources(ctx, cfg, nil, logger)
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
@@ -186,17 +238,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 // ConfigUpdateable is implemented when component/service of a robot should be updated with the config.
 type ConfigUpdateable interface {
 	// Update updates the resource
-	Update(context.Context, config.Service) error
-}
-
-// Get the config associated with the service resource.
-func getServiceConfig(cfg *config.Config, name resource.Name) (config.Service, error) {
-	for _, c := range cfg.Services {
-		if c.ResourceName() == name {
-			return c, nil
-		}
-	}
-	return config.Service{}, errors.Errorf("could not find service config of subtype %s", name.Subtype.String())
+	Update(context.Context, *config.Config) error
 }
 
 func (r *localRobot) updateDefaultServices(ctx context.Context) error {
@@ -219,10 +261,11 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		// TODO(RDK-119) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
-			r.logger.Debugf("not found while grabbing all resources during default svc refresh: %w", err)
+			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
 		}
 		resources[n] = res
 	}
+
 	for _, name := range defaultSvc {
 		svc, err := r.ResourceByName(name)
 		if err != nil {
@@ -234,14 +277,20 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 			}
 		}
 		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
-			serviceConfig, err := getServiceConfig(r.config, name)
-			if err == nil {
-				if err := configUpdateable.Update(ctx, serviceConfig); err != nil {
-					return err
-				}
+			if err := configUpdateable.Update(ctx, r.config); err != nil {
+				return err
 			}
 		}
 	}
+
+	for _, svc := range r.internalServices {
+		if updateable, ok := svc.(resource.Updateable); ok {
+			if err := updateable.Update(ctx, resources); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -268,4 +317,10 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 		return nil, err
 	}
 	return New(ctx, processedCfg, logger)
+}
+
+// RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
+// to support more streamlined reconfiguration functionality.
+func RobotFromResources(ctx context.Context, resources map[resource.Name]interface{}, logger golog.Logger) (robot.LocalRobot, error) {
+	return newWithResources(ctx, &config.Config{}, resources, logger)
 }
