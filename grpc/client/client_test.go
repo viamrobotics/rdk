@@ -660,13 +660,9 @@ func TestClientDisconnect(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-	injectMetadata := &inject.Metadata{}
-	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
-		return []resource.Name{arm.Named("arm1")}, nil
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{arm.Named("arm1")}
 	}
-	metadataServer, err := getMetadataServer(injectMetadata)
-	test.That(t, err, test.ShouldBeNil)
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
 
 	go gServer.Serve(listener)
 
@@ -714,13 +710,9 @@ func TestClientReconnect(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-	injectMetadata := &inject.Metadata{}
-	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
-		return []resource.Name{arm.Named("arm1")}, nil
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{arm.Named("arm1")}
 	}
-	metadataServer, err := getMetadataServer(injectMetadata)
-	test.That(t, err, test.ShouldBeNil)
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
 
 	go gServer.Serve(listener)
 
@@ -745,7 +737,6 @@ func TestClientReconnect(t *testing.T) {
 
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
-	metadatapb.RegisterMetadataServiceServer(gServer2, metadataServer)
 
 	listener, err = net.Listen("tcp", addr)
 	test.That(t, err, test.ShouldBeNil)
