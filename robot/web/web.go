@@ -160,6 +160,9 @@ var defaultStreamConfig = x264.DefaultStreamConfig
 type Service interface {
 	// Start starts the web server
 	Start(context.Context, weboptions.Options) error
+
+	// Close closes the web server
+	Close() error
 }
 
 // StreamServer manages streams and displays.
@@ -207,7 +210,7 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	return svc.runWeb(cancelCtx, o)
 }
 
-// RunWeb starts the web server on the robot with web options and blocks until we close it.
+// RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
 func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil {
@@ -226,7 +229,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 	return ctx.Err()
 }
 
-// RunWebWithConfig starts the web server on the robot with a robot config and blocks until we close it.
+// RunWebWithConfig starts the web server on the robot with a robot config and blocks until we cancel the context.
 func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Config, logger golog.Logger) error {
 	o, err := weboptions.FromConfig(cfg)
 	if err != nil {
@@ -283,7 +286,7 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 }
 
 // Close closes a webService via calls to its Cancel func.
-func (svc *webService) Close(ctx context.Context) error {
+func (svc *webService) Close() error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
