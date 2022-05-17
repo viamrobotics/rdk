@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Only update the service if it was previously installed.
+if [ -f /etc/systemd/system/viam-server.service ]
+then
+   if [ `whoami` != "root" ]
+   then
+      echo "Need root to update viam-server system service. Please try this again manually with sudo. Ex: 'sudo viam-server --aix-post-update'"
+      exit 1
+   fi
+
+   cp "$APPDIR/viam-server.service" /etc/systemd/system/
+   systemctl daemon-reload
+fi
