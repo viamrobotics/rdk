@@ -106,7 +106,7 @@ func TestGeneralSLAMService(t *testing.T) {
 
 	_, _, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeError, errors.New("error creating slam service"))
-	test.That(t, slamSvc.dataDirectory, test.ShouldEqual, name)
+	test.That(t, slamSvc, test.ShouldBeNil)
 
 	attrCfg = &AttrConfig{
 		Algorithm:        "fake_cartographer",
