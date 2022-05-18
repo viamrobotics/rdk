@@ -23,10 +23,10 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/services/framesystem"
 
 	// registers all services.
-	"go.viam.com/rdk/services/discovery"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"

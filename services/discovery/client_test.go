@@ -2,17 +2,14 @@ package discovery_test
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
 	"github.com/edaniels/golog"
-
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
@@ -20,13 +17,11 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/imu"
 	viamgrpc "go.viam.com/rdk/grpc"
-
 	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/subtype"
-
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -63,13 +58,10 @@ func TestClient(t *testing.T) {
 
 		imuKey := discovery.Key{imu.Named("imu").ResourceSubtype, "some imu"}
 		imuDiscovery := discovery.Discovery{Key: imuKey, Discovered: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
-		fmt.Println(imuKey)
 		gpsKey := discovery.Key{gps.Named("gps").ResourceSubtype, "some gps"}
 		gpsDiscovery := discovery.Discovery{Key: gpsKey, Discovered: map[string]interface{}{"efg": []string{"hello"}}}
-		fmt.Println(gpsKey)
 		armKey := discovery.Key{arm.Named("arm").ResourceSubtype, "some arm"}
 		armDiscovery := discovery.Discovery{Key: armKey, Discovered: struct{}{}}
-		fmt.Println(armKey)
 
 		injectDiscovery.DiscoverFunc = func(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
 			discoveries := []discovery.Discovery{}
@@ -81,22 +73,18 @@ func TestClient(t *testing.T) {
 				case gpsKey:
 					return &gpsDiscovery
 				case armKey:
-					fmt.Printf("Found arm key! %#v\n", armDiscovery)
 					return &armDiscovery
 				}
 				return nil
 			}
 			for _, key := range keys {
 				if discovery := discoverByKey(key); discovery != nil {
-					fmt.Printf("Appending arm discovery! %#v\n", *discovery)
 					discoveries = append(discoveries, *discovery)
 				}
 			}
-			fmt.Printf("discoveries! %#v\n", discoveries)
 			return discoveries, nil
 		}
 		resp, err := client.Discover(context.Background(), []discovery.Key{armKey})
-		fmt.Printf("response: %#v\n", resp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		test.That(t, resp[0].Discovered, test.ShouldResemble, map[string]interface{}{})
