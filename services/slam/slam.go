@@ -297,7 +297,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	slamSvc.startDataProcess(cancelCtx)
 
 	if _, err := slamSvc.startSLAMProcess(ctx); err != nil {
-		// logger.Warnw("error with slam service slam process", "error", err)
 		slamSvc.Close()
 		return nil, errors.Errorf("error with slam service slam process: %v", err)
 	}
