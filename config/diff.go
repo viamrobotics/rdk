@@ -310,11 +310,11 @@ func diffNetwork(leftCopy, rightCopy NetworkConfig) bool {
 
 // diffTLS returns true if any part of the TLS config is different.
 func diffTLS(leftTLS, rightTLS *tls.Config) bool {
-	if leftTLS == nil && rightTLS == nil {
+	switch {
+	case leftTLS == nil && rightTLS == nil:
 		return false
-	} else if leftTLS == nil && rightTLS != nil {
-		return true
-	} else if leftTLS != nil && rightTLS == nil {
+	case leftTLS == nil && rightTLS != nil:
+	case leftTLS != nil && rightTLS == nil:
 		return true
 	}
 
