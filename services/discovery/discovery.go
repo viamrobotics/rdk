@@ -95,6 +95,7 @@ type (
 		logger    golog.Logger
 	}
 
+	// Key is a tuple of subtype name and model used to lookup discovery functions.
 	Key struct {
 		SubtypeName resource.SubtypeName
 		Model       string
@@ -121,7 +122,7 @@ func (s *discoveryService) Discover(ctx context.Context, keys []Key) ([]Discover
 
 	discoveries := make([]Discovery, 0, len(deduped))
 	for key := range deduped {
-		discoveryFunction, ok := DiscoveryFunctionLookup(key.SubtypeName, key.Model)
+		discoveryFunction, ok := FunctionLookup(key.SubtypeName, key.Model)
 		if !ok {
 			s.logger.Warnw("no discovery function registered", "subtype", key.SubtypeName, "model", key.Model)
 			continue

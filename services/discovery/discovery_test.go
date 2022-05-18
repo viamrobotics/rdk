@@ -46,7 +46,7 @@ func init() {
 		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
 	)
 
-	discovery.RegisterDiscoveryFunction(
+	discovery.RegisterFunction(
 		workingSubtype.ResourceSubtype,
 		workingModel,
 		func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error) {
@@ -66,7 +66,7 @@ func init() {
 		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
 	)
 
-	discovery.RegisterDiscoveryFunction(
+	discovery.RegisterFunction(
 		failSubtype.ResourceSubtype,
 		failModel,
 		func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error) {
