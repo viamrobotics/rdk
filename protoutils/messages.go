@@ -172,7 +172,6 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 		}
 
 		data, err := toInterface(field)
-
 		if err != nil {
 			return nil, err
 		}
