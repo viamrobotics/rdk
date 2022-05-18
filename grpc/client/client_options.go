@@ -13,6 +13,14 @@ type robotClientOpts struct {
 	// robot. If unset, it will not be refreshed automatically.
 	refreshEvery time.Duration
 
+	// checkConnectedEvery is how often to check connection to the
+	// robot. If unset, it will not be checked automatically.
+	checkConnectedEvery time.Duration
+
+	// reconnectEvery is how often to try reconnecting the
+	// robot. If unset, it will not be reconnected automatically.
+	reconnectEvery time.Duration
+
 	// dialOptions are options using for clients dialing gRPC servers.
 	dialOptions []rpc.DialOption
 }
@@ -44,6 +52,20 @@ func newFuncRobotClientOption(f func(*robotClientOpts)) *funcRobotClientOption {
 func WithRefreshEvery(refreshEvery time.Duration) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.refreshEvery = refreshEvery
+	})
+}
+
+// WithCheckConnectedEvery returns a RobotClientOption for how often to check connection to the robot.
+func WithCheckConnectedEvery(checkConnectedEvery time.Duration) RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.checkConnectedEvery = checkConnectedEvery
+	})
+}
+
+// WithReconnectEvery returns a RobotClientOption for how often to reconnect the robot.
+func WithReconnectEvery(reconnectEvery time.Duration) RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.reconnectEvery = reconnectEvery
 	})
 }
 
