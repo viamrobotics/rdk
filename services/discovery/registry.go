@@ -19,9 +19,7 @@ type (
 	Discover func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error)
 )
 
-var (
-	discoveryFunctions = map[Key]Discover{}
-)
+var discoveryFunctions = map[Key]Discover{}
 
 func DiscoveryFunctionLookup(subtypeName resource.SubtypeName, model string) (Discover, bool) {
 	if _, ok := lookupSubtype(subtypeName); !ok {

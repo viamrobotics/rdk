@@ -4,12 +4,13 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/types/known/structpb"
+
 	pb "go.viam.com/rdk/proto/api/service/discovery/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // subtypeServer implements the contract from discovery.proto.
