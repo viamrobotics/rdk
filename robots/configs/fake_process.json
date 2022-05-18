@@ -139,9 +139,6 @@
             }
         },
         {
-            "type": "discovery"
-        },
-        {
             "type": "vision"
         },
         {

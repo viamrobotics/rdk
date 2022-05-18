@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/services/framesystem"
 
 	// registers all services.
+	"go.viam.com/rdk/services/discovery"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
@@ -47,6 +48,7 @@ var (
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
+		discovery.Name,
 		framesystem.Name,
 		vision.Name,
 	}
