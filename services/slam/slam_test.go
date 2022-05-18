@@ -104,8 +104,9 @@ func TestGeneralSLAMService(t *testing.T) {
 		InputFilePattern: "100:300:5",
 	}
 
-	_, _, _, err = createSLAMService(t, attrCfg)
+	_, _, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeError, errors.New("error creating slam service"))
+	test.That(t, slamSvc.dataDirectory, test.ShouldEqual, name)
 
 	attrCfg = &AttrConfig{
 		Algorithm:        "fake_cartographer",
@@ -117,7 +118,7 @@ func TestGeneralSLAMService(t *testing.T) {
 		MapRateSec:       5,
 	}
 
-	_, _, slamSvc, err := createSLAMService(t, attrCfg)
+	_, _, slamSvc, err = createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, slamSvc.dataRateMs, test.ShouldEqual, 100)
 	test.That(t, slamSvc.mapRateSec, test.ShouldEqual, 5)
