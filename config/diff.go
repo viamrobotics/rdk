@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -68,7 +69,7 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 	different = diffProcesses(left.Processes, right.Processes, &diff) || different
 	diff.ResourcesEqual = !different
 
-	networkDifferent := diffNetwork(left, right)
+	networkDifferent := diffNetworkingCfg(left, right)
 	diff.NetworkEqual = !networkDifferent
 
 	return &diff, nil
@@ -279,13 +280,13 @@ func diffService(left, right Service, diff *Diff) (bool, error) {
 	return true, nil
 }
 
-// diffNetwork checks if any part of the networking config is different.
-func diffNetwork(left, right *Config) bool {
+// diffNetworkingCfg returns true if any part of the networking config is different.
+func diffNetworkingCfg(left, right *Config) bool {
 	if !reflect.DeepEqual(left.Cloud, right.Cloud) {
 		return true
 	}
 	// for network, we have to check each field separately
-	if diffNetworkConfig(left.Network, right.Network) {
+	if diffNetwork(left.Network, right.Network) {
 		return true
 	}
 	if !reflect.DeepEqual(left.Auth, right.Auth) {
@@ -294,9 +295,54 @@ func diffNetwork(left, right *Config) bool {
 	return false
 }
 
-func diffNetworkConfig(left, right NetworkConfig) bool {
-	// ignore TLSConfig, it is just generated off of Cloud config anyway
-	left.TLSConfig = nil
-	right.TLSConfig = nil
-	return !reflect.DeepEqual(left, right)
+// diffNetwork returns true if any part of the network config is different.
+func diffNetwork(leftCopy, rightCopy NetworkConfig) bool {
+	if diffTLS(leftCopy.TLSConfig, rightCopy.TLSConfig) {
+		return true
+	}
+
+	// TLSConfig holds funcs, which will never deeply equal so ignore them here
+	leftCopy.TLSConfig = nil
+	rightCopy.TLSConfig = nil
+
+	return !reflect.DeepEqual(leftCopy, rightCopy)
+}
+
+// diffTLS returns true if any part of the TLS config is different.
+func diffTLS(leftTLS, rightTLS *tls.Config) bool {
+	if leftTLS == nil && rightTLS == nil {
+		return false
+	} else if leftTLS == nil && rightTLS != nil {
+		return true
+	} else if leftTLS != nil && rightTLS == nil {
+		return true
+	}
+
+	if leftTLS.MinVersion != rightTLS.MinVersion {
+		return true
+	}
+
+	leftCert, err := leftTLS.GetCertificate(nil)
+	if err != nil {
+		return true
+	}
+	rightCert, err := rightTLS.GetCertificate(nil)
+	if err != nil {
+		return true
+	}
+	if !reflect.DeepEqual(leftCert, rightCert) {
+		return true
+	}
+	leftClientCert, err := leftTLS.GetClientCertificate(nil)
+	if err != nil {
+		return true
+	}
+	rightClientCert, err := rightTLS.GetClientCertificate(nil)
+	if err != nil {
+		return true
+	}
+	if !reflect.DeepEqual(leftClientCert, rightClientCert) {
+		return true
+	}
+	return false
 }
