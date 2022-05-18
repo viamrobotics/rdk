@@ -162,6 +162,15 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 	return webSvc.Start(ctx, o)
 }
 
+// StopWeb stops the web server, will be a noop if server is not up.
+func (r *localRobot) StopWeb() error {
+	webSvc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return webSvc.Close()
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
