@@ -18,6 +18,9 @@ type SingleOperationManager struct {
 
 // CancelRunning cancel's a current operation unless it's mine.
 func (sm *SingleOperationManager) CancelRunning(ctx context.Context) {
+	if ctx.Value(somCtxKeySingleOp) != nil {
+		return
+	}
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.cancelInLock(ctx)
