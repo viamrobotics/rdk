@@ -358,7 +358,7 @@ func (slamSvc *slamService) startDataProcess(cancelCtx context.Context) {
 							slamSvc.logger.Warn(err)
 						}
 					default:
-						slamSvc.logger.Warn("warning invalid algrothim specified")
+						slamSvc.logger.Warn("warning invalid algorithm specified")
 					}
 				})
 			}
