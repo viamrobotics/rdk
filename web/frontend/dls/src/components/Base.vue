@@ -17,7 +17,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-t-0 border-black pt-2 pb-4"
+          class="border border-t-0 border-black pt-2 pb-4 content-container"
           :style="{ maxHeight: maxHeight + 'px' }"
         >
           <div>
@@ -259,7 +259,7 @@ export default class Base extends Vue {
   mdiCloseOctagonOutline = mdiCloseOctagonOutline;
 
   camera = this.connectedCamera;
-  maxHeight = 500;
+  maxHeight = 1100;
   selectedValue = "NoCamera";
   isContinuous = true;
   streamId = "stream-preview-" + this.streamName;
@@ -338,7 +338,7 @@ export default class Base extends Vue {
     if (this.camera) {
       this.maxHeight = 1500;
     } else {
-      this.maxHeight = 500;
+      this.maxHeight = 1100;
     }
   }
   keyboardCtl(keysPressed: any): void {
@@ -354,4 +354,8 @@ export default class Base extends Vue {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+  .content-container{ 
+    height: 310px;
+  }
+</style>
