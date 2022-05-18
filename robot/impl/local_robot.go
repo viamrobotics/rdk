@@ -24,7 +24,6 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/metadata"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
@@ -36,14 +35,15 @@ import (
 
 type internalServiceName string
 
-const webName internalServiceName = "web"
+const (
+	webName internalServiceName = "web"
+)
 
 var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
 	defaultSvc = []resource.Name{
-		metadata.Name,
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
@@ -65,7 +65,7 @@ type localRobot struct {
 	internalServices map[internalServiceName]interface{}
 }
 
-// web returns the localRobot's web service. Raises if the service has not been initialized.
+// webService returns the localRobot's web service. Raises if the service has not been initialized.
 func (r *localRobot) webService() (web.Service, error) {
 	svc := r.internalServices[webName]
 	if svc == nil {
@@ -118,6 +118,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 			return err
 		}
 	}
+
 	return r.manager.Close(ctx)
 }
 
@@ -186,7 +187,6 @@ func newWithResources(
 
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
-
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		// TODO(RDK-119) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
-			r.logger.Debugf("not found while grabbing all resources during default svc refresh: %w", err)
+			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
 		}
 		resources[n] = res
 	}
