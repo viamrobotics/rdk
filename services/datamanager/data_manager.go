@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -71,6 +72,9 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
+// Default maximum storage percentage.
+const defaultMaxStoragePercent = 90
+
 // Attributes to initialize the collector for a component.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
@@ -89,6 +93,8 @@ type dataCaptureConfigs struct {
 // Config describes how to configure the service.
 type Config struct {
 	CaptureDir          string   `json:"capture_dir"`
+	MaxStoragePercent   int      `json:"max_storage_percent"`
+	EnableAutoDelete    bool     `json:"enable_auto_delete"`
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
 	SyncIntervalMins    int      `json:"sync_interval_mins"`
 }
@@ -99,13 +105,18 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	dataManagerSvc := &Service{
 		r:                 r,
 		logger:            logger,
 		captureDir:        viamCaptureDotDir,
+		maxStoragePercent: defaultMaxStoragePercent,
 		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers: sync.WaitGroup{},
 		lock:              sync.Mutex{},
+		collectorLookup:   data.CollectorLookup,
+		cancelCtx:         cancelCtx,
+		cancelFunc:        cancelFunc,
 	}
 
 	return dataManagerSvc, nil
@@ -121,16 +132,26 @@ func (svc *Service) Close(ctx context.Context) error {
 		svc.syncer.Close()
 	}
 	svc.backgroundWorkers.Wait()
+	svc.cancelFunc()
 	return nil
 }
 
 func (svc *Service) closeCollectors() {
 	wg := sync.WaitGroup{}
-	for _, collector := range svc.collectors {
+	for metadata, collector := range svc.collectors {
+		// Note: Had to add these because otherwise get a loopclosure warning:
+		// 'loop variable captured by func literal'
 		currCollector := collector
+		currMetadata := metadata
 		wg.Add(1)
 		go func() {
-			currCollector.Collector.Close()
+			svc.lock.Lock()
+			defer svc.lock.Unlock()
+			if currCollector.Collector != nil {
+				currCollector.Collector.Close()
+				currCollector.Collector = nil // Should we have a bool instead? collector_disabled/closed?
+				svc.collectors[currMetadata] = currCollector
+			}
 			wg.Done()
 		}()
 	}
@@ -139,15 +160,23 @@ func (svc *Service) closeCollectors() {
 
 // Service initializes and orchestrates data capture collectors for registered component/methods.
 type Service struct {
-	r          robot.Robot
-	logger     golog.Logger
-	captureDir string
-	collectors map[componentMethodMetadata]collectorAndConfig
-	syncer     syncManager
+	r                 robot.Robot
+	logger            golog.Logger
+	captureDir        string
+	maxStoragePercent int
+	enableAutoDelete  bool
+	collectors        map[componentMethodMetadata]collectorAndConfig
+	syncer            syncManager
+
+	collectorLookup    func(data.MethodMetadata) *data.CollectorConstructor
+	storageCheckTicker *time.Ticker
+	sysCall            sysCall
 
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
 	updateCollectorsCancelFn func()
+	cancelCtx                context.Context
+	cancelFunc               func()
 }
 
 // Parameters stored for each collector.
@@ -198,7 +227,7 @@ func (svc *Service) initializeOrUpdateCollector(
 		ComponentName:  attributes.Name,
 		MethodMetadata: metadata,
 	}
-	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
+	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok && storedCollectorParams.Collector != nil {
 		collector := storedCollectorParams.Collector
 		previousAttributes := storedCollectorParams.Attributes
 
@@ -231,7 +260,7 @@ func (svc *Service) initializeOrUpdateCollector(
 	}
 
 	// Get collector constructor for the component subtype and method.
-	collectorConstructor := data.CollectorLookup(metadata)
+	collectorConstructor := svc.collectorLookup(metadata)
 	if collectorConstructor == nil {
 		return nil, errors.Errorf("failed to find collector for %s", metadata)
 	}
@@ -278,6 +307,74 @@ func (svc *Service) initializeOrUpdateCollector(
 	}()
 
 	return &componentMetadata, nil
+}
+
+// DiskStatus contains the local disk usage.
+type DiskStatus struct {
+	All         uint64
+	Used        uint64
+	Free        uint64
+	Avail       uint64
+	PercentUsed int
+}
+
+type sysCall interface {
+	Statfs(string, *syscall.Statfs_t) error
+}
+
+type sysCallStruct struct{}
+
+func (sysCallStruct) Statfs(path string, stat *syscall.Statfs_t) error {
+	return syscall.Statfs(path, stat)
+}
+
+// DiskUsage makes a call to the underlying system to get the local disk usage.
+func DiskUsage(sys sysCall) (DiskStatus, error) {
+	disk := DiskStatus{}
+	fs := syscall.Statfs_t{}
+	if err := sys.Statfs("/", &fs); err != nil {
+		return disk, err
+	}
+
+	disk.All = fs.Blocks * uint64(fs.Bsize)
+	disk.Avail = fs.Bavail * uint64(fs.Bsize)
+	disk.Free = fs.Bfree * uint64(fs.Bsize)
+	disk.Used = disk.All - disk.Free
+	disk.PercentUsed = int(100 * disk.Used / (disk.Used + disk.Avail))
+	return disk, nil
+}
+
+func (svc *Service) runStorageCheckAndUpdateCollectors() {
+	defer svc.storageCheckTicker.Stop()
+
+	for {
+		select {
+		case <-svc.cancelCtx.Done():
+			return
+		case <-svc.storageCheckTicker.C:
+			du, err := DiskUsage(svc.sysCall)
+			if err != nil {
+				svc.logger.Errorw("failed to check disk usage", "error", err)
+			}
+			if du.PercentUsed >= svc.maxStoragePercent {
+				if svc.enableAutoDelete {
+					// TODO: Add deletion logic for oldest file(s)
+				} else {
+					// If auto-delete is disabled, simply stop collecting. If disk space frees up,
+					// reset collectors with previous configuration.
+					// Note: If the user updates the config in the meantime, we still update the map
+					// of collectors, e.g. remove collectors.
+					svc.closeCollectors()
+				}
+			} else {
+				// Reinitialize any previously paused collectors now that disk usage has freed up.
+				err := svc.reinitializeClosedCollectors()
+				if err != nil {
+					svc.logger.Warn("Issue reinitializing closed collector", err)
+				}
+			}
+		}
+	}
 }
 
 func (svc *Service) initOrUpdateSyncer(intervalMins int) {
@@ -341,7 +438,15 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 }
 
 // Update updates the data manager service when the config has changed.
+// This will include the first time that the user saves the config, whereas
+// init() and New() are called beforehand since Data Manager is a default service.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
+	if svc.storageCheckTicker == nil {
+		svc.storageCheckTicker = time.NewTicker(time.Minute)
+		svc.sysCall = sysCallStruct{}
+		go svc.runStorageCheckAndUpdateCollectors()
+	}
+
 	c, ok := getServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
 	if !ok {
@@ -355,6 +460,15 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
+	svc.enableAutoDelete = svcConfig.EnableAutoDelete
+	if svcConfig.MaxStoragePercent > 0 {
+		svc.maxStoragePercent = svcConfig.MaxStoragePercent
+	} else {
+		svc.maxStoragePercent = defaultMaxStoragePercent
+	}
+
+	// TODO: Set defaults here for capture buffer size and queue size,
+	// since removing them from the config here will set to zero.
 
 	allComponentAttributes, err := getAllDataCaptureConfigs(cfg)
 	if err != nil {
@@ -391,6 +505,18 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
+	return nil
+}
+
+func (svc *Service) reinitializeClosedCollectors() error {
+	for _, collector := range svc.collectors {
+		if collector.Collector == nil {
+			_, err := svc.initializeOrUpdateCollector(collector.Attributes, false)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
