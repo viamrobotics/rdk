@@ -101,12 +101,12 @@ type (
 	}
 )
 
-// ErrDiscover indicates that a Discover function has returned an error.
-type ErrDiscover struct {
+// DiscoverError indicates that a Discover function has returned an error.
+type DiscoverError struct {
 	Key Key
 }
 
-func (e *ErrDiscover) Error() string {
+func (e *DiscoverError) Error() string {
 	return fmt.Sprintf("failed to get discovery for subtype %q and model %q", e.Key.SubtypeName, e.Key.Model)
 }
 
@@ -130,7 +130,7 @@ func (s *discoveryService) Discover(ctx context.Context, keys []Key) ([]Discover
 		if discoveryFunction != nil {
 			discovered, err := discoveryFunction(ctx, key.SubtypeName, key.Model)
 			if err != nil {
-				return nil, &ErrDiscover{key}
+				return nil, &DiscoverError{key}
 			}
 			discoveries = append(discoveries, Discovery{Key: key, Discovered: discovered})
 		}
