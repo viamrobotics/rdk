@@ -231,7 +231,10 @@
           value: 0,
           imuData: {},
           currentOps: [],
-          baseRunStatus: false
+          baseRunStatus: false,
+          setPin: "",
+          getPin: "",
+          locationValue: "40.745297,-74.010916"
         };
         theApp = new Vue({
           el: "#app",
@@ -1535,9 +1538,9 @@
       <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
       {{range $authType := .SupportedAuthTypes }}
       <span>{{ $authType }}: </span>
-      <div id="auth-{{ $authType }}">
-        <viam-input type="password"/>
-        <viam-button group>Login</viam-button>
+      <div id="auth-{{ $authType }}" class="w-96">
+        <input class="appearance-none block w-full border text-gray-700 dark:text-gray-200 placeholder-gray-400 leading-tight dark:placeholder-gray-500 focus:outline-none transition-colors duration-150 ease-in-out pr-4" type="password" />
+        <button  class="relative leading-tight font-button transition-colors duration-150 focus:outline-none shadow-sm text-black border border-black bg-primary hover:border-black hover:bg-gray-200 focus:bg-gray-400 active:bg-gray-400">Login</button>
       </div>
       {{ end }}
     </div>
@@ -1793,14 +1796,14 @@
               <tr>
                  <th class="border border-slate-300">Get</th>
                  <td class="border border-slate-300">
-                  Pin: <viam-input :id="'get_pin_' + board.name"/><viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
+                  Pin: <viam-input  v-model="getPin" :input-id="'get_pin_' + board.name"/><viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
                   <span :id="'get_pin_value_' + board.name"/>
                 </td>
               </tr>
               <tr>
                  <th class="border border-slate-300">Set</th>
                  <td class="border border-slate-300">
-                  Pin: <viam-input :id="'set_pin_' + board.name"/><br>
+                  Pin: <viam-input v-model="setPin"  :input-id="'set_pin_' + board.name"/><br>
                   <select :id="'set_pin_v_' + board.name">
                     <option>low</option>
                     <option>high</option>
@@ -1840,7 +1843,7 @@
             <viam-button group v-on:click="setNavigationMode('manual')">Manual</viam-button>
             <viam-button group v-on:click="setNavigationMode('waypoint')">Waypoint</viam-button>
             <br />
-            <viam-input type="text" id="nav-set-location" value="40.745297,-74.010916" />
+            <viam-input v-model="locationValue" input-id="nav-set-location" />
             <viam-button group v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
             <div id="map" v-map-mounted></div>
           </div>
