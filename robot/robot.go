@@ -61,6 +61,17 @@ type LocalRobot interface {
 
 	// StartWeb starts the web server, will return an error if server is already up.
 	StartWeb(ctx context.Context, o weboptions.Options) error
+
+	// StopWeb stops the web server, will be a noop if server is not up.
+	StopWeb() error
+}
+
+// A RemoteRobot is a Robot that was created through a connection.
+type RemoteRobot interface {
+	Robot
+
+	// Connected returns whether the remote is connected or not.
+	Connected() bool
 }
 
 // AllResourcesByName returns an array of all resources that have this simple name.
