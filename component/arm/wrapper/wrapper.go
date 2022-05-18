@@ -24,7 +24,7 @@ type AttrConfig struct {
 }
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "wrapper", registry.Component{
+	registry.RegisterComponent(arm.Subtype, "wrapper_arm", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			resource, err := r.ResourceByName(resource.NameFromSubtype(arm.Subtype, config.Name))
 			if err != nil {
@@ -37,7 +37,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "wrapper",
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "wrapper_arm",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
