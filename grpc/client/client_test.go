@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"net"
@@ -39,11 +40,9 @@ import (
 	servopb "go.viam.com/rdk/proto/api/component/servo/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	framepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
-	metadatapb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -84,8 +83,9 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
-	injectRobot1 := &inject.Robot{}
-	injectRobot2 := &inject.Robot{}
+	resourcesFunc := func() []resource.Name { return []resource.Name{} }
+	injectRobot1 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	injectRobot2 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
@@ -427,45 +427,32 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func getMetadataServer(injectMetadata *inject.Metadata) (metadatapb.MetadataServiceServer, error) {
-	subtypeSvcMap := map[resource.Name]interface{}{metadata.Name: injectMetadata}
-
-	subtypeSvc, err := subtype.New(subtypeSvcMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return metadata.NewServer(subtypeSvc), nil
-}
-
 func TestClientRefresh(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
-	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-	injectMetadata := &inject.Metadata{}
-	metadataServer, err := getMetadataServer(injectMetadata)
-	test.That(t, err, test.ShouldBeNil)
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
 
 	var callCount int
 	calledEnough := make(chan struct{})
 
-	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		if callCount == 5 {
 			close(calledEnough)
 		}
 		callCount++
+
 		if callCount >= 5 {
-			return finalResources, nil
+			return finalResources
 		}
-		return emptyResources, nil
+		return emptyResources
 	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
 
 	start := time.Now()
 	dur := 100 * time.Millisecond
@@ -542,9 +529,7 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
-		return emptyResources, nil
-	}
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
 	client, err = New(
 		context.Background(),
 		listener.Addr().String(),
@@ -604,9 +589,7 @@ func TestClientRefresh(t *testing.T) {
 			gripperNames,
 		)...))
 
-	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
-		return finalResources, nil
-	}
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
@@ -670,22 +653,111 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+func TestClientDisconnect(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{arm.Named("arm1")}
+	}
+
+	go gServer.Serve(listener)
+
+	start := time.Now()
+
+	test.That(t, err, test.ShouldBeNil)
+
+	dur := 100 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(dur),
+		WithReconnectEvery(2*dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	}()
+
+	test.That(t, client.Connected(), test.ShouldBeTrue)
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 1)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	gServer.Stop()
+	test.That(t, <-client.Changed(), test.ShouldBeTrue)
+	test.That(t, client.Connected(), test.ShouldBeFalse)
+	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, dur)
+	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 2*dur)
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, client.checkConnected())
+}
+
+func TestClientReconnect(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	addr := fmt.Sprintf("localhost:%d", port)
+
+	listener, err := net.Listen("tcp", addr)
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{arm.Named("arm1")}
+	}
+
+	go gServer.Serve(listener)
+
+	dur := 100 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(dur),
+		WithReconnectEvery(dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	}()
+	gServer.Stop()
+
+	test.That(t, <-client.Changed(), test.ShouldBeTrue)
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, client.checkConnected())
+
+	gServer2 := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
+
+	listener, err = net.Listen("tcp", addr)
+	test.That(t, err, test.ShouldBeNil)
+	go gServer2.Serve(listener)
+	defer gServer2.Stop()
+
+	test.That(t, <-client.Changed(), test.ShouldBeTrue)
+	test.That(t, client.Connected(), test.ShouldBeTrue)
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 1)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestClientDialerOption(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
-	injectMetadata := &inject.Metadata{}
-	metadataServer, err := getMetadataServer(injectMetadata)
-	test.That(t, err, test.ShouldBeNil)
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
-
-	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
-		return emptyResources, nil
-	}
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
@@ -700,5 +772,29 @@ func TestClientDialerOption(t *testing.T) {
 	err = client1.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	err = client2.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientResources(t *testing.T) {
+	injectRobot := &inject.Robot{}
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	logger := golog.NewTestLogger(t)
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	resources, err := client.resources(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resources, test.ShouldResemble, finalResources)
+
+	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }

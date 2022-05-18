@@ -135,3 +135,24 @@ func (r *Robot) Refresh(ctx context.Context) error {
 	}
 	return r.RefreshFunc(ctx)
 }
+
+// RemoteRobot is an injected remote robot.
+type RemoteRobot struct {
+	Robot
+
+	Disconnected bool
+	ChangeChan   chan bool
+}
+
+// Changed returns a channel that returns true when the remote has changed.
+func (r *RemoteRobot) Changed() <-chan bool {
+	if r.ChangeChan == nil {
+		r.ChangeChan = make(chan bool)
+	}
+	return r.ChangeChan
+}
+
+// Connected returns whether the injected robot is connected or not.
+func (r *RemoteRobot) Connected() bool {
+	return !r.Disconnected
+}

@@ -1,6 +1,7 @@
 <template>
   <div class="flex viam-number-input-root h-8">
     <input
+      :id="id"
       ref="input"
       class="viam-number-input border-black outline-none h-full w-full"
       type="tel"
@@ -66,6 +67,8 @@ export default class NumberInput extends Vue {
   public placeholder!: string;
   @Prop({ default: false })
   public small!: boolean;
+  @Prop({ default: "DefaultId" })
+  id!: string;
 
   mdiChevronDown = mdiChevronDown;
   mdiChevronUp = mdiChevronUp;
