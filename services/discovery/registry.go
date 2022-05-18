@@ -21,20 +21,25 @@ type (
 
 var discoveryFunctions = map[Key]Discover{}
 
-func DiscoveryFunctionLookup(subtypeName resource.SubtypeName, model string) (Discover, bool) {
-	if _, ok := lookupSubtype(subtypeName); !ok {
+// FunctionLookup looks up a discovery function registration by the given subtype and
+// model.
+func FunctionLookup(subtypeName resource.SubtypeName, model string) (Discover, bool) {
+	st, ok := lookupSubtype(subtypeName)
+	if !ok {
 		return nil, false
 	}
-	key := Key{subtypeName, model}
+	key := Key{st.ResourceSubtype, model}
 	df, ok := discoveryFunctions[key]
 	return df, ok
 }
 
-func RegisterDiscoveryFunction(subtypeName resource.SubtypeName, model string, discover Discover) {
-	if _, ok := lookupSubtype(subtypeName); !ok {
+// RegisterFunction registers a discovery function for a given subtype and model.
+func RegisterFunction(subtypeName resource.SubtypeName, model string, discover Discover) {
+	st, ok := lookupSubtype(subtypeName)
+	if !ok {
 		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q.", subtypeName))
 	}
-	key := Key{subtypeName, model}
+	key := Key{st.ResourceSubtype, model}
 	if _, ok := discoveryFunctions[key]; ok {
 		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q.", subtypeName, model))
 	}
