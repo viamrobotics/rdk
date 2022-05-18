@@ -88,17 +88,22 @@ func (m *mock) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.
 	return discoveries, nil
 }
 
-func setupInjectRobot() (*inject.Robot, *mock) {
+// func setupInjectRobot(t *testing.T) (*inject.Robot, *mock) {
+// 	t.Helper()
+// 	svc1 := &mock{}
+// 	r := &inject.Robot{}
+// 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+// 		return svc1, nil
+// 	}
+// 	return r, svc1
+// }
+
+func TestFromRobot(t *testing.T) {
 	svc1 := &mock{}
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return svc1, nil
 	}
-	return r, svc1
-}
-
-func TestFromRobot(t *testing.T) {
-	r, svc1 := setupInjectRobot()
 
 	t.Run("found discovery service", func(t *testing.T) {
 		svc, err := discovery.FromRobot(r)
@@ -143,6 +148,8 @@ func TestNew(t *testing.T) {
 }
 
 func setupNewDiscoveryService(t *testing.T) discovery.Service {
+	t.Helper()
+
 	logger := golog.NewTestLogger(t)
 	resourceMap := map[resource.Name]interface{}{}
 
@@ -175,7 +182,7 @@ func TestDiscovery(t *testing.T) {
 		svc := setupNewDiscoveryService(t)
 
 		_, err := svc.Discover(context.Background(), []discovery.Key{failKey})
-		test.That(t, err, test.ShouldBeError, &discovery.ErrDiscover{failKey})
+		test.That(t, err, test.ShouldBeError, &discovery.DiscoverError{failKey})
 	})
 
 	t.Run("working Discover", func(t *testing.T) {
