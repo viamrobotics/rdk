@@ -298,7 +298,7 @@
                       </div>
                       <div class="grid grid-cols-1">
                         <span class="text-xs">Distance From Camera</span>
-                        <span class="pt-4">211mm</span>
+                        <span class="pt-4">{{ distanceFromCamera() }}mm</span>
                       </div>
                     </div>
                     <div class="flex pt-4 pb-8">
@@ -375,9 +375,9 @@ export default class Base extends Vue {
   @Prop({ default: null }) crumbs!: [string];
   @Prop({ default: true }) connectedCamera!: boolean;
   @Prop({ default: true }) connectedPCD!: boolean;
-  @Prop({ default: 0 }) x?: number;
-  @Prop({ default: 0 }) y?: number;
-  @Prop({ default: 0 }) z?: number;
+  @Prop({ default: 0 }) x = 0;
+  @Prop({ default: 0 }) y = 0;
+  @Prop({ default: 0 }) z = 0;
   @Prop({ default: null }) pcdObject?: Record<string, unknown>;
   @Prop({ default: null }) segmenterNames?: [string];
   @Prop({ default: null }) segmentAlgo?: string;
@@ -418,6 +418,10 @@ export default class Base extends Vue {
     this.camera = !this.camera;
     this.$emit("toggle-camera", this.camera);
     this.resizeContent();
+  }
+
+  distanceFromCamera(): number {
+    return Math.round(Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2) + Math.pow(this.z, 2))) || 0;
   }
 
   selectCameraView(): void {
