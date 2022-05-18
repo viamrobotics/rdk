@@ -377,6 +377,7 @@ export default class Base extends Vue {
     "Pan - Right/Two Finger Click + Drag",
     "Zoom - Wheel/Two Finger Scroll",
   ];
+  selectedObject = "";
 
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
