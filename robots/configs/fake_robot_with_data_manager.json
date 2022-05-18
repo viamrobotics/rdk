@@ -1,0 +1,38 @@
+{
+    "network": {
+        "fqdn": "something-unique",
+        "bind_address": ":8080"
+    },
+    "components":
+    [
+        {
+            "model": "fake",
+            "name": "arm1",
+            "type": "arm",
+            "service_config": [
+                {
+                  "type": "data_manager",
+                  "attributes": {
+                    "capture_methods": [
+                        {
+                            "method": "GetEndPosition",
+                            "capture_frequency_hz": 100
+                        }
+                    ]
+                  }
+                }
+            ]
+        }
+    ],
+    "services":
+    [
+        {
+            "type": "data_manager",
+            "attributes": {
+                "capture_dir": "/tmp/capture",
+                "max_storage_percent": 40,
+                "enable_auto_delete": false
+            }
+        }
+    ]
+}
