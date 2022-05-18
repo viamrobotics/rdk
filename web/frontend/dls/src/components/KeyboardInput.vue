@@ -13,7 +13,7 @@
         variant="primary"
         @mouseup="setKeyPressed(key, false)"
         @mousedown="setKeyPressed(key, true)"
-        class="h-10 m-1 bg-white dark:bg-gray-900 border-gray-500 keyboard-button"
+        class="h-10 m-1 bg-white dark:bg-gray-900 border-gray-500 p-3"
         :class="{
           'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200':
             pressedKeys[key],
@@ -27,12 +27,6 @@
     </div>
   </div>
 </template>
-<style>
-.keyboard-button {
-  border-color: #c4c4c4 !important;
-  padding: 12px;
-}
-</style>
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
 import { throttle, debounce } from "lodash";

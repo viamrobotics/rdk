@@ -17,7 +17,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-t-0 border-black pt-2 pb-4 content-container"
+          class="border border-t-0 border-black pt-2 pb-4 h-80"
           :style="{ maxHeight: maxHeight + 'px' }"
         >
           <div>
@@ -92,7 +92,7 @@
                   />
                 </div>
               </div>
-              <div :class="spinTabClass" class="items-center pt-4">
+              <div :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'" class="items-center pt-4">
                 <div class="column pr-2" v-if="movementMode === 'Straight'">
                   <p class="text-xs">Movement Type</p>
                   <RadioButtons
@@ -129,7 +129,7 @@
                   v-if="movementMode === 'Straight' || movementMode === 'Arc'"
                 ></NumberInput>
               </div>
-              <div :class="spinTabClass" class="pt-4" v-if="movementMode === 'Spin' || movementMode === 'Arc'">
+              <div :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'" class="pt-4" v-if="movementMode === 'Spin' || movementMode === 'Arc'">
                 <div class="column pr-2">
                   <p class="text-xs">Movement Type</p>
                   <RadioButtons
@@ -241,12 +241,6 @@ export default class Base extends Vue {
     { value: "Camera1", label: "Camera1" },
   ];
 
-  get spinTabClass(): string {
-    if (this.movementMode === 'Spin')
-      return 'inline-flex'
-    return 'flex';
-  }
-
   get rangeLabel(): string {
 
     if (this.movementMode === 'Arc')
@@ -339,9 +333,3 @@ export default class Base extends Vue {
   }
 }
 </script>
-
-<style scoped>
-  .content-container{ 
-    height: 310px;
-  }
-</style>
