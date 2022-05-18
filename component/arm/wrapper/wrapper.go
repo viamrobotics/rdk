@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -46,7 +47,7 @@ func init() {
 	)
 }
 
-// Arm is an arm that wraps a partial implementation of an arm.
+// Arm wraps a partial implementation of another arm.
 type Arm struct {
 	generic.Unimplemented
 	Name   string
@@ -54,6 +55,7 @@ type Arm struct {
 	actual arm.Arm
 	logger golog.Logger
 	mp     motionplan.MotionPlanner
+	opMgr  operation.SingleOperationManager
 }
 
 // NewWrapperArm returns a wrapper component for another arm.
@@ -76,40 +78,46 @@ func NewWrapperArm(cfg config.Component, actual arm.Arm, logger golog.Logger) (a
 }
 
 // ModelFrame returns the dynamic frame of the model.
-func (a *Arm) ModelFrame() referenceframe.Model {
-	return a.model
+func (wrapper *Arm) ModelFrame() referenceframe.Model {
+	return wrapper.model
 }
 
 // GetEndPosition returns the set position.
-func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx)
+func (wrapper *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	joints, err := wrapper.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.model, joints)
+	return motionplan.ComputePosition(wrapper.model, joints)
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error {
-	joints, err := a.GetJointPositions(ctx)
+func (wrapper *Arm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := wrapper.opMgr.New(ctx)
+	defer done()
+
+	joints, err := wrapper.actual.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pose, referenceframe.JointPosToInputs(joints), nil)
+	solution, err := wrapper.mp.Plan(ctx, pose, referenceframe.JointPosToInputs(joints), nil)
 	if err != nil {
 		return err
 	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.GoToWaypoints(ctx, wrapper, solution)
 }
 
 // MoveToJointPositions sets the joints.
-func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
-	return a.actual.MoveToJointPositions(ctx, joints)
+func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+	ctx, done := wrapper.opMgr.New(ctx)
+	defer done()
+
+	return wrapper.actual.MoveToJointPositions(ctx, joints)
 }
 
 // GetJointPositions returns the set joints.
-func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	joints, err := a.actual.GetJointPositions(ctx)
+func (wrapper *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+	joints, err := wrapper.actual.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +125,8 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 }
 
 // CurrentInputs returns the current inputs of the arm.
-func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx)
+func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	res, err := wrapper.actual.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +134,6 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
-func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return wrapper.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
