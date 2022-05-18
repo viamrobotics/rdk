@@ -1796,14 +1796,15 @@
               <tr>
                  <th class="border border-slate-300">Get</th>
                  <td class="border border-slate-300">
-                  Pin: <viam-input  v-model="getPin" :input-id="'get_pin_' + board.name"/><viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
+                  Pin: <number-input  v-model="getPin" :id="'get_pin_' + board.name"></number-input>
+                  <viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
                   <span :id="'get_pin_value_' + board.name"/>
                 </td>
               </tr>
               <tr>
                  <th class="border border-slate-300">Set</th>
                  <td class="border border-slate-300">
-                  Pin: <viam-input v-model="setPin"  :input-id="'set_pin_' + board.name"/><br>
+                  Pin: <number-input v-model="setPin" :id="'set_pin_' + board.name"></number-input><br>
                   <select :id="'set_pin_v_' + board.name">
                     <option>low</option>
                     <option>high</option>
