@@ -374,12 +374,53 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 	}
 }
 
-func TestDiffNetwork(t *testing.T) {
+func TestDiffNetworkingCfg(t *testing.T) {
 	network1 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{FQDN: "abc"}}
 	network2 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{FQDN: "xyz"}}
 
 	tls1 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12}}}
 	tls2 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: &tls.Config{MinVersion: tls.VersionTLS10}}}
+
+	tlsCfg3 := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+	}
+	tls3 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg3}}
+	tlsCfg4 := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+	}
+	tls4 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg4}}
+	tlsCfg5 := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("xyz")}}, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+	}
+	tls5 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg5}}
+	tlsCfg6 := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abcd")}}, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("xyz")}}, nil
+		},
+	}
+	tls6 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg6}}
 
 	cloud1 := &config.Cloud{ID: "1"}
 	cloud2 := &config.Cloud{ID: "2"}
@@ -409,10 +450,28 @@ func TestDiffNetwork(t *testing.T) {
 			false,
 		},
 		{
+			"same tls",
+			config.Config{Network: tls3},
+			config.Config{Network: tls4},
+			true,
+		},
+		{
 			"diff tls",
 			config.Config{Network: tls1},
 			config.Config{Network: tls2},
-			true,
+			false,
+		},
+		{
+			"diff tls cert",
+			config.Config{Network: tls3},
+			config.Config{Network: tls5},
+			false,
+		},
+		{
+			"diff tls client cert",
+			config.Config{Network: tls3},
+			config.Config{Network: tls6},
+			false,
 		},
 		{
 			"diff cloud",
