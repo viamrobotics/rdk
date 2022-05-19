@@ -22,11 +22,11 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/status"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
@@ -36,6 +36,7 @@ type internalServiceName string
 const (
 	webName         internalServiceName = "web"
 	framesystemName internalServiceName = "framesystem"
+	statusName      internalServiceName = "status"
 )
 
 var (
@@ -44,7 +45,6 @@ var (
 	// defaultSvc is a list of default robot services.
 	defaultSvc = []resource.Name{
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
 		vision.Name,
 	}
@@ -89,6 +89,19 @@ func (r *localRobot) fsService() (framesystem.Service, error) {
 		return nil, errors.New("unexpected service associated with framesystem internalServiceName")
 	}
 	return framesystemSvc, nil
+}
+
+func (r *localRobot) statusService() (status.Service, error) {
+	svc := r.internalServices[statusName]
+	if svc == nil {
+		return nil, errors.New("status service not initialized")
+	}
+
+	statusSvc, ok := svc.(status.Service)
+	if !ok {
+		return nil, errors.New("unexpected service associated with status internalServiceName")
+	}
+	return statusSvc, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -166,6 +179,15 @@ func (r *localRobot) StopWeb() error {
 	return webSvc.Close()
 }
 
+func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	statusSvc, err := r.statusService()
+	if err != nil {
+		return nil, err
+	}
+
+	return statusSvc.GetStatus(ctx, resourceNames)
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -209,6 +231,8 @@ func newWithResources(
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
+	r.internalServices[statusName] = status.New(ctx, r, logger)
+
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}

@@ -8,10 +8,10 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/status"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/status"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -48,56 +48,10 @@ func init() {
 	)
 }
 
-func setupInjectRobot() (*inject.Robot, *mock) {
-	svc1 := &mock{}
-	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return svc1, nil
-	}
-	return r, svc1
-}
-
-func TestFromRobot(t *testing.T) {
-	r, svc1 := setupInjectRobot()
-
-	t.Run("found status service", func(t *testing.T) {
-		svc, err := status.FromRobot(r)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, svc, test.ShouldNotBeNil)
-
-		test.That(t, svc1.statusCount, test.ShouldEqual, 0)
-		result, err := svc.GetStatus(context.Background(), []resource.Name{button1})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, result, test.ShouldResemble, statuses)
-		test.That(t, svc1.statusCount, test.ShouldEqual, 1)
-	})
-
-	t.Run("not status service", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return "not status", nil
-		}
-
-		svc, err := status.FromRobot(r)
-		test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("status.Service", "string"))
-		test.That(t, svc, test.ShouldBeNil)
-	})
-
-	t.Run("no status service", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return nil, utils.NewResourceNotFoundError(status.Name)
-		}
-
-		svc, err := status.FromRobot(r)
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(status.Name))
-		test.That(t, svc, test.ShouldBeNil)
-	})
-}
-
 func TestNew(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	t.Run("no error", func(t *testing.T) {
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
 		test.That(t, svc, test.ShouldNotBeNil)
 	})
 }
@@ -108,9 +62,8 @@ func TestGetStatus(t *testing.T) {
 	resourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource", fail1: "resource"}
 
 	t.Run("not found", func(t *testing.T) {
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
+		err := svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetStatus(context.Background(), []resource.Name{button2})
@@ -118,9 +71,8 @@ func TestGetStatus(t *testing.T) {
 	})
 
 	t.Run("no CreateStatus", func(t *testing.T) {
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
+		err := svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := svc.GetStatus(context.Background(), []resource.Name{button1})
@@ -129,9 +81,8 @@ func TestGetStatus(t *testing.T) {
 	})
 
 	t.Run("failing resource", func(t *testing.T) {
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
+		err := svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetStatus(context.Background(), []resource.Name{fail1})
@@ -143,9 +94,8 @@ func TestGetStatus(t *testing.T) {
 			working1: workingStatus,
 			button1:  struct{}{},
 		}
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
+		err := svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetStatus(context.Background(), []resource.Name{button2})
@@ -181,9 +131,8 @@ func TestGetStatus(t *testing.T) {
 			working1: workingStatus,
 			button1:  struct{}{},
 		}
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), workingResourceMap)
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
+		err := svc.(resource.Updateable).Update(context.Background(), workingResourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := svc.GetStatus(context.Background(), []resource.Name{})
@@ -201,9 +150,8 @@ func TestUpdate(t *testing.T) {
 	resourceMap := map[resource.Name]interface{}{button1: "resource", button2: "resource"}
 
 	t.Run("update with no resources", func(t *testing.T) {
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
+		err := svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := svc.GetStatus(context.Background(), []resource.Name{button1})
@@ -218,9 +166,8 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("update with one resource", func(t *testing.T) {
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
+		err := svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := svc.GetStatus(context.Background(), resourceNames)
@@ -242,9 +189,8 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("update with same resources", func(t *testing.T) {
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
+		err := svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := svc.GetStatus(context.Background(), resourceNames)
@@ -264,10 +210,8 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("update with diff resources", func(t *testing.T) {
-		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = svc.GetStatus(context.Background(), []resource.Name{button3})
+		svc := status.New(context.Background(), &inject.Robot{}, logger)
+		_, err := svc.GetStatus(context.Background(), []resource.Name{button3})
 		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button3))
 
 		err = svc.(resource.Updateable).Update(
@@ -284,15 +228,4 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
-var statuses = []status.Status{{Name: button1, Status: struct{}{}}}
-
-type mock struct {
-	status.Service
-
-	statusCount int
-}
-
-func (m *mock) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
-	m.statusCount++
-	return statuses, nil
-}
+var statuses = []robot.Status{{Name: button1, Status: struct{}{}}}

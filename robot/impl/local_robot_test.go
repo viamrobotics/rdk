@@ -38,7 +38,6 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -155,7 +154,6 @@ func TestConfigRemote(t *testing.T) {
 	expected := []resource.Name{
 		vision.Name,
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
 		arm.Named("pieceArm"),
 		arm.Named("foo.pieceArm"),
@@ -194,20 +192,20 @@ func TestConfigRemote(t *testing.T) {
 		utils.NewStringSet(expectedRemotes...),
 	)
 
-	statusSvc, err := status.FromRobot(r2)
-	test.That(t, err, test.ShouldBeNil)
-
-	statuses, err := statusSvc.GetStatus(
+	statuses, err := r2.GetStatus(
 		context.Background(),
 		[]resource.Name{gps.Named("gps1"), gps.Named("foo.gps1"), gps.Named("bar.gps1")},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 3)
-	test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
-	test.That(t, statuses[1].Status, test.ShouldResemble, struct{}{})
-	test.That(t, statuses[2].Status, test.ShouldResemble, struct{}{})
 
-	statuses, err = statusSvc.GetStatus(
+	expectedStatusLength := 3
+	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
+
+	for idx := 0; idx < expectedStatusLength; idx++ {
+		test.That(t, statuses[idx].Status, test.ShouldResemble, struct{}{})
+	}
+
+	statuses, err = r2.GetStatus(
 		context.Background(),
 		[]resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm"), arm.Named("bar.pieceArm")},
 	)
@@ -389,7 +387,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			expected := []resource.Name{
 				vision.Name,
 				sensors.Name,
-				status.Name,
 				datamanager.Name,
 				arm.Named("pieceArm"),
 				arm.Named("foo.pieceArm"),
@@ -421,10 +418,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				utils.NewStringSet(expectedRemotes...),
 			)
 
-			statusSvc, err := status.FromRobot(r2)
-			test.That(t, err, test.ShouldBeNil)
-
-			statuses, err := statusSvc.GetStatus(
+			statuses, err := r2.GetStatus(
 				context.Background(), []resource.Name{gps.Named("gps1"), gps.Named("foo.gps1")},
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -432,7 +426,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
 			test.That(t, statuses[1].Status, test.ShouldResemble, struct{}{})
 
-			statuses, err = statusSvc.GetStatus(
+			statuses, err = r2.GetStatus(
 				context.Background(), []resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm")},
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -591,7 +585,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	expected := []resource.Name{
 		vision.Name,
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
@@ -618,15 +611,12 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		utils.NewStringSet(expectedRemotes...),
 	)
 
-	statusSvc, err := status.FromRobot(r2)
-	test.That(t, err, test.ShouldBeNil)
-
-	statuses, err := statusSvc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
+	statuses, err := r2.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 	test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
 
-	statuses, err = statusSvc.GetStatus(context.Background(), []resource.Name{arm.Named("pieceArm")})
+	statuses, err = r2.GetStatus(context.Background(), []resource.Name{arm.Named("pieceArm")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 	test.That(
@@ -736,11 +726,11 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 9)
+	test.That(t, len(resources), test.ShouldEqual, 8)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 5 declared resources + default sensors and status service
+	// 5 declared resources + default sensors
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
@@ -749,7 +739,6 @@ func TestMetadataUpdate(t *testing.T) {
 		gps.Named("gps2"),
 		vision.Name,
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
 	}
 
@@ -805,10 +794,7 @@ func TestStatusService(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc, err := status.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-
-	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1"), status.Name}
+	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1")}
 	rArm, err := arm.FromRobot(r, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
 	armStatus, err := arm.CreateStatus(context.Background(), rArm)
@@ -816,19 +802,18 @@ func TestStatusService(t *testing.T) {
 	expected := map[resource.Name]interface{}{
 		arm.Named("pieceArm"): armStatus,
 		gps.Named("gps1"):     struct{}{},
-		status.Name:           struct{}{},
 	}
 
-	statuses, err := svc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
+	statuses, err := r.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 	test.That(t, statuses[0].Name, test.ShouldResemble, gps.Named("gps1"))
 	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
 
-	statuses, err = svc.GetStatus(context.Background(), resourceNames)
+	statuses, err = r.GetStatus(context.Background(), resourceNames)
 	test.That(t, err, test.ShouldBeNil)
 
-	expectedStatusLength := 3
+	expectedStatusLength := 2
 	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
 
 	for idx := 0; idx < expectedStatusLength; idx++ {
