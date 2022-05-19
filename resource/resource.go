@@ -26,8 +26,6 @@ const (
 	ResourceNamespaceRDK  = Namespace("rdk")
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
-
-	ResourceSubtypeRemote = SubtypeName("remote")
 )
 
 // Type represents a known component/service type of a robot.
