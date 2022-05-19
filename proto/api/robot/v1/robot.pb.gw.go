@@ -315,7 +315,7 @@ func RegisterRobotServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/FrameSystemConfig", runtime.WithHTTPPathPattern("/viam/api/v1/robot/frame_system/config"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/FrameSystemConfig", runtime.WithHTTPPathPattern("/viam/api/v1/frame_system/config"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -338,7 +338,7 @@ func RegisterRobotServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/TransformPose", runtime.WithHTTPPathPattern("/viam/api/v1/robot/frame_system/transform_pose"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/TransformPose", runtime.WithHTTPPathPattern("/viam/api/v1/frame_system/transform_pose"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -480,7 +480,7 @@ func RegisterRobotServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/FrameSystemConfig", runtime.WithHTTPPathPattern("/viam/api/v1/robot/frame_system/config"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/FrameSystemConfig", runtime.WithHTTPPathPattern("/viam/api/v1/frame_system/config"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -500,7 +500,7 @@ func RegisterRobotServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/TransformPose", runtime.WithHTTPPathPattern("/viam/api/v1/robot/frame_system/transform_pose"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/TransformPose", runtime.WithHTTPPathPattern("/viam/api/v1/frame_system/transform_pose"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -528,9 +528,9 @@ var (
 
 	pattern_RobotService_BlockForOperation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "operations", "block"}, ""))
 
-	pattern_RobotService_FrameSystemConfig_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "robot", "frame_system", "config"}, ""))
+	pattern_RobotService_FrameSystemConfig_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "frame_system", "config"}, ""))
 
-	pattern_RobotService_TransformPose_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "robot", "frame_system", "transform_pose"}, ""))
+	pattern_RobotService_TransformPose_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "frame_system", "transform_pose"}, ""))
 )
 
 var (
