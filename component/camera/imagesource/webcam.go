@@ -88,7 +88,7 @@ func Discover(ctx context.Context, subtypeName resource.SubtypeName, model strin
 			rlog.Logger.Warnw("no properties detected for driver, skipping discovery...", "driver", d.Info().Label)
 			continue
 		} else if err != nil {
-			rlog.Logger.Warnw("cannot access driver properties, skipping discovery...", "driver", d.Info().Label, "error", err.Error())
+			rlog.Logger.Warnw("cannot access driver properties, skipping discovery...", "driver", d.Info().Label, "error", err)
 			continue
 		}
 
