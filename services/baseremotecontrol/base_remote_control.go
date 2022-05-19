@@ -4,6 +4,7 @@ package baseremotecontrol
 import (
 	"context"
 	"math"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -30,6 +31,7 @@ const (
 	triggerSpeedControl
 	buttonControl
 	arrowControl
+	droneControl
 	SubtypeName = resource.SubtypeName("base_remote_control")
 	maxSpeed    = 500.0
 	maxAngle    = 360.0
@@ -105,6 +107,8 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		controlMode1 = buttonControl
 	case "joystickControl":
 		controlMode1 = joyStickControl
+	case "droneControl":
+		controlMode1 = droneControl
 	default:
 		controlMode1 = arrowControl
 	}
@@ -125,10 +129,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 // Start is the main control loops for sending events from controller to base.
 func (svc *remoteService) start(ctx context.Context) error {
-	var mmPerSec float64
-	var angleDeg float64
-	var oldMmPerSec float64
-	var oldAngleDeg float64
 
 	buttons := make(map[input.Control]bool)
 	buttons[input.ButtonNorth] = false
@@ -140,27 +140,71 @@ func (svc *remoteService) start(ctx context.Context) error {
 	arrows[input.AbsoluteHat0X] = 0.0
 	arrows[input.AbsoluteHat0Y] = 0.0
 
-	remoteCtl := func(ctx context.Context, event input.Event) {
-		switch svc.controlMode {
-		case triggerSpeedControl:
-			mmPerSec, angleDeg = svc.triggerSpeedEvent(event, mmPerSec, angleDeg)
-		case buttonControl:
-			mmPerSec, angleDeg, buttons = svc.buttonControlEvent(event, buttons)
-		case arrowControl:
-			mmPerSec, angleDeg, arrows = svc.arrowEvent(event, arrows)
-		case joyStickControl:
-			mmPerSec, angleDeg = svc.oneJoyStickEvent(event, mmPerSec, angleDeg)
-		}
+	oldValues := []float64{}
+	var lastEvent input.Event
+	var onlyOneAtATime sync.Mutex
 
-		// Skip minor adjustments in instructions as to not overload system
-		if math.Abs(mmPerSec-oldMmPerSec) < 0.05 && math.Abs(angleDeg-oldAngleDeg) < 0.05 {
+	remoteCtl := func(ctx context.Context, event input.Event) {
+		onlyOneAtATime.Lock()
+		defer onlyOneAtATime.Unlock()
+
+		if event.Time.Before(lastEvent.Time) {
 			return
 		}
+		lastEvent = event
 
 		var err error
+		var newValues []float64
+
 		if svc.controlMode == joyStickControl {
-			err = svc.base.SetPower(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{Z: angleDeg})
+			if len(oldValues) != 2 {
+				oldValues = []float64{0, 0}
+			}
+
+			linY, angZ := svc.oneJoyStickEvent(event, oldValues[0], oldValues[1])
+			linY = scaleValue(linY)
+			angZ = scaleValue(angZ)
+
+			newValues = []float64{linY, angZ}
+
+			if similar(oldValues, newValues, .05) {
+				return
+			}
+
+			err = svc.base.SetPower(ctx, r3.Vector{Y: linY}, r3.Vector{Z: angZ})
+		} else if svc.controlMode == droneControl {
+			if len(oldValues) != 4 {
+				oldValues = []float64{0, 0, 0, 0}
+			}
+
+			newValues = svc.droneEvent(event, oldValues)
+
+			if similar(oldValues, newValues, .05) {
+				return
+			}
+
+			err = svc.base.SetPower(ctx, r3.Vector{X: newValues[2], Y: newValues[3], Z: newValues[1]}, r3.Vector{Z: newValues[0]})
+
 		} else {
+			var mmPerSec, angleDeg float64
+
+			switch svc.controlMode {
+			case triggerSpeedControl:
+				mmPerSec, angleDeg = svc.triggerSpeedEvent(event, mmPerSec, angleDeg)
+			case buttonControl:
+				mmPerSec, angleDeg, buttons = svc.buttonControlEvent(event, buttons)
+			case arrowControl:
+				mmPerSec, angleDeg, arrows = svc.arrowEvent(event, arrows)
+			default:
+				panic("what's going on")
+			}
+
+			newValues = []float64{mmPerSec, angleDeg}
+			// Skip minor adjustments in instructions as to not overload system
+			if similar(oldValues, newValues, .05) {
+				return
+			}
+
 			var d int
 			var s float64
 			var a float64
@@ -194,9 +238,9 @@ func (svc *remoteService) start(ctx context.Context) error {
 		if err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)
 		} else {
-			oldMmPerSec = mmPerSec
-			oldAngleDeg = angleDeg
+			oldValues = newValues
 		}
+
 	}
 
 	for _, control := range svc.controllerInputs() {
@@ -240,6 +284,9 @@ func (svc *remoteService) controllerInputs() []input.Control {
 		return []input.Control{input.ButtonNorth, input.ButtonSouth, input.ButtonEast, input.ButtonWest}
 	case joyStickControl:
 		return []input.Control{input.AbsoluteX, input.AbsoluteY}
+	case droneControl:
+		return []input.Control{input.AbsoluteX, input.AbsoluteY, input.AbsoluteRX, input.AbsoluteRY}
+
 	}
 	return []input.Control{}
 }
@@ -313,21 +360,75 @@ func (svc *remoteService) arrowEvent(event input.Event, arrows map[input.Control
 }
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
-func (svc *remoteService) oneJoyStickEvent(event input.Event, speed float64, angle float64) (float64, float64) {
-	oldSpeed := speed
-	oldAngle := angle
-
-	//nolint:exhaustive
+func (svc *remoteService) oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64) {
 	switch event.Control {
 	case input.AbsoluteY:
-		speed = -1.0 * event.Value
-		angle = oldAngle
+		y = -1.0 * event.Value
 	case input.AbsoluteX:
-		angle = -1.0 * event.Value
-		speed = oldSpeed
+		x = -1.0 * event.Value
 	default:
-		return 0.0, 0.0
+		return y, x
 	}
 
-	return speed, angle
+	return y, x
+}
+
+// order is: X, Y, RX, RY = AngZ(0), LinZ(1), LinX(2), LinY(3)
+func (svc *remoteService) droneEvent(event input.Event, oldValues []float64) []float64 {
+	newValues := make([]float64, len(oldValues))
+	for idx, v := range oldValues {
+		newValues[idx] = v
+	}
+
+	switch event.Control {
+	case input.AbsoluteX:
+		newValues[0] = -1.0 * event.Value
+	case input.AbsoluteY:
+		newValues[1] = -1.0 * event.Value
+	case input.AbsoluteRX:
+		newValues[2] = -1.0 * event.Value
+	case input.AbsoluteRY:
+		newValues[3] = -1.0 * event.Value
+	}
+
+	return scaleValues(newValues)
+}
+
+func similar(a, b []float64, iota float64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for idx := range a {
+		if math.Abs(a[idx]-b[idx]) > iota {
+			return false
+		}
+	}
+
+	return true
+}
+
+func scaleValues(a []float64) []float64 {
+	n := make([]float64, len(a))
+	for idx, x := range a {
+		n[idx] = scaleValue(x)
+	}
+	return n
+}
+
+func scaleValue(a float64) float64 {
+	neg := a < 0
+
+	a = math.Abs(a)
+	if a < .1 {
+		return 0
+	}
+
+	a = math.Ceil(a*10) / 10.0
+
+	if neg {
+		a *= -1
+	}
+
+	return a
 }
