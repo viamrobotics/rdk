@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -16,11 +17,12 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
-// an robot.Robot as a gRPC server.
+// a robot.Robot as a gRPC server.
 type Server struct {
 	pb.UnimplementedRobotServiceServer
 	r                       robot.Robot
@@ -119,4 +121,37 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 		)
 	}
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
+}
+
+// FrameSystemConfig returns the info of each individual part that makes up the frame system.
+func (s *Server) FrameSystemConfig(
+	ctx context.Context,
+	req *pb.FrameSystemConfigRequest,
+) (*pb.FrameSystemConfigResponse, error) {
+	sortedParts, err := s.r.FrameSystemConfig(ctx, req.GetSupplementalTransforms())
+	if err != nil {
+		return nil, err
+	}
+	configs := make([]*pb.FrameSystemConfig, len(sortedParts))
+	for i, part := range sortedParts {
+		c, err := part.ToProtobuf()
+		if err != nil {
+			if errors.Is(err, referenceframe.ErrNoModelInformation) {
+				configs[i] = nil
+				continue
+			}
+			return nil, err
+		}
+		configs[i] = c
+	}
+	return &pb.FrameSystemConfigResponse{FrameSystemConfigs: configs}, nil
+}
+
+// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest) (*pb.TransformPoseResponse, error) {
+	dst := req.Destination
+	pF := referenceframe.ProtobufToPoseInFrame(req.Source)
+	transformedPose, err := s.r.TransformPose(ctx, pF, dst, req.GetSupplementalTransforms())
+
+	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
 }
