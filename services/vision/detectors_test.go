@@ -52,7 +52,7 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 			},
 		},
 	}
-	var reg detectorMap
+	reg := make(detectorMap)
 	err := registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("tflite"))
 }
@@ -67,7 +67,7 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 			},
 		},
 	}
-	var reg detectorMap
+	reg := make(detectorMap)
 	err := registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("tensorflow"))
 }
