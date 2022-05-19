@@ -140,6 +140,7 @@
                 <div class="column pr-2">
                   <p class="text-xs">Movement Type</p>
                   <RadioButtons
+                    data-cy="movement-type-radio"
                     :options="['Clockwise', 'Counterclockwise']"
                     defaultOption="Clockwise"
                     :disabledOptions="[]"
