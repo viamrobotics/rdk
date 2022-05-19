@@ -15,26 +15,22 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	ModelPath string
+	ModelPath string `json:"model-path"`
 }
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wrapper_arm", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			resource, err := r.ResourceByName(resource.NameFromSubtype(arm.Subtype, config.Name))
+			childArm, err := arm.FromRobot(r, config.Name)
 			if err != nil {
 				return nil, err
 			}
-			if childArm, ok := resource.(arm.Arm); !ok {
-				return NewWrapperArm(config, childArm, logger)
-			}
-			return nil, err
+			return NewWrapperArm(config, childArm, logger)
 		},
 	})
 
