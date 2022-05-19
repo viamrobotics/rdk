@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/utils"
 )
 
@@ -25,12 +26,8 @@ func RobotFrameSystem(
 ) (referenceframe.FrameSystem, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystem")
 	defer span.End()
-	frameService, err := FromRobot(r)
-	if err != nil {
-		return nil, err
-	}
 	// create the frame system
-	allParts, err := frameService.Config(ctx, additionalTransforms)
+	allParts, err := r.FrameSystemConfig(ctx, additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +41,7 @@ func RobotFrameSystem(
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
 // usually acquired by calling Config on a frame system service.
 func NewFrameSystemFromParts(
-	name, prefix string, parts Parts,
+	name, prefix string, parts framesystemparts.Parts,
 	logger golog.Logger,
 ) (referenceframe.FrameSystem, error) {
 	// ensure that at least one frame connects to world if the frame system is not empty
@@ -61,15 +58,15 @@ func NewFrameSystemFromParts(
 		}
 	}
 	// Topologically sort parts
-	sortedParts, err := TopologicallySortParts(parts)
+	sortedParts, err := framesystemparts.TopologicallySort(parts)
 	if err != nil {
 		return nil, err
 	}
 	if len(sortedParts) != len(parts) {
 		return nil, errors.Errorf(
 			"frame system has disconnected frames. connected frames: %v, all frames: %v",
-			partNames(sortedParts),
-			partNames(parts),
+			framesystemparts.Names(sortedParts),
+			framesystemparts.Names(parts),
 		)
 	}
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
@@ -104,13 +101,13 @@ func NewFrameSystemFromParts(
 // combineParts combines the local, remote, and offset parts into one slice.
 // Renaming of the remote parts does not happen in this function.
 func combineParts(
-	localParts Parts,
+	localParts framesystemparts.Parts,
 	offsetParts map[string]*config.FrameSystemPart,
-	remoteParts map[string]Parts,
-) Parts {
-	allParts := Parts{}
+	remoteParts map[string]framesystemparts.Parts,
+) framesystemparts.Parts {
+	allParts := framesystemparts.Parts{}
 	allParts = append(allParts, localParts...)
-	allParts = append(allParts, partMapToPartSlice(offsetParts)...)
+	allParts = append(allParts, framesystemparts.PartMapToPartSlice(offsetParts)...)
 	for _, part := range remoteParts {
 		allParts = append(allParts, part...)
 	}
@@ -118,14 +115,10 @@ func combineParts(
 }
 
 // robotFrameSystemConfig returns the frame system parts of the robot through the frame system service.
-func robotFrameSystemConfig(ctx context.Context, r robot.Robot) (Parts, error) {
+func robotFrameSystemConfig(ctx context.Context, r robot.Robot) (framesystemparts.Parts, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystemConfig")
 	defer span.End()
-	fsSrv, err := FromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-	parts, err := fsSrv.Config(ctx, nil)
+	parts, err := r.FrameSystemConfig(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
