@@ -9,7 +9,10 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
@@ -36,6 +39,17 @@ type Robot interface {
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
+
+	// FrameSystemConfig returns the individual parts that make up a robot's frame system
+	FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
+
+	// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+	TransformPose(
+		ctx context.Context,
+		pose *referenceframe.PoseInFrame,
+		dst string,
+		additionalTransforms []*commonpb.Transform,
+	) (*referenceframe.PoseInFrame, error)
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error
