@@ -63,8 +63,8 @@ func init() {
 		}, &WebcamAttrs{})
 
 	discovery.RegisterFunction(camera.SubtypeName, model,
-		func(ctx context.Context, subtypeName resource.SubtypeName, model_ string) (interface{}, error) {
-			return Discover(ctx, subtypeName, model_)
+		func(ctx context.Context, subtypeName resource.SubtypeName, subtypeModel string) (interface{}, error) {
+			return Discover(ctx, subtypeName, subtypeModel)
 		},
 	)
 }
