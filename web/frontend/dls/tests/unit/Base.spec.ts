@@ -305,7 +305,9 @@ describe("Base", () => {
     expect(wrapper.vm.$data.movementType).toBe("Continous");
     expect(wrapper.vm.$data.direction).toBe("Forwards");
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
-    const ccwColumnWrapper = wrapper.find('[data-cy=button-Counterclockwise] span:last-child');
+    const ccwColumnWrapper = wrapper.find(
+      "[data-cy=button-Counterclockwise] span:last-child"
+    );
     expect(ccwColumnWrapper.element.innerHTML.trim()).toBe("Counterclockwise");
     await ccwColumnWrapper.trigger("click");
     expect(wrapper.vm.$data.spinType).toBe("Counterclockwise");
