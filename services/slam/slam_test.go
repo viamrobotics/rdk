@@ -6,8 +6,6 @@ import (
 	"image"
 	"io/ioutil"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -508,24 +506,27 @@ func TestDataProcessORBSLAM(t *testing.T) {
 func TestSLAMProcess(t *testing.T) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger := golog.NewTestLogger(t)
 
+	// TODO 05/19/2022: Improved end-to-end testing which validates pexec.Process function call results
 	testMetadata := metadata{
-		AlgoName:       "testLib",
-		SlamMode:       map[string]mode{"mono": mono},
-		BinaryLocation: "pwd",
+		AlgoName: "testLib",
+		SlamMode: map[string]mode{"mono": mono},
+		// Using true here to allow pexec.Process to be called without having to validate the process as
+		// pexec.Process automatically succeeds on true
+		BinaryLocation: "true",
 	}
 
 	slamSvc := &slamService{
 		logger:                  logger,
 		slamLib:                 testMetadata,
 		slamProcess:             pexec.NewProcessManager(logger),
-		cameraName:              "",
-		configParams:            map[string]string{},
-		dataRateMs:              0,
-		mapRateSec:              0,
-		dataDirectory:           "",
-		inputFilePattern:        "",
+		cameraName:              "test_sensor",
+		configParams:            map[string]string{"mode": "2d", "test_param": "viam"},
+		dataRateMs:              100,
+		mapRateSec:              200,
+		dataDirectory:           "/tmp/",
+		inputFilePattern:        "10:200:1",
 		cancelFunc:              cancelFunc,
 		activeBackgroundWorkers: &sync.WaitGroup{},
 	}
@@ -533,22 +534,14 @@ func TestSLAMProcess(t *testing.T) {
 	cmd, err := slamSvc.startSLAMProcess(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Check most recent log
-	latestLoggedEntry := obs.All()[len(obs.All())-1]
-	log := strings.TrimSuffix(latestLoggedEntry.Context[len(latestLoggedEntry.Context)-1].String, "\n")
-	pwdResult, err := os.Getwd()
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, log, test.ShouldEqual, pwdResult)
-
 	cmdResult := []string{
 		testMetadata.BinaryLocation,
-		"-sensors=" + slamSvc.cameraName,
-		"-data_dir=" + slamSvc.dataDirectory,
-		"-data_rate_ms=" + strconv.Itoa(slamSvc.dataRateMs),
-		"-map_rate_sec=" + strconv.Itoa(slamSvc.mapRateSec),
-		"-config_param=" + createKeyValuePairs(slamSvc.configParams),
-		"-input_file_pattern=" + slamSvc.inputFilePattern,
+		"-sensors=test_sensor",
+		"-config_param={mode=2d,test_param=viam}",
+		"-data_rate_ms=100",
+		"-map_rate_sec=200",
+		"-data_dir=/tmp/",
+		"-input_file_pattern=10:200:1",
 	}
 
 	for i, s := range cmd {
