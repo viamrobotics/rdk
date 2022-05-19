@@ -187,7 +187,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 		case arrowControl, buttonControl, triggerSpeedControl:
 			var mmPerSec, angleDeg float64
 
-			//nolint:exhaustive
+			// nolint:exhaustive
 			switch svc.controlMode {
 			case triggerSpeedControl:
 				mmPerSec, angleDeg = svc.triggerSpeedEvent(event, mmPerSec, angleDeg)
@@ -372,6 +372,8 @@ func (svc *remoteService) oneJoyStickEvent(event input.Event, y float64, x float
 	return y, x
 }
 
+// right joystick is forward/back, strafe right/left
+// left joystick is spin right/left & up/down
 // order is: X, Y, RX, RY = AngZ(0), LinZ(1), LinX(2), LinY(3).
 func (svc *remoteService) droneEvent(event input.Event, oldValues []float64) []float64 {
 	newValues := make([]float64, len(oldValues))
