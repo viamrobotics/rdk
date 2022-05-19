@@ -40,9 +40,6 @@ type Robot interface {
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
 
-	// Close attempts to cleanly close down all constituent parts of the robot.
-	Close(ctx context.Context) error
-
 	// FrameSystemConfig returns the individual parts that make up a robot's frame system
 	FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
 
@@ -53,6 +50,9 @@ type Robot interface {
 		dst string,
 		additionalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
+
+	// Close attempts to cleanly close down all constituent parts of the robot.
+	Close(ctx context.Context) error
 }
 
 // A Refresher can refresh the contents of a robot.

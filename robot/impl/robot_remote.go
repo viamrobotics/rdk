@@ -298,7 +298,7 @@ func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	return rr.manager.ResourceByName(newName)
 }
 
-// FrameSystemConfig returns a remote robot's FrameSystem Config. Currently unimplemented.
+// FrameSystemConfig returns a remote robot's FrameSystem Config.
 func (rr *remoteRobot) FrameSystemConfig(
 	ctx context.Context,
 	additionalTransforms []*commonpb.Transform,

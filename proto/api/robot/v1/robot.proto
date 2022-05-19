@@ -38,13 +38,13 @@ service RobotService {
 
   rpc FrameSystemConfig(FrameSystemConfigRequest) returns (FrameSystemConfigResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/robot/frame_system/config"
+      get: "/viam/api/v1/frame_system/config"
     };
   }
 
   rpc TransformPose(TransformPoseRequest) returns (TransformPoseResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/robot/frame_system/transform_pose"
+      get: "/viam/api/v1/frame_system/transform_pose"
     };
   }
 }
