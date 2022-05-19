@@ -101,7 +101,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	err := segMap.registerSegmenter(RadiusClusteringSegmenter, SegmenterRegistration{
 		segmentation.Segmenter(segmentation.RadiusClustering),
 		utils.JSONTags(segmentation.RadiusClusteringConfig{}),
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -246,5 +246,5 @@ func (vs *visionService) registerSegmenterFromDetector(detName string) error {
 	if err != nil {
 		return err
 	}
-	return vs.segReg.registerSegmenter(detName, SegmenterRegistration{detSegmenter, params})
+	return vs.segReg.registerSegmenter(detName, SegmenterRegistration{detSegmenter, params}, golog.NewLogger("log"))
 }

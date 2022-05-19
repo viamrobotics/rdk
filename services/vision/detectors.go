@@ -39,7 +39,10 @@ type DetectorConfig struct {
 type detectorMap map[string]objdet.Detector
 
 // registerDetector registers a Detector type to a registry.
-func (dm detectorMap) registerDetector(name string, det objdet.Detector) error {
+func (dm detectorMap) registerDetector(name string, det objdet.Detector, logger golog.Logger) error {
+	if _, old := dm[name]; old {
+		logger.Infof("overwriting the detector with name: %s", name)
+	}
 	if det == nil {
 		return errors.Errorf("cannot register a nil detector: %s", name)
 	}
@@ -88,7 +91,7 @@ func registerNewDetectors(ctx context.Context, dm detectorMap, attrs *Attributes
 		case TensorFlowType:
 			return newDetectorTypeNotImplemented(attr.Type)
 		case ColorType:
-			err := registerColorDetector(dm, &attr)
+			err := registerColorDetector(dm, &attr, logger)
 			if err != nil {
 				return err
 			}

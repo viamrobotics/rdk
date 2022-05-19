@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"github.com/edaniels/golog"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 
@@ -21,9 +22,9 @@ type SegmenterRegistration struct {
 type segmenterMap map[string]SegmenterRegistration
 
 // registerSegmenter registers a Segmenter type to a registration.
-func (sm segmenterMap) registerSegmenter(name string, seg SegmenterRegistration) error {
+func (sm segmenterMap) registerSegmenter(name string, seg SegmenterRegistration, logger golog.Logger) error {
 	if _, old := sm[name]; old {
-		return errors.Errorf("trying to register two segmenters with the same name: %s", name)
+		logger.Infof("overwriting the detector with name: %s", name)
 	}
 	if seg.Segmenter == nil {
 		return errors.Errorf("cannot register a nil segmenter: %s", name)
@@ -43,7 +44,7 @@ func (sm segmenterMap) segmenterLookup(name string) (*SegmenterRegistration, err
 }
 
 // registeredSegmenters returns a copy of the registered segmenters.
-func (sm segmenterMap) registeredSegmenters() map[string]SegmenterRegistration {
+func (sm segmenterMap) registeredSegmenters() segmenterMap {
 	copied, err := copystructure.Copy(sm)
 	if err != nil {
 		panic(err)
