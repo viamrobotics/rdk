@@ -17,9 +17,10 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot/framesystem"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
-	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -175,7 +176,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig2.json"), logger) // no world node
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeError, framesystem.NewMissingParentError("pieceArm", "base"))
+	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("pieceArm", "base"))
 	cfg, err = config.Read(
 		context.Background(),
 		rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig3.json"),
@@ -224,7 +225,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	defer r.Close(context.Background())
 
 	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transformMsgs)
-	test.That(t, err, test.ShouldBeError, framesystem.NewMissingParentError("frame2", "noParent"))
+	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
 	test.That(t, fs, test.ShouldBeNil)
 
 	transformMsgs = []*commonpb.Transform{
@@ -359,9 +360,7 @@ func TestServiceWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
 	// run the frame system service
-	fsServ, err := framesystem.FromRobot(r2)
-	test.That(t, err, test.ShouldBeNil)
-	allParts, err := fsServ.Config(context.Background(), transformMsgs)
+	allParts, err := r2.FrameSystemConfig(context.Background(), transformMsgs)
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", allParts)
 }
