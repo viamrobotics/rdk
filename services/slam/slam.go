@@ -3,14 +3,11 @@ package slam
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"fmt"
 	"image/jpeg"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,8 +60,8 @@ var Subtype = resource.NewSubtype(
 // Name is the slam service's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// runtimeConfigValidation ensures all parts of the config are valid at runtime but will not close out server. These primarily focus
-// on parameters not in the config_param, however, the slam mode is required and thus is looked for.
+// runtimeConfigValidation ensures parameters not in the config_param, with the exception of mode, are valid at runtime
+// but will not close out server.
 func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 	slamLib, ok := slamLibraries[svcConfig.Algorithm]
 	if !ok {
@@ -100,25 +97,25 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 
 		re = regexp.MustCompile(`(\d+)`)
 		res2 := re.FindAllString(svcConfig.InputFilePattern, 3)
-		X, err := strconv.Atoi(res2[0])
+		startFileIndex, err := strconv.Atoi(res2[0])
 		if err != nil {
 			return err
 		}
-		Y, err := strconv.Atoi(res2[1])
-		if err != nil {
-			return err
-		}
-
-		D, err := strconv.Atoi(res2[2])
+		endFileIndex, err := strconv.Atoi(res2[1])
 		if err != nil {
 			return err
 		}
 
-		if D == 0 {
+		interval, err := strconv.Atoi(res2[2])
+		if err != nil {
+			return err
+		}
+
+		if interval == 0 {
 			return errors.New("the file input pattern's interval must be greater than zero")
 		}
 
-		if X > Y {
+		if startFileIndex > endFileIndex {
 			return errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
 		}
 	}
@@ -511,21 +508,14 @@ func createTimestampFilename(cameraName, dataDirectory, fileType string) string 
 
 // Converts a dictionary to a string for so that it can be loaded into an arg for the slam process.
 func createKeyValuePairs(m map[string]string) string {
-	keys := []string{}
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	b := new(bytes.Buffer)
-	for i, key := range keys {
-		if i == len(keys)-1 {
-			fmt.Fprintf(b, "%s=%s", key, m[key])
-		} else {
-			fmt.Fprintf(b, "%s=%s,", key, m[key])
-		}
+	stringMapList := make([]string, len(m))
+	i := 0
+	for k, val := range m {
+		stringMapList[i] = k + "=" + val
+		i++
 	}
 
-	s := "{" + b.String() + "}"
-	return s
+	stringMap := strings.Join(stringMapList, ",")
+
+	return "{" + stringMap + "}"
 }
