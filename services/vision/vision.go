@@ -101,7 +101,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	err := segMap.registerSegmenter(RadiusClusteringSegmenter, SegmenterRegistration{
 		segmentation.Segmenter(segmentation.RadiusClustering),
 		utils.JSONTags(segmentation.RadiusClusteringConfig{}),
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	}
 	// turn detectors into segmenters
 	for _, detName := range service.detReg.detectorNames() {
-		err := service.registerSegmenterFromDetector(detName)
+		err := service.registerSegmenterFromDetector(detName, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,7 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg DetectorConfig) er
 		return err
 	}
 	// also create a new segmenter from the detector
-	return vs.registerSegmenterFromDetector(cfg.Name)
+	return vs.registerSegmenterFromDetector(cfg.Name, vs.logger)
 }
 
 // GetDetections returns the detections of the next image from the given camera and the given detector.
@@ -237,7 +237,7 @@ func (vs *visionService) GetObjectPointClouds(
 
 // Helpers
 // registerSegmenterFromDetector creates and registers a segmenter from an already registered detector.
-func (vs *visionService) registerSegmenterFromDetector(detName string) error {
+func (vs *visionService) registerSegmenterFromDetector(detName string, logger golog.Logger) error {
 	det, err := vs.detReg.detectorLookup(detName)
 	if err != nil {
 		return err
@@ -246,5 +246,5 @@ func (vs *visionService) registerSegmenterFromDetector(detName string) error {
 	if err != nil {
 		return err
 	}
-	return vs.segReg.registerSegmenter(detName, SegmenterRegistration{detSegmenter, params})
+	return vs.segReg.registerSegmenter(detName, SegmenterRegistration{detSegmenter, params}, logger)
 }
