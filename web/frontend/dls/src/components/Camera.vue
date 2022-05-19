@@ -96,11 +96,11 @@
             </div>
             <div class="pt-4">
               <span class="pr-2">Point Cloud Data</span>
-              <ViamInfoButton
+              <viam-info-button
                 :iconPath="mdiInformationOutline"
                 :infoRows="['When turned on, point cloud will be recalculated']"
               >
-              </ViamInfoButton>
+              </viam-info-button>
               <ViamSwitch
                 centered
                 name="pcd"
@@ -138,14 +138,15 @@
                     Download Raw Data
                   </ViamButton>
                 </div>
-                <div class="clear-both h-96" id="pcd" @click="pcdClick"></div>
-                <div class="float-right">
-                  <span class="text-xs">Controls</span>
-                  <viam-info-button
-                    :iconPath="mdiInformationOutline"
-                    :infoRows="infoControls"
-                  >
-                  </viam-info-button>
+                <div class="table relative pb-6" id="pcd" @click="pcdClick">
+                  <div class="absolute r-0 bottom-0 right-0">
+                    <span class="text-xs">Controls</span>
+                    <viam-info-button
+                      :iconPath="mdiInformationOutline"
+                      :infoRows="infoControls"
+                    >
+                    </viam-info-button>
+                  </div>
                 </div>
                 <div class="grid grid-cols-1 divide-y clear-both">
                   <div>
