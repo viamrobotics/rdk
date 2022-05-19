@@ -36,3 +36,15 @@ func PlotKeypoints(img *image.Gray, kps []image.Point, outName string) error {
 	}
 	return dc.SavePNG(outName)
 }
+
+// RescaleKeypoints rescales given keypoints wrt scaleFactor
+func RescaleKeypoints(kps KeyPoints, scaleFactor int) KeyPoints {
+	nKeypoints := len(kps)
+	rescaledKeypoints := make(KeyPoints, nKeypoints)
+	for i := 0; i < nKeypoints; i++ {
+		currentKp := kps[i]
+		rescaled := image.Point{currentKp.X * scaleFactor, currentKp.Y * scaleFactor}
+		rescaledKeypoints[i] = rescaled
+	}
+	return rescaledKeypoints
+}
