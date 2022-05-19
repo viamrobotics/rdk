@@ -7,19 +7,18 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 	"github.com/golang/geo/r3"
+	"go.uber.org/multierr"
 
 	"github.com/go-nlopt/nlopt"
-	
+
 	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/component/generic"
 )
 
 func init() {
@@ -40,50 +39,6 @@ func init() {
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
 		&boatConfig{})
-}
-
-type motorWeights struct {
-	linearX float64
-	linearY float64
-	angular float64
-}
-
-type motorConfig struct {
-	Name           string
-	LateralOffset  float64 `json:"lateral_offset"`
-	VerticalOffset float64 `json:"vertical_offset"`
-	AngleDegrees   float64 `json:"angle"` // 0 is thrusting forward, 90 is thrusting to starboard, or positive x
-	Weight         float64
-}
-
-// percentDistanceFromCenterOfMass: if the boat is a circle with a radius of 5m,
-// this is the distance from center in m / 5m.
-func (mc *motorConfig) computeWeights(radius float64) motorWeights {
-	x := math.Sin(utils.DegToRad(mc.AngleDegrees)) * mc.Weight
-	y := math.Cos(utils.DegToRad(mc.AngleDegrees)) * mc.Weight
-
-	angleFromCenter := 0.0
-	if mc.VerticalOffset == 0 {
-		if mc.LateralOffset > 0 {
-			angleFromCenter = 90
-		} else if mc.LateralOffset < 0 {
-			angleFromCenter = -90
-		}
-	} else {
-		angleFromCenter = utils.RadToDeg(math.Atan(mc.LateralOffset / mc.VerticalOffset))
-	}
-
-	percentDistanceFromCenterOfMass := math.Hypot(mc.LateralOffset, mc.VerticalOffset) / radius
-
-	angleOffset := mc.AngleDegrees - angleFromCenter
-
-	fmt.Printf("\t %v angle: %v angleFromCenter: %v angleOffset: %v percentDistanceFromCenterOfMass: %0.2f, x: %0.2f y: %0.2f\n", mc.Name, mc.AngleDegrees, angleFromCenter, angleOffset, percentDistanceFromCenterOfMass, x, y)
-
-	return motorWeights{
-		linearX: x,
-		linearY: y,
-		angular: -1 * percentDistanceFromCenterOfMass * mc.Weight * math.Sin(utils.DegToRad(angleOffset)),
-	}
 }
 
 type boatConfig struct {
@@ -122,7 +77,7 @@ func (bc *boatConfig) applyMotors(powers []float64) motorWeights {
 		total.linearY += w.linearY * powers[idx]
 		total.angular += w.angular * powers[idx]
 	}
-	
+
 	return total
 }
 
@@ -136,7 +91,7 @@ func powerLowLevel(desire, weight float64) float64 {
 	if weight < 0 {
 		p *= -1
 	}
-	
+
 	return p
 }
 
@@ -161,24 +116,24 @@ func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 	}
 
 	fmt.Printf("powers: %v\n", powers)
-	
+
 	if false {
 		goal := bc.computeGoal(linear, angular)
-		
+
 		opt, err := nlopt.NewNLopt(nlopt.LD_MMA, 2)
 		if err != nil {
 			panic(err)
 		}
 		defer opt.Destroy()
-		
+
 		mins := []float64{}
 		maxs := []float64{}
-		
-		for _, _ = range bc.Motors {
+
+		for range bc.Motors {
 			mins = append(mins, -1)
 			maxs = append(maxs, -1)
 		}
-		
+
 		err = multierr.Combine(
 			opt.SetLowerBounds(mins),
 			opt.SetUpperBounds(maxs),
@@ -188,33 +143,32 @@ func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 		if err != nil {
 			panic(1)
 		}
-		
+
 		var evals int
 		myfunc := func(x, gradient []float64) float64 {
 			fmt.Printf("yo: %v\n", x)
 			evals++
-			
+
 			total := bc.applyMotors(x)
-			diff := math.Pow(total.linearX - goal.linearX,2) +
-				math.Pow(total.linearY - goal.linearY,2) +
-				math.Pow(total.angular - goal.angular,2)
+			diff := math.Pow(total.linearX-goal.linearX, 2) +
+				math.Pow(total.linearY-goal.linearY, 2) +
+				math.Pow(total.angular-goal.angular, 2)
 			diff = math.Sqrt(diff)
-			
+
 			if len(gradient) > 0 {
-				
+
 			}
-			
+
 			return diff
 		}
-		
-		
+
 		opt.SetMinObjective(myfunc)
 		powers, _, err = opt.Optimize(powers)
 		if err != nil {
 			panic(err)
 		}
 	}
-	
+
 	return powers
 
 }
@@ -237,7 +191,7 @@ func createBoat(ctx context.Context, r robot.Robot, config *boatConfig, logger g
 		}
 		theBoat.motors = append(theBoat.motors, m)
 	}
-	
+
 	fmt.Printf("hi %#v\n", theBoat)
 
 	return theBoat, nil
@@ -246,7 +200,7 @@ func createBoat(ctx context.Context, r robot.Robot, config *boatConfig, logger g
 type boat struct {
 	generic.Unimplemented
 
-	cfg *boatConfig
+	cfg    *boatConfig
 	motors []motor.Motor
 
 	opMgr operation.SingleOperationManager
@@ -282,7 +236,7 @@ func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 
 	return nil
 }
-	
+
 func (b *boat) Stop(ctx context.Context) error {
 	b.opMgr.CancelRunning(ctx)
 	var err error
@@ -291,7 +245,7 @@ func (b *boat) Stop(ctx context.Context) error {
 	}
 	return err
 }
-	
-func (b *boat)GetWidth(ctx context.Context) (int, error) {
+
+func (b *boat) GetWidth(ctx context.Context) (int, error) {
 	return int(b.cfg.Width) * 1000, nil
 }
