@@ -24,7 +24,7 @@ type segmenterMap map[string]SegmenterRegistration
 // registerSegmenter registers a Segmenter type to a registration.
 func (sm segmenterMap) registerSegmenter(name string, seg SegmenterRegistration, logger golog.Logger) error {
 	if _, old := sm[name]; old {
-		logger.Infof("overwriting the detector with name: %s", name)
+		logger.Infof("overwriting the segmenter with name: %s", name)
 	}
 	if seg.Segmenter == nil {
 		return errors.Errorf("cannot register a nil segmenter: %s", name)
