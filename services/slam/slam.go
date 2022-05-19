@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -369,24 +370,12 @@ func (slamSvc *slamService) startDataProcess(cancelCtx context.Context) {
 func (slamSvc *slamService) startSLAMProcess(ctx context.Context) ([]string, error) {
 	var args []string
 
-	if slamSvc.cameraName != "" {
-		args = append(args, "-sensors="+slamSvc.cameraName)
-	}
-	if len(slamSvc.configParams) != 0 {
-		args = append(args, "-config_param="+createKeyValuePairs(slamSvc.configParams))
-	}
-	if slamSvc.dataRateMs != 0 {
-		args = append(args, "-data_rate_ms="+strconv.Itoa(slamSvc.dataRateMs))
-	}
-	if slamSvc.dataRateMs != 0 {
-		args = append(args, "-map_rate_sec="+strconv.Itoa(slamSvc.mapRateSec))
-	}
-	if slamSvc.dataDirectory != "" {
-		args = append(args, "-data_dir="+slamSvc.dataDirectory)
-	}
-	if slamSvc.inputFilePattern != "" {
-		args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
-	}
+	args = append(args, "-sensors="+slamSvc.cameraName)
+	args = append(args, "-config_param="+createKeyValuePairs(slamSvc.configParams))
+	args = append(args, "-data_rate_ms="+strconv.Itoa(slamSvc.dataRateMs))
+	args = append(args, "-map_rate_sec="+strconv.Itoa(slamSvc.mapRateSec))
+	args = append(args, "-data_dir="+slamSvc.dataDirectory)
+	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
 
 	processCfg := pexec.ProcessConfig{
 		ID:      "slam_" + slamSvc.slamLib.AlgoName,
@@ -401,7 +390,7 @@ func (slamSvc *slamService) startSLAMProcess(ctx context.Context) ([]string, err
 		return []string{}, errors.Errorf("problem adding slam process: %v", err)
 	}
 
-	slamSvc.logger.Info("starting slam process")
+	slamSvc.logger.Debug("starting slam process")
 
 	if err = slamSvc.slamProcess.Start(ctx); err != nil {
 		return []string{}, errors.Errorf("problem starting slam process: %v", err)
@@ -522,9 +511,19 @@ func createTimestampFilename(cameraName, dataDirectory, fileType string) string 
 
 // Converts a dictionary to a string for so that it can be loaded into an arg for the slam process.
 func createKeyValuePairs(m map[string]string) string {
+	keys := []string{}
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	b := new(bytes.Buffer)
-	for key, value := range m {
-		fmt.Fprintf(b, "%s=%s,", key, value)
+	for i, key := range keys {
+		if i == len(keys)-1 {
+			fmt.Fprintf(b, "%s=%s", key, m[key])
+		} else {
+			fmt.Fprintf(b, "%s=%s,", key, m[key])
+		}
 	}
 
 	s := "{" + b.String() + "}"
