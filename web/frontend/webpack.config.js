@@ -2,12 +2,12 @@ const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
 
 module.exports = {
-	mode: "development",
+	mode: "production",
 	entry: {
 		control: "./src/control.js",
 		control_helpers: "./src/rc/control_helpers.js"
 	},
-	devtool: 'inline-source-map',
+	devtool: 'source-map',
 	module: {
 		rules: [
 			{
@@ -25,9 +25,13 @@ module.exports = {
 		path: path.resolve(__dirname, '../runtime-shared/static'),
 	},
 	optimization: {
-		minimize: false,
+		minimize: true,
 		minimizer: [new TerserPlugin({
 			extractComments: false,
+			terserOptions: {
+				keep_fnames: true,
+				keep_classnames: true,
+			},
 		})],
 	},
 };
