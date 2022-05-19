@@ -45,8 +45,7 @@
               <div>
                 <div class="grid grid-cols-2">
                   <div class="flex pt-6">
-                    <KeyboardInput @keyboard-ctl="keyboardCtl">
-                    </KeyboardInput>
+                    <KeyboardInput @keyboard-ctl="keyboardCtl"> </KeyboardInput>
                   </div>
                   <div class="flex" v-if="camera">
                     <div class="pr-4">
@@ -79,7 +78,8 @@
           <div
             v-if="selectedItem === 'discrete'"
             class="pr-4 pl-4 pt-4 flex"
-            :style="{ maxHeight: maxHeight + 'px' }">
+            :style="{ maxHeight: maxHeight + 'px' }"
+          >
             <div class="flex-grow">
               <div>
                 <div class="column">
@@ -92,7 +92,10 @@
                   />
                 </div>
               </div>
-              <div :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'" class="items-center pt-4">
+              <div
+                :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
+                class="items-center pt-4"
+              >
                 <div class="column pr-2" v-if="movementMode === 'Straight'">
                   <p class="text-xs">Movement Type</p>
                   <RadioButtons
@@ -104,8 +107,8 @@
                 </div>
                 <div
                   v-if="movementMode === 'Straight' || movementMode === 'Arc'"
-                  class="column pr-2">
-                  
+                  class="column pr-2"
+                >
                   <p class="text-xs">Direction</p>
                   <RadioButtons
                     :options="['Forwards', 'Backwards']"
@@ -129,7 +132,11 @@
                   v-if="movementMode === 'Straight' || movementMode === 'Arc'"
                 ></NumberInput>
               </div>
-              <div :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'" class="pt-4" v-if="movementMode === 'Spin' || movementMode === 'Arc'">
+              <div
+                :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
+                class="pt-4"
+                v-if="movementMode === 'Spin' || movementMode === 'Arc'"
+              >
                 <div class="column pr-2">
                   <p class="text-xs">Movement Type</p>
                   <RadioButtons
@@ -139,8 +146,7 @@
                     v-on:selectOption="setSpinType($event)"
                   />
                 </div>
-                <div
-                  class="column pl-4">
+                <div class="column pl-4">
                   <Range
                     id="angle"
                     :min="0"
@@ -155,22 +161,21 @@
               </div>
             </div>
             <div class="self-end">
-               <ViamButton
-                    color="success"
-                    group
-                    variant="primary"
-                    :disabled="baseStatus"
-                    @click="baseRun()"
+              <ViamButton
+                color="success"
+                group
+                variant="primary"
+                :disabled="baseStatus"
+                @click="baseRun()"
+              >
+                <template v-slot:icon>
+                  <ViamIcon color="white" :path="mdiPlayCircleOutline"
+                    >RUN</ViamIcon
                   >
-                    <template v-slot:icon>
-                      <ViamIcon color="white" :path="mdiPlayCircleOutline"
-                        >RUN</ViamIcon
-                      >
-                    </template>
-                    RUN
-                </ViamButton>
+                </template>
+                RUN
+              </ViamButton>
             </div>
-        
           </div>
         </div>
       </template>
@@ -242,16 +247,12 @@ export default class Base extends Vue {
   ];
 
   get rangeLabel(): string {
+    if (this.movementMode === "Arc") return "Steering Angle Degree";
 
-    if (this.movementMode === 'Arc')
-      return 'Steering Angle Degree'
+    if (this.movementMode === "Spin") return "Angle";
 
-    if (this.movementMode === 'Spin')
-      return 'Angle'
-
-    return 'unknown'
+    return "unknown";
   }
-
 
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);

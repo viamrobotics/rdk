@@ -52,7 +52,7 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   ViamSelect,
   ViamInfoButton,
   Popper,
-  NumberInput
+  NumberInput,
 };
 
 Object.keys(Components).forEach((name) => {
