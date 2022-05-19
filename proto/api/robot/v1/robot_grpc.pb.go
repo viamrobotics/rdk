@@ -23,6 +23,8 @@ type RobotServiceClient interface {
 	ResourceNames(ctx context.Context, in *ResourceNamesRequest, opts ...grpc.CallOption) (*ResourceNamesResponse, error)
 	CancelOperation(ctx context.Context, in *CancelOperationRequest, opts ...grpc.CallOption) (*CancelOperationResponse, error)
 	BlockForOperation(ctx context.Context, in *BlockForOperationRequest, opts ...grpc.CallOption) (*BlockForOperationResponse, error)
+	FrameSystemConfig(ctx context.Context, in *FrameSystemConfigRequest, opts ...grpc.CallOption) (*FrameSystemConfigResponse, error)
+	TransformPose(ctx context.Context, in *TransformPoseRequest, opts ...grpc.CallOption) (*TransformPoseResponse, error)
 }
 
 type robotServiceClient struct {
@@ -69,6 +71,24 @@ func (c *robotServiceClient) BlockForOperation(ctx context.Context, in *BlockFor
 	return out, nil
 }
 
+func (c *robotServiceClient) FrameSystemConfig(ctx context.Context, in *FrameSystemConfigRequest, opts ...grpc.CallOption) (*FrameSystemConfigResponse, error) {
+	out := new(FrameSystemConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/FrameSystemConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) TransformPose(ctx context.Context, in *TransformPoseRequest, opts ...grpc.CallOption) (*TransformPoseResponse, error) {
+	out := new(TransformPoseResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/TransformPose", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -78,6 +98,8 @@ type RobotServiceServer interface {
 	ResourceNames(context.Context, *ResourceNamesRequest) (*ResourceNamesResponse, error)
 	CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error)
 	BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error)
+	FrameSystemConfig(context.Context, *FrameSystemConfigRequest) (*FrameSystemConfigResponse, error)
+	TransformPose(context.Context, *TransformPoseRequest) (*TransformPoseResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -96,6 +118,12 @@ func (UnimplementedRobotServiceServer) CancelOperation(context.Context, *CancelO
 }
 func (UnimplementedRobotServiceServer) BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BlockForOperation not implemented")
+}
+func (UnimplementedRobotServiceServer) FrameSystemConfig(context.Context, *FrameSystemConfigRequest) (*FrameSystemConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FrameSystemConfig not implemented")
+}
+func (UnimplementedRobotServiceServer) TransformPose(context.Context, *TransformPoseRequest) (*TransformPoseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TransformPose not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -182,6 +210,42 @@ func _RobotService_BlockForOperation_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_FrameSystemConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FrameSystemConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).FrameSystemConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/FrameSystemConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).FrameSystemConfig(ctx, req.(*FrameSystemConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_TransformPose_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransformPoseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).TransformPose(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/TransformPose",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).TransformPose(ctx, req.(*TransformPoseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -204,6 +268,14 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BlockForOperation",
 			Handler:    _RobotService_BlockForOperation_Handler,
+		},
+		{
+			MethodName: "FrameSystemConfig",
+			Handler:    _RobotService_FrameSystemConfig_Handler,
+		},
+		{
+			MethodName: "TransformPose",
+			Handler:    _RobotService_TransformPose_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
