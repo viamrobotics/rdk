@@ -18,11 +18,12 @@ func TestDetectorMap(t *testing.T) {
 	}
 	fnName := "x"
 	reg := make(detectorMap)
+	testlog := golog.NewLogger("testlog")
 	// no detector
-	err := reg.registerDetector(fnName, nil)
+	err := reg.registerDetector(fnName, nil, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot register a nil detector")
 	// success
-	reg.registerDetector(fnName, fn)
+	reg.registerDetector(fnName, fn, testlog)
 	// detector names
 	names := reg.detectorNames()
 	test.That(t, names, test.ShouldNotBeNil)
@@ -35,7 +36,7 @@ func TestDetectorMap(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Detector with name")
 	test.That(t, det, test.ShouldBeNil)
 	// duplicate
-	err = reg.registerDetector(fnName, fn)
+	err = reg.registerDetector(fnName, fn, testlog)
 	test.That(t, err, test.ShouldBeNil)
 	names = reg.detectorNames()
 	test.That(t, names, test.ShouldContain, fnName)
@@ -51,7 +52,7 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 			},
 		},
 	}
-	reg := make(detectorMap)
+	var reg detectorMap
 	err := registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("tflite"))
 }
@@ -66,7 +67,7 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 			},
 		},
 	}
-	reg := make(detectorMap)
+	var reg detectorMap
 	err := registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("tensorflow"))
 }
