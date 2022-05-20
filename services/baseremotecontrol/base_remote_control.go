@@ -73,6 +73,8 @@ type Config struct {
 	BaseName            string `json:"base"`
 	InputControllerName string `json:"input_controller"`
 	ControlModeName     string `json:"control_mode"`
+	MaxAngularVelocity float64 `json:"max_angular"`
+	MaxLinearVelocity float64 `json:"max_linear"`
 }
 
 // RemoteService is the structure of the remote service.
@@ -81,6 +83,7 @@ type remoteService struct {
 	inputController input.Controller
 	controlMode     controlMode
 
+	config *Config
 	logger golog.Logger
 }
 
@@ -117,6 +120,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		base:            base1,
 		inputController: controller,
 		controlMode:     controlMode1,
+		config:          svcConfig,
 		logger:          logger,
 	}
 
@@ -183,7 +187,19 @@ func (svc *remoteService) start(ctx context.Context) error {
 				return
 			}
 
-			err = svc.base.SetPower(ctx, r3.Vector{X: newValues[2], Y: newValues[3], Z: newValues[1]}, r3.Vector{Z: newValues[0]})
+			if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
+				err = svc.base.SetVelocity(
+					ctx,
+					r3.Vector{
+						X: svc.config.MaxLinearVelocity * newValues[2],
+						Y: svc.config.MaxLinearVelocity * newValues[3],
+						Z: svc.config.MaxLinearVelocity * newValues[1],
+					},
+					r3.Vector{Z: svc.config.MaxAngularVelocity * newValues[0]},
+				)
+			} else {
+				err = svc.base.SetPower(ctx, r3.Vector{X: newValues[2], Y: newValues[3], Z: newValues[1]}, r3.Vector{Z: newValues[0]})
+			}
 		case arrowControl, buttonControl, triggerSpeedControl:
 			var mmPerSec, angleDeg float64
 
