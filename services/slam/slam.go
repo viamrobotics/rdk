@@ -497,7 +497,7 @@ func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context) (string, er
 	return filename, f.Close()
 }
 
-// Creates a file for camera data with sensor and timestamp included in name.
+// Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 func createTimestampFilename(cameraName, dataDirectory, fileType string) string {
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
