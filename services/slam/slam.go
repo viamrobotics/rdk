@@ -70,7 +70,7 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 	}
 
 	if _, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]; !ok {
-		return errors.Errorf("getting data with specified algorithm, %v, and desired mode %v",
+		return errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
 			svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
 	}
 

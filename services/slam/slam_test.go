@@ -177,7 +177,8 @@ func TestConfigValidation(t *testing.T) {
 	t.Run("SLAM config mode tests", func(t *testing.T) {
 		cfg.ConfigParams["mode"] = ""
 		err = runtimeConfigValidation(cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError,
+			errors.Errorf("getting data with specified algorithm %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 
 		testMetadata := metadata{
 			AlgoName: "test",
@@ -190,7 +191,7 @@ func TestConfigValidation(t *testing.T) {
 		cfg.ConfigParams["mode"] = "test1"
 		err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
+			errors.Errorf("getting data with specified algorithm %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 
 		cfg.Algorithm = "cartographer"
 		cfg.Sensors = []string{"rplidar"}
@@ -201,7 +202,7 @@ func TestConfigValidation(t *testing.T) {
 		cfg.ConfigParams["mode"] = "rgbd"
 		err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
+			errors.Errorf("getting data with specified algorithm %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 	})
 
 	t.Run("SLAM config input file pattern tests", func(t *testing.T) {
