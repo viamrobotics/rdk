@@ -425,7 +425,7 @@ func RegisterRobotServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/GetStatus", runtime.WithHTTPPathPattern("/viam/api/v1/service/status"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/GetStatus", runtime.WithHTTPPathPattern("/viam/api/v1/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -614,7 +614,7 @@ func RegisterRobotServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/GetStatus", runtime.WithHTTPPathPattern("/viam/api/v1/service/status"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/GetStatus", runtime.WithHTTPPathPattern("/viam/api/v1/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -634,7 +634,7 @@ func RegisterRobotServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/StreamStatus", runtime.WithHTTPPathPattern("/viam/api/v1/service/status/stream"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.robot.v1.RobotService/StreamStatus", runtime.WithHTTPPathPattern("/viam/api/v1/status/stream"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -666,9 +666,9 @@ var (
 
 	pattern_RobotService_TransformPose_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "frame_system", "transform_pose"}, ""))
 
-	pattern_RobotService_GetStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "service", "status"}, ""))
+	pattern_RobotService_GetStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"viam", "api", "v1", "status"}, ""))
 
-	pattern_RobotService_StreamStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "status", "stream"}, ""))
+	pattern_RobotService_StreamStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "status", "stream"}, ""))
 )
 
 var (
