@@ -11,10 +11,10 @@ type (
 const (
 	dense = slamLibrary(iota)
 	sparse
-	mono   = mode("mono")
-	rgbd   = mode("rgbd")
-	twod   = mode("2d")
-	threed = mode("3d")
+	mono  = mode("mono")
+	rgbd  = mode("rgbd")
+	dim2d = mode("2d")
+	dim3d = mode("3d")
 )
 
 var slamLibraries = map[string]metadata{
@@ -26,7 +26,7 @@ var slamLibraries = map[string]metadata{
 var cartographerMetadata = metadata{
 	AlgoName:       "cartographer",
 	AlgoType:       dense,
-	SlamMode:       map[string]mode{"2d": twod},
+	SlamMode:       map[string]mode{"2d": dim2d},
 	BinaryLocation: "",
 }
 
