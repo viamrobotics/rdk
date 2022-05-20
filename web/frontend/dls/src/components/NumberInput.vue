@@ -78,6 +78,7 @@ export default class NumberInput extends Vue {
   }
   set innerValue(value: number) {
     let result = this.value;
+    // eslint-disable-next-line
     if (this.isNumber(value)) {
       result = this.calcValueWithRestrictions(Number(value));
     }
