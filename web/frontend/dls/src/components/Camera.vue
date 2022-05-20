@@ -118,7 +118,7 @@
                     </template>
                     Refresh
                   </ViamButton>
-                  <ViamButton color="primary" group variant="primary">
+                  <ViamButton color="primary" group variant="primary" @click="centerPCD">
                     <template v-slot:icon>
                       <ViamIcon :path="mdiImageFilterCenterFocus"
                         >Center</ViamIcon
@@ -157,7 +157,7 @@
                             class="form-select appearance-none block w-full px-3 py-1.5 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none"
                             aria-label="Select segmenter"
                             @change="changeSegmenter"
-                            v-model="selectedValue"
+                            v-model="selectedSegmenterValue"
                           >
                             <option value="" selected disabled>Choose</option>
                             <option
@@ -210,6 +210,7 @@
                     <div class="p-4 float-right">
                       <ViamButton
                         :loading="findStatus"
+                        :disabled="selectedSegmenterValue === ''"
                         color="black"
                         group
                         variant="primary"
@@ -366,6 +367,7 @@ export default class Base extends Vue {
   pcd = !this.connectedPCD;
   maxHeight = 150;
   selectedValue = "live";
+  selectedSegmenterValue = "";
   streamId = "stream-" + this.streamName;
   pcdId = "pcd-" + this.streamName;
   selected = "";
@@ -416,18 +418,22 @@ export default class Base extends Vue {
   }
 
   changeSegmenter(): void {
-    this.$emit("change-segmenter", this.selectedValue);
+    this.$emit("change-segmenter", this.selectedSegmenterValue);
   }
 
   findSegments(): void {
     if (this.pcdObject){
       this.pcdObject.calculatingSegments = true;
     }
-    this.$emit("find-segments", this.selectedValue, this.segmenterParameters);
+    this.$emit("find-segments", this.selectedSegmenterValue, this.segmenterParameters);
   }
 
   fullImage(e: Event): void {
     this.$emit("full-image", e);
+  }
+
+  centerPCD(e: Event): void {
+    this.$emit("center-pcd", e);
   }
 
   selectObject(e: string): void {

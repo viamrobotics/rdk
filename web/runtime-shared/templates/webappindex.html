@@ -231,7 +231,10 @@
           value: 0,
           imuData: {},
           currentOps: [],
-          baseRunStatus: false
+          baseRunStatus: false,
+          setPin: "",
+          getPin: "",
+          locationValue: "40.745297,-74.010916"
         };
         theApp = new Vue({
           el: "#app",
@@ -914,6 +917,13 @@
             doPCDLoad: function (data) {
               const mimeType = "pointcloud/pcd";
               pcdLoad(`data:${mimeType};base64,${data}`);
+            },
+            doCenterPCDLoad: function (data) {
+              const mimeType = "pointcloud/pcd";
+              pcdLoad(`data:${mimeType};base64,${data}`);
+              var p = { x: 0 / 1000, y: 0 / 1000, z: 0 / 1000 };
+              console.log(p);
+              setPoint(p);
             },
             doPCDDownload: function(data) {
               const mimeType = "pointcloud/pcd";
@@ -1811,14 +1821,15 @@
               <tr>
                  <th class="border border-slate-300">Get</th>
                  <td class="border border-slate-300">
-                  Pin: <viam-input :id="'get_pin_' + board.name"/><viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
+                  Pin: <number-input  v-model="getPin" :id="'get_pin_' + board.name"></number-input>
+                  <viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
                   <span :id="'get_pin_value_' + board.name"/>
                 </td>
               </tr>
               <tr>
                  <th class="border border-slate-300">Set</th>
                  <td class="border border-slate-300">
-                  Pin: <viam-input :id="'set_pin_' + board.name"/><br>
+                  Pin: <number-input v-model="setPin" :id="'set_pin_' + board.name"></number-input><br>
                   <select :id="'set_pin_v_' + board.name">
                     <option>low</option>
                     <option>high</option>
@@ -1858,7 +1869,7 @@
             <viam-button group v-on:click="setNavigationMode('manual')">Manual</viam-button>
             <viam-button group v-on:click="setNavigationMode('waypoint')">Waypoint</viam-button>
             <br />
-            <viam-input type="text" id="nav-set-location" value="40.745297,-74.010916" />
+            <viam-input v-model="locationValue" input-id="nav-set-location" />
             <viam-button group v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
             <div id="map" v-map-mounted></div>
           </div>
@@ -1897,6 +1908,7 @@
                       :segment-objects="objects"
                       :find-status="pcdClick.calculatingSegments"
                       @full-image="doPCDLoad(fullcloud)"
+                      @center-pcd="doCenterPCDLoad(fullcloud)"
                       @find-segments="findSegments(segmentAlgo, segmenterParameters)"
                       @change-segmenter="getSegmenterParameters"
                       @toggle-camera="viewCamera(streamName)"
