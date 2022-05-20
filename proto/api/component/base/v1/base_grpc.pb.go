@@ -32,6 +32,8 @@ type BaseServiceClient interface {
 	Spin(ctx context.Context, in *SpinRequest, opts ...grpc.CallOption) (*SpinResponse, error)
 	// SetPower sets the linear and angular velocity of a base
 	SetPower(ctx context.Context, in *SetPowerRequest, opts ...grpc.CallOption) (*SetPowerResponse, error)
+	// SetVelocity sets the linear and angular velocity of a base
+	SetVelocity(ctx context.Context, in *SetVelocityRequest, opts ...grpc.CallOption) (*SetVelocityResponse, error)
 	// Stop stops a robot's base
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 }
@@ -80,6 +82,15 @@ func (c *baseServiceClient) SetPower(ctx context.Context, in *SetPowerRequest, o
 	return out, nil
 }
 
+func (c *baseServiceClient) SetVelocity(ctx context.Context, in *SetVelocityRequest, opts ...grpc.CallOption) (*SetVelocityResponse, error) {
+	out := new(SetVelocityResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/SetVelocity", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *baseServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error) {
 	out := new(StopResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/Stop", in, out, opts...)
@@ -107,6 +118,8 @@ type BaseServiceServer interface {
 	Spin(context.Context, *SpinRequest) (*SpinResponse, error)
 	// SetPower sets the linear and angular velocity of a base
 	SetPower(context.Context, *SetPowerRequest) (*SetPowerResponse, error)
+	// SetVelocity sets the linear and angular velocity of a base
+	SetVelocity(context.Context, *SetVelocityRequest) (*SetVelocityResponse, error)
 	// Stop stops a robot's base
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	mustEmbedUnimplementedBaseServiceServer()
@@ -127,6 +140,9 @@ func (UnimplementedBaseServiceServer) Spin(context.Context, *SpinRequest) (*Spin
 }
 func (UnimplementedBaseServiceServer) SetPower(context.Context, *SetPowerRequest) (*SetPowerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetPower not implemented")
+}
+func (UnimplementedBaseServiceServer) SetVelocity(context.Context, *SetVelocityRequest) (*SetVelocityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetVelocity not implemented")
 }
 func (UnimplementedBaseServiceServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
@@ -216,6 +232,24 @@ func _BaseService_SetPower_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BaseService_SetVelocity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetVelocityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BaseServiceServer).SetVelocity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.base.v1.BaseService/SetVelocity",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BaseServiceServer).SetVelocity(ctx, req.(*SetVelocityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _BaseService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StopRequest)
 	if err := dec(in); err != nil {
@@ -256,6 +290,10 @@ var BaseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetPower",
 			Handler:    _BaseService_SetPower_Handler,
+		},
+		{
+			MethodName: "SetVelocity",
+			Handler:    _BaseService_SetVelocity_Handler,
 		},
 		{
 			MethodName: "Stop",

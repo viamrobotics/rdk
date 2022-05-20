@@ -73,6 +73,10 @@ type Base interface {
 
 	SetPower(ctx context.Context, linear, angular r3.Vector) error
 
+	// linear is in mmPerSec
+	// angular is in degsPerSec
+	SetVelocity(ctx context.Context, linear, angular r3.Vector) error
+
 	// Stop stops the base. It is assumed the base stops immediately.
 	Stop(ctx context.Context) error
 
@@ -150,6 +154,12 @@ func (r *reconfigurableBase) SetPower(ctx context.Context, linear, angular r3.Ve
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.SetPower(ctx, linear, angular)
+}
+
+func (r *reconfigurableBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.SetVelocity(ctx, linear, angular)
 }
 
 func (r *reconfigurableBase) Stop(ctx context.Context) error {
