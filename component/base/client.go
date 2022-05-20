@@ -121,6 +121,18 @@ func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector) error 
 	return nil
 }
 
+func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	_, err := c.client.SetVelocity(ctx, &pb.SetVelocityRequest{
+		Name:    c.name,
+		Linear:  &commonpb.Vector3{X: linear.X, Y: linear.Y, Z: linear.Z},
+		Angular: &commonpb.Vector3{X: angular.X, Y: angular.Y, Z: angular.Z},
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *client) Stop(ctx context.Context) error {
 	_, err := c.client.Stop(ctx, &pb.StopRequest{Name: c.name})
 	if err != nil {

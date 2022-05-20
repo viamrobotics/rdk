@@ -123,6 +123,23 @@ func (s *subtypeServer) SetPower(
 	return &pb.SetPowerResponse{}, nil
 }
 
+func (s *subtypeServer) SetVelocity(
+	ctx context.Context,
+	req *pb.SetVelocityRequest,
+) (*pb.SetVelocityResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
+	base, err := s.getBase(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	err = base.SetVelocity(ctx, convertVector(req.GetLinear()), convertVector(req.GetAngular()))
+	if err != nil {
+		return nil, err
+	}
+	return &pb.SetVelocityResponse{}, nil
+}
+
 func convertVector(v *commonpb.Vector3) r3.Vector {
 	if v == nil {
 		return r3.Vector{}

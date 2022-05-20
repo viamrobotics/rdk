@@ -14,7 +14,8 @@ import (
 type boatConfig struct {
 	Motors        []motorConfig
 	Length, Width float64
-
+	IMU string
+	
 	allPossibilites [][]float64
 }
 
