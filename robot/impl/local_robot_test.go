@@ -926,6 +926,7 @@ func TestGetStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := r.GetStatus(context.Background(), []resource.Name{})
+		test.That(t, err, test.ShouldBeNil)
 		// 5 because the 3 default services are always added to a local_robot. We only care
 		// about the first two (working1 and button1) however.
 		test.That(t, len(resp), test.ShouldEqual, 5)
