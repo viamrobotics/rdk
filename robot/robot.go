@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -16,6 +17,9 @@ import (
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 type Robot interface {
+	// Discover returns discovered component attribute.
+	Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error)
+
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 

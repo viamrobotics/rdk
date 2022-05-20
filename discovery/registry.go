@@ -1,4 +1,4 @@
-// Package discovery implements a discovery service.
+// Package discovery implements functions to find robot components.
 package discovery
 
 import (
@@ -16,14 +16,14 @@ type (
 	// it into string keys) and values comprised of primitives, list of primitives, maps
 	// with string keys (or at least can be decomposed into one), or lists of the
 	// aforementioned type of maps. Results with other types of data are not guaranteed.
-	Discover func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error)
+	DiscoveryFunction func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error)
 )
 
-var discoveryFunctions = map[Key]Discover{}
+var discoveryFunctions = map[Key]DiscoveryFunction{}
 
 // FunctionLookup looks up a discovery function registration by the given subtype and
 // model.
-func FunctionLookup(subtypeName resource.SubtypeName, model string) (Discover, bool) {
+func FunctionLookup(subtypeName resource.SubtypeName, model string) (DiscoveryFunction, bool) {
 	st, ok := lookupSubtype(subtypeName)
 	if !ok {
 		return nil, false
@@ -34,7 +34,7 @@ func FunctionLookup(subtypeName resource.SubtypeName, model string) (Discover, b
 }
 
 // RegisterFunction registers a discovery function for a given subtype and model.
-func RegisterFunction(subtypeName resource.SubtypeName, model string, discover Discover) {
+func RegisterFunction(subtypeName resource.SubtypeName, model string, discover DiscoveryFunction) {
 	st, ok := lookupSubtype(subtypeName)
 	if !ok {
 		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q.", subtypeName))

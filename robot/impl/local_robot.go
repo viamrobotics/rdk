@@ -16,6 +16,7 @@ import (
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -23,7 +24,6 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/services/framesystem"
 
 	// registers all services.
@@ -79,6 +79,10 @@ func (r *localRobot) webService() (web.Service, error) {
 		return nil, errors.New("unexpected service associated with web InternalServiceName")
 	}
 	return webSvc, nil
+}
+
+func (r *localRobot) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+	return []discovery.Discovery{}, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
