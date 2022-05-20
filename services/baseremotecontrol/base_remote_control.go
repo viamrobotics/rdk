@@ -386,7 +386,7 @@ func (svc *remoteService) droneEvent(event input.Event, oldValues []float64) []f
 	case input.AbsoluteY:
 		newValues[1] = -1.0 * event.Value
 	case input.AbsoluteRX:
-		newValues[2] = -1.0 * event.Value
+		newValues[2] = event.Value
 	case input.AbsoluteRY:
 		newValues[3] = -1.0 * event.Value
 	}
@@ -421,7 +421,7 @@ func scaleValue(a float64) float64 {
 	neg := a < 0
 
 	a = math.Abs(a)
-	if a < .1 {
+	if a <= .27 {
 		return 0
 	}
 
