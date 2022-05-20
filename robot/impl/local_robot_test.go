@@ -930,7 +930,18 @@ func TestGetStatus(t *testing.T) {
 		// 5 because the 3 default services are always added to a local_robot. We only care
 		// about the first two (working1 and button1) however.
 		test.That(t, len(resp), test.ShouldEqual, 5)
-		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
-		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
+
+		// although the response is length 5, the only thing we actually care about for testing
+		// is consistency with the expected values in the workingResourceMap. So we eliminate
+		// the values that aren't in the workingResourceMap.
+		actual := []robot.Status{}
+		for _, status := range resp {
+			if _, ok := workingResourceMap[status.Name]; ok {
+				actual = append(actual, status)
+			}
+		}
+		test.That(t, len(actual), test.ShouldEqual, 2)
+		test.That(t, actual[0].Status, test.ShouldResemble, expected[actual[0].Name])
+		test.That(t, actual[1].Status, test.ShouldResemble, expected[actual[1].Name])
 	})
 }
