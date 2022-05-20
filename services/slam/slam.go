@@ -60,19 +60,18 @@ var Subtype = resource.NewSubtype(
 // Name is the slam service's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// runtimeConfigValidation ensures parameters not in the config_param, with the exception of mode, are valid at runtime
-// but will not close out server.
+// runtimeConfigValidation ensures that required config parameters are valid at runtime. If any of the required config parameters are
+// not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
+// are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
 func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 	slamLib, ok := slamLibraries[svcConfig.Algorithm]
 	if !ok {
 		return errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
 	}
 
-	if svcConfig.ConfigParams["mode"] != "" {
-		if _, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]; !ok {
-			return errors.Errorf("getting data with specified algorithm, %v, and desired mode %v",
-				svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
-		}
+	if _, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]; !ok {
+		return errors.Errorf("getting data with specified algorithm, %v, and desired mode %v",
+			svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
 	}
 
 	for _, directoryName := range [4]string{"", "data", "map", "config"} {
@@ -425,7 +424,7 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context) (string, e
 	case rgbd:
 		// TODO 05/12/2022: Soon wil be deprecated into pointcloud files or rgb and monochromatic depth file. We will want picture pair.
 		fileType = ".both"
-	case twod, threed:
+	case dim2d, dim3d:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
 
@@ -453,7 +452,7 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context) (string, e
 		if err := rimage.EncodeBoth(iwd, w); err != nil {
 			return filename, err
 		}
-	case twod, threed:
+	case dim2d, dim3d:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
 	if err = w.Flush(); err != nil {
@@ -476,7 +475,7 @@ func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context) (string, er
 
 	var fileType string
 	switch slamSvc.slamMode {
-	case twod, threed:
+	case dim2d, dim3d:
 		fileType = ".pcd"
 	case rgbd, mono:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)

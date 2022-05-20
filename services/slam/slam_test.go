@@ -388,7 +388,7 @@ func TestORBSLAMData(t *testing.T) {
 	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	test.That(t, err, test.ShouldBeNil)
 
-	slamSvc.slamMode = twod
+	slamSvc.slamMode = dim2d
 	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	errCheck := errors.Errorf("error getting data in desired mode: bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	test.That(t, err, test.ShouldBeError, errCheck)
@@ -534,18 +534,18 @@ func TestSLAMProcess(t *testing.T) {
 	cmd, err := slamSvc.startSLAMProcess(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
-	cmdResult := []string{
-		testMetadata.BinaryLocation,
-		"-sensors=test_sensor",
-		"-config_param={mode=2d,test_param=viam}",
-		"-data_rate_ms=100",
-		"-map_rate_sec=200",
-		"-data_dir=/tmp/",
-		"-input_file_pattern=10:200:1",
+	cmdResult := [][]string{
+		[]string{testMetadata.BinaryLocation},
+		[]string{"-sensors=test_sensor"},
+		[]string{"-config_param={mode=2d,test_param=viam}", "-config_param={test_param=viam,mode=2d}"},
+		[]string{"-data_rate_ms=100"},
+		[]string{"-map_rate_sec=200"},
+		[]string{"-data_dir=/tmp/"},
+		[]string{"-input_file_pattern=10:200:1"},
 	}
 
 	for i, s := range cmd {
-		test.That(t, s, test.ShouldEqual, cmdResult[i])
+		test.That(t, s, test.ShouldBeIn, cmdResult[i])
 	}
 
 	err = slamSvc.stopSLAMProcess()
