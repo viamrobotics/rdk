@@ -11,6 +11,7 @@ import RadioButtons from "@/components/RadioButtons.vue";
 import ViamButton from "@/components/Button.vue";
 import KeyboardInput from "@/components/KeyboardInput.vue";
 import Range from "@/components/Range.vue";
+import ClickOutside from "@/directives/clickOutside";
 
 describe("Base", () => {
   enableAutoDestroy(afterEach);
@@ -35,6 +36,9 @@ describe("Base", () => {
         ViamInput,
         Range,
       },
+      directives: {
+        ClickOutside,
+      }
     });
 
     expect(wrapper.element.tagName).toBe("DIV");
