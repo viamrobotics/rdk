@@ -101,7 +101,21 @@ type boat struct {
 }
 
 func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
-	panic(1)
+	if distanceMm < 0 {
+		mmPerSec *= -1
+		distanceMm *= -1
+	}
+	p := 1.0
+	if mmPerSec < 0 {
+		p *= -1
+	}
+	err := b.SetVelocity(ctx, r3.Vector{Y: p}, r3.Vector{})
+	if err != nil {
+		return err
+	}
+	s := time.Duration(float64(time.Millisecond) * math.Abs(float64(distanceMm)))
+	time.Sleep(s)
+	return b.Stop(ctx)
 }
 
 func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
@@ -109,7 +123,13 @@ func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, an
 }
 
 func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
-	panic(1)
+	millis := 1000 * (angleDeg / degsPerSec)
+	err := b.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: -1 * degsPerSec})
+	if err != nil {
+		return err
+	}
+	time.Sleep(time.Duration(float64(time.Millisecond) * millis))
+	return b.Stop(ctx)
 }
 
 func (b *boat) startVelocityThread() error {
@@ -125,6 +145,9 @@ func (b *boat) startVelocityThread() error {
 			utils.SelectContextOrWait(ctx, time.Millisecond * 100)
 			err := b.velocityThreadLoop(ctx)
 			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					return
+				}
 				b.logger.Warn(err)
 			}
 		}
@@ -168,6 +191,12 @@ func (b *boat) velocityThreadLoop(ctx context.Context) error {
 		b.state.velocityAngularGoal.Z,
 		angularDiff,
 	)
+
+	linear.Y = b.state.velocityLinearGoal.Y // TEMP
+	linear.X = b.state.velocityLinearGoal.X // TEMP
+
+	fmt.Printf("\t hi %v %v\n", linear, b.state.velocityLinearGoal)
+	
 	b.stateMutex.Unlock()
 	
 	return b.setPowerInternal(ctx, linear, angular)
@@ -232,6 +261,11 @@ func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) 
 }
 
 func (b *boat) Stop(ctx context.Context) error {
+	b.stateMutex.Lock()
+	b.state.velocityLinearGoal = r3.Vector{}
+	b.state.velocityAngularGoal = r3.Vector{}
+	b.stateMutex.Unlock()
+	
 	b.opMgr.CancelRunning(ctx)
 	var err error
 	for _, m := range b.motors {
