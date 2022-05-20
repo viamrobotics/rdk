@@ -272,20 +272,8 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
 
-	var remoteNames []resource.Name
-
-	for _, name := range r.RemoteNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeRemote,
-			name,
-		)
-		remoteNames = append(remoteNames, res)
-	}
-
-	for _, n := range append(remoteNames, r.ResourceNames()...) {
-		// TODO(RDK-119) if not found, could mean a name clash or a remote service
+	for _, n := range r.ResourceNames() {
+		// TODO(RSDK-22) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)

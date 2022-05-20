@@ -11,12 +11,13 @@
         color="primary"
         group
         variant="primary"
-        @mouseup="setKeyPressed(key, false)"
-        @mousedown="setKeyPressed(key, true)"
+        @pointerdown="setKeyPressed(key, true)"
+        @pointerup="setKeyPressed(key, false)"
         class="w-15 h-10 m-1 bg-white dark:bg-gray-900 border-gray-500"
         :class="{
-          'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200':
+          'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 keyboard-button-pressed':
             pressedKeys[key],
+          'keyboard-button-not-pressed': !pressedKeys[key],
         }"
       >
         <template v-slot:icon>
@@ -118,3 +119,11 @@ export default class KeyboardInput extends Vue {
   }
 }
 </script>
+<style>
+.keyboard-button-not-pressed:focus {
+  background-color: white;
+}
+.keyboard-button-pressed:focus {
+  background-color: rgba(228, 228, 231, 1);
+}
+</style>
