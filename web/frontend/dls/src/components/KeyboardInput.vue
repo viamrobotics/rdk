@@ -1,14 +1,18 @@
 <template>
-  <div class="flex flex-col h-23" v-click-outside="removeKeyboardListeners" @click="addKeyboardListeners">
+  <div
+    class="flex flex-col h-23"
+    v-click-outside="removeKeyboardListeners"
+    @click="addKeyboardListeners"
+  >
     <div class="flex pb-4">
-    <ViamSwitch
-      class="pr-4"
-      centered
-      :option="isActive"
-      @change="toggleKeyboard()"
-    ></ViamSwitch>
-    <h3 v-if="isActive">Keyboard active</h3>
-    <h3 v-else>Keyboard disabled</h3>
+      <ViamSwitch
+        class="pr-4"
+        centered
+        :option="isActive"
+        @change="toggleKeyboard()"
+      ></ViamSwitch>
+      <h3 v-if="isActive">Keyboard active</h3>
+      <h3 v-else>Keyboard disabled</h3>
     </div>
     <div
       v-for="(lineKeys, index) in keysLayout"
@@ -123,7 +127,7 @@ export default class KeyboardInput extends Vue {
   }
 
   toggleKeyboard(): void {
-    if(this.isActive) {
+    if (this.isActive) {
       this.addKeyboardListeners();
     } else {
       this.removeKeyboardListeners();

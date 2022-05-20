@@ -132,7 +132,7 @@ export default class NumberInput extends Vue {
   increase(): void {
     this.changeValue(+this.step);
   }
-  isNumber(stringVal: any): boolean {
+  isNumber(stringVal: string): boolean {
     if (!this.float && !REGEXP_NUMBER.test(stringVal)) return false;
 
     const parsedNumber = Number(stringVal);

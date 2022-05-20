@@ -38,7 +38,7 @@ describe("Base", () => {
       },
       directives: {
         ClickOutside,
-      }
+      },
     });
 
     expect(wrapper.element.tagName).toBe("DIV");

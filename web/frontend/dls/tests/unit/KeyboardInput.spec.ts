@@ -10,7 +10,7 @@ describe("ViamButton", () => {
     const wrapper: any = mount(KeyboardInput, {
       directives: {
         ClickOutside,
-      }
+      },
     });
     keys.forEach((keyName) => wrapper.vm.setKeyPressed(keyName, true));
     wrapper.vm.handleKeysStateInstantly();
@@ -21,7 +21,7 @@ describe("ViamButton", () => {
     const wrapper = mount(KeyboardInput, {
       directives: {
         ClickOutside,
-      }
+      },
     });
 
     expect(wrapper.element.tagName).toBe("DIV");

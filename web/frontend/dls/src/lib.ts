@@ -27,7 +27,7 @@ import Camera from "./components/Camera.vue";
 import ViamSelect from "./components/ViamSelect.vue";
 import ViamInfoButton from "./components/ViamInfoButton.vue";
 import Popper from "vue-popperjs";
-import NumberInput from './components/NumberInput.vue';
+import NumberInput from "./components/NumberInput.vue";
 import ClickOutside from "./directives/clickOutside";
 
 const Components: { [key: string]: VueConstructor<Vue> } = {
