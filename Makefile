@@ -18,7 +18,7 @@ build-go: buf-go
 
 build-web: buf-web
 	cd web/frontend/dls && npm ci && npm run build:prod
-	cd web/frontend && npm ci && npx webpack
+	cd web/frontend && npm ci && npx webpack build --config ./webpack.prod.js
 
 tool-install:
 	GOBIN=`pwd`/bin go install google.golang.org/protobuf/cmd/protoc-gen-go \
