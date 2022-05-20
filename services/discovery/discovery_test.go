@@ -88,16 +88,6 @@ func (m *mock) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.
 	return discoveries, nil
 }
 
-// func setupInjectRobot(t *testing.T) (*inject.Robot, *mock) {
-// 	t.Helper()
-// 	svc1 := &mock{}
-// 	r := &inject.Robot{}
-// 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-// 		return svc1, nil
-// 	}
-// 	return r, svc1
-// }
-
 func TestFromRobot(t *testing.T) {
 	svc1 := &mock{}
 	r := &inject.Robot{}
