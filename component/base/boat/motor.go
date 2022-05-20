@@ -12,6 +12,12 @@ type motorWeights struct {
 	angular float64
 }
 
+func (mw *motorWeights) diff(other motorWeights) float64 {
+	return math.Sqrt(math.Pow(mw.linearX-other.linearX, 2) +
+		math.Pow(mw.linearY-other.linearY, 2) +
+		math.Pow(mw.angular-other.angular, 2))
+}
+
 type motorConfig struct {
 	Name           string
 	LateralOffset  float64 `json:"lateral_offset"`
