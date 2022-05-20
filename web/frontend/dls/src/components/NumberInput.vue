@@ -78,7 +78,6 @@ export default class NumberInput extends Vue {
   }
   set innerValue(value: number) {
     let result = this.value;
-    // eslint-disable-next-line
     if (this.isNumber(value)) {
       result = this.calcValueWithRestrictions(Number(value));
     }
@@ -133,7 +132,8 @@ export default class NumberInput extends Vue {
   increase(): void {
     this.changeValue(+this.step);
   }
-  isNumber(stringVal: string): boolean {
+  // eslint-disable-next-line
+  isNumber(stringVal: any): boolean {
     if (!this.float && !REGEXP_NUMBER.test(stringVal)) return false;
 
     const parsedNumber = Number(stringVal);
