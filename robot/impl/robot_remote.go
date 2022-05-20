@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
@@ -257,6 +258,10 @@ func (rr *remoteRobot) unprefixResourceName(name resource.Name) resource.Name {
 	return resource.NewName(
 		name.Namespace, name.ResourceType, name.ResourceSubtype, newName,
 	)
+}
+
+func (rr *remoteRobot) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+	return []discovery.Discovery{}, nil
 }
 
 func (rr *remoteRobot) RemoteNames() []string {
