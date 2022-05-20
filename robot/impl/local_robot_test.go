@@ -821,3 +821,115 @@ func TestStatusService(t *testing.T) {
 	}
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
+
+func TestGetStatus(t *testing.T) {
+	buttonSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("button"))
+	button1 := resource.NameFromSubtype(buttonSubtype, "button1")
+	button2 := resource.NameFromSubtype(buttonSubtype, "button2")
+
+	workingSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("working"))
+	working1 := resource.NameFromSubtype(workingSubtype, "working1")
+
+	failSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("fail"))
+	fail1 := resource.NameFromSubtype(failSubtype, "fail1")
+
+	workingStatus := map[string]interface{}{"position": "up"}
+	errFailed := errors.New("can't get status")
+
+	registry.RegisterResourceSubtype(
+		workingSubtype,
+		registry.ResourceSubtype{
+			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return workingStatus, nil },
+		},
+	)
+
+	registry.RegisterResourceSubtype(
+		failSubtype,
+		registry.ResourceSubtype{
+			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return nil, errFailed },
+		},
+	)
+
+	statuses := []robot.Status{{Name: button1, Status: struct{}{}}}
+	logger := golog.NewTestLogger(t)
+	resourceNames := []resource.Name{working1, button1, fail1}
+	resourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource", fail1: "resource"}
+
+	t.Run("not found", func(t *testing.T) {
+		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = r.GetStatus(context.Background(), []resource.Name{button2})
+		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
+	})
+
+	t.Run("no CreateStatus", func(t *testing.T) {
+		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		resp, err := r.GetStatus(context.Background(), []resource.Name{button1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, statuses)
+	})
+
+	t.Run("failing resource", func(t *testing.T) {
+		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = r.GetStatus(context.Background(), []resource.Name{fail1})
+		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
+	})
+
+	t.Run("many status", func(t *testing.T) {
+		expected := map[resource.Name]interface{}{
+			working1: workingStatus,
+			button1:  struct{}{},
+		}
+		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = r.GetStatus(context.Background(), []resource.Name{button2})
+		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
+
+		resp, err := r.GetStatus(context.Background(), []resource.Name{working1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 1)
+		status := resp[0]
+		test.That(t, status.Name, test.ShouldResemble, working1)
+		test.That(t, status.Status, test.ShouldResemble, workingStatus)
+
+		resp, err = r.GetStatus(context.Background(), []resource.Name{working1, working1, working1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 1)
+		status = resp[0]
+		test.That(t, status.Name, test.ShouldResemble, working1)
+		test.That(t, status.Status, test.ShouldResemble, workingStatus)
+
+		resp, err = r.GetStatus(context.Background(), []resource.Name{working1, button1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 2)
+		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
+		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
+
+		_, err = r.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
+	})
+
+	t.Run("get all status", func(t *testing.T) {
+		workingResourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource"}
+		expected := map[resource.Name]interface{}{
+			working1: workingStatus,
+			button1:  struct{}{},
+		}
+		r, err := robotimpl.RobotFromResources(context.Background(), workingResourceMap, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		resp, err := r.GetStatus(context.Background(), []resource.Name{})
+		// 5 because the 3 default services are always added to a local_robot. We only care
+		// about the first two (working1 and button1) however.
+		test.That(t, len(resp), test.ShouldEqual, 5)
+		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
+		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
+	})
+}

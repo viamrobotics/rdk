@@ -52,14 +52,14 @@ service RobotService {
   // GetStatus returns the list of all statuses requested. An empty request signifies all resources.
   rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/status"
+      get: "/viam/api/v1/status"
     };
   }
 
   // StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
   rpc StreamStatus(StreamStatusRequest) returns (stream StreamStatusResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/status/stream"
+      get: "/viam/api/v1/status/stream"
     };
   }
 }
