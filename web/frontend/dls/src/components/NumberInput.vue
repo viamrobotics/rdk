@@ -132,6 +132,7 @@ export default class NumberInput extends Vue {
   increase(): void {
     this.changeValue(+this.step);
   }
+  // eslint-disable-next-line
   isNumber(stringVal: any): boolean {
     if (!this.float && !REGEXP_NUMBER.test(stringVal)) return false;
 

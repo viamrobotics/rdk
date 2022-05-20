@@ -1,5 +1,19 @@
 <template>
-  <div class="flex flex-col h-23">
+  <div
+    class="flex flex-col h-23"
+    v-click-outside="removeKeyboardListeners"
+    @click="addKeyboardListeners"
+  >
+    <div class="flex pb-4">
+      <ViamSwitch
+        class="pr-4"
+        centered
+        :option="isActive"
+        @change="toggleKeyboard()"
+      ></ViamSwitch>
+      <h3 v-if="isActive">Keyboard active</h3>
+      <h3 v-else>Keyboard disabled</h3>
+    </div>
     <div
       v-for="(lineKeys, index) in keysLayout"
       :key="index"
@@ -34,6 +48,7 @@ import { throttle, debounce } from "lodash";
 import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
 import ViamButton from "./Button.vue";
+import ViamSwitch from "./Switch.vue";
 
 const PressedKeysMap: { [index: string]: string } = {
   "87": "forward",
@@ -50,6 +65,7 @@ const eventsDelay = 0;
   components: {
     ViamIcon,
     ViamButton,
+    ViamSwitch,
   },
 })
 export default class KeyboardInput extends Vue {
@@ -64,6 +80,7 @@ export default class KeyboardInput extends Vue {
   mdiReload = mdiReload;
   mdiArrowUp = mdiArrowUp;
   mdiArrowDown = mdiArrowDown;
+  isActive = false;
 
   keyLetters = {
     forward: "W",
@@ -109,13 +126,24 @@ export default class KeyboardInput extends Vue {
     event.preventDefault();
   }
 
-  beforeDestroy(): void {
-    window.removeEventListener("keydown", this.onUseKeyboardNav);
-    window.removeEventListener("keyup", this.onUseKeyboardNav);
+  toggleKeyboard(): void {
+    if (this.isActive) {
+      this.addKeyboardListeners();
+    } else {
+      this.removeKeyboardListeners();
+    }
   }
-  mounted(): void {
+
+  addKeyboardListeners(): void {
+    this.isActive = true;
     window.addEventListener("keydown", this.onUseKeyboardNav, false);
     window.addEventListener("keyup", this.onUseKeyboardNav, false);
+  }
+
+  removeKeyboardListeners(): void {
+    this.isActive = false;
+    window.removeEventListener("keydown", this.onUseKeyboardNav);
+    window.removeEventListener("keyup", this.onUseKeyboardNav);
   }
 }
 </script>

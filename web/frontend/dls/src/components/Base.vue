@@ -341,7 +341,7 @@ export default class Base extends Vue {
       this.maxHeight = 500;
     }
   }
-  keyboardCtl(keysPressed: any): void {
+  keyboardCtl(keysPressed: Record<string, unknown>): void {
     let toEmit = {
       baseName: this.baseName,
       forward: keysPressed.forward,
