@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
@@ -338,4 +339,35 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 // Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
+}
+
+// Discover takes a list of subtype and model name pairs and returns their corresponding
+// discoveries.
+func (rc *RobotClient) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+	pbKeys := make([]*pb.Key, 0, len(keys))
+	for _, key := range keys {
+		pbKeys = append(
+			pbKeys,
+			&pb.Key{Subtype: string(key.SubtypeName), Model: key.Model},
+		)
+	}
+
+	resp, err := rc.client.Discover(ctx, &pb.DiscoverRequest{Keys: pbKeys})
+	if err != nil {
+		return nil, err
+	}
+
+	discoveries := make([]discovery.Discovery, 0, len(resp.Discovery))
+	for _, disc := range resp.Discovery {
+		key := discovery.Key{
+			SubtypeName: resource.SubtypeName(disc.Key.Subtype),
+			Model:       disc.Key.Model,
+		}
+		discoveries = append(
+			discoveries, discovery.Discovery{
+				Key:        key,
+				Discovered: disc.Discovered.AsMap(),
+			})
+	}
+	return discoveries, nil
 }

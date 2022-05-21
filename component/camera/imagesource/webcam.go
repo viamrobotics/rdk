@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"regexp"
 
@@ -80,6 +81,7 @@ type CameraConfig struct {
 func Discover(ctx context.Context, subtypeName resource.SubtypeName, model string) (*pb.Webcams, error) {
 	var webcams []*pb.Webcam
 	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
+	fmt.Print(drivers)
 	for _, d := range drivers {
 		driverInfo := d.Info()
 
