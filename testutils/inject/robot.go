@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -18,6 +19,7 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
+	DiscoverFunc       func(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error)
 	RemoteByNameFunc   func(name string) (robot.Robot, bool)
 	ResourceByNameFunc func(name resource.Name) (interface{}, error)
 	RemoteNamesFunc    func() []string
@@ -134,6 +136,14 @@ func (r *Robot) Refresh(ctx context.Context) error {
 		return nil
 	}
 	return r.RefreshFunc(ctx)
+}
+
+// Discover call the injected Discover or the real one.
+func (r *Robot) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+	if r.DiscoverFunc == nil {
+		return r.LocalRobot.Discover(ctx, keys)
+	}
+	return r.DiscoverFunc(ctx, keys)
 }
 
 // RemoteRobot is an injected remote robot.
