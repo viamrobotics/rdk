@@ -48,7 +48,6 @@ var (
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
-		discovery.Name,
 		framesystem.Name,
 		vision.Name,
 	}
@@ -79,10 +78,6 @@ func (r *localRobot) webService() (web.Service, error) {
 		return nil, errors.New("unexpected service associated with web InternalServiceName")
 	}
 	return webSvc, nil
-}
-
-func (r *localRobot) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
-	return []discovery.Discovery{}, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -338,4 +333,32 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 // to support more streamlined reconfiguration functionality.
 func RobotFromResources(ctx context.Context, resources map[resource.Name]interface{}, logger golog.Logger) (robot.LocalRobot, error) {
 	return newWithResources(ctx, &config.Config{}, resources, logger)
+}
+
+// Discover takes a list of subtype and model name pairs and returns their corresponding
+// discoveries.
+func (r *localRobot) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+	// dedupe keys
+	deduped := make(map[discovery.Key]struct{}, len(keys))
+	for _, k := range keys {
+		deduped[k] = struct{}{}
+	}
+
+	discoveries := make([]discovery.Discovery, 0, len(deduped))
+	for key := range deduped {
+		discoveryFunction, ok := registry.DiscoveryFunctionLookup(key.SubtypeName, key.Model)
+		if !ok {
+			r.logger.Warnw("no discovery function registered", "subtype", key.SubtypeName, "model", key.Model)
+			continue
+		}
+
+		if discoveryFunction != nil {
+			discovered, err := discoveryFunction(ctx, key.SubtypeName, key.Model)
+			if err != nil {
+				return nil, &discovery.DiscoverError{key}
+			}
+			discoveries = append(discoveries, discovery.Discovery{Key: key, Discovered: discovered})
+		}
+	}
+	return discoveries, nil
 }

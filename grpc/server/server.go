@@ -8,14 +8,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -119,4 +122,40 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 		)
 	}
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
+}
+
+func (s *Server) Discover(ctx context.Context, req *pb.DiscoverRequest) (*pb.DiscoverResponse, error) {
+	keys := make([]discovery.Key, 0, len(req.Keys))
+	for _, key := range req.Keys {
+		keys = append(keys, discovery.Key{resource.SubtypeName(key.Subtype), key.Model})
+	}
+
+	discoveries, err := s.r.Discover(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+
+	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
+	for _, discovery := range discoveries {
+		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
+		// conversion necessary.
+		encoded, err := protoutils.InterfaceToMap(discovery.Discovered)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Key)
+		}
+		pbDiscovered, err := structpb.NewStruct(encoded)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Key)
+		}
+		pbKey := &pb.Key{Subtype: string(discovery.Key.SubtypeName), Model: discovery.Key.Model}
+		pbDiscoveries = append(
+			pbDiscoveries,
+			&pb.Discovery{
+				Key:        pbKey,
+				Discovered: pbDiscovered,
+			},
+		)
+	}
+
+	return &pb.DiscoverResponse{Discovery: pbDiscoveries}, nil
 }
