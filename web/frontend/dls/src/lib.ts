@@ -27,6 +27,8 @@ import Camera from "./components/Camera.vue";
 import ViamSelect from "./components/ViamSelect.vue";
 import ViamInfoButton from "./components/ViamInfoButton.vue";
 import Popper from "vue-popperjs";
+import NumberInput from "./components/NumberInput.vue";
+import ClickOutside from "./directives/clickOutside";
 
 const Components: { [key: string]: VueConstructor<Vue> } = {
   MotorDetail,
@@ -51,10 +53,13 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   ViamSelect,
   ViamInfoButton,
   Popper,
+  NumberInput,
 };
 
 Object.keys(Components).forEach((name) => {
   Vue.component(name, Components[name]);
 });
+
+Vue.directive("click-outside", ClickOutside);
 
 export default Components;

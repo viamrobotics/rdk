@@ -17,13 +17,16 @@ import (
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/framesystem"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
@@ -36,7 +39,8 @@ import (
 type internalServiceName string
 
 const (
-	webName internalServiceName = "web"
+	webName         internalServiceName = "web"
+	framesystemName internalServiceName = "framesystem"
 )
 
 var (
@@ -47,7 +51,6 @@ var (
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
-		framesystem.Name,
 		vision.Name,
 	}
 )
@@ -77,6 +80,20 @@ func (r *localRobot) webService() (web.Service, error) {
 		return nil, errors.New("unexpected service associated with web InternalServiceName")
 	}
 	return webSvc, nil
+}
+
+// fsService returns the localRobot's web service. Raises if the service has not been initialized.
+func (r *localRobot) fsService() (framesystem.Service, error) {
+	svc := r.internalServices[framesystemName]
+	if svc == nil {
+		return nil, errors.New("framesystem service not initialized")
+	}
+
+	framesystemSvc, ok := svc.(framesystem.Service)
+	if !ok {
+		return nil, errors.New("unexpected service associated with framesystem internalServiceName")
+	}
+	return framesystemSvc, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -145,6 +162,15 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 	return webSvc.Start(ctx, o)
 }
 
+// StopWeb stops the web server, will be a noop if server is not up.
+func (r *localRobot) StopWeb() error {
+	webSvc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return webSvc.Close()
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -187,6 +213,7 @@ func newWithResources(
 
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
+	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
@@ -245,20 +272,8 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
 
-	var remoteNames []resource.Name
-
-	for _, name := range r.RemoteNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeRemote,
-			name,
-		)
-		remoteNames = append(remoteNames, res)
-	}
-
-	for _, n := range append(remoteNames, r.ResourceNames()...) {
-		// TODO(RDK-119) if not found, could mean a name clash or a remote service
+	for _, n := range r.ResourceNames() {
+		// TODO(RSDK-22) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
@@ -297,6 +312,31 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 // Refresh does nothing for now.
 func (r *localRobot) Refresh(ctx context.Context) error {
 	return nil
+}
+
+// FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
+func (r *localRobot) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+	framesystem, err := r.fsService()
+	if err != nil {
+		return nil, err
+	}
+
+	return framesystem.Config(ctx, additionalTransforms)
+}
+
+// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+func (r *localRobot) TransformPose(
+	ctx context.Context,
+	pose *referenceframe.PoseInFrame,
+	dst string,
+	additionalTransforms []*commonpb.Transform,
+) (*referenceframe.PoseInFrame, error) {
+	framesystem, err := r.fsService()
+	if err != nil {
+		return nil, err
+	}
+
+	return framesystem.TransformPose(ctx, pose, dst, additionalTransforms)
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.

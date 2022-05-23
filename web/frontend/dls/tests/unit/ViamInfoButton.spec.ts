@@ -1,4 +1,4 @@
-import { enableAutoDestroy, mount, shallowMount } from "@vue/test-utils";
+import { enableAutoDestroy, mount } from "@vue/test-utils";
 import ViamInfoButton from "@/components/ViamInfoButton.vue";
 import { mdiInformationOutline } from "@mdi/js";
 
