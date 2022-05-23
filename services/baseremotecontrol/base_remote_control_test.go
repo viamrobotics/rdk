@@ -216,12 +216,6 @@ func TestBaseRemoteControl(t *testing.T) {
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
 	})
 
-	t.Run("joy stick control mode for input Hat0X (invalid event)", func(t *testing.T) {
-		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventHat0X, 0.5, 0.6)
-		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.0, .001)
-		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
-	})
-
 	// TriggerSpeedControl
 	eventZ := input.Event{
 		Control: input.AbsoluteZ,
@@ -364,4 +358,16 @@ func TestBaseRemoteControl(t *testing.T) {
 	// Close out check
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestLowLevel(t *testing.T) {
+	test.That(t, scaleValue(.01), test.ShouldAlmostEqual, 0, .001)
+	test.That(t, scaleValue(-.01), test.ShouldAlmostEqual, 0, .001)
+
+	test.That(t, scaleValue(.33), test.ShouldAlmostEqual, 0.4, .001)
+	test.That(t, scaleValue(.81), test.ShouldAlmostEqual, 0.9, .001)
+	test.That(t, scaleValue(1.0), test.ShouldAlmostEqual, 1.0, .001)
+
+	test.That(t, scaleValue(-.81), test.ShouldAlmostEqual, -0.9, .001)
+	test.That(t, scaleValue(-1.0), test.ShouldAlmostEqual, -1.0, .001)
 }
