@@ -2,7 +2,6 @@ package imagesource
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"regexp"
 
@@ -64,7 +63,13 @@ func init() {
 
 	registry.RegisterDiscoveryFunction(camera.SubtypeName, model,
 		func(ctx context.Context, subtypeName resource.SubtypeName, subtypeModel string) (interface{}, error) {
-			return Discover(ctx, subtypeName, subtypeModel)
+			return Discover(
+				ctx,
+				func() []driver.Driver {
+					return driver.GetManager().Query(func(d driver.Driver) bool {
+						return true
+					})
+				})
 		},
 	)
 }
@@ -77,10 +82,9 @@ type CameraConfig struct {
 }
 
 // Discover webcam attributes.
-func Discover(ctx context.Context, subtypeName resource.SubtypeName, model string) (*pb.Webcams, error) {
+func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webcams, error) {
 	var webcams []*pb.Webcam
-	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
-	fmt.Print(drivers)
+	drivers := getDrivers()
 	for _, d := range drivers {
 		driverInfo := d.Info()
 
