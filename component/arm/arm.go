@@ -6,9 +6,8 @@ import (
 	"math"
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -98,6 +97,7 @@ var (
 	_ = Arm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 
+	// ErrStopUnimplemented is used for when Stop() is unimplemented.
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
 

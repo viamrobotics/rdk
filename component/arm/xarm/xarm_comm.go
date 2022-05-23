@@ -136,7 +136,11 @@ func (x *xArm) newCmd(reg byte) cmd {
 func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 	x.moveLock.Lock()
 	b := c.bytes()
-	x.conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+	// add deadline so we aren't waiting forever
+	if err := x.conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		return cmd{}, err
+	}
 	_, err := x.conn.Write(b)
 	if err != nil {
 		x.moveLock.Unlock()

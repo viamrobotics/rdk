@@ -183,6 +183,7 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 	return &pb.JointPositions{}, nil
 }
 
+// Stop is unimplemented for wx250s.
 func (a *Arm) Stop(ctx context.Context) error {
 	return arm.ErrStopUnimplemented
 }

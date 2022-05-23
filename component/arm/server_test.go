@@ -154,7 +154,6 @@ func TestServer(t *testing.T) {
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs1.String())
 	})
 
-	//nolint:dupl
 	t.Run("stop", func(t *testing.T) {
 		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
