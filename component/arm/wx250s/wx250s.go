@@ -183,6 +183,10 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 	return &pb.JointPositions{}, nil
 }
 
+func (a *Arm) Stop(ctx context.Context) error {
+	return arm.ErrStopUnimplemented
+}
+
 // Close will get the arm ready to be turned off.
 func (a *Arm) Close() {
 	// First, check if we are approximately in the sleep position
