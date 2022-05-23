@@ -1,4 +1,4 @@
-package discovery_test
+package robotimpl_test
 
 import (
 	"context"
@@ -9,12 +9,26 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
+
 	"go.viam.com/rdk/discovery"
+
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
 )
+
+func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
+	t.Helper()
+
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	return r
+}
 
 var (
 	workingSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("working"))
@@ -46,7 +60,7 @@ func init() {
 		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
 	)
 
-	discovery.RegisterFunction(
+	registry.RegisterDiscoveryFunction(
 		workingSubtype.ResourceSubtype,
 		workingModel,
 		func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error) {
@@ -66,7 +80,7 @@ func init() {
 		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
 	)
 
-	discovery.RegisterFunction(
+	registry.RegisterDiscoveryFunction(
 		failSubtype.ResourceSubtype,
 		failModel,
 		func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error) {
@@ -75,126 +89,50 @@ func init() {
 	)
 }
 
-var discoveries = []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}}
-
-type mock struct {
-	discovery.Discovery
-
-	discoveryCount int
-}
-
-func (m *mock) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
-	m.discoveryCount++
-	return discoveries, nil
-}
-
-func TestFromRobot(t *testing.T) {
-	svc1 := &mock{}
-	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return svc1, nil
-	}
-
-	t.Run("found discovery service", func(t *testing.T) {
-		svc, err := discovery.FromRobot(r)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, svc, test.ShouldNotBeNil)
-
-		test.That(t, svc1.discoveryCount, test.ShouldEqual, 0)
-		result, err := svc.Discover(context.Background(), []discovery.Key{workingKey})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, result, test.ShouldResemble, discoveries)
-		test.That(t, svc1.discoveryCount, test.ShouldEqual, 1)
-	})
-
-	t.Run("not discovery service", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return "not discovery", nil
-		}
-
-		svc, err := discovery.FromRobot(r)
-		test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("discovery.Service", "string"))
-		test.That(t, svc, test.ShouldBeNil)
-	})
-
-	t.Run("no discovery service", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return nil, utils.NewResourceNotFoundError(discovery.Name)
-		}
-
-		svc, err := discovery.FromRobot(r)
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(discovery.Name))
-		test.That(t, svc, test.ShouldBeNil)
-	})
-}
-
-func TestNew(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	t.Run("no error", func(t *testing.T) {
-		svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, svc, test.ShouldNotBeNil)
-	})
-}
-
-func setupNewDiscoveryService(t *testing.T) discovery.Service {
-	t.Helper()
-
-	logger := golog.NewTestLogger(t)
-	resourceMap := map[resource.Name]interface{}{}
-
-	svc, err := discovery.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
-	test.That(t, err, test.ShouldBeNil)
-	err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
-	test.That(t, err, test.ShouldBeNil)
-
-	return svc
-}
-
 func TestDiscovery(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
-		svc := setupNewDiscoveryService(t)
-		discoveries, err := svc.Discover(context.Background(), []discovery.Key{missingKey})
+		r := setupNewLocalRobot(t)
+		discoveries, err := r.Discover(context.Background(), []discovery.Key{missingKey})
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("no Discover", func(t *testing.T) {
-		svc := setupNewDiscoveryService(t)
+		r := setupNewLocalRobot(t)
 
-		discoveries, err := svc.Discover(context.Background(), []discovery.Key{noDiscoverKey})
+		discoveries, err := r.Discover(context.Background(), []discovery.Key{noDiscoverKey})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("failing Discover", func(t *testing.T) {
-		svc := setupNewDiscoveryService(t)
+		r := setupNewLocalRobot(t)
 
-		_, err := svc.Discover(context.Background(), []discovery.Key{failKey})
+		_, err := r.Discover(context.Background(), []discovery.Key{failKey})
 		test.That(t, err, test.ShouldBeError, &discovery.DiscoverError{failKey})
 	})
 
 	t.Run("working Discover", func(t *testing.T) {
-		svc := setupNewDiscoveryService(t)
+		r := setupNewLocalRobot(t)
 
-		discoveries, err := svc.Discover(context.Background(), []discovery.Key{workingKey})
+		discoveries, err := r.Discover(context.Background(), []discovery.Key{workingKey})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}})
 	})
 
 	t.Run("duplicated working Discover", func(t *testing.T) {
-		svc := setupNewDiscoveryService(t)
+		r := setupNewLocalRobot(t)
 
-		discoveries, err := svc.Discover(context.Background(), []discovery.Key{workingKey, workingKey, workingKey})
+		discoveries, err := r.Discover(context.Background(), []discovery.Key{workingKey, workingKey, workingKey})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}})
 	})
 
 	t.Run("working and missing Discover", func(t *testing.T) {
-		svc := setupNewDiscoveryService(t)
+		r := setupNewLocalRobot(t)
 
-		discoveries, err := svc.Discover(context.Background(), []discovery.Key{workingKey, missingKey})
+		discoveries, err := r.Discover(context.Background(), []discovery.Key{workingKey, missingKey})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}})
 	})
