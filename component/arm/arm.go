@@ -84,6 +84,9 @@ type Arm interface {
 	// GetJointPositions returns the current joint positions of the arm.
 	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
+	// Stop stops the arm. It is assumed the arm stops immediately.
+	Stop(ctx context.Context) error
+
 	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -169,6 +172,12 @@ func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.JointPos
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetJointPositions(ctx)
+}
+
+func (r *reconfigurableArm) Stop(ctx context.Context) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Stop(ctx)
 }
 
 func (r *reconfigurableArm) ModelFrame() referenceframe.Model {
