@@ -6,6 +6,8 @@ import (
 	"math"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/edaniels/golog"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -95,6 +97,8 @@ type Arm interface {
 var (
 	_ = Arm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
+
+	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
