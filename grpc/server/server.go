@@ -125,6 +125,8 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
 }
 
+// Discover takes a list of subtype and model name pairs and returns their corresponding
+// discoveries.
 func (s *Server) Discover(ctx context.Context, req *pb.DiscoverRequest) (*pb.DiscoverResponse, error) {
 	keys := make([]discovery.Key, 0, len(req.Keys))
 	for _, key := range req.Keys {

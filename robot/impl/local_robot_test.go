@@ -26,7 +26,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 
-	// "go.viam.com/rdk/discovery"
+	// "go.viam.com/rdk/discovery".
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
