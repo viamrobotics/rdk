@@ -287,6 +287,10 @@ func (e *eva) resetErrors(ctx context.Context) error {
 	return ctx.Err()
 }
 
+func (e *eva) Stop(ctx context.Context) error {
+	return arm.ErrStopUnimplemented
+}
+
 func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
 	type Temp struct {
 		Snapshot evaData
