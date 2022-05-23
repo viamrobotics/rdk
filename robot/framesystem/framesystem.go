@@ -8,16 +8,13 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	servicepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/utils"
 )
 
@@ -27,40 +24,9 @@ const SubtypeName = resource.SubtypeName("frame_system")
 // LocalFrameSystemName is the default name of the frame system created by the service.
 const LocalFrameSystemName = "robot"
 
-// Subtype is a constant that identifies the frame system resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
-
-// Name is the FrameSystemService's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
-
-func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&servicepb.FrameSystemService_ServiceDesc,
-				NewServer(subtypeSvc),
-				servicepb.RegisterFrameSystemServiceHandlerFromEndpoint,
-			)
-		},
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
-	})
-	registry.RegisterService(Subtype, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return New(ctx, r, c, logger)
-		},
-	})
-}
-
 // A Service that returns the frame system for a robot.
 type Service interface {
-	Config(ctx context.Context, additionalTransforms []*commonpb.Transform) (Parts, error)
+	Config(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
 	TransformPose(
 		ctx context.Context, pose *referenceframe.PoseInFrame, dst string,
 		additionalTransforms []*commonpb.Transform,
@@ -68,24 +34,11 @@ type Service interface {
 }
 
 // New returns a new frame system service for the given robot.
-func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (Service, error) {
+func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 	return &frameSystemService{
 		r:      r,
 		logger: logger,
-	}, nil
-}
-
-// FromRobot retrieves the frame system service of a robot.
-func FromRobot(r robot.Robot) (Service, error) {
-	resource, err := r.ResourceByName(Name)
-	if err != nil {
-		return nil, err
 	}
-	fss, ok := resource.(Service)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("framesystem.Service", resource)
-	}
-	return fss, nil
 }
 
 // the frame system service collects all the relevant parts that make up the frame system from the robot
@@ -93,7 +46,7 @@ func FromRobot(r robot.Robot) (Service, error) {
 type frameSystemService struct {
 	mu           sync.RWMutex
 	r            robot.Robot
-	localParts   Parts                              // gotten from the local robot's config.Config
+	localParts   framesystemparts.Parts             // gotten from the local robot's config.Config
 	offsetParts  map[string]*config.FrameSystemPart // gotten from local robot's config.Remote
 	remotePrefix map[string]bool                    // gotten from local robot's config.Remote
 	logger       golog.Logger
@@ -118,7 +71,7 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 	}
 	// combine the parts, sort, and print the result
 	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
-	sortedParts, err := TopologicallySortParts(allParts)
+	sortedParts, err := framesystemparts.TopologicallySort(allParts)
 	if err != nil {
 		return err
 	}
@@ -130,7 +83,7 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
 // NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you don't need to update remotes in every call.
-func (svc *frameSystemService) Config(ctx context.Context, additionalTransforms []*commonpb.Transform) (Parts, error) {
+func (svc *frameSystemService) Config(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
 	defer span.End()
 	// update parts from remotes
@@ -147,7 +100,7 @@ func (svc *frameSystemService) Config(ctx context.Context, additionalTransforms 
 		}
 		allParts = append(allParts, newPart)
 	}
-	sortedParts, err := TopologicallySortParts(allParts)
+	sortedParts, err := framesystemparts.TopologicallySort(allParts)
 	if err != nil {
 		return nil, err
 	}
@@ -240,11 +193,11 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		}
 		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
 	}
-	svc.localParts = partMapToPartSlice(parts)
+	svc.localParts = framesystemparts.PartMapToPartSlice(parts)
 	return nil
 }
 
-// updateOffsetPartsFromRobotConfig collects the frame offset information from the config.Remote of the local robot.
+// updateOffsetParts collects the frame offset information from the config.Remote of the local robot.
 func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateOffsetParts")
 	defer span.End()
@@ -283,11 +236,11 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 }
 
 // updateRemoteParts is a helper function to get parts from the connected remote robots, and renames them.
-func (svc *frameSystemService) updateRemoteParts(ctx context.Context) (map[string]Parts, error) {
+func (svc *frameSystemService) updateRemoteParts(ctx context.Context) (map[string]framesystemparts.Parts, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateRemoteParts")
 	defer span.End()
 	// get frame parts for each remote robot, skip if not in remote offset map
-	remoteParts := make(map[string]Parts)
+	remoteParts := make(map[string]framesystemparts.Parts)
 	remoteNames := svc.r.RemoteNames()
 	for _, remoteName := range remoteNames {
 		if _, ok := svc.offsetParts[remoteName]; !ok {
@@ -302,7 +255,7 @@ func (svc *frameSystemService) updateRemoteParts(ctx context.Context) (map[strin
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		connectionName := remoteName + "_" + referenceframe.World
-		rParts = renameRemoteParts(rParts, remoteName, svc.remotePrefix[remoteName], connectionName)
+		rParts = framesystemparts.RenameRemoteParts(rParts, remoteName, svc.remotePrefix[remoteName], connectionName)
 		remoteParts[remoteName] = rParts
 	}
 	return remoteParts, nil

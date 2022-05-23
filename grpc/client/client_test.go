@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"math"
 	"net"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
@@ -39,14 +41,15 @@ import (
 	sensorpb "go.viam.com/rdk/proto/api/component/sensor/v1"
 	servopb "go.viam.com/rdk/proto/api/component/servo/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
-	framepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/services/framesystem"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var emptyResources = []resource.Name{
@@ -215,14 +218,6 @@ func TestClient(t *testing.T) {
 	sensorSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	sensorpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
-
-	frameSysSvc, err := subtype.New(map[resource.Name]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	framepb.RegisterFrameSystemServiceServer(gServer1, framesystem.NewServer(frameSysSvc))
-
-	frameSysSvc2, err := subtype.New(map[resource.Name]interface{}{framesystem.Name: "not a frame system"})
-	test.That(t, err, test.ShouldBeNil)
-	framepb.RegisterFrameSystemServiceServer(gServer2, framesystem.NewServer(frameSysSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -797,4 +792,155 @@ func TestClientResources(t *testing.T) {
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func ensurePartsAreEqual(part *config.FrameSystemPart, otherPart *config.FrameSystemPart) error {
+	if part.Name != otherPart.Name {
+		return errors.Errorf("part had name %s while other part had name %s", part.Name, otherPart.Name)
+	}
+	frameConfig := part.FrameConfig
+	otherFrameConfig := otherPart.FrameConfig
+	if frameConfig.Parent != otherFrameConfig.Parent {
+		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent, otherFrameConfig.Parent)
+	}
+	trans := frameConfig.Translation
+	otherTrans := otherFrameConfig.Translation
+	floatDisc := spatialmath.Epsilon
+	transIsEqual := true
+	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.X, otherTrans.X, floatDisc)
+	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Y, otherTrans.Y, floatDisc)
+	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Z, otherTrans.Z, floatDisc)
+	if !transIsEqual {
+		return errors.New("translations of parts not equal")
+	}
+	orient := frameConfig.Orientation
+	otherOrient := otherFrameConfig.Orientation
+
+	switch {
+	case orient == nil && otherOrient != nil:
+		if !spatialmath.QuaternionAlmostEqual(otherOrient.Quaternion(), quat.Number{1, 0, 0, 0}, 1e-5) {
+			return errors.New("orientations of parts not equal")
+		}
+	case otherOrient == nil:
+		return errors.New("orientation not returned for other part")
+	case !spatialmath.OrientationAlmostEqual(orient, otherOrient):
+		return errors.New("orientations of parts not equal")
+	}
+	return nil
+}
+
+func TestClientConfig(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	listener2, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	workingServer := grpc.NewServer()
+	failingServer := grpc.NewServer()
+
+	resourcesFunc := func() []resource.Name { return []resource.Name{} }
+	workingRobot := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	failingRobot := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+
+	fsConfigs := []*config.FrameSystemPart{
+		{
+			Name: "frame1",
+			FrameConfig: &config.Frame{
+				Parent:      referenceframe.World,
+				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
+			},
+		},
+		{
+			Name: "frame2",
+			FrameConfig: &config.Frame{
+				Parent:      "frame1",
+				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+			},
+		},
+	}
+
+	workingRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*commonpb.Transform,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts(fsConfigs), nil
+	}
+	configErr := errors.New("failed to retrieve config")
+	failingRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*commonpb.Transform,
+	) (framesystemparts.Parts, error) {
+		return nil, configErr
+	}
+
+	pb.RegisterRobotServiceServer(workingServer, server.New(workingRobot))
+	pb.RegisterRobotServiceServer(failingServer, server.New(failingRobot))
+
+	go workingServer.Serve(listener1)
+	defer workingServer.Stop()
+
+	ctx := context.Background()
+
+	t.Run("Failing client due to cancellation", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		_, err = New(cancelCtx, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+	})
+
+	workingFSClient, err := New(ctx, listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("client test config for working frame service", func(t *testing.T) {
+		frameSystemParts, err := workingFSClient.FrameSystemConfig(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[1], frameSystemParts[1])
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	err = workingFSClient.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("dialed client test config for working frame service", func(t *testing.T) {
+		workingDialedClient, err := New(ctx, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		frameSystemParts, err := workingDialedClient.FrameSystemConfig(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[1], frameSystemParts[1])
+		test.That(t, err, test.ShouldBeNil)
+		err = workingDialedClient.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	go failingServer.Serve(listener2)
+	defer failingServer.Stop()
+
+	failingFSClient, err := New(ctx, listener2.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("client test config for failing frame service", func(t *testing.T) {
+		frameSystemParts, err := failingFSClient.FrameSystemConfig(ctx, nil)
+		test.That(t, frameSystemParts, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	err = failingFSClient.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("dialed client test config for failing frame service with failing config", func(t *testing.T) {
+		failingDialedClient, err := New(ctx, listener2.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		parts, err := failingDialedClient.FrameSystemConfig(ctx, nil)
+		test.That(t, parts, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		err = failingDialedClient.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
