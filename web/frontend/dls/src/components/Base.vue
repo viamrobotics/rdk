@@ -317,13 +317,7 @@ export default class Base extends Vue {
       this.maxHeight = 1100;
     }
   }
-
-  keyboardCtl(keysPressed: {
-    forward: boolean;
-    backward: boolean;
-    right: boolean;
-    left: boolean;
-  }): void {
+  keyboardCtl(keysPressed: Record<string, unknown>): void {
     let toEmit = {
       baseName: this.baseName,
       forward: keysPressed.forward,

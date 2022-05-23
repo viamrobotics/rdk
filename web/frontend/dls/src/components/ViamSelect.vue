@@ -56,8 +56,8 @@ export default class ViamRange extends Vue {
   }
   select(key: string | number): void {
     this.innerValue = key;
-    /* eslint-disable-next-line */
-    const collapse = this.$refs.collapse as any;
+    // eslint-disable-next-line
+    const collapse: any = this.$refs.collapse;
     collapse.toggleExpand();
     this.$emit("selected", key);
   }
