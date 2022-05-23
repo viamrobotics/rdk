@@ -18,8 +18,11 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 )
 
 var errUnimplemented = errors.New("unimplemented")
@@ -298,6 +301,23 @@ func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	}
 	newName := rr.unprefixResourceName(name)
 	return rr.manager.ResourceByName(newName)
+}
+
+// FrameSystemConfig returns a remote robot's FrameSystem Config.
+func (rr *remoteRobot) FrameSystemConfig(
+	ctx context.Context,
+	additionalTransforms []*commonpb.Transform,
+) (framesystemparts.Parts, error) {
+	return rr.robot.FrameSystemConfig(ctx, additionalTransforms)
+}
+
+func (rr *remoteRobot) TransformPose(
+	ctx context.Context,
+	pose *referenceframe.PoseInFrame,
+	dst string,
+	additionalTransforms []*commonpb.Transform,
+) (*referenceframe.PoseInFrame, error) {
+	return rr.robot.TransformPose(ctx, pose, dst, additionalTransforms)
 }
 
 func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {

@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/framesystem"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
@@ -43,8 +43,8 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	}
 	base1 := &inject.Base{}
 
-	fss := &inject.FrameSystemService{}
-	fsParts := framesystem.Parts{
+	r := &inject.Robot{}
+	fsParts := framesystemparts.Parts{
 		{
 			Name:        "base1",
 			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
@@ -62,18 +62,17 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 			FrameConfig: &config.Frame{Parent: "cam2", Translation: spatialmath.TranslationConfig{0, 100, 0}},
 		},
 	}
-	fss.ConfigFunc = func(
+	r.FrameSystemConfigFunc = func(
 		ctx context.Context, additionalTransforms []*commonpb.Transform,
-	) (framesystem.Parts, error) {
+	) (framesystemparts.Parts, error) {
 		return fsParts, nil
 	}
 
-	r := &inject.Robot{}
 	r.LoggerFunc = func() golog.Logger {
 		return logger
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), base.Named("base1"), framesystem.Name}
+		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), base.Named("base1")}
 	}
 	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 		switch n.Name {
@@ -85,8 +84,6 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 			return cam3, nil
 		case "base1":
 			return base1, nil
-		case "":
-			return fss, nil
 		default:
 			return nil, rdkutils.NewResourceNotFoundError(n)
 		}
