@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/utils"
 )
 
@@ -63,7 +62,7 @@ func init() {
 			return result, nil
 		}, &WebcamAttrs{})
 
-	discovery.RegisterFunction(camera.SubtypeName, model,
+	registry.RegisterDiscoveryFunction(camera.SubtypeName, model,
 		func(ctx context.Context, subtypeName resource.SubtypeName, subtypeModel string) (interface{}, error) {
 			return Discover(ctx, subtypeName, subtypeModel)
 		},
