@@ -191,6 +191,7 @@ func (a *myArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, erro
 	return &pb.JointPositions{Degrees: positions}, nil
 }
 
+// Stop is unimplemented for vx300s.
 func (a *myArm) Stop(ctx context.Context) error {
 	return arm.ErrStopUnimplemented
 }
