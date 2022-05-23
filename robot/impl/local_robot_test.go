@@ -25,8 +25,6 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
-
-	// "go.viam.com/rdk/discovery".
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -216,28 +214,19 @@ func TestConfigRemote(t *testing.T) {
 		t,
 		statuses[0].Status,
 		test.ShouldResemble,
-		&armpb.Status{
-			EndPosition:    &commonpb.Pose{},
-			JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
-		},
+		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 	test.That(
 		t,
 		statuses[1].Status,
 		test.ShouldResemble,
-		&armpb.Status{
-			EndPosition:    &commonpb.Pose{},
-			JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
-		},
+		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 	test.That(
 		t,
 		statuses[2].Status,
 		test.ShouldResemble,
-		&armpb.Status{
-			EndPosition:    &commonpb.Pose{},
-			JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
-		},
+		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 
 	cfg2, err := r2.Config(context.Background())
@@ -449,19 +438,13 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				t,
 				statuses[0].Status,
 				test.ShouldResemble,
-				&armpb.Status{
-					EndPosition:    &commonpb.Pose{},
-					JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
-				},
+				&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 			)
 			test.That(
 				t,
 				statuses[1].Status,
 				test.ShouldResemble,
-				&armpb.Status{
-					EndPosition:    &commonpb.Pose{},
-					JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
-				},
+				&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 			)
 			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
@@ -647,10 +630,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		t,
 		statuses[0].Status,
 		test.ShouldResemble,
-		&armpb.Status{
-			EndPosition:    &commonpb.Pose{},
-			JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
-		},
+		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
