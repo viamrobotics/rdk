@@ -15,21 +15,16 @@ type (
 		Model       string
 	}
 
-	// Discovery holds a resource name and its corresponding discovery. Discovery is
-	// expected to be comprised of string keys and values comprised of primitives, list
-	// of primitives, maps with string keys (or at least can be decomposed into one), or
-	// lists of the forementioned type of maps. Results with other types of data are not
-	// guaranteed.
+	// Discovery holds a Key and its corresponding discovery. Discovery is expected to be
+	// comprised of string keys and values comprised of primitives, list of primitives,
+	// maps with string keys (or at least can be decomposed into one), or lists of the
+	// forementioned type of maps. Results with other types of data are not guaranteed.
 	Discovery struct {
 		Key        Key
 		Discovered interface{}
 	}
 
-	// Discover tries to find potential configurations for a component. The return type
-	// is expected to be comprised of string keys (or it should be possible to decompose
-	// it into string keys) and values comprised of primitives, list of primitives, maps
-	// with string keys (or at least can be decomposed into one), or lists of the
-	// aforementioned type of maps. Results with other types of data are not guaranteed.
+	// A Function that returns a discovery.
 	Function func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error)
 
 	// DiscoverError indicates that a Discover function has returned an error.

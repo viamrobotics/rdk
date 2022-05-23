@@ -6,11 +6,12 @@ import (
 
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
-	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/component/camera/imagesource"
 )
 
-// fakeDriver is a driver has a label and media properties
+// fakeDriver is a driver has a label and media properties.
 type fakeDriver struct {
 	label string
 	props []prop.Media
