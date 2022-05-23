@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
@@ -35,7 +34,6 @@ import (
 )
 
 var serviceNames = []resource.Name{
-	discovery.Name,
 	sensors.Name,
 	status.Name,
 	datamanager.Name,

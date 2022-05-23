@@ -13,7 +13,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
 
