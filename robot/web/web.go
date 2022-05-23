@@ -21,7 +21,6 @@ import (
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
@@ -219,7 +218,6 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 				logger.Errorw("error running web", "error", err)
 			}
 		}
-		err = multierr.Combine(err, utils.TryClose(ctx, r))
 	}()
 
 	if err := r.StartWeb(ctx, o); err != nil {
