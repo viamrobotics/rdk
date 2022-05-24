@@ -361,9 +361,9 @@ func RobotFromResources(ctx context.Context, resources map[resource.Name]interfa
 	return newWithResources(ctx, &config.Config{}, resources, logger)
 }
 
-// Discover takes a list of subtype and model name pairs and returns corresponding
+// DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
-func (r *localRobot) Discover(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
 	// dedupe queries
 	deduped := make(map[discovery.Query]struct{}, len(qs))
 	for _, q := range qs {

@@ -345,9 +345,9 @@ func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
 }
 
-// Discover takes a list of subtype and model name pairs and returns their corresponding
-// discovered component configurations.
-func (rc *RobotClient) Discover(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
 	pbQueries := make([]*pb.Query, 0, len(qs))
 	for _, q := range qs {
 		pbQueries = append(
@@ -356,7 +356,7 @@ func (rc *RobotClient) Discover(ctx context.Context, qs []discovery.Query) ([]di
 		)
 	}
 
-	resp, err := rc.client.Discover(ctx, &pb.DiscoverRequest{Queries: pbQueries})
+	resp, err := rc.client.DiscoverComponents(ctx, &pb.DiscoverComponentsRequest{Queries: pbQueries})
 	if err != nil {
 		return nil, err
 	}

@@ -84,7 +84,7 @@ func init() {
 func TestDiscovery(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
-		discoveries, err := r.Discover(context.Background(), []discovery.Query{missingQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{missingQ})
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -92,7 +92,7 @@ func TestDiscovery(t *testing.T) {
 	t.Run("no Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		discoveries, err := r.Discover(context.Background(), []discovery.Query{noDiscoverQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{noDiscoverQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
@@ -101,14 +101,14 @@ func TestDiscovery(t *testing.T) {
 	t.Run("failing Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		_, err := r.Discover(context.Background(), []discovery.Query{failQ})
+		_, err := r.DiscoverComponents(context.Background(), []discovery.Query{failQ})
 		test.That(t, err, test.ShouldBeError, &discovery.DiscoverError{failQ})
 	})
 
 	t.Run("working Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		discoveries, err := r.Discover(context.Background(), []discovery.Query{workingQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Discovered: workingDiscovery}})
 	})
@@ -116,7 +116,7 @@ func TestDiscovery(t *testing.T) {
 	t.Run("duplicated working Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		discoveries, err := r.Discover(context.Background(), []discovery.Query{workingQ, workingQ, workingQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ, workingQ, workingQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Discovered: workingDiscovery}})
 	})
@@ -124,7 +124,7 @@ func TestDiscovery(t *testing.T) {
 	t.Run("working and missing Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		discoveries, err := r.Discover(context.Background(), []discovery.Query{workingQ, missingQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ, missingQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Discovered: workingDiscovery}})
 	})
