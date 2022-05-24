@@ -35,7 +35,8 @@ service BaseService {
     };  
   }
 
-  // SetPower sets the linear and angular velocity of a base
+  // SetPower sets the linear and angular power of a base
+  // -1 -> 1 in terms of power for each direction
   rpc SetPower(SetPowerRequest) returns (SetPowerResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/set_power"

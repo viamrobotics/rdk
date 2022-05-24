@@ -30,7 +30,8 @@ type BaseServiceClient interface {
 	// angular speed, expressed in degrees per second
 	// This method blocks until completed or cancelled
 	Spin(ctx context.Context, in *SpinRequest, opts ...grpc.CallOption) (*SpinResponse, error)
-	// SetPower sets the linear and angular velocity of a base
+	// SetPower sets the linear and angular power of a base
+	// -1 -> 1 in terms of power for each direction
 	SetPower(ctx context.Context, in *SetPowerRequest, opts ...grpc.CallOption) (*SetPowerResponse, error)
 	// SetVelocity sets the linear and angular velocity of a base
 	SetVelocity(ctx context.Context, in *SetVelocityRequest, opts ...grpc.CallOption) (*SetVelocityResponse, error)
@@ -116,7 +117,8 @@ type BaseServiceServer interface {
 	// angular speed, expressed in degrees per second
 	// This method blocks until completed or cancelled
 	Spin(context.Context, *SpinRequest) (*SpinResponse, error)
-	// SetPower sets the linear and angular velocity of a base
+	// SetPower sets the linear and angular power of a base
+	// -1 -> 1 in terms of power for each direction
 	SetPower(context.Context, *SetPowerRequest) (*SetPowerResponse, error)
 	// SetVelocity sets the linear and angular velocity of a base
 	SetVelocity(context.Context, *SetVelocityRequest) (*SetVelocityResponse, error)
