@@ -361,29 +361,29 @@ func RobotFromResources(ctx context.Context, resources map[resource.Name]interfa
 	return newWithResources(ctx, &config.Config{}, resources, logger)
 }
 
-// Discover takes a list of subtype and model name pairs and returns their corresponding
-// discoveries.
-func (r *localRobot) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
-	// dedupe keys
-	deduped := make(map[discovery.Key]struct{}, len(keys))
-	for _, k := range keys {
-		deduped[k] = struct{}{}
+// Discover takes a list of subtype and model name pairs and returns corresponding
+// component configurations.
+func (r *localRobot) Discover(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	// dedupe queries
+	deduped := make(map[discovery.Query]struct{}, len(qs))
+	for _, q := range qs {
+		deduped[q] = struct{}{}
 	}
 
 	discoveries := make([]discovery.Discovery, 0, len(deduped))
-	for key := range deduped {
-		discoveryFunction, ok := registry.DiscoveryFunctionLookup(key.SubtypeName, key.Model)
+	for q := range deduped {
+		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q.SubtypeName, q.Model)
 		if !ok {
-			r.logger.Warnw("no discovery function registered", "subtype", key.SubtypeName, "model", key.Model)
+			r.logger.Warnw("no discovery function registered", "subtype", q.SubtypeName, "model", q.Model)
 			continue
 		}
 
 		if discoveryFunction != nil {
-			discovered, err := discoveryFunction(ctx, key.SubtypeName, key.Model)
+			discovered, err := discoveryFunction(ctx, q.SubtypeName, q.Model)
 			if err != nil {
-				return nil, &discovery.DiscoverError{key}
+				return nil, &discovery.DiscoverError{q}
 			}
-			discoveries = append(discoveries, discovery.Discovery{Key: key, Discovered: discovered})
+			discoveries = append(discoveries, discovery.Discovery{Query: q, Discovered: discovered})
 		}
 	}
 	return discoveries, nil

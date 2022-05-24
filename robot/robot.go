@@ -20,8 +20,8 @@ import (
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 type Robot interface {
-	// Discover returns discovered component attribute.
-	Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error)
+	// Discover returns discovered component configurations.
+	Discover(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error)
 
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)

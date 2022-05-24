@@ -346,30 +346,30 @@ func (rc *RobotClient) Logger() golog.Logger {
 }
 
 // Discover takes a list of subtype and model name pairs and returns their corresponding
-// discoveries.
-func (rc *RobotClient) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
-	pbKeys := make([]*pb.Key, 0, len(keys))
-	for _, key := range keys {
-		pbKeys = append(
-			pbKeys,
-			&pb.Key{Subtype: string(key.SubtypeName), Model: key.Model},
+// discovered component configurations.
+func (rc *RobotClient) Discover(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	pbQueries := make([]*pb.Query, 0, len(qs))
+	for _, q := range qs {
+		pbQueries = append(
+			pbQueries,
+			&pb.Query{Subtype: string(q.SubtypeName), Model: q.Model},
 		)
 	}
 
-	resp, err := rc.client.Discover(ctx, &pb.DiscoverRequest{Keys: pbKeys})
+	resp, err := rc.client.Discover(ctx, &pb.DiscoverRequest{Queries: pbQueries})
 	if err != nil {
 		return nil, err
 	}
 
 	discoveries := make([]discovery.Discovery, 0, len(resp.Discovery))
 	for _, disc := range resp.Discovery {
-		key := discovery.Key{
-			SubtypeName: resource.SubtypeName(disc.Key.Subtype),
-			Model:       disc.Key.Model,
+		q := discovery.Query{
+			SubtypeName: resource.SubtypeName(disc.Query.Subtype),
+			Model:       disc.Query.Model,
 		}
 		discoveries = append(
 			discoveries, discovery.Discovery{
-				Key:        key,
+				Query:      q,
 				Discovered: disc.Discovered.AsMap(),
 			})
 	}

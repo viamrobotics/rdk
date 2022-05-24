@@ -263,7 +263,7 @@ func (rr *remoteRobot) unprefixResourceName(name resource.Name) resource.Name {
 	)
 }
 
-func (rr *remoteRobot) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+func (rr *remoteRobot) Discover(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
 	return []discovery.Discovery{}, nil
 }
 

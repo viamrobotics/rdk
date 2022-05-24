@@ -22,7 +22,7 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	DiscoverFunc          func(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error)
+	DiscoverFunc          func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
 	RemoteByNameFunc      func(name string) (robot.Robot, bool)
 	ResourceByNameFunc    func(name resource.Name) (interface{}, error)
 	RemoteNamesFunc       func() []string
@@ -149,7 +149,7 @@ func (r *Robot) Refresh(ctx context.Context) error {
 }
 
 // Discover call the injected Discover or the real one.
-func (r *Robot) Discover(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+func (r *Robot) Discover(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 	if r.DiscoverFunc == nil {
 		return r.LocalRobot.Discover(ctx, keys)
 	}

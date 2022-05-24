@@ -62,16 +62,14 @@ func TestServer(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
-		key := discovery.Key{arm.Named("arm").ResourceSubtype, "some arm"}
-		disc := discovery.Discovery{Key: key, Discovered: struct{}{}}
+		q := discovery.Query{arm.Named("arm").ResourceSubtype, "some arm"}
+		disc := discovery.Discovery{Query: q, Discovered: struct{}{}}
 		discoveries := []discovery.Discovery{disc}
-		injectRobot.DiscoverFunc = func(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+		injectRobot.DiscoverFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 			return discoveries, nil
 		}
 		req := &pb.DiscoverRequest{
-			Keys: []*pb.Key{
-				{Subtype: string(key.SubtypeName), Model: key.Model},
-			},
+			Queries: []*pb.Query{{Subtype: string(q.SubtypeName), Model: q.Model}},
 		}
 
 		resp, err := server.Discover(context.Background(), req)
