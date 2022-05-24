@@ -185,29 +185,22 @@ func RegisteredResourceSubtypes() map[resource.Subtype]ResourceSubtype {
 	return copied.(map[resource.Subtype]ResourceSubtype)
 }
 
-var discoveryFunctions = map[discovery.Query]discovery.Function{}
+var discoveryFunctions = map[discovery.Query]discovery.Discover{}
 
-// DiscoveryFunctionLookup looks up a discovery function registration by the given subtype and
-// model.
-func DiscoveryFunctionLookup(subtypeName resource.SubtypeName, model string) (discovery.Function, bool) {
-	st, ok := lookupSubtype(subtypeName)
-	if !ok {
-		return nil, false
-	}
-	key := discovery.Query{st.ResourceSubtype, model}
-	df, ok := discoveryFunctions[key]
+// DiscoveryFunctionLookup finds a discovery function registration for a given query.
+func DiscoveryFunctionLookup(q discovery.Query) (discovery.Discover, bool) {
+	df, ok := discoveryFunctions[q]
 	return df, ok
 }
 
-// RegisterDiscoveryFunction registers a discovery function for a given subtype and model.
-func RegisterDiscoveryFunction(subtypeName resource.SubtypeName, model string, discover discovery.Function) {
-	st, ok := lookupSubtype(subtypeName)
+// RegisterDiscoveryFunction registers a discovery function for a given query.
+func RegisterDiscoveryFunction(q discovery.Query, discover discovery.Discover) {
+	_, ok := lookupSubtype(q.SubtypeName)
 	if !ok {
-		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q.", subtypeName))
+		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q.", q.SubtypeName))
 	}
-	q := discovery.Query{st.ResourceSubtype, model}
 	if _, ok := discoveryFunctions[q]; ok {
-		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q.", subtypeName, model))
+		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q.", q.SubtypeName, q.Model))
 	}
 	discoveryFunctions[q] = discover
 }

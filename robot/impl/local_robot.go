@@ -372,14 +372,14 @@ func (r *localRobot) Discover(ctx context.Context, qs []discovery.Query) ([]disc
 
 	discoveries := make([]discovery.Discovery, 0, len(deduped))
 	for q := range deduped {
-		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q.SubtypeName, q.Model)
+		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q)
 		if !ok {
 			r.logger.Warnw("no discovery function registered", "subtype", q.SubtypeName, "model", q.Model)
 			continue
 		}
 
 		if discoveryFunction != nil {
-			discovered, err := discoveryFunction(ctx, q.SubtypeName, q.Model)
+			discovered, err := discoveryFunction(ctx)
 			if err != nil {
 				return nil, &discovery.DiscoverError{q}
 			}

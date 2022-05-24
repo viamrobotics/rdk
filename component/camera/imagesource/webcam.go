@@ -15,9 +15,9 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -61,8 +61,9 @@ func init() {
 			return result, nil
 		}, &WebcamAttrs{})
 
-	registry.RegisterDiscoveryFunction(camera.SubtypeName, model,
-		func(ctx context.Context, subtypeName resource.SubtypeName, subtypeModel string) (interface{}, error) {
+	registry.RegisterDiscoveryFunction(
+		discovery.NewQuery(camera.SubtypeName, model),
+		func(ctx context.Context) (interface{}, error) {
 			return Discover(
 				ctx,
 				func() []driver.Driver {

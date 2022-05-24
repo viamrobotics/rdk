@@ -77,16 +77,16 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 }
 
 func TestDiscoveryFunctionRegistry(t *testing.T) {
-	df := func(ctx context.Context, subtype resource.SubtypeName, model string) (interface{}, error) {
-		return []discovery.Discovery{}, nil
-	}
-	test.That(t, func() { RegisterDiscoveryFunction(resource.SubtypeName("some subtype"), "some model", df) }, test.ShouldPanic)
+	df := func(ctx context.Context) (interface{}, error) { return []discovery.Discovery{}, nil }
+	invalidSubtypeQuery := discovery.NewQuery(resource.SubtypeName("some subtype"), "some model")
+	test.That(t, func() { RegisterDiscoveryFunction(invalidSubtypeQuery, df) }, test.ShouldPanic)
 
-	_, ok := DiscoveryFunctionLookup(acme.ResourceSubtype, "some model")
+	validSubtypeQuery := discovery.NewQuery(acme.ResourceSubtype, "some model")
+	_, ok := DiscoveryFunctionLookup(validSubtypeQuery)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	test.That(t, func() { RegisterDiscoveryFunction(acme.ResourceSubtype, "some model", df) }, test.ShouldNotPanic)
-	acmeDF, ok := DiscoveryFunctionLookup(acme.ResourceSubtype, "some model")
+	test.That(t, func() { RegisterDiscoveryFunction(validSubtypeQuery, df) }, test.ShouldNotPanic)
+	acmeDF, ok := DiscoveryFunctionLookup(validSubtypeQuery)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, acmeDF, test.ShouldEqual, df)
 }

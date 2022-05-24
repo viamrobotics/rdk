@@ -31,17 +31,17 @@ func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
 var (
 	workingSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("working"))
 	workingModel   = "workingModel"
-	workingQ       = discovery.Query{workingSubtype.ResourceSubtype, workingModel}
+	workingQ       = discovery.NewQuery(workingSubtype.ResourceSubtype, workingModel)
 
 	failSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("fail"))
 	failModel   = "failModel"
-	failQ       = discovery.Query{failSubtype.ResourceSubtype, failModel}
+	failQ       = discovery.NewQuery(failSubtype.ResourceSubtype, failModel)
 
 	noDiscoverSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("nodiscover"))
 	noDiscoverModel   = "nodiscover"
 	noDiscoverQ       = discovery.Query{failSubtype.ResourceSubtype, noDiscoverModel}
 
-	missingQ = discovery.Query{failSubtype.ResourceSubtype, "missing"}
+	missingQ = discovery.NewQuery(failSubtype.ResourceSubtype, "missing")
 
 	workingDiscovery = map[string]interface{}{"position": "up"}
 	errFailed        = errors.New("can't get discovery")
@@ -59,11 +59,8 @@ func init() {
 	)
 
 	registry.RegisterDiscoveryFunction(
-		workingSubtype.ResourceSubtype,
-		workingModel,
-		func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error) {
-			return workingDiscovery, nil
-		},
+		workingQ,
+		func(ctx context.Context) (interface{}, error) { return workingDiscovery, nil },
 	)
 
 	// Subtype without discovery function
@@ -79,11 +76,8 @@ func init() {
 	)
 
 	registry.RegisterDiscoveryFunction(
-		failSubtype.ResourceSubtype,
-		failModel,
-		func(ctx context.Context, subtypeName resource.SubtypeName, model string) (interface{}, error) {
-			return nil, errFailed
-		},
+		failQ,
+		func(ctx context.Context) (interface{}, error) { return nil, errFailed },
 	)
 }
 
