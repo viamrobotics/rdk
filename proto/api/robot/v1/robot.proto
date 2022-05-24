@@ -36,7 +36,7 @@ service RobotService {
     };    
   }
 
-  // Discover returns the list of discovered component attributes.
+  // Discover returns the list of discovered component configurations.
   rpc Discover(DiscoverRequest) returns (DiscoverResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/discovery/list"
@@ -121,18 +121,18 @@ message BlockForOperationResponse {}
 
 // Discovery
 
-message Key {
+message Query {
   string subtype = 1;
   string model = 2;
 }
 
 message Discovery {
-  Key key = 1;
+  Query query = 1;
   google.protobuf.Struct discovered = 2;
 }
 
 message DiscoverRequest {
-  repeated Key keys = 1;
+  repeated Query queries = 1;
 }
 
 message DiscoverResponse {

@@ -185,7 +185,7 @@ func RegisteredResourceSubtypes() map[resource.Subtype]ResourceSubtype {
 	return copied.(map[resource.Subtype]ResourceSubtype)
 }
 
-var discoveryFunctions = map[discovery.Key]discovery.Function{}
+var discoveryFunctions = map[discovery.Query]discovery.Function{}
 
 // DiscoveryFunctionLookup looks up a discovery function registration by the given subtype and
 // model.
@@ -194,7 +194,7 @@ func DiscoveryFunctionLookup(subtypeName resource.SubtypeName, model string) (di
 	if !ok {
 		return nil, false
 	}
-	key := discovery.Key{st.ResourceSubtype, model}
+	key := discovery.Query{st.ResourceSubtype, model}
 	df, ok := discoveryFunctions[key]
 	return df, ok
 }
@@ -205,11 +205,11 @@ func RegisterDiscoveryFunction(subtypeName resource.SubtypeName, model string, d
 	if !ok {
 		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q.", subtypeName))
 	}
-	key := discovery.Key{st.ResourceSubtype, model}
-	if _, ok := discoveryFunctions[key]; ok {
+	q := discovery.Query{st.ResourceSubtype, model}
+	if _, ok := discoveryFunctions[q]; ok {
 		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q.", subtypeName, model))
 	}
-	discoveryFunctions[key] = discover
+	discoveryFunctions[q] = discover
 }
 
 func lookupSubtype(subtypeName resource.SubtypeName) (*resource.Subtype, bool) {

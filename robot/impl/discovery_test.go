@@ -31,17 +31,17 @@ func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
 var (
 	workingSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("working"))
 	workingModel   = "workingModel"
-	workingKey     = discovery.Key{workingSubtype.ResourceSubtype, workingModel}
+	workingQ       = discovery.Query{workingSubtype.ResourceSubtype, workingModel}
 
 	failSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("fail"))
 	failModel   = "failModel"
-	failKey     = discovery.Key{failSubtype.ResourceSubtype, failModel}
+	failQ       = discovery.Query{failSubtype.ResourceSubtype, failModel}
 
 	noDiscoverSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("nodiscover"))
 	noDiscoverModel   = "nodiscover"
-	noDiscoverKey     = discovery.Key{failSubtype.ResourceSubtype, noDiscoverModel}
+	noDiscoverQ       = discovery.Query{failSubtype.ResourceSubtype, noDiscoverModel}
 
-	missingKey = discovery.Key{failSubtype.ResourceSubtype, "missing"}
+	missingQ = discovery.Query{failSubtype.ResourceSubtype, "missing"}
 
 	workingDiscovery = map[string]interface{}{"position": "up"}
 	errFailed        = errors.New("can't get discovery")
@@ -90,7 +90,7 @@ func init() {
 func TestDiscovery(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
-		discoveries, err := r.Discover(context.Background(), []discovery.Key{missingKey})
+		discoveries, err := r.Discover(context.Background(), []discovery.Query{missingQ})
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -98,7 +98,7 @@ func TestDiscovery(t *testing.T) {
 	t.Run("no Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		discoveries, err := r.Discover(context.Background(), []discovery.Key{noDiscoverKey})
+		discoveries, err := r.Discover(context.Background(), []discovery.Query{noDiscoverQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
@@ -107,31 +107,31 @@ func TestDiscovery(t *testing.T) {
 	t.Run("failing Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		_, err := r.Discover(context.Background(), []discovery.Key{failKey})
-		test.That(t, err, test.ShouldBeError, &discovery.DiscoverError{failKey})
+		_, err := r.Discover(context.Background(), []discovery.Query{failQ})
+		test.That(t, err, test.ShouldBeError, &discovery.DiscoverError{failQ})
 	})
 
 	t.Run("working Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		discoveries, err := r.Discover(context.Background(), []discovery.Key{workingKey})
+		discoveries, err := r.Discover(context.Background(), []discovery.Query{workingQ})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}})
+		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Discovered: workingDiscovery}})
 	})
 
 	t.Run("duplicated working Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		discoveries, err := r.Discover(context.Background(), []discovery.Key{workingKey, workingKey, workingKey})
+		discoveries, err := r.Discover(context.Background(), []discovery.Query{workingQ, workingQ, workingQ})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}})
+		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Discovered: workingDiscovery}})
 	})
 
 	t.Run("working and missing Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
 
-		discoveries, err := r.Discover(context.Background(), []discovery.Key{workingKey, missingKey})
+		discoveries, err := r.Discover(context.Background(), []discovery.Query{workingQ, missingQ})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Key: workingKey, Discovered: workingDiscovery}})
+		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Discovered: workingDiscovery}})
 	})
 }

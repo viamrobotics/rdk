@@ -801,10 +801,10 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return finalResources
 	}
-	key := discovery.Key{imu.Named("imu").ResourceSubtype, "some imu"}
-	injectRobot.DiscoverFunc = func(ctx context.Context, keys []discovery.Key) ([]discovery.Discovery, error) {
+	q := discovery.Query{imu.Named("imu").ResourceSubtype, "some imu"}
+	injectRobot.DiscoverFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 		return []discovery.Discovery{{
-			Key:        key,
+			Query:      q,
 			Discovered: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}},
 		}}, nil
 	}
@@ -821,10 +821,10 @@ func TestClientDiscovery(t *testing.T) {
 	client, err := New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err := client.Discover(context.Background(), []discovery.Key{key})
+	resp, err := client.Discover(context.Background(), []discovery.Query{q})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(resp), test.ShouldEqual, 1)
-	test.That(t, resp[0].Key, test.ShouldResemble, key)
+	test.That(t, resp[0].Query, test.ShouldResemble, q)
 	test.That(t, resp[0].Discovered, test.ShouldResemble, map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}})
 
 	err = client.Close(context.Background())

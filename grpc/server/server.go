@@ -128,12 +128,12 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 // Discover takes a list of subtype and model name pairs and returns their corresponding
 // discoveries.
 func (s *Server) Discover(ctx context.Context, req *pb.DiscoverRequest) (*pb.DiscoverResponse, error) {
-	keys := make([]discovery.Key, 0, len(req.Keys))
-	for _, key := range req.Keys {
-		keys = append(keys, discovery.Key{resource.SubtypeName(key.Subtype), key.Model})
+	queries := make([]discovery.Query, 0, len(req.Queries))
+	for _, q := range req.Queries {
+		queries = append(queries, discovery.Query{resource.SubtypeName(q.Subtype), q.Model})
 	}
 
-	discoveries, err := s.r.Discover(ctx, keys)
+	discoveries, err := s.r.Discover(ctx, queries)
 	if err != nil {
 		return nil, err
 	}
@@ -144,17 +144,17 @@ func (s *Server) Discover(ctx context.Context, req *pb.DiscoverRequest) (*pb.Dis
 		// conversion necessary.
 		encoded, err := protoutils.InterfaceToMap(discovery.Discovered)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Key)
+			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Query)
 		}
 		pbDiscovered, err := structpb.NewStruct(encoded)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Key)
+			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
 		}
-		pbKey := &pb.Key{Subtype: string(discovery.Key.SubtypeName), Model: discovery.Key.Model}
+		pbQuery := &pb.Query{Subtype: string(discovery.Query.SubtypeName), Model: discovery.Query.Model}
 		pbDiscoveries = append(
 			pbDiscoveries,
 			&pb.Discovery{
-				Key:        pbKey,
+				Query:      pbQuery,
 				Discovered: pbDiscovered,
 			},
 		)

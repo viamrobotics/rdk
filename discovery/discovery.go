@@ -9,18 +9,19 @@ import (
 )
 
 type (
-	// Key is a tuple of subtype name and model used to lookup discovery functions.
-	Key struct {
+	// Query is a tuple of subtype name and model used to lookup discovery functions.
+	Query struct {
 		SubtypeName resource.SubtypeName
 		Model       string
 	}
 
-	// Discovery holds a Key and its corresponding discovery. Discovery is expected to be
-	// comprised of string keys and values comprised of primitives, list of primitives,
-	// maps with string keys (or at least can be decomposed into one), or lists of the
-	// forementioned type of maps. Results with other types of data are not guaranteed.
+	// Discovery holds a Query and a corresponding discovered component configuration.
+	// A discovered component configuration can be comprised primitives, list of
+	// primitives, maps with string keys (or at least can be decomposed into one), or
+	// lists of the forementioned type of maps. Results with other types of data are not
+	// guaranteed.
 	Discovery struct {
-		Key        Key
+		Query      Query
 		Discovered interface{}
 	}
 
@@ -29,10 +30,10 @@ type (
 
 	// DiscoverError indicates that a Discover function has returned an error.
 	DiscoverError struct {
-		Key Key
+		Query Query
 	}
 )
 
 func (e *DiscoverError) Error() string {
-	return fmt.Sprintf("failed to get discovery for subtype %q and model %q", e.Key.SubtypeName, e.Key.Model)
+	return fmt.Sprintf("failed to get discovery for subtype %q and model %q", e.Query.SubtypeName, e.Query.Model)
 }
