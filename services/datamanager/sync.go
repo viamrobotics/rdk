@@ -16,6 +16,11 @@ import (
 	goutils "go.viam.com/utils"
 )
 
+const (
+	retryExponentialFactor = 2
+	maxRetryInterval       = time.Hour
+)
+
 // syncManager is responsible for uploading files to the cloud every syncInterval.
 type syncManager interface {
 	Start()
@@ -181,13 +186,11 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
-		err = s.uploadFn(s.cancelCtx, path)
-		if err != nil {
-			s.inProgressLock.Lock()
-			delete(s.inProgress, path)
-			s.inProgressLock.Unlock()
-			s.logger.Errorf("failed to upload queued file: %v", err)
-		}
+		exponentialRetry(
+			s.cancelCtx,
+			time.Duration(0),
+			func(ctx context.Context) error { return s.uploadFn(ctx, path) },
+		)
 	})
 	// If upload completed successfully, unmark in-progress and delete file.
 	// TODO: uncomment when sync is actually implemented. Until then, we don't want to delete data.
@@ -197,4 +200,81 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	//  	return err
 	// }
 	return nil
+}
+
+// TODO: each call should have a timeout of wait, and be cancelled if doesn't return in that time.
+//       arbitrarily picking five seconds
+func exponentialRetry(ctx context.Context, wait time.Duration, fn func(ctx context.Context) error) {
+	// This is an optimization, so we only create channels if we actually need to retry, and because you cannot
+	// create tickers with an interval of 0.
+	if wait == time.Duration(0) {
+		if err := fn(ctx); err != nil {
+			exponentialRetry(ctx, getNextWait(wait), fn)
+			return
+		}
+		return
+	}
+
+	ticker := time.NewTicker(wait)
+
+	for {
+		select {
+		// If cancelled, return nil.
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		// Otherwise, try again after wait.
+		case <-ticker.C:
+			cancelCtx, cancelFn := context.WithCancel(ctx)
+
+			// Make Fn call with a timeout.
+			retChannel := make(chan error)
+			wg := sync.WaitGroup{}
+
+			wg.Add(1)
+			go func() {
+				err := fn(cancelCtx)
+				retChannel <- err
+				// TODO: why does it yell at me if I don't call the cancelFn here
+				cancelFn()
+				wg.Done()
+			}()
+
+			select {
+			case <-ctx.Done():
+				// If this function is cancelled, cancel the underlying fn call too.
+				cancelFn()
+				wg.Wait()
+				return
+			case <-time.After(5 * time.Second):
+				// If timeout, retry.
+				cancelFn()
+				ticker.Stop()
+				ticker = time.NewTicker(getNextWait(wait))
+				continue
+			case err := <-retChannel:
+				// If error, retry with a new wait.
+				if err != nil {
+					// TODO: should log on error.
+					ticker.Stop()
+					ticker = time.NewTicker(getNextWait(wait))
+					continue
+				}
+				// If succeeded, return.
+				ticker.Stop()
+				return
+			}
+		}
+	}
+}
+
+func getNextWait(lastWait time.Duration) time.Duration {
+	if lastWait == time.Duration(0) {
+		return time.Second
+	}
+	nextWait := lastWait * retryExponentialFactor
+	if nextWait > maxRetryInterval {
+		return maxRetryInterval
+	}
+	return nextWait
 }
