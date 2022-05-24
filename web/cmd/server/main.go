@@ -6,6 +6,11 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	// registers all components.
+	_ "go.viam.com/rdk/component/register"
+
+	// registers all services.
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/web/server"
 )
 
