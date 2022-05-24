@@ -23,8 +23,8 @@ type RobotServiceClient interface {
 	ResourceNames(ctx context.Context, in *ResourceNamesRequest, opts ...grpc.CallOption) (*ResourceNamesResponse, error)
 	CancelOperation(ctx context.Context, in *CancelOperationRequest, opts ...grpc.CallOption) (*CancelOperationResponse, error)
 	BlockForOperation(ctx context.Context, in *BlockForOperationRequest, opts ...grpc.CallOption) (*BlockForOperationResponse, error)
-	// Discover returns the list of discovered component configurations.
-	Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error)
+	// DiscoverComponents returns the list of discovered component configurations.
+	DiscoverComponents(ctx context.Context, in *DiscoverComponentsRequest, opts ...grpc.CallOption) (*DiscoverComponentsResponse, error)
 	FrameSystemConfig(ctx context.Context, in *FrameSystemConfigRequest, opts ...grpc.CallOption) (*FrameSystemConfigResponse, error)
 	TransformPose(ctx context.Context, in *TransformPoseRequest, opts ...grpc.CallOption) (*TransformPoseResponse, error)
 }
@@ -73,9 +73,9 @@ func (c *robotServiceClient) BlockForOperation(ctx context.Context, in *BlockFor
 	return out, nil
 }
 
-func (c *robotServiceClient) Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error) {
-	out := new(DiscoverResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/Discover", in, out, opts...)
+func (c *robotServiceClient) DiscoverComponents(ctx context.Context, in *DiscoverComponentsRequest, opts ...grpc.CallOption) (*DiscoverComponentsResponse, error) {
+	out := new(DiscoverComponentsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/DiscoverComponents", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +109,8 @@ type RobotServiceServer interface {
 	ResourceNames(context.Context, *ResourceNamesRequest) (*ResourceNamesResponse, error)
 	CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error)
 	BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error)
-	// Discover returns the list of discovered component configurations.
-	Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error)
+	// DiscoverComponents returns the list of discovered component configurations.
+	DiscoverComponents(context.Context, *DiscoverComponentsRequest) (*DiscoverComponentsResponse, error)
 	FrameSystemConfig(context.Context, *FrameSystemConfigRequest) (*FrameSystemConfigResponse, error)
 	TransformPose(context.Context, *TransformPoseRequest) (*TransformPoseResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
@@ -132,8 +132,8 @@ func (UnimplementedRobotServiceServer) CancelOperation(context.Context, *CancelO
 func (UnimplementedRobotServiceServer) BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BlockForOperation not implemented")
 }
-func (UnimplementedRobotServiceServer) Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
+func (UnimplementedRobotServiceServer) DiscoverComponents(context.Context, *DiscoverComponentsRequest) (*DiscoverComponentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DiscoverComponents not implemented")
 }
 func (UnimplementedRobotServiceServer) FrameSystemConfig(context.Context, *FrameSystemConfigRequest) (*FrameSystemConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FrameSystemConfig not implemented")
@@ -226,20 +226,20 @@ func _RobotService_BlockForOperation_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_Discover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DiscoverRequest)
+func _RobotService_DiscoverComponents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DiscoverComponentsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).Discover(ctx, in)
+		return srv.(RobotServiceServer).DiscoverComponents(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/Discover",
+		FullMethod: "/proto.api.robot.v1.RobotService/DiscoverComponents",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).Discover(ctx, req.(*DiscoverRequest))
+		return srv.(RobotServiceServer).DiscoverComponents(ctx, req.(*DiscoverComponentsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -304,8 +304,8 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_BlockForOperation_Handler,
 		},
 		{
-			MethodName: "Discover",
-			Handler:    _RobotService_Discover_Handler,
+			MethodName: "DiscoverComponents",
+			Handler:    _RobotService_DiscoverComponents_Handler,
 		},
 		{
 			MethodName: "FrameSystemConfig",

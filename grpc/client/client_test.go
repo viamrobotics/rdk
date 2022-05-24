@@ -802,7 +802,7 @@ func TestClientDiscovery(t *testing.T) {
 		return finalResources
 	}
 	q := discovery.Query{imu.Named("imu").ResourceSubtype, "some imu"}
-	injectRobot.DiscoverFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 		return []discovery.Discovery{{
 			Query:      q,
 			Discovered: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}},
@@ -821,7 +821,7 @@ func TestClientDiscovery(t *testing.T) {
 	client, err := New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err := client.Discover(context.Background(), []discovery.Query{q})
+	resp, err := client.DiscoverComponents(context.Background(), []discovery.Query{q})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(resp), test.ShouldEqual, 1)
 	test.That(t, resp[0].Query, test.ShouldResemble, q)

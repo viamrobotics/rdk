@@ -125,15 +125,15 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
 }
 
-// Discover takes a list of subtype and model name pairs and returns their corresponding
-// discoveries.
-func (s *Server) Discover(ctx context.Context, req *pb.DiscoverRequest) (*pb.DiscoverResponse, error) {
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
 	queries := make([]discovery.Query, 0, len(req.Queries))
 	for _, q := range req.Queries {
 		queries = append(queries, discovery.Query{resource.SubtypeName(q.Subtype), q.Model})
 	}
 
-	discoveries, err := s.r.Discover(ctx, queries)
+	discoveries, err := s.r.DiscoverComponents(ctx, queries)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (s *Server) Discover(ctx context.Context, req *pb.DiscoverRequest) (*pb.Dis
 		)
 	}
 
-	return &pb.DiscoverResponse{Discovery: pbDiscoveries}, nil
+	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.

@@ -65,14 +65,14 @@ func TestServer(t *testing.T) {
 		q := discovery.Query{arm.Named("arm").ResourceSubtype, "some arm"}
 		disc := discovery.Discovery{Query: q, Discovered: struct{}{}}
 		discoveries := []discovery.Discovery{disc}
-		injectRobot.DiscoverFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 			return discoveries, nil
 		}
-		req := &pb.DiscoverRequest{
+		req := &pb.DiscoverComponentsRequest{
 			Queries: []*pb.Query{{Subtype: string(q.SubtypeName), Model: q.Model}},
 		}
 
-		resp, err := server.Discover(context.Background(), req)
+		resp, err := server.DiscoverComponents(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
 

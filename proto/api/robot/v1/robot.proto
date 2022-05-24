@@ -36,10 +36,10 @@ service RobotService {
     };    
   }
 
-  // Discover returns the list of discovered component configurations.
-  rpc Discover(DiscoverRequest) returns (DiscoverResponse) {
+  // DiscoverComponents returns the list of discovered component configurations.
+  rpc DiscoverComponents(DiscoverComponentsRequest) returns (DiscoverComponentsResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/discovery/list"
+      get: "/viam/api/v1/discovery/components"
     };
   }
 
@@ -131,10 +131,10 @@ message Discovery {
   google.protobuf.Struct discovered = 2;
 }
 
-message DiscoverRequest {
+message DiscoverComponentsRequest {
   repeated Query queries = 1;
 }
 
-message DiscoverResponse {
+message DiscoverComponentsResponse {
   repeated Discovery discovery = 1;
 }

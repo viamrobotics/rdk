@@ -22,18 +22,18 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	DiscoverFunc          func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
-	RemoteByNameFunc      func(name string) (robot.Robot, bool)
-	ResourceByNameFunc    func(name resource.Name) (interface{}, error)
-	RemoteNamesFunc       func() []string
-	ResourceNamesFunc     func() []resource.Name
-	ProcessManagerFunc    func() pexec.ProcessManager
-	ConfigFunc            func(ctx context.Context) (*config.Config, error)
-	LoggerFunc            func() golog.Logger
-	CloseFunc             func(ctx context.Context) error
-	RefreshFunc           func(ctx context.Context) error
-	FrameSystemConfigFunc func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
-	TransformPoseFunc     func(
+	DiscoverComponentsFunc func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
+	RemoteByNameFunc       func(name string) (robot.Robot, bool)
+	ResourceByNameFunc     func(name resource.Name) (interface{}, error)
+	RemoteNamesFunc        func() []string
+	ResourceNamesFunc      func() []resource.Name
+	ProcessManagerFunc     func() pexec.ProcessManager
+	ConfigFunc             func(ctx context.Context) (*config.Config, error)
+	LoggerFunc             func() golog.Logger
+	CloseFunc              func(ctx context.Context) error
+	RefreshFunc            func(ctx context.Context) error
+	FrameSystemConfigFunc  func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
+	TransformPoseFunc      func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
@@ -149,11 +149,11 @@ func (r *Robot) Refresh(ctx context.Context) error {
 }
 
 // Discover call the injected Discover or the real one.
-func (r *Robot) Discover(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
-	if r.DiscoverFunc == nil {
-		return r.LocalRobot.Discover(ctx, keys)
+func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+	if r.DiscoverComponentsFunc == nil {
+		return r.LocalRobot.DiscoverComponents(ctx, keys)
 	}
-	return r.DiscoverFunc(ctx, keys)
+	return r.DiscoverComponentsFunc(ctx, keys)
 }
 
 // RemoteRobot is an injected remote robot.

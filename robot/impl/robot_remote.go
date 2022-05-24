@@ -263,8 +263,10 @@ func (rr *remoteRobot) unprefixResourceName(name resource.Name) resource.Name {
 	)
 }
 
-func (rr *remoteRobot) Discover(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
-	return []discovery.Discovery{}, nil
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (rr *remoteRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	return rr.robot.DiscoverComponents(ctx, qs)
 }
 
 func (rr *remoteRobot) RemoteNames() []string {
