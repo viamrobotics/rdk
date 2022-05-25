@@ -168,7 +168,7 @@ func (s *syncer) Close() {
 func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		s.logger.Errorw("failed to upload queued file", "error", err)
-		// nolint
+		
 		return nil
 	}
 
@@ -190,8 +190,6 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 		exponentialRetry(
 			s.cancelCtx,
 			time.Duration(0),
-			// TODO: make this wrap s.uploadFn such that the context is respected. Then every uploadFn doesn't have to
-			//       do it, and don't have to do it in exponentialRetry.
 			func(ctx context.Context) error { return s.uploadFn(ctx, path) },
 			s.logger,
 		)
@@ -206,8 +204,6 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	return nil
 }
 
-// TODO: each call should have a timeout of wait, and be cancelled if doesn't return in that time.
-//       arbitrarily picking five seconds
 func exponentialRetry(ctx context.Context, initialWait time.Duration, fn func(ctx context.Context) error, log golog.Logger) {
 	// This is an optimization, so we only create channels if we actually need to retry.
 	if initialWait == time.Duration(0) {
@@ -227,19 +223,23 @@ func exponentialRetry(ctx context.Context, initialWait time.Duration, fn func(ct
 		case <-ctx.Done():
 			ticker.Stop()
 			return
-		// Otherwise, try again after initialWait.
+		// Otherwise, try again after nextWait.
 		case <-ticker.C:
-			// Make Fn call with a timeout.
 			retChannel := make(chan error)
+			wg := sync.WaitGroup{}
 
+			wg.Add(1)
 			go func() {
 				err := fn(ctx)
 				retChannel <- err
+				close(retChannel)
+				wg.Done()
 			}()
 
 			select {
 			case <-ctx.Done():
 				// If this function is cancelled, return.
+				wg.Wait()
 				return
 			case err := <-retChannel:
 				// If error, retry with a new initialWait.
