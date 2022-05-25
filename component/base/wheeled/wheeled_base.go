@@ -103,25 +103,6 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	return base.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
-func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	ctx, done := base.opMgr.New(ctx)
-	defer done()
-
-	// Stop the motors if the speed is 0
-	if math.Abs(mmPerSec) < 0.0001 {
-		err := base.Stop(ctx)
-		if err != nil {
-			return errors.Errorf("error when trying to arc at a speed of 0: %v", err)
-		}
-		return err
-	}
-
-	// Arc math
-	rpmLR, revLR := base.arcMath(distanceMm, mmPerSec, angleDeg)
-
-	return base.runAll(ctx, rpmLR[0], revLR[0], rpmLR[1], revLR[1])
-}
-
 func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
@@ -166,7 +147,9 @@ func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float
 }
 
 func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
-	panic(1)
+	base.opMgr.CancelRunning(ctx)
+	l, r := base.velocityMath(linear.Y, angular.Z)
+	return base.runAll(ctx, l, 0, r, 0)
 }
 
 func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
@@ -203,44 +186,22 @@ func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64
 	return rpm, revolutions
 }
 
-func (base *wheeledBase) arcMath(distanceMm int, mmPerSec float64, angleDeg float64) ([]float64, []float64) {
-	// Spin the base if the distance is 0
-	if distanceMm == 0 {
-		rpm, revolutions := base.spinMath(angleDeg, mmPerSec)
-		rpms := []float64{-rpm, rpm}
-		rots := []float64{revolutions, revolutions}
-
-		return rpms, rots
-	}
-
-	if distanceMm < 0 {
-		distanceMm *= -1
-		mmPerSec *= -1
-	}
-
+// return rpms left, right.
+func (base *wheeledBase) velocityMath(mmPerSec float64, degsPerSec float64) (float64, float64) {
 	// Base calculations
 	v := mmPerSec
-	t := float64(distanceMm) / mmPerSec
 	r := float64(base.wheelCircumferenceMm) / (2.0 * math.Pi)
 	l := float64(base.widthMm)
 
-	degsPerSec := angleDeg / t
 	w0 := degsPerSec / 180 * math.Pi
 	wL := (v / r) - (l * w0 / (2 * r))
 	wR := (v / r) + (l * w0 / (2 * r))
-
-	// Calculate # of rotations
-	rotL := wL * t / (2 * math.Pi)
-	rotR := wR * t / (2 * math.Pi)
 
 	// RPM = revolutions (unit) * deg/sec * (1 rot / 2pi deg) * (60 sec / 1 min) = rot/min
 	rpmL := (wL / (2 * math.Pi)) * 60
 	rpmR := (wR / (2 * math.Pi)) * 60
 
-	rpms := []float64{rpmL, rpmR}
-	rots := []float64{rotL, rotR}
-
-	return rpms, rots
+	return rpmL, rpmR
 }
 
 func (base *wheeledBase) straightDistanceToMotorInfo(distanceMm int, mmPerSec float64) (float64, float64) {

@@ -84,19 +84,6 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 	return nil
 }
 
-func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	_, err := c.client.MoveArc(ctx, &pb.MoveArcRequest{
-		Name:       c.name,
-		MmPerSec:   mmPerSec,
-		AngleDeg:   angleDeg,
-		DistanceMm: int64(distanceMm),
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	_, err := c.client.Spin(ctx, &pb.SpinRequest{
 		Name:       c.name,

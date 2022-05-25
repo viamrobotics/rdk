@@ -22,10 +22,6 @@ type BaseServiceClient interface {
 	// and a given speed, expressed in millimeters per second
 	// This method blocks until completed or cancelled
 	MoveStraight(ctx context.Context, in *MoveStraightRequest, opts ...grpc.CallOption) (*MoveStraightResponse, error)
-	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
-	// This method blocks until completed or cancelled
-	MoveArc(ctx context.Context, in *MoveArcRequest, opts ...grpc.CallOption) (*MoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
 	// This method blocks until completed or cancelled
@@ -50,15 +46,6 @@ func NewBaseServiceClient(cc grpc.ClientConnInterface) BaseServiceClient {
 func (c *baseServiceClient) MoveStraight(ctx context.Context, in *MoveStraightRequest, opts ...grpc.CallOption) (*MoveStraightResponse, error) {
 	out := new(MoveStraightResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/MoveStraight", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *baseServiceClient) MoveArc(ctx context.Context, in *MoveArcRequest, opts ...grpc.CallOption) (*MoveArcResponse, error) {
-	out := new(MoveArcResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/MoveArc", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,10 +96,6 @@ type BaseServiceServer interface {
 	// and a given speed, expressed in millimeters per second
 	// This method blocks until completed or cancelled
 	MoveStraight(context.Context, *MoveStraightRequest) (*MoveStraightResponse, error)
-	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
-	// This method blocks until completed or cancelled
-	MoveArc(context.Context, *MoveArcRequest) (*MoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
 	// This method blocks until completed or cancelled
@@ -133,9 +116,6 @@ type UnimplementedBaseServiceServer struct {
 
 func (UnimplementedBaseServiceServer) MoveStraight(context.Context, *MoveStraightRequest) (*MoveStraightResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveStraight not implemented")
-}
-func (UnimplementedBaseServiceServer) MoveArc(context.Context, *MoveArcRequest) (*MoveArcResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MoveArc not implemented")
 }
 func (UnimplementedBaseServiceServer) Spin(context.Context, *SpinRequest) (*SpinResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Spin not implemented")
@@ -176,24 +156,6 @@ func _BaseService_MoveStraight_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BaseServiceServer).MoveStraight(ctx, req.(*MoveStraightRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _BaseService_MoveArc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MoveArcRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BaseServiceServer).MoveArc(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.base.v1.BaseService/MoveArc",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BaseServiceServer).MoveArc(ctx, req.(*MoveArcRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -280,10 +242,6 @@ var BaseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MoveStraight",
 			Handler:    _BaseService_MoveStraight_Handler,
-		},
-		{
-			MethodName: "MoveArc",
-			Handler:    _BaseService_MoveArc_Handler,
 		},
 		{
 			MethodName: "Spin",
