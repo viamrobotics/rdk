@@ -516,14 +516,17 @@
                 return;
               } 
 
-              const arcInputs = window.computeKeyboardBaseControls(controls);
-              console.log("Arc inputs: %o", arcInputs);
-              BaseControlHelper.moveArc(baseName,
-                    arcInputs.distance,
-                    arcInputs.speed,
-                    arcInputs.angle,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
+              const inputs = window.computeKeyboardBaseControls(controls);
+              console.log("Inputs: %o", inputs);
+              var linear = new commonApi.Vector3();
+              var angular = new commonApi.Vector3();
+              linear.setY(inputs.linear)
+              angular.setZ(inputs.angular)
+              BaseControlHelper.setSpeed(baseName,
+                                         linear,
+                                         angular,
+                                         (err, resp) => {
+                                           return grpcCallback(err, resp)
                     });
             },
             handleBaseActionStop : function(name) {
@@ -582,54 +585,6 @@
                   BaseControlHelper.moveStraight(name, 
                     document.getElementById("distance").value * -1, 
                     document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Clockwise" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * 1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Counterclockwise" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * 1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Clockwise" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * -1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Counterclockwise" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * -1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
                     (err, resp) => {
                       return grpcCallback(err, resp)
                   });
