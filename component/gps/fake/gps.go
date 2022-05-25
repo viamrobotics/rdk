@@ -209,3 +209,7 @@ func (b *interceptingGPSBase) Stop(ctx context.Context) error {
 func (b *interceptingGPSBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	return nil
 }
+
+func (b *interceptingGPSBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	return nil
+}

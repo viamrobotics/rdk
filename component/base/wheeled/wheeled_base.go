@@ -165,6 +165,10 @@ func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float
 	return left, right
 }
 
+func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	panic(1)
+}
+
 func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	base.opMgr.CancelRunning(ctx)
 

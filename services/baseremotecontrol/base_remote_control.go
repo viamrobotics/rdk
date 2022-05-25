@@ -70,9 +70,11 @@ type controlMode uint8
 
 // Config describes how to configure the service.
 type Config struct {
-	BaseName            string `json:"base"`
-	InputControllerName string `json:"input_controller"`
-	ControlModeName     string `json:"control_mode"`
+	BaseName            string  `json:"base"`
+	InputControllerName string  `json:"input_controller"`
+	ControlModeName     string  `json:"control_mode"`
+	MaxAngularVelocity  float64 `json:"max_angular"`
+	MaxLinearVelocity   float64 `json:"max_linear"`
 }
 
 // RemoteService is the structure of the remote service.
@@ -81,6 +83,7 @@ type remoteService struct {
 	inputController input.Controller
 	controlMode     controlMode
 
+	config *Config
 	logger golog.Logger
 }
 
@@ -117,6 +120,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		base:            base1,
 		inputController: controller,
 		controlMode:     controlMode1,
+		config:          svcConfig,
 		logger:          logger,
 	}
 
@@ -183,7 +187,19 @@ func (svc *remoteService) start(ctx context.Context) error {
 				return
 			}
 
-			err = svc.base.SetPower(ctx, r3.Vector{X: newValues[2], Y: newValues[3], Z: newValues[1]}, r3.Vector{Z: newValues[0]})
+			if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
+				err = svc.base.SetVelocity(
+					ctx,
+					r3.Vector{
+						X: svc.config.MaxLinearVelocity * newValues[2],
+						Y: svc.config.MaxLinearVelocity * newValues[3],
+						Z: svc.config.MaxLinearVelocity * newValues[1],
+					},
+					r3.Vector{Z: svc.config.MaxAngularVelocity * newValues[0]},
+				)
+			} else {
+				err = svc.base.SetPower(ctx, r3.Vector{X: newValues[2], Y: newValues[3], Z: newValues[1]}, r3.Vector{Z: newValues[0]})
+			}
 		case arrowControl, buttonControl, triggerSpeedControl:
 			var mmPerSec, angleDeg float64
 
@@ -292,7 +308,7 @@ func (svc *remoteService) controllerInputs() []input.Control {
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
 // control the angle.
 func (svc *remoteService) triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
-	// nolint:exhaustive
+	
 	switch event.Control {
 	case input.AbsoluteZ:
 		speed -= 0.05
@@ -314,7 +330,7 @@ func (svc *remoteService) buttonControlEvent(event input.Event, buttons map[inpu
 	var speed float64
 	var angle float64
 
-	// nolint:exhaustive
+	
 	switch event.Event {
 	case input.ButtonPress:
 		buttons[event.Control] = true
@@ -359,7 +375,7 @@ func (svc *remoteService) arrowEvent(event input.Event, arrows map[input.Control
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
 func (svc *remoteService) oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64) {
-	// nolint:exhaustive
+	
 	switch event.Control {
 	case input.AbsoluteY:
 		y = -1.0 * event.Value
@@ -379,14 +395,14 @@ func (svc *remoteService) droneEvent(event input.Event, oldValues []float64) []f
 	newValues := make([]float64, len(oldValues))
 	copy(newValues, oldValues)
 
-	// nolint:exhaustive
+	
 	switch event.Control {
 	case input.AbsoluteX:
 		newValues[0] = -1.0 * event.Value
 	case input.AbsoluteY:
 		newValues[1] = -1.0 * event.Value
 	case input.AbsoluteRX:
-		newValues[2] = -1.0 * event.Value
+		newValues[2] = event.Value
 	case input.AbsoluteRY:
 		newValues[3] = -1.0 * event.Value
 	}
@@ -421,7 +437,7 @@ func scaleValue(a float64) float64 {
 	neg := a < 0
 
 	a = math.Abs(a)
-	if a < .1 {
+	if a <= .27 {
 		return 0
 	}
 
