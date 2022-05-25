@@ -13,8 +13,6 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	// registers all components.
-	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -27,9 +25,6 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
-
-	// registers all services.
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
@@ -272,20 +267,8 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
 
-	var remoteNames []resource.Name
-
-	for _, name := range r.RemoteNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeRemote,
-			name,
-		)
-		remoteNames = append(remoteNames, res)
-	}
-
-	for _, n := range append(remoteNames, r.ResourceNames()...) {
-		// TODO(RDK-119) if not found, could mean a name clash or a remote service
+	for _, n := range r.ResourceNames() {
+		// TODO(RSDK-22) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)

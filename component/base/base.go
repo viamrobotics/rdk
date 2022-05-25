@@ -59,13 +59,6 @@ type Base interface {
 	// This method blocks until completed or cancelled
 	MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error
 
-	// MoveArc moves the robot in an arc a given distance at a given speed and degs per second of movement.
-	// The degs per sec represents the angular velocity the robot has during its movement.
-	// If a distance of 0 is given the resultant motion is a spin and if speed of 0 is given the base will stop.
-	// This method blocks until completed or cancelled
-	// Note: ramping affects when and how arc is performed, further improvements may be needed
-	MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error
-
 	// Spin spins the robot by a given angle in degrees at a given speed.
 	// If a speed of 0 the base will stop.
 	// This method blocks until completed or cancelled
@@ -135,13 +128,6 @@ func (r *reconfigurableBase) MoveStraight(
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveStraight(ctx, distanceMm, mmPerSec)
-}
-
-func (r *reconfigurableBase) MoveArc(
-	ctx context.Context, distanceMm int, mmPerSec float64, degAngle float64) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.MoveArc(ctx, distanceMm, mmPerSec, degAngle)
 }
 
 func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {

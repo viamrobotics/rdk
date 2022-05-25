@@ -11,6 +11,7 @@ import RadioButtons from "@/components/RadioButtons.vue";
 import ViamButton from "@/components/Button.vue";
 import KeyboardInput from "@/components/KeyboardInput.vue";
 import Range from "@/components/Range.vue";
+import ClickOutside from "@/directives/clickOutside";
 
 describe("Base", () => {
   enableAutoDestroy(afterEach);
@@ -34,6 +35,9 @@ describe("Base", () => {
         ViamSelect,
         ViamInput,
         Range,
+      },
+      directives: {
+        ClickOutside,
       },
     });
 
@@ -114,129 +118,6 @@ describe("Base", () => {
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
   });
 
-  it("click discrete arc", async () => {
-    const wrapper = mount(Base, {
-      propsData: {
-        streamName: "Test",
-        baseName: "Test",
-        crumbs: ["Keyboard", "Discrete"],
-      },
-      components: {
-        Collapse,
-        Breadcrumbs,
-        ViamIcon,
-        RadioButtons,
-        Tabs,
-        Tab,
-        ViamButton,
-        KeyboardInput,
-        ViamSelect,
-        ViamInput,
-        Range,
-      },
-    });
-    const lastButton = wrapper.find(".tabs-container button:last-child");
-    await lastButton.trigger("click");
-    expect(lastButton.attributes("aria-selected")).toBe("true");
-    const divColumnWrapper = wrapper.find(
-      ".column button:nth-child(2) span:first-child"
-    );
-    expect(divColumnWrapper.element.innerHTML.trim()).toBe("Arc");
-    await divColumnWrapper.trigger("click");
-    expect(wrapper.vm.$data.movementMode).toBe("Arc");
-    expect(wrapper.vm.$data.movementType).toBe("Continous");
-    expect(wrapper.vm.$data.direction).toBe("Forwards");
-    expect(wrapper.vm.$data.spinType).toBe("Clockwise");
-  });
-
-  it("click discrete arc", async () => {
-    const wrapper = mount(Base, {
-      propsData: {
-        streamName: "Test",
-        baseName: "Test",
-        crumbs: ["Keyboard", "Discrete"],
-      },
-      components: {
-        Collapse,
-        Breadcrumbs,
-        ViamIcon,
-        RadioButtons,
-        Tabs,
-        Tab,
-        ViamButton,
-        KeyboardInput,
-        ViamSelect,
-        ViamInput,
-        Range,
-      },
-    });
-    const lastButton = wrapper.find(".tabs-container button:last-child");
-    await lastButton.trigger("click");
-    expect(lastButton.attributes("aria-selected")).toBe("true");
-    const divColumnWrapper = wrapper.find(
-      ".column button:nth-child(2) span:first-child"
-    );
-    expect(divColumnWrapper.element.innerHTML.trim()).toBe("Arc");
-    await divColumnWrapper.trigger("click");
-    expect(wrapper.vm.$data.movementMode).toBe("Arc");
-    expect(wrapper.vm.$data.movementType).toBe("Continous");
-    expect(wrapper.vm.$data.direction).toBe("Forwards");
-    expect(wrapper.vm.$data.spinType).toBe("Clockwise");
-    const backwardColumnWrapper = wrapper.find(
-      ".flex:nth-child(2) button:nth-child(2) span:first-child"
-    );
-    expect(backwardColumnWrapper.element.innerHTML.trim()).toBe("Backwards");
-    await backwardColumnWrapper.trigger("click");
-    expect(wrapper.vm.$data.direction).toBe("Backwards");
-  });
-
-  it("click discrete arc", async () => {
-    const wrapper = mount(Base, {
-      propsData: {
-        streamName: "Test",
-        baseName: "Test",
-        crumbs: ["Keyboard", "Discrete"],
-      },
-      components: {
-        Collapse,
-        Breadcrumbs,
-        ViamIcon,
-        RadioButtons,
-        Tabs,
-        Tab,
-        ViamButton,
-        KeyboardInput,
-        ViamSelect,
-        ViamInput,
-        Range,
-      },
-    });
-    const lastButton = wrapper.find(".tabs-container button:last-child");
-    await lastButton.trigger("click");
-    expect(lastButton.attributes("aria-selected")).toBe("true");
-    const divColumnWrapper = wrapper.find(
-      ".column button:nth-child(2) span:first-child"
-    );
-    expect(divColumnWrapper.element.innerHTML.trim()).toBe("Arc");
-    await divColumnWrapper.trigger("click");
-    expect(wrapper.vm.$data.movementMode).toBe("Arc");
-    expect(wrapper.vm.$data.movementType).toBe("Continous");
-    expect(wrapper.vm.$data.direction).toBe("Forwards");
-    expect(wrapper.vm.$data.spinType).toBe("Clockwise");
-    const backwardColumnWrapper = wrapper.find(
-      ".flex:nth-child(2) button:nth-child(2) span:first-child"
-    );
-    expect(backwardColumnWrapper.element.innerHTML.trim()).toBe("Backwards");
-    await backwardColumnWrapper.trigger("click");
-    expect(wrapper.vm.$data.direction).toBe("Backwards");
-    const ccwColumnWrapper = wrapper.find(
-      ".flex:nth-child(3) button:nth-child(2) span:first-child"
-    );
-    expect(ccwColumnWrapper.element.innerHTML.trim()).toBe("Counterclockwise");
-    await ccwColumnWrapper.trigger("click");
-    expect(wrapper.vm.$data.spinType).toBe("Counterclockwise");
-  });
-
   it("click discrete spin", async () => {
     const wrapper = mount(Base, {
       propsData: {
@@ -262,7 +143,7 @@ describe("Base", () => {
     await lastButton.trigger("click");
     expect(lastButton.attributes("aria-selected")).toBe("true");
     const divColumnWrapper = wrapper.find(
-      ".column button:nth-child(3) span:first-child"
+      ".column button:nth-child(2) span:first-child"
     );
     expect(divColumnWrapper.element.innerHTML.trim()).toBe("Spin");
     await divColumnWrapper.trigger("click");
@@ -297,7 +178,7 @@ describe("Base", () => {
     await lastButton.trigger("click");
     expect(lastButton.attributes("aria-selected")).toBe("true");
     const divColumnWrapper = wrapper.find(
-      ".column button:nth-child(3) span:first-child"
+      ".column button:nth-child(2) span:first-child"
     );
     expect(divColumnWrapper.element.innerHTML.trim()).toBe("Spin");
     await divColumnWrapper.trigger("click");
@@ -306,7 +187,7 @@ describe("Base", () => {
     expect(wrapper.vm.$data.direction).toBe("Forwards");
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
     const ccwColumnWrapper = wrapper.find(
-      ".flex:nth-child(3) button:nth-child(2) span:first-child"
+      "[data-cy=button-Counterclockwise] span:last-child"
     );
     expect(ccwColumnWrapper.element.innerHTML.trim()).toBe("Counterclockwise");
     await ccwColumnWrapper.trigger("click");

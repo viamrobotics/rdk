@@ -1,5 +1,19 @@
 <template>
-  <div class="flex flex-col h-23">
+  <div
+    class="flex flex-col h-23"
+    v-click-outside="removeKeyboardListeners"
+    @click="addKeyboardListeners"
+  >
+    <div class="flex pb-4">
+      <ViamSwitch
+        class="pr-4"
+        centered
+        :option="isActive"
+        @change="toggleKeyboard()"
+      ></ViamSwitch>
+      <h3 v-if="isActive">Keyboard active</h3>
+      <h3 v-else>Keyboard disabled</h3>
+    </div>
     <div
       v-for="(lineKeys, index) in keysLayout"
       :key="index"
@@ -11,18 +25,19 @@
         color="primary"
         group
         variant="primary"
-        @mouseup="setKeyPressed(key, false)"
-        @mousedown="setKeyPressed(key, true)"
+        @pointerdown="setKeyPressed(key, true)"
+        @pointerup="setKeyPressed(key, false)"
         class="w-15 h-10 m-1 bg-white dark:bg-gray-900 border-gray-500"
         :class="{
-          'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200':
+          'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 keyboard-button-pressed':
             pressedKeys[key],
+          'keyboard-button-not-pressed': !pressedKeys[key],
         }"
       >
         <template v-slot:icon>
           <ViamIcon :path="keyIcons[key]">Check</ViamIcon>
         </template>
-        <span class="text-3xl">{{ keyLetters[key] }}</span>
+        <span class="text-2xl">{{ keyLetters[key] }}</span>
       </ViamButton>
     </div>
   </div>
@@ -33,6 +48,7 @@ import { throttle, debounce } from "lodash";
 import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
 import ViamButton from "./Button.vue";
+import ViamSwitch from "./Switch.vue";
 
 const PressedKeysMap: { [index: string]: string } = {
   "87": "forward",
@@ -49,6 +65,7 @@ const eventsDelay = 0;
   components: {
     ViamIcon,
     ViamButton,
+    ViamSwitch,
   },
 })
 export default class KeyboardInput extends Vue {
@@ -63,6 +80,7 @@ export default class KeyboardInput extends Vue {
   mdiReload = mdiReload;
   mdiArrowUp = mdiArrowUp;
   mdiArrowDown = mdiArrowDown;
+  isActive = false;
 
   keyLetters = {
     forward: "W",
@@ -108,13 +126,32 @@ export default class KeyboardInput extends Vue {
     event.preventDefault();
   }
 
-  beforeDestroy(): void {
-    window.removeEventListener("keydown", this.onUseKeyboardNav);
-    window.removeEventListener("keyup", this.onUseKeyboardNav);
+  toggleKeyboard(): void {
+    if (this.isActive) {
+      this.addKeyboardListeners();
+    } else {
+      this.removeKeyboardListeners();
+    }
   }
-  mounted(): void {
+
+  addKeyboardListeners(): void {
+    this.isActive = true;
     window.addEventListener("keydown", this.onUseKeyboardNav, false);
     window.addEventListener("keyup", this.onUseKeyboardNav, false);
   }
+
+  removeKeyboardListeners(): void {
+    this.isActive = false;
+    window.removeEventListener("keydown", this.onUseKeyboardNav);
+    window.removeEventListener("keyup", this.onUseKeyboardNav);
+  }
 }
 </script>
+<style>
+.keyboard-button-not-pressed:focus {
+  background-color: white;
+}
+.keyboard-button-pressed:focus {
+  background-color: rgba(228, 228, 231, 1);
+}
+</style>

@@ -84,19 +84,6 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 	return nil
 }
 
-func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	_, err := c.client.MoveArc(ctx, &pb.MoveArcRequest{
-		Name:       c.name,
-		MmPerSec:   mmPerSec,
-		AngleDeg:   angleDeg,
-		DistanceMm: int64(distanceMm),
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	_, err := c.client.Spin(ctx, &pb.SpinRequest{
 		Name:       c.name,
@@ -111,6 +98,18 @@ func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64)
 
 func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	_, err := c.client.SetPower(ctx, &pb.SetPowerRequest{
+		Name:    c.name,
+		Linear:  &commonpb.Vector3{X: linear.X, Y: linear.Y, Z: linear.Z},
+		Angular: &commonpb.Vector3{X: angular.X, Y: angular.Y, Z: angular.Z},
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	_, err := c.client.SetVelocity(ctx, &pb.SetVelocityRequest{
 		Name:    c.name,
 		Linear:  &commonpb.Vector3{X: linear.X, Y: linear.Y, Z: linear.Z},
 		Angular: &commonpb.Vector3{X: angular.X, Y: angular.Y, Z: angular.Z},
