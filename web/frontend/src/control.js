@@ -40,7 +40,6 @@ window.THREE = require('three');
 window.pcdLib = require('../node_modules/three/examples/jsm/loaders/PCDLoader');
 window.orbitLib = require('../node_modules/three/examples/jsm/controls/OrbitControls');
 window.trackLib = require('../node_modules/three/examples/jsm/controls/TrackballControls');
-
 const rtcConfig = {
 	iceServers: [
 		{
