@@ -16,7 +16,8 @@ import (
 	goutils "go.viam.com/utils"
 )
 
-const (
+var (
+	initialWaitTime        = time.Second
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
 )
@@ -246,12 +247,6 @@ func exponentialRetry(ctx context.Context, wait time.Duration, fn func(ctx conte
 				cancelFn()
 				wg.Wait()
 				return
-			case <-time.After(5 * time.Second):
-				// If timeout, retry.
-				cancelFn()
-				ticker.Stop()
-				ticker = time.NewTicker(getNextWait(wait))
-				continue
 			case err := <-retChannel:
 				// If error, retry with a new wait.
 				if err != nil {
@@ -270,9 +265,9 @@ func exponentialRetry(ctx context.Context, wait time.Duration, fn func(ctx conte
 
 func getNextWait(lastWait time.Duration) time.Duration {
 	if lastWait == time.Duration(0) {
-		return time.Second
+		return initialWaitTime
 	}
-	nextWait := lastWait * retryExponentialFactor
+	nextWait := lastWait * time.Duration(retryExponentialFactor)
 	if nextWait > maxRetryInterval {
 		return maxRetryInterval
 	}
