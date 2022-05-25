@@ -148,7 +148,7 @@ func (r *Robot) Refresh(ctx context.Context) error {
 	return r.RefreshFunc(ctx)
 }
 
-// Discover call the injected Discover or the real one.
+// DiscoverComponents call the injected DiscoverComponents or the real one.
 func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 	if r.DiscoverComponentsFunc == nil {
 		return r.LocalRobot.DiscoverComponents(ctx, keys)
