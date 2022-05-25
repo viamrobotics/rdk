@@ -294,6 +294,10 @@ func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	return errors.New("boat can't set power yet")
 }
 
+func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	return errors.New("boat can't set velocity yet")
+}
+
 func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	b.lastSpin = angleDeg
 	b.previousSpins = append(b.previousSpins, b.lastSpin)
