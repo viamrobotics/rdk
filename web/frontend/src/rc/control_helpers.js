@@ -25,7 +25,7 @@ window.BaseControlHelper = {
   setPower: function(name, linearVector, angularVector, cb) {
       const req = new baseApi.SetPowerRequest();
       req.setName(name);
-      req.setLinear(linearVector)
+      req.setLinear(linearVector);
       req.setAngular(angularVector);
 
       rcLogConditionally(req);
@@ -39,8 +39,8 @@ window.BaseControlHelper = {
   Output: linearY and angularZ throttle
 */
 window.computeKeyboardBaseControls = function(keysPressed) {
-    var linear = 0;
-    var angular = 0;
+    let linear = 0;
+    let angular = 0;
 
     if (keysPressed.forward) {
         linear = 1;
