@@ -1,16 +1,12 @@
 <template>
   <div
     class="flex flex-col h-23"
-    v-click-outside="removeKeyboardListeners"
-    @click="addKeyboardListeners"
   >
     <div class="flex pb-4">
-      <ViamSwitch
-        class="pr-4"
-        centered
-        :option="isActive"
-        @change="toggleKeyboard()"
-      ></ViamSwitch>
+      <div class="pr-4 w-16">
+        <ViamBadge v-if="isActive" color="green">On</ViamBadge>
+        <ViamBadge v-if="!isActive" color="gray">Off</ViamBadge>
+      </div>
       <h3 v-if="isActive">Keyboard active</h3>
       <h3 v-else>Keyboard disabled</h3>
     </div>
@@ -49,6 +45,7 @@ import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
 import ViamButton from "./Button.vue";
 import ViamSwitch from "./Switch.vue";
+import Badge from "./Badge.vue";
 
 const PressedKeysMap: { [index: string]: string } = {
   "87": "forward",
@@ -66,6 +63,7 @@ const eventsDelay = 0;
     ViamIcon,
     ViamButton,
     ViamSwitch,
+    Badge,
   },
 })
 export default class KeyboardInput extends Vue {
@@ -124,14 +122,6 @@ export default class KeyboardInput extends Vue {
     if (!key) return;
     this.setKeyPressed(key, event.type === "keydown");
     event.preventDefault();
-  }
-
-  toggleKeyboard(): void {
-    if (this.isActive) {
-      this.addKeyboardListeners();
-    } else {
-      this.removeKeyboardListeners();
-    }
   }
 
   addKeyboardListeners(): void {
