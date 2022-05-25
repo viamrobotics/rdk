@@ -335,12 +335,6 @@ func TestBaseRemoteControl(t *testing.T) {
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
-	t.Run("button control mode for input joystick Y (invalid event)", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := buttonControlEvent(eventY, buttons)
-		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.0, .001)
-		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
-	})
-
 	err = svc.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
