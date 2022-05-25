@@ -19,10 +19,19 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/status"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
+
+func newServer(sMap map[resource.Name]interface{}) (pb.StatusServiceServer, error) {
+	sSvc, err := subtype.New(sMap)
+	if err != nil {
+		return nil, err
+	}
+	return status.NewServer(sSvc), nil
+}
 
 func TestServerGetStatus(t *testing.T) {
 	t.Run("no status service", func(t *testing.T) {
