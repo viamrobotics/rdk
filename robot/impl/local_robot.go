@@ -13,8 +13,6 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	// registers all components.
-	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
@@ -28,9 +26,6 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
-
-	// registers all services.
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
