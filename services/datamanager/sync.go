@@ -190,7 +190,10 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 		exponentialRetry(
 			s.cancelCtx,
 			time.Duration(0),
+			// TODO: make this wrap s.uploadFn such that the context is respected. Then every uploadFn doesn't have to
+			//       do it, and don't have to do it in exponentialRetry.
 			func(ctx context.Context) error { return s.uploadFn(ctx, path) },
+			s.logger,
 		)
 	})
 	// If upload completed successfully, unmark in-progress and delete file.
@@ -205,54 +208,46 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 
 // TODO: each call should have a timeout of wait, and be cancelled if doesn't return in that time.
 //       arbitrarily picking five seconds
-func exponentialRetry(ctx context.Context, wait time.Duration, fn func(ctx context.Context) error) {
-	// This is an optimization, so we only create channels if we actually need to retry, and because you cannot
-	// create tickers with an interval of 0.
-	if wait == time.Duration(0) {
+func exponentialRetry(ctx context.Context, initialWait time.Duration, fn func(ctx context.Context) error, log golog.Logger) {
+	// This is an optimization, so we only create channels if we actually need to retry.
+	if initialWait == time.Duration(0) {
 		if err := fn(ctx); err != nil {
-			exponentialRetry(ctx, getNextWait(wait), fn)
+			exponentialRetry(ctx, getNextWait(initialWait), fn, log)
 			return
 		}
 		return
 	}
 
-	ticker := time.NewTicker(wait)
+	ticker := time.NewTicker(initialWait)
 
+	nextWait := initialWait
 	for {
 		select {
 		// If cancelled, return nil.
 		case <-ctx.Done():
 			ticker.Stop()
 			return
-		// Otherwise, try again after wait.
+		// Otherwise, try again after initialWait.
 		case <-ticker.C:
-			cancelCtx, cancelFn := context.WithCancel(ctx)
-
 			// Make Fn call with a timeout.
 			retChannel := make(chan error)
-			wg := sync.WaitGroup{}
 
-			wg.Add(1)
 			go func() {
-				err := fn(cancelCtx)
+				err := fn(ctx)
 				retChannel <- err
-				// TODO: why does it yell at me if I don't call the cancelFn here
-				cancelFn()
-				wg.Done()
 			}()
 
 			select {
 			case <-ctx.Done():
-				// If this function is cancelled, cancel the underlying fn call too.
-				cancelFn()
-				wg.Wait()
+				// If this function is cancelled, return.
 				return
 			case err := <-retChannel:
-				// If error, retry with a new wait.
+				// If error, retry with a new initialWait.
 				if err != nil {
-					// TODO: should log on error.
+					log.Errorw("error while uploading file", "error", err)
 					ticker.Stop()
-					ticker = time.NewTicker(getNextWait(wait))
+					nextWait = getNextWait(nextWait)
+					ticker = time.NewTicker(nextWait)
 					continue
 				}
 				// If succeeded, return.
