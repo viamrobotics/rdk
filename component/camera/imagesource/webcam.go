@@ -63,16 +63,12 @@ func init() {
 
 	registry.RegisterDiscoveryFunction(
 		discovery.NewQuery(camera.SubtypeName, model),
-		func(ctx context.Context) (interface{}, error) {
-			return Discover(
-				ctx,
-				func() []driver.Driver {
-					return driver.GetManager().Query(func(d driver.Driver) bool {
-						return true
-					})
-				})
-		},
+		func(ctx context.Context) (interface{}, error) { return Discover(ctx, getVideoDrivers) },
 	)
+}
+
+func getVideoDrivers() []driver.Driver {
+	return driver.GetManager().Query(driver.FilterVideoRecorder())
 }
 
 // CameraConfig is collection of configuration options for a camera.
