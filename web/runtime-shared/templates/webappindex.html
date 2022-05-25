@@ -231,7 +231,10 @@
           value: 0,
           imuData: {},
           currentOps: [],
-          baseRunStatus: false
+          baseRunStatus: false,
+          setPin: "",
+          getPin: "",
+          locationValue: "40.745297,-74.010916"
         };
         theApp = new Vue({
           el: "#app",
@@ -513,14 +516,17 @@
                 return;
               } 
 
-              const arcInputs = window.computeKeyboardBaseControls(controls);
-              console.log("Arc inputs: %o", arcInputs);
-              BaseControlHelper.moveArc(baseName,
-                    arcInputs.distance,
-                    arcInputs.speed,
-                    arcInputs.angle,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
+              const inputs = window.computeKeyboardBaseControls(controls);
+              console.log("Inputs: %o", inputs);
+              var linear = new commonApi.Vector3();
+              var angular = new commonApi.Vector3();
+              linear.setY(inputs.linear)
+              angular.setZ(inputs.angular)
+              BaseControlHelper.setSpeed(baseName,
+                                         linear,
+                                         angular,
+                                         (err, resp) => {
+                                           return grpcCallback(err, resp)
                     });
             },
             handleBaseActionStop : function(name) {
@@ -579,54 +585,6 @@
                   BaseControlHelper.moveStraight(name, 
                     document.getElementById("distance").value * -1, 
                     document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Clockwise" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * 1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Counterclockwise" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * 1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Clockwise" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * -1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Counterclockwise" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * -1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
                     (err, resp) => {
                       return grpcCallback(err, resp)
                   });
@@ -1535,9 +1493,9 @@
       <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
       {{range $authType := .SupportedAuthTypes }}
       <span>{{ $authType }}: </span>
-      <div id="auth-{{ $authType }}">
-        <viam-input type="password"/>
-        <viam-button group>Login</viam-button>
+      <div id="auth-{{ $authType }}" class="w-96">
+        <input class="mb-2 appearance-none block w-full border text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition-colors duration-150 ease-in-out p-2" type="password" />
+        <button  class="relative leading-tight font-button transition-colors duration-150 focus:outline-none shadow-sm text-black border border-black bg-primary hover:border-black hover:bg-gray-200 focus:bg-gray-400 active:bg-gray-400 cursor-pointer px-5 py-2">Login</button>
       </div>
       {{ end }}
     </div>
@@ -1793,14 +1751,15 @@
               <tr>
                  <th class="border border-slate-300">Get</th>
                  <td class="border border-slate-300">
-                  Pin: <viam-input :id="'get_pin_' + board.name"/><viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
+                  Pin: <number-input  v-model="getPin" :id="'get_pin_' + board.name"></number-input>
+                  <viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
                   <span :id="'get_pin_value_' + board.name"/>
                 </td>
               </tr>
               <tr>
                  <th class="border border-slate-300">Set</th>
                  <td class="border border-slate-300">
-                  Pin: <viam-input :id="'set_pin_' + board.name"/><br>
+                  Pin: <number-input v-model="setPin" :id="'set_pin_' + board.name"></number-input><br>
                   <select :id="'set_pin_v_' + board.name">
                     <option>low</option>
                     <option>high</option>
@@ -1840,7 +1799,7 @@
             <viam-button group v-on:click="setNavigationMode('manual')">Manual</viam-button>
             <viam-button group v-on:click="setNavigationMode('waypoint')">Waypoint</viam-button>
             <br />
-            <viam-input type="text" id="nav-set-location" value="40.745297,-74.010916" />
+            <viam-input v-model="locationValue" input-id="nav-set-location" />
             <viam-button group v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
             <div id="map" v-map-mounted></div>
           </div>
