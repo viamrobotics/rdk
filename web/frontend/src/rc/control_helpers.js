@@ -21,6 +21,17 @@ window.BaseControlHelper = {
     rcLogConditionally(req);
     baseService.spin(req, {}, cb);
   },
+
+  setPower: function(name, linearVector, angularVector, cb) {
+      const req = new baseApi.SetPowerRequest();
+      req.setName(name);
+      req.setLinear(linearVector)
+      req.setAngular(angularVector);
+
+      rcLogConditionally(req);
+      baseService.setPower(req, {}, cb);
+  },
+
 };
 
 /*
@@ -28,30 +39,21 @@ window.BaseControlHelper = {
   Output: linearY and angularZ throttle
 */
 window.computeKeyboardBaseControls = function(keysPressed) {
-  let linear;
-  let angular;
+    var linear = 0;
+    var angular = 0;
 
-  if (keysPressed.forward && keysPressed.backward) {
-    linear = 0;
-  } else if (keysPressed.forward) {
-    linear = 1;
-  } else if (keysPressed.backward) {
-    lienar = -1;
-  } else {
-    linear = 0;
-  }
-
-  // Angle
-  if (keysPressed.right && keysPressed.left) {
-    angular = 0;
-  } else if (keysPressed.right) {
-    angular = -1;
-  } else if (keysPressed.left) {
-    angular = 1;
-  } else {
-    angleDeg = 0;
-  }
-
-  return {linear, angular};
+    if (keysPressed.forward) {
+        linear = 1;
+    } else if (keysPressed.backward) {
+        linear = -1;
+    } 
+    
+    if (keysPressed.right) {
+        angular = -1;
+    } else if (keysPressed.left) {
+        angular = 1;
+    } 
+    
+    return {linear, angular};
 };
 
