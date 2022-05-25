@@ -120,7 +120,9 @@ func TestRetriesUploads(t *testing.T) {
 	// Validate that a failed upload is retried.
 	failureCount := 0
 	successCount := 0
+	callTimes := make(map[int]time.Time)
 	uploadFunc := func(ctx context.Context, path string) error {
+		callTimes[failureCount+successCount] = time.Now()
 		if failureCount >= 3 {
 			successCount++
 			return nil
@@ -135,15 +137,28 @@ func TestRetriesUploads(t *testing.T) {
 	defer os.Remove(file1.Name())
 
 	// Start syncer, let it run for a second.
-	retryExponentialFactor = 1
-	initialWaitTime = time.Millisecond
+	initialWaitTime = time.Millisecond * 100
 	sut.Start()
 	err := sut.Enqueue([]string{})
 	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 2)
 
 	// Test that it was successfully uploaded, and upload failed 3 times and succeeded once.
 	test.That(t, failureCount, test.ShouldEqual, 3)
 	test.That(t, successCount, test.ShouldEqual, 1)
+	// Test that exponential increase happens.
+	// First retry should wait initialWaitTime
+	test.That(t, callTimes[1].Sub(callTimes[0]), test.ShouldAlmostEqual, initialWaitTime, time.Millisecond*10)
+
+	// TODO: it's failing after the first one. Find out why.
+	// Then increase by a factor of retryExponentialFactor each time
+	test.That(t, callTimes[2].Sub(callTimes[1]), test.ShouldAlmostEqual,
+		initialWaitTime*time.Duration(retryExponentialFactor), time.Millisecond*10)
+	//test.That(t, callTimes[3].Sub(callTimes[2]), test.ShouldAlmostEqual,
+	//	initialWaitTime*time.Duration(retryExponentialFactor*retryExponentialFactor), time.Millisecond*10)
+	//test.That(t, callTimes[4].Sub(callTimes[3]), test.ShouldAlmostEqual,
+	//	initialWaitTime*time.Duration(retryExponentialFactor*retryExponentialFactor*retryExponentialFactor),
+	//	time.Millisecond*10)
+
 	sut.Close()
 }
