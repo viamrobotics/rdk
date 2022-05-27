@@ -86,6 +86,11 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 	return a.joints, nil
 }
 
+// Stop doesn't do anything for a fake arm.
+func (a *Arm) Stop(ctx context.Context) error {
+	return nil
+}
+
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := a.GetJointPositions(ctx)
