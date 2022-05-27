@@ -18,6 +18,7 @@ type Arm struct {
 	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState) error
 	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions) error
 	GetJointPositionsFunc    func(ctx context.Context) (*pb.JointPositions, error)
+	StopFunc                 func(ctx context.Context) error
 	CloseFunc                func(ctx context.Context) error
 }
 
@@ -51,6 +52,14 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 		return a.Arm.GetJointPositions(ctx)
 	}
 	return a.GetJointPositionsFunc(ctx)
+}
+
+// Stop calls the injected Stop or the real version.
+func (a *Arm) Stop(ctx context.Context) error {
+	if a.StopFunc == nil {
+		return a.Arm.Stop(ctx)
+	}
+	return a.StopFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.
