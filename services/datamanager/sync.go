@@ -175,7 +175,6 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 		return nil
 	}
 
-	// Mark upload as in progress.
 	s.progressTracker.mark(path)
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
