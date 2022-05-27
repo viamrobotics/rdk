@@ -17,12 +17,14 @@ func newTestSyncer(captureDir string, queue string, logger golog.Logger, uploadC
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 
 	return syncer{
-		captureDir:     captureDir,
-		syncQueue:      queue,
-		logger:         logger,
-		queueWaitTime:  time.Nanosecond,
-		inProgress:     map[string]struct{}{},
-		inProgressLock: &sync.Mutex{},
+		captureDir:    captureDir,
+		syncQueue:     queue,
+		logger:        logger,
+		queueWaitTime: time.Nanosecond,
+		progressTracker: progressTracker{
+			lock:       &sync.Mutex{},
+			inProgress: make(map[string]bool),
+		},
 		uploadFn: func(ctx context.Context, path string) error {
 			atomic.AddUint64(uploadCount, 1)
 			_ = os.Remove(path)

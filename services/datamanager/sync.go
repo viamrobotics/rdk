@@ -29,8 +29,7 @@ type syncer struct {
 	syncQueue         string
 	logger            golog.Logger
 	queueWaitTime     time.Duration
-	inProgressLock    *sync.Mutex
-	inProgress        map[string]struct{}
+	progressTracker   progressTracker
 	uploadFn          func(ctx context.Context, path string) error
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
@@ -42,12 +41,14 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	ret := syncer{
-		syncQueue:         queuePath,
-		logger:            logger,
-		captureDir:        captureDir,
-		queueWaitTime:     time.Minute,
-		inProgress:        map[string]struct{}{},
-		inProgressLock:    &sync.Mutex{},
+		syncQueue:     queuePath,
+		logger:        logger,
+		captureDir:    captureDir,
+		queueWaitTime: time.Minute,
+		progressTracker: progressTracker{
+			lock:       &sync.Mutex{},
+			inProgress: make(map[string]bool),
+		},
 		backgroundWorkers: sync.WaitGroup{},
 		uploadFn: func(ctx context.Context, path string) error {
 			return nil
@@ -169,23 +170,19 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	if di.IsDir() {
 		return nil
 	}
-	s.inProgressLock.Lock()
-	if _, ok := s.inProgress[path]; ok {
-		s.inProgressLock.Unlock()
+
+	if s.progressTracker.get(path) {
 		return nil
 	}
 
 	// Mark upload as in progress.
-	s.inProgress[path] = struct{}{}
-	s.inProgressLock.Unlock()
+	s.progressTracker.markInProgress(path)
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
 		err = s.uploadFn(s.cancelCtx, path)
 		if err != nil {
-			s.inProgressLock.Lock()
-			delete(s.inProgress, path)
-			s.inProgressLock.Unlock()
+			s.progressTracker.unmarkInProgress(path)
 			s.logger.Errorf("failed to upload queued file: %v", err)
 		}
 	})
@@ -197,4 +194,27 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	//  	return err
 	// }
 	return nil
+}
+
+type progressTracker struct {
+	lock       *sync.Mutex
+	inProgress map[string]bool
+}
+
+func (p *progressTracker) get(k string) bool {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	return p.inProgress[k]
+}
+
+func (p *progressTracker) markInProgress(k string) {
+	p.lock.Lock()
+	p.inProgress[k] = true
+	p.lock.Unlock()
+}
+
+func (p *progressTracker) unmarkInProgress(k string) {
+	p.lock.Lock()
+	delete(p.inProgress, k)
+	p.lock.Unlock()
 }
