@@ -168,7 +168,7 @@ func (s *syncer) Close() {
 func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		s.logger.Errorw("failed to upload queued file", "error", err)
-		
+
 		return nil
 	}
 
@@ -225,35 +225,17 @@ func exponentialRetry(ctx context.Context, initialWait time.Duration, fn func(ct
 			return
 		// Otherwise, try again after nextWait.
 		case <-ticker.C:
-			retChannel := make(chan error)
-			wg := sync.WaitGroup{}
-
-			wg.Add(1)
-			go func() {
-				err := fn(ctx)
-				retChannel <- err
-				close(retChannel)
-				wg.Done()
-			}()
-
-			select {
-			case <-ctx.Done():
-				// If this function is cancelled, return.
-				wg.Wait()
-				return
-			case err := <-retChannel:
+			if err := fn(ctx); err != nil {
 				// If error, retry with a new initialWait.
-				if err != nil {
-					log.Errorw("error while uploading file", "error", err)
-					ticker.Stop()
-					nextWait = getNextWait(nextWait)
-					ticker = time.NewTicker(nextWait)
-					continue
-				}
-				// If succeeded, return.
+				log.Errorw("error while uploading file", "error", err)
 				ticker.Stop()
-				return
+				nextWait = getNextWait(nextWait)
+				ticker = time.NewTicker(nextWait)
+				continue
 			}
+			// If no error, return.
+			ticker.Stop()
+			return
 		}
 	}
 }
