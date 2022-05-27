@@ -11,6 +11,8 @@ import (
 	"github.com/go-nlopt/nlopt"
 )
 
+
+
 type boatConfig struct {
 	Motors        []motorConfig
 	Length, Width float64
@@ -132,7 +134,7 @@ func (bc *boatConfig) help(m int, cur []float64) {
 		return
 	}
 	
-	for p := -1.0; p <= 1; p += .5 {
+	for p := -1.0; p <= 1; p += .25 {
 		t := make([]float64, len(bc.Motors))
 		copy(t, cur)
 		t[m] = p
@@ -162,7 +164,7 @@ func sumPower(x []float64) float64 {
 // angularPercent: -1 -> 1 percent of power you want applied to move angularly
 //                 note only z is relevant here
 func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
-	fmt.Printf("linear: %v angular: %v\n", linear, angular)
+	//fmt.Printf("linear: %v angular: %v\n", linear, angular)
 
 	goal := bc.computeGoal(linear, angular)
 	
@@ -236,9 +238,9 @@ func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 		}
 	}
 
-	fmt.Printf("\tpowers: %v\n", powers)
-	fmt.Printf("\tgoal-post %v\n", bc.computeGoal(linear, angular))
-	fmt.Printf("\tres-post  %v\n", bc.computePowerOutput(powers))
+	//fmt.Printf("\tpowers: %v\n", powers)
+	//fmt.Printf("\tgoal-post %v\n", bc.computeGoal(linear, angular))
+	//fmt.Printf("\tres-post  %v\n", bc.computePowerOutput(powers))
 	
 	return powers
 
