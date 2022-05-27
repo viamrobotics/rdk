@@ -97,7 +97,10 @@ func TestBoatConfig(t *testing.T) {
 	l, a = r3.Vector{-.5, 1, 0}, r3.Vector{}
 	powers = cfg.computePower(l, a)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
-	
+
+	l, a = r3.Vector{}, r3.Vector{Z : .125}
+	powers = cfg.computePower(l, a)
+	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 }
 
 func weightsAlmostEqual(actual interface{}, expected ...interface{}) string {
