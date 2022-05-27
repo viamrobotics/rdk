@@ -134,7 +134,7 @@ func (bc *boatConfig) help(m int, cur []float64) {
 		return
 	}
 	
-	for p := -1.0; p <= 1; p += .5 {
+	for p := -1.0; p <= 1; p += .25 {
 		t := make([]float64, len(bc.Motors))
 		copy(t, cur)
 		t[m] = p
