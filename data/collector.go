@@ -6,20 +6,19 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	"go.viam.com/rdk/resource"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/utils"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
@@ -198,6 +197,7 @@ func (c *collector) getAndPushNextReading() {
 			Data: &v1.SensorData_Binary{
 				Binary: v,
 			},
+			Type: v1.DataType_BINARY,
 		}
 	default:
 		// If it's not bytes, it's a struct.
@@ -212,6 +212,7 @@ func (c *collector) getAndPushNextReading() {
 				TimeRequested: timeRequested,
 				TimeReceived:  timeReceived,
 			},
+			Type: v1.DataType_TABULAR,
 			Data: &v1.SensorData_Struct{
 				Struct: pbReading,
 			},
