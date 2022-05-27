@@ -17,7 +17,7 @@
       </div>
       <template v-slot:content>
         <div
-          class="border border-t-0 border-black pt-2 pb-4"
+          class="border border-t-0 border-black pt-2 pb-4 h-80"
           :style="{ maxHeight: maxHeight + 'px' }"
         >
           <div>
@@ -44,28 +44,8 @@
             <div>
               <div>
                 <div class="grid grid-cols-2">
-                  <div>
-                    <div>
-                      <div class="flex">
-                        <!-- May need a speed input
-                        <ViamInput
-                          type="number"
-                          color="primary"
-                          group="False"
-                          variant="primary"
-                          class="pr-2 w-32"
-                          inputId="speed"
-                          v-model="speed"
-                        >
-                          <span class="text-xs">Speed (mm/sec)</span>
-                        </ViamInput>
-                        -->
-                      </div>
-                    </div>
-                    <div class="flex pt-6">
-                      <KeyboardInput @keyboard-ctl="keyboardCtl">
-                      </KeyboardInput>
-                    </div>
+                  <div class="flex pt-6">
+                    <KeyboardInput @keyboard-ctl="keyboardCtl"> </KeyboardInput>
                   </div>
                   <div class="flex" v-if="camera">
                     <div class="pr-4">
@@ -97,120 +77,105 @@
           </div>
           <div
             v-if="selectedItem === 'discrete'"
-            class="pr-4 pl-4 pt-4 grid grid-cols-1"
+            class="pr-4 pl-4 pt-4 flex"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
-            <div>
-              <div class="column">
-                <p class="text-xs">Movement Mode</p>
-                <RadioButtons
-                  :options="['Straight', 'Arc', 'Spin']"
-                  defaultOption="Straight"
-                  :disabledOptions="[]"
-                  v-on:selectOption="setMovementMode($event)"
-                />
-              </div>
-            </div>
-            <div class="flex pt-2">
-              <div class="column pr-2" v-if="movementMode === 'Straight'">
-                <p class="text-xs">Movement Type</p>
-                <RadioButtons
-                  :options="['Continous', 'Discrete']"
-                  defaultOption="Continous"
-                  :disabledOptions="[]"
-                  v-on:selectOption="setMovementType($event)"
-                />
-              </div>
-              <div
-                class="column pr-2"
-                v-if="movementMode === 'Straight' || movementMode === 'Arc'"
-              >
-                <p class="text-xs">Direction</p>
-                <RadioButtons
-                  :options="['Forwards', 'Backwards']"
-                  defaultOption="Forwards"
-                  :disabledOptions="[]"
-                  v-on:selectOption="setDirection($event)"
-                />
-              </div>
-              <ViamInput
-                type="number"
-                color="primary"
-                group="False"
-                variant="primary"
-                v-model="speed"
-                inputId="speed"
-                class="text-xs pr-2 w-32"
-                >Speed (mm/sec)
-              </ViamInput>
-              <input
-                type="hidden"
-                id="distance"
-                :value="maxDistance"
-                v-if="
-                  movementMode === 'Straight' && movementType === 'Continous'
-                "
-              />
-              <ViamInput
-                v-if="
-                  (movementMode === 'Straight' &&
-                    movementType === 'Discrete') ||
-                  movementMode === 'Arc'
-                "
-                type="number"
-                color="primary"
-                group="False"
-                variant="primary"
-                v-model="increment"
-                inputId="distance"
-                class="text-xs pr-2 w-32"
-                >Distance (mm)
-              </ViamInput>
-            </div>
-            <div class="flex">
-              <div
-                class="column pr-2"
-                v-if="movementMode === 'Spin' || movementMode === 'Arc'"
-              >
-                <p class="text-xs">Movement Type</p>
-                <RadioButtons
-                  :options="['Clockwise', 'Counterclockwise']"
-                  defaultOption="Clockwise"
-                  :disabledOptions="[]"
-                  v-on:selectOption="setSpinType($event)"
-                />
-              </div>
-              <div
-                class="column pl-4"
-                v-if="movementMode === 'Spin' || movementMode === 'Arc'"
-              >
-                <Range
-                  id="angle"
-                  :min="0"
-                  :max="360"
-                  :step="90"
-                  v-model="maxClusteringRadius"
-                  unit="°"
-                  name="Max Clustering Radius"
-                ></Range>
-              </div>
-            </div>
-            <div class="flex flex-row-reverse">
+            <div class="flex-grow">
               <div>
-                <ViamButton
-                  color="success"
-                  group
-                  variant="primary"
-                  @click="baseRun()"
-                >
-                  <template v-slot:icon>
-                    <ViamIcon color="white" :path="mdiPlayCircleOutline"
-                      >RUN</ViamIcon
-                    >
-                  </template>
-                  RUN
-                </ViamButton>
+                <div class="column">
+                  <p class="text-xs">Movement Mode</p>
+                  <RadioButtons
+                    :options="['Straight', 'Arc', 'Spin']"
+                    defaultOption="Straight"
+                    :disabledOptions="[]"
+                    v-on:selectOption="setMovementMode($event)"
+                  />
+                </div>
               </div>
+              <div
+                :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
+                class="items-center pt-4"
+              >
+                <div class="column pr-2" v-if="movementMode === 'Straight'">
+                  <p class="text-xs">Movement Type</p>
+                  <RadioButtons
+                    :options="['Continous', 'Discrete']"
+                    defaultOption="Continous"
+                    :disabledOptions="[]"
+                    v-on:selectOption="setMovementType($event)"
+                  />
+                </div>
+                <div
+                  v-if="movementMode === 'Straight' || movementMode === 'Arc'"
+                  class="column pr-2"
+                >
+                  <p class="text-xs">Direction</p>
+                  <RadioButtons
+                    :options="['Forwards', 'Backwards']"
+                    defaultOption="Forwards"
+                    :disabledOptions="[]"
+                    v-on:selectOption="setDirection($event)"
+                  />
+                </div>
+                <NumberInput
+                  v-model="speed"
+                  class="mr-4 w-32"
+                  inputId="speed"
+                  label="Speed (mm/sec)"
+                ></NumberInput>
+                <NumberInput
+                  v-model="increment"
+                  class="mr-4 w-32"
+                  inputId="distance"
+                  :disabled="movementType === 'Continous'"
+                  label="Distance (mm)"
+                  v-if="movementMode === 'Straight' || movementMode === 'Arc'"
+                ></NumberInput>
+              </div>
+              <div
+                :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
+                class="pt-4"
+                v-if="movementMode === 'Spin' || movementMode === 'Arc'"
+              >
+                <div class="column pr-2">
+                  <p class="text-xs">Movement Type</p>
+                  <RadioButtons
+                    data-cy="movement-type-radio"
+                    :options="['Clockwise', 'Counterclockwise']"
+                    defaultOption="Clockwise"
+                    :disabledOptions="[]"
+                    v-on:selectOption="setSpinType($event)"
+                  />
+                </div>
+                <div class="column pl-4">
+                  <Range
+                    id="angle"
+                    :min="0"
+                    :key="movementMode"
+                    :max="360"
+                    :step="90"
+                    v-model="maxClusteringRadius"
+                    unit="°"
+                    :name="rangeLabel"
+                  ></Range>
+                </div>
+              </div>
+            </div>
+            <div class="self-end">
+              <ViamButton
+                color="success"
+                group
+                variant="primary"
+                :disabled="baseStatus"
+                @click="baseRun()"
+              >
+                <template v-slot:icon>
+                  <ViamIcon color="white" :path="mdiPlayCircleOutline"
+                    >RUN</ViamIcon
+                  >
+                </template>
+                RUN
+              </ViamButton>
             </div>
           </div>
         </div>
@@ -223,6 +188,7 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import "vue-class-component/hooks";
 import Collapse from "./Collapse.vue";
+import NumberInput from "./NumberInput.vue";
 import Breadcrumbs from "./Breadcrumbs.vue";
 import ViamIcon from "./ViamIcon.vue";
 import {
@@ -245,6 +211,7 @@ import ViamButton from "./Button.vue";
     Tabs,
     Tab,
     ViamButton,
+    NumberInput,
   },
 })
 export default class Base extends Vue {
@@ -259,7 +226,7 @@ export default class Base extends Vue {
   mdiCloseOctagonOutline = mdiCloseOctagonOutline;
 
   camera = this.connectedCamera;
-  maxHeight = 500;
+  maxHeight = 1100;
   selectedValue = "NoCamera";
   isContinuous = true;
   streamId = "stream-preview-" + this.streamName;
@@ -279,6 +246,15 @@ export default class Base extends Vue {
     { value: "NoCamera", label: "No Camera" },
     { value: "Camera1", label: "Camera1" },
   ];
+
+  get rangeLabel(): string {
+    if (this.movementMode === "Arc") return "Steering Angle Degree";
+
+    if (this.movementMode === "Spin") return "Angle";
+
+    return "unknown";
+  }
+
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
   }
@@ -338,7 +314,7 @@ export default class Base extends Vue {
     if (this.camera) {
       this.maxHeight = 1500;
     } else {
-      this.maxHeight = 500;
+      this.maxHeight = 1100;
     }
   }
   keyboardCtl(keysPressed: Record<string, unknown>): void {
@@ -353,5 +329,3 @@ export default class Base extends Vue {
   }
 }
 </script>
-
-<style scoped></style>

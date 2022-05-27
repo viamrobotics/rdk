@@ -153,7 +153,7 @@ describe("Base", () => {
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
   });
 
-  it("click discrete arc", async () => {
+  it("click discrete arc1", async () => {
     const wrapper = mount(Base, {
       propsData: {
         streamName: "Test",
@@ -187,14 +187,14 @@ describe("Base", () => {
     expect(wrapper.vm.$data.direction).toBe("Forwards");
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
     const backwardColumnWrapper = wrapper.find(
-      ".flex:nth-child(2) button:nth-child(2) span:first-child"
+      "[data-cy=button-Backwards] span:last-child"
     );
     expect(backwardColumnWrapper.element.innerHTML.trim()).toBe("Backwards");
     await backwardColumnWrapper.trigger("click");
     expect(wrapper.vm.$data.direction).toBe("Backwards");
   });
 
-  it("click discrete arc", async () => {
+  it("click discrete arc2", async () => {
     const wrapper = mount(Base, {
       propsData: {
         streamName: "Test",
@@ -228,13 +228,13 @@ describe("Base", () => {
     expect(wrapper.vm.$data.direction).toBe("Forwards");
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
     const backwardColumnWrapper = wrapper.find(
-      ".flex:nth-child(2) button:nth-child(2) span:first-child"
+      "[data-cy=button-Backwards] span:last-child"
     );
     expect(backwardColumnWrapper.element.innerHTML.trim()).toBe("Backwards");
     await backwardColumnWrapper.trigger("click");
     expect(wrapper.vm.$data.direction).toBe("Backwards");
     const ccwColumnWrapper = wrapper.find(
-      ".flex:nth-child(3) button:nth-child(2) span:first-child"
+      "[data-cy=button-Counterclockwise] span:last-child"
     );
     expect(ccwColumnWrapper.element.innerHTML.trim()).toBe("Counterclockwise");
     await ccwColumnWrapper.trigger("click");
@@ -310,7 +310,7 @@ describe("Base", () => {
     expect(wrapper.vm.$data.direction).toBe("Forwards");
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
     const ccwColumnWrapper = wrapper.find(
-      ".flex:nth-child(3) button:nth-child(2) span:first-child"
+      "[data-cy=button-Counterclockwise] span:last-child"
     );
     expect(ccwColumnWrapper.element.innerHTML.trim()).toBe("Counterclockwise");
     await ccwColumnWrapper.trigger("click");
