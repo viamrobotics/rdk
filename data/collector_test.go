@@ -17,9 +17,11 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/rdk/protoutils"
 )
+
+// TODO: add binary tests too
 
 type exampleReading struct {
 	Field1 bool
@@ -266,7 +268,7 @@ func validateNReadings(t *testing.T, file *os.File, n int) {
 		if err != nil {
 			t.Fatalf("failed to read SensorData from file: %v", err)
 		}
-		test.That(t, proto.Equal(dummyReadingProto, read.Data), test.ShouldBeTrue)
+		test.That(t, proto.Equal(dummyReadingProto, read.GetStruct()), test.ShouldBeTrue)
 	}
 }
 
