@@ -1748,17 +1748,19 @@
           </div>
 
           <!-- ******* MOTOR *******  -->
-          <motor-detail
+
+          <motor-detail-new 
             class="pb-4"
             v-for="motor in filterResources('rdk', 'component', 'motor')"
             :key="'new-' + motor.name"
-            v-if="resourceStatusByName(motor)"
-            v-bind:motor-name="motor.name"
-            v-bind:motor-status="resourceStatusByName(motor)"
-            v-on:execute="motorCommand(motor.name, $event)"
-            style="max-width: 1080px;"
-          >
-          </motor-detail>
+            v-if="resourceStatusByName(motor)"  
+            :stream-name="motor.name" 
+            :base-name="motor.name" 
+            :crumbs="['motor', motor.name]" 
+            :motor-status="resourceStatusByName(motor)"
+            v-on:motor-run="motorCommand(motor.name, $event)"
+            v-on:motor-stop="motorCommand(motor.name, $event)">
+          </motor-detail-new>
 
           <!-- ******* INPUT VIEW *******  -->
           <input-controller

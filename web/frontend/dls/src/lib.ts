@@ -29,6 +29,7 @@ import ViamInfoButton from "./components/ViamInfoButton.vue";
 import Popper from "vue-popperjs";
 import NumberInput from "./components/NumberInput.vue";
 import ClickOutside from "./directives/clickOutside";
+import MotorDetailNew from "./components/MotorDetailNew.vue";
 
 const Components: { [key: string]: VueConstructor<Vue> } = {
   MotorDetail,
@@ -54,6 +55,7 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   ViamInfoButton,
   Popper,
   NumberInput,
+  MotorDetailNew,
 };
 
 Object.keys(Components).forEach((name) => {
