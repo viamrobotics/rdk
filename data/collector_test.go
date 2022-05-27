@@ -14,10 +14,11 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/protoutils"
 )
 
 type structReading struct {
