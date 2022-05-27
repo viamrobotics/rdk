@@ -120,6 +120,12 @@ func (wrapper *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, 
 	return joints, nil
 }
 
+// Stop stops the actual arm.
+func (wrapper *Arm) Stop(ctx context.Context) error {
+	wrapper.opMgr.CancelRunning(ctx)
+	return wrapper.actual.Stop(ctx)
+}
+
 // CurrentInputs returns the current inputs of the arm.
 func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := wrapper.actual.GetJointPositions(ctx)
