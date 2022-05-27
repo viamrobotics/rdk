@@ -275,6 +275,17 @@ export default class MotorDetailNew extends Vue {
   setMovementType(e: string): void {
     console.log(e);
     this.movementType = e;
+    switch (this.movementType) {
+      case "Go":
+        this.type = "go";
+        break;
+      case "Go For":
+        this.type = "goFor";
+        break;
+      case "Go To":
+        this.type = "goTo";
+        break;
+    }
   }
   setSpinType(e: string): void {
     console.log(e);
@@ -302,11 +313,12 @@ export default class MotorDetailNew extends Vue {
   motorStop(e: Event): void {
     e.preventDefault();
     e.stopPropagation();
-    this.type = "Go";
+    this.type = "go";
     this.position = 0;
     this.speed = 0;
     this.direction = 1;
     this.revolutions = 0;
+    this.power = 0;
     const command = this.asObject();
     console.log(command);
     this.$emit("motor-stop", command);
