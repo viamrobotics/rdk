@@ -110,7 +110,12 @@
               ></ViamSwitch>
               <div v-if="pcd" class="transition-all duration-300 ease-in-out">
                 <div class="float-right pb-4">
-                  <ViamButton color="black" group variant="primary"  @click="fullImage">
+                  <ViamButton
+                    color="black"
+                    group
+                    variant="primary"
+                    @click="fullImage"
+                  >
                     <template v-slot:icon>
                       <ViamIcon color="white" :path="mdiRestore"
                         >Refresh</ViamIcon
@@ -118,7 +123,12 @@
                     </template>
                     Refresh
                   </ViamButton>
-                  <ViamButton color="primary" group variant="primary" @click="centerPCD">
+                  <ViamButton
+                    color="primary"
+                    group
+                    variant="primary"
+                    @click="centerPCD"
+                  >
                     <template v-slot:icon>
                       <ViamIcon :path="mdiImageFilterCenterFocus"
                         >Center</ViamIcon
@@ -278,7 +288,11 @@
                         <p class="text-xs">Selection Type</p>
                         <RadioButtons
                           :options="['Center Point', 'Bounding Box', 'Cropped']"
-                          :disabledOptions="(selectedObject === '') ? ['Center Point', 'Bounding Box', 'Cropped'] :[]"
+                          :disabledOptions="
+                            selectedObject === ''
+                              ? ['Center Point', 'Bounding Box', 'Cropped']
+                              : []
+                          "
                           v-on:selectOption="selectObject($event)"
                         />
                       </div>
@@ -286,20 +300,28 @@
                         <p class="text-xs">Segmented Objects</p>
                         <select
                           class="block appearance-none w-full border border-gray-300 dark:border-black-700 pr-8 leading-tight focus:outline-none transition-colors duration-150 ease-in-out"
-                          :class="[
-                            'py-2 pl-2',
-                          ]"
+                          :class="['py-2 pl-2']"
                           v-model="selectedObject"
                           @change="changeObject"
                         >
-                          <option disabled selected value="">Select Object</option>
-                          <option v-for="(seg, i) in segmentObjects" :key="seg[0]" :value="i">Object {{i}}</option>
+                          <option disabled selected value="">
+                            Select Object
+                          </option>
+                          <option
+                            v-for="(seg, i) in segmentObjects"
+                            :key="seg[0]"
+                            :value="i"
+                          >
+                            Object {{ i }}
+                          </option>
                         </select>
                       </div>
                       <div class="pl-8">
                         <div class="grid grid-cols-1">
                           <span class="text-xs">Object Points</span>
-                          <span class="pt-2">{{(segmentObjects) ? segmentObjects.length : "null"}}</span>
+                          <span class="pt-2">{{
+                            segmentObjects ? segmentObjects.length : "null"
+                          }}</span>
                         </div>
                       </div>
                     </div>
@@ -399,7 +421,13 @@ export default class Base extends Vue {
   }
 
   distanceFromCamera(): number {
-    return Math.round(Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2) + Math.pow(this.z, 2))) || 0;
+    return (
+      Math.round(
+        Math.sqrt(
+          Math.pow(this.x, 2) + Math.pow(this.y, 2) + Math.pow(this.z, 2)
+        )
+      ) || 0
+    );
   }
 
   selectCameraView(): void {
@@ -423,10 +451,14 @@ export default class Base extends Vue {
   }
 
   findSegments(): void {
-    if (this.pcdObject){
+    if (this.pcdObject) {
       this.pcdObject.calculatingSegments = true;
     }
-    this.$emit("find-segments", this.selectedSegmenterValue, this.segmenterParameters);
+    this.$emit(
+      "find-segments",
+      this.selectedSegmenterValue,
+      this.segmenterParameters
+    );
   }
 
   fullImage(e: Event): void {
@@ -442,7 +474,7 @@ export default class Base extends Vue {
   }
 
   changeObject(e: string): void {
-    this.$emit("select-object", e, 'Center Point');
+    this.$emit("select-object", e, "Center Point");
   }
 
   pointLoad(i: number): void {
