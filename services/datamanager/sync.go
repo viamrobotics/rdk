@@ -46,8 +46,8 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 		captureDir:    captureDir,
 		queueWaitTime: time.Minute,
 		progressTracker: progressTracker{
-			lock:       &sync.Mutex{},
-			inProgress: make(map[string]bool),
+			lock: &sync.Mutex{},
+			m:    make(map[string]bool),
 		},
 		backgroundWorkers: sync.WaitGroup{},
 		uploadFn: func(ctx context.Context, path string) error {
@@ -65,7 +65,7 @@ func (s *syncer) Enqueue(filesToQueue []string) error {
 	for _, filePath := range filesToQueue {
 		subPath, err := s.getPathUnderCaptureDir(filePath)
 		if err != nil {
-			return errors.Errorf("could not get path under capture directory: %v", err)
+			return errors.Errorf("could not inProgress path under capture directory: %v", err)
 		}
 
 		if err := os.MkdirAll(filepath.Dir(path.Join(s.syncQueue, subPath)), 0o700); err != nil {
@@ -123,7 +123,7 @@ func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 
 	fileInfo, err := di.Info()
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to get file info for filepath %s", filePath))
+		return errors.Wrap(err, fmt.Sprintf("failed to inProgress file info for filepath %s", filePath))
 	}
 
 	// If it's been written to in the last s.queueWaitTime, it's still active and shouldn't be queued.
@@ -133,7 +133,7 @@ func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 
 	subPath, err := s.getPathUnderCaptureDir(filePath)
 	if err != nil {
-		return errors.Wrap(err, "could not get path under capture directory")
+		return errors.Wrap(err, "could not inProgress path under capture directory")
 	}
 
 	if err = os.MkdirAll(filepath.Dir(path.Join(s.syncQueue, subPath)), 0o700); err != nil {
@@ -171,50 +171,44 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 		return nil
 	}
 
-	if s.progressTracker.get(path) {
+	if s.progressTracker.inProgress(path) {
 		return nil
 	}
 
 	// Mark upload as in progress.
-	s.progressTracker.markInProgress(path)
+	s.progressTracker.mark(path)
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
 		err = s.uploadFn(s.cancelCtx, path)
 		if err != nil {
-			s.progressTracker.unmarkInProgress(path)
+			s.progressTracker.unmark(path)
 			s.logger.Errorf("failed to upload queued file: %v", err)
 		}
 	})
-	// If upload completed successfully, unmark in-progress and delete file.
-	// TODO: uncomment when sync is actually implemented. Until then, we don't want to delete data.
-	// delete(u.inProgress, path)
-	// err = os.Remove(path)
-	// if err != nil {
-	//  	return err
-	// }
+	// TODO: If upload completed successfully, unmark in-progress and delete file.
 	return nil
 }
 
 type progressTracker struct {
-	lock       *sync.Mutex
-	inProgress map[string]bool
+	lock *sync.Mutex
+	m    map[string]bool
 }
 
-func (p *progressTracker) get(k string) bool {
+func (p *progressTracker) inProgress(k string) bool {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	return p.inProgress[k]
+	return p.m[k]
 }
 
-func (p *progressTracker) markInProgress(k string) {
+func (p *progressTracker) mark(k string) {
 	p.lock.Lock()
-	p.inProgress[k] = true
+	p.m[k] = true
 	p.lock.Unlock()
 }
 
-func (p *progressTracker) unmarkInProgress(k string) {
+func (p *progressTracker) unmark(k string) {
 	p.lock.Lock()
-	delete(p.inProgress, k)
+	delete(p.m, k)
 	p.lock.Unlock()
 }
