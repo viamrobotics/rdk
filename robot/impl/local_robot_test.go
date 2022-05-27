@@ -24,6 +24,8 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/motor/fake"
 
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
@@ -835,4 +837,10 @@ func TestStatusService(t *testing.T) {
 		test.That(t, statuses[idx].Status, test.ShouldResemble, expected[statuses[idx].Name])
 	}
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+}
+
+func TestStoppable(t *testing.T) {
+	var m motor.Motor = &fake.Motor{}
+	_, ok := m.(robotimpl.Stoppable)
+	test.That(t, ok, test.ShouldBeTrue)
 }
