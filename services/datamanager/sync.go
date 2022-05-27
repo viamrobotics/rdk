@@ -65,7 +65,7 @@ func (s *syncer) Enqueue(filesToQueue []string) error {
 	for _, filePath := range filesToQueue {
 		subPath, err := s.getPathUnderCaptureDir(filePath)
 		if err != nil {
-			return errors.Errorf("could not inProgress path under capture directory: %v", err)
+			return errors.Errorf("could not get path under capture directory: %v", err)
 		}
 
 		if err := os.MkdirAll(filepath.Dir(path.Join(s.syncQueue, subPath)), 0o700); err != nil {
@@ -123,7 +123,7 @@ func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 
 	fileInfo, err := di.Info()
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to inProgress file info for filepath %s", filePath))
+		return errors.Wrap(err, fmt.Sprintf("failed to get file info for filepath %s", filePath))
 	}
 
 	// If it's been written to in the last s.queueWaitTime, it's still active and shouldn't be queued.
@@ -133,7 +133,7 @@ func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
 
 	subPath, err := s.getPathUnderCaptureDir(filePath)
 	if err != nil {
-		return errors.Wrap(err, "could not inProgress path under capture directory")
+		return errors.Wrap(err, "could not get path under capture directory")
 	}
 
 	if err = os.MkdirAll(filepath.Dir(path.Join(s.syncQueue, subPath)), 0o700); err != nil {
