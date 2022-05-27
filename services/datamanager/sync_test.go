@@ -116,7 +116,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 }
 
 func TestUploadExponentialRetry(t *testing.T) {
-	// Validate that a failed upload is retried.
+	// Define an uploadFunc that fails 4 times then succeeds on its 5th attempt.
 	failureCount := 0
 	successCount := 0
 	callTimes := make(map[int]time.Time)
@@ -131,11 +131,11 @@ func TestUploadExponentialRetry(t *testing.T) {
 	}
 	sut := newTestSyncer(t, uploadFunc)
 
-	// Put a couple files in captureDir.
+	// Put a file to be synced in captureDir.
 	file1, _ := ioutil.TempFile(sut.captureDir, "whatever")
 	defer os.Remove(file1.Name())
 
-	// Start syncer, let it run for a second.
+	// Start syncer and let it run.
 	initialWaitTime = time.Millisecond * 25
 	maxRetryInterval = time.Millisecond * 150
 	sut.Start()
