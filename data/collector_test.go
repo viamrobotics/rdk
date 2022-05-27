@@ -105,9 +105,9 @@ func TestSuccessfulWrite(t *testing.T) {
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Microsecond * 9900,
-			minExpectReadings:   7,
-			maxExpectedReadings: 11,
+			wait:                time.Millisecond * 10,
+			minExpectReadings:   8,
+			maxExpectedReadings: 12,
 		},
 		{
 			name:     "Ticker based binary writer.",
@@ -135,9 +135,9 @@ func TestSuccessfulWrite(t *testing.T) {
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Microsecond * 9900,
-			minExpectReadings:   7,
-			maxExpectedReadings: 11,
+			wait:                time.Millisecond * 10,
+			minExpectReadings:   8,
+			maxExpectedReadings: 12,
 		},
 	}
 
