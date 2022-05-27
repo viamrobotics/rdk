@@ -136,12 +136,12 @@ func TestUploadExponentialRetry(t *testing.T) {
 	defer os.Remove(file1.Name())
 
 	// Start syncer, let it run for a second.
-	initialWaitTime = time.Millisecond * 50
-	maxRetryInterval = time.Millisecond * 300
+	initialWaitTime = time.Millisecond * 25
+	maxRetryInterval = time.Millisecond * 150
 	sut.Start()
 	err := sut.Enqueue([]string{})
 	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second)
 	sut.Close()
 
 	// Test that upload failed 4 times then succeeded once.
