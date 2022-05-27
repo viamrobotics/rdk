@@ -150,14 +150,14 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// Test that exponential increase happens.
 	// First retry should wait initialWaitTime
-	test.That(t, callTimes[1].Sub(callTimes[0]), test.ShouldAlmostEqual, initialWaitTime, time.Millisecond*10)
+	test.That(t, callTimes[1].Sub(callTimes[0]), test.ShouldAlmostEqual, initialWaitTime, time.Millisecond*20)
 
 	// Then increase by a factor of retryExponentialFactor each time
 	test.That(t, callTimes[2].Sub(callTimes[1]), test.ShouldAlmostEqual,
-		initialWaitTime*time.Duration(retryExponentialFactor), time.Millisecond*10)
+		initialWaitTime*time.Duration(retryExponentialFactor), time.Millisecond*20)
 	test.That(t, callTimes[3].Sub(callTimes[2]), test.ShouldAlmostEqual,
-		initialWaitTime*time.Duration(retryExponentialFactor*retryExponentialFactor), time.Millisecond*10)
+		initialWaitTime*time.Duration(retryExponentialFactor*retryExponentialFactor), time.Millisecond*20)
 
 	// ... but not increase past maxRetryInterval.
-	test.That(t, callTimes[4].Sub(callTimes[3]), test.ShouldAlmostEqual, maxRetryInterval, time.Millisecond*10)
+	test.That(t, callTimes[4].Sub(callTimes[3]), test.ShouldAlmostEqual, maxRetryInterval, time.Millisecond*20)
 }
