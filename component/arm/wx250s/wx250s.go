@@ -185,6 +185,7 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
 // Stop is unimplemented for wx250s.
 func (a *Arm) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
 }
 

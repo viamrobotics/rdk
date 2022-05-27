@@ -280,6 +280,7 @@ func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error
 }
 
 func (a *dofBot) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
 }
 

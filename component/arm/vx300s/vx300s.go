@@ -193,6 +193,7 @@ func (a *myArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, erro
 
 // Stop is unimplemented for vx300s.
 func (a *myArm) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
 }
 
