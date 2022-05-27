@@ -218,6 +218,13 @@ func exponentialRetry(ctx context.Context, initialWait time.Duration, fn func(ct
 
 	nextWait := initialWait
 	for {
+		if err := ctx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				log.Errorw("context closed unexpectedly", "error", err)
+			}
+			return
+		}
+
 		select {
 		// If cancelled, return nil.
 		case <-ctx.Done():
