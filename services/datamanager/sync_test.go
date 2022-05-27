@@ -142,6 +142,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	err := sut.Enqueue([]string{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(time.Second * 2)
+	sut.Close()
 
 	// Test that upload failed 4 times then succeeded once.
 	test.That(t, failureCount, test.ShouldEqual, 4)
@@ -159,6 +160,4 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// ... but not increase past maxRetryInterval.
 	test.That(t, callTimes[4].Sub(callTimes[3]), test.ShouldAlmostEqual, maxRetryInterval, time.Millisecond*10)
-
-	sut.Close()
 }
