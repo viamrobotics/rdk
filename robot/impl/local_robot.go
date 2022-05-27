@@ -240,6 +240,11 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
+// Stoppable says something can be called Stop.
+type Stoppable interface {
+	Stop(ctx context.Context) error
+}
+
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
@@ -250,6 +255,15 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	if err != nil {
 		return nil, err
 	}
+
+	stop, ok := newResource.(Stoppable)
+	if ok {
+		err = stop.Stop(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
 	if c == nil || c.Reconfigurable == nil {
 		return newResource, nil
