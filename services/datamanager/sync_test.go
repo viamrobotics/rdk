@@ -22,8 +22,8 @@ func newTestSyncer(captureDir string, queue string, logger golog.Logger, uploadC
 		logger:        logger,
 		queueWaitTime: time.Nanosecond,
 		progressTracker: progressTracker{
-			lock:       &sync.Mutex{},
-			inProgress: make(map[string]bool),
+			lock: &sync.Mutex{},
+			m:    make(map[string]bool),
 		},
 		uploadFn: func(ctx context.Context, path string) error {
 			atomic.AddUint64(uploadCount, 1)
