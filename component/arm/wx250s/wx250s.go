@@ -183,6 +183,12 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 	return &pb.JointPositions{}, nil
 }
 
+// Stop is unimplemented for wx250s.
+func (a *Arm) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
+	return arm.ErrStopUnimplemented
+}
+
 // Close will get the arm ready to be turned off.
 func (a *Arm) Close() {
 	// First, check if we are approximately in the sleep position
