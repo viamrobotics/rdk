@@ -288,6 +288,7 @@ func (e *eva) resetErrors(ctx context.Context) error {
 }
 
 func (e *eva) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
 }
 

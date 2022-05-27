@@ -332,6 +332,7 @@ func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.JointPositi
 }
 
 func (a *armV1) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
 }
 
