@@ -20,8 +20,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// TODO: add binary tests too
-
 type structReading struct {
 	Field1 bool
 }
@@ -106,9 +104,7 @@ func TestSuccessfulWrite(t *testing.T) {
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait: time.Microsecond * 9500,
-			// Should have 9, but pass if we have at least 7 because there can be some variability with durations this
-			// short, and we don't want the test to be too noise-y.
+			wait:                time.Microsecond * 9500,
 			minExpectReadings:   7,
 			maxExpectedReadings: 9,
 		},
@@ -138,9 +134,7 @@ func TestSuccessfulWrite(t *testing.T) {
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait: time.Microsecond * 9500,
-			// Should have 9, but pass if we have at least 7 because there can be some variability with durations this
-			// short, and we don't want the test to be too noise-y.
+			wait:                time.Microsecond * 9500,
 			minExpectReadings:   7,
 			maxExpectedReadings: 9,
 		},
@@ -159,9 +153,9 @@ func TestSuccessfulWrite(t *testing.T) {
 		test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
 
 		// Verify that the data it wrote matches what we expect.
-		// Allow a range of readings, because when durations get really small (<<ms) there can be slight variation, and
-		// we don't want the tests to be too noisey.
-		validateNReadings(t, target, tc.minExpectReadings, tc.maxExpectedReadings)
+		// Allow a range of readings, because when durations get small (<<ms) there can be slight variation, and we
+		// don't want the tests to be too noise-y.
+		validateReadings(t, target, tc.minExpectReadings, tc.maxExpectedReadings)
 
 		// Next reading should fail; there should only be at most max readings.
 		_, err := readNextSensorData(target)
@@ -303,13 +297,13 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
-func validateNReadings(t *testing.T, file *os.File, min int, max int) {
+func validateReadings(t *testing.T, file *os.File, min int, max int) {
 	t.Helper()
 	_, _ = file.Seek(0, 0)
 	for i := 0; i < max; i++ {
 		read, err := readNextSensorData(file)
 		if err != nil {
-			if i >= min {
+			if i > min {
 				return
 			}
 			t.Fatalf("failed to read SensorData from file: %v", err)
