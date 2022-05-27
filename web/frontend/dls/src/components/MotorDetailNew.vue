@@ -9,7 +9,7 @@
         </div>
         <div class="p-4 flex items-center flex-wrap">
           <ViamBadge color="green" v-if="motorStatus.isOn">Running</ViamBadge>
-          <ViamBadge color="red" v-if="!motorStatus.isOn">Idle</ViamBadge>
+          <ViamBadge color="gray" v-if="!motorStatus.isOn">Idle</ViamBadge>
         </div>
       </div>
       <div class="p-2 float-right">
