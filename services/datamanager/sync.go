@@ -205,7 +205,7 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 }
 
 func exponentialRetry(ctx context.Context, initialWait time.Duration, fn func(ctx context.Context) error, log golog.Logger) {
-	// This is an optimization, so we only create channels if we actually need to retry.
+	// Only create a ticker and enter the retry loop if we actually need to retry.
 	if initialWait == time.Duration(0) {
 		if err := fn(ctx); err != nil {
 			exponentialRetry(ctx, getNextWait(initialWait), fn, log)
@@ -215,7 +215,6 @@ func exponentialRetry(ctx context.Context, initialWait time.Duration, fn func(ct
 	}
 
 	ticker := time.NewTicker(initialWait)
-
 	nextWait := initialWait
 	for {
 		if err := ctx.Err(); err != nil {
@@ -233,7 +232,7 @@ func exponentialRetry(ctx context.Context, initialWait time.Duration, fn func(ct
 		// Otherwise, try again after nextWait.
 		case <-ticker.C:
 			if err := fn(ctx); err != nil {
-				// If error, retry with a new initialWait.
+				// If error, retry with a new nextWait.
 				log.Errorw("error while uploading file", "error", err)
 				ticker.Stop()
 				nextWait = getNextWait(nextWait)
