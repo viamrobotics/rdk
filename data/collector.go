@@ -15,10 +15,11 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.

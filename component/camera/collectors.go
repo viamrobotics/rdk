@@ -3,6 +3,7 @@ package camera
 import (
 	"bytes"
 	"context"
+
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
