@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-
 	"go.viam.com/test"
 )
 
@@ -73,7 +72,7 @@ func TestBoatConfig(t *testing.T) {
 	test.That(t, powers[5], test.ShouldAlmostEqual, 0, testTheta)
 
 	t.Run("matrix-base", func(t *testing.T) {
-		m := cfg.computePowerOutputAsMatrix([]float64{0,0,0,0,0,0})
+		m := cfg.computePowerOutputAsMatrix([]float64{0, 0, 0, 0, 0, 0})
 		r, c := m.Dims()
 		test.That(t, 3, test.ShouldEqual, r)
 		test.That(t, 1, test.ShouldEqual, c)
@@ -98,7 +97,7 @@ func TestBoatConfig(t *testing.T) {
 	powers = cfg.computePower(l, a)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 
-	l, a = r3.Vector{}, r3.Vector{Z : .125}
+	l, a = r3.Vector{}, r3.Vector{Z: .125}
 	powers = cfg.computePower(l, a)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 }
@@ -108,15 +107,15 @@ func weightsAlmostEqual(actual interface{}, expected ...interface{}) string {
 	e := expected[0].(motorWeights)
 
 	if s := test.ShouldAlmostEqual(a.linearX, e.linearX, testTheta); s != "" {
-		return s
+		return "x: " + s
 	}
-	
+
 	if s := test.ShouldAlmostEqual(a.linearY, e.linearY, testTheta); s != "" {
-		return s
+		return "y: " + s
 	}
-	
+
 	if s := test.ShouldAlmostEqual(a.angular, e.angular, testTheta); s != "" {
-		return s
+		return "angular: " + s
 	}
 
 	return ""
@@ -129,12 +128,9 @@ func BenchmarkComputePower(b *testing.B) {
 		Width:  .5,
 	}
 
-	cfg.computeAllPosibilites()
-
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
 		cfg.computePower(r3.Vector{0, 1, 0}, r3.Vector{})
 	}
-
 }
