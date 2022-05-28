@@ -110,7 +110,12 @@
               ></ViamSwitch>
               <div v-if="pcd" class="transition-all duration-300 ease-in-out">
                 <div class="float-right pb-4">
-                  <ViamButton color="black" group variant="primary">
+                  <ViamButton
+                    color="black"
+                    group
+                    variant="primary"
+                    @click="fullImage"
+                  >
                     <template v-slot:icon>
                       <ViamIcon color="white" :path="mdiRestore"
                         >Refresh</ViamIcon
@@ -118,7 +123,12 @@
                     </template>
                     Refresh
                   </ViamButton>
-                  <ViamButton color="primary" group variant="primary">
+                  <ViamButton
+                    color="primary"
+                    group
+                    variant="primary"
+                    @click="centerPCD"
+                  >
                     <template v-slot:icon>
                       <ViamIcon :path="mdiImageFilterCenterFocus"
                         >Center</ViamIcon
@@ -158,7 +168,7 @@
                             class="form-select appearance-none block w-full px-3 py-1.5 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none"
                             aria-label="Select segmenter"
                             @change="changeSegmenter"
-                            v-model="selectedValue"
+                            v-model="selectedSegmenterValue"
                           >
                             <option value="" selected disabled>Choose</option>
                             <option
@@ -210,7 +220,8 @@
                     </Container>
                     <div class="p-4 float-right">
                       <ViamButton
-                        :loading="pcdObject && pcdObject.calculatingSegments"
+                        :loading="findStatus"
+                        :disabled="selectedSegmenterValue === ''"
                         color="black"
                         group
                         variant="primary"
@@ -269,7 +280,7 @@
                       </div>
                       <div class="grid grid-cols-1">
                         <span class="text-xs">Distance From Camera</span>
-                        <span class="pt-4">211mm</span>
+                        <span class="pt-4">{{ distanceFromCamera() }}mm</span>
                       </div>
                     </div>
                     <div class="flex pt-4 pb-8">
@@ -277,7 +288,11 @@
                         <p class="text-xs">Selection Type</p>
                         <RadioButtons
                           :options="['Center Point', 'Bounding Box', 'Cropped']"
-                          :disabledOptions="[]"
+                          :disabledOptions="
+                            selectedObject === ''
+                              ? ['Center Point', 'Bounding Box', 'Cropped']
+                              : []
+                          "
                           v-on:selectOption="selectObject($event)"
                         />
                       </div>
@@ -285,61 +300,30 @@
                         <p class="text-xs">Segmented Objects</p>
                         <select
                           class="block appearance-none w-full border border-gray-300 dark:border-black-700 pr-8 leading-tight focus:outline-none transition-colors duration-150 ease-in-out"
-                          :class="[
-                            'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 cursor-not-allowed',
-                            'pointer-events-none',
-                            'py-2 pl-2',
-                          ]"
-                          disabled
+                          :class="['py-2 pl-2']"
+                          v-model="selectedObject"
+                          @change="changeObject"
                         >
-                          <option disabled selected value="">Null</option>
+                          <option disabled selected value="">
+                            Select Object
+                          </option>
+                          <option
+                            v-for="(seg, i) in segmentObjects"
+                            :key="seg[0]"
+                            :value="i"
+                          >
+                            Object {{ i }}
+                          </option>
                         </select>
                       </div>
                       <div class="pl-8">
                         <div class="grid grid-cols-1">
                           <span class="text-xs">Object Points</span>
-                          <span class="pt-2">null</span>
+                          <span class="pt-2">{{
+                            segmentObjects ? segmentObjects.length : "null"
+                          }}</span>
                         </div>
                       </div>
-                    </div>
-                    <div class="flex pt-4 pb-8">
-                      <table
-                        class="table-auto border-collapse border border-slate-400"
-                      >
-                        <tr>
-                          <th class="border border-slate-300">Object</th>
-                          <th class="border border-slate-300">PCD</th>
-                          <th class="border border-slate-300">Point</th>
-                          <th class="border border-slate-300">Bounding Box</th>
-                        </tr>
-                        <tr>
-                          <td class="border border-slate-300">Full Image</td>
-                          <td class="border border-slate-300">
-                            <viam-button group @click="fullImage"
-                              >GO</viam-button
-                            >
-                          </td>
-                          <td class="border border-slate-300">--</td>
-                        </tr>
-                        <tr v-for="(seg, i) in objects" :key="seg">
-                          <td class="border border-slate-300">Object ${i}</td>
-                          <td class="border border-slate-300">
-                            <viam-button group @click="segmentLoad(i)"
-                              >GO</viam-button
-                            >
-                          </td>
-                          <td class="border border-slate-300">
-                            <viam-button group @click="pointLoad(i)"
-                              >GO</viam-button
-                            >
-                          </td>
-                          <td class="border border-slate-300">
-                            <viam-button group @click="boundingBoxLoad(i)"
-                              >GO</viam-button
-                            >
-                          </td>
-                        </tr>
-                      </table>
                     </div>
                   </div>
                 </div>
@@ -385,16 +369,17 @@ export default class Base extends Vue {
   @Prop({ default: null }) crumbs!: [string];
   @Prop({ default: true }) connectedCamera!: boolean;
   @Prop({ default: true }) connectedPCD!: boolean;
-  @Prop({ default: 0 }) x?: number;
-  @Prop({ default: 0 }) y?: number;
-  @Prop({ default: 0 }) z?: number;
+  @Prop({ default: 0 }) x = 0;
+  @Prop({ default: 0 }) y = 0;
+  @Prop({ default: 0 }) z = 0;
   @Prop({ default: null }) pcdObject?: Record<string, unknown>;
   @Prop({ default: null }) segmenterNames?: [string];
   @Prop({ default: null }) segmentAlgo?: string;
-  @Prop({ default: null }) segmentObjects?: [string];
+  @Prop({ default: null }) segmentObjects?: [Record<string, unknown>];
   @Prop({ default: null }) segmenterParameterNames?: [string];
   @Prop({ default: null }) parameterType?: [string];
   @Prop({ default: null }) segmenterParameters?: Record<string, unknown>;
+  @Prop({ default: false }) findStatus?: boolean;
 
   mdiInformationOutline = mdiInformationOutline;
   mdiDownloadOutline = mdiDownloadOutline;
@@ -405,6 +390,7 @@ export default class Base extends Vue {
   pcd = !this.connectedPCD;
   maxHeight = 150;
   selectedValue = "live";
+  selectedSegmenterValue = "";
   streamId = "stream-" + this.streamName;
   pcdId = "pcd-" + this.streamName;
   selected = "";
@@ -416,6 +402,7 @@ export default class Base extends Vue {
     "Pan - Right/Two Finger Click + Drag",
     "Zoom - Wheel/Two Finger Scroll",
   ];
+  selectedObject = "";
 
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
@@ -431,6 +418,16 @@ export default class Base extends Vue {
     this.camera = !this.camera;
     this.$emit("toggle-camera", this.camera);
     this.resizeContent();
+  }
+
+  distanceFromCamera(): number {
+    return (
+      Math.round(
+        Math.sqrt(
+          Math.pow(this.x, 2) + Math.pow(this.y, 2) + Math.pow(this.z, 2)
+        )
+      ) || 0
+    );
   }
 
   selectCameraView(): void {
@@ -450,19 +447,34 @@ export default class Base extends Vue {
   }
 
   changeSegmenter(): void {
-    this.$emit("change-segmenter", this.selectedValue);
+    this.$emit("change-segmenter", this.selectedSegmenterValue);
   }
 
   findSegments(): void {
-    this.$emit("find-segments", this.selectedValue, this.segmenterParameters);
+    if (this.pcdObject) {
+      this.pcdObject.calculatingSegments = true;
+    }
+    this.$emit(
+      "find-segments",
+      this.selectedSegmenterValue,
+      this.segmenterParameters
+    );
   }
 
   fullImage(e: Event): void {
     this.$emit("full-image", e);
   }
 
-  selectObject(e: Event): void {
-    this.$emit("select-object", e);
+  centerPCD(e: Event): void {
+    this.$emit("center-pcd", e);
+  }
+
+  selectObject(e: string): void {
+    this.$emit("select-object", e, this.selectedObject);
+  }
+
+  changeObject(e: string): void {
+    this.$emit("select-object", e, "Center Point");
   }
 
   pointLoad(i: number): void {

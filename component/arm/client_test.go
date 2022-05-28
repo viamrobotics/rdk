@@ -53,6 +53,9 @@ func TestClient(t *testing.T) {
 		capArmJointPos = jp
 		return nil
 	}
+	injectArm.StopFunc = func(ctx context.Context) error {
+		return arm.ErrStopUnimplemented
+	}
 
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	jointPos2 := &componentpb.JointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
@@ -70,6 +73,9 @@ func TestClient(t *testing.T) {
 
 	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions) error {
 		capArmJointPos = jp
+		return nil
+	}
+	injectArm2.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
 
@@ -120,19 +126,27 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
 
+		err = arm1Client.Stop(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, arm.ErrStopUnimplemented.Error())
+
 		test.That(t, utils.TryClose(context.Background(), arm1Client), test.ShouldBeNil)
 	})
 
 	t.Run("arm client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, testArmName, logger)
-		arm1Client2, ok := client.(arm.Arm)
+		client := resourceSubtype.RPCClient(context.Background(), conn, testArmName2, logger)
+		arm2Client, ok := client.(arm.Arm)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		pos, err := arm1Client2.GetEndPosition(context.Background())
+		pos, err := arm2Client.GetEndPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
+		test.That(t, pos.String(), test.ShouldResemble, pos2.String())
+
+		err = arm2Client.Stop(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

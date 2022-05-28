@@ -38,6 +38,13 @@ service ArmService {
       put: "/viam/api/v1/component/arm/{name}/joint_positions"
     };  
   }
+
+  // Stop stops a robot's arm 
+  rpc Stop(StopRequest) returns (StopResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/component/arm/{name}/stop"
+    };  
+  }
 }
 
 message GetEndPositionRequest {
@@ -86,6 +93,13 @@ message MoveToJointPositionsRequest {
 }
 
 message MoveToJointPositionsResponse {}
+
+message StopRequest {
+  // Name of an arm
+  string name = 1;
+}
+
+message StopResponse {}
 
 message Status {
   common.v1.Pose   end_position = 1;
