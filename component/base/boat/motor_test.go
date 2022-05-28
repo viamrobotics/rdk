@@ -11,7 +11,6 @@ import (
 const testTheta = .01
 
 func TestMotorWeights(t *testing.T) {
-
 	type d struct {
 		cfg motorConfig
 		res motorWeights
@@ -79,5 +78,4 @@ func TestMotorWeights(t *testing.T) {
 			test.That(t, w.linearY, test.ShouldAlmostEqual, x.res.linearY, testTheta)
 		})
 	}
-
 }

@@ -4,21 +4,16 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/go-nlopt/nlopt"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	"gonum.org/v1/gonum/mat"
-	
-	"github.com/go-nlopt/nlopt"
 )
-
-
 
 type boatConfig struct {
 	Motors        []motorConfig
 	Length, Width float64
-	IMU string
-	
-	allPossibilites [][]float64
+	IMU           string
 }
 
 func (bc *boatConfig) maxWeights() motorWeights {
@@ -31,7 +26,6 @@ func (bc *boatConfig) maxWeights() motorWeights {
 	}
 	return max
 }
-
 
 // examples:
 //    currentVal=2 otherVal=1, currentGoal=1, otherGoal=1 = 1
@@ -67,22 +61,8 @@ func (bc *boatConfig) computeGoal(linear, angular r3.Vector) motorWeights {
 
 	w.angular = goalScale(w.angular, w.linearX, angular.Z, linear.X)
 	w.angular = goalScale(w.angular, w.linearY, angular.Z, linear.Y)
-	
+
 	return w
-}
-
-func powerLowLevel(desire, weight float64) float64 {
-	if math.Abs(desire) < .05 || math.Abs(weight) < 0.05 {
-		return 0
-	}
-
-	p := desire
-
-	if weight < 0 {
-		p *= -1
-	}
-
-	return p
 }
 
 func (bc *boatConfig) weights() []motorWeights {
@@ -96,7 +76,7 @@ func (bc *boatConfig) weights() []motorWeights {
 
 func (bc *boatConfig) weightsAsMatrix() *mat.Dense {
 	m := mat.NewDense(3, len(bc.Motors), nil)
-	
+
 	for idx, w := range bc.weights() {
 		m.Set(0, idx, w.linearX)
 		m.Set(1, idx, w.linearY)
@@ -119,43 +99,12 @@ func (bc *boatConfig) computePowerOutputAsMatrix(powers []float64) mat.Dense {
 
 func (bc *boatConfig) computePowerOutput(powers []float64) motorWeights {
 	out := bc.computePowerOutputAsMatrix(powers)
-	
+
 	return motorWeights{
 		linearX: out.At(0, 0),
 		linearY: out.At(1, 0),
 		angular: out.At(2, 0),
 	}
-}
-
-
-func (bc *boatConfig) help(m int, cur []float64) {
-	if m >= len(bc.Motors) {
-		bc.allPossibilites = append(bc.allPossibilites, cur)
-		return
-	}
-	
-	for p := -1.0; p <= 1; p += .25 {
-		t := make([]float64, len(bc.Motors))
-		copy(t, cur)
-		t[m] = p
-		bc.help(m+1, t)
-	}
-}
-
-func (bc *boatConfig) computeAllPosibilites() [][]float64 {
-
-	if len(bc.allPossibilites) == 0 {
-		bc.help(0, make([]float64, len(bc.Motors)))
-	}
-	return bc.allPossibilites
-}
-
-func sumPower(x []float64) float64 {
-	t := 0.0
-	for _, p := range x {
-		t += math.Abs(p)
-	}
-	return t
 }
 
 // returns an array of power for each motors
@@ -164,84 +113,45 @@ func sumPower(x []float64) float64 {
 // angularPercent: -1 -> 1 percent of power you want applied to move angularly
 //                 note only z is relevant here
 func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
-	//fmt.Printf("linear: %v angular: %v\n", linear, angular)
-
 	goal := bc.computeGoal(linear, angular)
-	
-	allPossibilites := bc.computeAllPosibilites()
 
-	powers := []float64{}
-	bestDiff := 10000.0
-	for _, p := range allPossibilites {
-
-		diff := goal.diff(bc.computePowerOutput(p))
-		if diff < bestDiff && math.Abs(diff - bestDiff) > .1 {
-			bestDiff = diff
-			powers = p
-		} else if diff - .02 < bestDiff && sumPower(p) < sumPower(powers) {
-			bestDiff = diff
-			powers = p
-		}
+	opt, err := nlopt.NewNLopt(nlopt.GN_DIRECT, 6)
+	if err != nil {
+		panic(err)
 	}
-	if false {
-		fmt.Printf("goal-pre %v\n", bc.computeGoal(linear, angular))
-		fmt.Printf("res-pre  %v\n", bc.computePowerOutput(powers))
+	defer opt.Destroy()
 
-		opt, err := nlopt.NewNLopt(nlopt.LD_MMA, 6)
-		if err != nil {
-			panic(err)
-		}
-		defer opt.Destroy()
+	mins := []float64{}
+	maxs := []float64{}
 
-		mins := []float64{}
-		maxs := []float64{}
-
-		for range bc.Motors {
-			mins = append(mins, -1)
-			maxs = append(maxs, 1)
-		}
-
-		err = multierr.Combine(
-			opt.SetLowerBounds(mins),
-			opt.SetUpperBounds(maxs),
-
-			opt.SetFtolAbs(.01),
-			opt.SetFtolRel(.01),
-			opt.SetStopVal(.01),
-			opt.SetXtolAbs1(.01),
-			opt.SetXtolRel(.01),
-		)
-		if err != nil {
-			panic(1)
-		}
-
-		var evals int
-		myfunc := func(x, gradient []float64) float64 {
-			fmt.Printf("yo: %v\n", x)
-			evals++
-
-			total := bc.computePowerOutput(x)
-			diff := total.diff(goal)
-			fmt.Printf("diff %v\n", diff)
-			
-			for idx, _ := range(gradient) {
-				gradient[idx] = math.Max(.05, diff)
-			}
-
-			return diff
-		}
-
-		opt.SetMinObjective(myfunc)
-		powers, _, err = opt.Optimize(powers)
-		if err != nil {
-			panic(err)
-		}
+	for range bc.Motors {
+		mins = append(mins, -1)
+		maxs = append(maxs, 1)
 	}
 
-	//fmt.Printf("\tpowers: %v\n", powers)
-	//fmt.Printf("\tgoal-post %v\n", bc.computeGoal(linear, angular))
-	//fmt.Printf("\tres-post  %v\n", bc.computePowerOutput(powers))
-	
+	err = multierr.Combine(
+		opt.SetLowerBounds(mins),
+		opt.SetUpperBounds(maxs),
+
+		opt.SetStopVal(.001),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	myfunc := func(x, gradient []float64) float64 {
+		total := bc.computePowerOutput(x)
+		return total.diff(goal)
+	}
+
+	err = opt.SetMinObjective(myfunc)
+	if err != nil {
+		panic(err)
+	}
+	powers, _, err := opt.Optimize(make([]float64, 6))
+	if err != nil {
+		panic(err)
+	}
+
 	return powers
-
 }

@@ -1,16 +1,17 @@
+// Package boat implements a base for a boat with support for N motors in any position or angle
 package boat
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 	"time"
-	
+
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/generic"
@@ -20,7 +21,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/utils"
 )
 
 func init() {
@@ -28,7 +28,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return createBoat(ctx, r, config.ConvertedAttributes.(*boatConfig), logger)
+			return createBoat(r, config.ConvertedAttributes.(*boatConfig), logger)
 		},
 	}
 	registry.RegisterComponent(base.Subtype, "boat", boatComp)
@@ -43,7 +43,7 @@ func init() {
 		&boatConfig{})
 }
 
-func createBoat(ctx context.Context, r robot.Robot, config *boatConfig, logger golog.Logger) (base.LocalBase, error) {
+func createBoat(r robot.Robot, config *boatConfig, logger golog.Logger) (base.LocalBase, error) {
 	if config.Width <= 0 {
 		return nil, errors.New("width has to be > 0")
 	}
@@ -62,8 +62,6 @@ func createBoat(ctx context.Context, r robot.Robot, config *boatConfig, logger g
 		theBoat.motors = append(theBoat.motors, m)
 	}
 
-	fmt.Printf("hi %#v\n", theBoat)
-
 	if config.IMU != "" {
 		var err error
 		theBoat.imu, err = imu.FromRobot(r, config.IMU)
@@ -75,11 +73,11 @@ func createBoat(ctx context.Context, r robot.Robot, config *boatConfig, logger g
 }
 
 type boatState struct {
-	threadStarted bool
+	threadStarted      bool
 	velocityControlled bool
 
-	lastPower []float64
-	lastPowerLinear, lastPowerAngular r3.Vector
+	lastPower                               []float64
+	lastPowerLinear, lastPowerAngular       r3.Vector
 	velocityLinearGoal, velocityAngularGoal r3.Vector
 }
 
@@ -88,11 +86,11 @@ type boat struct {
 
 	cfg    *boatConfig
 	motors []motor.Motor
-	imu imu.IMU
-	
+	imu    imu.IMU
+
 	opMgr operation.SingleOperationManager
 
-	state boatState
+	state      boatState
 	stateMutex sync.Mutex
 
 	cancel context.CancelFunc
@@ -137,12 +135,12 @@ func (b *boat) startVelocityThread() error {
 		return errors.New("no imu")
 	}
 
-	ctx := context.Background()
-	ctx, b.cancel = context.WithCancel(ctx)
-	
+	var ctx context.Context
+	ctx, b.cancel = context.WithCancel(context.Background())
+
 	go func() {
 		for {
-			utils.SelectContextOrWait(ctx, time.Millisecond * 100)
+			utils.SelectContextOrWait(ctx, time.Millisecond*100)
 			err := b.velocityThreadLoop(ctx)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
@@ -157,14 +155,13 @@ func (b *boat) startVelocityThread() error {
 }
 
 func (b *boat) velocityThreadLoop(ctx context.Context) error {
-
 	av, err := b.imu.ReadAngularVelocity(ctx)
 	if err != nil {
 		return err
 	}
 
 	b.stateMutex.Lock()
-	
+
 	if !b.state.velocityControlled {
 		b.stateMutex.Unlock()
 		return nil
@@ -174,7 +171,7 @@ func (b *boat) velocityThreadLoop(ctx context.Context) error {
 	angular := b.state.lastPowerAngular
 
 	angularDiff := av.Z - b.state.velocityAngularGoal.Z
-	
+
 	if math.Abs(angularDiff) > 1 {
 		delta := angularDiff / 360
 		for math.Abs(delta) < .01 {
@@ -185,20 +182,19 @@ func (b *boat) velocityThreadLoop(ctx context.Context) error {
 		angular.Z = math.Min(1, angular.Z)
 	}
 
-	fmt.Printf("prev: %v now: %v goal: %v diff: %v\n",
-		b.state.lastPowerAngular.Z,
-		angular.Z,
-		b.state.velocityAngularGoal.Z,
-		angularDiff,
-	)
-
+	/*
+		fmt.Printf("prev: %v now: %v goal: %v diff: %v\n",
+			b.state.lastPowerAngular.Z,
+			angular.Z,
+			b.state.velocityAngularGoal.Z,
+			angularDiff,
+		)
+	*/
 	linear.Y = b.state.velocityLinearGoal.Y // TEMP
 	linear.X = b.state.velocityLinearGoal.X // TEMP
 
-	fmt.Printf("\t hi %v %v\n", linear, b.state.velocityLinearGoal)
-	
 	b.stateMutex.Unlock()
-	
+
 	return b.setPowerInternal(ctx, linear, angular)
 }
 
@@ -209,13 +205,14 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 	b.stateMutex.Lock()
 
 	if !b.state.threadStarted {
+		// nolint:contextcheck
 		err := b.startVelocityThread()
 		if err != nil {
 			return err
 		}
 		b.state.threadStarted = true
 	}
-	
+
 	b.state.velocityControlled = true
 	b.state.velocityLinearGoal = linear
 	b.state.velocityAngularGoal = angular
@@ -223,7 +220,6 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 
 	return b.setPowerInternal(ctx, linear, angular)
 }
-
 
 func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	ctx, done := b.opMgr.New(ctx)
@@ -236,11 +232,9 @@ func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	return b.setPowerInternal(ctx, linear, angular)
 }
 
-
 func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) error {
-	
 	power := b.cfg.computePower(linear, angular)
-	
+
 	for idx, p := range power {
 		err := b.motors[idx].SetPower(ctx, p)
 		if err != nil {
@@ -256,7 +250,7 @@ func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) 
 	b.state.lastPowerLinear = linear
 	b.state.lastPowerAngular = angular
 	b.stateMutex.Unlock()
-	
+
 	return nil
 }
 
@@ -265,7 +259,7 @@ func (b *boat) Stop(ctx context.Context) error {
 	b.state.velocityLinearGoal = r3.Vector{}
 	b.state.velocityAngularGoal = r3.Vector{}
 	b.stateMutex.Unlock()
-	
+
 	b.opMgr.CancelRunning(ctx)
 	var err error
 	for _, m := range b.motors {
