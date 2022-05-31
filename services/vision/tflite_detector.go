@@ -23,14 +23,6 @@ type TfliteDetectorConfig struct {
 	ServiceURL *string `json:"service_url"`
 }
 
-// TfliteModelInfo has everything we expect back from inf.GetModelInfo()
-type TfliteModelInfo struct {
-	InputSize []int
-	InputType string
-	//BboxOrder *[]int
-}
-
-
 // NewTfliteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->objdet.Detections. It does this by making calls to
 // an inference package and wrapping the result
@@ -47,7 +39,6 @@ func NewTfliteDetector(cfg *DetectorConfig) (objectdetection.Detector, error) {
 		return nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
 	} //params is now the TfliteDetectorConfig
 
-
 	err = addTfliteModel(params.ModelPath, cfg.Name, cfg.Type, *params.NumThreads)
 	if err != nil {
 		return nil, err
@@ -57,11 +48,10 @@ func NewTfliteDetector(cfg *DetectorConfig) (objectdetection.Detector, error) {
 		return nil, err
 	}
 	inSize := modelInfo["inputSize"].([]int)
-	
+
 	//This function has to be the detector
 	return func(img image.Image) ([]objectdetection.Detection, error) {
 
-		//resize it... call infer... shape result into detection
 		resizedImg := resize.Resize(inSize[0], inSize[1], img, resize.Bilinear)
 		infResult, err := tfliteInfer(cfg.Name, resizedImg)
 		if err != nil {
@@ -77,19 +67,21 @@ func NewTfliteDetector(cfg *DetectorConfig) (objectdetection.Detector, error) {
 // addTfliteModel uses the AddModel function in the inference package to register a tflite model
 func addTfliteModel(filepath, modelName, modelType string, numThreads int) error {
 
-	//Turn filepath to file
-	file, err := os.Open(filepath)
-	if err != nil{
-		return err
-	}
-	fileinfo, _ := file.Stat()
-	buffer := make([]byte, fileinfo.Size())
-	_ , err = file.Read(buffer)
-	if err != nil{
-		return err
-	}
+	/*
+		//Turn filepath to file
+		file, err := os.Open(filepath)
+		if err != nil{
+			return err
+		}
+		fileinfo, _ := file.Stat()
+		buffer := make([]byte, fileinfo.Size())
+		_ , err = file.Read(buffer)
+		if err != nil{
+			return err
+		}
+	*/
 
-	err = inf.AddModel(buffer, modelName, modelType, numThreads)
+	err := inf.AddModel(filepath, modelName, modelType, numThreads)
 	if err != nil {
 		return errors.Wrap(err, "couldn't add model")
 	}
