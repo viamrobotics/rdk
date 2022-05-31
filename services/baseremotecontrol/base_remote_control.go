@@ -23,9 +23,7 @@ import (
 // Constants for the system including the max speed and angle (TBD: allow to be set as config vars)
 // as well as the various control modes including oneJoystick (control via a joystick), triggerSpeed
 // (triggers control speed and joystick angle), button (four buttons X, Y, A, B to  control speed and
-// angle) and arrow (arrows buttons used to control speed and angle). A distance ratio is used as well
-// to account for the base's need for a disatnce parameter, this vlaue is arbitrarily large such that
-// holding a button/joystick in position will not cause unexpected stops to quickly.
+// angle) and arrow (arrows buttons used to control speed and angle).
 const (
 	joyStickControl = controlMode(iota)
 	triggerSpeedControl
@@ -293,16 +291,16 @@ func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vec
 	return linear, angular
 }
 
-func similar(a, b r3.Vector, delta float64) bool {
-	if math.Abs(a.X-b.X) > delta {
+func similar(a, b r3.Vector, deltaThreshold float64) bool {
+	if math.Abs(a.X-b.X) > deltaThreshold {
 		return false
 	}
 
-	if math.Abs(a.Y-b.Y) > delta {
+	if math.Abs(a.Y-b.Y) > deltaThreshold {
 		return false
 	}
 
-	if math.Abs(a.Z-b.Z) > delta {
+	if math.Abs(a.Z-b.Z) > deltaThreshold {
 		return false
 	}
 
