@@ -293,16 +293,16 @@ func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vec
 	return linear, angular
 }
 
-func similar(a, b r3.Vector, delta float64) bool {
-	if math.Abs(a.X-b.X) > delta {
+func similar(a, b r3.Vector, deltaThreshold float64) bool {
+	if math.Abs(a.X-b.X) > deltaThreshold {
 		return false
 	}
 
-	if math.Abs(a.Y-b.Y) > delta {
+	if math.Abs(a.Y-b.Y) > deltaThreshold {
 		return false
 	}
 
-	if math.Abs(a.Z-b.Z) > delta {
+	if math.Abs(a.Z-b.Z) > deltaThreshold {
 		return false
 	}
 
