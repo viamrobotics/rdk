@@ -1162,10 +1162,10 @@
             resourceName.setName(name.name);
             return resourceName;
           });
-          const streamReq = new statusApi.StreamStatusRequest();
+          const streamReq = new robotApi.StreamStatusRequest();
           streamReq.setResourceNamesList(names);
           streamReq.setEvery(new proto.google.protobuf.Duration().setNanos(500000000)); // 500ms
-          statusStream = statusService.streamStatus(streamReq);
+          statusStream = robotService.streamStatus(streamReq);
           let firstData = true;
           statusStream.on("data", function (response) {
             lastStatusTS = Date.now();
