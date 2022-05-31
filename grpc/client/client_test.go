@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -23,7 +24,9 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/sensor"
@@ -44,6 +47,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -78,7 +82,7 @@ var finalResources = []resource.Name{
 	servo.Named("servo3"),
 }
 
-func TestClient(t *testing.T) {
+func TestStatusClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -942,5 +946,99 @@ func TestClientConfig(t *testing.T) {
 
 		err = failingDialedClient.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
+func TestClientStatus(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	listener2, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	gServer2 := grpc.NewServer()
+
+	injectRobot := &inject.Robot{ResourceNamesFunc: func() []resource.Name { return []resource.Name{} }}
+	injectRobot2 := &inject.Robot{ResourceNamesFunc: func() []resource.Name { return []resource.Name{} }}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
+
+	go gServer.Serve(listener1)
+	defer gServer.Stop()
+
+	go gServer2.Serve(listener2)
+	defer gServer2.Stop()
+
+	t.Run("failing client", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err = New(cancelCtx, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+	})
+
+	t.Run("working status service", func(t *testing.T) {
+		client, err := New(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		iStatus := robot.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
+		gStatus := robot.Status{Name: gps.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
+		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
+		statusMap := map[resource.Name]robot.Status{
+			iStatus.Name: iStatus,
+			gStatus.Name: gStatus,
+			aStatus.Name: aStatus,
+		}
+		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+			statuses := make([]robot.Status, 0, len(resourceNames))
+			for _, n := range resourceNames {
+				statuses = append(statuses, statusMap[n])
+			}
+			return statuses, nil
+		}
+		expected := map[resource.Name]interface{}{
+			iStatus.Name: map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}},
+			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
+			aStatus.Name: map[string]interface{}{},
+		}
+		resp, err := client.GetStatus(context.Background(), []resource.Name{aStatus.Name})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 1)
+		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
+
+		result := struct{}{}
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &result})
+		test.That(t, err, test.ShouldBeNil)
+		err = decoder.Decode(resp[0].Status)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldResemble, aStatus.Status)
+
+		resp, err = client.GetStatus(context.Background(), []resource.Name{iStatus.Name, gStatus.Name, aStatus.Name})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 3)
+
+		observed := map[resource.Name]interface{}{
+			resp[0].Name: resp[0].Status,
+			resp[1].Name: resp[1].Status,
+			resp[2].Name: resp[2].Status,
+		}
+		test.That(t, observed, test.ShouldResemble, expected)
+
+		err = client.Close(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("failing status client", func(t *testing.T) {
+		client2, err := New(context.Background(), listener2.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		passedErr := errors.New("can't get status")
+		injectRobot2.GetStatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
+			return nil, passedErr
+		}
+		_, err = client2.GetStatus(context.Background(), []resource.Name{})
+		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
+
+		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
 	})
 }
