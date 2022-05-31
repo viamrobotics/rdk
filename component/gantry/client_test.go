@@ -2,6 +2,7 @@ package gantry_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
@@ -45,6 +46,9 @@ func TestClient(t *testing.T) {
 	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return len1, nil
 	}
+	injectGantry.StopFunc = func(ctx context.Context) error {
+		return errors.New("no stop")
+	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
 	len2 := []float64{5.0, 6.0, 7.0}
@@ -59,6 +63,9 @@ func TestClient(t *testing.T) {
 	injectGantry2.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return len2, nil
 	}
+	injectGantry2.StopFunc = func(ctx context.Context) error {
+		return nil
+	}
 
 	gantrySvc, err := subtype.New(
 		(map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
@@ -67,7 +74,7 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(gantry.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc)
 
-	injectGantry2.DoFunc = generic.EchoFunc
+	injectGantry.DoFunc = generic.EchoFunc
 	generic.RegisterService(rpcServer, gantrySvc)
 
 	go rpcServer.Serve(listener1)
@@ -83,10 +90,10 @@ func TestClient(t *testing.T) {
 	})
 
 	// working
-	gantry1Client, err := gantry.NewClient(context.Background(), testGantryName2, listener1.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-
 	t.Run("gantry client 1", func(t *testing.T) {
+		gantry1Client, err := gantry.NewClient(context.Background(), testGantryName, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
 		// Do
 		resp, err := gantry1Client.Do(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
@@ -95,30 +102,39 @@ func TestClient(t *testing.T) {
 
 		pos, err := gantry1Client.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldResemble, pos2)
+		test.That(t, pos, test.ShouldResemble, pos1)
 
-		err = gantry1Client.MoveToPosition(context.Background(), pos1, &commonpb.WorldState{})
+		err = gantry1Client.MoveToPosition(context.Background(), pos2, &commonpb.WorldState{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, gantryPos, test.ShouldResemble, pos1)
+		test.That(t, gantryPos, test.ShouldResemble, pos2)
 
 		lens, err := gantry1Client.GetLengths(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, lens, test.ShouldResemble, len2)
+		test.That(t, lens, test.ShouldResemble, len1)
+
+		err = gantry1Client.Stop(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no stop")
+
+		test.That(t, utils.TryClose(context.Background(), gantry1Client), test.ShouldBeNil)
 	})
 
 	t.Run("gantry client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, testGantryName, logger)
-		gantry1Client2, ok := client.(gantry.Gantry)
+		client := resourceSubtype.RPCClient(context.Background(), conn, testGantryName2, logger)
+		gantry2Client, ok := client.(gantry.Gantry)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		pos, err := gantry1Client2.GetPosition(context.Background())
+		pos, err := gantry2Client.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldResemble, pos1)
+		test.That(t, pos, test.ShouldResemble, pos2)
+
+		err = gantry2Client.Stop(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-	test.That(t, utils.TryClose(context.Background(), gantry1Client), test.ShouldBeNil)
 }
 
 func TestClientDialerOption(t *testing.T) {
