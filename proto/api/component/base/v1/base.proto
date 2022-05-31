@@ -17,15 +17,6 @@ service BaseService {
     };  
   }
 
-  // MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-  // a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
-  // This method blocks until completed or cancelled
-  rpc MoveArc(MoveArcRequest) returns (MoveArcResponse) {
-    option (google.api.http) = {
-      post: "/viam/api/v1/component/base/{name}/move_arc"
-    };  
-  }
-
   // Spin spins a robot's base by an given angle, expressed in degrees, and a given 
   // angular speed, expressed in degrees per second
   // This method blocks until completed or cancelled
@@ -35,10 +26,18 @@ service BaseService {
     };  
   }
 
-  // SetPower sets the linear and angular velocity of a base
+  // SetPower sets the linear and angular power of a base
+  // -1 -> 1 in terms of power for each direction
   rpc SetPower(SetPowerRequest) returns (SetPowerResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/set_power"
+    };  
+  }
+
+  // SetVelocity sets the linear and angular velocity of a base
+  rpc SetVelocity(SetVelocityRequest) returns (SetVelocityResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/component/base/{name}/set_velocity"
     };  
   }
 
@@ -60,19 +59,6 @@ message MoveStraightRequest {
 }
 
 message MoveStraightResponse {}
-
-message MoveArcRequest {
-  // Name of a base
-  string name = 1;
-  // Desired travel distance in millimeters
-  int64 distance_mm = 2;
-  // Desired speed in millimeters per second 
-  double mm_per_sec = 3;
-  // Desired angle in degrees
-  double angle_deg = 4;
-}
-
-message MoveArcResponse {}
 
 message SpinRequest {
   // Name of a base
@@ -102,3 +88,14 @@ message SetPowerRequest {
 }
 
 message SetPowerResponse{}
+
+message SetVelocityRequest {
+  // Name of a base
+  string name = 1;
+  // Desired linear velocity in mm per second
+  common.v1.Vector3 linear = 2;
+  // Desired angular velocity in degrees per second
+  common.v1.Vector3 angular = 3;
+}
+
+message SetVelocityResponse{}
