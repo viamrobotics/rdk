@@ -5,9 +5,8 @@ import (
 	"net"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
