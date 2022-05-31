@@ -198,3 +198,8 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	// }
 	return nil
 }
+
+func (s *Service) viamUpload(ctx context.Context, path string) error {
+	// TODO: figure how to build and use client.
+	return nil
+}
