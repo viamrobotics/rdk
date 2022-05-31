@@ -48,7 +48,6 @@ func NewTfliteDetector(cfg *DetectorConfig) (objectdetection.Detector, error) {
 	} //params is now the TfliteDetectorConfig
 
 
-	//pretend this part worked and returns a client for the standalone ML inference service
 	err = addTfliteModel(params.ModelPath, cfg.Name, cfg.Type, *params.NumThreads)
 	if err != nil {
 		return nil, err
@@ -57,28 +56,40 @@ func NewTfliteDetector(cfg *DetectorConfig) (objectdetection.Detector, error) {
 	if err != nil {
 		return nil, err
 	}
+	inSize := modelInfo["inputSize"].([]int)
 	
 	//This function has to be the detector
 	return func(img image.Image) ([]objectdetection.Detection, error) {
 
 		//resize it... call infer... shape result into detection
-		resizedImg := resize.Resize(modelInfo.InputSize[0], modelInfo.InputSize[1], img, resize.Bilinear)
+		resizedImg := resize.Resize(inSize[0], inSize[1], img, resize.Bilinear)
 		infResult, err := tfliteInfer(cfg.Name, resizedImg)
 		if err != nil {
 			return nil, err
 		}
 		labelMap, _ := loadLabels(*params.LabelPath) //should check this error with a logger saying no labels
 
-		detections := unpackTensors(infResult, cfg.Name, modelInfo.InputSize[0], modelInfo.InputSize[1], labelMap)
+		detections := unpackTensors(infResult, cfg.Name, inSize[0], inSize[1], labelMap)
 		return detections, nil
 	}, nil
 }
 
-//TODO:KHARI Read from the filepath given and give inf.AddModel a []bytes
 // addTfliteModel uses the AddModel function in the inference package to register a tflite model
-func addTfliteModel(file, modelName, modelType string, numThreads int) error {
+func addTfliteModel(filepath, modelName, modelType string, numThreads int) error {
 
-	err := inf.AddModel(file, modelName, modelType, numThreads)
+	//Turn filepath to file
+	file, err := os.Open(filepath)
+	if err != nil{
+		return err
+	}
+	fileinfo, _ := file.Stat()
+	buffer := make([]byte, fileinfo.Size())
+	_ , err = file.Read(buffer)
+	if err != nil{
+		return err
+	}
+
+	err = inf.AddModel(buffer, modelName, modelType, numThreads)
 	if err != nil {
 		return errors.Wrap(err, "couldn't add model")
 	}
@@ -86,13 +97,13 @@ func addTfliteModel(file, modelName, modelType string, numThreads int) error {
 }
 
 // getTfliteModel uses the GetModelInfo function in the inf package to return model information
-func getTfliteModelInfo(modelName string) (*TfliteModelInfo, error) {
+func getTfliteModelInfo(modelName string) (config.AttributeMap, error) {
 
 	info, err := inf.GetModelInfo(modelName)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get your model info")
 	}
-	return info, nil
+	return info.(config.AttributeMap), nil
 }
 
 // tfliteInfer uses the Infer function in the inf package to return the output tensors from the model
