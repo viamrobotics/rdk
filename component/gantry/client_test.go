@@ -2,9 +2,10 @@ package gantry_test
 
 import (
 	"context"
-	"errors"
 	"net"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
