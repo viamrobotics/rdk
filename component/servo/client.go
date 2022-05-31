@@ -87,6 +87,11 @@ func (c *client) GetPosition(ctx context.Context) (uint8, error) {
 	return uint8(resp.PositionDeg), nil
 }
 
+func (c *client) Stop(ctx context.Context) error {
+	_, err := c.client.Stop(ctx, &pb.StopRequest{Name: c.name})
+	return err
+}
+
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }
