@@ -31,7 +31,7 @@ func (pF *PoseInFrame) Pose() spatialmath.Pose {
 }
 
 // Transform changes the PoseInFrame pF into the reference frame specified by the tf argument.
-// The tf PoseInFrame represents the pose of the pF reference frame with respect to the destination reference frame
+// The tf PoseInFrame represents the pose of the pF reference frame with respect to the destination reference frame.
 func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
 	return NewPoseInFrame(tf.frame, spatialmath.Compose(tf.pose, pF.pose))
 }
@@ -80,7 +80,7 @@ func (gF *GeometriesInFrame) Geometries() map[string]spatialmath.Geometry {
 }
 
 // Transform changes the GeometriesInFrame gF into the reference frame specified by the tf argument.
-// The tf PoseInFrame represents the pose of the gF reference frame with respect to the destination reference frame
+// The tf PoseInFrame represents the pose of the gF reference frame with respect to the destination reference frame.
 func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
 	geometries := make(map[string]spatialmath.Geometry)
 	for name, geometry := range gF.geometries {
