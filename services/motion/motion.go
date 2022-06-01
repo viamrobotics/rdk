@@ -159,13 +159,13 @@ func (ms *motionService) Move(
 
 	// re-evaluate goalPose to be in the frame we're going to move in
 	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	goalPose, err := solver.TransformPose(input, destination.Pose(), goalFrameName, solvingFrame)
+	tf, err := solver.Transform(input, destination, solvingFrame)
 	if err != nil {
 		return false, err
 	}
+	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	_ = worldState // TODO(rb) incorporate obstacles into motion planning
 	output, err := solver.SolvePose(ctx, input, goalPose.Pose(), componentName.Name, solvingFrame)
 	if err != nil {
 		return false, err
