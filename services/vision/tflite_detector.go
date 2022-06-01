@@ -2,6 +2,7 @@ package vision
 
 import (
 	"bufio"
+	"fmt"
 	"image"
 	"os"
 	"strconv"
@@ -49,6 +50,7 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 		return nil, err
 	}
 	inSize := modelInfo["inputSize"].([]int)
+	outTypes := modelInfo["outputTensorTypes"].([]string)
 
 	//This function has to be the detector
 	return func(img image.Image) ([]objectdetection.Detection, error) {
@@ -61,7 +63,7 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 		if err != nil {
 			logger.Info("could not retrieve class labels")
 		}
-		detections := unpackTensors(infResult, params.ModelPath, inSize[0], inSize[1], labelMap)
+		detections := unpackTensors(infResult, params.ModelPath, inSize[0], inSize[1], outTypes, labelMap)
 		return detections, nil
 	}, nil
 }
@@ -134,7 +136,7 @@ func imageToBuffer(img image.Image) []byte {
 
 // unpackTensors takes the output tensors from the model and shapes them into RDK detections
 // Which tensor is which gets determined via the length and type of the output tensor
-func unpackTensors(T config.AttributeMap, filepath string, w, h int, labelMap []string) []objectdetection.Detection {
+func unpackTensorsOld(T config.AttributeMap, filepath string, w, h int, labelMap []string) []objectdetection.Detection {
 	// This might be a weird way to do it but.... lol here we go
 	l1 := T.IntSlice("out1")
 	l2 := T.IntSlice("out2")
@@ -190,6 +192,68 @@ func unpackTensors(T config.AttributeMap, filepath string, w, h int, labelMap []
 			scores = b3
 		}
 	} //Once that's done we have all of them (bboxes, labels, scores)
+
+	//Now, check if we have action in the BboxOrder... if not, set to default
+	boxOrder, err := getBboxOrder(filepath)
+	if boxOrder == nil || err != nil {
+		boxOrder = []int{1, 0, 3, 2}
+	}
+
+	//Detection gathering
+	detections := make([]objectdetection.Detection, len(scores))
+	for i := 0; i < len(scores); i++ {
+		//Gather box
+		xmin, ymin, xmax, ymax := bboxes[4*i+getIndex(boxOrder, 0)]*float64(w), bboxes[4*i+getIndex(boxOrder, 1)]*float64(h),
+			bboxes[4*i+getIndex(boxOrder, 2)]*float64(w), bboxes[4*i+getIndex(boxOrder, 3)]*float64(h)
+		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
+
+		//Gather label
+		var label string
+		if labelMap == nil {
+			label = strconv.Itoa(labels[i])
+		} else {
+			label = labelMap[labels[i]]
+		}
+
+		//Gather score and package it
+		d := objectdetection.NewDetection(rect, scores[i], label)
+		detections = append(detections, d)
+	}
+	return detections
+}
+
+func unpackTensors(T config.AttributeMap, filepath string, w, h int, outTypes, labelMap []string) []objectdetection.Detection {
+	// Given the modelTypes,
+	var intIndices, floatIndices []int
+	var labels []int
+	var bboxes []float64
+	var scores []float64
+
+	for i, t := range outTypes {
+		switch {
+		case (t == "Int8" || t == "Int16" || t == "Int32" || t == "UInt8"):
+			intIndices = append(intIndices, i)
+
+		case (t == "Float32"):
+			floatIndices = append(floatIndices, i)
+		}
+	}
+
+	if len(intIndices) == 1 || len(T.IntSlice(fmt.Sprint("out", intIndices[0]))) > len(T.IntSlice(fmt.Sprint("out", intIndices[1]))) {
+		labels = T.IntSlice(fmt.Sprint("out", intIndices[0]))
+	} else {
+		labels = T.IntSlice(fmt.Sprint("out", intIndices[1]))
+	}
+
+	if len(floatIndices) == 1 || len(T.Float64Slice(fmt.Sprint("out", floatIndices[0]))) > len(T.Float64Slice(fmt.Sprint("out", floatIndices[1]))) {
+		bboxes = T.Float64Slice(fmt.Sprint("out", floatIndices[0]))
+		scores = T.Float64Slice(fmt.Sprint("out", floatIndices[1]))
+	} else {
+		bboxes = T.Float64Slice(fmt.Sprint("out", floatIndices[1]))
+		scores = T.Float64Slice(fmt.Sprint("out", floatIndices[0]))
+	}
+	//We should have everything (bboxes, labels, scores) at this point
+
 
 	//Now, check if we have action in the BboxOrder... if not, set to default
 	boxOrder, err := getBboxOrder(filepath)
