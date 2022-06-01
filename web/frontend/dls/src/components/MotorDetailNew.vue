@@ -36,6 +36,7 @@
                 <p class="text-xs pb-2">Set Power</p>
                 <RadioButtons
                   :options="['Go', 'Go To', 'Go For']"
+                  defaultOption="Go"
                   :disabledOptions="[]"
                   v-on:selectOption="setMovementType($event)"
                 />
@@ -68,6 +69,7 @@
                   <p class="text-xs pb-2 pt-1">Direction of Rotation</p>
                   <RadioButtons
                     :options="['Forwards', 'Backwards']"
+                    defaultOption="Forwards"
                     :disabledOptions="[]"
                     v-on:selectOption="setDirection($event)"
                   />
@@ -112,6 +114,7 @@
                   <p class="text-xs pb-2 pt-1">Direction of Rotation</p>
                   <RadioButtons
                     :options="['Forwards', 'Backwards']"
+                    defaultOption="Forwards"
                     :disabledOptions="[]"
                     v-on:selectOption="setDirection($event)"
                   />
@@ -145,6 +148,7 @@
                   <p class="text-xs pb-2 pt-1">Direction of Rotation</p>
                   <RadioButtons
                     :options="['Forwards', 'Backwards']"
+                    defaultOption="Forwards"
                     :disabledOptions="[]"
                     v-on:selectOption="setDirection($event)"
                   />
@@ -241,7 +245,7 @@ export default class MotorDetailNew extends Vue {
   selectedItem = "keyboard";
   pressedKey = 0;
   movementMode = "";
-  movementType = "";
+  movementType = "Go";
   direction: -1 | 1 = 1;
   spinType = "";
   position = 0;
@@ -253,6 +257,7 @@ export default class MotorDetailNew extends Vue {
   infoGo = ["Continously moves"];
   infoGoTo = ["Relative to Home"];
   infoGoFor = ["Relative to where robot is currently is"];
+  
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
   }
