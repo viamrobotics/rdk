@@ -369,8 +369,8 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 		}
 		discoveries = append(
 			discoveries, discovery.Discovery{
-				Query:      q,
-				Discovered: disc.Discoveries.AsMap(),
+				Query:   q,
+				Results: disc.Results.AsMap(),
 			})
 	}
 	return discoveries, nil

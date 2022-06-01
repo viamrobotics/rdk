@@ -140,7 +140,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 
 	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
 	for _, discovery := range discoveries {
-		pbDiscovered, err := protoutils.StructToStructPb(discovery.Discovered)
+		pbResults, err := protoutils.StructToStructPb(discovery.Results)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
 		}
@@ -148,8 +148,8 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		pbDiscoveries = append(
 			pbDiscoveries,
 			&pb.Discovery{
-				Query:       pbQuery,
-				Discoveries: pbDiscovered,
+				Query:   pbQuery,
+				Results: pbResults,
 			},
 		)
 	}

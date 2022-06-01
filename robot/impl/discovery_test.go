@@ -110,7 +110,7 @@ func TestDiscovery(t *testing.T) {
 
 		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Discovered: workingDiscovery}})
+		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Results: workingDiscovery}})
 	})
 
 	t.Run("duplicated working Discover", func(t *testing.T) {
@@ -118,7 +118,7 @@ func TestDiscovery(t *testing.T) {
 
 		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ, workingQ, workingQ})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Discovered: workingDiscovery}})
+		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Results: workingDiscovery}})
 	})
 
 	t.Run("working and missing Discover", func(t *testing.T) {
@@ -126,6 +126,6 @@ func TestDiscovery(t *testing.T) {
 
 		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ, missingQ})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Discovered: workingDiscovery}})
+		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Results: workingDiscovery}})
 	})
 }

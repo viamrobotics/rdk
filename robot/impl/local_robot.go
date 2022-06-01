@@ -431,7 +431,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Quer
 			if err != nil {
 				return nil, &discovery.DiscoverError{q}
 			}
-			discoveries = append(discoveries, discovery.Discovery{Query: q, Discovered: discovered})
+			discoveries = append(discoveries, discovery.Discovery{Query: q, Results: discovered})
 		}
 	}
 	return discoveries, nil
