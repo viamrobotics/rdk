@@ -88,65 +88,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	t.Run("MoveArc", func(t *testing.T) {
-		// on successful move arc
-		workingBase.MoveArcFunc = func(
-			ctx context.Context, distanceMm int,
-			mmPerSec, angleDeg float64,
-		) error {
-			return nil
-		}
-		req := &pb.MoveArcRequest{
-			Name:       testBaseName,
-			MmPerSec:   2.3,
-			DistanceMm: 1,
-			AngleDeg:   42.0,
-		}
-		resp, err := server.MoveArc(context.Background(), req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, &pb.MoveArcResponse{})
-
-		// on failing move arc
-		errMsg := "move arc failed"
-		brokenBase.MoveArcFunc = func(
-			ctx context.Context, distanceMm int,
-			mmPerSec float64, angleDeg float64,
-		) error {
-			return errors.New(errMsg)
-		}
-		req = &pb.MoveArcRequest{
-			Name:       failBaseName,
-			MmPerSec:   2.3,
-			DistanceMm: 1,
-			AngleDeg:   42.0,
-		}
-		resp, err = server.MoveArc(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
-
-		// failure on bad base handled
-		req = &pb.MoveArcRequest{
-			Name:       fakeBaseName,
-			MmPerSec:   2.3,
-			DistanceMm: 1,
-			AngleDeg:   42.0,
-		}
-		resp, err = server.MoveArc(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		// failure on unfound base
-		req = &pb.MoveArcRequest{
-			Name:       "dne",
-			MmPerSec:   2.3,
-			DistanceMm: 1,
-			AngleDeg:   42.0,
-		}
-		resp, err = server.MoveArc(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
 	t.Run("Spin", func(t *testing.T) {
 		// on successful spin
 		workingBase.SpinFunc = func(
