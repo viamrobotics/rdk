@@ -56,6 +56,11 @@ func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64, worl
 	return nil
 }
 
+// Stop doesn't do anything for a fake gantry.
+func (g *Gantry) Stop(ctx context.Context) error {
+	return nil
+}
+
 // ModelFrame returns a Gantry frame.
 func (g *Gantry) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
