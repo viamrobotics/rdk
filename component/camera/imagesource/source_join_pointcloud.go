@@ -139,7 +139,8 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 				panic(err) // TODO(erh) is there something better to do?
 			}
 
-			theTransform, err := fs.TransformFrame(inputs, jpcs.sourceNames[iCopy], jpcs.targetName)
+			sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[iCopy], spatialmath.NewZeroPose())
+			theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
 			if err != nil {
 				panic(err) // TODO(erh) is there something better to do?
 			}
@@ -156,7 +157,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 					pcSrc.Iterate(numLoops, loop, func(p r3.Vector, d pointcloud.Data) bool {
 						if jpcs.sourceNames[iCopy] != jpcs.targetName {
 							spatialmath.ResetPoseDQTransalation(savedDualQuat, p)
-							newPose := spatialmath.Compose(theTransform.Pose(), savedDualQuat)
+							newPose := spatialmath.Compose(theTransform.(*referenceframe.PoseInFrame).Pose(), savedDualQuat)
 							p = newPose.Point()
 						}
 						batch = append(batch, pointcloud.PointAndData{p, d})

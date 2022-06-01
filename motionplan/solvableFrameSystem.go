@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -36,7 +37,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
 	goal spatial.Pose,
 	solveFrameName, goalFrameName string,
 ) ([]map[string][]frame.Input, error) {
-	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrameName, goalFrameName, nil)
+	return fss.SolveWaypointsWithOptions(ctx, seedMap, []spatial.Pose{goal}, solveFrameName, goalFrameName, nil, nil)
 }
 
 // SolvePoseWithOptions will take a set of starting positions, a goal frame, a frame to solve for, a pose, and a configurable
@@ -46,9 +47,17 @@ func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goal spatial.Pose,
 	solveFrameName, goalFrameName string,
+	worldState *commonpb.WorldState,
 	opt *PlannerOptions,
 ) ([]map[string][]frame.Input, error) {
-	return fss.SolveWaypointsWithOptions(ctx, seedMap, []spatial.Pose{goal}, solveFrameName, goalFrameName, []*PlannerOptions{opt})
+	return fss.SolveWaypointsWithOptions(ctx,
+		seedMap,
+		[]spatial.Pose{goal},
+		solveFrameName,
+		goalFrameName,
+		worldState,
+		[]*PlannerOptions{opt},
+	)
 }
 
 // SolveWaypointsWithOptions will take a set of starting positions, a goal frame, a frame to solve for, goal poses, and a configurable
@@ -58,17 +67,9 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goals []spatial.Pose,
 	solveFrameName, goalFrameName string,
+	worldState *commonpb.WorldState,
 	opts []*PlannerOptions,
 ) ([]map[string][]frame.Input, error) {
-	if len(opts) == 0 {
-		for i := 0; i < len(goals); i++ {
-			opts = append(opts, NewDefaultPlannerOptions())
-		}
-	}
-	if len(opts) != len(goals) {
-		return nil, errors.New("goals and options had different lengths")
-	}
-
 	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
@@ -95,6 +96,8 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	if len(sf.DoF()) == 0 {
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
+
+	// Build planner and solve
 	var planner MotionPlanner
 	if fss.mpFunc != nil {
 		planner, err = fss.mpFunc(sf, runtime.NumCPU()/2, fss.logger)
@@ -105,8 +108,53 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 		return nil, err
 	}
 
-	seed := sf.mapToSlice(seedMap)
+	// Add collision constraint
+	transformGeometriesToWorldFrame := func(gfs []*commonpb.GeometriesInFrame) (*frame.GeometriesInFrame, error) {
+		allGeometries := make(map[string]spatial.Geometry)
+		for _, gf := range gfs {
+			obstacles, err := frame.ProtobufToGeometriesInFrame(gf)
+			if err != nil {
+				return nil, err
+			}
+			// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+			// the state that observed the worldState should ultimately be included as part of the worldState message
+			tf, err := fss.Transform(seedMap, obstacles, frame.World)
+			if err != nil {
+				return nil, err
+			}
+			for name, g := range tf.(*frame.GeometriesInFrame).Geometries() {
+				if _, present := allGeometries[name]; present {
+					return nil, fmt.Errorf("multiple geometries named %s, cannot merge into single map", name)
+				}
+				allGeometries[name] = g
+			}
+		}
+		return frame.NewGeometriesInFrame(frame.World, allGeometries), nil
+	}
+	obstacles, err := transformGeometriesToWorldFrame(worldState.GetObstacles())
+	if err != nil {
+		return nil, err
+	}
+	interactionSpaces, err := transformGeometriesToWorldFrame(worldState.GetInteractionSpaces())
+	if err != nil {
+		return nil, err
+	}
+	collisionConstraint := NewCollisionConstraint(sf, obstacles.Geometries(), interactionSpaces.Geometries())
 
+	// setup opts
+	if len(opts) == 0 {
+		for i := 0; i < len(goals); i++ {
+			opts = append(opts, NewDefaultPlannerOptions())
+		}
+	}
+	if len(opts) != len(goals) {
+		return nil, errors.New("goals and options had different lengths")
+	}
+	for _, opt := range opts {
+		opt.constraintHandler.AddConstraint("collision", collisionConstraint)
+	}
+
+	seed := sf.mapToSlice(seedMap)
 	resultSlices, err := plannerRunner(ctx, planner, goals, seed, opts, 0)
 	if err != nil {
 		return nil, err
@@ -145,35 +193,44 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
 	}
-	tf, err := sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame.Name(), sf.goalFrame.Name())
+	pf := frame.NewPoseInFrame(sf.solveFrame.Name(), spatial.NewZeroPose())
+	tf, err := sf.fss.Transform(sf.sliceToMap(inputs), pf, sf.goalFrame.Name())
 	if err != nil {
 		return nil, err
 	}
-	return tf.Pose(), nil
+	return tf.(*frame.PoseInFrame).Pose(), nil
 }
 
 // Geometry takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
-// intermediate frames (if any exist) up to and including the end effector, and eturns a map of frame names to geometries.
-// The key for each frame in the map will be the string: "<model_name>:<frame_name>".
-func (sf *solverFrame) Geometries(inputs []frame.Input) (map[string]spatial.Geometry, error) {
+// geometries in the solverFrame in the reference frame of the World frame.
+func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFrame, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, errors.New("incorrect number of inputs to transform")
 	}
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := make(map[string]spatial.Geometry)
-	for _, frame := range sf.frames {
-		geometries, err := sf.fss.GeometriesOfFrame(inputMap, frame.Name(), sf.goalFrame.Name())
-		if geometries == nil {
+	for _, f := range sf.frames {
+		inputs, err := frame.GetFrameInputs(f, inputMap)
+		if err != nil {
+			return nil, err
+		}
+		gf, err := f.Geometries(inputs)
+		if gf == nil {
 			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		for name, geometry := range geometries {
+		var tf frame.Transformable
+		tf, err = sf.fss.Transform(inputMap, gf, frame.World)
+		if err != nil {
+			return nil, err
+		}
+		for name, geometry := range tf.(*frame.GeometriesInFrame).Geometries() {
 			sfGeometries[name] = geometry
 		}
 	}
-	return sfGeometries, errAll
+	return frame.NewGeometriesInFrame(frame.World, sfGeometries), errAll
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.
