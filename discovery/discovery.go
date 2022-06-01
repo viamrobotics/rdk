@@ -24,8 +24,8 @@ type (
 	// lists of the forementioned type of maps. Results with other types of data are not
 	// guaranteed.
 	Discovery struct {
-		Query      Query
-		Discovered interface{}
+		Query   Query
+		Results interface{}
 	}
 
 	// DiscoverError indicates that a Discover function has returned an error.

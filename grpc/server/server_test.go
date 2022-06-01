@@ -72,7 +72,7 @@ func TestServer(t *testing.T) {
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 		q := discovery.Query{arm.Named("arm").ResourceSubtype, "some arm"}
-		disc := discovery.Discovery{Query: q, Discovered: struct{}{}}
+		disc := discovery.Discovery{Query: q, Results: struct{}{}}
 		discoveries := []discovery.Discovery{disc}
 		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 			return discoveries, nil
@@ -85,7 +85,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
 
-		observed := resp.Discovery[0].Discoveries.AsMap()
+		observed := resp.Discovery[0].Results.AsMap()
 		expected := map[string]interface{}{}
 		test.That(t, observed, test.ShouldResemble, expected)
 	})

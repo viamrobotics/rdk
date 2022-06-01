@@ -143,7 +143,7 @@ message DiscoveryQuery {
 
 message Discovery {
   DiscoveryQuery query = 1;
-  google.protobuf.Struct discoveries = 2;
+  google.protobuf.Struct results = 2;
 }
 
 message DiscoverComponentsRequest {
