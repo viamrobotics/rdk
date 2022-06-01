@@ -27,7 +27,6 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
@@ -45,7 +44,6 @@ var (
 	// defaultSvc is a list of default robot services.
 	defaultSvc = []resource.Name{
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
 		vision.Name,
 	}
@@ -167,6 +165,55 @@ func (r *localRobot) StopWeb() error {
 	return webSvc.Close()
 }
 
+func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	r.mu.Lock()
+	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Nodes))
+	for _, name := range r.ResourceNames() {
+		resource, err := r.ResourceByName(name)
+		if err != nil {
+			return nil, utils.NewResourceNotFoundError(name)
+		}
+		resources[name] = resource
+	}
+	r.mu.Unlock()
+
+	namesToDedupe := resourceNames
+	// if no names, return all
+	if len(namesToDedupe) == 0 {
+		namesToDedupe = make([]resource.Name, 0, len(resources))
+		for name := range resources {
+			namesToDedupe = append(namesToDedupe, name)
+		}
+	}
+
+	// dedupe resourceNames
+	deduped := make(map[resource.Name]struct{}, len(namesToDedupe))
+	for _, name := range namesToDedupe {
+		deduped[name] = struct{}{}
+	}
+
+	statuses := make([]robot.Status, 0, len(deduped))
+	for name := range deduped {
+		resource, ok := resources[name]
+		if !ok {
+			return nil, utils.NewResourceNotFoundError(name)
+		}
+		// if resource subtype has an associated CreateStatus method, use that
+		// otherwise return an empty status
+		var status interface{} = struct{}{}
+		var err error
+		subtype := registry.ResourceSubtypeLookup(name.Subtype)
+		if subtype != nil && subtype.Status != nil {
+			status, err = subtype.Status(ctx, resource)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get status from %q", name)
+			}
+		}
+		statuses = append(statuses, robot.Status{Name: name, Status: status})
+	}
+	return statuses, nil
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -210,6 +257,7 @@ func newWithResources(
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
+
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}

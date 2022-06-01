@@ -55,6 +55,9 @@ type Robot interface {
 		additionalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
 
+	// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+	GetStatus(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
+
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error
 }
@@ -90,6 +93,14 @@ type RemoteRobot interface {
 
 	// Connected returns whether the remote is connected or not.
 	Connected() bool
+}
+
+// Status holds a resource name and its corresponding status. Status is expected to be comprised of string keys
+// and values comprised of primitives, list of primitives, maps with string keys (or at least can be decomposed into one),
+// or lists of the forementioned type of maps. Results with other types of data are not guaranteed.
+type Status struct {
+	Name   resource.Name
+	Status interface{}
 }
 
 // AllResourcesByName returns an array of all resources that have this simple name.

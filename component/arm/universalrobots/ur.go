@@ -264,6 +264,15 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 
+// Stop stops the arm with some deceleration.
+func (ua *URArm) Stop(ctx context.Context) error {
+	ua.opMgr.CancelRunning(ctx)
+	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speed)
+
+	_, err := ua.conn.Write([]byte(cmd))
+	return err
+}
+
 // MoveToJointPositionRadians TODO.
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
 	ctx, done := ua.opMgr.New(ctx)
