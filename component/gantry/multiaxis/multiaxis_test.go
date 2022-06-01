@@ -30,6 +30,9 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 		GetLengthsFunc: func(ctx context.Context) ([]float64, error) {
 			return []float64{length}, nil
 		},
+		StopFunc: func(ctx context.Context) error {
+			return nil
+		},
 		CloseFunc: func(ctx context.Context) error {
 			return nil
 		},
@@ -174,6 +177,18 @@ func TestGetLengths(t *testing.T) {
 	lengths, err = fakemultiaxis.GetLengths(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{5, 6})
+}
+
+func TestStop(t *testing.T) {
+	ctx := context.Background()
+	fakemultiaxis := &multiAxis{}
+	test.That(t, fakemultiaxis.Stop(ctx), test.ShouldBeNil)
+
+	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	test.That(t, fakemultiaxis.Stop(ctx), test.ShouldBeNil)
+
+	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	test.That(t, fakemultiaxis.Stop(ctx), test.ShouldBeNil)
 }
 
 func TestCurrentInputs(t *testing.T) {

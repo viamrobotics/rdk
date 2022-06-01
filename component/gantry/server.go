@@ -79,3 +79,13 @@ func (s *subtypeServer) MoveToPosition(
 	}
 	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.GetWorldState())
 }
+
+// Stop stops the gantry specified.
+func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.Name)
+	gantry, err := s.getGantry(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.StopResponse{}, gantry.Stop(ctx)
+}

@@ -315,6 +315,10 @@ func (rr *remoteRobot) TransformPose(
 	return rr.robot.TransformPose(ctx, pose, dst, additionalTransforms)
 }
 
+func (rr *remoteRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	return rr.robot.GetStatus(ctx, resourceNames)
+}
+
 func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
 }
