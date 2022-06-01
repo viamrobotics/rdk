@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/config"
@@ -26,7 +27,7 @@ type TfliteDetectorConfig struct {
 // NewTfliteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->objdet.Detections. It does this by making calls to
 // an inference package and wrapping the result
-func NewTfliteDetector(cfg *DetectorConfig) (objectdetection.Detector, error) {
+func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, error) {
 	// Read those parameters into a TFLiteDetectorConfig
 	var t TfliteDetectorConfig
 	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
@@ -39,11 +40,11 @@ func NewTfliteDetector(cfg *DetectorConfig) (objectdetection.Detector, error) {
 		return nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
 	} //params is now the TfliteDetectorConfig
 
-	err = addTfliteModel(params.ModelPath, cfg.Name, cfg.Type, *params.NumThreads)
+	err = addTfliteModel(params.ModelPath, cfg.Type, *params.NumThreads)
 	if err != nil {
 		return nil, err
 	}
-	modelInfo, err := getTfliteModelInfo(cfg.Name)
+	modelInfo, err := getTfliteModelInfo(params.ModelPath)
 	if err != nil {
 		return nil, err
 	}
@@ -51,47 +52,52 @@ func NewTfliteDetector(cfg *DetectorConfig) (objectdetection.Detector, error) {
 
 	//This function has to be the detector
 	return func(img image.Image) ([]objectdetection.Detection, error) {
-
 		resizedImg := resize.Resize(inSize[0], inSize[1], img, resize.Bilinear)
-		infResult, err := tfliteInfer(cfg.Name, resizedImg)
+		infResult, err := tfliteInfer(params.ModelPath, resizedImg)
 		if err != nil {
 			return nil, err
 		}
-		labelMap, _ := loadLabels(*params.LabelPath) //should check this error with a logger saying no labels
-
-		detections := unpackTensors(infResult, cfg.Name, inSize[0], inSize[1], labelMap)
+		labelMap, err := loadLabels(*params.LabelPath) //should check this error with a logger saying no labels
+		if err != nil {
+			logger.Info("could not retrieve class labels")
+		}
+		detections := unpackTensors(infResult, params.ModelPath, inSize[0], inSize[1], labelMap)
 		return detections, nil
 	}, nil
 }
 
 // addTfliteModel uses the AddModel function in the inference package to register a tflite model
-func addTfliteModel(filepath, modelName, modelType string, numThreads int) error {
-
-	/*
-		//Turn filepath to file
-		file, err := os.Open(filepath)
-		if err != nil{
-			return err
-		}
-		fileinfo, _ := file.Stat()
-		buffer := make([]byte, fileinfo.Size())
-		_ , err = file.Read(buffer)
-		if err != nil{
-			return err
-		}
-	*/
-
-	err := inf.AddModel(filepath, modelName, modelType, numThreads)
+func addTfliteModel(filepath, modelType string, numThreads int) error {
+	err := inf.LoadModel(filepath, modelType, numThreads)
 	if err != nil {
-		return errors.Wrap(err, "couldn't add model")
+		return errors.Wrap(err, "could not load model")
 	}
 	return nil
 }
 
-// getTfliteModel uses the GetModelInfo function in the inf package to return model information
-func getTfliteModelInfo(modelName string) (config.AttributeMap, error) {
+// closeTfliteModel uses the CloseModel function in the inference package to close access to the tflite model
+func closeTfliteModel(filepath string) error {
 
-	info, err := inf.GetModelInfo(modelName)
+	err := inf.CloseModel(filepath)
+	if err != nil {
+		return errors.Wrap(err, "could not close model")
+	}
+	return nil
+}
+
+// getAvailableModels makes a call to the inference service to return the models that the inf service has
+func getAvailableModels() ([]string, error) {
+	modelnames, err := inf.GetAvailableModels()
+	if err != nil {
+		return nil, err
+	}
+	return modelnames, nil
+}
+
+// getTfliteModel uses the GetModelInfo function in the inf package to return model information
+func getTfliteModelInfo(filepath string) (config.AttributeMap, error) {
+
+	info, err := inf.GetModelInfo(filepath)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get your model info")
 	}
@@ -99,10 +105,10 @@ func getTfliteModelInfo(modelName string) (config.AttributeMap, error) {
 }
 
 // tfliteInfer uses the Infer function in the inf package to return the output tensors from the model
-func tfliteInfer(modelName string, image image.Image) (config.AttributeMap, error) {
+func tfliteInfer(filepath string, image image.Image) (config.AttributeMap, error) {
 	//Definitely convert the image to bytes before sending it off
 	imgBuff := imageToBuffer(image)
-	out, err := inf.Infer(modelName, imgBuff)
+	out, err := inf.Infer(filepath, imgBuff)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't infer from model")
 	}
@@ -128,7 +134,7 @@ func imageToBuffer(img image.Image) []byte {
 
 // unpackTensors takes the output tensors from the model and shapes them into RDK detections
 // Which tensor is which gets determined via the length and type of the output tensor
-func unpackTensors(T config.AttributeMap, name string, w, h int, labelMap []string) []objectdetection.Detection {
+func unpackTensors(T config.AttributeMap, filepath string, w, h int, labelMap []string) []objectdetection.Detection {
 	// This might be a weird way to do it but.... lol here we go
 	l1 := T.IntSlice("out1")
 	l2 := T.IntSlice("out2")
@@ -186,7 +192,7 @@ func unpackTensors(T config.AttributeMap, name string, w, h int, labelMap []stri
 	} //Once that's done we have all of them (bboxes, labels, scores)
 
 	//Now, check if we have action in the BboxOrder... if not, set to default
-	boxOrder, err := getBboxOrder(name)
+	boxOrder, err := getBboxOrder(filepath)
 	if boxOrder == nil || err != nil {
 		boxOrder = []int{1, 0, 3, 2}
 	}
@@ -243,9 +249,9 @@ func getIndex(s []int, num int) int {
 
 // getBboxOrder checks the metadata (from inf package) and looks for the bounding box order
 // according to where it should be in the schema.
-func getBboxOrder(name string) ([]int, error) {
+func getBboxOrder(filepath string) ([]int, error) {
 	//The default order is [0, 1, 2]... locations, labels, scores
-	m, err := inf.GetMetadata(name) //m should be a config.AttributeMap
+	m, err := inf.GetMetadata(filepath) //m should be a config.AttributeMap
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get metadata")
 	}
