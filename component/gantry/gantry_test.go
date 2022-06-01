@@ -228,6 +228,16 @@ func TestReconfigurableGantry(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *gantry.reconfigurableGantry")
 }
 
+func TestStop(t *testing.T) {
+	actualGantry1 := &mock{Name: testGantryName}
+	reconfGantry1, err := gantry.WrapWithReconfigurable(actualGantry1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualGantry1.stopCount, test.ShouldEqual, 0)
+	test.That(t, reconfGantry1.(gantry.Gantry).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, actualGantry1.stopCount, test.ShouldEqual, 1)
+}
+
 func TestClose(t *testing.T) {
 	actualGantry1 := &mock{Name: testGantryName}
 	reconfGantry1, err := gantry.WrapWithReconfigurable(actualGantry1)
@@ -244,12 +254,18 @@ type mock struct {
 	gantry.Gantry
 	Name         string
 	lengthsCount int
+	stopCount    int
 	reconfCount  int
 }
 
 func (m *mock) GetLengths(context.Context) ([]float64, error) {
 	m.lengthsCount++
 	return lengths, nil
+}
+
+func (m *mock) Stop(ctx context.Context) error {
+	m.stopCount++
+	return nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }
