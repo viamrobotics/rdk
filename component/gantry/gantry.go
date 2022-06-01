@@ -77,6 +77,9 @@ type Gantry interface {
 	// GetLengths is the length of gantries in meters
 	GetLengths(ctx context.Context) ([]float64, error)
 
+	// Stop stops the gantry. It is assumed the gantry stops immediately.
+	Stop(ctx context.Context) error
+
 	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -171,6 +174,12 @@ func (g *reconfigurableGantry) MoveToPosition(
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.MoveToPosition(ctx, positionsMm, worldState)
+}
+
+func (g *reconfigurableGantry) Stop(ctx context.Context) error {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Stop(ctx)
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {
