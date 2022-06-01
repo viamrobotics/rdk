@@ -87,37 +87,21 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
-	solutionChan := make(chan *planReturn, 1)
-	if opt == nil {
-		opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed)
-		if err != nil {
-			return nil, err
-		}
-		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
-		// TODO(rb) make this worldstate, once that is incorporated
-		obstacles := map[string]spatial.Geometry{}
-		interactionSpaces := map[string]spatial.Geometry{}
-		if len(obstacles) == 0 {
-			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
-		} else {
-			collisionConst := NewCollisionConstraint(mp.Frame(), obstacles, interactionSpaces)
-			if collisionConst != nil {
-				opt.AddConstraint("self-collision", collisionConst)
+	if opt != nil {
+		solutionChan := make(chan *planReturn, 1)
+		utils.PanicCapturingGo(func() {
+			// TODO(rb) fix me
+			mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
+		})
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case plan := <-solutionChan:
+			finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
+			for _, step := range plan.steps {
+				finalSteps = append(finalSteps, step.inputs)
 			}
-		}
-	}
-
-	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
-	})
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case plan := <-solutionChan:
-		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
-		for _, step := range plan.steps {
-			finalSteps = append(finalSteps, step.inputs)
+			return finalSteps, plan.err
 		}
 	}
 	
@@ -158,6 +142,27 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 ) {
 	defer close(solutionChan)
 	inputSteps := []*configuration{}
+
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+		seedPos, err := mp.frame.Transform(seed)
+		if err != nil {
+			solutionChan <- &planReturn{err: err}
+			return
+		}
+		goalPos := spatial.NewPoseFromProtobuf(goal)
+		
+		obstacles := map[string]spatial.Geometry{}
+		interactionSpaces := map[string]spatial.Geometry{}
+		if len(obstacles) == 0 {
+			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		} else {
+			collisionConst := NewCollisionConstraint(mp.Frame(), obstacles, interactionSpaces)
+			if collisionConst != nil {
+				opt.AddConstraint("self-collision", collisionConst)
+			}
+		}
+	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
