@@ -195,3 +195,70 @@ func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest
 
 	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
 }
+
+// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.GetStatusResponse, error) {
+	resourceNames := make([]resource.Name, 0, len(req.ResourceNames))
+	for _, name := range req.ResourceNames {
+		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
+	}
+
+	statuses, err := s.r.GetStatus(ctx, resourceNames)
+	if err != nil {
+		return nil, err
+	}
+
+	statusesP := make([]*pb.Status, 0, len(statuses))
+	for _, status := range statuses {
+		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
+		// conversion necessary.
+		encoded, err := protoutils.InterfaceToMap(status.Status)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to convert status for %q to a form acceptable to structpb.NewStruct", status.Name)
+		}
+		statusP, err := structpb.NewStruct(encoded)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from status for %q", status.Name)
+		}
+		statusesP = append(
+			statusesP,
+			&pb.Status{
+				Name:   protoutils.ResourceNameToProto(status.Name),
+				Status: statusP,
+			},
+		)
+	}
+
+	return &pb.GetStatusResponse{Status: statusesP}, nil
+}
+
+const defaultStreamInterval = 1 * time.Second
+
+// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
+func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.RobotService_StreamStatusServer) error {
+	every := defaultStreamInterval
+	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
+		every = reqEvery
+	}
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-streamServer.Context().Done():
+			return streamServer.Context().Err()
+		default:
+		}
+		select {
+		case <-streamServer.Context().Done():
+			return streamServer.Context().Err()
+		case <-ticker.C:
+		}
+		status, err := s.GetStatus(streamServer.Context(), &pb.GetStatusRequest{ResourceNames: req.ResourceNames})
+		if err != nil {
+			return err
+		}
+		if err := streamServer.Send(&pb.StreamStatusResponse{Status: status.Status}); err != nil {
+			return err
+		}
+	}
+}
