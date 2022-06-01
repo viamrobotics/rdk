@@ -78,14 +78,14 @@ func TestServer(t *testing.T) {
 			return discoveries, nil
 		}
 		req := &pb.DiscoverComponentsRequest{
-			Queries: []*pb.Query{{Subtype: string(q.SubtypeName), Model: q.Model}},
+			Queries: []*pb.DiscoveryQuery{{Subtype: string(q.SubtypeName), Model: q.Model}},
 		}
 
 		resp, err := server.DiscoverComponents(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
 
-		observed := resp.Discovery[0].Discovered.AsMap()
+		observed := resp.Discovery[0].Discoveries.AsMap()
 		expected := map[string]interface{}{}
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
