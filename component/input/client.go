@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 )
@@ -364,4 +365,8 @@ func (c *client) Close() error {
 	}
 	c.activeBackgroundWorkers.Wait()
 	return c.serviceClient.Close()
+}
+
+func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

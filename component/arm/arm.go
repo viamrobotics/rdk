@@ -7,9 +7,11 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/data"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -68,20 +70,25 @@ func Named(name string) resource.Name {
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
-
 	// GetEndPosition returns the current position of the arm.
 	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
+	// This will block until done or a new operation cancels this one
 	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
+	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error
 
 	// GetJointPositions returns the current joint positions of the arm.
 	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
+	// Stop stops the arm. It is assumed the arm stops immediately.
+	Stop(ctx context.Context) error
+
+	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
 }
@@ -89,6 +96,9 @@ type Arm interface {
 var (
 	_ = Arm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
+
+	// ErrStopUnimplemented is used for when Stop() is unimplemented.
+	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
@@ -132,6 +142,12 @@ type reconfigurableArm struct {
 	actual Arm
 }
 
+func (r *reconfigurableArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
+}
+
 func (r *reconfigurableArm) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -160,6 +176,12 @@ func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.JointPos
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetJointPositions(ctx)
+}
+
+func (r *reconfigurableArm) Stop(ctx context.Context) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Stop(ctx)
 }
 
 func (r *reconfigurableArm) ModelFrame() referenceframe.Model {

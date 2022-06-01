@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -49,20 +50,20 @@ func init() {
 // A Motor allows setting and reading a set power percentage and
 // direction.
 type Motor struct {
-	Name              string
-	mu                sync.Mutex
-	powerPct          float64
-	DefaultPosition   float64
-	PositionSupported bool
-	Board             string
-	PWM               board.GPIOPin
+	Name     string
+	mu       sync.Mutex
+	powerPct float64
+	position float64
+	Board    string
+	PWM      board.GPIOPin
+	generic.Echo
 }
 
 // GetPosition always returns 0.
 func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.DefaultPosition, nil
+	return m.position, nil
 }
 
 // GetFeatures returns the status of whether the motor supports certain optional features.
@@ -109,20 +110,20 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Backward
-	if math.Signbit(rpm) == math.Signbit(revolutions) {
-		m.setPowerPct(0.01)
-	} else {
-		m.setPowerPct(-0.01)
+	if rpm < 0 {
+		revolutions *= -1
 	}
+
+	m.position += revolutions
+
 	return nil
 }
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.setPowerPct(.01)
+	m.position = pos
 	return nil
 }
 
@@ -131,9 +132,10 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return errors.New("unsupported")
 }
 
-// ResetZeroPosition always returns an error.
+// ResetZeroPosition resets the zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
-	return motor.NewResetZeroPositionUnsupportedError(m.Name)
+	m.position = offset
+	return nil
 }
 
 // Stop has the motor pretend to be off.

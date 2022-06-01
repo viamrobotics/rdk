@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -50,6 +51,7 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 
 // Arm is a fake arm that can simply read and set properties.
 type Arm struct {
+	generic.Echo
 	Name       string
 	position   *commonpb.Pose
 	joints     *pb.JointPositions
@@ -82,6 +84,11 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosition
 // GetJointPositions returns the set joints.
 func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	return a.joints, nil
+}
+
+// Stop doesn't do anything for a fake arm.
+func (a *Arm) Stop(ctx context.Context) error {
+	return nil
 }
 
 // CurrentInputs TODO.

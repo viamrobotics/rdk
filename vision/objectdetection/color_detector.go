@@ -8,10 +8,23 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
+// ColorDetectorConfig specifies the fields necessary for creating a color detector.
+type ColorDetectorConfig struct {
+	SegmentSize       int     `json:"segment_size"`
+	Tolerance         float64 `json:"tolerance"`
+	DetectColorString string  `json:"detect_color"` // hex string "#RRGGBB"
+}
+
 // NewColorDetector is a detector that identifies objects based on color.
 // It takes in a hue value between 0 and 360, and then defines a valid range around the hue of that color
 // based on the tolerance. The color is considered valid if the pixel is between (hue - tol) <= color <= (hue + tol).
-func NewColorDetector(tol, hue float64) (Detector, error) {
+func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
+	col, err := rimage.NewColorFromHex(cfg.DetectColorString)
+	if err != nil {
+		return nil, err
+	}
+	hue, _, _ := col.HsvNormal()
+	tol := cfg.Tolerance
 	if tol > 1.0 || tol < 0.0 {
 		return nil, errors.Errorf("tolerance must be between 0.0 and 1.0. Got %.5f", tol)
 	}
@@ -31,8 +44,51 @@ func NewColorDetector(tol, hue float64) (Detector, error) {
 		}
 		valid = makeValidColorFunction(loValid, hiValid)
 	}
-	cd := connectedComponentDetector{valid}
-	return cd.Inference, nil
+	cd := connectedComponentDetector{valid, hueToString(hue)}
+	// define the filter
+	segmentSize := 5000 // default value
+	if cfg.SegmentSize != 0 {
+		segmentSize = cfg.SegmentSize
+	}
+	filt := NewAreaFilter(segmentSize)
+	// build the detector pipeline
+	det, err := Build(nil, cd.Inference, filt)
+	if err != nil {
+		return nil, err
+	}
+	return det, nil
+}
+
+func hueToString(hue float64) string {
+	hueInt := int(hue) % 360
+	switch {
+	case hueInt < 15 || hueInt >= 345:
+		return "red"
+	case hueInt >= 15 && hueInt < 45:
+		return "orange"
+	case hueInt >= 45 && hueInt < 75:
+		return "yellow"
+	case hueInt >= 75 && hueInt < 105:
+		return "lime-green"
+	case hueInt >= 105 && hueInt < 135:
+		return "green"
+	case hueInt >= 135 && hueInt < 165:
+		return "green-blue"
+	case hueInt >= 165 && hueInt < 195:
+		return "cyan"
+	case hueInt >= 195 && hueInt < 225:
+		return "light-blue"
+	case hueInt >= 225 && hueInt < 255:
+		return "blue"
+	case hueInt >= 255 && hueInt < 285:
+		return "violet"
+	case hueInt >= 285 && hueInt < 315:
+		return "magenta"
+	case hueInt >= 315 && hueInt < 345:
+		return "rose"
+	default:
+		return "impossible"
+	}
 }
 
 func makeValidColorFunction(loValid, hiValid float64) validPixelFunc {

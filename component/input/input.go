@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -67,6 +68,8 @@ type Controller interface {
 
 	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control
 	RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error
+
+	generic.Generic
 }
 
 // ControlFunction is a callback passed to RegisterControlCallback.
@@ -87,6 +90,8 @@ const (
 	ButtonPress EventType = "ButtonPress"
 	// Key release.
 	ButtonRelease EventType = "ButtonRelease"
+	// Key is held down. This will likely be a repeated event.
+	ButtonHold EventType = "ButtonHold"
 	// Both up and down for convenience during registration, not typically emitted.
 	ButtonChange EventType = "ButtonChange"
 	// Absolute position is reported via Value, a la joysticks.
@@ -117,6 +122,8 @@ const (
 	ButtonNorth  Control = "ButtonNorth"
 	ButtonLT     Control = "ButtonLT"
 	ButtonRT     Control = "ButtonRT"
+	ButtonLT2    Control = "ButtonLT2"
+	ButtonRT2    Control = "ButtonRT2"
 	ButtonLThumb Control = "ButtonLThumb"
 	ButtonRThumb Control = "ButtonRThumb"
 	ButtonSelect Control = "ButtonSelect"
@@ -144,7 +151,7 @@ type Triggerable interface {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Controller)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("input.Controller", r)
+		return nil, utils.NewUnimplementedInterfaceError("Controller", r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableInputController); ok {
 		return reconfigurable, nil
@@ -207,6 +214,12 @@ func (c *reconfigurableInputController) ProxyFor() interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual
+}
+
+func (c *reconfigurableInputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.Do(ctx, cmd)
 }
 
 func (c *reconfigurableInputController) GetControls(ctx context.Context) ([]Control, error) {

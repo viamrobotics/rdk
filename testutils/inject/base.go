@@ -11,36 +11,28 @@ import (
 // Base is an injected base.
 type Base struct {
 	base.LocalBase
-	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error
-	MoveArcFunc      func(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error
-	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error
+	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64) error
+	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64) error
 	GetWidthFunc     func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context) error
 	CloseFunc        func(ctx context.Context) error
 }
 
 // MoveStraight calls the injected MoveStraight or the real version.
-func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
 	if b.MoveStraightFunc == nil {
-		return b.LocalBase.MoveStraight(ctx, distanceMm, mmPerSec, block)
+		return b.LocalBase.MoveStraight(ctx, distanceMm, mmPerSec)
 	}
-	return b.MoveStraightFunc(ctx, distanceMm, mmPerSec, block)
-}
-
-// MoveArc calls the injected MoveArc or the real version.
-func (b *Base) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
-	if b.MoveArcFunc == nil {
-		return b.LocalBase.MoveArc(ctx, distanceMm, mmPerSec, angleDeg, block)
-	}
-	return b.MoveArcFunc(ctx, distanceMm, mmPerSec, angleDeg, block)
+	return b.MoveStraightFunc(ctx, distanceMm, mmPerSec)
 }
 
 // Spin calls the injected Spin or the real version.
-func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	if b.SpinFunc == nil {
-		return b.LocalBase.Spin(ctx, angleDeg, degsPerSec, block)
+		return b.LocalBase.Spin(ctx, angleDeg, degsPerSec)
 	}
-	return b.SpinFunc(ctx, angleDeg, degsPerSec, block)
+	return b.SpinFunc(ctx, angleDeg, degsPerSec)
 }
 
 // GetWidth calls the injected GetWidth or the real version.
@@ -65,4 +57,12 @@ func (b *Base) Close(ctx context.Context) error {
 		return utils.TryClose(ctx, b.LocalBase)
 	}
 	return b.CloseFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (b *Base) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if b.DoFunc == nil {
+		return b.LocalBase.Do(ctx, cmd)
+	}
+	return b.DoFunc(ctx, cmd)
 }

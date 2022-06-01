@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
@@ -265,7 +266,8 @@ func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
 func (params *PinholeCameraIntrinsics) ImageWithDepthToPointCloud(
 	ii *rimage.ImageWithDepth,
-	crop ...image.Rectangle) (pointcloud.PointCloud, error) {
+	crop ...image.Rectangle,
+) (pointcloud.PointCloud, error) {
 	var rect *image.Rectangle
 	if len(crop) > 1 {
 		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
@@ -365,4 +367,19 @@ func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics, 
 		}
 	}
 	return pc, nil
+}
+
+// GetCameraMatrix creates a new camera matrix and returns it.
+// Camera matrix:
+// [[fx 0 ppx],
+//  [0 fy ppy],
+//  [0 0  1]]
+func (params *PinholeCameraIntrinsics) GetCameraMatrix() *mat.Dense {
+	cameraMatrix := mat.NewDense(3, 3, nil)
+	cameraMatrix.Set(0, 0, params.Fx)
+	cameraMatrix.Set(1, 1, params.Fy)
+	cameraMatrix.Set(0, 2, params.Ppx)
+	cameraMatrix.Set(1, 2, params.Ppy)
+	cameraMatrix.Set(2, 2, 1)
+	return cameraMatrix
 }

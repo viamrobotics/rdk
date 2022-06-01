@@ -14,8 +14,10 @@ import (
 	"go.viam.com/dynamixel/servo/s_model"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -48,6 +50,8 @@ func getPortMutex(port string) *sync.Mutex {
 type vx300s struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
+	opMgr    operation.SingleOperationManager
+	generic.Unimplemented
 }
 
 // newGripper TODO.
@@ -69,6 +73,8 @@ func (g *vx300s) GetMoveLock() *sync.Mutex {
 
 // Open TODO.
 func (g *vx300s) Open(ctx context.Context) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(150)
@@ -98,6 +104,8 @@ func (g *vx300s) Open(ctx context.Context) error {
 
 // Grab TODO.
 func (g *vx300s) Grab(ctx context.Context) (bool, error) {
+	_, done := g.opMgr.New(ctx)
+	defer done()
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(-350)

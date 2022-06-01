@@ -10,35 +10,42 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	// registers all components.
-	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
-
-	// register vm engines.
-	_ "go.viam.com/rdk/function/vm/engines/javascript"
-	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/framesystem"
-
-	// registers all services.
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/services/status"
-	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
+)
+
+type internalServiceName string
+
+const (
+	webName         internalServiceName = "web"
+	framesystemName internalServiceName = "framesystem"
 )
 
 var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name, framesystem.Name}
+	defaultSvc = []resource.Name{
+		sensors.Name,
+		datamanager.Name,
+		vision.Name,
+	}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -49,6 +56,37 @@ type localRobot struct {
 	config     *config.Config
 	operations *operation.Manager
 	logger     golog.Logger
+
+	// services internal to a localRobot. Currently just web, more to come.
+	internalServices map[internalServiceName]interface{}
+}
+
+// webService returns the localRobot's web service. Raises if the service has not been initialized.
+func (r *localRobot) webService() (web.Service, error) {
+	svc := r.internalServices[webName]
+	if svc == nil {
+		return nil, errors.New("web service not initialized")
+	}
+
+	webSvc, ok := svc.(web.Service)
+	if !ok {
+		return nil, errors.New("unexpected service associated with web InternalServiceName")
+	}
+	return webSvc, nil
+}
+
+// fsService returns the localRobot's web service. Raises if the service has not been initialized.
+func (r *localRobot) fsService() (framesystem.Service, error) {
+	svc := r.internalServices[framesystemName]
+	if svc == nil {
+		return nil, errors.New("framesystem service not initialized")
+	}
+
+	framesystemSvc, ok := svc.(framesystem.Service)
+	if !ok {
+		return nil, errors.New("unexpected service associated with framesystem internalServiceName")
+	}
+	return framesystemSvc, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -68,11 +106,6 @@ func (r *localRobot) RemoteNames() []string {
 	return r.manager.RemoteNames()
 }
 
-// FunctionNames returns the name of all known functions.
-func (r *localRobot) FunctionNames() []string {
-	return r.manager.FunctionNames()
-}
-
 // ResourceNames returns the name of all known resources.
 func (r *localRobot) ResourceNames() []resource.Name {
 	return r.manager.ResourceNames()
@@ -90,6 +123,12 @@ func (r *localRobot) OperationManager() *operation.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
+	for _, svc := range r.internalServices {
+		if err := goutils.TryClose(ctx, svc); err != nil {
+			return err
+		}
+	}
+
 	return r.manager.Close(ctx)
 }
 
@@ -107,8 +146,79 @@ func (r *localRobot) Logger() golog.Logger {
 	return r.logger
 }
 
-// New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+// StartWeb starts the web server, will return an error if server is already up.
+func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
+	webSvc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return webSvc.Start(ctx, o)
+}
+
+// StopWeb stops the web server, will be a noop if server is not up.
+func (r *localRobot) StopWeb() error {
+	webSvc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return webSvc.Close()
+}
+
+func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	r.mu.Lock()
+	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Nodes))
+	for _, name := range r.ResourceNames() {
+		resource, err := r.ResourceByName(name)
+		if err != nil {
+			return nil, utils.NewResourceNotFoundError(name)
+		}
+		resources[name] = resource
+	}
+	r.mu.Unlock()
+
+	namesToDedupe := resourceNames
+	// if no names, return all
+	if len(namesToDedupe) == 0 {
+		namesToDedupe = make([]resource.Name, 0, len(resources))
+		for name := range resources {
+			namesToDedupe = append(namesToDedupe, name)
+		}
+	}
+
+	// dedupe resourceNames
+	deduped := make(map[resource.Name]struct{}, len(namesToDedupe))
+	for _, name := range namesToDedupe {
+		deduped[name] = struct{}{}
+	}
+
+	statuses := make([]robot.Status, 0, len(deduped))
+	for name := range deduped {
+		resource, ok := resources[name]
+		if !ok {
+			return nil, utils.NewResourceNotFoundError(name)
+		}
+		// if resource subtype has an associated CreateStatus method, use that
+		// otherwise return an empty status
+		var status interface{} = struct{}{}
+		var err error
+		subtype := registry.ResourceSubtypeLookup(name.Subtype)
+		if subtype != nil && subtype.Status != nil {
+			status, err = subtype.Status(ctx, resource)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get status from %q", name)
+			}
+		}
+		statuses = append(statuses, robot.Status{Name: name, Status: status})
+	}
+	return statuses, nil
+}
+
+func newWithResources(
+	ctx context.Context,
+	cfg *config.Config,
+	resources map[resource.Name]interface{},
+	logger golog.Logger,
+) (robot.LocalRobot, error) {
 	r := &localRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{
@@ -143,8 +253,16 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 		r.manager.addResource(name, svc)
 	}
 
+	r.internalServices = make(map[internalServiceName]interface{})
+	r.internalServices[webName] = web.New(ctx, r, logger)
+	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
+
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
+	}
+
+	for name, res := range resources {
+		r.manager.addResource(name, res)
 	}
 
 	// update default services - done here so that all resources have been created and can be addressed.
@@ -152,14 +270,13 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 		return nil, err
 	}
 
-	// if metadata exists, update it
-	if svc := service.ContextService(ctx); svc != nil {
-		if err := r.UpdateMetadata(svc); err != nil {
-			return nil, err
-		}
-	}
 	successful = true
 	return r, nil
+}
+
+// New returns a new robot with parts sourced from the given config.
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+	return newWithResources(ctx, cfg, nil, logger)
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
@@ -191,30 +308,22 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 // ConfigUpdateable is implemented when component/service of a robot should be updated with the config.
 type ConfigUpdateable interface {
 	// Update updates the resource
-	Update(context.Context, config.Service) error
-}
-
-// Get the config associated with the service resource.
-func getServiceConfig(cfg *config.Config, name resource.Name) (config.Service, error) {
-	for _, c := range cfg.Services {
-		if c.ResourceName() == name {
-			return c, nil
-		}
-	}
-	return config.Service{}, errors.Errorf("could not find service config of subtype %s", name.Subtype.String())
+	Update(context.Context, *config.Config) error
 }
 
 func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
+
 	for _, n := range r.ResourceNames() {
-		// TODO(RDK-119) if not found, could mean a name clash or a remote service
+		// TODO(RSDK-22) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
-			r.logger.Debugf("not found while grabbing all resources during default svc refresh: %w", err)
+			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
 		}
 		resources[n] = res
 	}
+
 	for _, name := range defaultSvc {
 		svc, err := r.ResourceByName(name)
 		if err != nil {
@@ -226,14 +335,20 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 			}
 		}
 		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
-			serviceConfig, err := getServiceConfig(r.config, name)
-			if err == nil {
-				if err := configUpdateable.Update(ctx, serviceConfig); err != nil {
-					return err
-				}
+			if err := configUpdateable.Update(ctx, r.config); err != nil {
+				return err
 			}
 		}
 	}
+
+	for _, svc := range r.internalServices {
+		if updateable, ok := svc.(resource.Updateable); ok {
+			if err := updateable.Update(ctx, resources); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -242,40 +357,29 @@ func (r *localRobot) Refresh(ctx context.Context) error {
 	return nil
 }
 
-// UpdateMetadata updates metadata service using the currently registered parts of the robot.
-func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
-	var resources []resource.Name
-
-	metadata := resource.NameFromSubtype(service.Subtype, "")
-	resources = append(resources, metadata)
-
-	for _, name := range r.FunctionNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeFunction,
-			resource.ResourceSubtypeFunction,
-			name,
-		)
-		resources = append(resources, res)
-	}
-	for _, name := range r.RemoteNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeRemote,
-			name,
-		)
-		resources = append(resources, res)
+// FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
+func (r *localRobot) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+	framesystem, err := r.fsService()
+	if err != nil {
+		return nil, err
 	}
 
-	for _, n := range r.ResourceNames() {
-		// skip web so it doesn't show up over grpc
-		if n == web.Name {
-			continue
-		}
-		resources = append(resources, n)
+	return framesystem.Config(ctx, additionalTransforms)
+}
+
+// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+func (r *localRobot) TransformPose(
+	ctx context.Context,
+	pose *referenceframe.PoseInFrame,
+	dst string,
+	additionalTransforms []*commonpb.Transform,
+) (*referenceframe.PoseInFrame, error) {
+	framesystem, err := r.fsService()
+	if err != nil {
+		return nil, err
 	}
-	return svc.Replace(resources)
+
+	return framesystem.TransformPose(ctx, pose, dst, additionalTransforms)
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
@@ -296,4 +400,10 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 		return nil, err
 	}
 	return New(ctx, processedCfg, logger)
+}
+
+// RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
+// to support more streamlined reconfiguration functionality.
+func RobotFromResources(ctx context.Context, resources map[resource.Name]interface{}, logger golog.Logger) (robot.LocalRobot, error) {
+	return newWithResources(ctx, &config.Config{}, resources, logger)
 }

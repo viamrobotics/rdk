@@ -8,6 +8,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
@@ -51,7 +52,6 @@ var Subtype = resource.NewSubtype(
 
 // A Motor represents a physical motor connected to a board.
 type Motor interface {
-
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational
 	SetPower(ctx context.Context, powerPct float64) error
@@ -60,11 +60,14 @@ type Motor interface {
 	// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 	// can be assigned negative values to move in a backwards direction. Note: if both are
 	// negative the motor will spin in the forward direction.
+	// If revolutions is 0, this will run the motor at rpm indefinitely
+	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
 	GoFor(ctx context.Context, rpm float64, revolutions float64) error
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 	// towards the specified target/position
+	// This will block until the position has been reached
 	GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error
 
 	// Set the current position (+/- offset) to be the new zero (home) position.
@@ -83,6 +86,8 @@ type Motor interface {
 
 	// IsPowered returns whether or not the motor is currently on.
 	IsPowered(ctx context.Context) (bool, error)
+
+	generic.Generic
 }
 
 // A LocalMotor is a motor that supports additional features provided by RDK
@@ -161,6 +166,12 @@ func (r *reconfigurableMotor) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+func (r *reconfigurableMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) error {
@@ -288,16 +299,16 @@ type Config struct {
 	EncoderA         string  `json:"encoder,omitempty"`          // name of the digital interrupt that is the encoder a
 	EncoderB         string  `json:"encoder_b,omitempty"`        // name of the digital interrupt that is hall encoder b
 	RampRate         float64 `json:"ramp_rate,omitempty"`        // how fast to ramp power to motor when using rpm control
-	MaxRPM           float64 `json:"max_rpm"`                    // RPM
+	MaxRPM           float64 `json:"max_rpm,omitempty"`          // RPM
 	MaxAcceleration  float64 `json:"max_acceleration,omitempty"` // RPM per second
-	TicksPerRotation int     `json:"ticks_per_rotation"`
+	TicksPerRotation int     `json:"ticks_per_rotation,omitempty"`
 }
 
 // RegisterConfigAttributeConverter registers a Config converter.
 // Note(erd): This probably shouldn't exist since not all motors have the same config requirements.
 func RegisterConfigAttributeConverter(model string) {
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeMotor,
+		SubtypeName,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

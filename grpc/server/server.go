@@ -13,17 +13,17 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/action"
-	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
-// an robot.Robot as a gRPC server.
+// a robot.Robot as a gRPC server.
 type Server struct {
 	pb.UnimplementedRobotServiceServer
 	r                       robot.Robot
@@ -46,54 +46,6 @@ func New(r robot.Robot) pb.RobotServiceServer {
 func (s *Server) Close() {
 	s.cancel()
 	s.activeBackgroundWorkers.Wait()
-}
-
-// DoAction runs an action on the underlying robot.
-func (s *Server) DoAction(
-	ctx context.Context,
-	req *pb.DoActionRequest,
-) (*pb.DoActionResponse, error) {
-	act := action.LookupAction(req.Name)
-	if act == nil {
-		return nil, errors.Errorf("unknown action name [%s]", req.Name)
-	}
-	s.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer s.activeBackgroundWorkers.Done()
-		act(s.cancelCtx, s.r)
-	})
-	return &pb.DoActionResponse{}, nil
-}
-
-type runCommander interface {
-	RunCommand(ctx context.Context, name string, args map[string]interface{}) (map[string]interface{}, error)
-}
-
-// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
-func (s *Server) ResourceRunCommand(
-	ctx context.Context,
-	req *pb.ResourceRunCommandRequest,
-) (*pb.ResourceRunCommandResponse, error) {
-	// TODO(RDK-38): support all resources
-	// we know only gps has this right now, so just look at sensors!
-	resource, err := s.r.ResourceByName(gps.Named(req.ResourceName))
-	if err != nil {
-		return nil, err
-	}
-	commander, ok := rdkutils.UnwrapProxy(resource).(runCommander)
-	if !ok {
-		return nil, errors.New("cannot run commands on this resource")
-	}
-	result, err := commander.RunCommand(ctx, req.CommandName, req.Args.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	resultPb, err := structpb.NewStruct(result)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
 }
 
 // GetOperations lists all running operations.
@@ -159,3 +111,115 @@ func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperatio
 	}
 }
 
+// ResourceNames returns the list of resources.
+func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
+	all := s.r.ResourceNames()
+	rNames := make([]*commonpb.ResourceName, 0, len(all))
+	for _, m := range all {
+		rNames = append(
+			rNames,
+			protoutils.ResourceNameToProto(m),
+		)
+	}
+	return &pb.ResourceNamesResponse{Resources: rNames}, nil
+}
+
+// FrameSystemConfig returns the info of each individual part that makes up the frame system.
+func (s *Server) FrameSystemConfig(
+	ctx context.Context,
+	req *pb.FrameSystemConfigRequest,
+) (*pb.FrameSystemConfigResponse, error) {
+	sortedParts, err := s.r.FrameSystemConfig(ctx, req.GetSupplementalTransforms())
+	if err != nil {
+		return nil, err
+	}
+	configs := make([]*pb.FrameSystemConfig, len(sortedParts))
+	for i, part := range sortedParts {
+		c, err := part.ToProtobuf()
+		if err != nil {
+			if errors.Is(err, referenceframe.ErrNoModelInformation) {
+				configs[i] = nil
+				continue
+			}
+			return nil, err
+		}
+		configs[i] = c
+	}
+	return &pb.FrameSystemConfigResponse{FrameSystemConfigs: configs}, nil
+}
+
+// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest) (*pb.TransformPoseResponse, error) {
+	dst := req.Destination
+	pF := referenceframe.ProtobufToPoseInFrame(req.Source)
+	transformedPose, err := s.r.TransformPose(ctx, pF, dst, req.GetSupplementalTransforms())
+
+	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
+}
+
+// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.GetStatusResponse, error) {
+	resourceNames := make([]resource.Name, 0, len(req.ResourceNames))
+	for _, name := range req.ResourceNames {
+		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
+	}
+
+	statuses, err := s.r.GetStatus(ctx, resourceNames)
+	if err != nil {
+		return nil, err
+	}
+
+	statusesP := make([]*pb.Status, 0, len(statuses))
+	for _, status := range statuses {
+		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
+		// conversion necessary.
+		encoded, err := protoutils.InterfaceToMap(status.Status)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to convert status for %q to a form acceptable to structpb.NewStruct", status.Name)
+		}
+		statusP, err := structpb.NewStruct(encoded)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from status for %q", status.Name)
+		}
+		statusesP = append(
+			statusesP,
+			&pb.Status{
+				Name:   protoutils.ResourceNameToProto(status.Name),
+				Status: statusP,
+			},
+		)
+	}
+
+	return &pb.GetStatusResponse{Status: statusesP}, nil
+}
+
+const defaultStreamInterval = 1 * time.Second
+
+// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
+func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.RobotService_StreamStatusServer) error {
+	every := defaultStreamInterval
+	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
+		every = reqEvery
+	}
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-streamServer.Context().Done():
+			return streamServer.Context().Err()
+		default:
+		}
+		select {
+		case <-streamServer.Context().Done():
+			return streamServer.Context().Err()
+		case <-ticker.C:
+		}
+		status, err := s.GetStatus(streamServer.Context(), &pb.GetStatusRequest{ResourceNames: req.ResourceNames})
+		if err != nil {
+			return err
+		}
+		if err := streamServer.Send(&pb.StreamStatusResponse{Status: status.Status}); err != nil {
+			return err
+		}
+	}
+}

@@ -19,17 +19,17 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/input/fake"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
-	functionvm "go.viam.com/rdk/function/vm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/objectsegmentation"
+	"go.viam.com/rdk/services/vision"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/vision"
+	viz "go.viam.com/rdk/vision"
 )
 
 func TestManagerForRemoteRobot(t *testing.T) {
@@ -37,6 +37,9 @@ func TestManagerForRemoteRobot(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	baseNames := []resource.Name{base.Named("base1"), base.Named("base2")}
@@ -48,12 +51,6 @@ func TestManagerForRemoteRobot(t *testing.T) {
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 
 	test.That(t, manager.RemoteNames(), test.ShouldBeEmpty)
-	test.That(
-		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2"),
-	)
 	test.That(
 		t,
 		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
@@ -105,12 +102,15 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 
@@ -136,12 +136,6 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 		utils.NewStringSet(manager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 	)
 	test.That(
 		t,
@@ -227,12 +221,15 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote1", Prefix: false}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote1", Prefix: false}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote2", Prefix: false}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote2", Prefix: false}),
 		config.Remote{Name: "remote2"},
 	)
 
@@ -248,8 +245,11 @@ func TestManagerWithSameNameInRemoteOneWithPrefix(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote1",
 			Prefix: true,
 		}),
@@ -259,7 +259,7 @@ func TestManagerWithSameNameInRemoteOneWithPrefix(t *testing.T) {
 		},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 
@@ -280,8 +280,11 @@ func TestManagerWithSameNameInRemoteBothWithPrefix(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote1",
 			Prefix: true,
 		}),
@@ -291,7 +294,7 @@ func TestManagerWithSameNameInRemoteBothWithPrefix(t *testing.T) {
 		},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote2",
 			Prefix: true,
 		}),
@@ -320,8 +323,11 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, ""), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, ""), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 
@@ -336,12 +342,15 @@ func TestManagerMergeNamesWithRemotesDedupe(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 
@@ -370,12 +379,6 @@ func TestManagerMergeNamesWithRemotesDedupe(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1"),
-	)
-	test.That(
-		t,
 		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -397,11 +400,11 @@ func TestManagerClone(t *testing.T) {
 
 	manager := managerForRemoteRobot(injectRobot)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -410,12 +413,13 @@ func TestManagerClone(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	newManager := manager.Clone()
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), newManager), test.ShouldBeNil)
+	}()
 
 	// remove and delete manager to prove clone
 	delete(manager.remotes, "remote1")
 	manager.remotes = nil
-	delete(manager.functions, "func1")
-	manager.functions = nil
 	manager.resources.Remove(arm.Named("arm1"))
 	manager.resources.Remove(camera.Named("camera1"))
 	manager.resources.Remove(gripper.Named("gripper1"))
@@ -424,7 +428,8 @@ func TestManagerClone(t *testing.T) {
 
 	_, ok := manager.processManager.RemoveProcessByID("1")
 	test.That(t, ok, test.ShouldBeTrue)
-	manager.processManager.Stop()
+	err = manager.processManager.Stop()
+	test.That(t, err, test.ShouldBeNil)
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	armNames = append(armNames, rdktestutils.AddSuffixes(armNames, "_r1", "_r2")...)
@@ -448,12 +453,6 @@ func TestManagerClone(t *testing.T) {
 		utils.NewStringSet(newManager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(newManager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 	)
 	test.That(
 		t,
@@ -555,7 +554,7 @@ func TestManagerAdd(t *testing.T) {
 	manager := newResourceManager(resourceManagerOptions{}, logger)
 
 	injectArm := &inject.Arm{}
-	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
+	cfg := &config.Component{Type: arm.SubtypeName, Name: "arm1"}
 	rName := cfg.ResourceName()
 	manager.addResource(rName, injectArm)
 	arm1, err := manager.ResourceByName(rName)
@@ -588,7 +587,7 @@ func TestManagerAdd(t *testing.T) {
 		return &board.BasicDigitalInterrupt{}, true
 	}
 
-	cfg = &config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
+	cfg = &config.Component{Type: board.SubtypeName, Name: "board1"}
 	rName = cfg.ResourceName()
 	manager.addResource(rName, injectBoard)
 	board1, err := manager.ResourceByName(board.Named("board1"))
@@ -613,18 +612,19 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motionService, test.ShouldEqual, injectMotionService)
 
-	injectObjectSegmentationService := &inject.ObjectSegmentationService{}
-	injectObjectSegmentationService.GetObjectPointCloudsFunc = func(
+	injectVisionService := &inject.VisionService{}
+	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
 		cameraName, segmenterName string,
-		parameters config.AttributeMap) ([]*vision.Object, error) {
-		return []*vision.Object{vision.NewEmptyObject()}, nil
+		parameters config.AttributeMap,
+	) ([]*viz.Object, error) {
+		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
-	objectSegResName := objectsegmentation.Name
-	manager.addResource(objectSegResName, injectObjectSegmentationService)
+	objectSegResName := vision.Name
+	manager.addResource(objectSegResName, injectVisionService)
 	objectSegmentationService, err := manager.ResourceByName(objectSegResName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, objectSegmentationService, test.ShouldEqual, injectObjectSegmentationService)
+	test.That(t, objectSegmentationService, test.ShouldEqual, injectVisionService)
 }
 
 func TestManagerNewComponent(t *testing.T) {
@@ -633,172 +633,172 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:      "arm1",
 				Model:     "fake",
-				Type:      config.ComponentTypeArm,
+				Type:      arm.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "arm2",
 				Model:     "fake",
-				Type:      config.ComponentTypeArm,
+				Type:      arm.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "arm3",
 				Model:     "fake",
-				Type:      config.ComponentTypeArm,
+				Type:      arm.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "base1",
 				Model:     "fake",
-				Type:      config.ComponentTypeBase,
+				Type:      base.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "base2",
 				Model:     "fake",
-				Type:      config.ComponentTypeBase,
+				Type:      base.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "base3",
 				Model:     "fake",
-				Type:      config.ComponentTypeBase,
+				Type:      base.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:                "board1",
 				Model:               "fake",
-				Type:                config.ComponentTypeBoard,
+				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
 			},
 			{
 				Name:                "board2",
 				Model:               "fake",
-				Type:                config.ComponentTypeBoard,
+				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
 			},
 			{
 				Name:                "board3",
 				Model:               "fake",
-				Type:                config.ComponentTypeBoard,
+				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
 			},
 			{
 				Name:      "camera1",
 				Model:     "fake",
-				Type:      config.ComponentTypeCamera,
+				Type:      camera.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "camera2",
 				Model:     "fake",
-				Type:      config.ComponentTypeCamera,
+				Type:      camera.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "camera3",
 				Model:     "fake",
-				Type:      config.ComponentTypeCamera,
+				Type:      camera.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "gripper1",
 				Model:     "fake",
-				Type:      config.ComponentTypeGripper,
+				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm1", "camera1"},
 			},
 			{
 				Name:      "gripper2",
 				Model:     "fake",
-				Type:      config.ComponentTypeGripper,
+				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm2", "camera2"},
 			},
 			{
 				Name:      "gripper3",
 				Model:     "fake",
-				Type:      config.ComponentTypeGripper,
+				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm3", "camera3"},
 			},
 			{
 				Name:                "inputController1",
 				Model:               "fake",
-				Type:                config.ComponentTypeInputController,
+				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
 				Name:                "inputController2",
 				Model:               "fake",
-				Type:                config.ComponentTypeInputController,
+				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
 				Name:                "inputController3",
 				Model:               "fake",
-				Type:                config.ComponentTypeInputController,
+				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{
 				Name:                "motor1",
 				Model:               "fake",
-				Type:                config.ComponentTypeMotor,
+				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
 				Name:                "motor2",
 				Model:               "fake",
-				Type:                config.ComponentTypeMotor,
+				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
 				Name:                "motor3",
 				Model:               "fake",
-				Type:                config.ComponentTypeMotor,
+				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{
 				Name:      "sensor1",
 				Model:     "fake",
-				Type:      config.ComponentTypeSensor,
+				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "sensor2",
 				Model:     "fake",
-				Type:      config.ComponentTypeSensor,
+				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "sensor3",
 				Model:     "fake",
-				Type:      config.ComponentTypeSensor,
+				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "servo1",
 				Model:     "fake",
-				Type:      config.ComponentTypeServo,
+				Type:      servo.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "servo2",
 				Model:     "fake",
-				Type:      config.ComponentTypeServo,
+				Type:      servo.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "servo3",
 				Model:     "fake",
-				Type:      config.ComponentTypeServo,
+				Type:      servo.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 		},
@@ -825,12 +825,23 @@ func TestManagerMergeAdd(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
+	remote1 := newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{})
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), remote1), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		remote1,
 		config.Remote{Name: "remote1"},
 	)
+	remote2 := newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{})
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), remote2), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		remote2,
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -841,7 +852,6 @@ func TestManagerMergeAdd(t *testing.T) {
 	checkEmpty := func(toCheck *resourceManager) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, toCheck.ResourceNames(), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
@@ -878,12 +888,6 @@ func TestManagerMergeAdd(t *testing.T) {
 		)
 		test.That(
 			t,
-			utils.NewStringSet(toCheck.FunctionNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
-		)
-		test.That(
-			t,
 			rdktestutils.NewResourceNameSet(toCheck.ResourceNames()...),
 			test.ShouldResemble,
 			rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -914,8 +918,11 @@ func TestManagerMergeAdd(t *testing.T) {
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
 	otherManager := managerForRemoteRobot(otherRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), otherManager), test.ShouldBeNil)
+	}()
 	otherManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
 		config.Remote{Name: "other1"},
 	)
 	result, err = manager.MergeAdd(otherManager)
@@ -962,23 +969,6 @@ func TestManagerMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(
-			"func1",
-			"func2",
-			"func1_r1",
-			"func2_r1",
-			"func1_r2",
-			"func2_r2",
-			"func1_other",
-			"func2_other",
-			"func1_other1",
-			"func2_other1",
-		),
-	)
-	test.That(
-		t,
 		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -1004,12 +994,15 @@ func TestManagerMergeAdd(t *testing.T) {
 	checkEmpty(emptyManager)
 
 	sameManager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), sameManager), test.ShouldBeNil)
+	}()
 	sameManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	sameManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err = sameManager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -1025,23 +1018,6 @@ func TestManagerMergeAdd(t *testing.T) {
 		utils.NewStringSet(manager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2", "other1"),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(manager.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(
-			"func1",
-			"func2",
-			"func1_r1",
-			"func2_r1",
-			"func1_r2",
-			"func2_r2",
-			"func1_other",
-			"func2_other",
-			"func1_other1",
-			"func2_other1",
-		),
 	)
 	test.That(
 		t,
@@ -1068,7 +1044,6 @@ func TestManagerMergeAdd(t *testing.T) {
 	emptyManager = newResourceManager(resourceManagerOptions{}, logger)
 	test.That(t, result.Process(context.Background(), emptyManager), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyManager.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyManager.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, emptyManager.ResourceNames(), test.ShouldBeEmpty)
 	test.That(
 		t,
@@ -1087,12 +1062,15 @@ func TestManagerMergeModify(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -1129,12 +1107,6 @@ func TestManagerMergeModify(t *testing.T) {
 			utils.NewStringSet(toCheck.RemoteNames()...),
 			test.ShouldResemble,
 			utils.NewStringSet("remote1", "remote2"),
-		)
-		test.That(
-			t,
-			utils.NewStringSet(toCheck.FunctionNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 		)
 		test.That(
 			t,
@@ -1198,87 +1170,10 @@ func TestManagerMergeModify(t *testing.T) {
 	emptyManager := newResourceManager(resourceManagerOptions{}, logger)
 	test.That(t, result.Process(context.Background(), emptyManager), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyManager.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyManager.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, emptyManager.ResourceNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyManager.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 
 	test.That(t, result.Process(context.Background(), manager), test.ShouldBeNil)
-
-	replacementManager := newResourceManager(resourceManagerOptions{}, logger)
-	robotForRemote := &localRobot{manager: newResourceManager(resourceManagerOptions{}, logger), logger: logger}
-
-	robotForRemote.manager.addFunction("func2_r1")
-
-	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
-	rName := cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Arm{})
-
-	cfg = config.Component{Type: config.ComponentTypeBase, Name: "base2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Base{})
-
-	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Board{})
-
-	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Camera{})
-
-	cfg = config.Component{Type: config.ComponentTypeGripper, Name: "gripper2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Gripper{})
-
-	cfg = config.Component{Type: config.ComponentTypeMotor, Name: "motor2_r1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Motor{})
-
-	cfg = config.Component{Type: config.ComponentTypeServo, Name: "servo2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.Servo{})
-
-	cfg = config.Component{Type: config.ComponentTypeInputController, Name: "inputController2_r1"}
-	rName = cfg.ResourceName()
-	robotForRemote.manager.addResource(rName, &inject.InputController{})
-
-	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
-	replacementManager.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
-
-	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Arm{})
-
-	cfg = config.Component{Type: config.ComponentTypeBase, Name: "base1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Base{})
-
-	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Board{})
-
-	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Camera{})
-
-	cfg = config.Component{Type: config.ComponentTypeGripper, Name: "gripper1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Gripper{})
-
-	cfg = config.Component{Type: config.ComponentTypeInputController, Name: "inputController1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.InputController{})
-
-	cfg = config.Component{Type: config.ComponentTypeMotor, Name: "motor1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Motor{})
-
-	cfg = config.Component{Type: config.ComponentTypeServo, Name: "servo1"}
-	rName = cfg.ResourceName()
-	replacementManager.addResource(rName, &inject.Servo{})
-
-	fp1 := &fakeProcess{id: "1"}
-	_, err = replacementManager.processManager.AddProcess(context.Background(), fp1, false)
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestManagerMergeRemove(t *testing.T) {
@@ -1286,14 +1181,19 @@ func TestManagerMergeRemove(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
-	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
-		config.Remote{Name: "remote1"},
-	)
-	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
-		config.Remote{Name: "remote2"},
-	)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
+	remote1 := newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{})
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), remote1), test.ShouldBeNil)
+	}()
+	manager.addRemote(remote1, config.Remote{Name: "remote1"})
+	remote2 := newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{})
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), remote2), test.ShouldBeNil)
+	}()
+	manager.addRemote(remote2, config.Remote{Name: "remote2"})
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
@@ -1332,12 +1232,6 @@ func TestManagerMergeRemove(t *testing.T) {
 		)
 		test.That(
 			t,
-			utils.NewStringSet(toCheck.FunctionNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
-		)
-		test.That(
-			t,
 			rdktestutils.NewResourceNameSet(toCheck.ResourceNames()...),
 			test.ShouldResemble,
 			rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -1364,20 +1258,26 @@ func TestManagerMergeRemove(t *testing.T) {
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
 	otherManager := managerForRemoteRobot(otherRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), otherManager), test.ShouldBeNil)
+	}()
 	otherManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
 		config.Remote{Name: "other1"},
 	)
 	manager.MergeRemove(otherManager)
 	checkSame(manager)
 
 	sameManager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), sameManager), test.ShouldBeNil)
+	}()
 	sameManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	sameManager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err = sameManager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -1388,7 +1288,6 @@ func TestManagerMergeRemove(t *testing.T) {
 	manager.MergeRemove(sameManager)
 	checkSame(sameManager)
 	test.That(t, utils.NewStringSet(manager.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(manager.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, manager.ResourceNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(manager.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 }
@@ -1398,12 +1297,15 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -1414,7 +1316,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	checkEmpty := func(toCheck *resourceManager) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, toCheck.ResourceNames(), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
@@ -1432,46 +1333,41 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name: "what1",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "what5",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "what3",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "what4",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "what5",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "what6",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "what7",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "what8",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "what",
 				Name: "echo",
-			},
-		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "what",
 			},
 		},
 	}, logger)
@@ -1493,51 +1389,46 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name: "arm2",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "base2",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "board2",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "camera2",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "gripper2",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "inputController2",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "motor2",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "sensor2",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 
 			{
 				Name: "servo2",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "2",
 				Name: "echo", // does not matter
-			},
-		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func2",
 			},
 		},
 	}, logger)
@@ -1553,12 +1444,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	servoNames := []resource.Name{servo.Named("servo2")}
 
 	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(
-		t,
-		utils.NewStringSet(filtered.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func2"),
-	)
 	test.That(
 		t,
 		rdktestutils.NewResourceNameSet(filtered.ResourceNames()...),
@@ -1590,50 +1475,45 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name: "arm2",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "base2",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "board2",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "camera2",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "gripper2",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "inputController2",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "motor2",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "sensor2",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "servo2",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "2",
 				Name: "echo", // does not matter
-			},
-		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func2",
 			},
 		},
 	}, logger)
@@ -1684,12 +1564,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(filtered.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func2", "func1_r2", "func2_r2"),
-	)
-	test.That(
-		t,
 		rdktestutils.NewResourceNameSet(filtered.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
@@ -1725,111 +1599,111 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name: "arm1",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "arm2",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "arm3",
-				Type: config.ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 			{
 				Name: "base1",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "base2",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "base3",
-				Type: config.ComponentTypeBase,
+				Type: base.SubtypeName,
 			},
 			{
 				Name: "board1",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "board2",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "board3",
-				Type: config.ComponentTypeBoard,
+				Type: board.SubtypeName,
 			},
 			{
 				Name: "camera1",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "camera2",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "camera3",
-				Type: config.ComponentTypeCamera,
+				Type: camera.SubtypeName,
 			},
 			{
 				Name: "gripper1",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "gripper2",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "gripper3",
-				Type: config.ComponentTypeGripper,
+				Type: gripper.SubtypeName,
 			},
 			{
 				Name: "inputController1",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "inputController2",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "inputController3",
-				Type: config.ComponentTypeInputController,
+				Type: input.SubtypeName,
 			},
 			{
 				Name: "motor1",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "motor2",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "motor3",
-				Type: config.ComponentTypeMotor,
+				Type: motor.SubtypeName,
 			},
 			{
 				Name: "sensor1",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "sensor2",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "sensor3",
-				Type: config.ComponentTypeSensor,
+				Type: sensor.SubtypeName,
 			},
 			{
 				Name: "servo1",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 			{
 				Name: "servo2",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 			{
 				Name: "servo3",
-				Type: config.ComponentTypeServo,
+				Type: servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1844,17 +1718,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 			{
 				ID:   "3",
 				Name: "echo", // does not matter
-			},
-		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func1",
-			},
-			{
-				Name: "func2",
-			},
-			{
-				Name: "func3",
 			},
 		},
 	}, logger)
@@ -1882,12 +1745,6 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		utils.NewStringSet(filtered.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(filtered.FunctionNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 	)
 	test.That(
 		t,

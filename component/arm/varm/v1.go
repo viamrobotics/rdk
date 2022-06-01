@@ -16,9 +16,11 @@ import (
 	"gonum.org/v1/gonum/stat"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -211,11 +213,14 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 }
 
 type armV1 struct {
+	generic.Unimplemented
 	j0Motor, j1Motor motor.Motor
 
 	j0, j1 joint
 	mp     motionplan.MotionPlanner
 	model  referenceframe.Model
+
+	opMgr operation.SingleOperationManager
 }
 
 // GetEndPosition computes and returns the current cartesian position.
@@ -229,6 +234,9 @@ func (a *armV1) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -257,6 +265,9 @@ func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, 
 
 // MoveToJointPositions TODO.
 func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	if len(pos.Degrees) != 2 {
 		return errors.New("need exactly 2 joints")
 	}
@@ -318,6 +329,11 @@ func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.JointPositi
 
 	joints.Degrees[1] = (joints.Degrees[1] - joints.Degrees[0])
 	return joints, multierr.Combine(e1, e2)
+}
+
+func (a *armV1) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
+	return arm.ErrStopUnimplemented
 }
 
 func (a *armV1) ModelFrame() referenceframe.Model {

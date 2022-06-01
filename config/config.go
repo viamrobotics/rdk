@@ -15,7 +15,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	functionvm "go.viam.com/rdk/function/vm"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -87,15 +86,14 @@ func SortComponents(components []Component) ([]Component, error) {
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud      *Cloud                      `json:"cloud,omitempty"`
-	Remotes    []Remote                    `json:"remotes,omitempty"`
-	Components []Component                 `json:"components,omitempty"`
-	Processes  []pexec.ProcessConfig       `json:"processes,omitempty"`
-	Functions  []functionvm.FunctionConfig `json:"functions,omitempty"`
-	Services   []Service                   `json:"services,omitempty"`
-	Network    NetworkConfig               `json:"network"`
-	Auth       AuthConfig                  `json:"auth"`
-	Debug      bool                        `json:"-"`
+	Cloud      *Cloud                `json:"cloud,omitempty"`
+	Remotes    []Remote              `json:"remotes,omitempty"`
+	Components []Component           `json:"components,omitempty"`
+	Processes  []pexec.ProcessConfig `json:"processes,omitempty"`
+	Services   []Service             `json:"services,omitempty"`
+	Network    NetworkConfig         `json:"network"`
+	Auth       AuthConfig            `json:"auth"`
+	Debug      bool                  `json:"-"`
 
 	ConfigFilePath string `json:"-"`
 
@@ -144,12 +142,6 @@ func (c *Config) Ensure(fromCloud bool) error {
 		}
 	}
 
-	for idx := 0; idx < len(c.Functions); idx++ {
-		if err := c.Functions[idx].Validate(fmt.Sprintf("%s.%d", "functions", idx)); err != nil {
-			return err
-		}
-	}
-
 	for idx := 0; idx < len(c.Services); idx++ {
 		if err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx)); err != nil {
 			return err
@@ -182,13 +174,15 @@ func (c Config) FindComponent(name string) *Component {
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
 // in Frame, and with the given offset as well.
 type Remote struct {
-	Name      string     `json:"name"`
-	Address   string     `json:"address"`
-	Prefix    bool       `json:"prefix"`
-	Frame     *Frame     `json:"frame,omitempty"`
-	Auth      RemoteAuth `json:"auth"`
-	ManagedBy string     `json:"managed_by"`
-	Insecure  bool       `json:"insecure"`
+	Name                    string        `json:"name"`
+	Address                 string        `json:"address"`
+	Prefix                  bool          `json:"prefix"`
+	Frame                   *Frame        `json:"frame,omitempty"`
+	Auth                    RemoteAuth    `json:"auth"`
+	ManagedBy               string        `json:"managed_by"`
+	Insecure                bool          `json:"insecure"`
+	ConnectionCheckInterval time.Duration `json:"connection_check_interval,omitempty"`
+	ReconnectInterval       time.Duration `json:"reconnect_interval,omitempty"`
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`

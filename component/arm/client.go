@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -108,6 +109,13 @@ func (c *client) GetJointPositions(ctx context.Context) (*pb.JointPositions, err
 	return resp.PositionDegs, nil
 }
 
+func (c *client) Stop(ctx context.Context) error {
+	_, err := c.client.Stop(ctx, &pb.StopRequest{
+		Name: c.name,
+	})
+	return err
+}
+
 func (c *client) ModelFrame() referenceframe.Model {
 	// TODO(erh): this feels wrong
 	return nil
@@ -128,4 +136,8 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 // Close cleanly closes the underlying connections.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
+}
+
+func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

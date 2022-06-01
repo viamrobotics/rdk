@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -8,20 +9,19 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"go.viam.com/utils/pexec"
-
-	functionvm "go.viam.com/rdk/function/vm"
 )
 
 // A Diff is the difference between two configs, left and right
 // where left is usually old and right is new. So the diff is the
 // changes from left to right.
 type Diff struct {
-	Left, Right *Config
-	Added       *Config
-	Modified    *ModifiedConfigDiff
-	Removed     *Config
-	Equal       bool
-	PrettyDiff  string
+	Left, Right    *Config
+	Added          *Config
+	Modified       *ModifiedConfigDiff
+	Removed        *Config
+	ResourcesEqual bool
+	NetworkEqual   bool
+	PrettyDiff     string
 }
 
 // ModifiedConfigDiff is the modificative different between two configs.
@@ -29,7 +29,6 @@ type ModifiedConfigDiff struct {
 	Remotes    []Remote
 	Components []Component
 	Processes  []pexec.ProcessConfig
-	Functions  []functionvm.FunctionConfig
 	Services   []Service
 }
 
@@ -62,15 +61,16 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 		return nil, err
 	}
 	different = componentsDifferent || different
-	functionsDifferent := diffFunctions(left.Functions, right.Functions, &diff)
-	different = functionsDifferent || different
 	servicesDifferent, err := diffServices(left.Services, right.Services, &diff)
 	if err != nil {
 		return nil, err
 	}
 	different = servicesDifferent || different
 	different = diffProcesses(left.Processes, right.Processes, &diff) || different
-	diff.Equal = !different
+	diff.ResourcesEqual = !different
+
+	networkDifferent := diffNetworkingCfg(left, right)
+	diff.NetworkEqual = !networkDifferent
 
 	return &diff, nil
 }
@@ -232,48 +232,6 @@ func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
 	return true
 }
 
-func diffFunctions(left, right []functionvm.FunctionConfig, diff *Diff) bool {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]functionvm.FunctionConfig)
-	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
-	}
-
-	var removed []int
-
-	var different bool
-	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
-		if ok {
-			functionDifferent := diffFunction(l, r, diff)
-			different = functionDifferent || different
-			continue
-		}
-		diff.Added.Functions = append(diff.Added.Functions, r)
-		different = true
-	}
-
-	for k := range leftM {
-		removed = append(removed, leftIndex[k])
-		different = true
-	}
-	sort.Ints(removed)
-	for _, idx := range removed {
-		diff.Removed.Functions = append(diff.Removed.Functions, left[idx])
-	}
-	return different
-}
-
-func diffFunction(left, right functionvm.FunctionConfig, diff *Diff) bool {
-	if reflect.DeepEqual(left, right) {
-		return false
-	}
-	diff.Modified.Functions = append(diff.Modified.Functions, right)
-	return true
-}
-
 func diffServices(left, right []Service, diff *Diff) (bool, error) {
 	leftIndex := make(map[string]int)
 	leftM := make(map[string]Service)
@@ -320,4 +278,71 @@ func diffService(left, right Service, diff *Diff) (bool, error) {
 	}
 	diff.Modified.Services = append(diff.Modified.Services, right)
 	return true, nil
+}
+
+// diffNetworkingCfg returns true if any part of the networking config is different.
+func diffNetworkingCfg(left, right *Config) bool {
+	if !reflect.DeepEqual(left.Cloud, right.Cloud) {
+		return true
+	}
+	// for network, we have to check each field separately
+	if diffNetwork(left.Network, right.Network) {
+		return true
+	}
+	if !reflect.DeepEqual(left.Auth, right.Auth) {
+		return true
+	}
+	return false
+}
+
+// diffNetwork returns true if any part of the network config is different.
+func diffNetwork(leftCopy, rightCopy NetworkConfig) bool {
+	if diffTLS(leftCopy.TLSConfig, rightCopy.TLSConfig) {
+		return true
+	}
+
+	// TLSConfig holds funcs, which will never deeply equal so ignore them here
+	leftCopy.TLSConfig = nil
+	rightCopy.TLSConfig = nil
+
+	return !reflect.DeepEqual(leftCopy, rightCopy)
+}
+
+// diffTLS returns true if any part of the TLS config is different.
+func diffTLS(leftTLS, rightTLS *tls.Config) bool {
+	switch {
+	case leftTLS == nil && rightTLS == nil:
+		return false
+	case leftTLS == nil && rightTLS != nil:
+	case leftTLS != nil && rightTLS == nil:
+		return true
+	}
+
+	if leftTLS.MinVersion != rightTLS.MinVersion {
+		return true
+	}
+
+	leftCert, err := leftTLS.GetCertificate(nil)
+	if err != nil {
+		return true
+	}
+	rightCert, err := rightTLS.GetCertificate(nil)
+	if err != nil {
+		return true
+	}
+	if !reflect.DeepEqual(leftCert, rightCert) {
+		return true
+	}
+	leftClientCert, err := leftTLS.GetClientCertificate(nil)
+	if err != nil {
+		return true
+	}
+	rightClientCert, err := rightTLS.GetClientCertificate(nil)
+	if err != nil {
+		return true
+	}
+	if !reflect.DeepEqual(leftClientCert, rightClientCert) {
+		return true
+	}
+	return false
 }

@@ -46,6 +46,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	s, err := servo.FromRobot(r, testServoName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := s.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -126,7 +139,6 @@ func TestServoName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "90cdc3ec-bf17-568f-8340-c6add982e00f",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: servo.SubtypeName,
@@ -138,7 +150,6 @@ func TestServoName(t *testing.T) {
 			"all fields included",
 			testServoName,
 			resource.Name{
-				UUID: "85bbeb08-07b7-5fef-8706-27258bc67859",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: servo.SubtypeName,
@@ -224,3 +235,7 @@ func (mServo *mock) GetPosition(ctx context.Context) (uint8, error) {
 }
 
 func (mServo *mock) Close() { mServo.reconfCount++ }
+
+func (mServo *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
