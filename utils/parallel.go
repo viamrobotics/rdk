@@ -2,11 +2,15 @@ package utils
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"image"
 	"math"
 	"runtime"
 	"sync"
+	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
 
@@ -115,4 +119,48 @@ func ParallelForEachPixel(size image.Point, f func(x int, y int)) {
 		}
 	}
 	waitGroup.Wait()
+}
+
+// SimpleFunc is for RunInParallel.
+type SimpleFunc func(ctx context.Context) error
+
+// RunInParallel runs all functions in parallel, return is elapsed time and n error.
+func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) {
+	start := time.Now()
+	ctx, cancel := context.WithCancel(ctx)
+
+	var wg sync.WaitGroup
+
+	var bigError error
+	var bigErrorMutex sync.Mutex
+	storeError := func(err error) {
+		bigErrorMutex.Lock()
+		defer bigErrorMutex.Unlock()
+		if bigError == nil || !errors.Is(err, context.Canceled) {
+			bigError = multierr.Combine(bigError, err)
+		}
+	}
+
+	helper := func(f SimpleFunc) {
+		defer func() {
+			if thePanic := recover(); thePanic != nil {
+				storeError(fmt.Errorf("got panic running something in parallel: %v", thePanic))
+				cancel()
+			}
+			wg.Done()
+		}()
+		err := f(ctx)
+		if err != nil {
+			storeError(err)
+			cancel()
+		}
+	}
+
+	for _, f := range fs {
+		wg.Add(1)
+		go helper(f)
+	}
+
+	wg.Wait()
+	return time.Since(start), bigError
 }

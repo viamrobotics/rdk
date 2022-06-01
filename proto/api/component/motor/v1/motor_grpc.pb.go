@@ -25,6 +25,8 @@ type MotorServiceClient interface {
 	// GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
 	// This method will return an error if position reporting is not supported
+	// If revolutions is 0, this will run the motor at rpm indefinitely
+	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
 	GoFor(ctx context.Context, in *GoForRequest, opts ...grpc.CallOption) (*GoForResponse, error)
 	// GoTo requests the robot's motor to move to a specific position that
 	// is relative to its home position at a specified speed which is expressed in RPM
@@ -38,8 +40,6 @@ type MotorServiceClient interface {
 	GetPosition(ctx context.Context, in *GetPositionRequest, opts ...grpc.CallOption) (*GetPositionResponse, error)
 	// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
 	GetFeatures(ctx context.Context, in *GetFeaturesRequest, opts ...grpc.CallOption) (*GetFeaturesResponse, error)
-	// Stop turns the robot's motor off
-	// To Do (FA): This will be deprecated
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 	// IsPowered returns true if the robot's motor off
 	// To Do (FA): This will be deprecated
@@ -137,6 +137,8 @@ type MotorServiceServer interface {
 	// GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
 	// This method will return an error if position reporting is not supported
+	// If revolutions is 0, this will run the motor at rpm indefinitely
+	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
 	GoFor(context.Context, *GoForRequest) (*GoForResponse, error)
 	// GoTo requests the robot's motor to move to a specific position that
 	// is relative to its home position at a specified speed which is expressed in RPM
@@ -150,8 +152,6 @@ type MotorServiceServer interface {
 	GetPosition(context.Context, *GetPositionRequest) (*GetPositionResponse, error)
 	// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
 	GetFeatures(context.Context, *GetFeaturesRequest) (*GetFeaturesResponse, error)
-	// Stop turns the robot's motor off
-	// To Do (FA): This will be deprecated
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	// IsPowered returns true if the robot's motor off
 	// To Do (FA): This will be deprecated

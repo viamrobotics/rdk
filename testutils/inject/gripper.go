@@ -11,6 +11,7 @@ import (
 // Gripper is an injected gripper.
 type Gripper struct {
 	gripper.Gripper
+	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	OpenFunc  func(ctx context.Context) error
 	GrabFunc  func(ctx context.Context) (bool, error)
 	CloseFunc func(ctx context.Context) error
@@ -38,4 +39,12 @@ func (g *Gripper) Close(ctx context.Context) error {
 		return utils.TryClose(ctx, g.Gripper)
 	}
 	return g.CloseFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (g *Gripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if g.DoFunc == nil {
+		return g.Gripper.Do(ctx, cmd)
+	}
+	return g.DoFunc(ctx, cmd)
 }

@@ -5,7 +5,7 @@ import (
 	"github.com/pkg/errors"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -20,7 +20,7 @@ type FrameSystemPart struct {
 }
 
 // ToProtobuf turns all the interfaces into serializable types.
-func (part *FrameSystemPart) ToProtobuf() (*pb.Config, error) {
+func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if part.FrameConfig == nil {
 		return nil, referenceframe.ErrNoModelInformation
 	}
@@ -46,7 +46,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.Config, error) {
 			return nil, err
 		}
 	}
-	return &pb.Config{
+	return &pb.FrameSystemConfig{
 		Name:              part.Name,
 		PoseInParentFrame: poseInFrame,
 		ModelJson:         modelJSON,
@@ -54,7 +54,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.Config, error) {
 }
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
-func ProtobufToFrameSystemPart(fsc *pb.Config) (*FrameSystemPart, error) {
+func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
 	poseMsg := fsc.PoseInParentFrame.Pose
 	convertedPose := &commonpb.Pose{
 		X:     poseMsg.X,
@@ -85,6 +85,40 @@ func ProtobufToFrameSystemPart(fsc *pb.Config) (*FrameSystemPart, error) {
 		return nil, err
 	}
 	part.ModelFrame = modelFrame
+	return part, nil
+}
+
+// NewMissingReferenceFrameError returns an error indicating that a particular
+// protobuf message is missing necessary information for its ReferenceFrame key.
+func NewMissingReferenceFrameError(msg interface{}) error {
+	return errors.Errorf("missing reference frame in protobuf message of type %T", msg)
+}
+
+// ConvertTransformProtobufToFrameSystemPart creates a FrameSystem part out of a
+// transform protobuf message.
+func ConvertTransformProtobufToFrameSystemPart(transformMsg *commonpb.Transform) (*FrameSystemPart, error) {
+	frameName := transformMsg.GetReferenceFrame()
+	if frameName == "" {
+		return nil, NewMissingReferenceFrameError(transformMsg)
+	}
+	poseInObserverFrame := transformMsg.GetPoseInObserverFrame()
+	parentFrame := poseInObserverFrame.GetReferenceFrame()
+	if parentFrame == "" {
+		return nil, NewMissingReferenceFrameError(poseInObserverFrame)
+	}
+	poseMsg := poseInObserverFrame.GetPose()
+	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
+	point := pose.Point()
+	translation := spatialmath.NewTranslationConfig(point)
+	frameConfig := &Frame{
+		Parent:      parentFrame,
+		Translation: *translation,
+		Orientation: pose.Orientation(),
+	}
+	part := &FrameSystemPart{
+		Name:        frameName,
+		FrameConfig: frameConfig,
+	}
 	return part, nil
 }
 

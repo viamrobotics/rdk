@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
@@ -29,24 +30,15 @@ func setupWorkingBase(
 ) {
 	workingBase.MoveStraightFunc = func(
 		ctx context.Context, distanceMm int,
-		mmPerSec float64, block bool,
+		mmPerSec float64,
 	) error {
-		argsReceived["MoveStraight"] = []interface{}{distanceMm, mmPerSec, block}
-		return nil
-	}
-
-	workingBase.MoveArcFunc = func(
-		ctx context.Context, distanceMm int,
-		mmPerSec, angleDeg float64, block bool,
-	) error {
-		argsReceived["MoveArc"] = []interface{}{distanceMm, mmPerSec, angleDeg, block}
+		argsReceived["MoveStraight"] = []interface{}{distanceMm, mmPerSec}
 		return nil
 	}
 
 	workingBase.SpinFunc = func(
-		ctx context.Context, angleDeg, degsPerSec float64, block bool,
-	) error {
-		argsReceived["Spin"] = []interface{}{angleDeg, degsPerSec, block}
+		ctx context.Context, angleDeg, degsPerSec float64) error {
+		argsReceived["Spin"] = []interface{}{angleDeg, degsPerSec}
 		return nil
 	}
 
@@ -65,18 +57,12 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	brokenBase.MoveStraightFunc = func(
 		ctx context.Context,
 		distanceMm int, mmPerSec float64,
-		block bool) error {
-		return errors.New(errMsg)
-	}
-	brokenBase.MoveArcFunc = func(
-		ctx context.Context, distanceMm int,
-		mmPerSec, angleDeg float64, block bool,
 	) error {
 		return errors.New(errMsg)
 	}
 	brokenBase.SpinFunc = func(
 		ctx context.Context,
-		angleDeg, degsPerSec float64, block bool,
+		angleDeg, degsPerSec float64,
 	) error {
 		return errors.New(errMsg)
 	}
@@ -115,6 +101,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(base.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, baseSvc)
 
+	generic.RegisterService(rpcServer, baseSvc)
+	workingBase.DoFunc = generic.EchoFunc
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -136,11 +125,16 @@ func TestClient(t *testing.T) {
 	t.Run("working base client", func(t *testing.T) {
 		distance := 42
 		mmPerSec := 42.0
-		shouldBlock := true
-		err = workingBaseClient.MoveStraight(context.Background(), distance, mmPerSec, shouldBlock)
+		err = workingBaseClient.MoveStraight(context.Background(), distance, mmPerSec)
 		test.That(t, err, test.ShouldBeNil)
-		expectedArgs := []interface{}{distance, mmPerSec, shouldBlock}
+		expectedArgs := []interface{}{distance, mmPerSec}
 		test.That(t, argsReceived["MoveStraight"], test.ShouldResemble, expectedArgs)
+
+		// Do
+		resp, err := workingBaseClient.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		err = workingBaseClient.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -153,21 +147,12 @@ func TestClient(t *testing.T) {
 		workingBaseClient2, ok := client.(base.Base)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		distance := 42
-		mmPerSec := 42.0
 		degsPerSec := 42.0
 		angleDeg := 30.0
-		shouldBlock := true
 
-		expectedArgs := []interface{}{distance, mmPerSec, angleDeg, shouldBlock}
-		err = workingBaseClient2.MoveArc(context.Background(), distance, mmPerSec, angleDeg, shouldBlock)
+		err = workingBaseClient2.Spin(context.Background(), angleDeg, degsPerSec)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, argsReceived["MoveArc"], test.ShouldResemble, expectedArgs)
-
-		shouldBlock = false
-		err = workingBaseClient2.Spin(context.Background(), angleDeg, degsPerSec, shouldBlock)
-		test.That(t, err, test.ShouldBeNil)
-		expectedArgs = []interface{}{angleDeg, degsPerSec, shouldBlock}
+		expectedArgs := []interface{}{angleDeg, degsPerSec}
 		test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -177,13 +162,10 @@ func TestClient(t *testing.T) {
 		failingBaseClient, err := base.NewClient(context.Background(), failBaseName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = failingBaseClient.MoveStraight(context.Background(), 42, 42.0, false)
+		err = failingBaseClient.MoveStraight(context.Background(), 42, 42.0)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
-		err = failingBaseClient.MoveArc(context.Background(), 42, 42.0, 42.0, false)
-		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
-
-		err = failingBaseClient.Spin(context.Background(), 42.0, 42.0, true)
+		err = failingBaseClient.Spin(context.Background(), 42.0, 42.0)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
 		err = failingBaseClient.Stop(context.Background())

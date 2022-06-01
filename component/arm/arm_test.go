@@ -48,6 +48,19 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestGenericDo(t *testing.T) {
+	r := setupInjectRobot()
+
+	a, err := arm.FromRobot(r, testArmName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, a, test.ShouldNotBeNil)
+
+	command := map[string]interface{}{"cmd": "test", "data1": 500}
+	ret, err := a.Do(context.Background(), command)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret, test.ShouldEqual, command)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -154,7 +167,6 @@ func TestArmName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "a5b161b9-dfa9-5eef-93d1-58431fd91212",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,
@@ -166,7 +178,6 @@ func TestArmName(t *testing.T) {
 			"all fields included",
 			testArmName,
 			resource.Name{
-				UUID: "ded8a90b-0c77-5bda-baf5-b7e79bbdb28a",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,
@@ -223,6 +234,16 @@ func TestReconfigurableArm(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableArm")
 }
 
+func TestStop(t *testing.T) {
+	actualArm1 := &mock{Name: testArmName}
+	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualArm1.stopCount, test.ShouldEqual, 0)
+	test.That(t, reconfArm1.(arm.Arm).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, actualArm1.stopCount, test.ShouldEqual, 1)
+}
+
 func TestClose(t *testing.T) {
 	actualArm1 := &mock{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
@@ -264,6 +285,7 @@ type mock struct {
 	Name        string
 	endPosCount int
 	reconfCount int
+	stopCount   int
 }
 
 func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
@@ -271,4 +293,13 @@ func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return pose, nil
 }
 
+func (m *mock) Stop(ctx context.Context) error {
+	m.stopCount++
+	return nil
+}
+
 func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}

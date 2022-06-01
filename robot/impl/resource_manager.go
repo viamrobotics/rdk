@@ -15,7 +15,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
@@ -25,7 +24,6 @@ import (
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
 	remotes        map[string]*remoteRobot
-	functions      map[string]struct{}
 	resources      *resource.Graph
 	processManager pexec.ProcessManager
 	opts           resourceManagerOptions
@@ -45,7 +43,6 @@ func newResourceManager(
 ) *resourceManager {
 	return &resourceManager{
 		remotes:        map[string]*remoteRobot{},
-		functions:      map[string]struct{}{},
 		resources:      resource.NewGraph(),
 		processManager: pexec.NewProcessManager(logger),
 		opts:           opts,
@@ -55,11 +52,6 @@ func newResourceManager(
 // addRemote adds a remote to the manager.
 func (manager *resourceManager) addRemote(r *remoteRobot, c config.Remote) {
 	manager.remotes[c.Name] = r
-}
-
-// addFunction adds a function to the manager.
-func (manager *resourceManager) addFunction(name string) {
-	manager.functions[name] = struct{}{}
 }
 
 // addResource adds a resource to the manager.
@@ -72,27 +64,6 @@ func (manager *resourceManager) RemoteNames() []string {
 	names := []string{}
 	for k := range manager.remotes {
 		names = append(names, k)
-	}
-	return names
-}
-
-// mergeNamesWithRemotes merges names from the manager itself as well as its
-// remotes.
-func (manager *resourceManager) mergeNamesWithRemotes(names []string, namesFunc func(remote robot.Robot) []string) []string {
-	// use this to filter out seen names and preserve order
-	seen := utils.NewStringSet()
-	for _, name := range names {
-		seen[name] = struct{}{}
-	}
-	for _, r := range manager.remotes {
-		remoteNames := namesFunc(r)
-		for _, name := range remoteNames {
-			if _, ok := seen[name]; ok {
-				continue
-			}
-			names = append(names, name)
-			seen[name] = struct{}{}
-		}
 	}
 	return names
 }
@@ -118,15 +89,6 @@ func (manager *resourceManager) mergeResourceNamesWithRemotes(names []resource.N
 	return names
 }
 
-// FunctionNames returns the names of all functions in the manager.
-func (manager *resourceManager) FunctionNames() []string {
-	names := []string{}
-	for k := range manager.functions {
-		names = append(names, k)
-	}
-	return manager.mergeNamesWithRemotes(names, robot.Robot.FunctionNames)
-}
-
 // ResourceNames returns the names of all resources in the manager.
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
@@ -143,12 +105,6 @@ func (manager *resourceManager) Clone() *resourceManager {
 		clonedManager.remotes = make(map[string]*remoteRobot, len(manager.remotes))
 		for k, v := range manager.remotes {
 			clonedManager.remotes[k] = v
-		}
-	}
-	if len(manager.functions) != 0 {
-		clonedManager.functions = make(map[string]struct{}, len(manager.functions))
-		for k, v := range manager.functions {
-			clonedManager.functions[k] = v
 		}
 	}
 	if len(manager.resources.Nodes) != 0 {
@@ -206,10 +162,6 @@ func (manager *resourceManager) processConfig(
 		return err
 	}
 
-	for _, f := range config.Functions {
-		manager.addFunction(f.Name)
-	}
-
 	return nil
 }
 
@@ -234,10 +186,6 @@ func (manager *resourceManager) processModifiedConfig(
 
 	if err := manager.newServices(ctx, config.Services, robot); err != nil {
 		return err
-	}
-
-	for _, f := range config.Functions {
-		manager.addFunction(f.Name)
 	}
 
 	return nil
@@ -265,83 +213,20 @@ func (manager *resourceManager) newProcesses(ctx context.Context, processes []pe
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
-		var dialOpts []rpc.DialOption
-		if manager.opts.debug {
-			dialOpts = append(dialOpts, rpc.WithDialDebug())
-		}
-		if config.Insecure {
-			dialOpts = append(dialOpts, rpc.WithInsecure())
-		}
-		if manager.opts.allowInsecureCreds {
-			dialOpts = append(dialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
-		}
-		if manager.opts.tlsConfig != nil {
-			dialOpts = append(dialOpts, rpc.WithTLSConfig(manager.opts.tlsConfig))
-		}
-		if config.Auth.Credentials != nil {
-			if config.Auth.Entity == "" {
-				dialOpts = append(dialOpts, rpc.WithCredentials(*config.Auth.Credentials))
-			} else {
-				dialOpts = append(dialOpts, rpc.WithEntityCredentials(config.Auth.Entity, *config.Auth.Credentials))
-			}
-		} else {
-			// explicitly unset credentials so they are not fed to remotes unintentionally.
-			dialOpts = append(dialOpts, rpc.WithEntityCredentials("", rpc.Credentials{}))
-		}
-
-		if config.Auth.ExternalAuthAddress != "" {
-			dialOpts = append(dialOpts, rpc.WithExternalAuth(
-				config.Auth.ExternalAuthAddress,
-				config.Auth.ExternalAuthToEntity,
-			))
-		}
-
-		if config.Auth.ExternalAuthInsecure {
-			dialOpts = append(dialOpts, rpc.WithExternalAuthInsecure())
-		}
-
-		if config.Auth.SignalingServerAddress != "" {
-			wrtcOpts := rpc.DialWebRTCOptions{
-				Config:                 &rpc.DefaultWebRTCConfiguration,
-				SignalingServerAddress: config.Auth.SignalingServerAddress,
-				SignalingAuthEntity:    config.Auth.SignalingAuthEntity,
-			}
-			if config.Auth.SignalingCreds != nil {
-				wrtcOpts.SignalingCreds = *config.Auth.SignalingCreds
-			}
-			dialOpts = append(dialOpts, rpc.WithWebRTCOptions(wrtcOpts))
-
-			if config.Auth.Managed {
-				// managed robots use TLS authN/Z
-				dialOpts = append(dialOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
-					RemoveAuthCredentials: true,
-				}))
-			}
-		}
-
-		var outerError error
-		for attempt := 0; attempt < 3; attempt++ {
-			robotClient, err := client.New(ctx, config.Address, logger, client.WithDialOptions(dialOpts...))
-			if err != nil {
-				if errors.Is(err, rpc.ErrInsecureWithCredentials) {
-					if manager.opts.fromCommand {
-						err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
-					} else {
-						err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
-					}
-					return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
+		dialOpts := remoteDialOptions(config, manager.opts)
+		robotClient, err := dialRemote(ctx, config, logger, dialOpts...)
+		if err != nil {
+			if errors.Is(err, rpc.ErrInsecureWithCredentials) {
+				if manager.opts.fromCommand {
+					err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
+				} else {
+					err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
 				}
-				outerError = errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
-			} else {
-				configCopy := config
-				manager.addRemote(newRemoteRobot(robotClient, configCopy), configCopy)
-				outerError = nil
-				break
 			}
+			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
-		if outerError != nil {
-			return outerError
-		}
+		configCopy := config
+		manager.addRemote(newRemoteRobot(ctx, robotClient, configCopy), configCopy)
 	}
 	return nil
 }
@@ -464,15 +349,6 @@ func (manager *resourceManager) MergeAdd(toAdd *resourceManager) (*PartsMergeRes
 		}
 	}
 
-	if len(toAdd.functions) != 0 {
-		if manager.functions == nil {
-			manager.functions = make(map[string]struct{}, len(toAdd.functions))
-		}
-		for k, v := range toAdd.functions {
-			manager.functions[k] = v
-		}
-	}
-
 	err := manager.resources.MergeAdd(toAdd.resources)
 	if err != nil {
 		return nil, err
@@ -578,11 +454,6 @@ func (manager *resourceManager) MergeRemove(toRemove *resourceManager) {
 		}
 	}
 
-	if len(toRemove.functions) != 0 {
-		for k := range toRemove.functions {
-			delete(manager.functions, k)
-		}
-	}
 	manager.resources.MergeRemove(toRemove.resources)
 
 	if toRemove.processManager != nil {
@@ -633,14 +504,6 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		}
 		// Assuming dependencies will be added later
 		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
-	}
-
-	for _, conf := range conf.Functions {
-		_, ok := manager.functions[conf.Name]
-		if !ok {
-			continue
-		}
-		filtered.addFunction(conf.Name)
 	}
 
 	return filtered, nil

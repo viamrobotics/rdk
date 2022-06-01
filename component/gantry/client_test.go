@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/gantry/v1"
@@ -66,6 +67,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(gantry.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc)
 
+	injectGantry2.DoFunc = generic.EchoFunc
+	generic.RegisterService(rpcServer, gantrySvc)
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -83,6 +87,12 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("gantry client 1", func(t *testing.T) {
+		// Do
+		resp, err := gantry1Client.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+
 		pos, err := gantry1Client.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldResemble, pos2)

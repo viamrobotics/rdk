@@ -14,6 +14,7 @@ import (
 	slib "github.com/jacobsa/go-serial/serial"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -49,6 +50,7 @@ type wit struct {
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	generic.Unimplemented
 }
 
 // ReadAngularVelocity returns Angular velocity from the gyroscope in deg_per_sec.

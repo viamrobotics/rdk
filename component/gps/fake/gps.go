@@ -6,10 +6,12 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -102,8 +104,12 @@ func (g *GPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.valid, nil
 }
 
-// RunCommand runs an arbitrary command.
-func (g *GPS) RunCommand(ctx context.Context, name string, args map[string]interface{}) (map[string]interface{}, error) {
+// Do runs an arbitrary command.
+func (g *GPS) Do(ctx context.Context, args map[string]interface{}) (map[string]interface{}, error) {
+	name, ok := args["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' value")
+	}
 	switch name {
 	case "set_location":
 		g.mu.Lock()
@@ -125,12 +131,13 @@ func (g *GPS) RunCommand(ctx context.Context, name string, args map[string]inter
 }
 
 type interceptingGPSBase struct {
+	generic.Unimplemented
 	b       base.Base
 	g       *GPS
 	bearing float64 // [0-360)
 }
 
-func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPSBase, error) {
+func newInterceptingGPSBase(r robot.Robot, c config.Component) (base.LocalBase, error) {
 	baseName := c.Attributes.String("base")
 	if baseName == "" {
 		return nil, errors.New("'base' name must be set")
@@ -160,12 +167,12 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 	return &interceptingGPSBase{b: b, g: fakeG}, nil
 }
 
-func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
 	loc, err := b.g.ReadLocation(ctx)
 	if err != nil {
 		return err
 	}
-	err = b.b.MoveStraight(ctx, distanceMm, mmPerSec, true)
+	err = b.b.MoveStraight(ctx, distanceMm, mmPerSec)
 	if err != nil {
 		return err
 	}
@@ -177,13 +184,8 @@ func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, 
 	return nil
 }
 
-// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *interceptingGPSBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
-	return nil
-}
-
-func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-	err := b.b.Spin(ctx, angleDeg, degsPerSec, true)
+func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+	err := b.b.Spin(ctx, angleDeg, degsPerSec)
 	if err != nil {
 		return err
 	}
@@ -196,5 +198,13 @@ func (b *interceptingGPSBase) GetWidth(ctx context.Context) (int, error) {
 }
 
 func (b *interceptingGPSBase) Stop(ctx context.Context) error {
+	return nil
+}
+
+func (b *interceptingGPSBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	return nil
+}
+
+func (b *interceptingGPSBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
 	return nil
 }

@@ -86,18 +86,13 @@ func main() {
 }
 
 func pipeline(src gostream.ImageSource, tol float64, size int, colorString string, logger golog.Logger) {
-	// create detector
-	col := rimage.NewColorFromHexOrPanic(colorString)
-	hue, _, _ := col.HsvNormal()
-	d, err := objectdetection.NewColorDetector(tol, hue)
-	if err != nil {
-		logger.Fatal(err)
+	detCfg := &objectdetection.ColorDetectorConfig{
+		SegmentSize:       size,
+		Tolerance:         tol,
+		DetectColorString: colorString,
 	}
-	// create filter
-	f := objectdetection.NewAreaFilter(size)
-
-	// make a pipeline
-	det, err := objectdetection.Build(nil, d, f)
+	// create detector
+	det, err := objectdetection.NewColorDetector(detCfg)
 	if err != nil {
 		logger.Fatal(err)
 	}

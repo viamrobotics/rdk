@@ -22,6 +22,7 @@ import (
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -90,6 +91,7 @@ func (m *mask) set(bit int) {
 }
 
 type numatoBoard struct {
+	generic.Unimplemented
 	pins    int
 	analogs map[string]board.AnalogReader
 

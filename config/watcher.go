@@ -64,7 +64,7 @@ func newCloudWatcher(ctx context.Context, config *Cloud, logger golog.Logger) *c
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, _, err := ReadFromCloud(cancelCtx, config, false, checkForNewCert, logger)
+			newConfig, _, err := readFromCloud(cancelCtx, config, false, checkForNewCert, logger)
 			if err != nil {
 				logger.Errorw("error reading cloud config", "error", err)
 				continue

@@ -29,7 +29,7 @@ func TestArduinoPWM(t *testing.T) {
 					{
 						Name:  "m1",
 						Model: "arduino",
-						Type:  config.ComponentTypeMotor,
+						Type:  motor.SubtypeName,
 						ConvertedAttributes: &motor.Config{
 							Pins: motor.PinConfig{
 								PWM:          "5",
@@ -53,7 +53,7 @@ func TestArduinoPWM(t *testing.T) {
 					{
 						Name:  "m1",
 						Model: "arduino",
-						Type:  config.ComponentTypeMotor,
+						Type:  motor.SubtypeName,
 						ConvertedAttributes: &motor.Config{
 							Pins: motor.PinConfig{
 								A:            "6",
@@ -76,7 +76,7 @@ func TestArduinoPWM(t *testing.T) {
 					{
 						Name:  "m1",
 						Model: "arduino",
-						Type:  config.ComponentTypeMotor,
+						Type:  motor.SubtypeName,
 						ConvertedAttributes: &motor.Config{
 							Pins: motor.PinConfig{
 								PWM:       "5",
@@ -98,7 +98,7 @@ func TestArduinoPWM(t *testing.T) {
 					{
 						Name:  "m1",
 						Model: "arduino",
-						Type:  config.ComponentTypeMotor,
+						Type:  motor.SubtypeName,
 						ConvertedAttributes: &motor.Config{
 							Pins: motor.PinConfig{
 								PWM:          "35",
@@ -169,7 +169,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 			{
 				Name:  "m1",
 				Model: "arduino",
-				Type:  config.ComponentTypeMotor,
+				Type:  motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{
 					Pins: motor.PinConfig{
 						PWM:          "11",
@@ -209,7 +209,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 			{
 				Name:  "m1",
 				Model: "arduino",
-				Type:  config.ComponentTypeMotor,
+				Type:  motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{
 					Pins: motor.PinConfig{
 						PWM:          "5",
@@ -248,7 +248,7 @@ func TestArduinoMotorAB(t *testing.T) {
 			{
 				Name:  "m1",
 				Model: "arduino",
-				Type:  config.ComponentTypeMotor,
+				Type:  motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{
 					Pins: motor.PinConfig{
 						A:            "5",

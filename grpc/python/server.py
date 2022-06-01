@@ -54,16 +54,6 @@ class RobotService(RobotServiceBase):
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def Config(self, stream: Stream[ConfigRequest, ConfigResponse]) -> None:
         await stream.send_message(ConfigResponse())
-    async def DoAction(self, stream) -> None:
-        raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def ExecuteFunction(self, stream) -> None:
-        raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def ExecuteSource(self, stream) -> None:
-        raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def ForceMatrixMatrix(self, stream) -> None:
-        raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def ForceMatrixSlipDetection(self, stream) -> None:
-        raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def FrameServiceConfig(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def GPSAccuracy(self, stream) -> None:

@@ -1,18 +1,14 @@
 package data
 
 import (
-	"os"
 	"testing"
-	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/resource"
 )
 
-var dummyCollectorConstructor = func(i interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (Collector, error) {
+var dummyCollectorConstructor = func(i interface{}, params CollectorParams) (Collector, error) {
 	return &collector{}, nil
 }
 
@@ -21,8 +17,7 @@ func TestRegister(t *testing.T) {
 		Subtype:    resource.SubtypeName("type"),
 		MethodName: "method",
 	}
-	dummyCollectorConstructor = func(i interface{}, name string, interval time.Duration, params map[string]string,
-		target *os.File, queueSize int, bufferSize int, logger golog.Logger) (Collector, error) {
+	dummyCollectorConstructor = func(i interface{}, params CollectorParams) (Collector, error) {
 		return &collector{}, nil
 	}
 

@@ -3,4 +3,4 @@ FROM ghcr.io/viamrobotics/canon:arm64
 # cache golang dependencies
 COPY go.mod go.sum /tmp/gomod/
 RUN chown -R testbot /tmp/gomod
-RUN sudo -u testbot bash -lc 'cd /tmp/gomod && go mod download && rm -r /tmp/gomod'
+RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -u testbot bash -lc 'cd /tmp/gomod && go mod download && rm -r /tmp/gomod'

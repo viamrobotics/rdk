@@ -99,7 +99,7 @@ func DefaultConstraint(
 	opt.AddConstraint("line", lineConstraint)
 
 	// Add self-collision check if available
-	collisionConst := NewCollisionConstraintFromFrame(f, map[string]spatial.Geometry{})
+	collisionConst := NewCollisionConstraint(f, map[string]spatial.Geometry{}, map[string]spatial.Geometry{})
 	if collisionConst != nil {
 		opt.AddConstraint("self-collision", collisionConst)
 	}
@@ -136,6 +136,9 @@ func plannerRunner(ctx context.Context,
 	var err error
 	goal := goals[iter]
 	opt := opts[iter]
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+	}
 	remainingSteps := []*configuration{}
 	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
@@ -143,7 +146,14 @@ func plannerRunner(ctx context.Context,
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
 			// TODO(rb) fix me
-			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, map[string]spatial.Geometry{}, opt, endpointPreview, solutionChan)
+			cbert.planRunner(
+				ctx,
+				spatial.PoseToProtobuf(goal),
+				seed,
+				opt,
+				endpointPreview,
+				solutionChan,
+			)
 		})
 		for {
 			select {
@@ -216,7 +226,6 @@ func plannerRunner(ctx context.Context,
 		return append(resultSlices, remainingSteps...), nil
 	}
 }
-
 // getSteps will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step.

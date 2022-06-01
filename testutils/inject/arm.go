@@ -13,10 +13,12 @@ import (
 // Arm is an injected arm.
 type Arm struct {
 	arm.Arm
+	DoFunc                   func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	GetEndPositionFunc       func(ctx context.Context) (*commonpb.Pose, error)
 	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState) error
 	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions) error
 	GetJointPositionsFunc    func(ctx context.Context) (*pb.JointPositions, error)
+	StopFunc                 func(ctx context.Context) error
 	CloseFunc                func(ctx context.Context) error
 }
 
@@ -52,10 +54,26 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 	return a.GetJointPositionsFunc(ctx)
 }
 
+// Stop calls the injected Stop or the real version.
+func (a *Arm) Stop(ctx context.Context) error {
+	if a.StopFunc == nil {
+		return a.Arm.Stop(ctx)
+	}
+	return a.StopFunc(ctx)
+}
+
 // Close calls the injected Close or the real version.
 func (a *Arm) Close(ctx context.Context) error {
 	if a.CloseFunc == nil {
 		return utils.TryClose(ctx, a.Arm)
 	}
 	return a.CloseFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (a *Arm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if a.DoFunc == nil {
+		return a.Arm.Do(ctx, cmd)
+	}
+	return a.DoFunc(ctx, cmd)
 }

@@ -12,7 +12,7 @@ Restart=always
 RestartSec=1
 User=root
 TimeoutSec=600
-ExecStartPre=/usr/local/bin/viam-server --aix-update
+ExecStartPre=-/usr/local/bin/viam-server --aix-update
 ExecStart=/usr/local/bin/viam-server /etc/viam.json
 ExecStop=/bin/sh -c "kill $MAINPID; sleep 2"
 

@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
@@ -51,6 +52,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(gps.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc)
 
+	injectGPS.DoFunc = generic.EchoFunc
+	generic.RegisterService(rpcServer, gpsSvc)
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -67,6 +71,12 @@ func TestClient(t *testing.T) {
 		// working
 		gps1Client, err := gps.NewClient(context.Background(), testGPSName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		// Do
+		resp, err := gps1Client.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		loc1, err := gps1Client.ReadLocation(context.Background())
 		test.That(t, err, test.ShouldBeNil)

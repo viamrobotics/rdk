@@ -34,7 +34,7 @@ func init() {
 			return newPreprocessDepth(r, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "preprocess_depth",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "preprocess_depth",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

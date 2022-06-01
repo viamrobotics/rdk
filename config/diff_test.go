@@ -2,33 +2,18 @@ package config_test
 
 import (
 	"context"
+	"crypto/tls"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	functionvm "go.viam.com/rdk/function/vm"
-	"go.viam.com/rdk/testutils/inject"
 )
-
-func init() {
-	injectEngine1 := &inject.Engine{}
-	injectEngine1.ValidateSourceFunc = func(_ string) error {
-		return nil
-	}
-	functionvm.RegisterEngine(functionvm.EngineName("foo"), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-	functionvm.RegisterEngine(functionvm.EngineName("bar"), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-	functionvm.RegisterEngine(functionvm.EngineName("baz"), func() (functionvm.Engine, error) {
-		return injectEngine1, nil
-	})
-}
 
 func TestDiffConfigs(t *testing.T) {
 	config1 := config.Config{
@@ -47,7 +32,7 @@ func TestDiffConfigs(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "arm1",
-				Type:  config.ComponentTypeArm,
+				Type:  arm.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"one": float64(1),
@@ -55,7 +40,7 @@ func TestDiffConfigs(t *testing.T) {
 			},
 			{
 				Name:  "base1",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"two": float64(2),
@@ -64,7 +49,7 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:  "board1",
 				Model: "fake",
-				Type:  config.ComponentTypeBoard,
+				Type:  board.SubtypeName,
 				ConvertedAttributes: &board.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -94,22 +79,6 @@ func TestDiffConfigs(t *testing.T) {
 				Log:  true,
 			},
 		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func1",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "foo",
-					Source: "1",
-				},
-			},
-			{
-				Name: "func2",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "bar",
-					Source: "2",
-				},
-			},
-		},
 	}
 
 	config2 := config.ModifiedConfigDiff{
@@ -128,7 +97,7 @@ func TestDiffConfigs(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "arm1",
-				Type:  config.ComponentTypeArm,
+				Type:  arm.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"two": float64(2),
@@ -136,7 +105,7 @@ func TestDiffConfigs(t *testing.T) {
 			},
 			{
 				Name:  "base1",
-				Type:  config.ComponentTypeBase,
+				Type:  base.SubtypeName,
 				Model: "fake",
 				Attributes: config.AttributeMap{
 					"three": float64(3),
@@ -145,7 +114,7 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:  "board1",
 				Model: "fake",
-				Type:  config.ComponentTypeBoard,
+				Type:  board.SubtypeName,
 				ConvertedAttributes: &board.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -175,22 +144,6 @@ func TestDiffConfigs(t *testing.T) {
 				Log:  true,
 			},
 		},
-		Functions: []functionvm.FunctionConfig{
-			{
-				Name: "func1",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "foo",
-					Source: "1+1",
-				},
-			},
-			{
-				Name: "func2",
-				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-					Engine: "bar",
-					Source: "2+2",
-				},
-			},
-		},
 	}
 
 	for _, tc := range []struct {
@@ -204,10 +157,11 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_empty.json",
 			"data/diff_config_empty.json",
 			config.Diff{
-				Added:    &config.Config{},
-				Modified: &config.ModifiedConfigDiff{},
-				Removed:  &config.Config{},
-				Equal:    true,
+				Added:          &config.Config{},
+				Modified:       &config.ModifiedConfigDiff{},
+				Removed:        &config.Config{},
+				ResourcesEqual: true,
+				NetworkEqual:   true,
 			},
 		},
 		{
@@ -215,10 +169,11 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_1.json",
 			"data/diff_config_1.json",
 			config.Diff{
-				Added:    &config.Config{},
-				Modified: &config.ModifiedConfigDiff{},
-				Removed:  &config.Config{},
-				Equal:    true,
+				Added:          &config.Config{},
+				Modified:       &config.ModifiedConfigDiff{},
+				Removed:        &config.Config{},
+				ResourcesEqual: true,
+				NetworkEqual:   true,
 			},
 		},
 		{
@@ -226,10 +181,11 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_empty.json",
 			"data/diff_config_1.json",
 			config.Diff{
-				Added:    &config1,
-				Modified: &config.ModifiedConfigDiff{},
-				Removed:  &config.Config{},
-				Equal:    false,
+				Added:          &config1,
+				Modified:       &config.ModifiedConfigDiff{},
+				Removed:        &config.Config{},
+				ResourcesEqual: false,
+				NetworkEqual:   true,
 			},
 		},
 		{
@@ -237,10 +193,11 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_1.json",
 			"data/diff_config_empty.json",
 			config.Diff{
-				Added:    &config.Config{},
-				Removed:  &config1,
-				Modified: &config.ModifiedConfigDiff{},
-				Equal:    false,
+				Added:          &config.Config{},
+				Removed:        &config1,
+				Modified:       &config.ModifiedConfigDiff{},
+				ResourcesEqual: false,
+				NetworkEqual:   true,
 			},
 		},
 		{
@@ -248,10 +205,11 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_1.json",
 			"data/diff_config_2.json",
 			config.Diff{
-				Added:    &config.Config{},
-				Removed:  &config.Config{},
-				Modified: &config2,
-				Equal:    false,
+				Added:          &config.Config{},
+				Removed:        &config.Config{},
+				Modified:       &config2,
+				ResourcesEqual: false,
+				NetworkEqual:   true,
 			},
 		},
 		{
@@ -263,12 +221,12 @@ func TestDiffConfigs(t *testing.T) {
 					Components: []config.Component{
 						{
 							Name:  "base2",
-							Type:  config.ComponentTypeBase,
+							Type:  base.SubtypeName,
 							Model: "fake",
 						},
 						{
 							Name:  "board2",
-							Type:  config.ComponentTypeBoard,
+							Type:  board.SubtypeName,
 							Model: "fake",
 							ConvertedAttributes: &board.Config{
 								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
@@ -281,15 +239,6 @@ func TestDiffConfigs(t *testing.T) {
 							Name: "bash",
 							Args: []string{"-c", "trap \"exit 0\" SIGINT; while true; do echo world; sleep 2; done"},
 							Log:  true,
-						},
-					},
-					Functions: []functionvm.FunctionConfig{
-						{
-							Name: "func3",
-							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-								Engine: "baz",
-								Source: "3",
-							},
 						},
 					},
 				},
@@ -307,7 +256,7 @@ func TestDiffConfigs(t *testing.T) {
 					Components: []config.Component{
 						{
 							Name:  "arm1",
-							Type:  config.ComponentTypeArm,
+							Type:  arm.SubtypeName,
 							Model: "fake",
 							Attributes: config.AttributeMap{
 								"two": float64(2),
@@ -315,7 +264,7 @@ func TestDiffConfigs(t *testing.T) {
 						},
 						{
 							Name:  "board1",
-							Type:  config.ComponentTypeBoard,
+							Type:  board.SubtypeName,
 							Model: "fake",
 							ConvertedAttributes: &board.Config{
 								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
@@ -330,21 +279,12 @@ func TestDiffConfigs(t *testing.T) {
 							OneShot: true,
 						},
 					},
-					Functions: []functionvm.FunctionConfig{
-						{
-							Name: "func1",
-							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-								Engine: "foo",
-								Source: "1+1",
-							},
-						},
-					},
 				},
 				Removed: &config.Config{
 					Components: []config.Component{
 						{
 							Name:  "base1",
-							Type:  config.ComponentTypeBase,
+							Type:  base.SubtypeName,
 							Model: "fake",
 							Attributes: config.AttributeMap{
 								"two": float64(2),
@@ -359,17 +299,9 @@ func TestDiffConfigs(t *testing.T) {
 							Log:  true,
 						},
 					},
-					Functions: []functionvm.FunctionConfig{
-						{
-							Name: "func2",
-							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-								Engine: "bar",
-								Source: "2",
-							},
-						},
-					},
 				},
-				Equal: false,
+				ResourcesEqual: false,
+				NetworkEqual:   true,
 			},
 		},
 	} {
@@ -384,7 +316,7 @@ func TestDiffConfigs(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, diff.Left, test.ShouldResemble, left)
 			test.That(t, diff.Right, test.ShouldResemble, right)
-			if tc.Expected.Equal {
+			if tc.Expected.ResourcesEqual {
 				test.That(t, diff.PrettyDiff, test.ShouldBeEmpty)
 			} else {
 				test.That(t, diff.PrettyDiff, test.ShouldNotBeEmpty)
@@ -438,6 +370,127 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 			}
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, tc.Expected)
+		})
+	}
+}
+
+func TestDiffNetworkingCfg(t *testing.T) {
+	network1 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{FQDN: "abc"}}
+	network2 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{FQDN: "xyz"}}
+
+	tls1 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12}}}
+	tls2 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: &tls.Config{MinVersion: tls.VersionTLS10}}}
+
+	tlsCfg3 := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+	}
+	tls3 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg3}}
+	tlsCfg4 := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+	}
+	tls4 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg4}}
+	tlsCfg5 := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("xyz")}}, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
+		},
+	}
+	tls5 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg5}}
+	tlsCfg6 := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("abcd")}}, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{Certificate: [][]byte{[]byte("xyz")}}, nil
+		},
+	}
+	tls6 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg6}}
+
+	cloud1 := &config.Cloud{ID: "1"}
+	cloud2 := &config.Cloud{ID: "2"}
+
+	auth1 := config.AuthConfig{
+		Handlers: []config.AuthHandlerConfig{{Config: config.AttributeMap{"key": "value"}}},
+	}
+	auth2 := config.AuthConfig{
+		Handlers: []config.AuthHandlerConfig{{Config: config.AttributeMap{"key2": "value2"}}},
+	}
+	for _, tc := range []struct {
+		Name         string
+		LeftCfg      config.Config
+		RightCfg     config.Config
+		NetworkEqual bool
+	}{
+		{
+			"same",
+			config.Config{Network: network1, Cloud: cloud1, Auth: auth1},
+			config.Config{Network: network1, Cloud: cloud1, Auth: auth1},
+			true,
+		},
+		{
+			"diff network",
+			config.Config{Network: network1},
+			config.Config{Network: network2},
+			false,
+		},
+		{
+			"same tls",
+			config.Config{Network: tls3},
+			config.Config{Network: tls4},
+			true,
+		},
+		{
+			"diff tls",
+			config.Config{Network: tls1},
+			config.Config{Network: tls2},
+			false,
+		},
+		{
+			"diff tls cert",
+			config.Config{Network: tls3},
+			config.Config{Network: tls5},
+			false,
+		},
+		{
+			"diff tls client cert",
+			config.Config{Network: tls3},
+			config.Config{Network: tls6},
+			false,
+		},
+		{
+			"diff cloud",
+			config.Config{Cloud: cloud1},
+			config.Config{Cloud: cloud2},
+			false,
+		},
+		{
+			"diff auth",
+			config.Config{Auth: auth1},
+			config.Config{Auth: auth2},
+			false,
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			diff, err := config.DiffConfigs(&tc.LeftCfg, &tc.RightCfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			test.That(t, diff.NetworkEqual, test.ShouldEqual, tc.NetworkEqual)
 		})
 	}
 }

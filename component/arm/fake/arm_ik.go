@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -61,6 +62,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 
 // ArmIK is a fake arm that can simply read and set properties.
 type ArmIK struct {
+	generic.Echo
 	Name       string
 	position   *commonpb.Pose
 	joints     *pb.JointPositions
@@ -105,6 +107,11 @@ func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositi
 // GetJointPositions returns the set joints.
 func (a *ArmIK) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	return a.joints, nil
+}
+
+// Stop doesn't do anything for a fake arm.
+func (a *ArmIK) Stop(ctx context.Context) error {
+	return nil
 }
 
 // CurrentInputs TODO.

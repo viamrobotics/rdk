@@ -11,6 +11,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	pb "go.viam.com/rdk/proto/api/component/gps/v1"
 	"go.viam.com/rdk/registry"
@@ -58,6 +59,7 @@ type GPS interface {
 	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
 	ReadAltitude(ctx context.Context) (float64, error)    // The current altitude in meters
 	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in mm per sec
+	generic.Generic
 }
 
 // A LocalGPS represents a GPS that can report accuracy, satellites and valid measurements.
@@ -145,6 +147,12 @@ func (r *reconfigurableGPS) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+func (r *reconfigurableGPS) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurableGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {

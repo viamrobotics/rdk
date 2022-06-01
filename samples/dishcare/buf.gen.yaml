@@ -1,6 +1,0 @@
-version: v1beta1
-plugins:
-  - name: python
-    out: samples/dishcare/gen
-  - name: grpclib_python
-    out: samples/dishcare/gen

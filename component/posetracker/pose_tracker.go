@@ -10,6 +10,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	pb "go.viam.com/rdk/proto/api/component/posetracker/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -48,7 +49,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Named is a helper for getting the named ForceMatrix's typed resource name.
+// Named is a helper for getting the named PoseTracker's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
@@ -67,6 +68,7 @@ type BodyToPoseInFrame map[string]*referenceframe.PoseInFrame
 // given in the context of the PoseTracker's frame of reference.
 type PoseTracker interface {
 	GetPoses(ctx context.Context, bodyNames []string) (BodyToPoseInFrame, error)
+	generic.Generic
 }
 
 // FromRobot is a helper for getting the named force matrix sensor from the given Robot.
@@ -111,6 +113,13 @@ func (r *reconfigurablePoseTracker) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
+}
+
+// Do passes generic commands/data.
+func (r *reconfigurablePoseTracker) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
 }
 
 func (r *reconfigurablePoseTracker) GetPoses(

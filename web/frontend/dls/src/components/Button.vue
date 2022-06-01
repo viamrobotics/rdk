@@ -3,10 +3,10 @@
     :is="props.tag"
     :ref="data.ref"
     :class="[
-      'relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm',
+      'relative leading-tight font-button transition-colors duration-150 focus:outline-none shadow-sm',
       {
         'animate-pulse': props.busy,
-        'text-black border-black bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700':
+        'text-black border border-black bg-primary hover:border-black hover:bg-gray-200 focus:bg-gray-400 active:bg-gray-400':
           props.variant === 'primary' &&
           props.color === 'primary' &&
           !props.disabled,

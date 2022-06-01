@@ -18,7 +18,7 @@
                 "aligned": true
             },
             "frame": {
-                "parent": "base",
+                "parent": "pieceArm",
                 "translation": {
                     "x": 2000,
                     "y": 500,

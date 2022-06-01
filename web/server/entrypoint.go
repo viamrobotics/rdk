@@ -24,10 +24,10 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/rlog"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/robot/web"
+	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
 type wrappedLogger struct {
@@ -252,14 +252,15 @@ func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(
 
 // Arguments for the command.
 type Arguments struct {
+	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
 	ConfigFile         string `flag:"0,required,usage=robot config file"`
 	CPUProfile         string `flag:"cpuprofile,usage=write cpu profile to file"`
-	WebProfile         bool   `flag:"webprofile,usage=include profiler in http server"`
+	Debug              bool   `flag:"debug"`
 	LogURL             string `flag:"logurl,usage=url to log messages to"`
 	SharedDir          string `flag:"shareddir,usage=web resource directory"`
-	Debug              bool   `flag:"debug"`
+	Version            bool   `flag:"version,usage=print version"`
+	WebProfile         bool   `flag:"webprofile,usage=include profiler in http server"`
 	WebRTC             bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
-	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -268,6 +269,13 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
+	}
+
+	// Always log the version, return early if the '-version' flag was provided
+	// fmt.Println would be better but fails linting. Good enough.
+	logger.Infof("Viam RDK Version: %s, Hash: %s", config.Version, config.GitRevision)
+	if argsParsed.Version {
+		return
 	}
 
 	if argsParsed.CPUProfile != "" {
@@ -310,6 +318,31 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	return err
 }
 
+func createWebOptions(cfg *config.Config, argsParsed Arguments, logger golog.Logger) (weboptions.Options, error) {
+	options, err := weboptions.FromConfig(cfg)
+	if err != nil {
+		return weboptions.Options{}, err
+	}
+	options.Pprof = argsParsed.WebProfile
+	options.SharedDir = argsParsed.SharedDir
+	options.Debug = argsParsed.Debug
+	options.WebRTC = argsParsed.WebRTC
+	if cfg.Cloud != nil && argsParsed.AllowInsecureCreds {
+		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
+	}
+
+	if len(options.Auth.Handlers) == 0 {
+		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
+		if err != nil {
+			return weboptions.Options{}, err
+		}
+		if host == "" || host == "0.0.0.0" || host == "::" {
+			logger.Warn("binding to all interfaces without authentication")
+		}
+	}
+	return options, nil
+}
+
 func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, logger golog.Logger) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -318,12 +351,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
-
-	metadataSvc, err := service.New()
-	if err != nil {
-		return err
-	}
-	ctx = service.ContextWithService(ctx, metadataSvc)
 
 	processConfig := func(in *config.Config) (*config.Config, error) {
 		tlsCfg := config.NewTLSConfig(cfg)
@@ -358,6 +385,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		err = multierr.Combine(err, utils.TryClose(ctx, watcher))
 	}()
 	onWatchDone := make(chan struct{})
+	oldCfg := processedConfig
 	utils.ManagedGo(func() {
 		for {
 			select {
@@ -368,14 +396,38 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			select {
 			case <-ctx.Done():
 				return
-			case config := <-watcher.Config():
-				processedConfig, err := processConfig(config)
+			case cfg := <-watcher.Config():
+				processedConfig, err := processConfig(cfg)
 				if err != nil {
 					logger.Errorw("error processing config", "error", err)
+					continue
 				}
 				if err := myRobot.Reconfigure(ctx, processedConfig); err != nil {
 					logger.Errorw("error reconfiguring robot", "error", err)
+					continue
 				}
+
+				// restart web service if necessary
+				diff, err := config.DiffConfigs(oldCfg, processedConfig)
+				if err != nil {
+					logger.Errorw("error diffing config", "error", err)
+					continue
+				}
+				if !diff.NetworkEqual {
+					if err := myRobot.StopWeb(); err != nil {
+						logger.Errorw("error stopping web service while reconfiguring", "error", err)
+						continue
+					}
+					options, err := createWebOptions(processedConfig, argsParsed, logger)
+					if err != nil {
+						logger.Errorw("error creating weboptions", "error", err)
+						continue
+					}
+					if err := myRobot.StartWeb(ctx, options); err != nil {
+						logger.Errorw("error starting web service while reconfiguring", "error", err)
+					}
+				}
+				oldCfg = processedConfig
 			}
 		}
 	}, func() {
@@ -386,27 +438,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}()
 	defer cancel()
 
-	options, err := web.OptionsFromConfig(processedConfig)
-	if err != nil {
-		return err
-	}
-	options.Pprof = argsParsed.WebProfile
-	options.SharedDir = argsParsed.SharedDir
-	options.Debug = argsParsed.Debug
-	options.WebRTC = argsParsed.WebRTC
-	if cfg.Cloud != nil && argsParsed.AllowInsecureCreds {
-		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
-	}
-
-	if len(options.Auth.Handlers) == 0 {
-		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
-		if err != nil {
-			return err
-		}
-		if host == "" || host == "0.0.0.0" || host == "::" {
-			logger.Warn("binding to all interfaces without authentication")
-		}
-	}
-
+	options, err := createWebOptions(processedConfig, argsParsed, logger)
 	return web.RunWeb(ctx, myRobot, options, logger)
 }

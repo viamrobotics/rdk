@@ -28,7 +28,8 @@ func (dct *DepthColorWarpTransforms) ImagePointTo3DPoint(point image.Point, d ri
 // ImageWithDepthToPointCloud TODO.
 func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(
 	ii *rimage.ImageWithDepth,
-	crop ...image.Rectangle) (pointcloud.PointCloud, error) {
+	crop ...image.Rectangle,
+) (pointcloud.PointCloud, error) {
 	if ii.Depth == nil {
 		return nil, errors.New("image with depth has no depth channel. Cannot project to Pointcloud")
 	}

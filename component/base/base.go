@@ -6,9 +6,11 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -52,24 +54,26 @@ func Named(name string) resource.Name {
 
 // A Base represents a physical base of a robot.
 type Base interface {
-	// MoveStraight moves the robot straight a given distance at a given speed. The method
-	// can be requested to block until the move is complete. If a distance or speed of zero is given,
-	// the base will stop.
-	MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error
+	// MoveStraight moves the robot straight a given distance at a given speed.
+	// If a distance or speed of zero is given, the base will stop.
+	// This method blocks until completed or cancelled
+	MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error
 
-	// MoveArc moves the robot in an arc a given distance at a given speed and degs per second of movement.
-	// The degs per sec represents the angular velocity the robot has during its movement. This function
-	// can be requested to block until move is complete. If a distance of 0 is given the resultant motion
-	// is a spin and if speed of 0 is given the base will stop.
-	// Note: ramping affects when and how arc is performed, further improvements may be needed
-	MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error
+	// Spin spins the robot by a given angle in degrees at a given speed.
+	// If a speed of 0 the base will stop.
+	// This method blocks until completed or cancelled
+	Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error
 
-	// Spin spins the robot by a given angle in degrees at a given speed. The method can be requested
-	// to block until the move is complete. If a speed of 0 the base will stop.
-	Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error
+	SetPower(ctx context.Context, linear, angular r3.Vector) error
+
+	// linear is in mmPerSec
+	// angular is in degsPerSec
+	SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 
 	// Stop stops the base. It is assumed the base stops immediately.
 	Stop(ctx context.Context) error
+
+	generic.Generic
 }
 
 // A LocalBase represents a physical base of a robot that can report the width of itself.
@@ -113,26 +117,35 @@ func (r *reconfigurableBase) ProxyFor() interface{} {
 	return r.actual
 }
 
+func (r *reconfigurableBase) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Do(ctx, cmd)
+}
+
 func (r *reconfigurableBase) MoveStraight(
-	ctx context.Context, distanceMm int, mmPerSec float64, block bool,
-) error {
+	ctx context.Context, distanceMm int, mmPerSec float64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveStraight(ctx, distanceMm, mmPerSec, block)
+	return r.actual.MoveStraight(ctx, distanceMm, mmPerSec)
 }
 
-func (r *reconfigurableBase) MoveArc(
-	ctx context.Context, distanceMm int, mmPerSec float64, degAngle float64, block bool,
-) error {
+func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveArc(ctx, distanceMm, mmPerSec, degAngle, block)
+	return r.actual.Spin(ctx, angleDeg, degsPerSec)
 }
 
-func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+func (r *reconfigurableBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Spin(ctx, angleDeg, degsPerSec, block)
+	return r.actual.SetPower(ctx, linear, angular)
+}
+
+func (r *reconfigurableBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.SetVelocity(ctx, linear, angular)
 }
 
 func (r *reconfigurableBase) Stop(ctx context.Context) error {
@@ -186,20 +199,19 @@ type Move struct {
 	MmPerSec   float64
 	AngleDeg   float64
 	DegsPerSec float64
-	Block      bool
 }
 
 // DoMove performs the given move on the given base.
 func DoMove(ctx context.Context, move Move, base Base) error {
 	if move.AngleDeg != 0 {
-		err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Block)
+		err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec)
 		if err != nil {
 			return err
 		}
 	}
 
 	if move.DistanceMm != 0 {
-		err := base.MoveStraight(ctx, move.DistanceMm, move.MmPerSec, move.Block)
+		err := base.MoveStraight(ctx, move.DistanceMm, move.MmPerSec)
 		if err != nil {
 			return err
 		}

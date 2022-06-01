@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/config"
@@ -54,7 +55,11 @@ func init() {
 	motor.RegisterConfigAttributeConverter("arduino")
 }
 
-func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.Component, motorConfig *motor.Config) (motor.Motor, error) {
+func configureMotorForBoard(
+	ctx context.Context,
+	b *arduinoBoard,
+	config config.Component,
+	motorConfig *motor.Config) (motor.Motor, error) {
 	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
@@ -105,7 +110,7 @@ func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.
 	m, err := gpio.NewEncodedMotor(
 		config,
 		*motorConfig,
-		&arduinoMotor{b, *motorConfig, config.Name},
+		&arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name},
 		&encoder{b, *motorConfig, config.Name},
 		b.logger,
 	)
@@ -135,6 +140,7 @@ func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.
 }
 
 type arduinoMotor struct {
+	generic.Unimplemented
 	b    *arduinoBoard
 	cfg  motor.Config
 	name string

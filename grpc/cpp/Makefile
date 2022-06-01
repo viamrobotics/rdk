@@ -4,11 +4,13 @@ SRCDIR = ./gen
 IFLAGS = -I$(SRCDIR)
 GRPCFLAGS = `pkg-config --cflags --libs grpc protobuf grpc++`
 OTHER = -pthread -Wl,-lgrpc++_reflection -Wl,-ldl
-SOURCES = $(SRCDIR)/proto/api/v1/robot.grpc.pb.cc $(SRCDIR)/proto/api/v1/robot.pb.cc
-SOURCES += $(SRCDIR)/proto/api/service/v1/metadata.grpc.pb.cc $(SRCDIR)/proto/api/service/v1/metadata.pb.cc
-SOURCES += $(SRCDIR)/proto/api/common/v1/common.grpc.pb.cc $(SRCDIR)/proto/api/common/v1/common.pb.cc
-SOURCES += $(SRCDIR)/google/api/annotations.pb.cc $(SRCDIR)/google/api/httpbody.pb.cc
-SOURCES += $(SRCDIR)/google/api/http.pb.cc
+
+GRPCDIR = ./gen
+SOURCES = $(GRPCDIR)/proto/api/service/metadata/v1/metadata.grpc.pb.cc $(GRPCDIR)/proto/api/service/metadata/v1/metadata.pb.cc
+SOURCES += $(GRPCDIR)/proto/api/common/v1/common.grpc.pb.cc $(GRPCDIR)/proto/api/common/v1/common.pb.cc
+SOURCES += $(GRPCDIR)/proto/api/component/camera/v1/camera.grpc.pb.cc $(GRPCDIR)/proto/api/component/camera/v1/camera.pb.cc
+SOURCES += $(GRPCDIR)/google/api/annotations.pb.cc $(GRPCDIR)/google/api/httpbody.pb.cc
+SOURCES += $(GRPCDIR)/google/api/http.pb.cc
 
 PLATFORM=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 ifeq ($(PLATFORM),darwin)

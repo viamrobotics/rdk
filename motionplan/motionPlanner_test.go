@@ -51,7 +51,7 @@ func TestSimple2DMotion(t *testing.T) {
 	cbert, err := NewCBiRRTMotionPlanner(model, 1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	opt := NewDefaultPlannerOptions()
-	constraint := NewCollisionConstraintFromFrame(model, obstacles)
+	constraint := NewCollisionConstraint(model, obstacles, map[string]spatial.Geometry{})
 	test.That(t, err, test.ShouldBeNil)
 	opt.AddConstraint("collision", constraint)
 	waypoints, err := cbert.Plan(context.Background(), goal, start, opt)

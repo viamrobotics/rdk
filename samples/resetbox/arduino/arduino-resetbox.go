@@ -13,7 +13,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gripper"
@@ -44,34 +43,8 @@ var (
 	readyPin    = "ready"
 )
 
-func init() {
-	action.RegisterAction("ResetBox", func(ctx context.Context, r robot.Robot) {
-		err := ResetBox(ctx, r)
-		if err != nil {
-			logger.Errorf("error ResetBox: %s", err)
-		}
-	})
-	action.RegisterAction("toggle", func(ctx context.Context, r robot.Robot) {
-		err := toggleTrigger(ctx, r)
-		if err != nil {
-			logger.Errorf("error toggleTrigger: %s", err)
-		}
-	})
-	action.RegisterAction("resetCube", func(ctx context.Context, r robot.Robot) {
-		err := resetCube(ctx, r)
-		if err != nil {
-			logger.Errorf("error resetCube: %s", err)
-		}
-	})
-	action.RegisterAction("resetDuck", func(ctx context.Context, r robot.Robot) {
-		err := resetDuck(ctx, r)
-		if err != nil {
-			logger.Errorf("error resetDuck: %s", err)
-		}
-	})
-}
-
 // ResetBox will dump the playing field,.
+//nolint:deadcode
 func ResetBox(ctx context.Context, theRobot robot.Robot) error {
 	waitForResetReady(ctx, theRobot)
 

@@ -1,13 +1,5 @@
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
-# Linux always needs custom_wasmer_runtime for portability in packaging
-ifeq ("$(shell uname -s)", "Linux")
-	ifneq ("$(shell uname -m)", "armv6l")
-		CGO_LDFLAGS = -lwasmer
-		TAGS = -tags="custom_wasmer_runtime"
-	endif
-endif
-
 PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
 
 VERSION := $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)
@@ -25,8 +17,8 @@ build-go: buf-go
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) ./...
 
 build-web: buf-web
-	cd web/frontend/dls && npm install && npm run build:prod
-	cd web/frontend && npm install && npx webpack
+	cd web/frontend/dls && npm ci && npm run build:prod
+	cd web/frontend && npm ci && npx webpack build --config ./webpack.prod.js
 
 tool-install:
 	GOBIN=`pwd`/bin go install google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -53,10 +45,16 @@ buf-web: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf generate --timeout 5m --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 
-lint: tool-install
+lint: lint-go lint-web
+
+lint-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf lint
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=bin/combined
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs bin/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+
+lint-web:
+	cd web/frontend/dls && npm run lint
+	cd web/frontend && npm run lint
 
 cover:
 	./etc/test.sh cover

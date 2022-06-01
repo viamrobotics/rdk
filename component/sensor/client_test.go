@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
@@ -44,6 +45,9 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(sensor.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, sensorSvc)
 
+	injectSensor.DoFunc = generic.EchoFunc
+	generic.RegisterService(rpcServer, sensorSvc)
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -60,6 +64,12 @@ func TestClient(t *testing.T) {
 		// working
 		sensor1Client, err := sensor.NewClient(context.Background(), testSensorName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		// Do
+		resp, err := sensor1Client.Do(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		rs1, err := sensor1Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)

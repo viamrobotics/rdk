@@ -21,11 +21,15 @@ type ArmServiceClient interface {
 	// GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
 	GetEndPosition(ctx context.Context, in *GetEndPositionRequest, opts ...grpc.CallOption) (*GetEndPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
+	// This will block until done or a new operation cancels this one
 	MoveToPosition(ctx context.Context, in *MoveToPositionRequest, opts ...grpc.CallOption) (*MoveToPositionResponse, error)
 	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
 	GetJointPositions(ctx context.Context, in *GetJointPositionsRequest, opts ...grpc.CallOption) (*GetJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
+	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(ctx context.Context, in *MoveToJointPositionsRequest, opts ...grpc.CallOption) (*MoveToJointPositionsResponse, error)
+	// Stop stops a robot's arm
+	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 }
 
 type armServiceClient struct {
@@ -72,6 +76,15 @@ func (c *armServiceClient) MoveToJointPositions(ctx context.Context, in *MoveToJ
 	return out, nil
 }
 
+func (c *armServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error) {
+	out := new(StopResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.arm.v1.ArmService/Stop", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ArmServiceServer is the server API for ArmService service.
 // All implementations must embed UnimplementedArmServiceServer
 // for forward compatibility
@@ -79,11 +92,15 @@ type ArmServiceServer interface {
 	// GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
 	GetEndPosition(context.Context, *GetEndPositionRequest) (*GetEndPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
+	// This will block until done or a new operation cancels this one
 	MoveToPosition(context.Context, *MoveToPositionRequest) (*MoveToPositionResponse, error)
 	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
 	GetJointPositions(context.Context, *GetJointPositionsRequest) (*GetJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
+	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(context.Context, *MoveToJointPositionsRequest) (*MoveToJointPositionsResponse, error)
+	// Stop stops a robot's arm
+	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	mustEmbedUnimplementedArmServiceServer()
 }
 
@@ -102,6 +119,9 @@ func (UnimplementedArmServiceServer) GetJointPositions(context.Context, *GetJoin
 }
 func (UnimplementedArmServiceServer) MoveToJointPositions(context.Context, *MoveToJointPositionsRequest) (*MoveToJointPositionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToJointPositions not implemented")
+}
+func (UnimplementedArmServiceServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
 func (UnimplementedArmServiceServer) mustEmbedUnimplementedArmServiceServer() {}
 
@@ -188,6 +208,24 @@ func _ArmService_MoveToJointPositions_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ArmService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ArmServiceServer).Stop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.arm.v1.ArmService/Stop",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ArmServiceServer).Stop(ctx, req.(*StopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ArmService_ServiceDesc is the grpc.ServiceDesc for ArmService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -210,6 +248,10 @@ var ArmService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MoveToJointPositions",
 			Handler:    _ArmService_MoveToJointPositions_Handler,
+		},
+		{
+			MethodName: "Stop",
+			Handler:    _ArmService_Stop_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

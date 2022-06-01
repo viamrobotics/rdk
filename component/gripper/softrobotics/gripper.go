@@ -11,8 +11,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -41,6 +43,8 @@ type softGripper struct {
 	pinOpen, pinClose, pinPower board.GPIOPin
 
 	logger golog.Logger
+	opMgr  operation.SingleOperationManager
+	generic.Unimplemented
 }
 
 // newGripper TODO.
@@ -89,6 +93,9 @@ func (g *softGripper) Stop(ctx context.Context) error {
 
 // Open TODO.
 func (g *softGripper) Open(ctx context.Context) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
+
 	err := multierr.Combine(
 		g.pinOpen.Set(ctx, true),
 		g.pinPower.Set(ctx, true),
@@ -121,6 +128,9 @@ func (g *softGripper) Open(ctx context.Context) error {
 
 // Grab TODO.
 func (g *softGripper) Grab(ctx context.Context) (bool, error) {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
+
 	err := multierr.Combine(
 		g.pinClose.Set(ctx, true),
 		g.pinPower.Set(ctx, true),

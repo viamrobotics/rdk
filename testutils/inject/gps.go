@@ -12,6 +12,7 @@ import (
 // GPS is an injected GPS.
 type GPS struct {
 	gps.LocalGPS
+	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ReadLocationFunc   func(ctx context.Context) (*geo.Point, error)
 	ReadAltitudeFunc   func(ctx context.Context) (float64, error)
 	ReadSpeedFunc      func(ctx context.Context) (float64, error)
@@ -75,4 +76,12 @@ func (i *GPS) Close(ctx context.Context) error {
 		return utils.TryClose(ctx, i.LocalGPS)
 	}
 	return i.CloseFunc(ctx)
+}
+
+// Do calls the injected Do or the real version.
+func (i *GPS) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if i.DoFunc == nil {
+		return i.LocalGPS.Do(ctx, cmd)
+	}
+	return i.DoFunc(ctx, cmd)
 }

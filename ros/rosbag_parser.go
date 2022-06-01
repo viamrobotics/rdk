@@ -2,18 +2,17 @@
 package ros
 
 import (
+	"encoding/json"
+	"io"
 	"os"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"github.com/starship-technologies/gobag/rosbag"
 	"go.viam.com/utils"
 )
 
 // ReadBag reads the contents of a rosbag into a gobag data structure.
-func ReadBag(filename string, logger golog.Logger) (*rosbag.RosBag, error) {
-	logger.Debugw("working with bag file", "name", filename)
-
+func ReadBag(filename string) (*rosbag.RosBag, error) {
 	//nolint:gosec
 	f, err := os.Open(filename)
 	defer utils.UncheckedErrorFunc(f.Close)
@@ -27,13 +26,11 @@ func ReadBag(filename string, logger golog.Logger) (*rosbag.RosBag, error) {
 		return nil, errors.Wrapf(err, "unable to create ros bag, error")
 	}
 
-	logger.Debugw("done with bag file", "name", filename)
 	return rb, nil
 }
 
 // WriteTopicsJSON writes data from a rosbag into JSON files, filtered and sorted by topic.
-func WriteTopicsJSON(rb *rosbag.RosBag, startTime, endTime int64, topicsFilter []string, logger golog.Logger) error {
-	logger.Debugw("Starting WriteTopicsJSON")
+func WriteTopicsJSON(rb *rosbag.RosBag, startTime, endTime int64, topicsFilter []string) error {
 	var timeFilterFunc func(int64) bool
 	if startTime == 0 || endTime == 0 {
 		timeFilterFunc = func(timestamp int64) bool {
@@ -66,4 +63,42 @@ func WriteTopicsJSON(rb *rosbag.RosBag, startTime, endTime int64, topicsFilter [
 	}
 
 	return nil
+}
+
+// AllMessagesForTopic returns all messages for a specific topic in the ros bag.
+func AllMessagesForTopic(rb *rosbag.RosBag, topic string) ([]map[string]interface{}, error) {
+	if err := rb.ParseTopicsToJSON(
+		"",
+		func(int64) bool { return true },
+		func(t string) bool { return t == topic },
+		false,
+	); err != nil {
+		return nil, errors.Wrapf(err, "error while parsing bag to JSON")
+	}
+
+	msgs := rb.TopicsAsJSON[topic]
+	if msgs == nil {
+		return nil, errors.Errorf("no messages for topic %s", topic)
+	}
+
+	all := []map[string]interface{}{}
+
+	for {
+		data, err := msgs.ReadBytes('\n')
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+		message := map[string]interface{}{}
+		err = json.Unmarshal(data, &message)
+		if err != nil {
+			return nil, err
+		}
+
+		all = append(all, message)
+	}
+
+	return all, nil
 }
