@@ -3,6 +3,7 @@ package vision
 import (
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
@@ -20,7 +21,8 @@ func TestColorDetector(t *testing.T) {
 		},
 	}
 	reg := make(detectorMap)
-	err := registerColorDetector(reg, inp)
+	testlog := golog.NewLogger("testlog")
+	err := registerColorDetector(reg, inp, testlog)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = reg.detectorLookup("my_color_detector")
 	test.That(t, err, test.ShouldBeNil)
@@ -28,15 +30,15 @@ func TestColorDetector(t *testing.T) {
 	// with error - bad parameters
 	inp.Name = "will_fail"
 	inp.Parameters["tolerance"] = 4.0 // value out of range
-	err = registerColorDetector(reg, inp)
+	err = registerColorDetector(reg, inp, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "tolerance must be between")
 
 	// with error - nil entry
-	err = registerColorDetector(reg, nil)
+	err = registerColorDetector(reg, nil, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 
 	// with error - nil parameters
 	inp.Parameters = nil
-	err = registerColorDetector(reg, inp)
+	err = registerColorDetector(reg, inp, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
 }

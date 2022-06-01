@@ -101,7 +101,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	err := segMap.registerSegmenter(RadiusClusteringSegmenter, SegmenterRegistration{
 		segmentation.Segmenter(segmentation.RadiusClustering),
 		utils.JSONTags(segmentation.RadiusClusteringConfig{}),
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -116,12 +116,20 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 			return nil, err
 		}
 	}
-	return &visionService{
+	service := &visionService{
 		r:      r,
 		detReg: detMap,
 		segReg: segMap,
 		logger: logger,
-	}, nil
+	}
+	// turn detectors into segmenters
+	for _, detName := range service.detReg.detectorNames() {
+		err := service.registerSegmenterFromDetector(detName, logger)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return service, nil
 }
 
 type visionService struct {
@@ -160,7 +168,12 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg DetectorConfig) er
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddDetector")
 	defer span.End()
 	attrs := &Attributes{DetectorRegistry: []DetectorConfig{cfg}}
-	return registerNewDetectors(ctx, vs.detReg, attrs, vs.logger)
+	err := registerNewDetectors(ctx, vs.detReg, attrs, vs.logger)
+	if err != nil {
+		return err
+	}
+	// also create a new segmenter from the detector
+	return vs.registerSegmenterFromDetector(cfg.Name, vs.logger)
 }
 
 // GetDetections returns the detections of the next image from the given camera and the given detector.
@@ -220,4 +233,18 @@ func (vs *visionService) GetObjectPointClouds(
 		return nil, err
 	}
 	return segmenter.Segmenter(ctx, cam, params)
+}
+
+// Helpers
+// registerSegmenterFromDetector creates and registers a segmenter from an already registered detector.
+func (vs *visionService) registerSegmenterFromDetector(detName string, logger golog.Logger) error {
+	det, err := vs.detReg.detectorLookup(detName)
+	if err != nil {
+		return err
+	}
+	detSegmenter, params, err := segmentation.DetectionSegmenter(det)
+	if err != nil {
+		return err
+	}
+	return vs.segReg.registerSegmenter(detName, SegmenterRegistration{detSegmenter, params}, logger)
 }

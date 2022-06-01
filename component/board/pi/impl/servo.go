@@ -17,6 +17,7 @@ import (
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -58,9 +59,13 @@ type piPigpioServo struct {
 	generic.Unimplemented	
 	pin      C.uint
 	min, max uint8
+	opMgr    operation.SingleOperationManager
 }
 
 func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
+	ctx, done := s.opMgr.New(ctx)
+	defer done()
+	
 	if s.min > 0 && angle < s.min {
 		angle = s.min
 	}

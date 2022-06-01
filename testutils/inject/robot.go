@@ -11,25 +11,54 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 )
 
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	RemoteByNameFunc   func(name string) (robot.Robot, bool)
-	ResourceByNameFunc func(name resource.Name) (interface{}, error)
-	RemoteNamesFunc    func() []string
-	ResourceNamesFunc  func() []resource.Name
-	ProcessManagerFunc func() pexec.ProcessManager
-	ConfigFunc         func(ctx context.Context) (*config.Config, error)
-	LoggerFunc         func() golog.Logger
-	CloseFunc          func(ctx context.Context) error
-	RefreshFunc        func(ctx context.Context) error
+	RemoteByNameFunc      func(name string) (robot.Robot, bool)
+	ResourceByNameFunc    func(name resource.Name) (interface{}, error)
+	RemoteNamesFunc       func() []string
+	ResourceNamesFunc     func() []resource.Name
+	ProcessManagerFunc    func() pexec.ProcessManager
+	ConfigFunc            func(ctx context.Context) (*config.Config, error)
+	LoggerFunc            func() golog.Logger
+	CloseFunc             func(ctx context.Context) error
+	RefreshFunc           func(ctx context.Context) error
+	FrameSystemConfigFunc func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
+	TransformPoseFunc     func(
+		ctx context.Context,
+		pose *referenceframe.PoseInFrame,
+		dst string,
+		additionalTransforms []*commonpb.Transform,
+	) (*referenceframe.PoseInFrame, error)
+	GetStatusFunc func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 
 	ops     *operation.Manager
 	opsLock sync.Mutex
+}
+
+// MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
+func (r *Robot) MockResourcesFromMap(rs map[resource.Name]interface{}) {
+	r.ResourceNamesFunc = func() []resource.Name {
+		result := []resource.Name{}
+		for name := range rs {
+			result = append(result, name)
+		}
+		return result
+	}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		result, ok := rs[name]
+		if ok {
+			return result, nil
+		}
+		return r.ResourceByName(name)
+	}
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.
@@ -116,4 +145,55 @@ func (r *Robot) Refresh(ctx context.Context) error {
 		return nil
 	}
 	return r.RefreshFunc(ctx)
+}
+
+// RemoteRobot is an injected remote robot.
+type RemoteRobot struct {
+	Robot
+
+	Disconnected bool
+	ChangeChan   chan bool
+}
+
+// Changed returns a channel that returns true when the remote has changed.
+func (r *RemoteRobot) Changed() <-chan bool {
+	if r.ChangeChan == nil {
+		r.ChangeChan = make(chan bool)
+	}
+	return r.ChangeChan
+}
+
+// Connected returns whether the injected robot is connected or not.
+func (r *RemoteRobot) Connected() bool {
+	return !r.Disconnected
+}
+
+// FrameSystemConfig calls the injected FrameSystemConfig or the real version.
+func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+	if r.FrameSystemConfigFunc == nil {
+		return r.LocalRobot.FrameSystemConfig(ctx, additionalTransforms)
+	}
+
+	return r.FrameSystemConfigFunc(ctx, additionalTransforms)
+}
+
+// TransformPose calls the injected TransformPose or the real version.
+func (r *Robot) TransformPose(
+	ctx context.Context,
+	pose *referenceframe.PoseInFrame,
+	dst string,
+	additionalTransforms []*commonpb.Transform,
+) (*referenceframe.PoseInFrame, error) {
+	if r.TransformPoseFunc == nil {
+		return r.LocalRobot.TransformPose(ctx, pose, dst, additionalTransforms)
+	}
+	return r.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
+}
+
+// GetStatus call the injected GetStatus or the real one.
+func (r *Robot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	if r.GetStatusFunc == nil {
+		return r.LocalRobot.GetStatus(ctx, resourceNames)
+	}
+	return r.GetStatusFunc(ctx, resourceNames)
 }

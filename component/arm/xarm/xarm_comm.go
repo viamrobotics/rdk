@@ -135,14 +135,17 @@ func (x *xArm) newCmd(reg byte) cmd {
 
 func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 	x.moveLock.Lock()
-
 	b := c.bytes()
+
+	// add deadline so we aren't waiting forever
+	if err := x.conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		return cmd{}, err
+	}
 	_, err := x.conn.Write(b)
 	if err != nil {
 		x.moveLock.Unlock()
 		return cmd{}, err
 	}
-
 	c2, err := x.response(ctx)
 	x.moveLock.Unlock()
 	if err != nil {
@@ -299,52 +302,38 @@ func (x *xArm) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return x.setMotionState(ctx, 0)
+	if err := x.setMotionState(ctx, 0); err != nil {
+		return err
+	}
+	x.started = true
+	return nil
 }
 
-// motionWait will block until all arm pieces have stopped moving.
-func (x *xArm) motionWait(ctx context.Context) error {
-	ready := false
-	if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-		return ctx.Err()
+// motionStopped will check if all arm pieces have stopped moving.
+func (x *xArm) motionStopped(ctx context.Context) (bool, error) {
+	c := x.newCmd(regMap["GetState"])
+	sData, err := x.send(ctx, c, true)
+	if err != nil {
+		return false, err
 	}
-	slept := 0
-	for !ready {
-		if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-			return ctx.Err()
-		}
-		slept += 50
-		// Error if we've been waiting more than 15 seconds for motion
-		if slept > 25000 {
-			return errors.New("motionWait continued to detect motion after 25 seconds")
-		}
-		c := x.newCmd(regMap["GetState"])
-		sData, err := x.send(ctx, c, true)
-		if err != nil {
-			return err
-		}
-		if len(sData.params) < 2 {
-			return errors.New("malformed state data response in motionWait")
-		}
-		if sData.params[1] != 1 {
-			ready = true
-		}
+	if len(sData.params) < 2 {
+		return false, errors.New("malformed state data response in motionStopped")
 	}
-	return nil
+	if sData.params[1] != 1 {
+		return true, nil
+	}
+	return false, nil
 }
 
 // Close shuts down the arm servos and engages brakes.
 func (x *xArm) Close(ctx context.Context) error {
-	err := x.toggleBrake(ctx, false)
-	if err != nil {
+	if err := x.toggleBrake(ctx, false); err != nil {
 		return err
 	}
-	err = x.toggleServos(ctx, false)
-	if err != nil {
+	if err := x.toggleServos(ctx, false); err != nil {
 		return err
 	}
-	err = x.setMotionState(ctx, 4)
-	if err != nil {
+	if err := x.setMotionState(ctx, 4); err != nil {
 		return err
 	}
 	return x.conn.Close()
@@ -352,6 +341,13 @@ func (x *xArm) Close(ctx context.Context) error {
 
 // MoveToJointPositions moves the arm to the requested joint positions.
 func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+	ctx, done := x.opMgr.New(ctx)
+	defer done()
+	if !x.started {
+		if err := x.start(ctx); err != nil {
+			return err
+		}
+	}
 	to := referenceframe.JointPosToInputs(newPositions)
 	curPos, err := x.GetJointPositions(ctx)
 	if err != nil {
@@ -400,6 +396,13 @@ func (x *xArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := x.opMgr.New(ctx)
+	defer done()
+	if !x.started {
+		if err := x.start(ctx); err != nil {
+			return err
+		}
+	}
 	joints, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -412,7 +415,11 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldStat
 	if err != nil {
 		return err
 	}
-	return x.motionWait(ctx)
+	return x.opMgr.WaitForSuccess(
+		ctx,
+		time.Millisecond*50,
+		x.motionStopped,
+	)
 }
 
 // GetJointPositions returns the current positions of all joints.
@@ -430,6 +437,16 @@ func (x *xArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error
 	}
 
 	return referenceframe.JointPositionsFromRadians(radians), nil
+}
+
+// Stop stops the xArm but also reinitializes the arm so it can take commands again.
+func (x *xArm) Stop(ctx context.Context) error {
+	x.opMgr.CancelRunning(ctx)
+	x.started = false
+	if err := x.setMotionState(ctx, 3); err != nil {
+		return err
+	}
+	return x.start(ctx)
 }
 
 func getMaxDiff(from, to []referenceframe.Input) float64 {

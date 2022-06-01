@@ -12,17 +12,6 @@ window.BaseControlHelper = {
     baseService.moveStraight(req, {}, cb);
   },
 
-  moveArc: function(name, distance_mm, speed_mm_s, angle_deg, cb) {
-    const req = new baseApi.MoveArcRequest();
-    req.setName(name);
-    req.setDistanceMm(distance_mm);
-    req.setMmPerSec(speed_mm_s);
-    req.setAngleDeg(angle_deg);
-
-    rcLogConditionally(req);
-    baseService.moveArc(req, {}, cb);
-  },
-
   spin: function(name, angle_deg, speed_deg_s, cb) {
     const req = new baseApi.SpinRequest();
     req.setName(name);
@@ -32,4 +21,39 @@ window.BaseControlHelper = {
     rcLogConditionally(req);
     baseService.spin(req, {}, cb);
   },
-}
+
+  setPower: function(name, linearVector, angularVector, cb) {
+      const req = new baseApi.SetPowerRequest();
+      req.setName(name);
+      req.setLinear(linearVector);
+      req.setAngular(angularVector);
+
+      rcLogConditionally(req);
+      baseService.setPower(req, {}, cb);
+  },
+
+};
+
+/*
+  Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
+  Output: linearY and angularZ throttle
+*/
+window.computeKeyboardBaseControls = function(keysPressed) {
+    let linear = 0;
+    let angular = 0;
+
+    if (keysPressed.forward) {
+        linear = 1;
+    } else if (keysPressed.backward) {
+        linear = -1;
+    } 
+    
+    if (keysPressed.right) {
+        angular = -1;
+    } else if (keysPressed.left) {
+        angular = 1;
+    } 
+    
+    return {linear, angular};
+};
+
