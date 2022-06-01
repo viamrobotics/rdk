@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -260,6 +261,12 @@ func (rr *remoteRobot) unprefixResourceName(name resource.Name) resource.Name {
 	return resource.NewName(
 		name.Namespace, name.ResourceType, name.ResourceSubtype, newName,
 	)
+}
+
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (rr *remoteRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	return rr.robot.DiscoverComponents(ctx, qs)
 }
 
 func (rr *remoteRobot) RemoteNames() []string {
