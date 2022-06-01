@@ -136,18 +136,18 @@ message BlockForOperationResponse {}
 
 // Discovery
 
-message Query {
+message DiscoveryQuery {
   string subtype = 1;
   string model = 2;
 }
 
 message Discovery {
-  Query query = 1;
-  google.protobuf.Struct discovered = 2;
+  DiscoveryQuery query = 1;
+  google.protobuf.Struct discoveries = 2;
 }
 
 message DiscoverComponentsRequest {
-  repeated Query queries = 1;
+  repeated DiscoveryQuery queries = 1;
 }
 
 message DiscoverComponentsResponse {

@@ -348,11 +348,11 @@ func (rc *RobotClient) Logger() golog.Logger {
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
-	pbQueries := make([]*pb.Query, 0, len(qs))
+	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
 		pbQueries = append(
 			pbQueries,
-			&pb.Query{Subtype: string(q.SubtypeName), Model: q.Model},
+			&pb.DiscoveryQuery{Subtype: string(q.SubtypeName), Model: q.Model},
 		)
 	}
 
@@ -370,7 +370,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 		discoveries = append(
 			discoveries, discovery.Discovery{
 				Query:      q,
-				Discovered: disc.Discovered.AsMap(),
+				Discovered: disc.Discoveries.AsMap(),
 			})
 	}
 	return discoveries, nil

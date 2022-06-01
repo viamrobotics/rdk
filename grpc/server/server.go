@@ -140,22 +140,16 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 
 	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
 	for _, discovery := range discoveries {
-		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
-		// conversion necessary.
-		encoded, err := protoutils.InterfaceToMap(discovery.Discovered)
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to convert discovery for %q to a form acceptable to structpb.NewStruct", discovery.Query)
-		}
-		pbDiscovered, err := structpb.NewStruct(encoded)
+		pbDiscovered, err := protoutils.StructToStructPb(discovery.Discovered)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
 		}
-		pbQuery := &pb.Query{Subtype: string(discovery.Query.SubtypeName), Model: discovery.Query.Model}
+		pbQuery := &pb.DiscoveryQuery{Subtype: string(discovery.Query.SubtypeName), Model: discovery.Query.Model}
 		pbDiscoveries = append(
 			pbDiscoveries,
 			&pb.Discovery{
-				Query:      pbQuery,
-				Discovered: pbDiscovered,
+				Query:       pbQuery,
+				Discoveries: pbDiscovered,
 			},
 		)
 	}
