@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -69,6 +70,7 @@ type myArm struct {
 	logger   golog.Logger
 	mp       motionplan.MotionPlanner
 	model    referenceframe.Model
+	opMgr    operation.SingleOperationManager
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -141,6 +143,8 @@ func (a *myArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -154,6 +158,8 @@ func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSta
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
 func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
 	}
@@ -183,6 +189,12 @@ func (a *myArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, erro
 	}
 
 	return &pb.JointPositions{Degrees: positions}, nil
+}
+
+// Stop is unimplemented for vx300s.
+func (a *myArm) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
+	return arm.ErrStopUnimplemented
 }
 
 // Close will get the arm ready to be turned off.

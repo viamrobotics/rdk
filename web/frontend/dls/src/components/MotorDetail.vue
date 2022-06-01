@@ -69,7 +69,7 @@
         <div class="column">
           <p class="subtitle">Direction of Rotation</p>
           <RadioButtons
-            :options="['Backward', 'Forward']"
+            :options="['Forward', 'Backward']"
             :defaultOption="isGoingForward ? 'Forward' : 'Backward'"
             v-on:selectOption="isGoingForward = $event === 'Forward'"
           />

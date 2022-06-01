@@ -167,7 +167,7 @@ func TestDoMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	err1 := errors.New("oh no")
-	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64) error {
 		return err1
 	}
 
@@ -175,20 +175,19 @@ func TestDoMove(t *testing.T) {
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 
-	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64) error {
 		test.That(t, distanceMm, test.ShouldEqual, m.DistanceMm)
 		test.That(t, mmPerSec, test.ShouldEqual, m.MmPerSec)
-		test.That(t, block, test.ShouldEqual, m.Block)
 		return nil
 	}
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 
-	m = base.Move{DistanceMm: 1, Block: true, MmPerSec: 5}
+	m = base.Move{DistanceMm: 1, MmPerSec: 5}
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 
-	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 		return err1
 	}
 
@@ -196,10 +195,9 @@ func TestDoMove(t *testing.T) {
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 
-	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 		test.That(t, angleDeg, test.ShouldEqual, m.AngleDeg)
 		test.That(t, degsPerSec, test.ShouldEqual, m.DegsPerSec)
-		test.That(t, block, test.ShouldEqual, m.Block)
 		return nil
 	}
 
@@ -207,20 +205,20 @@ func TestDoMove(t *testing.T) {
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 
-	m = base.Move{AngleDeg: 10, Block: true, DegsPerSec: 5}
+	m = base.Move{AngleDeg: 10, DegsPerSec: 5}
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 
-	m = base.Move{DistanceMm: 2, AngleDeg: 10, Block: true, DegsPerSec: 5}
+	m = base.Move{DistanceMm: 2, AngleDeg: 10, DegsPerSec: 5}
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("if rotation succeeds but moving straight fails, report rotation", func(t *testing.T) {
-		dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
+		dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64) error {
 			return err1
 		}
 
-		m = base.Move{DistanceMm: 2, AngleDeg: 10, Block: true, MmPerSec: 5}
+		m = base.Move{DistanceMm: 2, AngleDeg: 10, MmPerSec: 5}
 		err = base.DoMove(context.Background(), m, dev)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 	})

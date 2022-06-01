@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ServoServiceClient interface {
 	// Move requests the servo of the underlying robot to move.
+	// This will block until done or a new operation cancels this one
 	Move(ctx context.Context, in *MoveRequest, opts ...grpc.CallOption) (*MoveResponse, error)
 	// GetPosition returns the current set angle (degrees) of the servo of the underlying robot.
 	GetPosition(ctx context.Context, in *GetPositionRequest, opts ...grpc.CallOption) (*GetPositionResponse, error)
@@ -55,6 +56,7 @@ func (c *servoServiceClient) GetPosition(ctx context.Context, in *GetPositionReq
 // for forward compatibility
 type ServoServiceServer interface {
 	// Move requests the servo of the underlying robot to move.
+	// This will block until done or a new operation cancels this one
 	Move(context.Context, *MoveRequest) (*MoveResponse, error)
 	// GetPosition returns the current set angle (degrees) of the servo of the underlying robot.
 	GetPosition(context.Context, *GetPositionRequest) (*GetPositionResponse, error)

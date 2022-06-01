@@ -32,9 +32,7 @@ jobs:
       image: ghcr.io/viamrobotics/canon:amd64
     strategy:
       matrix:
-        repo:
-          - 'viamrobotics/python-sdk'
-          - 'viamrobotics/rust-sdk'
+        repo: ['viamrobotics/python-sdk','viamrobotics/rust-sdk']
     steps:
       - name: Notify Proto Watchers
         uses: peter-evans/repository-dispatch@v1

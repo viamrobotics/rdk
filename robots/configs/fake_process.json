@@ -146,7 +146,7 @@
             }
         },
         {
-            "type": "object_segmentation"
+            "type": "vision"
         },
         {
             "type": "motion"

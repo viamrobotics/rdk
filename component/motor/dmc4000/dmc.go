@@ -21,6 +21,7 @@ import (
 
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -60,6 +61,7 @@ type Motor struct {
 	MaxAcceleration  float64
 	HomeRPM          float64
 	jogging          bool
+	opMgr            operation.SingleOperationManager
 }
 
 // Config adds DMC-specific config options.
@@ -450,13 +452,18 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	if math.Abs(powerPct) < 0.001 {
 		return m.Stop(ctx)
 	}
+	return m.Jog(ctx, powerPct*m.MaxRPM)
+}
 
+// Jog moves indefinitely at the specified RPM.
+func (m *Motor) Jog(ctx context.Context, rpm float64) error {
+	m.opMgr.CancelRunning(ctx)
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	m.jogging = true
 
-	rawSpeed := m.rpmToV(powerPct * m.MaxRPM)
-	if math.Signbit(powerPct) {
+	rawSpeed := m.rpmToV(rpm)
+	if math.Signbit(rpm) {
 		rawSpeed *= -1
 	}
 
@@ -488,6 +495,9 @@ func (m *Motor) stopJog() error {
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	curPos, err := m.doPosition()
@@ -498,23 +508,48 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		revolutions *= -1
 	}
 	goal := curPos + revolutions
-	return m.doGoTo(rpm, goal)
+	err = m.doGoTo(rpm, goal)
+	if err != nil {
+		return err
+	}
+
+	return m.opMgr.WaitForSuccess(
+		ctx,
+		time.Millisecond*10,
+		m.isStopped,
+	)
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target/position.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	return m.doGoTo(rpm, position)
+
+	if err := m.doGoTo(rpm, position); err != nil {
+		return err
+	}
+
+	return m.opMgr.WaitForSuccess(
+		ctx,
+		time.Millisecond*10,
+		m.isStopped,
+	)
 }
 
 // GoTillStop moves a motor until stopped by the controller (due to switch or function) or stopFunc.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	if err := m.GoFor(ctx, rpm, 10000); err != nil {
+	if err := m.Jog(ctx, rpm); err != nil {
 		return err
 	}
+
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	defer func() {
 		if err := m.Stop(ctx); err != nil {
 			m.c.logger.Error(err)
@@ -532,7 +567,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 		}
 
 		m.c.mu.Lock()
-		stopped, err := m.isStopped()
+		stopped, err := m.isStopped(ctx)
 		m.c.mu.Unlock()
 		if err != nil {
 			return err
@@ -569,16 +604,28 @@ func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 func (m *Motor) Stop(ctx context.Context) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
+
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	m.jogging = false
 	_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
-	return err
+	if err != nil {
+		return err
+	}
+
+	return m.opMgr.WaitForSuccess(
+		ctx,
+		time.Millisecond*10,
+		m.isStopped,
+	)
 }
 
 // IsPowered returns whether or not the motor is currently moving.
 func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	stopped, err := m.isStopped()
+	stopped, err := m.isStopped(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -586,7 +633,7 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 }
 
 // Must be run inside a lock.
-func (m *Motor) isStopped() (bool, error) {
+func (m *Motor) isStopped(ctx context.Context) (bool, error) {
 	// check that stop was actually commanded
 	ret, err := m.c.sendCmd(fmt.Sprintf("SC%s", m.Axis))
 	if err != nil {
@@ -622,6 +669,9 @@ func (m *Motor) isStopped() (bool, error) {
 
 // Home runs the dmc homing routine.
 func (m *Motor) Home(ctx context.Context) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	// start homing (self-locking)
 	if err := m.startHome(); err != nil {
 		return err
@@ -751,6 +801,16 @@ func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]
 	switch name {
 	case "home":
 		return nil, m.Home(ctx)
+	case "jog":
+		rpmRaw, ok := cmd["rpm"]
+		if !ok {
+			return nil, errors.New("need rpm value for jog")
+		}
+		rpm, ok := rpmRaw.(float64)
+		if !ok {
+			return nil, errors.New("rpm value must be floating point")
+		}
+		return nil, m.Jog(ctx, rpm)
 	case "raw":
 		raw, ok := cmd["raw_input"]
 		if !ok {

@@ -69,18 +69,4 @@ describe("NumberInput", () => {
 
     expect(wrapper.vm.$data.value).toBe(14);
   });
-
-  it("check hide controls", async () => {
-    const wrapper = mount({
-      data() {
-        return { value: 12 };
-      },
-      template:
-        '<div> <number-input v-model="value" hide-controls></number-input> </div>',
-      components: { NumberInput },
-    });
-    // wrapper.findAll('img').at(0).trigger('click')
-
-    // expect(wrapper.vm.$data.value).toBe(14)
-  });
 });

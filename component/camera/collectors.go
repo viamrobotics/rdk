@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"os"
-	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
@@ -37,8 +34,7 @@ type PointCloudWrapper struct {
 	PointCloud string
 }
 
-func newNextPointCloudCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
+func newNextPointCloudCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
@@ -50,7 +46,7 @@ func newNextPointCloudCollector(resource interface{}, name string, interval time
 
 		v, err := camera.NextPointCloud(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, nextPointCloud.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, nextPointCloud.String(), err)
 		}
 
 		var buf bytes.Buffer
@@ -61,7 +57,7 @@ func newNextPointCloudCollector(resource interface{}, name string, interval time
 		}
 		return PointCloudWrapper{PointCloud: base64.StdEncoding.EncodeToString(buf.Bytes())}, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
+	return data.NewCollector(cFunc, params)
 }
 
 func assertCamera(resource interface{}) (Camera, error) {

@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -50,6 +51,8 @@ type robotiqGripper struct {
 	openLimit  string
 	closeLimit string
 	logger     golog.Logger
+	opMgr      operation.SingleOperationManager
+
 	generic.Unimplemented
 }
 
@@ -59,7 +62,7 @@ func newGripper(ctx context.Context, host string, logger golog.Logger) (*robotiq
 	if err != nil {
 		return nil, err
 	}
-	g := &robotiqGripper{conn, "0", "255", logger, generic.Unimplemented{}}
+	g := &robotiqGripper{conn, "0", "255", logger, operation.SingleOperationManager{}, generic.Unimplemented{}}
 
 	init := [][]string{
 		{"ACT", "1"},   // robot activate
@@ -187,18 +190,27 @@ func (g *robotiqGripper) SetPos(ctx context.Context, pos string) (bool, error) {
 
 // Open TODO.
 func (g *robotiqGripper) Open(ctx context.Context) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
+
 	_, err := g.SetPos(ctx, g.openLimit)
 	return err
 }
 
 // Close TODO.
 func (g *robotiqGripper) Close(ctx context.Context) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
+
 	_, err := g.SetPos(ctx, g.closeLimit)
 	return err
 }
 
 // Grab returns true iff grabbed something.
 func (g *robotiqGripper) Grab(ctx context.Context) (bool, error) {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
+
 	res, err := g.SetPos(ctx, g.closeLimit)
 	if err != nil {
 		return false, err

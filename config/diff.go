@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -14,12 +15,13 @@ import (
 // where left is usually old and right is new. So the diff is the
 // changes from left to right.
 type Diff struct {
-	Left, Right *Config
-	Added       *Config
-	Modified    *ModifiedConfigDiff
-	Removed     *Config
-	Equal       bool
-	PrettyDiff  string
+	Left, Right    *Config
+	Added          *Config
+	Modified       *ModifiedConfigDiff
+	Removed        *Config
+	ResourcesEqual bool
+	NetworkEqual   bool
+	PrettyDiff     string
 }
 
 // ModifiedConfigDiff is the modificative different between two configs.
@@ -65,7 +67,10 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 	}
 	different = servicesDifferent || different
 	different = diffProcesses(left.Processes, right.Processes, &diff) || different
-	diff.Equal = !different
+	diff.ResourcesEqual = !different
+
+	networkDifferent := diffNetworkingCfg(left, right)
+	diff.NetworkEqual = !networkDifferent
 
 	return &diff, nil
 }
@@ -273,4 +278,71 @@ func diffService(left, right Service, diff *Diff) (bool, error) {
 	}
 	diff.Modified.Services = append(diff.Modified.Services, right)
 	return true, nil
+}
+
+// diffNetworkingCfg returns true if any part of the networking config is different.
+func diffNetworkingCfg(left, right *Config) bool {
+	if !reflect.DeepEqual(left.Cloud, right.Cloud) {
+		return true
+	}
+	// for network, we have to check each field separately
+	if diffNetwork(left.Network, right.Network) {
+		return true
+	}
+	if !reflect.DeepEqual(left.Auth, right.Auth) {
+		return true
+	}
+	return false
+}
+
+// diffNetwork returns true if any part of the network config is different.
+func diffNetwork(leftCopy, rightCopy NetworkConfig) bool {
+	if diffTLS(leftCopy.TLSConfig, rightCopy.TLSConfig) {
+		return true
+	}
+
+	// TLSConfig holds funcs, which will never deeply equal so ignore them here
+	leftCopy.TLSConfig = nil
+	rightCopy.TLSConfig = nil
+
+	return !reflect.DeepEqual(leftCopy, rightCopy)
+}
+
+// diffTLS returns true if any part of the TLS config is different.
+func diffTLS(leftTLS, rightTLS *tls.Config) bool {
+	switch {
+	case leftTLS == nil && rightTLS == nil:
+		return false
+	case leftTLS == nil && rightTLS != nil:
+	case leftTLS != nil && rightTLS == nil:
+		return true
+	}
+
+	if leftTLS.MinVersion != rightTLS.MinVersion {
+		return true
+	}
+
+	leftCert, err := leftTLS.GetCertificate(nil)
+	if err != nil {
+		return true
+	}
+	rightCert, err := rightTLS.GetCertificate(nil)
+	if err != nil {
+		return true
+	}
+	if !reflect.DeepEqual(leftCert, rightCert) {
+		return true
+	}
+	leftClientCert, err := leftTLS.GetClientCertificate(nil)
+	if err != nil {
+		return true
+	}
+	rightClientCert, err := rightTLS.GetClientCertificate(nil)
+	if err != nil {
+		return true
+	}
+	if !reflect.DeepEqual(leftClientCert, rightClientCert) {
+		return true
+	}
+	return false
 }
