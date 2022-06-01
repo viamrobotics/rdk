@@ -134,6 +134,7 @@ func imageToBuffer(img image.Image) []byte {
 	return output
 }
 
+/*
 // unpackTensors takes the output tensors from the model and shapes them into RDK detections
 // Which tensor is which gets determined via the length and type of the output tensor
 func unpackTensorsOld(T config.AttributeMap, filepath string, w, h int, labelMap []string) []objectdetection.Detection {
@@ -221,6 +222,7 @@ func unpackTensorsOld(T config.AttributeMap, filepath string, w, h int, labelMap
 	}
 	return detections
 }
+*/
 
 func unpackTensors(T config.AttributeMap, filepath string, w, h int, outTypes, labelMap []string) []objectdetection.Detection {
 	// Given the modelTypes,
@@ -253,7 +255,6 @@ func unpackTensors(T config.AttributeMap, filepath string, w, h int, outTypes, l
 		scores = T.Float64Slice(fmt.Sprint("out", floatIndices[0]))
 	}
 	//We should have everything (bboxes, labels, scores) at this point
-
 
 	//Now, check if we have action in the BboxOrder... if not, set to default
 	boxOrder, err := getBboxOrder(filepath)
