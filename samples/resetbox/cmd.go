@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"io"
 	"math"
 	"sync"
@@ -13,15 +12,15 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/config"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/robot"
-	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/robot/web"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -83,20 +82,16 @@ var logger = golog.NewDevelopmentLogger("resetbox")
 
 // LinearAxis is one or more motors whose motion is converted to linear movement via belts, screw drives, etc.
 type LinearAxis struct {
-	m        []motor.LocalMotor
+	m        []motor.Motor
 	mmPerRev float64
 }
 
 // AddMotors takes a slice of motor names and adds them to the axis.
-func (a *LinearAxis) AddMotors(_ context.Context, robot robot.Robot, names []string) error {
+func (a *LinearAxis) AddMotors(ctx context.Context, robot robot.Robot, names []string) error {
 	for _, n := range names {
 		_motor, err := motor.FromRobot(robot, n)
-		if err != nil {
-			stoppableMotor, ok := _motor.(motor.LocalMotor)
-			if !ok {
-				return motor.NewGoTillStopUnsupportedError(n)
-			}
-			a.m = append(a.m, stoppableMotor)
+		if err == nil {
+			a.m = append(a.m, _motor)
 		} else {
 			return err
 		}
@@ -122,16 +117,21 @@ func (a *LinearAxis) GoFor(ctx context.Context, speed float64, position float64)
 	return errs
 }
 
-// GoTillStop simultaneously homes all motors on an axis.
-func (a *LinearAxis) GoTillStop(ctx context.Context, speed float64, _ func(ctx context.Context) bool) error {
+// Home simultaneously homes all motors on an axis.
+func (a *LinearAxis) Home(ctx context.Context) error {
 	var homeWorkers sync.WaitGroup
 	var errs error
+	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
 		homeWorkers.Add(1)
-		go func(motor motor.LocalMotor) {
+		go func(m motor.Motor) {
 			defer homeWorkers.Done()
-			multierr.AppendInto(&errs, motor.GoTillStop(ctx, speed*60/a.mmPerRev, nil))
+			_, err := m.Do(ctx, map[string]interface{}{"command": "home"})
+			errPath <- err
 		}(m)
+	}
+	for range a.m {
+		multierr.AppendInto(&errs, <-errPath)
 	}
 	homeWorkers.Wait()
 	return errs
@@ -190,7 +190,7 @@ type ResetBox struct {
 	gate, squeeze    LinearAxis
 	elevator         LinearAxis
 	tipper, vibrator motor.Motor
-	hammer           motor.LocalMotor
+	hammer           motor.Motor
 	arm              arm.Arm
 	gripper          gripper.Gripper
 
@@ -233,11 +233,7 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	if err != nil {
 		return nil, err
 	}
-	stoppableHammer, ok := hammer.(motor.LocalMotor)
-	if !ok {
-		return nil, motor.NewGoTillStopUnsupportedError("hammer")
-	}
-	b.hammer = stoppableHammer
+	b.hammer = hammer
 
 	tipper, err := motor.FromRobot(r, "tipper")
 	if err != nil {
@@ -286,34 +282,32 @@ func (b *ResetBox) Stop(ctx context.Context) error {
 }
 
 func main() {
-	utils.ContextualMain(mainWithArgs, logger)
-}
-
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
-	flag.Parse()
-
-	cfg, err := config.Read(ctx, flag.Arg(0), logger)
+	logger := golog.NewDevelopmentLogger("client")
+	robot, err := client.New(
+		context.Background(),
+		"resetbox.6099bd9d94.viam.cloud",
+		logger,
+		client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
+			Type:    rdkutils.CredentialsTypeRobotLocationSecret,
+			Payload: "huwbahasm4zt3un5hfag7oy1d0lseie5uzr9camkolxh81g4",
+		})),
+	)
 	if err != nil {
-		return err
+		logger.Fatal(err)
 	}
-
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	box, err := NewResetBox(context.Background(), robot, logger)
 	if err != nil {
-		return err
-	}
-	defer myRobot.Close(ctx)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	box, err := NewResetBox(ctx, myRobot, logger)
-	if err != nil {
-		return err
+		logger.Error(err)
+		return
 	}
 	defer box.Close()
 
-	box.home(ctx)
-	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
+	logger.Warn("About to Home")
+	err = box.home(context.Background())
+	if err != nil {
+		logger.Error(err)
+	}
+	logger.Warn("Homing Complete")
 }
 
 //nolint:unused
@@ -489,14 +483,15 @@ func (b *ResetBox) home(ctx context.Context) error {
 		errPath <- b.gripper.Open(ctx)
 	}()
 	go func() {
-		errPath <- b.gate.GoTillStop(ctx, -20, nil)
-		errPath <- b.hammer.GoTillStop(ctx, -200, nil)
+		errPath <- b.gate.Home(ctx)
+		_, err := b.hammer.Do(ctx, map[string]interface{}{"command": "home"})
+		errPath <- err 
 	}()
 	go func() {
-		errPath <- b.squeeze.GoTillStop(ctx, -20, nil)
+		errPath <- b.squeeze.Home(ctx)
 	}()
 	go func() {
-		errPath <- b.elevator.GoTillStop(ctx, -200, nil)
+		errPath <- b.elevator.Home(ctx)
 	}()
 
 	errs := multierr.Combine(
@@ -506,10 +501,6 @@ func (b *ResetBox) home(ctx context.Context) error {
 		<-errPath,
 		<-errPath,
 		<-errPath,
-		b.gate.ResetZeroPosition(ctx, 0),
-		b.squeeze.ResetZeroPosition(ctx, 0),
-		b.elevator.ResetZeroPosition(ctx, 0),
-		b.hammer.ResetZeroPosition(ctx, 0),
 	)
 
 	if errs != nil {

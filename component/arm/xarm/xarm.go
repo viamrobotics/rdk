@@ -88,6 +88,11 @@ func xArmModel(dof int) (referenceframe.Model, error) {
 // NewxArm returns a new xArm with the specified dof.
 func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
+
+	if host == "" {
+		return nil, errors.New("xArm host not set")
+	}
+
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
 		return nil, err
