@@ -109,7 +109,7 @@ func TestCreateStatus(t *testing.T) {
 	status := &pb.Status{PositionDeg: uint32(8)}
 
 	injectServo := &inject.Servo{}
-	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return uint8(status.PositionDeg), nil
 	}
 
@@ -121,7 +121,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on GetPosition", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+		injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 			return 0, errFail
 		}
 		_, err = servo.CreateStatus(context.Background(), injectServo)
@@ -206,6 +206,16 @@ func TestReconfigurableServo(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *servo.reconfigurableServo")
 }
 
+func TestStop(t *testing.T) {
+	actualServo1 := &mock{Name: testServoName}
+	reconfServo1, err := servo.WrapWithReconfigurable(actualServo1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualServo1.stopCount, test.ShouldEqual, 0)
+	test.That(t, reconfServo1.(servo.Servo).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, actualServo1.stopCount, test.ShouldEqual, 1)
+}
+
 func TestClose(t *testing.T) {
 	actualServo1 := &mock{Name: testServoName}
 	reconfServo1, err := servo.WrapWithReconfigurable(actualServo1)
@@ -222,6 +232,7 @@ type mock struct {
 	Name string
 
 	posCount    int
+	stopCount   int
 	reconfCount int
 }
 
@@ -232,6 +243,11 @@ func (mServo *mock) Move(ctx context.Context, angleDegs uint8) error {
 func (mServo *mock) GetPosition(ctx context.Context) (uint8, error) {
 	mServo.posCount++
 	return pos, nil
+}
+
+func (mServo *mock) Stop(ctx context.Context) error {
+	mServo.stopCount++
+	return nil
 }
 
 func (mServo *mock) Close() { mServo.reconfCount++ }
