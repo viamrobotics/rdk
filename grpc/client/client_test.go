@@ -149,7 +149,7 @@ func TestStatusClient(t *testing.T) {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return 5, nil
 	}
 
