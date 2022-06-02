@@ -23,6 +23,8 @@ type ServoServiceClient interface {
 	Move(ctx context.Context, in *MoveRequest, opts ...grpc.CallOption) (*MoveResponse, error)
 	// GetPosition returns the current set angle (degrees) of the servo of the underlying robot.
 	GetPosition(ctx context.Context, in *GetPositionRequest, opts ...grpc.CallOption) (*GetPositionResponse, error)
+	// Stop stops a robot's servo
+	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 }
 
 type servoServiceClient struct {
@@ -51,6 +53,15 @@ func (c *servoServiceClient) GetPosition(ctx context.Context, in *GetPositionReq
 	return out, nil
 }
 
+func (c *servoServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error) {
+	out := new(StopResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.servo.v1.ServoService/Stop", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ServoServiceServer is the server API for ServoService service.
 // All implementations must embed UnimplementedServoServiceServer
 // for forward compatibility
@@ -60,6 +71,8 @@ type ServoServiceServer interface {
 	Move(context.Context, *MoveRequest) (*MoveResponse, error)
 	// GetPosition returns the current set angle (degrees) of the servo of the underlying robot.
 	GetPosition(context.Context, *GetPositionRequest) (*GetPositionResponse, error)
+	// Stop stops a robot's servo
+	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	mustEmbedUnimplementedServoServiceServer()
 }
 
@@ -72,6 +85,9 @@ func (UnimplementedServoServiceServer) Move(context.Context, *MoveRequest) (*Mov
 }
 func (UnimplementedServoServiceServer) GetPosition(context.Context, *GetPositionRequest) (*GetPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPosition not implemented")
+}
+func (UnimplementedServoServiceServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
 func (UnimplementedServoServiceServer) mustEmbedUnimplementedServoServiceServer() {}
 
@@ -122,6 +138,24 @@ func _ServoService_GetPosition_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ServoService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServoServiceServer).Stop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.servo.v1.ServoService/Stop",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServoServiceServer).Stop(ctx, req.(*StopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ServoService_ServiceDesc is the grpc.ServiceDesc for ServoService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -136,6 +170,10 @@ var ServoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPosition",
 			Handler:    _ServoService_GetPosition_Handler,
+		},
+		{
+			MethodName: "Stop",
+			Handler:    _ServoService_Stop_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
