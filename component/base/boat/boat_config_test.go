@@ -8,12 +8,12 @@ import (
 )
 
 var testMotorConfig = []motorConfig{
-	{Name: "starboard-rotation", LateralOffset: 0.3, VerticalOffset: 0, AngleDegrees: 0, Weight: 1},
-	{Name: "port-rotation", LateralOffset: -0.3, VerticalOffset: 0, AngleDegrees: 0, Weight: 1},
-	{Name: "forward", LateralOffset: 0, VerticalOffset: -0.3, AngleDegrees: 0, Weight: 1},
-	{Name: "reverse", LateralOffset: 0, VerticalOffset: 0.3, AngleDegrees: 180, Weight: 1},
-	{Name: "starboard-lateral", LateralOffset: 0.45, VerticalOffset: 0, AngleDegrees: 90, Weight: 1},
-	{Name: "port-lateral", LateralOffset: -0.45, VerticalOffset: 0, AngleDegrees: -90, Weight: 1},
+	{Name: "starboard-rotation", XOffset: 0.3, YOffset: 0, AngleDegrees: 0, Weight: 1},
+	{Name: "port-rotation", XOffset: -0.3, YOffset: 0, AngleDegrees: 0, Weight: 1},
+	{Name: "forward", XOffset: 0, YOffset: -0.3, AngleDegrees: 0, Weight: 1},
+	{Name: "reverse", XOffset: 0, YOffset: 0.3, AngleDegrees: 180, Weight: 1},
+	{Name: "starboard-lateral", XOffset: 0.45, YOffset: 0, AngleDegrees: 90, Weight: 1},
+	{Name: "port-lateral", XOffset: -0.45, YOffset: 0, AngleDegrees: -90, Weight: 1},
 }
 
 func TestBoatConfig(t *testing.T) {
