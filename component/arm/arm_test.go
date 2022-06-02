@@ -234,6 +234,16 @@ func TestReconfigurableArm(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableArm")
 }
 
+func TestStop(t *testing.T) {
+	actualArm1 := &mock{Name: testArmName}
+	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualArm1.stopCount, test.ShouldEqual, 0)
+	test.That(t, reconfArm1.(arm.Arm).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, actualArm1.stopCount, test.ShouldEqual, 1)
+}
+
 func TestClose(t *testing.T) {
 	actualArm1 := &mock{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
@@ -275,11 +285,17 @@ type mock struct {
 	Name        string
 	endPosCount int
 	reconfCount int
+	stopCount   int
 }
 
 func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	m.endPosCount++
 	return pose, nil
+}
+
+func (m *mock) Stop(ctx context.Context) error {
+	m.stopCount++
+	return nil
 }
 
 func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }
