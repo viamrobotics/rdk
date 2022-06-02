@@ -1,7 +1,8 @@
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
+TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
-PATH_WITH_TOOLS="`pwd`/bin/gotools/`uname -s`/`uname -m`:`pwd`/node_modules/.bin:${PATH}"
+PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 VERSION := $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)
 GIT_REVISION := $(shell git rev-parse HEAD | tr -d '\n')
@@ -22,7 +23,7 @@ build-web: buf-web
 	cd web/frontend && npm ci && npx webpack build --config ./webpack.prod.js
 
 tool-install:
-	GOBIN=`pwd`/bin/gotools/`uname -s`/`uname -m` go install google.golang.org/protobuf/cmd/protoc-gen-go \
+	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
 		github.com/bufbuild/buf/cmd/buf \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-lint \
@@ -50,8 +51,8 @@ lint: lint-go lint-web
 
 lint-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf lint
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=bin/combined
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs bin/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
+	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 lint-web:
 	cd web/frontend/dls && npm run lint
