@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
@@ -93,7 +94,8 @@ type boat struct {
 	state      boatState
 	stateMutex sync.Mutex
 
-	cancel context.CancelFunc
+	cancel    context.CancelFunc
+	waitGroup sync.WaitGroup
 
 	logger golog.Logger
 }
@@ -112,7 +114,7 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 		return err
 	}
 	s := time.Duration(float64(time.Millisecond) * math.Abs(float64(distanceMm)))
-	time.Sleep(s)
+	utils.SelectContextOrWait(ctx, s)
 	return b.Stop(ctx)
 }
 
@@ -126,7 +128,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) e
 	if err != nil {
 		return err
 	}
-	time.Sleep(time.Duration(float64(time.Millisecond) * millis))
+	utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*millis))
 	return b.Stop(ctx)
 }
 
@@ -138,7 +140,10 @@ func (b *boat) startVelocityThread() error {
 	var ctx context.Context
 	ctx, b.cancel = context.WithCancel(context.Background())
 
+	b.waitGroup.Add(1)
 	go func() {
+		defer b.waitGroup.Done()
+
 		for {
 			utils.SelectContextOrWait(ctx, time.Millisecond*100)
 			err := b.velocityThreadLoop(ctx)
@@ -167,35 +172,49 @@ func (b *boat) velocityThreadLoop(ctx context.Context) error {
 		return nil
 	}
 
-	linear := b.state.lastPowerLinear
-	angular := b.state.lastPowerAngular
+	linear, angular := computeNextPower(&b.state, av)
 
-	angularDiff := av.Z - b.state.velocityAngularGoal.Z
+	b.stateMutex.Unlock()
+
+	return b.setPowerInternal(ctx, linear, angular)
+}
+
+func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVelocity) (r3.Vector, r3.Vector) {
+	linear := state.lastPowerLinear
+	angular := state.lastPowerAngular
+
+	angularDiff := angularVelocity.Z - state.velocityAngularGoal.Z
 
 	if math.Abs(angularDiff) > 1 {
 		delta := angularDiff / 360
 		for math.Abs(delta) < .01 {
 			delta *= 2
 		}
+
 		angular.Z -= delta
 		angular.Z = math.Max(-1, angular.Z)
 		angular.Z = math.Min(1, angular.Z)
 	}
 
+	linear.Y = state.velocityLinearGoal.Y // TEMP
+	linear.X = state.velocityLinearGoal.X // TEMP
+
 	/*
-		fmt.Printf("prev: %v now: %v goal: %v diff: %v\n",
-			b.state.lastPowerAngular.Z,
-			angular.Z,
-			b.state.velocityAngularGoal.Z,
-			angularDiff,
+		fmt.Printf(
+			"computeNextPower last power (lx,ly,a): %0.2f %0.2f %0.2f goal velocity (lx, ly, a) %0.2f %0.2f %0.2f av; %0.2f\n" +
+			"\t after lx, ly, a : %0.2f %0.2f %0.2g\n",
+			state.lastPowerLinear.X,
+			state.lastPowerLinear.Y,
+			state.lastPowerAngular.Z,
+			state.velocityLinearGoal.X,
+			state.velocityLinearGoal.Y,
+			state.velocityAngularGoal.Z,
+			angularVelocity.Z,
+			linear.X, linear.Y, angular.Z,
 		)
 	*/
-	linear.Y = b.state.velocityLinearGoal.Y // TEMP
-	linear.X = b.state.velocityLinearGoal.X // TEMP
 
-	b.stateMutex.Unlock()
-
-	return b.setPowerInternal(ctx, linear, angular)
+	return linear, angular
 }
 
 func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
@@ -272,9 +291,11 @@ func (b *boat) GetWidth(ctx context.Context) (int, error) {
 	return int(b.cfg.Width) * 1000, nil
 }
 
-func (b *boat) Close() {
+func (b *boat) Close(ctx context.Context) error {
 	if b.cancel != nil {
 		b.cancel()
 		b.cancel = nil
+		b.waitGroup.Wait()
 	}
+	return b.Stop(ctx)
 }
