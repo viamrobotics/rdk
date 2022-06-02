@@ -16,6 +16,12 @@ import (
 	goutils "go.viam.com/utils"
 )
 
+var (
+	initialWaitTime        = time.Second
+	retryExponentialFactor = 2
+	maxRetryInterval       = time.Hour
+)
+
 // syncManager is responsible for uploading files to the cloud every syncInterval.
 type syncManager interface {
 	Start()
@@ -162,7 +168,7 @@ func (s *syncer) Close() {
 func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		s.logger.Errorw("failed to upload queued file", "error", err)
-		// nolint
+
 		return nil
 	}
 
@@ -181,13 +187,11 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
-		err = s.uploadFn(s.cancelCtx, path)
-		if err != nil {
-			s.inProgressLock.Lock()
-			delete(s.inProgress, path)
-			s.inProgressLock.Unlock()
-			s.logger.Errorf("failed to upload queued file: %v", err)
-		}
+		exponentialRetry(
+			s.cancelCtx,
+			func(ctx context.Context) error { return s.uploadFn(ctx, path) },
+			s.logger,
+		)
 	})
 	// If upload completed successfully, unmark in-progress and delete file.
 	// TODO: uncomment when sync is actually implemented. Until then, we don't want to delete data.
@@ -197,4 +201,56 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	//  	return err
 	// }
 	return nil
+}
+
+// exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
+// maximum of maxRetryInterval.
+func exponentialRetry(ctx context.Context, fn func(ctx context.Context) error, log golog.Logger) {
+	// Only create a ticker and enter the retry loop if we actually need to retry.
+	if err := fn(ctx); err == nil {
+		return
+	}
+
+	// First call failed, so begin exponentialRetry with a factor of retryExponentialFactor
+	nextWait := initialWaitTime
+	ticker := time.NewTicker(nextWait)
+	for {
+		if err := ctx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				log.Errorw("context closed unexpectedly", "error", err)
+			}
+			return
+		}
+
+		select {
+		// If cancelled, return nil.
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		// Otherwise, try again after nextWait.
+		case <-ticker.C:
+			if err := fn(ctx); err != nil {
+				// If error, retry with a new nextWait.
+				log.Errorw("error while uploading file", "error", err)
+				ticker.Stop()
+				nextWait = getNextWait(nextWait)
+				ticker = time.NewTicker(nextWait)
+				continue
+			}
+			// If no error, return.
+			ticker.Stop()
+			return
+		}
+	}
+}
+
+func getNextWait(lastWait time.Duration) time.Duration {
+	if lastWait == time.Duration(0) {
+		return initialWaitTime
+	}
+	nextWait := lastWait * time.Duration(retryExponentialFactor)
+	if nextWait > maxRetryInterval {
+		return maxRetryInterval
+	}
+	return nextWait
 }
