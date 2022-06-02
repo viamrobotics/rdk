@@ -1,6 +1,7 @@
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
-PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
+
+PATH_WITH_TOOLS="`pwd`/bin/gotools/`uname -s`/`uname -m`:`pwd`/node_modules/.bin:${PATH}"
 
 VERSION := $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)
 GIT_REVISION := $(shell git rev-parse HEAD | tr -d '\n')
@@ -21,7 +22,7 @@ build-web: buf-web
 	cd web/frontend && npm ci && npx webpack build --config ./webpack.prod.js
 
 tool-install:
-	GOBIN=`pwd`/bin go install google.golang.org/protobuf/cmd/protoc-gen-go \
+	GOBIN=`pwd`/bin/gotools/`uname -s`/`uname -m` go install google.golang.org/protobuf/cmd/protoc-gen-go \
 		github.com/bufbuild/buf/cmd/buf \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-lint \
@@ -35,8 +36,8 @@ tool-install:
 buf: buf-go buf-web
 
 buf-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) buf lint
-	PATH=$(PATH_WITH_TOOLS) buf generate
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s generate
 
 buf-web: tool-install
 	npm install
