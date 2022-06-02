@@ -285,3 +285,8 @@ func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Inpu
 	}
 	return nil
 }
+
+// DefaultArmPlannerOptions will provide a set of default planner options which can be passed to motion planning.
+// The user can choose to enforce linear motion constraints, and optionally also orientation interpolation constraints if sufficient DOF.
+func DefaultArmPlannerOptions(
+	

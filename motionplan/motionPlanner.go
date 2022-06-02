@@ -75,28 +75,21 @@ func DefaultConstraint(
 	f frame.Frame,
 	opt *PlannerOptions,
 ) *PlannerOptions {
-	//~ pathDist := newDefaultMetric(from, to)
+	pathDist := newDefaultMetric(from, to)
 
-	//~ validFunc := func(cInput *ConstraintInput) (bool, float64) {
-		//~ err := resolveInputsToPositions(cInput)
-		//~ if err != nil {
-			//~ return false, 0
-		//~ }
-		//~ dist := pathDist(cInput.StartPos, cInput.EndPos)
-		//~ if dist < defaultEpsilon*defaultEpsilon {
-			//~ return true, 0
-		//~ }
-		//~ return false, dist
-	//~ }
-	//~ opt.pathDist = pathDist
-	//~ opt.AddConstraint(defaultMotionConstraint, validFunc)
-	
-	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, 0.1)
-	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), 0.1)
-	opt.pathDist = CombineMetrics(orientMetric, lineMetric)
-	
-	opt.AddConstraint("orientation", orientConstraint)
-	opt.AddConstraint("line", lineConstraint)
+	validFunc := func(cInput *ConstraintInput) (bool, float64) {
+		err := resolveInputsToPositions(cInput)
+		if err != nil {
+			return false, 0
+		}
+		dist := pathDist(cInput.StartPos, cInput.EndPos)
+		if dist < defaultEpsilon*defaultEpsilon {
+			return true, 0
+		}
+		return false, dist
+	}
+	opt.pathDist = pathDist
+	opt.AddConstraint(defaultMotionConstraint, validFunc)
 
 	// Add self-collision check if available
 	collisionConst := NewCollisionConstraint(f, map[string]spatial.Geometry{}, map[string]spatial.Geometry{})
