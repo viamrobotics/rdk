@@ -35,8 +35,7 @@ type syncer struct {
 	syncQueue         string
 	logger            golog.Logger
 	queueWaitTime     time.Duration
-	inProgressLock    *sync.Mutex
-	inProgress        map[string]struct{}
+	progressTracker   progressTracker
 	uploadFn          func(ctx context.Context, path string) error
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
@@ -48,12 +47,14 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	ret := syncer{
-		syncQueue:         queuePath,
-		logger:            logger,
-		captureDir:        captureDir,
-		queueWaitTime:     time.Minute,
-		inProgress:        map[string]struct{}{},
-		inProgressLock:    &sync.Mutex{},
+		syncQueue:     queuePath,
+		logger:        logger,
+		captureDir:    captureDir,
+		queueWaitTime: time.Minute,
+		progressTracker: progressTracker{
+			lock: &sync.Mutex{},
+			m:    make(map[string]struct{}),
+		},
 		backgroundWorkers: sync.WaitGroup{},
 		uploadFn: func(ctx context.Context, path string) error {
 			return nil
@@ -175,15 +176,12 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	if di.IsDir() {
 		return nil
 	}
-	s.inProgressLock.Lock()
-	if _, ok := s.inProgress[path]; ok {
-		s.inProgressLock.Unlock()
+
+	if s.progressTracker.inProgress(path) {
 		return nil
 	}
 
-	// Mark upload as in progress.
-	s.inProgress[path] = struct{}{}
-	s.inProgressLock.Unlock()
+	s.progressTracker.mark(path)
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
@@ -193,14 +191,33 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 			s.logger,
 		)
 	})
-	// If upload completed successfully, unmark in-progress and delete file.
-	// TODO: uncomment when sync is actually implemented. Until then, we don't want to delete data.
-	// delete(u.inProgress, path)
-	// err = os.Remove(path)
-	// if err != nil {
-	//  	return err
-	// }
+	// TODO: If upload completed successfully, unmark in-progress and delete file.
 	return nil
+}
+
+type progressTracker struct {
+	lock *sync.Mutex
+	m    map[string]struct{}
+}
+
+func (p *progressTracker) inProgress(k string) bool {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	_, ok := p.m[k]
+	return ok
+}
+
+func (p *progressTracker) mark(k string) {
+	p.lock.Lock()
+	p.m[k] = struct{}{}
+	p.lock.Unlock()
+}
+
+//nolint:unused
+func (p *progressTracker) unmark(k string) {
+	p.lock.Lock()
+	delete(p.m, k)
+	p.lock.Unlock()
 }
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
