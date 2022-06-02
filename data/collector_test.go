@@ -106,8 +106,8 @@ func TestSuccessfulWrite(t *testing.T) {
 				Logger:        l,
 			},
 			wait:                time.Millisecond * 10,
-			minExpectReadings:   8,
-			maxExpectedReadings: 12,
+			minExpectReadings:   7,
+			maxExpectedReadings: 13,
 		},
 		{
 			name:     "Ticker based binary writer.",
@@ -136,8 +136,8 @@ func TestSuccessfulWrite(t *testing.T) {
 				Logger:        l,
 			},
 			wait:                time.Millisecond * 10,
-			minExpectReadings:   8,
-			maxExpectedReadings: 12,
+			minExpectReadings:   7,
+			maxExpectedReadings: 13,
 		},
 	}
 
@@ -155,7 +155,7 @@ func TestSuccessfulWrite(t *testing.T) {
 
 		// Verify that the data it wrote matches what we expect.
 		// Allow a range of readings, because when durations get small (<<ms) there can be slight variation, and we
-		// don't want the tests to be too noise-y. A range of +-2 was chosen for sleepBasedReadings because we
+		// don't want the tests to be too noise-y. A range of +-3 was chosen for sleepBasedReadings because we
 		// confirmed that this got a failure rate that was sufficiently low (<<1%).
 		validateReadings(t, target, tc.minExpectReadings, tc.maxExpectedReadings)
 
