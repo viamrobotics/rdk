@@ -19,11 +19,11 @@ func (mw *motorWeights) diff(other motorWeights) float64 {
 }
 
 type motorConfig struct {
-	Name           string
-	XOffset        float64 `json:"x_offset"` // in meters
-	YOffset        float64 `json:"y_offset"` // in meters
-	AngleDegrees   float64 `json:"angle"` // 0 is thrusting forward, 90 is thrusting to starboard, or positive x
-	Weight         float64
+	Name         string
+	XOffset      float64 `json:"x_offset"` // in meters
+	YOffset      float64 `json:"y_offset"` // in meters
+	AngleDegrees float64 `json:"angle"`    // 0 is thrusting forward, 90 is thrusting to starboard, or positive x
+	Weight       float64
 }
 
 // percentDistanceFromCenterOfMass: if the boat is a circle with a radius of 5m,
