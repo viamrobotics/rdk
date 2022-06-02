@@ -134,7 +134,8 @@ func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 		opt.SetLowerBounds(mins),
 		opt.SetUpperBounds(maxs),
 
-		opt.SetStopVal(.001),
+		opt.SetStopVal(.002),
+		opt.SetMaxTime(.25),
 	)
 	if err != nil {
 		panic(err)
