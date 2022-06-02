@@ -191,18 +191,19 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 
 type progressTracker struct {
 	lock *sync.Mutex
-	m    map[string]bool
+	m    map[string]struct{}
 }
 
 func (p *progressTracker) inProgress(k string) bool {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	return p.m[k]
+	_, ok := p.m[k]
+	return ok
 }
 
 func (p *progressTracker) mark(k string) {
 	p.lock.Lock()
-	p.m[k] = true
+	p.m[k] = struct{}{}
 	p.lock.Unlock()
 }
 
