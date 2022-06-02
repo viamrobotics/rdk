@@ -18,6 +18,7 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -342,6 +343,37 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 // Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
+}
+
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
+	for _, q := range qs {
+		pbQueries = append(
+			pbQueries,
+			&pb.DiscoveryQuery{Subtype: string(q.SubtypeName), Model: q.Model},
+		)
+	}
+
+	resp, err := rc.client.DiscoverComponents(ctx, &pb.DiscoverComponentsRequest{Queries: pbQueries})
+	if err != nil {
+		return nil, err
+	}
+
+	discoveries := make([]discovery.Discovery, 0, len(resp.Discovery))
+	for _, disc := range resp.Discovery {
+		q := discovery.Query{
+			SubtypeName: resource.SubtypeName(disc.Query.Subtype),
+			Model:       disc.Query.Model,
+		}
+		discoveries = append(
+			discoveries, discovery.Discovery{
+				Query:   q,
+				Results: disc.Results.AsMap(),
+			})
+	}
+	return discoveries, nil
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.

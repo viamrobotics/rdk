@@ -37,6 +37,13 @@ service RobotService {
     };    
   }
 
+  // DiscoverComponents returns the list of discovered component configurations.
+  rpc DiscoverComponents(DiscoverComponentsRequest) returns (DiscoverComponentsResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/discovery/components"
+    };
+  }
+
   rpc FrameSystemConfig(FrameSystemConfigRequest) returns (FrameSystemConfigResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/frame_system/config"
@@ -126,6 +133,26 @@ message BlockForOperationRequest {
 }
 
 message BlockForOperationResponse {}
+
+// Discovery
+
+message DiscoveryQuery {
+  string subtype = 1;
+  string model = 2;
+}
+
+message Discovery {
+  DiscoveryQuery query = 1;
+  google.protobuf.Struct results = 2;
+}
+
+message DiscoverComponentsRequest {
+  repeated DiscoveryQuery queries = 1;
+}
+
+message DiscoverComponentsResponse {
+  repeated Discovery discovery = 1;
+}
 
 message Status {
   common.v1.ResourceName name = 1;
