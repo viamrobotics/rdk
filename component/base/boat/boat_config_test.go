@@ -8,19 +8,19 @@ import (
 )
 
 var testMotorConfig = []motorConfig{
-	{Name: "starboard-rotation", XOffset: 0.3, YOffset: 0, AngleDegrees: 0, Weight: 1},
-	{Name: "port-rotation", XOffset: -0.3, YOffset: 0, AngleDegrees: 0, Weight: 1},
-	{Name: "forward", XOffset: 0, YOffset: -0.3, AngleDegrees: 0, Weight: 1},
-	{Name: "reverse", XOffset: 0, YOffset: 0.3, AngleDegrees: 180, Weight: 1},
-	{Name: "starboard-lateral", XOffset: 0.45, YOffset: 0, AngleDegrees: 90, Weight: 1},
-	{Name: "port-lateral", XOffset: -0.45, YOffset: 0, AngleDegrees: -90, Weight: 1},
+	{Name: "starboard-rotation", XOffsetMM: 0.3, YOffsetMM: 0, AngleDegrees: 0, Weight: 1},
+	{Name: "port-rotation", XOffsetMM: -0.3, YOffsetMM: 0, AngleDegrees: 0, Weight: 1},
+	{Name: "forward", XOffsetMM: 0, YOffsetMM: -0.3, AngleDegrees: 0, Weight: 1},
+	{Name: "reverse", XOffsetMM: 0, YOffsetMM: 0.3, AngleDegrees: 180, Weight: 1},
+	{Name: "starboard-lateral", XOffsetMM: 0.45, YOffsetMM: 0, AngleDegrees: 90, Weight: 1},
+	{Name: "port-lateral", XOffsetMM: -0.45, YOffsetMM: 0, AngleDegrees: -90, Weight: 1},
 }
 
 func TestBoatConfig(t *testing.T) {
 	cfg := boatConfig{
-		Motors: testMotorConfig,
-		Length: .5,
-		Width:  .5,
+		Motors:   testMotorConfig,
+		LengthMM: .5,
+		WidthMM:  .5,
 	}
 
 	max := cfg.maxWeights()
@@ -123,9 +123,9 @@ func weightsAlmostEqual(actual interface{}, expected ...interface{}) string {
 
 func BenchmarkComputePower(b *testing.B) {
 	cfg := boatConfig{
-		Motors: testMotorConfig,
-		Length: .5,
-		Width:  .5,
+		Motors:   testMotorConfig,
+		LengthMM: .5,
+		WidthMM:  .5,
 	}
 
 	b.ResetTimer()

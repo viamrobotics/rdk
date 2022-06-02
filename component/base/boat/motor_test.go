@@ -19,8 +19,8 @@ func TestMotorWeights(t *testing.T) {
 	tests := []d{
 		{
 			motorConfig{
-				XOffset:      0,
-				YOffset:      -10,
+				XOffsetMM:    0,
+				YOffsetMM:    -10,
 				AngleDegrees: 0,
 				Weight:       1,
 			},
@@ -28,8 +28,8 @@ func TestMotorWeights(t *testing.T) {
 		},
 		{
 			motorConfig{
-				XOffset:      0,
-				YOffset:      -10,
+				XOffsetMM:    0,
+				YOffsetMM:    -10,
 				AngleDegrees: 180,
 				Weight:       1,
 			},
@@ -44,8 +44,8 @@ func TestMotorWeights(t *testing.T) {
 		},
 		{
 			motorConfig{
-				XOffset:      -10,
-				YOffset:      -10,
+				XOffsetMM:    -10,
+				YOffsetMM:    -10,
 				AngleDegrees: 45,
 				Weight:       math.Sqrt(2),
 			},
@@ -61,8 +61,8 @@ func TestMotorWeights(t *testing.T) {
 		},
 		{
 			motorConfig{
-				XOffset:      0,
-				YOffset:      -10,
+				XOffsetMM:    0,
+				YOffsetMM:    -10,
 				AngleDegrees: 90,
 				Weight:       1,
 			},
