@@ -17,7 +17,7 @@ const (
 	dim3d = mode("3d")
 )
 
-// SLAMLibraries contains a map of available slam libraries
+// SLAMLibraries contains a map of available slam libraries.
 var SLAMLibraries = map[string]LibraryMetadata{
 	"cartographer": cartographerMetadata,
 	"orbslamv3":    orbslamv3Metadata,
