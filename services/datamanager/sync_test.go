@@ -22,15 +22,17 @@ func newTestSyncer(t *testing.T, uploadFn func(ctx context.Context, path string)
 	l := golog.NewTestLogger(t)
 
 	return syncer{
-		captureDir:     captureDir,
-		syncQueue:      syncQueue,
-		logger:         l,
-		queueWaitTime:  time.Nanosecond,
-		inProgress:     map[string]struct{}{},
-		inProgressLock: &sync.Mutex{},
-		uploadFn:       uploadFn,
-		cancelCtx:      cancelCtx,
-		cancelFunc:     cancelFn,
+		captureDir:    captureDir,
+		syncQueue:     syncQueue,
+		logger:        l,
+		queueWaitTime: time.Nanosecond,
+		progressTracker: progressTracker{
+			lock: &sync.Mutex{},
+			m:    make(map[string]struct{}),
+		},
+		uploadFn:   uploadFn,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFn,
 	}
 }
 

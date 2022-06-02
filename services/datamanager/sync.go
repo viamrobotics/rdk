@@ -53,7 +53,7 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 		queueWaitTime: time.Minute,
 		progressTracker: progressTracker{
 			lock: &sync.Mutex{},
-			m:    make(map[string]bool),
+			m:    make(map[string]struct{}),
 		},
 		backgroundWorkers: sync.WaitGroup{},
 		uploadFn: func(ctx context.Context, path string) error {
@@ -217,8 +217,9 @@ func (p *progressTracker) unmark(k string) {
 	p.lock.Lock()
 	delete(p.m, k)
 	p.lock.Unlock()
+}
 
-  // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
+// exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.
 func exponentialRetry(ctx context.Context, fn func(ctx context.Context) error, log golog.Logger) {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
