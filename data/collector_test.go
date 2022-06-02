@@ -310,7 +310,7 @@ func validateReadings(t *testing.T, file *os.File, min int, max int) {
 			}
 			t.Fatalf("failed to read SensorData from file: %v", err)
 		}
-		if read.GetType() == v1.DataType_TABULAR {
+		if read.GetStruct() != nil {
 			test.That(t, proto.Equal(dummyStructReadingProto, read.GetStruct()), test.ShouldBeTrue)
 		} else {
 			test.That(t, read.GetBinary(), test.ShouldResemble, dummyBytesReading)
