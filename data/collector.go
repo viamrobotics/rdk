@@ -14,10 +14,10 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -186,21 +186,42 @@ func (c *collector) getAndPushNextReading() {
 		c.logger.Errorw("error while capturing data", "error", err)
 		return
 	}
-	pbReading, err := protoutils.StructToStructPb(reading)
-	if err != nil {
-		c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
-		return
-	}
-	msg := v1.SensorData{
-		Metadata: &v1.SensorMetadata{
-			TimeRequested: timeRequested,
-			TimeReceived:  timeReceived,
-		},
-		Data: pbReading,
+
+	var msg v1.SensorData
+	switch v := reading.(type) {
+	case []byte:
+		msg = v1.SensorData{
+			Metadata: &v1.SensorMetadata{
+				TimeRequested: timeRequested,
+				TimeReceived:  timeReceived,
+			},
+			Data: &v1.SensorData_Binary{
+				Binary: v,
+			},
+			Type: v1.DataType_BINARY,
+		}
+	default:
+		// If it's not bytes, it's a struct.
+		pbReading, err := protoutils.StructToStructPb(reading)
+		if err != nil {
+			c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
+			return
+		}
+
+		msg = v1.SensorData{
+			Metadata: &v1.SensorMetadata{
+				TimeRequested: timeRequested,
+				TimeReceived:  timeReceived,
+			},
+			Type: v1.DataType_TABULAR,
+			Data: &v1.SensorData_Struct{
+				Struct: pbReading,
+			},
+		}
 	}
 
 	select {
-	// If c.qgitueue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
+	// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
 	// still work when this happens.
 	case <-c.cancelCtx.Done():
 		return
