@@ -198,7 +198,6 @@ func (c *collector) getAndPushNextReading() {
 			Data: &v1.SensorData_Binary{
 				Binary: v,
 			},
-			Type: v1.DataType_BINARY,
 		}
 	default:
 		// If it's not bytes, it's a struct.
@@ -213,7 +212,6 @@ func (c *collector) getAndPushNextReading() {
 				TimeRequested: timeRequested,
 				TimeReceived:  timeReceived,
 			},
-			Type: v1.DataType_TABULAR,
 			Data: &v1.SensorData_Struct{
 				Struct: pbReading,
 			},
