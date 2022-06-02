@@ -74,3 +74,30 @@ message GetPointCloudResponse {
   // Frame in bytes
   bytes point_cloud = 2;
 }
+
+message Webcams {
+  repeated Webcam webcams = 1;
+}
+
+message Webcam {
+  // Camera driver label
+  string label = 1;
+  // Camera driver status
+  string status = 2;
+  // Camera properties
+  repeated Property properties = 3;
+}
+
+message Property {
+  // Camera video properties
+  Video video = 1;
+}
+
+message Video {
+  // Video resolution width
+  int32 width = 1;
+  // Video resolution height
+  int32 height = 2;
+  // Video frame format
+  string frame_format = 3;
+}
