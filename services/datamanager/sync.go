@@ -189,7 +189,6 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 		defer s.backgroundWorkers.Done()
 		exponentialRetry(
 			s.cancelCtx,
-			time.Duration(0),
 			func(ctx context.Context) error { return s.uploadFn(ctx, path) },
 			s.logger,
 		)
@@ -204,18 +203,17 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	return nil
 }
 
-func exponentialRetry(ctx context.Context, initialWait time.Duration, fn func(ctx context.Context) error, log golog.Logger) {
+// exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
+// maximum of maxRetryInterval.
+func exponentialRetry(ctx context.Context, fn func(ctx context.Context) error, log golog.Logger) {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
-	if initialWait == time.Duration(0) {
-		if err := fn(ctx); err != nil {
-			exponentialRetry(ctx, getNextWait(initialWait), fn, log)
-			return
-		}
+	if err := fn(ctx); err == nil {
 		return
 	}
 
-	ticker := time.NewTicker(initialWait)
-	nextWait := initialWait
+	// First call failed, so begin exponentialRetry with a factor of retryExponentialFactor
+	nextWait := initialWaitTime
+	ticker := time.NewTicker(nextWait)
 	for {
 		if err := ctx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
