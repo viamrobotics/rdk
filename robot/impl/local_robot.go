@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -406,4 +407,32 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 // to support more streamlined reconfiguration functionality.
 func RobotFromResources(ctx context.Context, resources map[resource.Name]interface{}, logger golog.Logger) (robot.LocalRobot, error) {
 	return newWithResources(ctx, &config.Config{}, resources, logger)
+}
+
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	// dedupe queries
+	deduped := make(map[discovery.Query]struct{}, len(qs))
+	for _, q := range qs {
+		deduped[q] = struct{}{}
+	}
+
+	discoveries := make([]discovery.Discovery, 0, len(deduped))
+	for q := range deduped {
+		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q)
+		if !ok {
+			r.logger.Warnw("no discovery function registered", "subtype", q.SubtypeName, "model", q.Model)
+			continue
+		}
+
+		if discoveryFunction != nil {
+			discovered, err := discoveryFunction(ctx)
+			if err != nil {
+				return nil, &discovery.DiscoverError{q}
+			}
+			discoveries = append(discoveries, discovery.Discovery{Query: q, Results: discovered})
+		}
+	}
+	return discoveries, nil
 }

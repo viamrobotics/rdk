@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -793,6 +794,41 @@ func TestClientResources(t *testing.T) {
 	resources, err := client.resources(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resources, test.ShouldResemble, finalResources)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientDiscovery(t *testing.T) {
+	injectRobot := &inject.Robot{}
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return finalResources
+	}
+	q := discovery.Query{imu.Named("imu").ResourceSubtype, "some imu"}
+	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+		return []discovery.Discovery{{
+			Query:   q,
+			Results: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}},
+		}}, nil
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	logger := golog.NewTestLogger(t)
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err := client.DiscoverComponents(context.Background(), []discovery.Query{q})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(resp), test.ShouldEqual, 1)
+	test.That(t, resp[0].Query, test.ShouldResemble, q)
+	test.That(t, resp[0].Results, test.ShouldResemble, map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}})
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)

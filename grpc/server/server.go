@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
@@ -122,6 +123,38 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 		)
 	}
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
+}
+
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
+	queries := make([]discovery.Query, 0, len(req.Queries))
+	for _, q := range req.Queries {
+		queries = append(queries, discovery.Query{resource.SubtypeName(q.Subtype), q.Model})
+	}
+
+	discoveries, err := s.r.DiscoverComponents(ctx, queries)
+	if err != nil {
+		return nil, err
+	}
+
+	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
+	for _, discovery := range discoveries {
+		pbResults, err := protoutils.StructToStructPb(discovery.Results)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
+		}
+		pbQuery := &pb.DiscoveryQuery{Subtype: string(discovery.Query.SubtypeName), Model: discovery.Query.Model}
+		pbDiscoveries = append(
+			pbDiscoveries,
+			&pb.Discovery{
+				Query:   pbQuery,
+				Results: pbResults,
+			},
+		)
+	}
+
+	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
