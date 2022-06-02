@@ -60,29 +60,6 @@ func (s *subtypeServer) MoveStraight(
 	return &pb.MoveStraightResponse{}, nil
 }
 
-// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees.
-func (s *subtypeServer) MoveArc(
-	ctx context.Context,
-	req *pb.MoveArcRequest,
-) (*pb.MoveArcResponse, error) {
-	operation.CancelOtherWithLabel(ctx, req.GetName())
-	base, err := s.getBase(req.GetName())
-	if err != nil {
-		return nil, err
-	}
-	mmPerSec := 500.0 // TODO(erh): this is probably the wrong default
-	reqMmPerSec := req.GetMmPerSec()
-	if reqMmPerSec != 0 {
-		mmPerSec = reqMmPerSec
-	}
-	err = base.MoveArc(ctx, int(req.GetDistanceMm()), mmPerSec, req.GetAngleDeg())
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MoveArcResponse{}, nil
-}
-
 // Spin spins a robot's base by an given angle, expressed in degrees, and a given
 // angular speed, expressed in degrees per second.
 func (s *subtypeServer) Spin(
@@ -121,6 +98,23 @@ func (s *subtypeServer) SetPower(
 		return nil, err
 	}
 	return &pb.SetPowerResponse{}, nil
+}
+
+func (s *subtypeServer) SetVelocity(
+	ctx context.Context,
+	req *pb.SetVelocityRequest,
+) (*pb.SetVelocityResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
+	base, err := s.getBase(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	err = base.SetVelocity(ctx, convertVector(req.GetLinear()), convertVector(req.GetAngular()))
+	if err != nil {
+		return nil, err
+	}
+	return &pb.SetVelocityResponse{}, nil
 }
 
 func convertVector(v *commonpb.Vector3) r3.Vector {

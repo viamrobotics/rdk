@@ -3,6 +3,7 @@ package multiaxis
 
 import (
 	"context"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -168,6 +169,21 @@ func (g *multiAxis) GetLengths(ctx context.Context) ([]float64, error) {
 		lengths = append(lengths, lng...)
 	}
 	return lengths, nil
+}
+
+// Stop stops the subaxes of the gantry simultaneously.
+func (g *multiAxis) Stop(ctx context.Context) error {
+	wg := sync.WaitGroup{}
+	for _, subAx := range g.subAxes {
+		currG := subAx
+		wg.Add(1)
+		utils.ManagedGo(func() {
+			if err := currG.Stop(ctx); err != nil {
+				g.logger.Errorw("failed to stop subaxis", "error", err)
+			}
+		}, wg.Done)
+	}
+	return nil
 }
 
 // CurrentInputs returns the current inputs of the Gantry frame.

@@ -85,7 +85,7 @@
                 <div class="column">
                   <p class="text-xs">Movement Mode</p>
                   <RadioButtons
-                    :options="['Straight', 'Arc', 'Spin']"
+                    :options="['Straight', 'Spin']"
                     defaultOption="Straight"
                     :disabledOptions="[]"
                     v-on:selectOption="setMovementMode($event)"
@@ -105,10 +105,7 @@
                     v-on:selectOption="setMovementType($event)"
                   />
                 </div>
-                <div
-                  v-if="movementMode === 'Straight' || movementMode === 'Arc'"
-                  class="column pr-2"
-                >
+                <div v-if="movementMode === 'Straight'" class="column pr-2">
                   <p class="text-xs">Direction</p>
                   <RadioButtons
                     :options="['Forwards', 'Backwards']"
@@ -129,13 +126,13 @@
                   inputId="distance"
                   :disabled="movementType === 'Continous'"
                   label="Distance (mm)"
-                  v-if="movementMode === 'Straight' || movementMode === 'Arc'"
+                  v-if="movementMode === 'Straight'"
                 ></NumberInput>
               </div>
               <div
                 :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
                 class="pt-4"
-                v-if="movementMode === 'Spin' || movementMode === 'Arc'"
+                v-if="movementMode === 'Spin'"
               >
                 <div class="column pr-2">
                   <p class="text-xs">Movement Type</p>
@@ -156,7 +153,7 @@
                     :step="90"
                     v-model="maxClusteringRadius"
                     unit="°"
-                    :name="rangeLabel"
+                    name="Angle"
                   ></Range>
                 </div>
               </div>
@@ -246,14 +243,6 @@ export default class Base extends Vue {
     { value: "NoCamera", label: "No Camera" },
     { value: "Camera1", label: "Camera1" },
   ];
-
-  get rangeLabel(): string {
-    if (this.movementMode === "Arc") return "Steering Angle Degree";
-
-    if (this.movementMode === "Spin") return "Angle";
-
-    return "unknown";
-  }
 
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
