@@ -2,6 +2,7 @@ package datamanager
 
 import (
 	"context"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -14,7 +15,7 @@ import (
 	"go.viam.com/test"
 )
 
-func newTestSyncer(t *testing.T, uploadFn func(ctx context.Context, path string) error) syncer {
+func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
 	t.Helper()
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	captureDir := t.TempDir()
@@ -39,7 +40,7 @@ func newTestSyncer(t *testing.T, uploadFn func(ctx context.Context, path string)
 // Validates that for some captureDir, files are enqueued and uploaded exactly once.
 func TestQueuesAndUploadsOnce(t *testing.T) {
 	var uploadCount uint64
-	uploadFn := func(ctx context.Context, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
 		_ = os.Remove(path)
 		return nil
@@ -79,7 +80,7 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 // turns back on.
 func TestRecoversAfterKilled(t *testing.T) {
 	var uploadCount uint64
-	uploadFn := func(ctx context.Context, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
 		_ = os.Remove(path)
 		return nil
@@ -122,7 +123,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	failureCount := 0
 	successCount := 0
 	callTimes := make(map[int]time.Time)
-	uploadFunc := func(ctx context.Context, path string) error {
+	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		callTimes[failureCount+successCount] = time.Now()
 		if failureCount >= 4 {
 			successCount++

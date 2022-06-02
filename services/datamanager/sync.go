@@ -3,6 +3,9 @@ package datamanager
 import (
 	"context"
 	"fmt"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -36,11 +39,13 @@ type syncer struct {
 	logger            golog.Logger
 	queueWaitTime     time.Duration
 	progressTracker   progressTracker
-	uploadFn          func(ctx context.Context, path string) error
+	uploadFn          uploadFn
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
 }
+
+type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error
 
 // newSyncer returns a new syncer.
 func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer {
@@ -56,11 +61,9 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 			m:    make(map[string]struct{}),
 		},
 		backgroundWorkers: sync.WaitGroup{},
-		uploadFn: func(ctx context.Context, path string) error {
-			return nil
-		},
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		uploadFn:          viamUpload,
+		cancelCtx:         cancelCtx,
+		cancelFunc:        cancelFunc,
 	}
 
 	return &ret
@@ -187,7 +190,8 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 		defer s.backgroundWorkers.Done()
 		exponentialRetry(
 			s.cancelCtx,
-			func(ctx context.Context) error { return s.uploadFn(ctx, path) },
+			// TODO: figure out how to build client, and make it a field of s.
+			func(ctx context.Context) error { return s.uploadFn(ctx, nil, path) },
 			s.logger,
 		)
 	})
@@ -270,4 +274,63 @@ func getNextWait(lastWait time.Duration) time.Duration {
 		return maxRetryInterval
 	}
 	return nextWait
+}
+
+func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return errors.Wrapf(err, "error while opening file %s", path)
+	}
+	_, _ = f.Seek(0, 0)
+
+	// First send uploadMetadata.
+	md := &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			// TODO: Figure out best way to pass these in.
+			Metadata: &v1.UploadMetadata{
+				PartName:      "",
+				ComponentName: "",
+				MethodName:    "",
+			},
+		},
+	}
+	if err := client.SendMsg(&md); err != nil {
+		return errors.Wrap(err, "error while sending upload metadata")
+	}
+
+	// Then stream SensorData's one by one.
+	for {
+		next, err := readNextSensorData(f)
+		if err != nil {
+			// If EOF, we're done reading the file.
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return errors.Wrap(err, "error while reading sensorData")
+		}
+		toSend := v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_Contents{
+				Contents: next,
+			},
+		}
+		if err := client.SendMsg(&toSend); err != nil {
+			return errors.Wrap(err, "error while sending sensorData")
+		}
+
+	}
+
+	// Close stream and receive response.
+	if _, err := client.CloseAndRecv(); err != nil {
+		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
+	}
+
+	return nil
+}
+
+func readNextSensorData(f *os.File) (*v1.SensorData, error) {
+	r := &v1.SensorData{}
+	if _, err := pbutil.ReadDelimited(f, r); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
