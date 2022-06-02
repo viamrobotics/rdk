@@ -143,6 +143,17 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 		c.CalFactor = 1.0
 	}
 
+	if c.TicksPerRotation == 0 {
+		logger.Warn("ticks_per_rotation isn't set: defaulting to 200")
+		c.TicksPerRotation = 200
+	}
+
+	if c.HomeRPM == 0 {
+		logger.Warn("home_rpm not set: defaulting to 1/4 of max_rpm")
+		c.HomeRPM = c.MaxRPM / 4
+	}
+	c.HomeRPM *= -1
+
 	m := &Motor{
 		board:       b,
 		bus:         bus,
@@ -166,10 +177,6 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 	// The register is a 6 bit signed int
 	if c.SGThresh < 0 {
 		c.SGThresh = int32(64 + math.Abs(float64(c.SGThresh)))
-	}
-
-	if m.homeRPM <= 0 {
-		m.homeRPM = m.maxRPM / 4
 	}
 
 	// Hold/Run currents are 0-31 (linear scale),
@@ -500,7 +507,21 @@ func (m *Motor) Stop(ctx context.Context) error {
 
 // Home homes the motor using stallguard.
 func (m *Motor) Home(ctx context.Context) error {
-	return m.GoTillStop(ctx, m.homeRPM, nil)
+	err := m.GoTillStop(ctx, m.homeRPM, nil)
+	if err != nil {
+		return err
+	}
+	for {
+		stopped, err := m.IsStopped(ctx)
+		if err != nil {
+			return err
+		}
+		if stopped {
+			break
+		}
+	}
+
+	return m.ResetZeroPosition(ctx, 0)
 }
 
 // GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
@@ -571,7 +592,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 			break
 		}
 
-		if fails >= 1000 {
+		if fails >= 10000 {
 			return errors.New("timed out during GoTillStop")
 		}
 		fails++
