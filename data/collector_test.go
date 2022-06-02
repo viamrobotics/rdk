@@ -155,10 +155,11 @@ func TestSuccessfulWrite(t *testing.T) {
 
 		// Verify that the data it wrote matches what we expect.
 		// Allow a range of readings, because when durations get small (<<ms) there can be slight variation, and we
-		// don't want the tests to be too noise-y.
+		// don't want the tests to be too noise-y. A range of +-2 was chosen for sleepBasedReadings because we
+		// confirmed that this got a failure rate that was sufficiently low (<<1%).
 		validateReadings(t, target, tc.minExpectReadings, tc.maxExpectedReadings)
 
-		// Next reading should fail; there should only be at most max readings.
+		// Next reading should fail; there should be at most max readings.
 		_, err := readNextSensorData(target)
 		test.That(t, err, test.ShouldEqual, io.EOF)
 		os.Remove(target.Name())
