@@ -20,8 +20,8 @@ func (mw *motorWeights) diff(other motorWeights) float64 {
 
 type motorConfig struct {
 	Name           string
-	LateralOffset  float64 `json:"lateral_offset"`
-	VerticalOffset float64 `json:"vertical_offset"`
+	XOffset        float64 `json:"x_offset"` // in meters
+	YOffset        float64 `json:"y_offset"` // in meters
 	AngleDegrees   float64 `json:"angle"` // 0 is thrusting forward, 90 is thrusting to starboard, or positive x
 	Weight         float64
 }
@@ -33,17 +33,17 @@ func (mc *motorConfig) computeWeights(radius float64) motorWeights {
 	y := math.Cos(utils.DegToRad(mc.AngleDegrees)) * mc.Weight
 
 	angleFromCenter := 0.0
-	if mc.VerticalOffset == 0 {
-		if mc.LateralOffset > 0 {
+	if mc.YOffset == 0 {
+		if mc.XOffset > 0 {
 			angleFromCenter = 90
-		} else if mc.LateralOffset < 0 {
+		} else if mc.XOffset < 0 {
 			angleFromCenter = -90
 		}
 	} else {
-		angleFromCenter = utils.RadToDeg(math.Atan(mc.LateralOffset / mc.VerticalOffset))
+		angleFromCenter = utils.RadToDeg(math.Atan(mc.XOffset / mc.YOffset))
 	}
 
-	percentDistanceFromCenterOfMass := math.Hypot(mc.LateralOffset, mc.VerticalOffset) / radius
+	percentDistanceFromCenterOfMass := math.Hypot(mc.XOffset, mc.YOffset) / radius
 
 	angleOffset := mc.AngleDegrees - angleFromCenter
 
