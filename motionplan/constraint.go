@@ -174,30 +174,22 @@ func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSp
 	return constraint
 }
 
-// NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
+// NewLinearInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
 // This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
 // it will return true. If any intermediate pose violates the constraint, will return false.
 // This constraint will interpolate between the start and end poses, and ensure that the pose given by interpolating
 // the inputs the same amount does not deviate by more than a set amount.
-func NewInterpolatingConstraint(epsilon float64) Constraint {
-	checkSeq := []float64{0.5, 0.333, 0.25, 0.17}
+func NewLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (Constraint, Metric) {
+	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, epsilon)
+	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), epsilon)
+	interpMetric := CombineMetrics(orientMetric, lineMetric)
+	
 	f := func(cInput *ConstraintInput) (bool, float64) {
-		for _, s := range checkSeq {
-			ok := interpolationCheck(cInput, s, epsilon)
-			if !ok {
-				return ok, 0
-			}
-			// Check 1 - s if s != 0.5
-			if s != 0.5 {
-				ok := interpolationCheck(cInput, 1-s, epsilon)
-				if !ok {
-					return ok, 0
-				}
-			}
-		}
-		return true, 0
+		oValid, oDist := orientConstraint(cInput)
+		lValid, lDist := lineConstraint(cInput)
+		return oValid && lValid, oDist + lDist
 	}
-	return f
+	return f, interpMetric
 }
 
 // NewJointConstraint returns a constraint which will sum the squared differences in each input from start to end
@@ -441,17 +433,6 @@ func resolveInputsToPositions(ci *ConstraintInput) error {
 		}
 	}
 	return nil
-}
-
-func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
-	iPos, err := cInput.Frame.Transform(referenceframe.InterpolateInputs(cInput.StartInput, cInput.EndInput, by))
-	if err != nil {
-		return false
-	}
-	interp := spatial.Interpolate(cInput.StartPos, cInput.EndPos, by)
-	metric := NewSquaredNormMetric()
-	dist := metric(iPos, interp)
-	return dist <= epsilon
 }
 
 // Prevents recalculation of startPos. If no startPos has been calculated, just pass nil.

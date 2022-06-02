@@ -63,7 +63,7 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating
-	handler.AddConstraint("interp", NewInterpolatingConstraint(0.5))
+	handler.AddConstraint("interp", NewLinearInterpolatingConstraint(0.5))
 	ok, failCI = handler.CheckConstraintPath(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
