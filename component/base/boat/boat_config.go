@@ -11,15 +11,16 @@ import (
 )
 
 type boatConfig struct {
-	Motors        []motorConfig
-	Length, Width float64
-	IMU           string
+	Motors   []motorConfig
+	LengthMM float64 `json:"length_mm"`
+	WidthMM  float64 `json:"width_mm"`
+	IMU      string
 }
 
 func (bc *boatConfig) maxWeights() motorWeights {
 	var max motorWeights
 	for _, mc := range bc.Motors {
-		w := mc.computeWeights(math.Hypot(bc.Width, bc.Length))
+		w := mc.computeWeights(math.Hypot(bc.WidthMM, bc.LengthMM))
 		max.linearX += math.Abs(w.linearX)
 		max.linearY += math.Abs(w.linearY)
 		max.angular += math.Abs(w.angular)
@@ -68,7 +69,7 @@ func (bc *boatConfig) computeGoal(linear, angular r3.Vector) motorWeights {
 func (bc *boatConfig) weights() []motorWeights {
 	res := make([]motorWeights, len(bc.Motors))
 	for idx, mc := range bc.Motors {
-		w := mc.computeWeights(math.Hypot(bc.Width, bc.Length))
+		w := mc.computeWeights(math.Hypot(bc.WidthMM, bc.LengthMM))
 		res[idx] = w
 	}
 	return res

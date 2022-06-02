@@ -45,11 +45,11 @@ func init() {
 }
 
 func createBoat(r robot.Robot, config *boatConfig, logger golog.Logger) (base.LocalBase, error) {
-	if config.Width <= 0 {
+	if config.WidthMM <= 0 {
 		return nil, errors.New("width has to be > 0")
 	}
 
-	if config.Length <= 0 {
+	if config.LengthMM <= 0 {
 		return nil, errors.New("length has to be > 0")
 	}
 
@@ -280,7 +280,7 @@ func (b *boat) Stop(ctx context.Context) error {
 }
 
 func (b *boat) GetWidth(ctx context.Context) (int, error) {
-	return int(b.cfg.Width * 1000), nil
+	return int(b.cfg.WidthMM), nil
 }
 
 func (b *boat) Close(ctx context.Context) error {
