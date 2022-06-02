@@ -1,6 +1,8 @@
 package inference
 
 import (
+	"bytes"
+	"io/ioutil"
 	"log"
 	"runtime"
 	"strconv"
@@ -8,11 +10,21 @@ import (
 	tflite "github.com/mattn/go-tflite"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/config"
+	tfliteSchema "go.viam.com/rdk/ml/inference/tflite"
+	metadata "go.viam.com/rdk/ml/inference/tflite_metadata"
 )
+
+type TFLiteStruct struct {
+	model              *tflite.Model
+	interpreter        *tflite.Interpreter
+	interpreterOptions *tflite.InterpreterOptions
+	info               TFLiteInfo
+	modelPath          string
+}
 
 // tflite specific functions
 
-func loadTFLiteModel(modelPath string, moreInfo config.AttributeMap) (interface{}, error) {
+func LoadTFLiteModel(modelPath string, moreInfo config.AttributeMap) (*TFLiteStruct, error) {
 	tFLiteModel := tflite.NewModelFromFile(modelPath)
 	if tFLiteModel == nil {
 		return nil, errors.New("failed to create model")
@@ -43,10 +55,11 @@ func loadTFLiteModel(modelPath string, moreInfo config.AttributeMap) (interface{
 		return nil, errors.New("failed to allocate tensors")
 	}
 
-	modelInfo := tfliteStruct{
+	modelInfo := &TFLiteStruct{
 		model:              tFLiteModel,
 		interpreter:        interpreter,
 		interpreterOptions: options,
+		modelPath:          modelPath,
 	}
 
 	return modelInfo, nil
@@ -69,10 +82,10 @@ func loadTFLiteInterpreterOptions(numThreads int) (*tflite.InterpreterOptions, e
 }
 
 // closeTFLiteModel should be called at the end of using the interpreter to delete the instance and related parts
-func closeTFLiteModel(tfliteStruct tfliteStruct) {
-	tfliteStruct.model.Delete()
-	tfliteStruct.interpreterOptions.Delete()
-	tfliteStruct.interpreter.Delete()
+func (model *TFLiteStruct) Close() {
+	model.model.Delete()
+	model.interpreterOptions.Delete()
+	model.interpreter.Delete()
 }
 
 type TFLiteInfo struct {
@@ -85,8 +98,8 @@ type TFLiteInfo struct {
 	outputTensorTypes []string
 }
 
-func getTfliteModelInfo(tfliteStruct tfliteStruct) (interface{}, error) {
-	inter := tfliteStruct.interpreter
+func (model *TFLiteStruct) GetInfo() (interface{}, error) {
+	inter := model.interpreter
 	if inter == nil {
 		return nil, errors.New("there is no tflite interpreter")
 	}
@@ -108,7 +121,7 @@ func getTfliteModelInfo(tfliteStruct tfliteStruct) (interface{}, error) {
 	return info, nil
 }
 
-func tfliteInfer(model tfliteStruct, inputTensor interface{}) (config.AttributeMap, error) {
+func (model *TFLiteStruct) Infer(inputTensor interface{}) (config.AttributeMap, error) {
 	interpreter := model.interpreter
 	input := interpreter.GetInputTensor(0)
 	status := input.CopyFromBuffer(inputTensor)
@@ -151,4 +164,57 @@ func tfliteInfer(model tfliteStruct, inputTensor interface{}) (config.AttributeM
 	}
 
 	return output, nil
+}
+
+// GetMetadata provides the metadata information based on the model flatbuffer file
+func (model *TFLiteStruct) GetMetadata() (interface{}, error) {
+	b, err := getTFLiteMetadataBytes(model.modelPath)
+	if err != nil {
+		return nil, err
+	}
+	return getTFLiteMetadataAsStruct(b), nil
+}
+
+const tfLiteMetadataName string = "TFLITE_METADATA"
+
+// getTFLiteMetadataBytes takes a model path of a tflite file and extracts the metadata buffer from the entire model.
+func getTFLiteMetadataBytes(modelPath string) ([]byte, error) {
+	buf, err := ioutil.ReadFile(modelPath)
+	if err != nil {
+		return nil, err
+	}
+
+	model := tfliteSchema.GetRootAsModel(buf, 0)
+	metadataLen := model.MetadataLength()
+	if metadataLen == 0 {
+		return nil, nil
+	}
+
+	for i := 0; i < metadataLen; i++ {
+		metadata := &tfliteSchema.Metadata{}
+		success := model.Metadata(metadata, i)
+		if !success {
+			return nil, errors.New("failed to assign metadata")
+		}
+
+		if bytes.Equal([]byte(tfLiteMetadataName), metadata.Name()) {
+			metadataBuffer := &tfliteSchema.Buffer{}
+			success := model.Buffers(metadataBuffer, int(metadata.Buffer()))
+			if !success {
+				return nil, errors.New("failed to assign metadata buffer")
+			}
+
+			bufInBytes := metadataBuffer.DataBytes()
+			return bufInBytes, nil
+		}
+	}
+
+	return nil, nil
+}
+
+// getMetadataAsStruct turns the metadata buffer into a readable struct based on the tflite flatbuffer schema
+func getTFLiteMetadataAsStruct(metaBytes []byte) *metadata.ModelMetadataT {
+	meta := metadata.GetRootAsModelMetadata(metaBytes, 0)
+	structMeta := meta.UnPack()
+	return structMeta
 }
