@@ -32,6 +32,7 @@ type syncManager interface {
 	Close()
 }
 
+// TODO: replace uploadFn with some Uploader interface with Upload/Close methods
 // syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type syncer struct {
 	captureDir        string
