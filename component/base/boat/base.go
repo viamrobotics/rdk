@@ -105,21 +105,13 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 		mmPerSec *= -1
 		distanceMm *= -1
 	}
-	p := 1.0
-	if mmPerSec < 0 {
-		p *= -1
-	}
-	err := b.SetVelocity(ctx, r3.Vector{Y: p}, r3.Vector{})
+	err := b.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{})
 	if err != nil {
 		return err
 	}
 	s := time.Duration(float64(time.Millisecond) * math.Abs(float64(distanceMm)))
 	utils.SelectContextOrWait(ctx, s)
 	return b.Stop(ctx)
-}
-
-func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	panic(1)
 }
 
 func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
@@ -288,7 +280,7 @@ func (b *boat) Stop(ctx context.Context) error {
 }
 
 func (b *boat) GetWidth(ctx context.Context) (int, error) {
-	return int(b.cfg.Width) * 1000, nil
+	return int(b.cfg.Width * 1000), nil
 }
 
 func (b *boat) Close(ctx context.Context) error {
