@@ -15,4 +15,5 @@ type Service interface {
 	StartDataProcess(cancelCtx context.Context, cam camera.Camera)
 	StartSLAMProcess(ctx context.Context) ([]string, error)
 	StopSLAMProcess() error
+	Close()
 }

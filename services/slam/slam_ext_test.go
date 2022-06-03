@@ -1,5 +1,5 @@
 // This file in the slam package validates the inputted config. Additional testing is done on exported
-// function in the slam_test package.
+// functions in the slam_test package.
 package slam
 
 import (

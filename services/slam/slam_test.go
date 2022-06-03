@@ -517,10 +517,14 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_camera")
 	})
 
+	if slamSvc != nil {
+		slamSvc.Close()
+	}
+
 	deletefakeSLAMLibraries()
 }
 
-func TestSLAMProcess(t *testing.T) {
+func TestSLAMProcessSuccess(t *testing.T) {
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -564,7 +568,41 @@ func TestSLAMProcess(t *testing.T) {
 		}
 
 		cancelFunc()
+
+		err = slamSvc.StopSLAMProcess()
+		test.That(t, err, test.ShouldBeNil)
 	})
+
+	if svc != nil {
+		svc.Close()
+		slamSvc.Close()
+	}
+
+	deletefakeSLAMLibraries()
+}
+
+func TestSLAMProcessFail(t *testing.T) {
+	name, err := createTempFolderArchitecture(true)
+	test.That(t, err, test.ShouldBeNil)
+
+	createFakeSLAMLibraries()
+
+	attrCfg := &slam.AttrConfig{
+		Algorithm:        "fake_orbslamv3",
+		Sensors:          []string{"good_camera"},
+		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory:    name,
+		MapRateSec:       200,
+		DataRateMs:       100,
+		InputFilePattern: "10:200:1",
+	}
+
+	// Create slam service
+	logger := golog.NewTestLogger(t)
+	svc, err := createSLAMService(t, attrCfg, logger, true)
+	test.That(t, err, test.ShouldBeNil)
+
+	slamSvc := svc.(internal.Service)
 
 	t.Run("Run SLAM process that errors out due to invalid binary location", func(t *testing.T) {
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -588,12 +626,13 @@ func TestSLAMProcess(t *testing.T) {
 			errors.Errorf("problem adding slam process: error running process \"%v\": exec: %v", "fail", errCheck))
 
 		cancelFunc()
+
+		err = slamSvc.StopSLAMProcess()
+		test.That(t, err, test.ShouldBeNil)
 	})
 
-	err = slamSvc.StopSLAMProcess()
-	test.That(t, err, test.ShouldBeNil)
-
 	if svc != nil {
+		slamSvc.Close()
 		svc.Close()
 	}
 
