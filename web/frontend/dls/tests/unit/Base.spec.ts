@@ -145,7 +145,6 @@ describe("Base", () => {
     const divColumnWrapper = wrapper.find(
       "[data-cy=button-wrapper-Spin] button span:first-child"
     );
-    console.log('dada', divColumnWrapper.element)
     expect(divColumnWrapper.element.innerHTML.trim()).toBe("Spin");
     await divColumnWrapper.trigger("click");
     expect(wrapper.vm.$data.movementMode).toBe("Spin");
