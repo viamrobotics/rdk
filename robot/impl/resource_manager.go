@@ -149,18 +149,22 @@ func (manager *resourceManager) processConfig(
 	if err := manager.newProcesses(ctx, config.Processes); err != nil {
 		return err
 	}
+	logger.Info("processes")
 
 	if err := manager.newRemotes(ctx, config.Remotes, logger); err != nil {
 		return err
 	}
+	logger.Info("remotes")
 
-	if err := manager.newComponents(ctx, config.Components, robot); err != nil {
+	if err := manager.newComponents(ctx, config.Components, robot, logger); err != nil {
 		return err
 	}
+	logger.Info("components")
 
 	if err := manager.newServices(ctx, config.Services, robot); err != nil {
 		return err
 	}
+	logger.Info("services")
 
 	return nil
 }
@@ -180,7 +184,7 @@ func (manager *resourceManager) processModifiedConfig(
 		return err
 	}
 
-	if err := manager.newComponents(ctx, config.Components, robot); err != nil {
+	if err := manager.newComponents(ctx, config.Components, robot, logger); err != nil {
 		return err
 	}
 
@@ -232,13 +236,14 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 }
 
 // newComponents constructs all components defined.
-func (manager *resourceManager) newComponents(ctx context.Context, components []config.Component, robot *localRobot) error {
+func (manager *resourceManager) newComponents(ctx context.Context, components []config.Component, robot *localRobot, logger golog.Logger) error {
 	for _, c := range components {
+		rName := c.ResourceName()
+		logger.Infof("adding component %s, %s", rName.Subtype, c.Model)
 		r, err := robot.newResource(ctx, c)
 		if err != nil {
 			return err
 		}
-		rName := c.ResourceName()
 		manager.addResource(rName, r)
 		for _, dep := range c.DependsOn {
 			if comp := robot.config.FindComponent(dep); comp != nil {
