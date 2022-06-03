@@ -230,14 +230,12 @@ export default class MotorDetailNew extends Vue {
   @Prop({ default: null }) streamName!: string;
   @Prop({ default: null }) baseName!: string;
   @Prop({ default: null }) crumbs!: [string];
-  @Prop({ default: true }) connectedCamera!: boolean;
   @Prop() motorStatus!: Status.AsObject;
 
   mdiRestore = mdiRestore;
   mdiPlayCircleOutline = mdiPlayCircleOutline;
   mdiCloseOctagonOutline = mdiCloseOctagonOutline;
   mdiInformation = mdiAlertOctagonOutline;
-  camera = this.connectedCamera;
   maxHeight = 500;
   selectedValue = "NoCamera";
   isContinuous = true;
@@ -257,7 +255,7 @@ export default class MotorDetailNew extends Vue {
   infoGo = ["Continously moves"];
   infoGoTo = ["Relative to Home"];
   infoGoFor = ["Relative to where robot is currently is"];
-  
+
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
   }
@@ -314,11 +312,7 @@ export default class MotorDetailNew extends Vue {
     this.$emit("motor-stop", command);
   }
   resizeContent(): void {
-    if (this.camera) {
       this.maxHeight = 250;
-    } else {
-      this.maxHeight = 250;
-    }
   }
 
   private validateRevolutions(revolutions: number): string {
