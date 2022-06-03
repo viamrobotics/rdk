@@ -4,7 +4,6 @@ import (
 	"context"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-
 	"go.viam.com/rdk/services/slam"
 )
 
@@ -12,8 +11,9 @@ import (
 type SLAMService struct {
 	slam.Service
 	GetPositionFunc func(ctx context.Context, name string) (*commonpb.PoseInFrame, error)
-	GetMapFunc      func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose, include bool) (string, []byte, *commonpb.PointCloudObject, error)
-	CloseFunc       func() error
+	GetMapFunc      func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose,
+		include bool) (string, []byte, *commonpb.PointCloudObject, error)
+	CloseFunc func() error
 }
 
 // Close calls the injected CloseFunc or the real version.
