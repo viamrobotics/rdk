@@ -2,9 +2,10 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"io"
-	"math"
+	"os"
 	"sync"
 	"time"
 
@@ -14,10 +15,10 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/grpc/client"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
@@ -49,36 +50,30 @@ const (
 )
 
 var (
-	//nolint:unused
 	vibeLevel = float64(0.7)
 
 	safeDumpPos = &componentpb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
-	//nolint:unused
+
 	cubeReadyPos = &componentpb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
-	//nolint:unused
+
 	cube1grab = &componentpb.JointPositions{Degrees: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
-	//nolint:unused
+
 	cube2grab = &componentpb.JointPositions{Degrees: []float64{-182.6, 7.3, -36.9, 0, 17.6, 0}}
 
-	//nolint:unused
 	cube1place = &componentpb.JointPositions{Degrees: []float64{50, 20, -35, -0.5, 3.0, 0}}
-	//nolint:unused
+
 	cube2place = &componentpb.JointPositions{Degrees: []float64{-130, 30.5, -28.7, -0.5, -32.2, 0}}
 
-	//nolint:unused
 	duckgrabFW = &componentpb.JointPositions{Degrees: []float64{-180.5, 27.7, -79.7, -2.8, 76.20, 180}}
-	//nolint:unused
+
 	duckgrabREV = &componentpb.JointPositions{Degrees: []float64{-180.5, 28.3, -76.8, -2.8, 65.45, 180}}
-	//nolint:unused
+
 	duckReadyPos = &componentpb.JointPositions{Degrees: []float64{-180.5, 0.0, -60.0, -2.8, 65.45, 180}}
 
-	//nolint:unused
 	duckplaceFW = &componentpb.JointPositions{Degrees: []float64{-21.3, 14.9, -39.0, 6.8, 22.0, 49.6}}
-	//nolint:unused
+
 	duckplaceREV = &componentpb.JointPositions{Degrees: []float64{-19.2, 18, -41.0, 6.3, 22.7, 230}}
 )
-
-var logger = golog.NewDevelopmentLogger("resetbox")
 
 // LinearAxis is one or more motors whose motion is converted to linear movement via belts, screw drives, etc.
 type LinearAxis struct {
@@ -87,7 +82,7 @@ type LinearAxis struct {
 }
 
 // AddMotors takes a slice of motor names and adds them to the axis.
-func (a *LinearAxis) AddMotors(ctx context.Context, robot robot.Robot, names []string) error {
+func (a *LinearAxis) AddMotors(robot robot.Robot, names []string) error {
 	for _, n := range names {
 		_motor, err := motor.FromRobot(robot, n)
 		if err == nil {
@@ -102,8 +97,14 @@ func (a *LinearAxis) AddMotors(ctx context.Context, robot robot.Robot, names []s
 // GoTo moves to a position specified in mm and at a speed in mm/s.
 func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) error {
 	var errs error
+	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
-		multierr.AppendInto(&errs, m.GoTo(ctx, speed*60/a.mmPerRev, position/a.mmPerRev))
+		go func(m motor.Motor) {
+			errPath <- m.GoTo(ctx, speed*60/a.mmPerRev, position/a.mmPerRev)
+		}(m)
+	}
+	for range a.m {
+		multierr.AppendInto(&errs, <-errPath)
 	}
 	return errs
 }
@@ -111,21 +112,24 @@ func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) 
 // GoFor moves for the distance specified in mm and at a speed in mm/s.
 func (a *LinearAxis) GoFor(ctx context.Context, speed float64, position float64) error {
 	var errs error
+	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
-		multierr.AppendInto(&errs, m.GoFor(ctx, speed*60/a.mmPerRev, position/a.mmPerRev))
+		go func(m motor.Motor) {
+			errPath <- m.GoFor(ctx, speed*60/a.mmPerRev, position/a.mmPerRev)
+		}(m)
+	}
+	for range a.m {
+		multierr.AppendInto(&errs, <-errPath)
 	}
 	return errs
 }
 
 // Home simultaneously homes all motors on an axis.
 func (a *LinearAxis) Home(ctx context.Context) error {
-	var homeWorkers sync.WaitGroup
 	var errs error
 	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
-		homeWorkers.Add(1)
 		go func(m motor.Motor) {
-			defer homeWorkers.Done()
 			_, err := m.Do(ctx, map[string]interface{}{"command": "home"})
 			errPath <- err
 		}(m)
@@ -133,7 +137,6 @@ func (a *LinearAxis) Home(ctx context.Context) error {
 	for range a.m {
 		multierr.AppendInto(&errs, <-errPath)
 	}
-	homeWorkers.Wait()
 	return errs
 }
 
@@ -177,11 +180,6 @@ func (a *LinearAxis) IsPowered(ctx context.Context) (bool, error) {
 	return false, errs
 }
 
-type positional interface {
-	GetPosition(ctx context.Context) (float64, error)
-	IsPowered(ctx context.Context) (bool, error)
-}
-
 // ResetBox is the parent structure for this project.
 type ResetBox struct {
 	io.Closer
@@ -199,9 +197,8 @@ type ResetBox struct {
 	cancel    func()
 	cancelCtx context.Context
 
-	//nolint:unused
 	vibeState bool
-	//nolint:unused
+
 	tableUp bool
 
 	haveHomed bool
@@ -221,9 +218,9 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	b.elevator.mmPerRev = 60.0
 
 	err := multierr.Combine(
-		b.gate.AddMotors(cancelCtx, r, []string{"gateL", "gateR"}),
-		b.squeeze.AddMotors(cancelCtx, r, []string{"squeezeL", "squeezeR"}),
-		b.elevator.AddMotors(cancelCtx, r, []string{"elevator"}),
+		b.gate.AddMotors(r, []string{"gateL", "gateR"}),
+		b.squeeze.AddMotors(r, []string{"squeezeL", "squeezeR"}),
+		b.elevator.AddMotors(r, []string{"elevator"}),
 	)
 	if err != nil {
 		return nil, err
@@ -302,177 +299,210 @@ func main() {
 	}
 	defer box.Close()
 
-	logger.Warn("About to Home")
-	err = box.home(context.Background())
-	if err != nil {
+	// logger.Warn("About to Home")
+	// err = box.home(context.Background())
+	// if err != nil {
+	// 	logger.Error(err)
+	// }
+	// logger.Warn("Homing Complete")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		if err != nil {
+			logger.Error(err)
+		}
+		switch key := scanner.Text(); key {
+		case "s":
+			box.Stop(context.Background())
+		case "h":
+			go func() {
+				err := box.home(context.Background())
+				if err != nil {
+					logger.Error(err)
+				}
+			}()
+		case "r":
+			go func() {
+				logger.Info("Running reset cycle")
+				err := box.runReset(context.Background())
+				if err != nil {
+					logger.Error(err)
+				}
+			}()
+		case "q":
+			return
+		default:
+			logger.Infof("Key press: %s", key)
+		}
+	}
+	if err = scanner.Err(); err != nil {
 		logger.Error(err)
 	}
-	logger.Warn("Homing Complete")
 }
 
-//nolint:unused
-func (b *ResetBox) move1(ctx context.Context) {
-	if err := multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, duckReadyPos),
-		b.arm.MoveToJointPositions(ctx, duckgrabFW),
-	); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) move1(ctx context.Context) {
+// 	if err := multierr.Combine(
+// 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
+// 		b.arm.MoveToJointPositions(ctx, duckgrabFW),
+// 	); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) move2(ctx context.Context) {
-	if err := multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, duckReadyPos),
-		b.arm.MoveToJointPositions(ctx, duckgrabREV),
-	); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) move2(ctx context.Context) {
+// 	if err := multierr.Combine(
+// 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
+// 		b.arm.MoveToJointPositions(ctx, duckgrabREV),
+// 	); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) moveC1(ctx context.Context) {
-	if err := multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-		b.arm.MoveToJointPositions(ctx, cube1grab),
-	); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) moveC1(ctx context.Context) {
+// 	if err := multierr.Combine(
+// 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+// 		b.arm.MoveToJointPositions(ctx, cube1grab),
+// 	); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) moveC2(ctx context.Context) {
-	if err := multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-		b.arm.MoveToJointPositions(ctx, cube2grab),
-	); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) moveC2(ctx context.Context) {
+// 	if err := multierr.Combine(
+// 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+// 		b.arm.MoveToJointPositions(ctx, cube2grab),
+// 	); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doDropC1(ctx context.Context) {
-	if err := multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-		b.arm.MoveToJointPositions(ctx, cube1place),
-	); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doDropC1(ctx context.Context) {
+// 	if err := multierr.Combine(
+// 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+// 		b.arm.MoveToJointPositions(ctx, cube1place),
+// 	); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doDropC2(ctx context.Context) {
-	if err := multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-		b.arm.MoveToJointPositions(ctx, cube2place),
-	); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doDropC2(ctx context.Context) {
+// 	if err := multierr.Combine(
+// 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+// 		b.arm.MoveToJointPositions(ctx, cube2place),
+// 	); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doDrop1(ctx context.Context) {
-	if err := multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, duckReadyPos),
-		b.arm.MoveToJointPositions(ctx, duckplaceFW),
-	); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doDrop1(ctx context.Context) {
+// 	if err := multierr.Combine(
+// 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
+// 		b.arm.MoveToJointPositions(ctx, duckplaceFW),
+// 	); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doDrop2(ctx context.Context) {
-	if err := multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, duckReadyPos),
-		b.arm.MoveToJointPositions(ctx, duckplaceREV),
-	); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doDrop2(ctx context.Context) {
+// 	if err := multierr.Combine(
+// 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
+// 		b.arm.MoveToJointPositions(ctx, duckplaceREV),
+// 	); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doPlaceDuck(ctx context.Context) {
-	if err := b.placeDuck(ctx); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doPlaceDuck(ctx context.Context) {
+// 	if err := b.placeDuck(ctx); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doDuckWhack(ctx context.Context) {
-	if err := b.hammerTime(ctx, duckWhacks); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doDuckWhack(ctx context.Context) {
+// 	if err := b.hammerTime(ctx, duckWhacks); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doHome(ctx context.Context) {
-	if err := b.home(ctx); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doHome(ctx context.Context) {
+// 	if err := b.home(ctx); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doArmHome(ctx context.Context) {
-	if err := b.armHome(ctx); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doArmHome(ctx context.Context) {
+// 	if err := b.armHome(ctx); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doRunReset(ctx context.Context) {
-	if err := b.runReset(ctx); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doRunReset(ctx context.Context) {
+// 	if err := b.runReset(ctx); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doVibrateToggle(ctx context.Context) {
-	if b.vibeState {
-		b.vibrate(ctx, 0)
-	} else {
-		b.vibrate(ctx, vibeLevel)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doVibrateToggle(ctx context.Context) {
+// 	if b.vibeState {
+// 		b.vibrate(ctx, 0)
+// 	} else {
+// 		b.vibrate(ctx, vibeLevel)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doVibrateLevel(ctx context.Context) {
-	vibeLevel += 0.1
-	if vibeLevel >= 1.1 {
-		vibeLevel = 0.2
-	}
-	b.logger.Debugf("Vibe Level: %f", vibeLevel)
-	b.vibrate(ctx, vibeLevel)
-}
+// //nolint:unused
+// func (b *ResetBox) doVibrateLevel(ctx context.Context) {
+// 	vibeLevel += 0.1
+// 	if vibeLevel >= 1.1 {
+// 		vibeLevel = 0.2
+// 	}
+// 	b.logger.Debugf("Vibe Level: %f", vibeLevel)
+// 	b.vibrate(ctx, vibeLevel)
+// }
 
-//nolint:unused
-func (b *ResetBox) doTipTableUp(ctx context.Context) {
-	if err := b.tipTableUp(ctx); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doTipTableUp(ctx context.Context) {
+// 	if err := b.tipTableUp(ctx); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doTipTableDown(ctx context.Context) {
-	if err := b.tipTableDown(ctx); err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doTipTableDown(ctx context.Context) {
+// 	if err := b.tipTableDown(ctx); err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doElevatorUp(ctx context.Context) {
-	err := b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
-	if err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doElevatorUp(ctx context.Context) {
+// 	err := b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
+// 	if err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
-//nolint:unused
-func (b *ResetBox) doElevatorDown(ctx context.Context) {
-	err := b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
-	if err != nil {
-		b.logger.Error(err)
-	}
-}
+// //nolint:unused
+// func (b *ResetBox) doElevatorDown(ctx context.Context) {
+// 	err := b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
+// 	if err != nil {
+// 		b.logger.Error(err)
+// 	}
+// }
 
 func (b *ResetBox) home(ctx context.Context) error {
 	b.logger.Info("homing")
@@ -485,7 +515,7 @@ func (b *ResetBox) home(ctx context.Context) error {
 	go func() {
 		errPath <- b.gate.Home(ctx)
 		_, err := b.hammer.Do(ctx, map[string]interface{}{"command": "home"})
-		errPath <- err 
+		errPath <- err
 	}()
 	go func() {
 		errPath <- b.squeeze.Home(ctx)
@@ -508,13 +538,26 @@ func (b *ResetBox) home(ctx context.Context) error {
 	}
 
 	// Go to starting positions
+	go func() {
+		errPath <- b.gate.GoTo(ctx, gateSpeed, gateClosed)
+	}()
+	go func() {
+		errPath <- b.setSqueeze(ctx, squeezeClosed)
+	}()
+	go func() {
+		errPath <- b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
+	}()
+	go func() {
+		errPath <- b.hammer.GoTo(ctx, hammerSpeed, hammerOffset)
+		errPath <- b.hammer.ResetZeroPosition(ctx, 0)
+	}()
+
 	errs = multierr.Combine(
-		b.gate.GoTo(ctx, gateSpeed, gateClosed),
-		b.setSqueeze(ctx, squeezeClosed),
-		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
-		b.hammer.GoTo(ctx, hammerSpeed, hammerOffset),
-		b.waitPosReached(ctx, b.hammer, hammerOffset),
-		b.hammer.ResetZeroPosition(ctx, 0),
+		<-errPath,
+		<-errPath,
+		<-errPath,
+		<-errPath,
+		<-errPath,
 	)
 
 	if errs != nil {
@@ -524,7 +567,6 @@ func (b *ResetBox) home(ctx context.Context) error {
 	return nil
 }
 
-//nolint:unused
 func (b *ResetBox) vibrate(ctx context.Context, level float64) {
 	if level < 0.2 {
 		b.vibrator.Stop(ctx)
@@ -543,44 +585,6 @@ func (b *ResetBox) setSqueeze(ctx context.Context, width float64) error {
 	return b.squeeze.GoTo(ctx, gateSpeed, target)
 }
 
-func (b *ResetBox) waitPosReached(ctx context.Context, motor positional, target float64) error {
-	var i int
-	for {
-		pos, err := motor.GetPosition(ctx)
-		if err != nil {
-			return err
-		}
-		on, err := motor.IsPowered(ctx)
-		if err != nil {
-			return err
-		}
-		if math.Abs(pos-target) < 1.0 && !on {
-			return nil
-		}
-		if i > 100 {
-			return errors.New("timed out waiting for position")
-		}
-		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
-		i++
-	}
-}
-
-//nolint:unused
-func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) (bool, error)) error {
-	var i int
-	for {
-		if ok, _ := f(ctx); ok {
-			return nil
-		}
-		if i > 100 {
-			return errors.New("timed out waiting")
-		}
-		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
-		i++
-	}
-}
-
-//nolint:unused
 func (b *ResetBox) tipTableUp(ctx context.Context) error {
 	if b.tableUp {
 		return nil
@@ -600,7 +604,6 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 	return nil
 }
 
-//nolint:unused
 func (b *ResetBox) tipTableDown(ctx context.Context) error {
 	if err := b.tipper.SetPower(ctx, -1.0); err != nil {
 		return err
@@ -620,17 +623,6 @@ func (b *ResetBox) tipTableDown(ctx context.Context) error {
 	return b.tipper.Stop(ctx)
 }
 
-//nolint:unused
-func (b *ResetBox) isTableDown(ctx context.Context) (bool, error) {
-	return !b.tableUp, nil
-}
-
-//nolint:unused
-func (b *ResetBox) isTableUp(ctx context.Context) (bool, error) {
-	return b.tableUp, nil
-}
-
-//nolint:unused
 func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	if !b.haveHomed {
 		return errors.New("must successfully home first")
@@ -641,7 +633,6 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 		if err != nil {
 			return err
 		}
-		b.waitPosReached(ctx, b.hammer, i+0.2)
 		utils.SelectContextOrWait(ctx, 500*time.Millisecond)
 	}
 
@@ -650,7 +641,6 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	if err != nil {
 		return err
 	}
-	b.waitPosReached(ctx, b.hammer, float64(count))
 
 	// As we go in one direction indefinitely, this is an easy fix for register overflow
 	err = b.hammer.ResetZeroPosition(ctx, 0)
@@ -661,7 +651,6 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	return nil
 }
 
-//nolint:unused
 func (b *ResetBox) runReset(ctx context.Context) error {
 	if !b.haveHomed {
 		return errors.New("must successfully home first")
@@ -671,38 +660,55 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 
 	errArm := make(chan error)
 	errHammer := make(chan error)
-	errMisc := make(chan error)
+	errGate := make(chan error)
+	errSqueeze := make(chan error)
+	errElevator := make(chan error)
+	errTable := make(chan error)
+
+	go func() {
+		errSqueeze <- b.setSqueeze(ctx, squeezeClosed)
+	}()
+	go func() {
+		errGate <- b.gate.GoTo(ctx, gateSpeed, gateCubePass)
+	}()
+	go func() {
+		errElevator <- b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
+	}()
+	go func() {
+		errTable <- b.tipTableUp(ctx)
+	}()
 
 	errs := multierr.Combine(
-		b.setSqueeze(ctx, squeezeClosed),
-		b.gate.GoTo(ctx, gateSpeed, gateCubePass),
-		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
-		b.tipTableUp(ctx),
-		// Wait for elevator down
-		b.waitPosReached(ctx, &b.elevator, elevatorBottom),
-		b.waitFor(ctx, b.isTableUp),
+		<-errSqueeze,
+		<-errGate,
+		<-errElevator,
+		<-errTable,
 	)
 	if errs != nil {
 		return errs
 	}
 
 	go func() {
-		errMisc <- b.tipTableDown(ctx)
+		errTable <- b.tipTableDown(ctx)
 	}()
 
 	go func() {
 		errArm <- multierr.Combine(
 			b.gripper.Open(ctx),
-			b.waitFor(ctx, b.isTableDown),
+			<-errTable,
 			b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 		)
 	}()
 
 	// utils.SelectContextOrWait(ctx, 2000*time.Millisecond)
 	// Three whacks for cubes-behinds-ducks
+	go func() {
+		errHammer <- b.hammerTime(ctx, cubeWhacks)
+		errSqueeze <- b.setSqueeze(ctx, squeezeCubePass)
+	}()
+
 	errs = multierr.Combine(
-		b.hammerTime(ctx, cubeWhacks),
-		b.setSqueeze(ctx, squeezeCubePass),
+		<-errHammer,
 	)
 	if errs != nil {
 		return errs
@@ -714,23 +720,21 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	}()
 
 	b.vibrate(ctx, vibeLevel)
-	errs = b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeCubePass)/2)
+	errs = <-errSqueeze
 	if errs != nil {
 		return errs
 	}
 	utils.SelectContextOrWait(ctx, 1000*time.Millisecond)
 	b.vibrate(ctx, 0)
 
-	errs = <-errArm
-	if errs != nil {
-		return errs
-	}
-
 	// Cubes in, going up
+	go func() {
+		errElevator <- b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
+	}()
+
 	errs = multierr.Combine(
-		b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop),
-		b.waitPosReached(ctx, &b.elevator, elevatorTop),
-		<-errMisc,
+		<-errArm,
+		<-errElevator,
 	)
 	if errs != nil {
 		return errs
@@ -758,23 +762,29 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		errArm <- b.arm.MoveToJointPositions(ctx, duckReadyPos)
 	}()
 
+	go func() {
+		errElevator <- b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
+	}()
+
 	// Back down for duck
 	errs = multierr.Combine(
-		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
+		<-errElevator,
 		<-errHammer,
-		b.waitPosReached(ctx, &b.elevator, elevatorBottom),
-		b.gate.GoTo(ctx, gateSpeed, gateOpen),
-		b.waitPosReached(ctx, &b.gate, gateOpen),
 	)
 	if errs != nil {
 		return errs
 	}
+
+	errs = b.gate.GoTo(ctx, gateSpeed, gateOpen)
+	if errs != nil {
+		return errs
+	}
+
 	utils.SelectContextOrWait(ctx, 1000*time.Millisecond)
 	// Open to load duck
 	b.vibrate(ctx, vibeLevel)
 	errs = multierr.Combine(
 		b.setSqueeze(ctx, squeezeOpen),
-		b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeOpen)/2),
 		<-errArm,
 	)
 	utils.SelectContextOrWait(ctx, 1000*time.Millisecond)
@@ -785,9 +795,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	}
 	errs = multierr.Combine(
 		b.setSqueeze(ctx, squeezeClosed),
-		b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeClosed)/2),
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop),
-		b.waitPosReached(ctx, &b.elevator, elevatorTop),
 	)
 	if errs != nil {
 		return errs
@@ -805,7 +813,6 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 			b.setSqueeze(ctx, duckSquish),
 			// Back down for duck
 			b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
-			b.waitPosReached(ctx, &b.elevator, elevatorBottom),
 		)
 		if errs != nil {
 			return errs
@@ -814,7 +821,6 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		b.vibrate(ctx, vibeLevel)
 		errs = multierr.Combine(
 			b.setSqueeze(ctx, squeezeOpen),
-			b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeOpen)/2),
 			<-errArm,
 			<-errArm,
 		)
@@ -825,9 +831,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		b.vibrate(ctx, 0)
 		errs = multierr.Combine(
 			b.setSqueeze(ctx, squeezeClosed),
-			b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeClosed)/2),
 			b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop),
-			b.waitPosReached(ctx, &b.elevator, elevatorTop),
 			b.placeDuck(ctx),
 		)
 	}
@@ -846,9 +850,9 @@ func (b *ResetBox) armHome(ctx context.Context) error {
 	)
 }
 
-//nolint:unused
 func (b *ResetBox) pickCube1(ctx context.Context) error {
 	// Grab cube 1 and reset it on the field
+	b.logger.Info("SMURF1")
 	errs := multierr.Combine(
 		b.gripper.Open(ctx),
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
@@ -857,18 +861,22 @@ func (b *ResetBox) pickCube1(ctx context.Context) error {
 	if errs != nil {
 		return errs
 	}
+	b.logger.Info("SMURF2")
 
 	grabbed, errs := b.gripper.Grab(ctx)
 	if errs != nil {
 		return errs
 	}
+	b.logger.Info("SMURF3")
+
 	if !grabbed {
 		return errors.New("missed first cube")
 	}
+	b.logger.Info("SMURF4")
+
 	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
 }
 
-//nolint:unused
 func (b *ResetBox) placeCube1(ctx context.Context) error {
 	return multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cube1place),
@@ -877,7 +885,6 @@ func (b *ResetBox) placeCube1(ctx context.Context) error {
 	)
 }
 
-//nolint:unused
 func (b *ResetBox) pickCube2(ctx context.Context) error {
 	errs := multierr.Combine(
 		b.gripper.Open(ctx),
@@ -897,7 +904,6 @@ func (b *ResetBox) pickCube2(ctx context.Context) error {
 	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
 }
 
-//nolint:unused
 func (b *ResetBox) placeCube2(ctx context.Context) error {
 	return multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cube2place),
@@ -905,7 +911,6 @@ func (b *ResetBox) placeCube2(ctx context.Context) error {
 	)
 }
 
-//nolint:unused
 func (b *ResetBox) placeDuck(ctx context.Context) error {
 	errs := multierr.Combine(
 		b.gripper.Open(ctx),

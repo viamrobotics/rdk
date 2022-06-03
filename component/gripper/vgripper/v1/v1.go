@@ -51,6 +51,7 @@ const (
 	MinRotationGap          = 4.0
 	MaxRotationGap          = 5.0
 	OpenPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
+	ClosePosOffset          = 0.1 // Prevent false "grabs"
 )
 
 // gripperV1 represents a Viam gripper with a single force sensor cell.
@@ -261,8 +262,10 @@ func newGripperV1(
 
 	if math.Signbit(vg.openPos - vg.closePos) {
 		vg.openPos += OpenPosOffset
+		vg.closePos -= ClosePosOffset
 	} else {
 		vg.openPos -= OpenPosOffset
+		vg.closePos += ClosePosOffset
 	}
 
 	logger.Debugf("init: orig openPos: %f, closePos: %f", vg.openPos, vg.closePos)
@@ -307,10 +310,21 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 		return err
 	}
 
-	err = vg.motor.GoTo(ctx, TargetRPM, vg.openPos)
+	pos, err := vg.motor.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
+
+	if math.Abs(pos-vg.openPos) < 0.1 {
+		return nil
+	}
+
+	go func() {
+		err := vg.motor.GoTo(ctx, TargetRPM, vg.openPos)
+		if err != nil {
+			vg.logger.Error(err)
+		}
+	}()
 
 	msPer := 10
 	total := 0
@@ -352,10 +366,22 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = vg.motor.GoTo(ctx, TargetRPM, vg.closePos)
+
+	pos, err := vg.motor.GetPosition(ctx)
 	if err != nil {
 		return false, err
 	}
+
+	if math.Abs(pos-vg.closePos) < 0.1 {
+		return false, nil
+	}
+
+	go func() {
+		err := vg.motor.GoTo(ctx, TargetRPM, vg.closePos)
+		if err != nil {
+			vg.logger.Error(err)
+		}
+	}()
 
 	msPer := 10
 	total := 0
