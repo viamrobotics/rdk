@@ -1,31 +1,39 @@
 <template>
   <div>
     <div class="inline-flex">
-      <div class="relative inline-flex" :key="option" v-for="(option, i) in options">
+      <div
+        class="relative inline-flex"
+        :key="option"
+        v-for="(option, i) in options"
+      >
         <ViamButton
           group
           variant="primary"
-        
           v-bind:key="option"
-          :class="{'border-r-0': i < options.length - 1, 'border-l-0': i > 0}"
+          :class="{ 'border-r-0': i < options.length - 1, 'border-l-0': i > 0 }"
           class="py-1 px-4 radio-button"
           :data-cy="'button-' + option"
           :color="selected === option ? 'black' : 'primary'"
           v-on:click="selectOption(option)"
           :disabled="isDisabled(option)"
-      >
-        <template v-slot:icon v-if="selected === option"
-          ><ViamIcon
-            :color="selected === option ? 'white' : 'black'"
-            :path="mdiCheck"
-            >Check</ViamIcon
-          ></template
         >
-        {{ option }}
-      </ViamButton>
-      <div v-show="i < options.length - 1 && (i - getSelectedIndex > 0 || Math.abs(getSelectedIndex - i) > 1)" class="absolute w-px gray-line	right-0 bg-gray-300"></div>
+          <template v-slot:icon v-if="selected === option"
+            ><ViamIcon
+              :color="selected === option ? 'white' : 'black'"
+              :path="mdiCheck"
+              >Check</ViamIcon
+            ></template
+          >
+          {{ option }}
+        </ViamButton>
+        <div
+          v-show="
+            i < options.length - 1 &&
+            (i - getSelectedIndex > 0 || Math.abs(getSelectedIndex - i) > 1)
+          "
+          class="absolute w-px gray-line right-0 bg-gray-300"
+        ></div>
       </div>
-      
     </div>
   </div>
 </template>
@@ -49,19 +57,18 @@ export default class RadioButtons extends Vue {
   @Prop() defaultOption?: string;
   @Prop() disabledOptions?: [string];
   selected: string | undefined = "";
-  
+
   mdiCheck = mdiCheck;
   mounted(): void {
     this.selected = this.defaultOption;
   }
 
   get getSelectedIndex(): number {
-    let foundIndex = -1
-    for (let i = 0; i < this.options.length; i++ ){
-      if (this.options[i] === this.selected)
-        foundIndex = i
+    let foundIndex = -1;
+    for (let i = 0; i < this.options.length; i++) {
+      if (this.options[i] === this.selected) foundIndex = i;
     }
-    return foundIndex
+    return foundIndex;
   }
 
   isDisabled(option: string): boolean {
