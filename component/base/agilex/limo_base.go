@@ -28,6 +28,8 @@ var (
 )
 
 func init() {
+	controllers = make(map[string]*controller)
+
 	limoBaseComp := registry.Component{
 		Constructor: func(
 			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
@@ -72,18 +74,28 @@ type limoBase struct {
 
 // Config is how you configure a limo base.
 type Config struct {
-	DriveMode    string `json:"driveMode"`
-	SerialDevice string `json:"serial_device" default:"/dev/ttyTHS1"` // path to /dev/ttyXXXX file
+	DriveMode    string `json:"drive_mode"`
+	SerialDevice string `json:"serial_device"` // path to /dev/ttyXXXX file
 	// TestChan is a fake "serial" path for test use only
-	TestChan chan string `json:"-"`
+	TestChan chan []uint8
 }
 
 // CreateLimoBase returns a AgileX limo base
 func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger golog.Logger) (base.LocalBase, error) {
 
+	logger.Debugf("creating limo base with config %+v", config)
+
+	if config.SerialDevice == "" {
+		config.SerialDevice = "/dev/ttyTHS1"
+	}
+	if config.DriveMode == "" {
+		return nil, errors.Errorf("drive mode must be defined and one of differential, ackermann, or omni")
+	}
+
 	globalMu.Lock()
 	ctrl, ok := controllers[config.SerialDevice]
 	if !ok {
+		logger.Debug("creating controller")
 		newCtrl, err := newController(config, logger)
 		if err != nil {
 			return nil, err
@@ -104,6 +116,7 @@ func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger g
 	// enable commanded mode
 	frame := new(limoFrame)
 	frame.id = 0x421
+	frame.data = make([]uint8, 8)
 	frame.data[0] = 0x01
 	frame.data[1] = 0
 	frame.data[2] = 0
@@ -113,6 +126,7 @@ func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger g
 	frame.data[6] = 0
 	frame.data[7] = 0
 
+	logger.Debug("Will send init frame")
 	err := ctrl.sendFrame(frame)
 	if err != nil && !strings.HasPrefix(err.Error(), "error enabling commanded mode") {
 		return nil, err
@@ -127,6 +141,7 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 	ctrl.logger = logger
 
 	if c.TestChan == nil {
+		logger.Debug("opening serial connection")
 		serialOptions := serial.OpenOptions{
 			PortName:          c.SerialDevice,
 			BaudRate:          0010004,
@@ -141,6 +156,8 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 			return nil, err
 		}
 		ctrl.port = port
+	} else {
+		ctrl.testChan = c.TestChan
 	}
 
 	return ctrl, nil
@@ -148,27 +165,29 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 
 // Must be run inside a lock.
 func (c *controller) sendFrame(frame *limoFrame) error {
-	var checksum uint8 = 0
+	var checksum uint32 = 0
 	var frame_len uint8 = 0x0e
-	frame.data[14] = 0x55
-	frame.data[15] = frame_len
-
-	frame.data[2] = uint8(frame.id >> 8)
-	frame.data[3] = uint8(frame.id & 0xff)
+	var data = make([]uint8, 14)
+	data[0] = 0x55
+	data[1] = 0x0e // frame length
+	data[2] = uint8(frame.id >> 8)
+	data[3] = uint8(frame.id & 0xff)
 	for i := 0; i < 8; i++ {
-		frame.data[i+3] = frame.data[i-1]
-		checksum += frame.data[i-1]
+		data[i+4] = frame.data[i]
+		checksum += uint32(frame.data[i])
 	}
-	frame.data[frame_len-1] = uint8(checksum & 0xff)
+	data[frame_len-1] = uint8(checksum & 0xff)
 
 	if c.testChan != nil {
-		c.testChan <- frame.data
+		c.logger.Debug("writing to test chan")
+		c.testChan <- data
 	} else {
-		_, err := c.port.Write(frame.data)
+		_, err := c.port.Write(data)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -184,6 +203,7 @@ func (base *limoBase) setMotionCommand(linear_vel float64, angular_vel float64, 
 	lateral_cmd := uint16(lateral_velocity * 1000)
 	steering_cmd := uint16(steering_angle * 1000)
 
+	frame.data = make([]uint8, 8)
 	frame.data[0] = uint8(linear_cmd >> 8)
 	frame.data[1] = uint8(linear_cmd & 0x00ff)
 	frame.data[2] = uint8(angular_cmd >> 8)
