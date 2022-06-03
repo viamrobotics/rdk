@@ -193,6 +193,41 @@ func TestClose(t *testing.T) {
 	test.That(t, getFileSize(target1), test.ShouldEqual, fileSize)
 }
 
+func TestStop(t *testing.T) {
+	// Set up a collector.
+	l := golog.NewTestLogger(t)
+	target1, _ := ioutil.TempFile("", "whatever")
+	defer os.Remove(target1.Name())
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 15,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        l,
+	}
+	c, _ := NewCollector(dummyStructCapturer, params)
+	go c.Collect()
+	time.Sleep(time.Millisecond * 25)
+
+	// Stop and measure fileSize.
+	c.Stop()
+	fileSize := getFileSize(target1)
+
+	// Assert capture is no longer being called/file is no longer being written to.
+	time.Sleep(time.Millisecond * 25)
+	test.That(t, getFileSize(target1), test.ShouldEqual, fileSize)
+
+	// Start capturing again.
+	go c.Collect()
+	time.Sleep(time.Millisecond * 25)
+	c.Close()
+
+	// Assert that capture restarted and wrote to file after the last stop.
+	test.That(t, getFileSize(target1), test.ShouldBeGreaterThan, fileSize)
+}
+
 func TestSetTarget(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever1")
