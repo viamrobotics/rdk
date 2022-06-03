@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/base/v1";
-option java_package = "com.viam.rdk.proto.api.component.base.v1";
 
 package proto.api.component.base.v1;
 
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/base/v1";
+option java_package = "com.viam.rdk.proto.api.component.base.v1";
 
 service BaseService {
   // MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
@@ -14,16 +15,16 @@ service BaseService {
   rpc MoveStraight(MoveStraightRequest) returns (MoveStraightResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/move_straight"
-    };  
+    };
   }
 
-  // Spin spins a robot's base by an given angle, expressed in degrees, and a given 
+  // Spin spins a robot's base by an given angle, expressed in degrees, and a given
   // angular speed, expressed in degrees per second
   // This method blocks until completed or cancelled
   rpc Spin(SpinRequest) returns (SpinResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/spin"
-    };  
+    };
   }
 
   // SetPower sets the linear and angular power of a base
@@ -31,21 +32,21 @@ service BaseService {
   rpc SetPower(SetPowerRequest) returns (SetPowerResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/set_power"
-    };  
+    };
   }
 
   // SetVelocity sets the linear and angular velocity of a base
   rpc SetVelocity(SetVelocityRequest) returns (SetVelocityResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/set_velocity"
-    };  
+    };
   }
 
-  // Stop stops a robot's base 
+  // Stop stops a robot's base
   rpc Stop(StopRequest) returns (StopResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/stop"
-    };  
+    };
   }
 }
 
@@ -81,13 +82,13 @@ message StopResponse {}
 message SetPowerRequest {
   // Name of a base
   string name = 1;
-  // Desired linear power percentage as -1 -> 1 
+  // Desired linear power percentage as -1 -> 1
   common.v1.Vector3 linear = 2;
-  // Desired angular power percentage % as -1 -> 1 
+  // Desired angular power percentage % as -1 -> 1
   common.v1.Vector3 angular = 3;
 }
 
-message SetPowerResponse{}
+message SetPowerResponse {}
 
 message SetVelocityRequest {
   // Name of a base
@@ -98,4 +99,4 @@ message SetVelocityRequest {
   common.v1.Vector3 angular = 3;
 }
 
-message SetVelocityResponse{}
+message SetVelocityResponse {}
