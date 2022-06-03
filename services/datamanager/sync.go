@@ -26,7 +26,7 @@ var (
 type syncManager interface {
 	Start()
 	Enqueue(filesToQueue []string) error
-	Upload() error
+	Upload(ctx context.Context) error
 	Close()
 }
 
@@ -90,7 +90,7 @@ func (s *syncer) Enqueue(filesToQueue []string) error {
 }
 
 // Upload uploads files that are in the SyncQueue directory to the cloud when called.
-func (s *syncer) Upload() error {
+func (s *syncer) Upload(cancelCtx context.Context) error {
 	if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
 		return errors.Errorf("failed to upload queued file: %v", err)
 	}
@@ -182,7 +182,6 @@ func (s *syncer) Close() {
 func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		s.logger.Errorw("failed to upload queued file", "error", err)
-
 		return nil
 	}
 

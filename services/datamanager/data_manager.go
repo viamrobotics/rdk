@@ -323,7 +323,7 @@ func (svc *dataManagerService) Sync(ctx context.Context, name resource.Name) (bo
 	if err := svc.syncer.Enqueue(oldFiles); err != nil {
 		return false, err
 	}
-	if err := svc.syncer.Upload(); err != nil {
+	if err := svc.syncer.Upload(ctx); err != nil {
 		return false, err
 	}
 
