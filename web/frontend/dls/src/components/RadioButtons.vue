@@ -1,16 +1,18 @@
 <template>
   <div>
     <div class="inline-flex">
-      <ViamButton
-        group
-        variant="primary"
-        v-for="option in options"
-        v-bind:key="option"
-        class="py-1 px-4"
-        :data-cy="'button-' + option"
-        :color="selected === option ? 'black' : 'primary'"
-        v-on:click="selectOption(option)"
-        :disabled="isDisabled(option)"
+      <div class="relative inline-flex" :key="option" v-for="(option, i) in options">
+        <ViamButton
+          group
+          variant="primary"
+        
+          v-bind:key="option"
+          :class="{'border-r-0': i < options.length - 1, 'border-l-0': i > 0}"
+          class="py-1 px-4 radio-button"
+          :data-cy="'button-' + option"
+          :color="selected === option ? 'black' : 'primary'"
+          v-on:click="selectOption(option)"
+          :disabled="isDisabled(option)"
       >
         <template v-slot:icon v-if="selected === option"
           ><ViamIcon
@@ -21,6 +23,9 @@
         >
         {{ option }}
       </ViamButton>
+      <div class="absolute w-px right-0 top-0 h-6 bg-gray-300"></div>
+      </div>
+      
     </div>
   </div>
 </template>
@@ -44,10 +49,21 @@ export default class RadioButtons extends Vue {
   @Prop() defaultOption?: string;
   @Prop() disabledOptions?: [string];
   selected: string | undefined = "";
+  
   mdiCheck = mdiCheck;
   mounted(): void {
     this.selected = this.defaultOption;
   }
+
+  get getSelectedIndex(): number {
+    let foundIndex = -1
+    for (let i = 0; i < this.options.length; i++ ){
+      if (this.options[i] === this.selected)
+        foundIndex = i
+    }
+    return foundIndex
+  }
+
   isDisabled(option: string): boolean {
     if (this.disabledOptions) {
       return !!this.disabledOptions.includes(option);
@@ -62,3 +78,8 @@ export default class RadioButtons extends Vue {
   }
 }
 </script>
+<style>
+.radio-button { 
+  border-left: 
+}
+</style>
