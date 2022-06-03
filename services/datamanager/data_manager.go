@@ -106,7 +106,7 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
 	cancelCtx, _ := context.WithCancel(ctx)
-	storageCheckCancelCtx, storageCheckCancelFn := context.WithCancel(context.Background())
+	storageCheckCancelCtx, storageCheckCancelFn := context.WithCancel(ctx)
 
 	dataManagerSvc := &Service{
 		r:                    r,
@@ -118,7 +118,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		lock:                 sync.Mutex{},
 		cancelCtx:            cancelCtx,
 		storageCheckCancelFn: storageCheckCancelFn,
-		statfsFn:             syscall.Statfs,
+		statfs:               syscall.Statfs,
 	}
 
 	go dataManagerSvc.runStorageCheckAndUpdateCollectors(storageCheckCancelCtx, time.Minute)
@@ -158,7 +158,7 @@ type Service struct {
 	logger            golog.Logger
 	captureDir        string
 	maxStoragePercent int
-	statfsFn          Statfs
+	statfs            statfsFn
 	enableAutoDelete  bool
 	collectors        map[componentMethodMetadata]collectorAndConfig
 	syncer            syncManager
@@ -309,10 +309,10 @@ type DiskStatus struct {
 	PercentUsed int
 }
 
-type Statfs func(string, *syscall.Statfs_t) error
+type statfsFn func(string, *syscall.Statfs_t) error
 
 // DiskUsage makes a call to the underlying system to get the local disk usage.
-func DiskUsage(statfs Statfs) (DiskStatus, error) {
+func DiskUsage(statfs statfsFn) (DiskStatus, error) {
 	disk := DiskStatus{}
 	fs := syscall.Statfs_t{}
 	if err := statfs("/", &fs); err != nil {
@@ -345,7 +345,7 @@ func (svc *Service) runStorageCheckAndUpdateCollectors(cancelCtx context.Context
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
-				du, err := DiskUsage(svc.statfsFn)
+				du, err := DiskUsage(svc.statfs)
 				if err != nil {
 					svc.logger.Errorw("failed to check disk usage", "error", err)
 				}
@@ -363,10 +363,7 @@ func (svc *Service) runStorageCheckAndUpdateCollectors(cancelCtx context.Context
 					}
 				} else {
 					// Reinitialize any previously stopped collectors now that disk usage has freed up.
-					err := svc.reinitializeStoppedCollectors()
-					if err != nil {
-						svc.logger.Warn("Issue reinitializing closed collector", err)
-					}
+					svc.reinitializeStoppedCollectors()
 				}
 			}
 		}
@@ -498,7 +495,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func (svc *Service) reinitializeStoppedCollectors() error {
+func (svc *Service) reinitializeStoppedCollectors() {
 	for _, c := range svc.collectors {
 		if !c.Collector.IsCollecting() {
 			go func() {
@@ -508,7 +505,6 @@ func (svc *Service) reinitializeStoppedCollectors() error {
 			}()
 		}
 	}
-	return nil
 }
 
 func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins int) {
