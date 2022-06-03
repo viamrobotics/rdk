@@ -1,36 +1,45 @@
 <template>
-  <div class="flex viam-number-input-root h-8">
-    <input
-      :id="id"
-      ref="input"
-      class="viam-number-input border-black outline-none h-full w-full"
-      type="tel"
-      :value="innerValue"
-      :placeholder="placeholder"
-      :readonly="readonly"
-      @keydown="handleArrows"
-      @input="inputEventHandler"
-      @paste="pasteEventHandler"
-      :class="{
-        'border-r': readonly,
-        'text-center': readonly,
-        'text-xs': this.small,
-      }"
-    />
-    <div
-      v-show="!readonly"
-      class="flex justify-between flex-col h-full items-stretch border border-black"
-    >
-      <ViamIcon
-        @click.native="arrowClicked(increase)"
-        class="arrow-icon cursor-pointer"
-        :path="mdiChevronUp"
-      ></ViamIcon>
-      <ViamIcon
-        @click.native="arrowClicked(decrease)"
-        class="arrow-icon cursor-pointer"
-        :path="mdiChevronDown"
-      ></ViamIcon>
+  <div class="flex flex-col">
+    <span class="text-xs">{{ label }}</span>
+    <div class="flex h-8">
+      <input
+        ref="input"
+        class="viam-number-input border-black outline-none h-full w-full"
+        type="tel"
+        :id="inputId"
+        :value="innerValue"
+        :placeholder="placeholder"
+        :readonly="!canBeEditted"
+        @keydown="handleKeyboardArrowKeys"
+        @input="inputEventHandler"
+        @paste="pasteEventHandler"
+        :class="{
+          'border-r': readonly,
+          'text-center': readonly,
+          'text-xs': small,
+          'bg-gray-200 text-gray-400 border-gray-400': disabled,
+        }"
+      />
+      <div
+        v-show="!readonly"
+        :class="{
+          'bg-gray-200 text-gray-400 border-gray-400': disabled,
+        }"
+        class="flex justify-between flex-col h-full items-stretch border border-black"
+      >
+        <ViamIcon
+          @click.native="arrowClicked(increase)"
+          class="arrow-icon cursor-pointer"
+          :color="iconColor"
+          :path="mdiChevronUp"
+        ></ViamIcon>
+        <ViamIcon
+          @click.native="arrowClicked(decrease)"
+          class="arrow-icon cursor-pointer"
+          :color="iconColor"
+          :path="mdiChevronDown"
+        ></ViamIcon>
+      </div>
     </div>
   </div>
 </template>
@@ -53,6 +62,10 @@ const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
 export default class NumberInput extends Vue {
   @Prop({ default: -Infinity })
   public min!: number;
+  @Prop({ default: null })
+  public label!: string;
+  @Prop({ default: null })
+  public inputId!: string;
   @Prop({ default: Infinity })
   public max!: number;
   @Prop({ default: false })
@@ -61,6 +74,8 @@ export default class NumberInput extends Vue {
   public step!: number;
   @Prop({ default: false })
   public readonly!: boolean;
+  @Prop({ default: false })
+  public disabled!: boolean;
   @Prop({ required: true })
   public value!: number;
   @Prop({ default: "" })
@@ -78,19 +93,28 @@ export default class NumberInput extends Vue {
   }
   set innerValue(value: number) {
     let result = this.value;
-    if (this.isNumber(value)) {
+    if (this.isNumber(`${value}`)) {
       result = this.calcValueWithRestrictions(Number(value));
     }
     this.$emit("input", result);
   }
 
+  get canBeEditted(): boolean {
+    return !this.disabled && !this.readonly;
+  }
+
+  get iconColor(): string {
+    return this.disabled ? "#9d9d9d" : "black";
+  }
+
   arrowClicked(handler: () => void): void {
+    if (!this.canBeEditted) return;
     //for arrows up and down working
     (this.$refs.input as HTMLInputElement).focus();
     handler();
   }
-  handleArrows(event: KeyboardEvent): void {
-    if (this.readonly) return;
+  handleKeyboardArrowKeys(event: KeyboardEvent): void {
+    if (!this.canBeEditted) return;
     if (event.key === "ArrowUp") this.increase();
     else if (event.key === "ArrowDown") this.decrease();
   }
@@ -132,8 +156,7 @@ export default class NumberInput extends Vue {
   increase(): void {
     this.changeValue(+this.step);
   }
-  // eslint-disable-next-line
-  isNumber(stringVal: any): boolean {
+  isNumber(stringVal: string): boolean {
     if (!this.float && !REGEXP_NUMBER.test(stringVal)) return false;
 
     const parsedNumber = Number(stringVal);

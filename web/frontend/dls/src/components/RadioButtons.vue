@@ -6,6 +6,8 @@
         variant="primary"
         v-for="option in options"
         v-bind:key="option"
+        class="py-1 px-4"
+        :data-cy="'button-' + option"
         :color="selected === option ? 'black' : 'primary'"
         v-on:click="selectOption(option)"
         :disabled="isDisabled(option)"
@@ -60,5 +62,3 @@ export default class RadioButtons extends Vue {
   }
 }
 </script>
-
-<style scoped></style>
