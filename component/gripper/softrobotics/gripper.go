@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -48,7 +49,7 @@ type softGripper struct {
 }
 
 // newGripper TODO.
-func newGripper(b board.Board, config config.Component, logger golog.Logger) (*softGripper, error) {
+func newGripper(b board.Board, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 	psi, ok := b.AnalogReaderByName("psi")
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'psi'")
@@ -159,4 +160,9 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	}
 
 	return false, g.Stop(ctx)
+}
+
+// ModelFrame is unimplemented for softGripper.
+func (g *softGripper) ModelFrame() referenceframe.Model {
+	return nil
 }
