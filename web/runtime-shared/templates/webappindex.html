@@ -66,8 +66,15 @@
         theData.error = err;
       }
 
+      function setPCDError(err) {
+        theData.pcderror = err;
+      }
+
       function grpcCallback(err, resp, stringify) {
         if (err) {
+          if (err.indexOf('image with depth has no depth channel') >=0) {
+            setPCDError(err);
+          }
           setError(err);
           return;
         }
@@ -208,6 +215,7 @@
       async function startup() {
         theData = {
           error: "",
+          pcderror: "",
           res: {},
           rawStatus: {},
           status: {},
@@ -1869,6 +1877,7 @@
           <!-- ******* CAMERAS *******  -->
           <div class="camera pb-4" v-for="streamName in streamNames" :key="streamName">
               <camera
+                      :pcd-error="pcdError"
                       :stream-name="streamName"
                       :crumbs="[streamName]"
                       :x="pcdClick.x"

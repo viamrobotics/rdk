@@ -345,6 +345,9 @@
                 </div>
               </div>
             </div>
+            <div class="pt-2">
+              <span class="text-red-500" v-if="pcdError">{{ pcdError }}</span>
+            </div>
           </Container>
         </div>
       </template>
@@ -395,6 +398,7 @@ export default class Base extends Vue {
   @Prop({ default: null }) segmenterParameterNames?: [string];
   @Prop({ default: null }) parameterType?: [string];
   @Prop({ default: null }) segmenterParameters?: Record<string, unknown>;
+  @Prop({ default: "" }) pcdError?: string;
 
   mdiInformationOutline = mdiInformationOutline;
   mdiDownloadOutline = mdiDownloadOutline;
