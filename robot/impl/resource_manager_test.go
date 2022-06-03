@@ -810,11 +810,11 @@ func TestManagerNewComponent(t *testing.T) {
 		config:  cfg,
 	}
 	test.That(t, robotForRemote.manager.newComponents(context.Background(),
-		cfg.Components, robotForRemote), test.ShouldBeNil)
+		cfg.Components, robotForRemote, logger), test.ShouldBeNil)
 	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
 	robotForRemote.manager = newResourceManager(resourceManagerOptions{}, logger)
 	err := robotForRemote.manager.newComponents(context.Background(),
-		robotForRemote.config.Components, robotForRemote)
+		robotForRemote.config.Components, robotForRemote, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldEqual,
 		"circular dependency - \"arm3\" already depends on \"board3\"")
