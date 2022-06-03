@@ -1,3 +1,6 @@
+//go:build !linux
+// +build !linux
+
 package datamanager
 
 import (
@@ -38,7 +41,9 @@ func TestNewDataManager(t *testing.T) {
 
 	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
-	_, err := New(context.Background(), r, cfgService, logger)
+	dataManager, err := New(context.Background(), r, cfgService, logger)
+	svc := dataManager.(*Service)
+	svc.Close(context.Background())
 
 	test.That(t, err, test.ShouldBeNil)
 }
