@@ -101,6 +101,11 @@ func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64, worl
 	return err
 }
 
+func (c *client) Stop(ctx context.Context) error {
+	_, err := c.client.Stop(ctx, &pb.StopRequest{Name: c.name})
+	return err
+}
+
 func (c *client) ModelFrame() referenceframe.Model {
 	// TODO(erh): this feels wrong
 	return nil

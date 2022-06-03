@@ -2,9 +2,9 @@ package gantry_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/gantry"
@@ -48,6 +48,9 @@ func TestServer(t *testing.T) {
 	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return len1, nil
 	}
+	injectGantry.StopFunc = func(ctx context.Context) error {
+		return nil
+	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
 	injectGantry2.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
@@ -59,6 +62,9 @@ func TestServer(t *testing.T) {
 	}
 	injectGantry2.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return nil, errors.New("can't get lengths")
+	}
+	injectGantry2.StopFunc = func(ctx context.Context) error {
+		return errors.New("no stop")
 	}
 
 	t.Run("gantry position", func(t *testing.T) {
@@ -115,5 +121,19 @@ func TestServer(t *testing.T) {
 		_, err = gantryServer.GetLengths(context.Background(), &pb.GetLengthsRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get lengths")
+	})
+
+	t.Run("stop", func(t *testing.T) {
+		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: missingGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
+
+		_, err := gantryServer.Stop(context.Background(), &pb.StopRequest{Name: testGantryName})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: failGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no stop")
 	})
 }

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -84,6 +85,9 @@ type Arm interface {
 	// GetJointPositions returns the current joint positions of the arm.
 	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
+	// Stop stops the arm. It is assumed the arm stops immediately.
+	Stop(ctx context.Context) error
+
 	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -92,6 +96,9 @@ type Arm interface {
 var (
 	_ = Arm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
+
+	// ErrStopUnimplemented is used for when Stop() is unimplemented.
+	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
@@ -169,6 +176,12 @@ func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.JointPos
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetJointPositions(ctx)
+}
+
+func (r *reconfigurableArm) Stop(ctx context.Context) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Stop(ctx)
 }
 
 func (r *reconfigurableArm) ModelFrame() referenceframe.Model {

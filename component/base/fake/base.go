@@ -43,11 +43,6 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 	return nil
 }
 
-// MoveArc does nothing.
-func (b *Base) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	return nil
-}
-
 // Spin does nothing.
 func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	return nil
@@ -55,6 +50,11 @@ func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) e
 
 // SetPower does nothing.
 func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	return nil
+}
+
+// SetVelocity does nothing.
+func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
 	return nil
 }
 

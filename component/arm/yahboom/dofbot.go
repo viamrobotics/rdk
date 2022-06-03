@@ -279,6 +279,11 @@ func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error
 	return joints[joint-1].toDegrees(int(res)), nil
 }
 
+func (a *dofBot) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
+	return arm.ErrStopUnimplemented
+}
+
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
 func (a *dofBot) ModelFrame() referenceframe.Model {
 	return a.model
