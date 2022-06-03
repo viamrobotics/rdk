@@ -134,7 +134,7 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 
 	// Mock 0% disk usage in the system.
 	blocks := uint64(3)
-	bSize := uint32(4)
+	bSize := int64(4)
 	bAvail := uint64(3)
 	bFree := uint64(3)
 	svc.statfsFn = getMockStatfsFn(blocks, bSize, bAvail, bFree)
