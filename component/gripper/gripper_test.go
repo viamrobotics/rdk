@@ -157,18 +157,34 @@ func TestReconfigurableGripper(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *gripper.reconfigurableGripper")
 }
 
+func TestStop(t *testing.T) {
+	actualGripper1 := &mock{Name: testGripperName}
+	reconfGripper1, err := gripper.WrapWithReconfigurable(actualGripper1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualGripper1.stopCount, test.ShouldEqual, 0)
+	test.That(t, reconfGripper1.(gripper.Gripper).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, actualGripper1.stopCount, test.ShouldEqual, 1)
+}
+
 const grabbed = true
 
 type mock struct {
 	gripper.Gripper
 	Name        string
 	grabCount   int
+	stopCount   int
 	reconfCount int
 }
 
 func (m *mock) Grab(ctx context.Context) (bool, error) {
 	m.grabCount++
 	return grabbed, nil
+}
+
+func (m *mock) Stop(ctx context.Context) error {
+	m.stopCount++
+	return nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }

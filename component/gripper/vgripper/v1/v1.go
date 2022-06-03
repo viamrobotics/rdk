@@ -76,7 +76,13 @@ type gripperV1 struct {
 }
 
 // newGripperV1 Returns a gripperV1.
-func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg config.Component, logger golog.Logger) (*gripperV1, error) {
+func newGripperV1(
+	ctx context.Context,
+	r robot.Robot,
+	theBoard board.Board,
+	cfg config.Component,
+	logger golog.Logger,
+) (gripper.Gripper, error) {
 	pressureLimit := cfg.Attributes.Int("pressure_limit", 800)
 	_motor, err := motor.FromRobot(r, "g")
 	if err != nil {
