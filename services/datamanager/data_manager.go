@@ -139,10 +139,6 @@ func (svc *dataManagerService) closeCollectors() {
 	wg.Wait()
 }
 
-func (svc *dataManagerService) Sync(ctx context.Context, name resource.Name) (bool, error) {
-	return false, nil
-}
-
 // dataManagerService initializes and orchestrates data capture collectors for registered component/methods.
 type dataManagerService struct {
 	r          robot.Robot
@@ -287,6 +283,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 }
 
 func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
+	// if user updates config while manual sync is occuring, manual sync will be cancelled (TODO fix)
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.updateCollectorsCancelFn()
@@ -304,6 +301,33 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
 		svc.syncer.Start()
 	}
+}
+
+// Perform a non-scheduled sync of the data in the capture directory.
+func (svc *dataManagerService) Sync(ctx context.Context, name resource.Name) (bool, error) {
+	if svc.syncer == nil {
+		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
+	}
+	oldFiles := make([]string, 0, len(svc.collectors))
+	svc.lock.Lock()
+	for _, collector := range svc.collectors {
+		// Create new target and set it.
+		nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
+		if err != nil {
+			svc.logger.Errorw("failed to create new data capture file", "error", err)
+		}
+		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
+		collector.Collector.SetTarget(nextTarget)
+	}
+	svc.lock.Unlock()
+	if err := svc.syncer.Enqueue(oldFiles); err != nil {
+		return false, err
+	}
+	if err := svc.syncer.Upload(); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // Get the config associated with the data manager service.
