@@ -12,17 +12,6 @@ window.BaseControlHelper = {
     baseService.moveStraight(req, {}, cb);
   },
 
-  moveArc: function(name, distance_mm, speed_mm_s, angle_deg, cb) {
-    const req = new baseApi.MoveArcRequest();
-    req.setName(name);
-    req.setDistanceMm(distance_mm);
-    req.setMmPerSec(speed_mm_s);
-    req.setAngleDeg(angle_deg);
-
-    rcLogConditionally(req);
-    baseService.moveArc(req, {}, cb);
-  },
-
   spin: function(name, angle_deg, speed_deg_s, cb) {
     const req = new baseApi.SpinRequest();
     req.setName(name);
@@ -32,71 +21,39 @@ window.BaseControlHelper = {
     rcLogConditionally(req);
     baseService.spin(req, {}, cb);
   },
-};
 
-// Leaving in window scope for tunning. Should be const or in inputs
-window.keyboardBaseDefaults = {
-  maxSpeed : 300,
-  maxAngle : 425,
-  distRatio : 10,
+  setPower: function(name, linearVector, angularVector, cb) {
+      const req = new baseApi.SetPowerRequest();
+      req.setName(name);
+      req.setLinear(linearVector);
+      req.setAngular(angularVector);
+
+      rcLogConditionally(req);
+      baseService.setPower(req, {}, cb);
+  },
+
 };
 
 /*
   Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
-  Output: distance, speed, and angle parameters for MoveArc
+  Output: linearY and angularZ throttle
 */
 window.computeKeyboardBaseControls = function(keysPressed) {
-  let mmPerSec;
-  let angleDeg;
+    let linear = 0;
+    let angular = 0;
 
-  if (keysPressed.forward && keysPressed.backward) {
-    mmPerSec = 0;
-  } else if (keysPressed.forward) {
-    mmPerSec = 1;
-  } else if (keysPressed.backward) {
-    mmPerSec = -1;
-  } else {
-    mmPerSec = 0;
-  }
-
-  // Angle
-  if (keysPressed.right && keysPressed.left) {
-    angleDeg = 0;
-  } else if (keysPressed.right) {
-    angleDeg = -1;
-  } else if (keysPressed.left) {
-    angleDeg = 1;
-  } else {
-    angleDeg = 0;
-  }
-
-  let distance;
-  let speed;
-  let angle;
-
-  let moveType; // for logging only
-  if (mmPerSec === 0 && angleDeg === 0) {
-    moveType = 'Stop';
-    distance = keyboardBaseDefaults.maxSpeed * keyboardBaseDefaults.distRatio;
-    speed = 0;
-    angle = angleDeg * keyboardBaseDefaults.maxAngle * -1;
-  } else if (mmPerSec === 0) {
-    moveType = 'Spin';
-    distance = 0;
-    speed = angleDeg * keyboardBaseDefaults.maxSpeed;
-    angle = Math.abs(angleDeg * keyboardBaseDefaults.maxAngle * keyboardBaseDefaults.distRatio / 2);
-  } else if (angleDeg === 0) {
-    moveType = 'Straight';
-    distance = Math.abs(mmPerSec * keyboardBaseDefaults.maxSpeed * keyboardBaseDefaults.distRatio);
-    speed = mmPerSec * keyboardBaseDefaults.maxSpeed;
-    angle = Math.abs(angleDeg * keyboardBaseDefaults.maxAngle * keyboardBaseDefaults.distRatio);
-  } else {
-    moveType = 'Arc';
-    distance = Math.abs(mmPerSec * keyboardBaseDefaults.maxSpeed * keyboardBaseDefaults.distRatio);
-    speed = mmPerSec * keyboardBaseDefaults.maxSpeed;
-    angle = angleDeg * keyboardBaseDefaults.maxAngle * keyboardBaseDefaults.distRatio * 2 - 1;
-  }
-
-  console.log('%s: s = %f | a = %f | Dist = %f | Speed = %f | Angle = %f', moveType, mmPerSec, angleDeg, distance, speed, angle);
-  return {distance, speed, angle};
+    if (keysPressed.forward) {
+        linear = 1;
+    } else if (keysPressed.backward) {
+        linear = -1;
+    } 
+    
+    if (keysPressed.right) {
+        angular = -1;
+    } else if (keysPressed.left) {
+        angular = 1;
+    } 
+    
+    return {linear, angular};
 };
+

@@ -1,4 +1,5 @@
-package framesystem
+// Package framesystemparts provides functionality around a list of framesystem parts
+package framesystemparts
 
 import (
 	"fmt"
@@ -50,9 +51,9 @@ func NewMissingParentError(partName, parentName string) error {
 	return fmt.Errorf("part with name %s references non-existent parent %s", partName, parentName)
 }
 
-// TopologicallySortParts takes a potentially un-ordered slice of frame system parts and
+// TopologicallySort takes a potentially un-ordered slice of frame system parts and
 // sorts them, beginning at the world node.
-func TopologicallySortParts(parts Parts) (Parts, error) {
+func TopologicallySort(parts Parts) (Parts, error) {
 	// set up directory to check existence of parents
 	existingParts := make(map[string]bool, len(parts))
 	existingParts[referenceframe.World] = true
@@ -98,8 +99,8 @@ func TopologicallySortParts(parts Parts) (Parts, error) {
 	return topoSortedParts, nil
 }
 
-// renameRemoteParts applies prefixes to frame information if necessary.
-func renameRemoteParts(
+// RenameRemoteParts applies prefixes to frame information if necessary.
+func RenameRemoteParts(
 	remoteParts Parts,
 	remoteName string,
 	remotePrefix bool,
@@ -118,7 +119,8 @@ func renameRemoteParts(
 	return remoteParts
 }
 
-func partMapToPartSlice(partsMap map[string]*config.FrameSystemPart) Parts {
+// PartMapToPartSlice returns a Parts constructed of the FrameSystemParts values of a string map.
+func PartMapToPartSlice(partsMap map[string]*config.FrameSystemPart) Parts {
 	parts := make([]*config.FrameSystemPart, 0, len(partsMap))
 	for _, part := range partsMap {
 		parts = append(parts, part)
@@ -126,7 +128,8 @@ func partMapToPartSlice(partsMap map[string]*config.FrameSystemPart) Parts {
 	return Parts(parts)
 }
 
-func partNames(parts Parts) []string {
+// Names returns the names of input parts.
+func Names(parts Parts) []string {
 	names := make([]string, len(parts))
 	for i, p := range parts {
 		names[i] = p.Name

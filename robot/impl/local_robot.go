@@ -13,22 +13,20 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	// registers all components.
-	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/framesystem"
-
-	// registers all services.
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
@@ -36,7 +34,8 @@ import (
 type internalServiceName string
 
 const (
-	webName internalServiceName = "web"
+	webName         internalServiceName = "web"
+	framesystemName internalServiceName = "framesystem"
 )
 
 var (
@@ -45,9 +44,7 @@ var (
 	// defaultSvc is a list of default robot services.
 	defaultSvc = []resource.Name{
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
-		framesystem.Name,
 		vision.Name,
 	}
 )
@@ -77,6 +74,20 @@ func (r *localRobot) webService() (web.Service, error) {
 		return nil, errors.New("unexpected service associated with web InternalServiceName")
 	}
 	return webSvc, nil
+}
+
+// fsService returns the localRobot's web service. Raises if the service has not been initialized.
+func (r *localRobot) fsService() (framesystem.Service, error) {
+	svc := r.internalServices[framesystemName]
+	if svc == nil {
+		return nil, errors.New("framesystem service not initialized")
+	}
+
+	framesystemSvc, ok := svc.(framesystem.Service)
+	if !ok {
+		return nil, errors.New("unexpected service associated with framesystem internalServiceName")
+	}
+	return framesystemSvc, nil
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -145,6 +156,64 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 	return webSvc.Start(ctx, o)
 }
 
+// StopWeb stops the web server, will be a noop if server is not up.
+func (r *localRobot) StopWeb() error {
+	webSvc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return webSvc.Close()
+}
+
+func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	r.mu.Lock()
+	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Nodes))
+	for _, name := range r.ResourceNames() {
+		resource, err := r.ResourceByName(name)
+		if err != nil {
+			return nil, utils.NewResourceNotFoundError(name)
+		}
+		resources[name] = resource
+	}
+	r.mu.Unlock()
+
+	namesToDedupe := resourceNames
+	// if no names, return all
+	if len(namesToDedupe) == 0 {
+		namesToDedupe = make([]resource.Name, 0, len(resources))
+		for name := range resources {
+			namesToDedupe = append(namesToDedupe, name)
+		}
+	}
+
+	// dedupe resourceNames
+	deduped := make(map[resource.Name]struct{}, len(namesToDedupe))
+	for _, name := range namesToDedupe {
+		deduped[name] = struct{}{}
+	}
+
+	statuses := make([]robot.Status, 0, len(deduped))
+	for name := range deduped {
+		resource, ok := resources[name]
+		if !ok {
+			return nil, utils.NewResourceNotFoundError(name)
+		}
+		// if resource subtype has an associated CreateStatus method, use that
+		// otherwise return an empty status
+		var status interface{} = struct{}{}
+		var err error
+		subtype := registry.ResourceSubtypeLookup(name.Subtype)
+		if subtype != nil && subtype.Status != nil {
+			status, err = subtype.Status(ctx, resource)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get status from %q", name)
+			}
+		}
+		statuses = append(statuses, robot.Status{Name: name, Status: status})
+	}
+	return statuses, nil
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -187,6 +256,8 @@ func newWithResources(
 
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
+	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
+
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
@@ -245,20 +316,8 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
 
-	var remoteNames []resource.Name
-
-	for _, name := range r.RemoteNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeRemote,
-			name,
-		)
-		remoteNames = append(remoteNames, res)
-	}
-
-	for _, n := range append(remoteNames, r.ResourceNames()...) {
-		// TODO(RDK-119) if not found, could mean a name clash or a remote service
+	for _, n := range r.ResourceNames() {
+		// TODO(RSDK-22) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
@@ -299,6 +358,31 @@ func (r *localRobot) Refresh(ctx context.Context) error {
 	return nil
 }
 
+// FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
+func (r *localRobot) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+	framesystem, err := r.fsService()
+	if err != nil {
+		return nil, err
+	}
+
+	return framesystem.Config(ctx, additionalTransforms)
+}
+
+// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+func (r *localRobot) TransformPose(
+	ctx context.Context,
+	pose *referenceframe.PoseInFrame,
+	dst string,
+	additionalTransforms []*commonpb.Transform,
+) (*referenceframe.PoseInFrame, error) {
+	framesystem, err := r.fsService()
+	if err != nil {
+		return nil, err
+	}
+
+	return framesystem.TransformPose(ctx, pose, dst, additionalTransforms)
+}
+
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
 func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
@@ -323,4 +407,32 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 // to support more streamlined reconfiguration functionality.
 func RobotFromResources(ctx context.Context, resources map[resource.Name]interface{}, logger golog.Logger) (robot.LocalRobot, error) {
 	return newWithResources(ctx, &config.Config{}, resources, logger)
+}
+
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	// dedupe queries
+	deduped := make(map[discovery.Query]struct{}, len(qs))
+	for _, q := range qs {
+		deduped[q] = struct{}{}
+	}
+
+	discoveries := make([]discovery.Discovery, 0, len(deduped))
+	for q := range deduped {
+		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q)
+		if !ok {
+			r.logger.Warnw("no discovery function registered", "subtype", q.SubtypeName, "model", q.Model)
+			continue
+		}
+
+		if discoveryFunction != nil {
+			discovered, err := discoveryFunction(ctx)
+			if err != nil {
+				return nil, &discovery.DiscoverError{q}
+			}
+			discoveries = append(discoveries, discovery.Discovery{Query: q, Results: discovered})
+		}
+	}
+	return discoveries, nil
 }

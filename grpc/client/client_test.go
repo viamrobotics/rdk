@@ -6,27 +6,33 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"math"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -39,14 +45,16 @@ import (
 	sensorpb "go.viam.com/rdk/proto/api/component/sensor/v1"
 	servopb "go.viam.com/rdk/proto/api/component/servo/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
-	framepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/robot"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var emptyResources = []resource.Name{
@@ -75,7 +83,7 @@ var finalResources = []resource.Name{
 	servo.Named("servo3"),
 }
 
-func TestClient(t *testing.T) {
+func TestStatusClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -141,7 +149,7 @@ func TestClient(t *testing.T) {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return 5, nil
 	}
 
@@ -215,14 +223,6 @@ func TestClient(t *testing.T) {
 	sensorSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	sensorpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
-
-	frameSysSvc, err := subtype.New(map[resource.Name]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	framepb.RegisterFrameSystemServiceServer(gServer1, framesystem.NewServer(frameSysSvc))
-
-	frameSysSvc2, err := subtype.New(map[resource.Name]interface{}{framesystem.Name: "not a frame system"})
-	test.That(t, err, test.ShouldBeNil)
-	framepb.RegisterFrameSystemServiceServer(gServer2, framesystem.NewServer(frameSysSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -797,4 +797,284 @@ func TestClientResources(t *testing.T) {
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientDiscovery(t *testing.T) {
+	injectRobot := &inject.Robot{}
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return finalResources
+	}
+	q := discovery.Query{imu.Named("imu").ResourceSubtype, "some imu"}
+	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+		return []discovery.Discovery{{
+			Query:   q,
+			Results: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}},
+		}}, nil
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	logger := golog.NewTestLogger(t)
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err := client.DiscoverComponents(context.Background(), []discovery.Query{q})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(resp), test.ShouldEqual, 1)
+	test.That(t, resp[0].Query, test.ShouldResemble, q)
+	test.That(t, resp[0].Results, test.ShouldResemble, map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}})
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func ensurePartsAreEqual(part *config.FrameSystemPart, otherPart *config.FrameSystemPart) error {
+	if part.Name != otherPart.Name {
+		return errors.Errorf("part had name %s while other part had name %s", part.Name, otherPart.Name)
+	}
+	frameConfig := part.FrameConfig
+	otherFrameConfig := otherPart.FrameConfig
+	if frameConfig.Parent != otherFrameConfig.Parent {
+		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent, otherFrameConfig.Parent)
+	}
+	trans := frameConfig.Translation
+	otherTrans := otherFrameConfig.Translation
+	floatDisc := spatialmath.Epsilon
+	transIsEqual := true
+	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.X, otherTrans.X, floatDisc)
+	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Y, otherTrans.Y, floatDisc)
+	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Z, otherTrans.Z, floatDisc)
+	if !transIsEqual {
+		return errors.New("translations of parts not equal")
+	}
+	orient := frameConfig.Orientation
+	otherOrient := otherFrameConfig.Orientation
+
+	switch {
+	case orient == nil && otherOrient != nil:
+		if !spatialmath.QuaternionAlmostEqual(otherOrient.Quaternion(), quat.Number{1, 0, 0, 0}, 1e-5) {
+			return errors.New("orientations of parts not equal")
+		}
+	case otherOrient == nil:
+		return errors.New("orientation not returned for other part")
+	case !spatialmath.OrientationAlmostEqual(orient, otherOrient):
+		return errors.New("orientations of parts not equal")
+	}
+	return nil
+}
+
+func TestClientConfig(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	listener2, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	workingServer := grpc.NewServer()
+	failingServer := grpc.NewServer()
+
+	resourcesFunc := func() []resource.Name { return []resource.Name{} }
+	workingRobot := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	failingRobot := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+
+	fsConfigs := []*config.FrameSystemPart{
+		{
+			Name: "frame1",
+			FrameConfig: &config.Frame{
+				Parent:      referenceframe.World,
+				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
+			},
+		},
+		{
+			Name: "frame2",
+			FrameConfig: &config.Frame{
+				Parent:      "frame1",
+				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+			},
+		},
+	}
+
+	workingRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*commonpb.Transform,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts(fsConfigs), nil
+	}
+	configErr := errors.New("failed to retrieve config")
+	failingRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*commonpb.Transform,
+	) (framesystemparts.Parts, error) {
+		return nil, configErr
+	}
+
+	pb.RegisterRobotServiceServer(workingServer, server.New(workingRobot))
+	pb.RegisterRobotServiceServer(failingServer, server.New(failingRobot))
+
+	go workingServer.Serve(listener1)
+	defer workingServer.Stop()
+
+	ctx := context.Background()
+
+	t.Run("Failing client due to cancellation", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		_, err = New(cancelCtx, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+	})
+
+	workingFSClient, err := New(ctx, listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("client test config for working frame service", func(t *testing.T) {
+		frameSystemParts, err := workingFSClient.FrameSystemConfig(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[1], frameSystemParts[1])
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	err = workingFSClient.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("dialed client test config for working frame service", func(t *testing.T) {
+		workingDialedClient, err := New(ctx, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		frameSystemParts, err := workingDialedClient.FrameSystemConfig(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[1], frameSystemParts[1])
+		test.That(t, err, test.ShouldBeNil)
+		err = workingDialedClient.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	go failingServer.Serve(listener2)
+	defer failingServer.Stop()
+
+	failingFSClient, err := New(ctx, listener2.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("client test config for failing frame service", func(t *testing.T) {
+		frameSystemParts, err := failingFSClient.FrameSystemConfig(ctx, nil)
+		test.That(t, frameSystemParts, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	err = failingFSClient.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("dialed client test config for failing frame service with failing config", func(t *testing.T) {
+		failingDialedClient, err := New(ctx, listener2.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		parts, err := failingDialedClient.FrameSystemConfig(ctx, nil)
+		test.That(t, parts, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		err = failingDialedClient.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
+func TestClientStatus(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	listener2, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	gServer2 := grpc.NewServer()
+
+	injectRobot := &inject.Robot{ResourceNamesFunc: func() []resource.Name { return []resource.Name{} }}
+	injectRobot2 := &inject.Robot{ResourceNamesFunc: func() []resource.Name { return []resource.Name{} }}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
+
+	go gServer.Serve(listener1)
+	defer gServer.Stop()
+
+	go gServer2.Serve(listener2)
+	defer gServer2.Stop()
+
+	t.Run("failing client", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err = New(cancelCtx, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+	})
+
+	t.Run("working status service", func(t *testing.T) {
+		client, err := New(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		iStatus := robot.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
+		gStatus := robot.Status{Name: gps.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
+		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
+		statusMap := map[resource.Name]robot.Status{
+			iStatus.Name: iStatus,
+			gStatus.Name: gStatus,
+			aStatus.Name: aStatus,
+		}
+		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+			statuses := make([]robot.Status, 0, len(resourceNames))
+			for _, n := range resourceNames {
+				statuses = append(statuses, statusMap[n])
+			}
+			return statuses, nil
+		}
+		expected := map[resource.Name]interface{}{
+			iStatus.Name: map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}},
+			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
+			aStatus.Name: map[string]interface{}{},
+		}
+		resp, err := client.GetStatus(context.Background(), []resource.Name{aStatus.Name})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 1)
+		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
+
+		result := struct{}{}
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &result})
+		test.That(t, err, test.ShouldBeNil)
+		err = decoder.Decode(resp[0].Status)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldResemble, aStatus.Status)
+
+		resp, err = client.GetStatus(context.Background(), []resource.Name{iStatus.Name, gStatus.Name, aStatus.Name})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 3)
+
+		observed := map[resource.Name]interface{}{
+			resp[0].Name: resp[0].Status,
+			resp[1].Name: resp[1].Status,
+			resp[2].Name: resp[2].Status,
+		}
+		test.That(t, observed, test.ShouldResemble, expected)
+
+		err = client.Close(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("failing status client", func(t *testing.T) {
+		client2, err := New(context.Background(), listener2.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		passedErr := errors.New("can't get status")
+		injectRobot2.GetStatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
+			return nil, passedErr
+		}
+		_, err = client2.GetStatus(context.Background(), []resource.Name{})
+		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
+
+		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
+	})
 }
