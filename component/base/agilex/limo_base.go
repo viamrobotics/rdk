@@ -248,19 +248,9 @@ func (base *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec
 	return nil
 }
 
-func (base *limoBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	ctx, done := base.opMgr.New(ctx)
-	defer done()
-
-	// Stop the motors if the speed is 0
-	if math.Abs(mmPerSec) < 0.0001 {
-		err := base.Stop(ctx)
-		if err != nil {
-			return errors.Errorf("error when trying to arc at a speed of 0: %v", err)
-		}
-		return err
-	}
-
+func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	base.opMgr.CancelRunning(ctx)
+	base.setMotionCommand(linear.Y, angular.Z, 0, 0)
 	return nil
 }
 
