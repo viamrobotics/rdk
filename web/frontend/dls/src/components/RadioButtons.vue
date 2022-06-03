@@ -3,6 +3,7 @@
     <div class="inline-flex">
       <div
         class="relative inline-flex"
+        :data-cy="'button-wrapper-' + option"
         :key="option"
         v-for="(option, i) in options"
       >

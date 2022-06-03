@@ -143,8 +143,9 @@ describe("Base", () => {
     await lastButton.trigger("click");
     expect(lastButton.attributes("aria-selected")).toBe("true");
     const divColumnWrapper = wrapper.find(
-      ".column button:nth-child(2) span:first-child"
+      "[data-cy=button-wrapper-Spin] button span:first-child"
     );
+    console.log('dada', divColumnWrapper.element)
     expect(divColumnWrapper.element.innerHTML.trim()).toBe("Spin");
     await divColumnWrapper.trigger("click");
     expect(wrapper.vm.$data.movementMode).toBe("Spin");
@@ -178,7 +179,7 @@ describe("Base", () => {
     await lastButton.trigger("click");
     expect(lastButton.attributes("aria-selected")).toBe("true");
     const divColumnWrapper = wrapper.find(
-      ".column button:nth-child(2) span:first-child"
+      "[data-cy=button-wrapper-Spin] button span:first-child"
     );
     expect(divColumnWrapper.element.innerHTML.trim()).toBe("Spin");
     await divColumnWrapper.trigger("click");
