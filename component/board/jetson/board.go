@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -262,20 +263,41 @@ func (gp gpioPin) PWM(ctx context.Context) (float64, error) {
 	return float64(gp.b.pwms[gp.pinName].dutyCycle), nil
 }
 
+func spawn_pwm_routine(ctx context.Context, gp gpioPin) {
+	for {
+		pwm_setting := gp.b.pwms[gp.pin.Name()]
+		gp.Set(ctx, true)
+		on_period := float64(pwm_setting.dutyCycle/gpio.DutyMax) * float64(pwm_setting.frequency.Period())
+		time.Sleep(time.Duration(int64(on_period)))
+		gp.Set(ctx, false)
+		off_period := float64((gpio.DutyMax-pwm_setting.dutyCycle)/gpio.DutyMax) * float64(pwm_setting.frequency.Period())
+		time.Sleep(time.Duration(int64(off_period)))
+	}
+}
+
 func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
-	last := gp.b.pwms[gp.pinName]
-	var freqHz physic.Frequency
-	if last.frequency != 0 {
-		freqHz = last.frequency
-	}
+	last, ok := gp.b.pwms[gp.pin.Name()]
 	duty := gpio.Duty(dutyCyclePct * float64(gpio.DutyMax))
 	last.dutyCycle = duty
-	gp.b.pwms[gp.pinName] = last
+	gp.b.pwms[gp.pin.Name()] = last
 
-	return gp.pin.PWM(duty, freqHz)
+	if !ok {
+		go spawn_pwm_routine(ctx, gp)
+	}
+
+	// last := gp.b.pwms[gp.pinName]
+	// var freqHz physic.Frequency
+	// if last.frequency != 0 {
+	// 	freqHz = last.frequency
+	// }
+	// duty := gpio.Duty(dutyCyclePct * float64(gpio.DutyMax))
+	// last.dutyCycle = duty
+	// gp.b.pwms[gp.pinName] = last
+
+	return nil
 }
 
 func (gp gpioPin) PWMFreq(ctx context.Context) (uint, error) {
@@ -289,16 +311,24 @@ func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
-	last := gp.b.pwms[gp.pinName]
-	var duty gpio.Duty
-	if last.dutyCycle != 0 {
-		duty = last.dutyCycle
-	}
+	last, ok := gp.b.pwms[gp.pin.Name()]
 	frequency := physic.Hertz * physic.Frequency(freqHz)
 	last.frequency = frequency
-	gp.b.pwms[gp.pinName] = last
+	gp.b.pwms[gp.pin.Name()] = last
 
-	return gp.pin.PWM(duty, frequency)
+	if !ok {
+		go spawn_pwm_routine(ctx, gp)
+	}
+	// last := gp.b.pwms[gp.pinName]
+	// var duty gpio.Duty
+	// if last.dutyCycle != 0 {
+	// 	duty = last.dutyCycle
+	// }
+	// frequency := physic.Hertz * physic.Frequency(freqHz)
+	// last.frequency = frequency
+	// gp.b.pwms[gp.pinName] = last
+
+	return nil
 }
 
 func (b *jetsonBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
