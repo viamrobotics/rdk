@@ -2,9 +2,11 @@ package slam
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
@@ -25,10 +28,25 @@ const (
 	timePadding = 5
 )
 
-func createSLAMService(t *testing.T, attrCfg *AttrConfig) (*slamService, error) {
+func createFakeLibs() []string {
+	var newFakeLibs []string
+	for _, s := range slamLibraries {
+		slamLibraries["fake_"+s.AlgoName] = metadata{
+			AlgoName:       s.AlgoName,
+			AlgoType:       s.AlgoType,
+			SlamMode:       s.SlamMode,
+			BinaryLocation: "true",
+		}
+		newFakeLibs = append(newFakeLibs, "fake_"+s.AlgoName)
+	}
+	return newFakeLibs
+}
+
+func createSLAMService(t *testing.T, attrCfg *AttrConfig) (context.Context, []string, *slamService, error) {
 	t.Helper()
 	cfgService := config.Service{Name: "test", Type: "slam"}
 	logger := golog.NewTestLogger(t)
+
 	ctx := context.Background()
 
 	r := &inject.Robot{}
@@ -36,65 +54,98 @@ func createSLAMService(t *testing.T, attrCfg *AttrConfig) (*slamService, error) 
 		return nil, rdkutils.NewResourceNotFoundError(n)
 	}
 
+	newFakeLibs := createFakeLibs()
+
 	cfgService.ConvertedAttributes = attrCfg
 
-	svc := New(ctx, r, cfgService, logger)
+	svc, _ := New(ctx, r, cfgService, logger)
 
 	if svc == nil {
-		return nil, errors.New("error creating slam service")
+		return nil, []string{}, nil, errors.New("error creating slam service")
 	}
 
-	return svc.(*slamService), nil
+	slamSvc := svc.(*slamService)
+	ctx = context.Background()
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	slamSvc.cancelFunc = cancelFunc
+
+	return cancelCtx, newFakeLibs, slamSvc, nil
 }
 
-// General SLAM Tests.
+func closeOutSLAMService(t *testing.T, slamSvc *slamService, name string, newFakeLibs []string) {
+	t.Helper()
+
+	slamSvc.Close()
+
+	if name != "" {
+		err := resetFolder(name)
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	for _, s := range newFakeLibs {
+		delete(slamLibraries, s)
+	}
+}
+
 func TestGeneralSLAMService(t *testing.T) {
-	_, err := createSLAMService(t, &AttrConfig{})
+	ctx, _, _, err := createSLAMService(t, &AttrConfig{})
 	test.That(t, err, test.ShouldBeError, errors.New("error creating slam service"))
 
-	name1, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
-		Algorithm:        "cartographer",
+		Algorithm:        "fake_cartographer",
 		Sensors:          []string{"rplidar"},
 		ConfigParams:     map[string]string{"mode": "2d"},
-		DataDirectory:    name1,
+		DataDirectory:    name,
 		InputFilePattern: "100:300:5",
 	}
 
-	_, err = createSLAMService(t, attrCfg)
+	_, _, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeError, errors.New("error creating slam service"))
+	test.That(t, slamSvc, test.ShouldBeNil)
 
 	attrCfg = &AttrConfig{
-		Algorithm:        "cartographer",
+		Algorithm:        "fake_cartographer",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "2d"},
-		DataDirectory:    name1,
+		DataDirectory:    name,
 		InputFilePattern: "100:300:5",
 		DataRateMs:       100,
 		MapRateSec:       5,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	_, _, slamSvc, err = createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, slamSvc.dataRateMs, test.ShouldEqual, 100)
 	test.That(t, slamSvc.mapRateSec, test.ShouldEqual, 5)
 
 	attrCfg.DataRateMs = 0
 	attrCfg.MapRateSec = 0
-	slamSvc, err = createSLAMService(t, attrCfg)
+	_, newFakeLibs, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, slamSvc.dataRateMs, test.ShouldEqual, 200)
 	test.That(t, slamSvc.mapRateSec, test.ShouldEqual, 60)
 
-	slamSvc.Close()
+	failMetadata := metadata{
+		AlgoName: "test",
+		AlgoType: slamLibrary(9),
+	}
 
-	err = resetFolder(name1)
-	test.That(t, err, test.ShouldBeNil)
+	cam := &inject.Camera{}
+	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pointcloud.New(), nil
+	}
+	slamSvc.camera = cam
+	slamSvc.slamLib = failMetadata
+
+	err = runtimeServiceValidation(ctx, slamSvc)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("invalid slam algorithm %v", slamSvc.slamLib.AlgoName))
+
+	closeOutSLAMService(t, slamSvc, name, newFakeLibs)
 }
 
-// Validate Tests.
 func TestConfigValidation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
@@ -103,7 +154,6 @@ func TestConfigValidation(t *testing.T) {
 		return pointcloud.New(), nil
 	}
 
-	// Runtime Validation Tests
 	name1, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -118,19 +168,17 @@ func TestConfigValidation(t *testing.T) {
 	err = runtimeConfigValidation(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// No sensor test
 	t.Run("run test of config with no sensor", func(t *testing.T) {
 		cfg.Sensors = []string{}
 		err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
-		cfg.Sensors = []string{"rplidar"}
 	})
 
-	// Mode SLAM Library test
 	t.Run("SLAM config mode tests", func(t *testing.T) {
 		cfg.ConfigParams["mode"] = ""
 		err = runtimeConfigValidation(cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError,
+			errors.Errorf("getting data with specified algorithm %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 
 		testMetadata := metadata{
 			AlgoName: "test",
@@ -143,7 +191,7 @@ func TestConfigValidation(t *testing.T) {
 		cfg.ConfigParams["mode"] = "test1"
 		err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
+			errors.Errorf("getting data with specified algorithm %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 
 		cfg.Algorithm = "cartographer"
 		cfg.Sensors = []string{"rplidar"}
@@ -154,10 +202,9 @@ func TestConfigValidation(t *testing.T) {
 		cfg.ConfigParams["mode"] = "rgbd"
 		err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("getting data with specified algorithm, %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
+			errors.Errorf("getting data with specified algorithm %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 	})
 
-	// Input File Pattern test
 	t.Run("SLAM config input file pattern tests", func(t *testing.T) {
 		cfg.ConfigParams["mode"] = "2d"
 		cfg.InputFilePattern = "dd:300:3"
@@ -170,13 +217,15 @@ func TestConfigValidation(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
 
+		cfg.InputFilePattern = "1:15:0"
+		err = runtimeConfigValidation(cfg, logger)
+		test.That(t, err, test.ShouldBeError,
+			errors.New("the file input pattern's interval must be greater than zero"))
+
 		err = resetFolder(name1)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	// TODO: sensor and saving data checks once GetAndSaveData is implemented
-
-	// Check if valid algorithm
 	t.Run("SLAM config check on specified algorithm", func(t *testing.T) {
 		cfg.Algorithm = "wrong_algo"
 		err = runtimeConfigValidation(cfg, logger)
@@ -184,13 +233,12 @@ func TestConfigValidation(t *testing.T) {
 	})
 }
 
-// Cartographer Specific Tests (config).
 func TestCartographerData(t *testing.T) {
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
-		Algorithm:        "cartographer",
+		Algorithm:        "fake_cartographer",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "2d"},
 		DataDirectory:    name,
@@ -198,7 +246,7 @@ func TestCartographerData(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	cancelCtx, newFakeLibs, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -207,30 +255,26 @@ func TestCartographerData(t *testing.T) {
 	}
 	slamSvc.camera = cam
 
-	err = runtimeServiceValidation(slamSvc)
+	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = slamSvc.getAndSaveDataDense()
+	_, err = slamSvc.getAndSaveDataDense(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
 	slamSvc.slamMode = mono
-	err = runtimeServiceValidation(slamSvc)
+	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	errCheck := errors.Errorf("error getting data in desired mode: bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	test.That(t, err, test.ShouldBeError, errCheck)
 
-	slamSvc.Close()
-
-	err = resetFolder(name)
-	test.That(t, err, test.ShouldBeNil)
+	closeOutSLAMService(t, slamSvc, name, newFakeLibs)
 }
 
-// GetAndSaveDataDense Tests for pointcloud data.
 func TestGetAndSaveDataCartographer(t *testing.T) {
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
-		Algorithm:        "cartographer",
+		Algorithm:        "fake_cartographer",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "2d"},
 		DataDirectory:    name,
@@ -238,10 +282,7 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = slamSvc.startSLAMProcess(slamSvc.cancelCtx)
+	cancelCtx, newFakeLibs, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -251,7 +292,7 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 
 	slamSvc.camera = cam
 
-	filename, err := slamSvc.getAndSaveDataDense()
+	filename, err := slamSvc.getAndSaveDataDense(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = os.Stat(filename)
@@ -259,7 +300,7 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 
 	ddTemp := slamSvc.dataDirectory
 	slamSvc.dataDirectory = "gibberish"
-	filename, err = slamSvc.getAndSaveDataDense()
+	filename, err = slamSvc.getAndSaveDataDense(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("open %v: no such file or directory", filename))
 
 	_, err = os.Stat(filename)
@@ -272,23 +313,19 @@ func TestGetAndSaveDataCartographer(t *testing.T) {
 	}
 
 	slamSvc.camera = camErr
-	filename, err = slamSvc.getAndSaveDataDense()
+	filename, err = slamSvc.getAndSaveDataDense(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.New("camera data error"))
 	test.That(t, filename, test.ShouldBeEmpty)
 
-	slamSvc.Close()
-
-	err = resetFolder(name)
-	test.That(t, err, test.ShouldBeNil)
+	closeOutSLAMService(t, slamSvc, name, newFakeLibs)
 }
 
-// Cartographer data process tests.
 func TestDataProcessCartographer(t *testing.T) {
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
-		Algorithm:        "cartographer",
+		Algorithm:        "fake_cartographer",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "2d"},
 		DataDirectory:    name,
@@ -296,7 +333,7 @@ func TestDataProcessCartographer(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	cancelCtx, newFakeLibs, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -307,7 +344,7 @@ func TestDataProcessCartographer(t *testing.T) {
 	slamSvc.camera = cam
 
 	n := 5
-	slamSvc.startDataProcess()
+	slamSvc.startDataProcess(cancelCtx)
 
 	// Note: timePadding is required to allow the sub processes to be fully completed during test
 	time.Sleep(time.Millisecond * time.Duration((n)*(slamSvc.dataRateMs+timePadding)))
@@ -317,17 +354,15 @@ func TestDataProcessCartographer(t *testing.T) {
 	test.That(t, len(files), test.ShouldEqual, n)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = resetFolder(name)
-	test.That(t, err, test.ShouldBeNil)
+	closeOutSLAMService(t, slamSvc, name, newFakeLibs)
 }
 
-// OrbSLAMv3 Specific Tests (config).
 func TestORBSLAMData(t *testing.T) {
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
-		Algorithm:        "orbslamv3",
+		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "mono"},
 		DataDirectory:    name,
@@ -335,7 +370,7 @@ func TestORBSLAMData(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	cancelCtx, newFakeLibs, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -351,29 +386,23 @@ func TestORBSLAMData(t *testing.T) {
 	}
 	slamSvc.camera = cam
 
-	err = runtimeServiceValidation(slamSvc)
+	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	test.That(t, err, test.ShouldBeNil)
 
-	slamSvc.slamMode = twod
-	err = runtimeServiceValidation(slamSvc)
+	slamSvc.slamMode = dim2d
+	err = runtimeServiceValidation(cancelCtx, slamSvc)
 	errCheck := errors.Errorf("error getting data in desired mode: bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	test.That(t, err, test.ShouldBeError, errCheck)
 
-	slamSvc.cancelCtx = context.Background()
-
-	slamSvc.Close()
-
-	err = resetFolder(name)
-	test.That(t, err, test.ShouldBeNil)
+	closeOutSLAMService(t, slamSvc, name, newFakeLibs)
 }
 
-// GetAndSaveDataSparse Tests for image data.
 func TestGetAndSaveDataORBSLAM(t *testing.T) {
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
-		Algorithm:        "orbslamv3",
+		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "rgbd"},
 		DataDirectory:    name,
@@ -381,10 +410,7 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = slamSvc.startSLAMProcess(slamSvc.cancelCtx)
+	cancelCtx, newFakeLibs, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -394,12 +420,12 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 
 	slamSvc.camera = cam
 
-	_, err = slamSvc.getAndSaveDataSparse()
+	_, err = slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.New("want image/both but don't have *rimage.ImageWithDepth"))
 
 	slamSvc.slamMode = mono
 
-	filename, err := slamSvc.getAndSaveDataSparse()
+	filename, err := slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = os.Stat(filename)
@@ -407,7 +433,7 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 
 	ddTemp := slamSvc.dataDirectory
 	slamSvc.dataDirectory = "gibberish"
-	filename, err = slamSvc.getAndSaveDataSparse()
+	filename, err = slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("open %v: no such file or directory", filename))
 
 	_, err = os.Stat(filename)
@@ -419,7 +445,7 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 	}
 
 	slamSvc.camera = camErr
-	filename, err = slamSvc.getAndSaveDataSparse()
+	filename, err = slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeError, errors.New("camera data error"))
 	test.That(t, filename, test.ShouldBeEmpty)
 
@@ -433,24 +459,20 @@ func TestGetAndSaveDataORBSLAM(t *testing.T) {
 
 	slamSvc.camera = cam
 
-	filename, err = slamSvc.getAndSaveDataSparse()
+	filename, err = slamSvc.getAndSaveDataSparse(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = os.Stat(filename)
 	test.That(t, err, test.ShouldBeNil)
 
-	slamSvc.Close()
-
-	err = resetFolder(name)
-	test.That(t, err, test.ShouldBeNil)
+	closeOutSLAMService(t, slamSvc, name, newFakeLibs)
 }
 
-// ORBSLAM data process tests.
 func TestDataProcessORBSLAM(t *testing.T) {
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrCfg := &AttrConfig{
-		Algorithm:        "orbslamv3",
+		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{},
 		ConfigParams:     map[string]string{"mode": "mono"},
 		DataDirectory:    name,
@@ -458,7 +480,7 @@ func TestDataProcessORBSLAM(t *testing.T) {
 		DataRateMs:       100,
 	}
 
-	slamSvc, err := createSLAMService(t, attrCfg)
+	cancelCtx, newFakeLibs, slamSvc, err := createSLAMService(t, attrCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{}
@@ -469,7 +491,7 @@ func TestDataProcessORBSLAM(t *testing.T) {
 	slamSvc.camera = cam
 
 	n := 5
-	slamSvc.startDataProcess()
+	slamSvc.startDataProcess(cancelCtx)
 
 	// Note: timePadding is required to allow the sub processes to be fully completed during test
 	time.Sleep(time.Millisecond * time.Duration((n)*(slamSvc.dataRateMs+timePadding)))
@@ -479,8 +501,70 @@ func TestDataProcessORBSLAM(t *testing.T) {
 	test.That(t, len(files), test.ShouldEqual, n)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = resetFolder(name)
+	closeOutSLAMService(t, slamSvc, name, newFakeLibs)
+}
+
+func TestSLAMProcess(t *testing.T) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	logger := golog.NewTestLogger(t)
+
+	// TODO 05/19/2022: Improved end-to-end testing which validates pexec.Process function call results
+	testMetadata := metadata{
+		AlgoName: "testLib",
+		SlamMode: map[string]mode{"mono": mono},
+		// Using true here to allow pexec.Process to be called without having to validate the process as
+		// pexec.Process automatically succeeds on true
+		BinaryLocation: "true",
+	}
+
+	slamSvc := &slamService{
+		logger:                  logger,
+		slamLib:                 testMetadata,
+		slamProcess:             pexec.NewProcessManager(logger),
+		cameraName:              "test_sensor",
+		configParams:            map[string]string{"mode": "2d", "test_param": "viam"},
+		dataRateMs:              100,
+		mapRateSec:              200,
+		dataDirectory:           "/tmp/",
+		inputFilePattern:        "10:200:1",
+		cancelFunc:              cancelFunc,
+		activeBackgroundWorkers: &sync.WaitGroup{},
+	}
+
+	cmd, err := slamSvc.startSLAMProcess(cancelCtx)
 	test.That(t, err, test.ShouldBeNil)
+
+	cmdResult := [][]string{
+		[]string{testMetadata.BinaryLocation},
+		[]string{"-sensors=test_sensor"},
+		[]string{"-config_param={mode=2d,test_param=viam}", "-config_param={test_param=viam,mode=2d}"},
+		[]string{"-data_rate_ms=100"},
+		[]string{"-map_rate_sec=200"},
+		[]string{"-data_dir=/tmp/"},
+		[]string{"-input_file_pattern=10:200:1"},
+	}
+
+	for i, s := range cmd {
+		test.That(t, s, test.ShouldBeIn, cmdResult[i])
+	}
+
+	err = slamSvc.stopSLAMProcess()
+	test.That(t, err, test.ShouldBeNil)
+
+	testMetadataFail := metadata{
+		AlgoName:       "testLib_fail",
+		SlamMode:       map[string]mode{"mono": mono},
+		BinaryLocation: "fail",
+	}
+	slamSvc.slamLib = testMetadataFail
+
+	errCheck := fmt.Sprintf("\"%v\": executable file not found in $PATH", slamSvc.slamLib.BinaryLocation)
+	_, err = slamSvc.startSLAMProcess(cancelCtx)
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("problem adding slam process: error running process \"%v\": exec: %v", slamSvc.slamLib.BinaryLocation, errCheck))
+
+	closeOutSLAMService(t, slamSvc, "", []string{})
 }
 
 // nolint:unparam

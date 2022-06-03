@@ -18,7 +18,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err != nil {
 		return err
 	}
-	if diff.Equal {
+	if diff.ResourcesEqual {
 		return nil
 	}
 	r.logger.Debugf("reconfiguring with %s", diff)

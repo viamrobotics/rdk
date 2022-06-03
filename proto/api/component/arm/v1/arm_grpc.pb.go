@@ -28,6 +28,8 @@ type ArmServiceClient interface {
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(ctx context.Context, in *MoveToJointPositionsRequest, opts ...grpc.CallOption) (*MoveToJointPositionsResponse, error)
+	// Stop stops a robot's arm
+	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 }
 
 type armServiceClient struct {
@@ -74,6 +76,15 @@ func (c *armServiceClient) MoveToJointPositions(ctx context.Context, in *MoveToJ
 	return out, nil
 }
 
+func (c *armServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error) {
+	out := new(StopResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.arm.v1.ArmService/Stop", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ArmServiceServer is the server API for ArmService service.
 // All implementations must embed UnimplementedArmServiceServer
 // for forward compatibility
@@ -88,6 +99,8 @@ type ArmServiceServer interface {
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(context.Context, *MoveToJointPositionsRequest) (*MoveToJointPositionsResponse, error)
+	// Stop stops a robot's arm
+	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	mustEmbedUnimplementedArmServiceServer()
 }
 
@@ -106,6 +119,9 @@ func (UnimplementedArmServiceServer) GetJointPositions(context.Context, *GetJoin
 }
 func (UnimplementedArmServiceServer) MoveToJointPositions(context.Context, *MoveToJointPositionsRequest) (*MoveToJointPositionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToJointPositions not implemented")
+}
+func (UnimplementedArmServiceServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
 func (UnimplementedArmServiceServer) mustEmbedUnimplementedArmServiceServer() {}
 
@@ -192,6 +208,24 @@ func _ArmService_MoveToJointPositions_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ArmService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ArmServiceServer).Stop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.arm.v1.ArmService/Stop",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ArmServiceServer).Stop(ctx, req.(*StopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ArmService_ServiceDesc is the grpc.ServiceDesc for ArmService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -214,6 +248,10 @@ var ArmService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MoveToJointPositions",
 			Handler:    _ArmService_MoveToJointPositions_Handler,
+		},
+		{
+			MethodName: "Stop",
+			Handler:    _ArmService_Stop_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

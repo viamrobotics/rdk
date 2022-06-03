@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils"
 )
 
@@ -289,10 +289,10 @@ func TestServiceResourceName(t *testing.T) {
 		{
 			"all fields included",
 			config.Service{
-				Type: "frame_system",
+				Type: "motion",
 			},
-			framesystem.Subtype,
-			resource.NameFromSubtype(framesystem.Subtype, ""),
+			motion.Subtype,
+			resource.NameFromSubtype(motion.Subtype, ""),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
