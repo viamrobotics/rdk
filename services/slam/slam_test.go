@@ -46,12 +46,24 @@ func createFakeSLAMLibraries() {
 	}
 }
 
-func deletefakeSLAMLibraries() {
+func deleteFakeSLAMLibraries() {
 	for k := range slam.SLAMLibraries {
 		if strings.Contains(k, "fake") {
 			delete(slam.SLAMLibraries, k)
 		}
 	}
+}
+
+func closeOutSLAMService(t *testing.T, name string) {
+	t.Helper()
+
+	if name != "" {
+		err := resetFolder(name)
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	deleteFakeSLAMLibraries()
+
 }
 
 func setupInjectRobot() *inject.Robot {
@@ -234,7 +246,7 @@ func TestGeneralNew(t *testing.T) {
 		}
 	})
 
-	deletefakeSLAMLibraries()
+	closeOutSLAMService(t, name)
 }
 
 func TestCartographerNew(t *testing.T) {
@@ -302,7 +314,7 @@ func TestCartographerNew(t *testing.T) {
 			svc.Close()
 		}
 	})
-	deletefakeSLAMLibraries()
+	closeOutSLAMService(t, name)
 }
 
 func TestORBSLAMNew(t *testing.T) {
@@ -389,7 +401,7 @@ func TestORBSLAMNew(t *testing.T) {
 			svc.Close()
 		}
 	})
-	deletefakeSLAMLibraries()
+	closeOutSLAMService(t, name)
 }
 
 func TestCartographerDataProcess(t *testing.T) {
@@ -453,7 +465,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_lidar")
 	})
 
-	deletefakeSLAMLibraries()
+	closeOutSLAMService(t, name)
 }
 
 func TestORBSLAMDataProcess(t *testing.T) {
@@ -521,7 +533,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		slamSvc.Close()
 	}
 
-	deletefakeSLAMLibraries()
+	closeOutSLAMService(t, name)
 }
 
 func TestSLAMProcessSuccess(t *testing.T) {
@@ -578,7 +590,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		slamSvc.Close()
 	}
 
-	deletefakeSLAMLibraries()
+	closeOutSLAMService(t, name)
 }
 
 func TestSLAMProcessFail(t *testing.T) {
@@ -636,7 +648,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		svc.Close()
 	}
 
-	deletefakeSLAMLibraries()
+	closeOutSLAMService(t, name)
 }
 
 // nolint:unparam
@@ -658,4 +670,9 @@ func createTempFolderArchitecture(validArch bool) (string, error) {
 		}
 	}
 	return name, nil
+}
+
+func resetFolder(path string) error {
+	err := os.RemoveAll(path)
+	return err
 }
