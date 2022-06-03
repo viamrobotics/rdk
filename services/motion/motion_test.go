@@ -12,6 +12,9 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
+
+	// register.
+	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
