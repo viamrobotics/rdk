@@ -105,7 +105,6 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
-	cancelCtx, _ := context.WithCancel(ctx)
 	storageCheckCancelCtx, storageCheckCancelFn := context.WithCancel(ctx)
 
 	dataManagerSvc := &Service{
@@ -116,7 +115,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		collectors:           make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers:    sync.WaitGroup{},
 		lock:                 sync.Mutex{},
-		cancelCtx:            cancelCtx,
 		storageCheckCancelFn: storageCheckCancelFn,
 		statfs:               syscall.Statfs,
 	}
@@ -167,7 +165,6 @@ type Service struct {
 	backgroundWorkers        sync.WaitGroup
 	updateCollectorsCancelFn func()
 	storageCheckCancelFn     func()
-	cancelCtx                context.Context
 }
 
 // Parameters stored for each collector.
