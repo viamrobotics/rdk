@@ -53,7 +53,8 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose, include bool) (string, []byte, *commonpb.PointCloudObject, error) {
+		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose,
+			include bool) (string, []byte, *commonpb.PointCloudObject, error) {
 			return mimeType, imSucc, pcSucc, nil
 		}
 
@@ -81,7 +82,6 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing get position function", func(t *testing.T) {
-
 		injectSvc.CloseFunc = func() error {
 			return errors.New("failure to close")
 		}
@@ -99,12 +99,12 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing get map function", func(t *testing.T) {
-
 		injectSvc.CloseFunc = func() error {
 			return errors.New("failure to close")
 		}
 
-		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose, include bool) (string, []byte, *commonpb.PointCloudObject, error) {
+		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose,
+			include bool) (string, []byte, *commonpb.PointCloudObject, error) {
 			return mimeType, nil, nil, errors.New("failure to get map")
 		}
 

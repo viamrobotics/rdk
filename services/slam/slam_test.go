@@ -68,7 +68,6 @@ func closeOutSLAMService(t *testing.T, name string) {
 }
 
 func setupTestGRPCServer(port string) *grpc.Server {
-
 	listener2, _ := net.Listen("tcp", "localhost:"+port)
 	gServer2 := grpc.NewServer()
 	go gServer2.Serve(listener2)
@@ -682,6 +681,35 @@ func TestSLAMProcessFail(t *testing.T) {
 	grpcServer.Stop()
 	if svc != nil {
 		slamSvc.Close()
+		svc.Close()
+	}
+
+	closeOutSLAMService(t, name)
+}
+
+func TestGRPCConnection(t *testing.T) {
+	name, err := createTempFolderArchitecture(true)
+	test.That(t, err, test.ShouldBeNil)
+
+	createFakeSLAMLibraries()
+
+	attrCfg := &slam.AttrConfig{
+		Algorithm:        "fake_orbslamv3",
+		Sensors:          []string{"good_camera"},
+		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory:    name,
+		MapRateSec:       200,
+		DataRateMs:       100,
+		InputFilePattern: "10:200:1",
+		Port:             "-1",
+	}
+
+	// Create slam service
+	logger := golog.NewTestLogger(t)
+	svc, err := createSLAMService(t, attrCfg, logger, false)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with initial grpc client to slam algorithm")
+
+	if svc != nil {
 		svc.Close()
 	}
 

@@ -4,7 +4,6 @@ package slam
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"image/jpeg"
 	"os"
 	"path/filepath"
@@ -64,7 +63,6 @@ func init() {
 			return svc, nil
 		},
 	})
-
 }
 
 // SubtypeName is the name of the type of service.
@@ -369,7 +367,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	client, err := setupGRPCConnection(ctx, port, logger)
 	if err != nil {
-		fmt.Println(err)
 		return nil, errors.Errorf("error with initial grpc client to slam algorithm: %v", err)
 	}
 	slamSvc.clientAlgo = client

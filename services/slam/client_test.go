@@ -48,7 +48,8 @@ func TestClient(t *testing.T) {
 		return pSucc, nil
 	}
 
-	workingSLAMService.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose, include bool) (string, []byte, *commonpb.PointCloudObject, error) {
+	workingSLAMService.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose,
+		include bool) (string, []byte, *commonpb.PointCloudObject, error) {
 		return mimeType, imSucc, pcSucc, nil
 	}
 
@@ -69,7 +70,8 @@ func TestClient(t *testing.T) {
 		return pFail, errors.New("failure to get position")
 	}
 
-	failingSLAMService.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose, include bool) (string, []byte, *commonpb.PointCloudObject, error) {
+	failingSLAMService.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose,
+		include bool) (string, []byte, *commonpb.PointCloudObject, error) {
 		return mimeType, imFail, pcFail, errors.New("failure to get map")
 	}
 

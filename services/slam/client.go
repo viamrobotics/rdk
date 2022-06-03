@@ -81,10 +81,8 @@ func (c *client) GetMap(ctx context.Context, name, mimeType string, cameraPositi
 
 	mimeType = resp.MimeType
 
-	//var imageData []byte
 	imageData := []byte{}
 	pcData := &commonpb.PointCloudObject{}
-	//var pcData *commonpb.PointCloudObject
 	switch mimeType {
 	case utils.MimeTypeJPEG:
 		imageData = resp.GetImage()
