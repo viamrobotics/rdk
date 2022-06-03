@@ -67,26 +67,22 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 	return err
 }
 
-// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	return errors.New("boat can't move in arc yet")
-}
-
-// Spin TODO.
 func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	return errors.New("boat can't spin yet")
+}
+
+func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	return errors.New("boat can't set velocity yet")
 }
 
 func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	return errors.New("boat can't set power yet")
 }
 
-// Stop TODO.
 func (b *boat) Stop(ctx context.Context) error {
 	return multierr.Combine(b.starboard.Stop(ctx), b.port.Stop(ctx))
 }
 
-// Close TODO.
 func (b *boat) Close(ctx context.Context) error {
 	defer b.activeBackgroundWorkers.Wait()
 	b.cancel()

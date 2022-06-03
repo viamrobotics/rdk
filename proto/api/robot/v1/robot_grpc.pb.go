@@ -23,8 +23,14 @@ type RobotServiceClient interface {
 	ResourceNames(ctx context.Context, in *ResourceNamesRequest, opts ...grpc.CallOption) (*ResourceNamesResponse, error)
 	CancelOperation(ctx context.Context, in *CancelOperationRequest, opts ...grpc.CallOption) (*CancelOperationResponse, error)
 	BlockForOperation(ctx context.Context, in *BlockForOperationRequest, opts ...grpc.CallOption) (*BlockForOperationResponse, error)
+	// DiscoverComponents returns the list of discovered component configurations.
+	DiscoverComponents(ctx context.Context, in *DiscoverComponentsRequest, opts ...grpc.CallOption) (*DiscoverComponentsResponse, error)
 	FrameSystemConfig(ctx context.Context, in *FrameSystemConfigRequest, opts ...grpc.CallOption) (*FrameSystemConfigResponse, error)
 	TransformPose(ctx context.Context, in *TransformPoseRequest, opts ...grpc.CallOption) (*TransformPoseResponse, error)
+	// GetStatus returns the list of all statuses requested. An empty request signifies all resources.
+	GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error)
+	// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
+	StreamStatus(ctx context.Context, in *StreamStatusRequest, opts ...grpc.CallOption) (RobotService_StreamStatusClient, error)
 }
 
 type robotServiceClient struct {
@@ -71,6 +77,15 @@ func (c *robotServiceClient) BlockForOperation(ctx context.Context, in *BlockFor
 	return out, nil
 }
 
+func (c *robotServiceClient) DiscoverComponents(ctx context.Context, in *DiscoverComponentsRequest, opts ...grpc.CallOption) (*DiscoverComponentsResponse, error) {
+	out := new(DiscoverComponentsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/DiscoverComponents", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) FrameSystemConfig(ctx context.Context, in *FrameSystemConfigRequest, opts ...grpc.CallOption) (*FrameSystemConfigResponse, error) {
 	out := new(FrameSystemConfigResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/FrameSystemConfig", in, out, opts...)
@@ -89,6 +104,47 @@ func (c *robotServiceClient) TransformPose(ctx context.Context, in *TransformPos
 	return out, nil
 }
 
+func (c *robotServiceClient) GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error) {
+	out := new(GetStatusResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/GetStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) StreamStatus(ctx context.Context, in *StreamStatusRequest, opts ...grpc.CallOption) (RobotService_StreamStatusClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RobotService_ServiceDesc.Streams[0], "/proto.api.robot.v1.RobotService/StreamStatus", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &robotServiceStreamStatusClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RobotService_StreamStatusClient interface {
+	Recv() (*StreamStatusResponse, error)
+	grpc.ClientStream
+}
+
+type robotServiceStreamStatusClient struct {
+	grpc.ClientStream
+}
+
+func (x *robotServiceStreamStatusClient) Recv() (*StreamStatusResponse, error) {
+	m := new(StreamStatusResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -98,8 +154,14 @@ type RobotServiceServer interface {
 	ResourceNames(context.Context, *ResourceNamesRequest) (*ResourceNamesResponse, error)
 	CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error)
 	BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error)
+	// DiscoverComponents returns the list of discovered component configurations.
+	DiscoverComponents(context.Context, *DiscoverComponentsRequest) (*DiscoverComponentsResponse, error)
 	FrameSystemConfig(context.Context, *FrameSystemConfigRequest) (*FrameSystemConfigResponse, error)
 	TransformPose(context.Context, *TransformPoseRequest) (*TransformPoseResponse, error)
+	// GetStatus returns the list of all statuses requested. An empty request signifies all resources.
+	GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error)
+	// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
+	StreamStatus(*StreamStatusRequest, RobotService_StreamStatusServer) error
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -119,11 +181,20 @@ func (UnimplementedRobotServiceServer) CancelOperation(context.Context, *CancelO
 func (UnimplementedRobotServiceServer) BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BlockForOperation not implemented")
 }
+func (UnimplementedRobotServiceServer) DiscoverComponents(context.Context, *DiscoverComponentsRequest) (*DiscoverComponentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DiscoverComponents not implemented")
+}
 func (UnimplementedRobotServiceServer) FrameSystemConfig(context.Context, *FrameSystemConfigRequest) (*FrameSystemConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FrameSystemConfig not implemented")
 }
 func (UnimplementedRobotServiceServer) TransformPose(context.Context, *TransformPoseRequest) (*TransformPoseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TransformPose not implemented")
+}
+func (UnimplementedRobotServiceServer) GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStatus not implemented")
+}
+func (UnimplementedRobotServiceServer) StreamStatus(*StreamStatusRequest, RobotService_StreamStatusServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamStatus not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -210,6 +281,24 @@ func _RobotService_BlockForOperation_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_DiscoverComponents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DiscoverComponentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).DiscoverComponents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/DiscoverComponents",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).DiscoverComponents(ctx, req.(*DiscoverComponentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RobotService_FrameSystemConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FrameSystemConfigRequest)
 	if err := dec(in); err != nil {
@@ -246,6 +335,45 @@ func _RobotService_TransformPose_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_GetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).GetStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/GetStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).GetStatus(ctx, req.(*GetStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_StreamStatus_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamStatusRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RobotServiceServer).StreamStatus(m, &robotServiceStreamStatusServer{stream})
+}
+
+type RobotService_StreamStatusServer interface {
+	Send(*StreamStatusResponse) error
+	grpc.ServerStream
+}
+
+type robotServiceStreamStatusServer struct {
+	grpc.ServerStream
+}
+
+func (x *robotServiceStreamStatusServer) Send(m *StreamStatusResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -270,6 +398,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_BlockForOperation_Handler,
 		},
 		{
+			MethodName: "DiscoverComponents",
+			Handler:    _RobotService_DiscoverComponents_Handler,
+		},
+		{
 			MethodName: "FrameSystemConfig",
 			Handler:    _RobotService_FrameSystemConfig_Handler,
 		},
@@ -277,7 +409,17 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "TransformPose",
 			Handler:    _RobotService_TransformPose_Handler,
 		},
+		{
+			MethodName: "GetStatus",
+			Handler:    _RobotService_GetStatus_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamStatus",
+			Handler:       _RobotService_StreamStatus_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "proto/api/robot/v1/robot.proto",
 }
