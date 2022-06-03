@@ -63,7 +63,6 @@ func closeOutSLAMService(t *testing.T, name string) {
 	}
 
 	deleteFakeSLAMLibraries()
-
 }
 
 func setupInjectRobot() *inject.Robot {
