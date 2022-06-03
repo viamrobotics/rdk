@@ -23,7 +23,7 @@
         >
         {{ option }}
       </ViamButton>
-      <div class="absolute w-px right-0 top-0 h-6 bg-gray-300"></div>
+      <div v-show="i < options.length - 1 && (i - getSelectedIndex > 0 || Math.abs(getSelectedIndex - i) > 1)" class="absolute w-px gray-line	right-0 bg-gray-300"></div>
       </div>
       
     </div>
@@ -79,7 +79,8 @@ export default class RadioButtons extends Vue {
 }
 </script>
 <style>
-.radio-button { 
-  border-left: 
+.gray-line {
+  top: 15%;
+  bottom: 15%;
 }
 </style>
