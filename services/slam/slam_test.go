@@ -47,7 +47,6 @@ func createFakeSLAMLibraries() {
 }
 
 func deletefakeSLAMLibraries() {
-
 	for k := range slam.SLAMLibraries {
 		if strings.Contains(k, "fake") {
 			delete(slam.SLAMLibraries, k)
@@ -233,7 +232,6 @@ func TestGeneralNew(t *testing.T) {
 		if svc != nil {
 			svc.Close()
 		}
-
 	})
 
 	deletefakeSLAMLibraries()
