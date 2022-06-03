@@ -148,7 +148,7 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	// Load config with an arm, maximum storage percent of 40%, and disabled auto-delete.
 	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/fake_robot_with_data_manager.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc.Update(svc.cancelCtx, conf)
+	svc.Update(context.Background(), conf)
 	sleepTime := time.Millisecond * 5
 	time.Sleep(sleepTime)
 
