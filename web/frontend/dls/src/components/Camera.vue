@@ -505,11 +505,11 @@ export default class Base extends Vue {
     } else {
       this.maxHeight = 150;
     }
-    this.$nextTick(()=>{
+    this.$nextTick(() => {
       // eslint-disable-next-line
       const collapse: any = this.$refs.collapse;
-      collapse.resizeContent()
-    })
+      collapse.resizeContent();
+    });
   }
 }
 </script>

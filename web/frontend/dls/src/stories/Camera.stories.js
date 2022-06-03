@@ -12,11 +12,10 @@ storiesOf("Camera", module).add("Default Camera", () => ({
         streamName: "Camera2",
         crumbs: ["Camera2", "Intel2"],
         segmentAlgo: ["Camera3", "Intel3"],
-      }
+      },
     };
   },
-  template:
-    `<div>
+  template: `<div>
       <Camera :streamName="first.streamName" :segmenterNames="first.segmentAlgo" :segmentAlgo="first.segmentAlgo" :crumbs="first.crumbs"></Camera>
       <Camera :streamName="second.streamName" :segmenterNames="second.segmentAlgo" :segmentAlgo="second.segmentAlgo" :crumbs="second.crumbs"></Camera>
     </div>
