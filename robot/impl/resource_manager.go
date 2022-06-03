@@ -149,22 +149,18 @@ func (manager *resourceManager) processConfig(
 	if err := manager.newProcesses(ctx, config.Processes); err != nil {
 		return err
 	}
-	logger.Info("processes")
 
 	if err := manager.newRemotes(ctx, config.Remotes, logger); err != nil {
 		return err
 	}
-	logger.Info("remotes")
 
 	if err := manager.newComponents(ctx, config.Components, robot, logger); err != nil {
 		return err
 	}
-	logger.Info("components")
 
 	if err := manager.newServices(ctx, config.Services, robot); err != nil {
 		return err
 	}
-	logger.Info("services")
 
 	return nil
 }

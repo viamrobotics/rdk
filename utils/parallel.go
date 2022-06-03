@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
@@ -126,7 +125,7 @@ func ParallelForEachPixel(size image.Point, f func(x int, y int)) {
 type SimpleFunc func(ctx context.Context) error
 
 // RunInParallel runs all functions in parallel, return is elapsed time and n error.
-func RunInParallel(ctx context.Context, fs []SimpleFunc, logger golog.Logger) (time.Duration, error) {
+func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) {
 	start := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -148,12 +147,9 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc, logger golog.Logger) (t
 				storeError(fmt.Errorf("got panic running something in parallel: %v", thePanic))
 				cancel()
 			}
-			logger.Debug("done")
 			wg.Done()
 		}()
 
-		logger.Debug("starting")
-		//fmt.Println("starting")
 		err := f(ctx)
 		if err != nil {
 			storeError(err)

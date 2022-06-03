@@ -62,8 +62,7 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	logger golog.Logger
-	opMgr  operation.SingleOperationManager
+	opMgr operation.SingleOperationManager
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
@@ -128,16 +127,13 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 
 	for _, m := range base.left {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations) })
-		base.logger.Debugf("left rpm %d rotations %d", leftRPM, leftRotations)
 	}
 
 	for _, m := range base.right {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations) })
-		base.logger.Debugf("right rpm %d rotations %d", rightRPM, rightRotations)
-
 	}
 
-	if _, err := rdkutils.RunInParallel(ctx, fs, base.logger); err != nil {
+	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
 	}
 	return nil
@@ -325,7 +321,6 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 		spinSlipFactor:       config.Attributes.Float64("spin_slip_factor", 1.0),
 		left:                 []motor.Motor{frontLeft, backLeft},
 		right:                []motor.Motor{frontRight, backRight},
-		logger:               logger,
 	}
 
 	if base.widthMm == 0 {
