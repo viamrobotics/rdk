@@ -117,9 +117,10 @@ func TestDMC4000Motor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		txMu.Lock()
-		go checkTx(resChan, c, []string{
-			"STA",
-		})
+		go checkRx(resChan, c,
+			[]string{"STA", "SCA", "TEA"},
+			[]string{" :", " 4\r\n:", " 0\r\n:"},
+		)
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 		waitTx(t, resChan)
 	}()
@@ -138,9 +139,10 @@ func TestDMC4000Motor(t *testing.T) {
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
 		txMu.Lock()
-		go checkTx(resChan, c, []string{
-			"STA",
-		})
+		go checkRx(resChan, c,
+			[]string{"STA", "SCA", "TEA"},
+			[]string{" :", "4\r\n:", "0\r\n:"},
+		)
 		test.That(t, _motor.SetPower(ctx, 0), test.ShouldBeNil)
 
 		// Test 0.5 of max power
@@ -163,9 +165,10 @@ func TestDMC4000Motor(t *testing.T) {
 
 	t.Run("motor Stop testing", func(t *testing.T) {
 		txMu.Lock()
-		go checkTx(resChan, c, []string{
-			"STA",
-		})
+		go checkRx(resChan, c,
+			[]string{"STA", "SCA", "TEA"},
+			[]string{" :", " 4\r\n:", " 0\r\n:"},
+		)
 		test.That(t, _motor.Stop(ctx), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
@@ -192,14 +195,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=40960",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 0\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, 3.2), test.ShouldBeNil)
@@ -212,14 +217,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=92160",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 51200\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, 3.2), test.ShouldBeNil)
@@ -232,14 +239,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=99840",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 15360\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, 6.6), test.ShouldBeNil)
@@ -255,14 +264,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=-40960",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 0\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, 3.2), test.ShouldBeNil)
@@ -275,14 +286,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=10239",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 51200\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, 3.2), test.ShouldBeNil)
@@ -295,14 +308,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=15360",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 99840\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, 6.6), test.ShouldBeNil)
@@ -318,14 +333,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=-40960",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 0\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, -3.2), test.ShouldBeNil)
@@ -338,14 +355,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=10239",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 51200\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, -3.2), test.ShouldBeNil)
@@ -358,14 +377,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=-69120",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 15360\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, 50.0, -6.6), test.ShouldBeNil)
@@ -381,14 +402,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=40960",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 0\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, -3.2), test.ShouldBeNil)
@@ -401,14 +424,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=92160",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 51200\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, -3.2), test.ShouldBeNil)
@@ -421,14 +446,16 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=99840",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 15360\r\n:",
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, -6.6), test.ShouldBeNil)
@@ -453,6 +480,8 @@ func TestDMC4000Motor(t *testing.T) {
 				"PTA=1",
 				"SPA=10666",
 				"PAA=40960",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				" 0\r\n:",
@@ -460,8 +489,8 @@ func TestDMC4000Motor(t *testing.T) {
 				":",
 				":",
 				":",
-				":",
-				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, _motor.GoFor(ctx, -50.0, -3.2), test.ShouldBeNil)
@@ -587,10 +616,8 @@ func TestDMC4000Motor(t *testing.T) {
 		txMu.Lock()
 		go checkRx(resChan, c,
 			[]string{
-				"RPA",
-				"PTA=1",
-				"SPA=5333",
-				"PAA=-128000000",
+				"JGA=32000",
+				"BGA",
 				"SCA",
 				"SCA",
 				"SCA",
@@ -600,10 +627,10 @@ func TestDMC4000Motor(t *testing.T) {
 				"SCA",
 				"TEA",
 				"STA",
+				"SCA",
+				"TEA",
 			},
 			[]string{
-				" 0\r\n:",
-				":",
 				":",
 				":",
 				" 0\r\n:",
@@ -615,6 +642,8 @@ func TestDMC4000Motor(t *testing.T) {
 				" 4\r\n:",
 				" 0\r\n:",
 				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, nil), test.ShouldBeNil)
@@ -623,10 +652,8 @@ func TestDMC4000Motor(t *testing.T) {
 		txMu.Lock()
 		go checkRx(resChan, c,
 			[]string{
-				"RPA",
-				"PTA=1",
-				"SPA=5333",
-				"PAA=-128000000",
+				"JGA=5333",
+				"BGA",
 				"SCA",
 				"SCA",
 				"SCA",
@@ -636,10 +663,10 @@ func TestDMC4000Motor(t *testing.T) {
 				"SCA",
 				"TEA",
 				"STA",
+				"SCA",
+				"TEA",
 			},
 			[]string{
-				" 0\r\n:",
-				":",
 				":",
 				":",
 				" 0\r\n:",
@@ -651,6 +678,8 @@ func TestDMC4000Motor(t *testing.T) {
 				" 4\r\n:",
 				" 0\r\n:",
 				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
@@ -659,18 +688,18 @@ func TestDMC4000Motor(t *testing.T) {
 		txMu.Lock()
 		go checkRx(resChan, c,
 			[]string{
-				"RPA",
-				"PTA=1",
-				"SPA=5333",
-				"PAA=-128000000",
+				"JGA=32000",
+				"BGA",
 				"STA",
+				"SCA",
+				"TEA",
 			},
 			[]string{
+				":",
+				":",
+				":",
+				" 4\r\n:",
 				" 0\r\n:",
-				":",
-				":",
-				":",
-				":",
 			},
 		)
 		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
@@ -705,6 +734,8 @@ func TestDMC4000Motor(t *testing.T) {
 				"SCA",
 				"SCA",
 				"STA",
+				"SCA",
+				"TEA",
 			},
 			[]string{
 				":",
@@ -719,6 +750,8 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 				" 10\r\n:",
 				":",
+				" 4\r\n:",
+				" 0\r\n:",
 			},
 		)
 		resp, err := _motor.Do(ctx, map[string]interface{}{"command": "home"})

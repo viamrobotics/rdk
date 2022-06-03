@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -83,6 +84,7 @@ type URArm struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	mp                      motionplan.MotionPlanner
 	model                   referenceframe.Model
+	opMgr                   operation.SingleOperationManager
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -237,6 +239,9 @@ func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := ua.opMgr.New(ctx)
+	defer done()
+
 	joints, err := ua.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -259,8 +264,20 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 
+// Stop stops the arm with some deceleration.
+func (ua *URArm) Stop(ctx context.Context) error {
+	ua.opMgr.CancelRunning(ctx)
+	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speed)
+
+	_, err := ua.conn.Write([]byte(cmd))
+	return err
+}
+
 // MoveToJointPositionRadians TODO.
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
+	ctx, done := ua.opMgr.New(ctx)
+	defer done()
+
 	ua.muMove.Lock()
 	defer ua.muMove.Unlock()
 

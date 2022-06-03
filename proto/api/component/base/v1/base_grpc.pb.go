@@ -20,13 +20,17 @@ const _ = grpc.SupportPackageIsVersion7
 type BaseServiceClient interface {
 	// MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
 	// and a given speed, expressed in millimeters per second
+	// This method blocks until completed or cancelled
 	MoveStraight(ctx context.Context, in *MoveStraightRequest, opts ...grpc.CallOption) (*MoveStraightResponse, error)
-	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
-	MoveArc(ctx context.Context, in *MoveArcRequest, opts ...grpc.CallOption) (*MoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
+	// This method blocks until completed or cancelled
 	Spin(ctx context.Context, in *SpinRequest, opts ...grpc.CallOption) (*SpinResponse, error)
+	// SetPower sets the linear and angular power of a base
+	// -1 -> 1 in terms of power for each direction
+	SetPower(ctx context.Context, in *SetPowerRequest, opts ...grpc.CallOption) (*SetPowerResponse, error)
+	// SetVelocity sets the linear and angular velocity of a base
+	SetVelocity(ctx context.Context, in *SetVelocityRequest, opts ...grpc.CallOption) (*SetVelocityResponse, error)
 	// Stop stops a robot's base
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 }
@@ -48,18 +52,27 @@ func (c *baseServiceClient) MoveStraight(ctx context.Context, in *MoveStraightRe
 	return out, nil
 }
 
-func (c *baseServiceClient) MoveArc(ctx context.Context, in *MoveArcRequest, opts ...grpc.CallOption) (*MoveArcResponse, error) {
-	out := new(MoveArcResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/MoveArc", in, out, opts...)
+func (c *baseServiceClient) Spin(ctx context.Context, in *SpinRequest, opts ...grpc.CallOption) (*SpinResponse, error) {
+	out := new(SpinResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/Spin", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *baseServiceClient) Spin(ctx context.Context, in *SpinRequest, opts ...grpc.CallOption) (*SpinResponse, error) {
-	out := new(SpinResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/Spin", in, out, opts...)
+func (c *baseServiceClient) SetPower(ctx context.Context, in *SetPowerRequest, opts ...grpc.CallOption) (*SetPowerResponse, error) {
+	out := new(SetPowerResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/SetPower", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *baseServiceClient) SetVelocity(ctx context.Context, in *SetVelocityRequest, opts ...grpc.CallOption) (*SetVelocityResponse, error) {
+	out := new(SetVelocityResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.base.v1.BaseService/SetVelocity", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,13 +94,17 @@ func (c *baseServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...g
 type BaseServiceServer interface {
 	// MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
 	// and a given speed, expressed in millimeters per second
+	// This method blocks until completed or cancelled
 	MoveStraight(context.Context, *MoveStraightRequest) (*MoveStraightResponse, error)
-	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
-	MoveArc(context.Context, *MoveArcRequest) (*MoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
+	// This method blocks until completed or cancelled
 	Spin(context.Context, *SpinRequest) (*SpinResponse, error)
+	// SetPower sets the linear and angular power of a base
+	// -1 -> 1 in terms of power for each direction
+	SetPower(context.Context, *SetPowerRequest) (*SetPowerResponse, error)
+	// SetVelocity sets the linear and angular velocity of a base
+	SetVelocity(context.Context, *SetVelocityRequest) (*SetVelocityResponse, error)
 	// Stop stops a robot's base
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	mustEmbedUnimplementedBaseServiceServer()
@@ -100,11 +117,14 @@ type UnimplementedBaseServiceServer struct {
 func (UnimplementedBaseServiceServer) MoveStraight(context.Context, *MoveStraightRequest) (*MoveStraightResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveStraight not implemented")
 }
-func (UnimplementedBaseServiceServer) MoveArc(context.Context, *MoveArcRequest) (*MoveArcResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MoveArc not implemented")
-}
 func (UnimplementedBaseServiceServer) Spin(context.Context, *SpinRequest) (*SpinResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Spin not implemented")
+}
+func (UnimplementedBaseServiceServer) SetPower(context.Context, *SetPowerRequest) (*SetPowerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetPower not implemented")
+}
+func (UnimplementedBaseServiceServer) SetVelocity(context.Context, *SetVelocityRequest) (*SetVelocityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetVelocity not implemented")
 }
 func (UnimplementedBaseServiceServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
@@ -140,24 +160,6 @@ func _BaseService_MoveStraight_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BaseService_MoveArc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MoveArcRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BaseServiceServer).MoveArc(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.base.v1.BaseService/MoveArc",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BaseServiceServer).MoveArc(ctx, req.(*MoveArcRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _BaseService_Spin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SpinRequest)
 	if err := dec(in); err != nil {
@@ -172,6 +174,42 @@ func _BaseService_Spin_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BaseServiceServer).Spin(ctx, req.(*SpinRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BaseService_SetPower_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPowerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BaseServiceServer).SetPower(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.base.v1.BaseService/SetPower",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BaseServiceServer).SetPower(ctx, req.(*SetPowerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BaseService_SetVelocity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetVelocityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BaseServiceServer).SetVelocity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.base.v1.BaseService/SetVelocity",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BaseServiceServer).SetVelocity(ctx, req.(*SetVelocityRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -206,12 +244,16 @@ var BaseService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _BaseService_MoveStraight_Handler,
 		},
 		{
-			MethodName: "MoveArc",
-			Handler:    _BaseService_MoveArc_Handler,
-		},
-		{
 			MethodName: "Spin",
 			Handler:    _BaseService_Spin_Handler,
+		},
+		{
+			MethodName: "SetPower",
+			Handler:    _BaseService_SetPower_Handler,
+		},
+		{
+			MethodName: "SetVelocity",
+			Handler:    _BaseService_SetVelocity_Handler,
 		},
 		{
 			MethodName: "Stop",

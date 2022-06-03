@@ -2,9 +2,9 @@ package servo_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/servo"
@@ -59,10 +59,10 @@ func TestServoMove(t *testing.T) {
 func TestServoGetPosition(t *testing.T) {
 	servoServer, workingServo, failingServo, _ := newServer()
 
-	workingServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+	workingServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return 20, nil
 	}
-	failingServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+	failingServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return 0, errors.New("current angle not readable")
 	}
 
@@ -79,5 +79,28 @@ func TestServoGetPosition(t *testing.T) {
 	req = pb.GetPositionRequest{Name: fakeServoName}
 	resp, err = servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func TestServoStop(t *testing.T) {
+	servoServer, workingServo, failingServo, _ := newServer()
+
+	workingServo.StopFunc = func(ctx context.Context) error {
+		return nil
+	}
+	failingServo.StopFunc = func(ctx context.Context) error {
+		return errors.New("no stop")
+	}
+
+	req := pb.StopRequest{Name: testServoName}
+	_, err := servoServer.Stop(context.Background(), &req)
+	test.That(t, err, test.ShouldBeNil)
+
+	req = pb.StopRequest{Name: failServoName}
+	_, err = servoServer.Stop(context.Background(), &req)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	req = pb.StopRequest{Name: fakeServoName}
+	_, err = servoServer.Stop(context.Background(), &req)
 	test.That(t, err, test.ShouldNotBeNil)
 }

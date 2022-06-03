@@ -104,7 +104,10 @@
 /**********
 * BUTTONS *
 **********/
-.component button {
+.component button.red,
+.component button.blue,
+.component button.green
+ {
     font-size: 14px;
     font-weight: 600;
     text-transform: uppercase;
@@ -114,14 +117,23 @@
     border: none;
     cursor: pointer;
 }
-.component button:hover,
-.component button:focus {
+
+.component button.red:hover,
+.component button.blue:hover,
+.component button.green:hover,
+.component button.red:focus,
+.component button.blue:focus,
+.component button.green:focus {
     filter: brightness(var(--hover-brightness));
 }
-.component button:active {
+.component button.red:active,
+.component button.blue:active,
+.component button.green:active {
     filter: none;
 }
-.component button:disabled {
+.component button.red:disabled,
+.component button.blue:disabled,
+.component button.green:disabled {
     filter: brightness(var(--disabled-brightness));
 }
 .component button.clear {

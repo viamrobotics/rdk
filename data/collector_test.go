@@ -13,19 +13,20 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
+	"go.viam.com/rdk/protoutils"
 )
 
-type exampleReading struct {
+type structReading struct {
 	Field1 bool
 }
 
-func (r *exampleReading) toProto() *structpb.Struct {
-	msg, err := StructToStructPb(r)
+func (r *structReading) toProto() *structpb.Struct {
+	msg, err := protoutils.StructToStructPb(r)
 	if err != nil {
 		return nil
 	}
@@ -33,65 +34,136 @@ func (r *exampleReading) toProto() *structpb.Struct {
 }
 
 var (
-	dummyCapturer = CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		return dummyReading, nil
+	dummyStructCapturer = CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+		return dummyStructReading, nil
 	})
-	dummyReading      = exampleReading{}
-	dummyReadingProto = dummyReading.toProto()
-	queueSize         = 250
-	bufferSize        = 4096
+	dummyBinaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+		return dummyBytesReading, nil
+	})
+	dummyStructReading      = structReading{}
+	dummyStructReadingProto = dummyStructReading.toProto()
+	dummyBytesReading       = []byte("I sure am bytes")
+	queueSize               = 250
+	bufferSize              = 4096
 )
 
 func TestNewCollector(t *testing.T) {
-	c := NewCollector(nil, time.Second, nil, nil, queueSize, bufferSize, nil)
-	test.That(t, c, test.ShouldNotBeNil)
+	// If missing parameters should return an error.
+	c1, err1 := NewCollector(nil, CollectorParams{})
+
+	test.That(t, c1, test.ShouldBeNil)
+	test.That(t, err1, test.ShouldNotBeNil)
+
+	// If not missing parameters, should not return an error.
+	target1, _ := ioutil.TempFile("", "whatever")
+	c2, err2 := NewCollector(nil, CollectorParams{
+		ComponentName: "name",
+		Logger:        golog.NewTestLogger(t),
+		Target:        target1,
+	})
+
+	test.That(t, c2, test.ShouldNotBeNil)
+	test.That(t, err2, test.ShouldBeNil)
 }
 
 // Test that SensorData is written correctly and can be read, and that interval is respected and that capture()
 // is called floor(time_passed/interval) times in the ticker (interval >= 2ms) case.
-func TestSuccessfulWriteTicker(t *testing.T) {
+func TestSuccessfulWrite(t *testing.T) {
 	l := golog.NewTestLogger(t)
-	target1, _ := ioutil.TempFile("", "whatever")
-	defer os.Remove(target1.Name())
-	c := NewCollector(
-		dummyCapturer, time.Millisecond*25, map[string]string{"name": "test"}, target1, queueSize, bufferSize, l)
-	go c.Collect()
 
-	// Verify that it writes to the file at all.
-	time.Sleep(time.Millisecond * 70)
-	c.Close()
-	fileSize := getFileSize(target1)
-	test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
+	tests := []struct {
+		name                string
+		capturer            Capturer
+		params              CollectorParams
+		wait                time.Duration
+		minExpectReadings   int
+		maxExpectedReadings int
+	}{
+		{
+			name:     "Ticker based struct writer.",
+			capturer: dummyStructCapturer,
+			params: CollectorParams{
+				ComponentName: "testComponent",
+				Interval:      time.Millisecond * 25,
+				MethodParams:  map[string]string{"name": "test"},
+				QueueSize:     queueSize,
+				BufferSize:    bufferSize,
+				Logger:        l,
+			},
+			wait:                time.Millisecond * 70,
+			minExpectReadings:   2,
+			maxExpectedReadings: 2,
+		},
+		{
+			name:     "Sleep based struct writer.",
+			capturer: dummyStructCapturer,
+			params: CollectorParams{
+				ComponentName: "testComponent",
+				Interval:      time.Millisecond,
+				MethodParams:  map[string]string{"name": "test"},
+				QueueSize:     queueSize,
+				BufferSize:    bufferSize,
+				Logger:        l,
+			},
+			wait:                time.Millisecond * 20,
+			minExpectReadings:   10,
+			maxExpectedReadings: 25,
+		},
+		{
+			name:     "Ticker based binary writer.",
+			capturer: dummyBinaryCapturer,
+			params: CollectorParams{
+				ComponentName: "testComponent",
+				Interval:      time.Millisecond * 25,
+				MethodParams:  map[string]string{"name": "test"},
+				QueueSize:     queueSize,
+				BufferSize:    bufferSize,
+				Logger:        l,
+			},
+			wait:                time.Millisecond * 70,
+			minExpectReadings:   2,
+			maxExpectedReadings: 2,
+		},
+		{
+			name:     "Sleep based binary writer.",
+			capturer: dummyBinaryCapturer,
+			params: CollectorParams{
+				ComponentName: "testComponent",
+				Interval:      time.Millisecond,
+				MethodParams:  map[string]string{"name": "test"},
+				QueueSize:     queueSize,
+				BufferSize:    bufferSize,
+				Logger:        l,
+			},
+			wait:                time.Millisecond * 20,
+			minExpectReadings:   10,
+			maxExpectedReadings: 25,
+		},
+	}
 
-	// Verify that the data it wrote matches what we expect (two SensorData's containing dummyReading).
-	// floor(70/25) = 2
-	validateNReadings(t, target1, 2)
+	for _, tc := range tests {
+		target, _ := ioutil.TempFile("", "whatever")
+		tc.params.Target = target
+		c, _ := NewCollector(tc.capturer, tc.params)
+		go c.Collect()
 
-	// Next reading should fail; there should only be two readings.
-	_, err := readNextSensorData(target1)
-	test.That(t, err, test.ShouldEqual, io.EOF)
-}
+		// Verify that it writes to the file at all.
+		time.Sleep(tc.wait)
+		c.Close()
+		fileSize := getFileSize(target)
+		test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
 
-// Test that SensorData is written correctly and can be read, and that interval is respected and that capture()
-// is called floor(time_passed/interval) times in the sleep (interval <2ms) case.
-func TestSuccessfulWriteSleep(t *testing.T) {
-	l := golog.NewTestLogger(t)
-	target1, _ := ioutil.TempFile("", "whatever")
-	defer os.Remove(target1.Name())
-	c := NewCollector(
-		dummyCapturer, time.Millisecond, map[string]string{"name": "test"}, target1, queueSize, bufferSize, l)
-	go c.Collect()
+		// Verify that the data it wrote matches what we expect.
+		// Allow a range of readings, because when durations get small (<<ms) there can be slight variation, and we
+		// don't want the tests to be too noise-y. A range of -10/+5 was chosen for sleepBasedReadings because we
+		// confirmed that this got a failure rate that was sufficiently low (<<1%).
+		validateReadings(t, target, tc.minExpectReadings, tc.maxExpectedReadings)
 
-	// Verify that it writes to the file at all.
-	time.Sleep(time.Microsecond * 9900)
-	c.Close()
-	fileSize := getFileSize(target1)
-	test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
-
-	// Verify that the data it wrote matches what we expect.
-	// It should have 9 readings, but only validate the first 7 so small changes in execution order don't cause
-	// failures.
-	validateNReadings(t, target1, 7)
+		// Next reading should fail; there should be at most max readings.
+		_, err := readNextSensorData(target)
+		test.That(t, err, test.ShouldEqual, io.EOF)
+		os.Remove(target.Name())
+	}
 }
 
 func TestClose(t *testing.T) {
@@ -99,8 +171,16 @@ func TestClose(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	c := NewCollector(
-		dummyCapturer, time.Millisecond*15, map[string]string{"name": "test"}, target1, queueSize, bufferSize, l)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 15,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        l,
+	}
+	c, _ := NewCollector(dummyStructCapturer, params)
 	go c.Collect()
 	time.Sleep(time.Millisecond * 25)
 
@@ -120,8 +200,16 @@ func TestSetTarget(t *testing.T) {
 	defer os.Remove(target1.Name())
 	defer os.Remove(target2.Name())
 
-	c := NewCollector(
-		dummyCapturer, time.Millisecond*15, map[string]string{"name": "test"}, target1, queueSize, bufferSize, l)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 15,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        l,
+	}
+	c, _ := NewCollector(dummyStructCapturer, params)
 	go c.Collect()
 	time.Sleep(time.Millisecond * 30)
 
@@ -147,8 +235,16 @@ func TestSwallowsErrors(t *testing.T) {
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		return nil, errors.New("error")
 	})
-	c := NewCollector(
-		errorCapturer, time.Millisecond*10, map[string]string{"name": "test"}, target1, queueSize, bufferSize, logger)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 10,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        logger,
+	}
+	c, _ := NewCollector(errorCapturer, params)
 	errorChannel := make(chan error)
 	defer close(errorChannel)
 	go func() {
@@ -181,8 +277,16 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
 	})
-	c := NewCollector(
-		errorCapturer, time.Millisecond*10, map[string]string{"name": "test"}, target1, queueSize, bufferSize, logger)
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      time.Millisecond * 10,
+		MethodParams:  map[string]string{"name": "test"},
+		Target:        target1,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        logger,
+	}
+	c, _ := NewCollector(errorCapturer, params)
 	go c.Collect()
 	time.Sleep(30 * time.Millisecond)
 	c.Close()
@@ -195,15 +299,22 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
-func validateNReadings(t *testing.T, file *os.File, n int) {
+func validateReadings(t *testing.T, file *os.File, min int, max int) {
 	t.Helper()
 	_, _ = file.Seek(0, 0)
-	for i := 0; i < n; i++ {
+	for i := 0; i < max; i++ {
 		read, err := readNextSensorData(file)
 		if err != nil {
+			if i > min {
+				return
+			}
 			t.Fatalf("failed to read SensorData from file: %v", err)
 		}
-		test.That(t, proto.Equal(dummyReadingProto, read.Data), test.ShouldBeTrue)
+		if read.GetStruct() != nil {
+			test.That(t, proto.Equal(dummyStructReadingProto, read.GetStruct()), test.ShouldBeTrue)
+		} else {
+			test.That(t, read.GetBinary(), test.ShouldResemble, dummyBytesReading)
+		}
 	}
 }
 

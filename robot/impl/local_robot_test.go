@@ -24,6 +24,9 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+
+	// registers all components.
+	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -32,13 +35,10 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
@@ -93,11 +93,9 @@ func TestConfigRemote(t *testing.T) {
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	addr := fmt.Sprintf("localhost:%d", port)
-	options := web.NewOptions()
+	options := weboptions.New()
 	options.Network.BindAddress = addr
-	svc, err := web.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	err = svc.Start(ctx, options)
+	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteConfig := &config.Config{
@@ -119,11 +117,7 @@ func TestConfigRemote(t *testing.T) {
 				},
 			},
 		},
-		Services: []config.Service{
-			{
-				Type: "frame_system",
-			},
-		},
+		Services: []config.Service{},
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
@@ -153,23 +147,14 @@ func TestConfigRemote(t *testing.T) {
 		},
 	}
 
-	test.That(t, err, test.ShouldBeNil)
 	ctx2 := context.Background()
 	r2, err := robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	metadataSvc2, err := metadata.FromRobot(r2)
-	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		metadata.Name,
-		framesystem.Name,
 		vision.Name,
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "squee"),
 		arm.Named("pieceArm"),
 		arm.Named("foo.pieceArm"),
 		arm.Named("bar.pieceArm"),
@@ -189,8 +174,7 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("bar.pieceGripper"),
 	}
 
-	resources2, err := metadataSvc2.Resources(ctx2)
-	test.That(t, err, test.ShouldBeNil)
+	resources2 := r2.ResourceNames()
 
 	test.That(
 		t,
@@ -198,20 +182,30 @@ func TestConfigRemote(t *testing.T) {
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
-	statusSvc, err := status.FromRobot(r2)
-	test.That(t, err, test.ShouldBeNil)
 
-	statuses, err := statusSvc.GetStatus(
+	expectedRemotes := []string{"squee", "foo", "bar"}
+	remotes2 := r2.RemoteNames()
+
+	test.That(
+		t, utils.NewStringSet(remotes2...),
+		test.ShouldResemble,
+		utils.NewStringSet(expectedRemotes...),
+	)
+
+	statuses, err := r2.GetStatus(
 		context.Background(),
 		[]resource.Name{gps.Named("gps1"), gps.Named("foo.gps1"), gps.Named("bar.gps1")},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 3)
-	test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
-	test.That(t, statuses[1].Status, test.ShouldResemble, struct{}{})
-	test.That(t, statuses[2].Status, test.ShouldResemble, struct{}{})
 
-	statuses, err = statusSvc.GetStatus(
+	expectedStatusLength := 3
+	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
+
+	for idx := 0; idx < expectedStatusLength; idx++ {
+		test.That(t, statuses[idx].Status, test.ShouldResemble, struct{}{})
+	}
+
+	statuses, err = r2.GetStatus(
 		context.Background(),
 		[]resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm"), arm.Named("bar.pieceArm")},
 	)
@@ -240,9 +234,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
-	frameService, err := framesystem.FromRobot(r2)
-	test.That(t, err, test.ShouldBeNil)
-	fsConfig, err := frameService.Config(context.Background(), nil)
+	fsConfig, err := r2.FrameSystemConfig(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsConfig, test.ShouldHaveLength, 12)
 
@@ -275,7 +267,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
-			options := web.NewOptions()
+			options := weboptions.New()
 			addr := fmt.Sprintf("localhost:%d", port)
 			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
@@ -303,9 +295,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				options.BakedAuthEntity = "blah"
 				options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 			}
-			svc, err := web.FromRobot(r)
-			test.That(t, err, test.ShouldBeNil)
-			err = svc.Start(ctx, options)
+			err = r.StartWeb(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
 			entityName := tc.EntityName
@@ -348,7 +338,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			}
 
 			var r2 robot.LocalRobot
-			var metadataSvc2 metadata.Service
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
@@ -367,7 +356,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
-				metadataSvc2, err = metadata.FromRobot(r2)
 				test.That(t, err, test.ShouldBeNil)
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
@@ -387,7 +375,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
-				metadataSvc2, err = metadata.FromRobot(r2)
 				test.That(t, err, test.ShouldBeNil)
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
@@ -398,14 +385,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				metadata.Name,
-				framesystem.Name,
 				vision.Name,
 				sensors.Name,
-				status.Name,
 				datamanager.Name,
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
-				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 				arm.Named("pieceArm"),
 				arm.Named("foo.pieceArm"),
 				camera.Named("cameraOver"),
@@ -418,8 +400,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				gripper.Named("foo.pieceGripper"),
 			}
 
-			resources2, err := metadataSvc2.Resources(ctx)
-			test.That(t, err, test.ShouldBeNil)
+			resources2 := r2.ResourceNames()
 
 			test.That(
 				t,
@@ -427,10 +408,17 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.ShouldResemble,
 				rtestutils.NewResourceNameSet(expected...),
 			)
-			statusSvc, err := status.FromRobot(r2)
-			test.That(t, err, test.ShouldBeNil)
 
-			statuses, err := statusSvc.GetStatus(
+			remotes2 := r2.RemoteNames()
+			expectedRemotes := []string{"bar", "foo"}
+
+			test.That(
+				t, utils.NewStringSet(remotes2...),
+				test.ShouldResemble,
+				utils.NewStringSet(expectedRemotes...),
+			)
+
+			statuses, err := r2.GetStatus(
 				context.Background(), []resource.Name{gps.Named("gps1"), gps.Named("foo.gps1")},
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -438,7 +426,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
 			test.That(t, statuses[1].Status, test.ShouldResemble, struct{}{})
 
-			statuses, err = statusSvc.GetStatus(
+			statuses, err = r2.GetStatus(
 				context.Background(), []resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm")},
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -484,7 +472,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
+	options := weboptions.New()
 	addr := fmt.Sprintf("localhost:%d", port)
 	options.Network.BindAddress = addr
 	options.Network.TLSConfig = &tls.Config{
@@ -511,9 +499,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	options.BakedAuthEntity = "blah"
 	options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 
-	svc, err := r.ResourceByName(web.Name)
-	test.That(t, err, test.ShouldBeNil)
-	err = svc.(web.Service).Start(ctx, options)
+	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteTLSConfig := options.Network.TLSConfig.Clone()
@@ -594,17 +580,12 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	remoteConfig.Remotes[0].Address = options.FQDN
 	r2, err = robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	metadataSvc2, err := metadata.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		metadata.Name,
-		framesystem.Name,
 		vision.Name,
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
-		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
 		gps.Named("gps1"),
@@ -612,8 +593,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		gripper.Named("pieceGripper"),
 	}
 
-	resources2, err := metadataSvc2.Resources(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	resources2 := r2.ResourceNames()
 
 	test.That(
 		t,
@@ -621,15 +601,22 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
-	statusSvc, err := status.FromRobot(r2)
-	test.That(t, err, test.ShouldBeNil)
 
-	statuses, err := statusSvc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
+	remotes2 := r2.RemoteNames()
+	expectedRemotes := []string{"foo"}
+
+	test.That(
+		t, utils.NewStringSet(remotes2...),
+		test.ShouldResemble,
+		utils.NewStringSet(expectedRemotes...),
+	)
+
+	statuses, err := r2.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 	test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
 
-	statuses, err = statusSvc.GetStatus(context.Background(), []resource.Name{arm.Named("pieceArm")})
+	statuses, err = r2.GetStatus(context.Background(), []resource.Name{arm.Named("pieceArm")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 	test.That(
@@ -735,36 +722,30 @@ func TestMetadataUpdate(t *testing.T) {
 
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, err := metadata.FromRobot(r)
+
+	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	resources, err := svc.Resources(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, len(resources), test.ShouldEqual, 11)
+	test.That(t, len(resources), test.ShouldEqual, 8)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 11 declared resources + default web, sensors, status, and metadata service
+	// 5 declared resources + default sensors
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
 		gripper.Named("pieceGripper"),
 		gps.Named("gps1"),
 		gps.Named("gps2"),
-		framesystem.Name,
 		vision.Name,
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
-		metadata.Name,
 	}
 
-	svcResources, err := svc.Resources(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(svcResources), test.ShouldEqual, len(resourceNames))
+	resources = r.ResourceNames()
+	test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
 
-	test.That(t, rtestutils.NewResourceNameSet(svcResources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
+	test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
 }
 
 func TestSensorsService(t *testing.T) {
@@ -813,10 +794,7 @@ func TestStatusService(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc, err := status.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-
-	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1"), status.Name, web.Name}
+	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1")}
 	rArm, err := arm.FromRobot(r, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
 	armStatus, err := arm.CreateStatus(context.Background(), rArm)
@@ -824,24 +802,146 @@ func TestStatusService(t *testing.T) {
 	expected := map[resource.Name]interface{}{
 		arm.Named("pieceArm"): armStatus,
 		gps.Named("gps1"):     struct{}{},
-		status.Name:           struct{}{},
-		web.Name:              struct{}{},
 	}
 
-	statuses, err := svc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
+	statuses, err := r.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 	test.That(t, statuses[0].Name, test.ShouldResemble, gps.Named("gps1"))
 	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
 
-	statuses, err = svc.GetStatus(context.Background(), resourceNames)
+	statuses, err = r.GetStatus(context.Background(), resourceNames)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 4)
 
-	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
-	test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
-	test.That(t, statuses[2].Status, test.ShouldResemble, expected[statuses[2].Name])
-	test.That(t, statuses[3].Status, test.ShouldResemble, expected[statuses[3].Name])
+	expectedStatusLength := 2
+	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
 
+	for idx := 0; idx < expectedStatusLength; idx++ {
+		test.That(t, statuses[idx].Status, test.ShouldResemble, expected[statuses[idx].Name])
+	}
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+}
+
+func TestGetStatus(t *testing.T) {
+	buttonSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("button"))
+	button1 := resource.NameFromSubtype(buttonSubtype, "button1")
+	button2 := resource.NameFromSubtype(buttonSubtype, "button2")
+
+	workingSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("working"))
+	working1 := resource.NameFromSubtype(workingSubtype, "working1")
+
+	failSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("fail"))
+	fail1 := resource.NameFromSubtype(failSubtype, "fail1")
+
+	workingStatus := map[string]interface{}{"position": "up"}
+	errFailed := errors.New("can't get status")
+
+	registry.RegisterResourceSubtype(
+		workingSubtype,
+		registry.ResourceSubtype{
+			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return workingStatus, nil },
+		},
+	)
+
+	registry.RegisterResourceSubtype(
+		failSubtype,
+		registry.ResourceSubtype{
+			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return nil, errFailed },
+		},
+	)
+
+	statuses := []robot.Status{{Name: button1, Status: struct{}{}}}
+	logger := golog.NewTestLogger(t)
+	resourceNames := []resource.Name{working1, button1, fail1}
+	resourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource", fail1: "resource"}
+
+	t.Run("not found", func(t *testing.T) {
+		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = r.GetStatus(context.Background(), []resource.Name{button2})
+		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
+	})
+
+	t.Run("no CreateStatus", func(t *testing.T) {
+		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		resp, err := r.GetStatus(context.Background(), []resource.Name{button1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, statuses)
+	})
+
+	t.Run("failing resource", func(t *testing.T) {
+		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = r.GetStatus(context.Background(), []resource.Name{fail1})
+		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
+	})
+
+	t.Run("many status", func(t *testing.T) {
+		expected := map[resource.Name]interface{}{
+			working1: workingStatus,
+			button1:  struct{}{},
+		}
+		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = r.GetStatus(context.Background(), []resource.Name{button2})
+		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
+
+		resp, err := r.GetStatus(context.Background(), []resource.Name{working1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 1)
+		status := resp[0]
+		test.That(t, status.Name, test.ShouldResemble, working1)
+		test.That(t, status.Status, test.ShouldResemble, workingStatus)
+
+		resp, err = r.GetStatus(context.Background(), []resource.Name{working1, working1, working1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 1)
+		status = resp[0]
+		test.That(t, status.Name, test.ShouldResemble, working1)
+		test.That(t, status.Status, test.ShouldResemble, workingStatus)
+
+		resp, err = r.GetStatus(context.Background(), []resource.Name{working1, button1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 2)
+		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
+		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
+
+		_, err = r.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
+	})
+
+	t.Run("get all status", func(t *testing.T) {
+		workingResourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource"}
+		expected := map[resource.Name]interface{}{
+			working1: workingStatus,
+			button1:  struct{}{},
+		}
+		r, err := robotimpl.RobotFromResources(context.Background(), workingResourceMap, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		resp, err := r.GetStatus(context.Background(), []resource.Name{})
+		test.That(t, err, test.ShouldBeNil)
+		// 5 because the 3 default services are always added to a local_robot. We only care
+		// about the first two (working1 and button1) however.
+		test.That(t, len(resp), test.ShouldEqual, 5)
+
+		// although the response is length 5, the only thing we actually care about for testing
+		// is consistency with the expected values in the workingResourceMap. So we eliminate
+		// the values that aren't in the workingResourceMap.
+		actual := []robot.Status{}
+		for _, status := range resp {
+			if _, ok := workingResourceMap[status.Name]; ok {
+				actual = append(actual, status)
+			}
+		}
+		test.That(t, len(actual), test.ShouldEqual, 2)
+		test.That(t, actual[0].Status, test.ShouldResemble, expected[actual[0].Name])
+		test.That(t, actual[1].Status, test.ShouldResemble, expected[actual[1].Name])
+	})
 }
