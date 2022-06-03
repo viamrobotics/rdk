@@ -33,6 +33,8 @@ const (
 	timePadding = 5
 )
 
+var cam = &inject.Camera{}
+
 func createFakeSLAMLibraries() {
 	for _, s := range slam.SLAMLibraries {
 		slam.SLAMLibraries["fake_"+s.AlgoName] = slam.LibraryMetadata{
@@ -44,7 +46,14 @@ func createFakeSLAMLibraries() {
 	}
 }
 
-var cam = &inject.Camera{}
+func deletefakeSLAMLibraries() {
+
+	for k := range slam.SLAMLibraries {
+		if strings.Contains(k, "fake") {
+			delete(slam.SLAMLibraries, k)
+		}
+	}
+}
 
 func setupInjectRobot() *inject.Robot {
 	r := &inject.Robot{}
@@ -117,16 +126,6 @@ func createSLAMService(t *testing.T, attrCfg *slam.AttrConfig, logger golog.Logg
 	}
 
 	return svc, err
-}
-
-func closeOutSLAMService(t *testing.T, name string) {
-	t.Helper()
-
-	for k := range slam.SLAMLibraries {
-		if strings.Contains(k, "fake") {
-			delete(slam.SLAMLibraries, k)
-		}
-	}
 }
 
 func TestGeneralNew(t *testing.T) {
@@ -235,10 +234,9 @@ func TestGeneralNew(t *testing.T) {
 			svc.Close()
 		}
 
-		delete(slam.SLAMLibraries, "test")
 	})
 
-	closeOutSLAMService(t, name)
+	deletefakeSLAMLibraries()
 }
 
 func TestCartographerNew(t *testing.T) {
@@ -306,7 +304,7 @@ func TestCartographerNew(t *testing.T) {
 			svc.Close()
 		}
 	})
-	closeOutSLAMService(t, name)
+	deletefakeSLAMLibraries()
 }
 
 func TestORBSLAMNew(t *testing.T) {
@@ -393,7 +391,7 @@ func TestORBSLAMNew(t *testing.T) {
 			svc.Close()
 		}
 	})
-	closeOutSLAMService(t, name)
+	deletefakeSLAMLibraries()
 }
 
 func TestCartographerDataProcess(t *testing.T) {
@@ -457,7 +455,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_lidar")
 	})
 
-	closeOutSLAMService(t, name)
+	deletefakeSLAMLibraries()
 }
 
 func TestORBSLAMDataProcess(t *testing.T) {
@@ -521,7 +519,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_camera")
 	})
 
-	closeOutSLAMService(t, name)
+	deletefakeSLAMLibraries()
 }
 
 func TestSLAMProcess(t *testing.T) {
@@ -601,7 +599,7 @@ func TestSLAMProcess(t *testing.T) {
 		svc.Close()
 	}
 
-	closeOutSLAMService(t, name)
+	deletefakeSLAMLibraries()
 }
 
 // nolint:unparam
