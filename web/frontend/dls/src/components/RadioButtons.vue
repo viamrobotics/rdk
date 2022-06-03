@@ -32,7 +32,7 @@
             i < options.length - 1 &&
             (i - getSelectedIndex > 0 || Math.abs(getSelectedIndex - i) > 1)
           "
-          class="absolute w-px gray-line right-0 bg-gray-300"
+          class="absolute w-px top-2 bottom-2 right-0 bg-gray-300"
         ></div>
       </div>
     </div>
@@ -86,9 +86,3 @@ export default class RadioButtons extends Vue {
   }
 }
 </script>
-<style>
-.gray-line {
-  top: 15%;
-  bottom: 15%;
-}
-</style>
