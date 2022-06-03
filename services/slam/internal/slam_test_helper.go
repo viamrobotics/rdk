@@ -9,7 +9,7 @@ import (
 )
 
 // Service in the internal package includes additional exported functions relating to the data and
-// slam processes in the slam service, These functions are not exported to the user. This resolves
+// slam processes in the slam service. These functions are not exported to the user. This resolves
 // a circular import caused by the inject package.
 type Service interface {
 	StartDataProcess(cancelCtx context.Context, cam camera.Camera)
