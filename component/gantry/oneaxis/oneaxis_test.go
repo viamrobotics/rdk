@@ -74,7 +74,7 @@ func createFakeRobot() *inject.Robot {
 				return injectGPIOPin, nil
 			}}, nil
 		case motor.Subtype:
-			return &fake.Motor{PositionSupported: true}, nil
+			return &fake.Motor{}, nil
 		}
 		return nil, utils.NewResourceNotFoundError(name)
 	}
@@ -666,6 +666,24 @@ func TestModelFrame(t *testing.T) {
 
 	m := fakegantry.ModelFrame()
 	test.That(t, m, test.ShouldNotBeNil)
+}
+
+func TestStop(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	fakegantry := &oneAxis{
+		motor:           createFakeMotor(),
+		board:           createFakeBoard(),
+		limitHigh:       true,
+		logger:          logger,
+		rpm:             float64(300),
+		limitSwitchPins: []string{"1", "2"},
+		lengthMm:        float64(200),
+		positionLimits:  []float64{0, 2},
+	}
+
+	test.That(t, fakegantry.Stop(ctx), test.ShouldBeNil)
 }
 
 func TestCurrentInputs(t *testing.T) {

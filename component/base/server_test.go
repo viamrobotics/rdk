@@ -37,7 +37,7 @@ func TestServer(t *testing.T) {
 		// on successful move straight
 		workingBase.MoveStraightFunc = func(
 			ctx context.Context, distanceMm int,
-			mmPerSec float64, block bool,
+			mmPerSec float64,
 		) error {
 			return nil
 		}
@@ -45,7 +45,6 @@ func TestServer(t *testing.T) {
 			Name:       testBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
-			Block:      true,
 		}
 		resp, err := server.MoveStraight(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
@@ -55,7 +54,7 @@ func TestServer(t *testing.T) {
 		errMsg := "move straight failed"
 		brokenBase.MoveStraightFunc = func(
 			ctx context.Context, distanceMm int,
-			mmPerSec float64, block bool,
+			mmPerSec float64,
 		) error {
 			return errors.New(errMsg)
 		}
@@ -85,69 +84,6 @@ func TestServer(t *testing.T) {
 			DistanceMm: 1,
 		}
 		resp, err = server.MoveStraight(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("MoveArc", func(t *testing.T) {
-		// on successful move arc
-		workingBase.MoveArcFunc = func(
-			ctx context.Context, distanceMm int,
-			mmPerSec, angleDeg float64, block bool,
-		) error {
-			return nil
-		}
-		req := &pb.MoveArcRequest{
-			Name:       testBaseName,
-			MmPerSec:   2.3,
-			DistanceMm: 1,
-			AngleDeg:   42.0,
-			Block:      true,
-		}
-		resp, err := server.MoveArc(context.Background(), req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, &pb.MoveArcResponse{})
-
-		// on failing move arc
-		errMsg := "move arc failed"
-		brokenBase.MoveArcFunc = func(
-			ctx context.Context, distanceMm int,
-			mmPerSec float64, angleDeg float64, block bool,
-		) error {
-			return errors.New(errMsg)
-		}
-		req = &pb.MoveArcRequest{
-			Name:       failBaseName,
-			MmPerSec:   2.3,
-			DistanceMm: 1,
-			AngleDeg:   42.0,
-			Block:      true,
-		}
-		resp, err = server.MoveArc(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
-
-		// failure on bad base handled
-		req = &pb.MoveArcRequest{
-			Name:       fakeBaseName,
-			MmPerSec:   2.3,
-			DistanceMm: 1,
-			AngleDeg:   42.0,
-			Block:      true,
-		}
-		resp, err = server.MoveArc(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		// failure on unfound base
-		req = &pb.MoveArcRequest{
-			Name:       "dne",
-			MmPerSec:   2.3,
-			DistanceMm: 1,
-			AngleDeg:   42.0,
-			Block:      true,
-		}
-		resp, err = server.MoveArc(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -156,7 +92,7 @@ func TestServer(t *testing.T) {
 		// on successful spin
 		workingBase.SpinFunc = func(
 			ctx context.Context,
-			angleDeg, degsPerSec float64, block bool,
+			angleDeg, degsPerSec float64,
 		) error {
 			return nil
 		}
@@ -164,7 +100,6 @@ func TestServer(t *testing.T) {
 			Name:       testBaseName,
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
-			Block:      true,
 		}
 		resp, err := server.Spin(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
@@ -174,7 +109,7 @@ func TestServer(t *testing.T) {
 		errMsg := "spin failed"
 		brokenBase.SpinFunc = func(
 			ctx context.Context,
-			angleDeg, degsPerSec float64, block bool,
+			angleDeg, degsPerSec float64,
 		) error {
 			return errors.New(errMsg)
 		}
@@ -182,7 +117,6 @@ func TestServer(t *testing.T) {
 			Name:       failBaseName,
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
-			Block:      true,
 		}
 		resp, err = server.Spin(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
@@ -193,7 +127,6 @@ func TestServer(t *testing.T) {
 			Name:       fakeBaseName,
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
-			Block:      true,
 		}
 		resp, err = server.Spin(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
@@ -204,7 +137,6 @@ func TestServer(t *testing.T) {
 			Name:       "dne",
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
-			Block:      true,
 		}
 		resp, err = server.Spin(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)

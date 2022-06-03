@@ -12,12 +12,15 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
+
+	// register.
+	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -71,7 +74,7 @@ func TestMoveFailures(t *testing.T) {
 		}
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
 		_, err = ms.Move(context.Background(), arm.Named("arm1"), poseInFrame, worldState)
-		test.That(t, err, test.ShouldBeError, framesystem.NewMissingParentError("frame2", "noParent"))
+		test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
 	})
 }
 
@@ -204,7 +207,7 @@ func TestGetPose(t *testing.T) {
 		},
 	}
 	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transformMsgs)
-	test.That(t, err, test.ShouldBeError, framesystem.NewMissingParentError("testFrame", "noParent"))
+	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("testFrame", "noParent"))
 	test.That(t, pose, test.ShouldBeNil)
 }
 
