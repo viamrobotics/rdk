@@ -149,7 +149,6 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 			}
 			wg.Done()
 		}()
-
 		err := f(ctx)
 		if err != nil {
 			storeError(err)
