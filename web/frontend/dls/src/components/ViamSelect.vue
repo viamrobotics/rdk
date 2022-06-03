@@ -46,10 +46,9 @@ export default class ViamRange extends Vue {
   }
 
   get selectedLabel(): string | null {
-    // eslint-disable-next-line
-    let foundOption: any = this.getOptionByKey(this.value);
+    let foundOption = this.getOptionByKey(this.value) as Record<string, string>;
     if (!foundOption) return null;
-    return foundOption[this.labelKey];
+    return foundOption[this.labelKey] || null;
   }
 
   getOptionByKey(key: number | string): Record<string, unknown> | undefined {
@@ -64,4 +63,3 @@ export default class ViamRange extends Vue {
   }
 }
 </script>
-<style></style>

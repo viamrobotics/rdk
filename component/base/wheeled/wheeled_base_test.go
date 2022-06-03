@@ -179,97 +179,34 @@ func TestFourWheelBase1(t *testing.T) {
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
 	})
-	// Arc tests
 
-	t.Run("arc no speed", func(t *testing.T) {
-		err := base.MoveArc(ctx, 1000, 0, 10)
-		test.That(t, err, test.ShouldBeNil)
+	// Velocity tests
+	t.Run("velocity math curved", func(t *testing.T) {
+		l, r := base.velocityMath(1000, 10)
+		test.That(t, l, test.ShouldAlmostEqual, 59.476, 0.01)
+		test.That(t, r, test.ShouldAlmostEqual, 60.523, 0.01)
 
-		err = base.WaitForMotorsToStop(ctx)
-		test.That(t, err, test.ShouldBeNil)
+		l, r = base.velocityMath(-1000, -10)
+		test.That(t, l, test.ShouldAlmostEqual, -59.476, 0.01)
+		test.That(t, r, test.ShouldAlmostEqual, -60.523, 0.01)
 
-		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(context.Background())
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, isOn, test.ShouldBeFalse)
-		}
-	})
-	t.Run("arc math", func(t *testing.T) {
-		rpms, rotations := base.arcMath(1000, 1000, 10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 59.476, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 0.99, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, 60.523, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.01, .01)
+		l, r = base.velocityMath(1000, -10)
+		test.That(t, l, test.ShouldAlmostEqual, 60.523, 0.01)
+		test.That(t, r, test.ShouldAlmostEqual, 59.476, 0.01)
 
-		rpms, rotations = base.arcMath(-1000, 1000, 10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, -59.476, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -60.523, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
-
-		rpms, rotations = base.arcMath(1000, -1000, 10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, -59.476, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -60.523, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
-
-		rpms, rotations = base.arcMath(1000, 1000, -10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.523, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.476, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
-
-		rpms, rotations = base.arcMath(-1000, -1000, 10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 59.476, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, 60.5234, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
-
-		rpms, rotations = base.arcMath(1000, -1000, -10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, -60.523, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -59.476, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
-
-		rpms, rotations = base.arcMath(-1000, 1000, -10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, -60.5234, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -59.476, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
-
-		rpms, rotations = base.arcMath(-1000, -1000, -10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.523, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.01, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.476, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 0.99, .01)
-	})
-
-	t.Run("arc math zero distance", func(t *testing.T) {
-		rpms, rotations := base.arcMath(0, 10, 90)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, -7.5, .001)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, 7.5, .001)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
-
-		rpms, rotations = base.arcMath(0, 10, -90)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 7.5, .001)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -7.5, .001)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
+		l, r = base.velocityMath(-1000, 10)
+		test.That(t, l, test.ShouldAlmostEqual, -60.523, 0.01)
+		test.That(t, r, test.ShouldAlmostEqual, -59.476, 0.01)
 	})
 
 	t.Run("arc math zero angle", func(t *testing.T) {
-		rpms, rotations := base.arcMath(1000, 1000, 0)
-		test.That(t, rpms[0], test.ShouldEqual, 60.0)
-		test.That(t, rotations[0], test.ShouldEqual, 1.0)
-		test.That(t, rpms[1], test.ShouldEqual, 60.0)
-		test.That(t, rotations[1], test.ShouldEqual, 1.0)
+		l, r := base.velocityMath(1000, 0)
+		test.That(t, l, test.ShouldEqual, 60.0)
+		test.That(t, r, test.ShouldEqual, 60.0)
 
-		rpms, rotations = base.arcMath(-1000, 1000, 0)
-		test.That(t, rpms[0], test.ShouldEqual, -60.0)
-		test.That(t, rotations[0], test.ShouldEqual, 1.0)
-		test.That(t, rpms[1], test.ShouldEqual, -60.0)
-		test.That(t, rotations[1], test.ShouldEqual, 1.0)
+		l, r = base.velocityMath(-1000, 0)
+		test.That(t, l, test.ShouldEqual, -60.0)
+		test.That(t, r, test.ShouldEqual, -60.0)
 	})
 
 	t.Run("setPowerMath", func(t *testing.T) {

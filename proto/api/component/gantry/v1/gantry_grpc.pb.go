@@ -24,6 +24,8 @@ type GantryServiceClient interface {
 	MoveToPosition(ctx context.Context, in *MoveToPositionRequest, opts ...grpc.CallOption) (*MoveToPositionResponse, error)
 	// GetLengths gets the lengths of a gantry of the underlying robot.
 	GetLengths(ctx context.Context, in *GetLengthsRequest, opts ...grpc.CallOption) (*GetLengthsResponse, error)
+	// Stop stops a robot's gantry
+	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 }
 
 type gantryServiceClient struct {
@@ -61,6 +63,15 @@ func (c *gantryServiceClient) GetLengths(ctx context.Context, in *GetLengthsRequ
 	return out, nil
 }
 
+func (c *gantryServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error) {
+	out := new(StopResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.gantry.v1.GantryService/Stop", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GantryServiceServer is the server API for GantryService service.
 // All implementations must embed UnimplementedGantryServiceServer
 // for forward compatibility
@@ -71,6 +82,8 @@ type GantryServiceServer interface {
 	MoveToPosition(context.Context, *MoveToPositionRequest) (*MoveToPositionResponse, error)
 	// GetLengths gets the lengths of a gantry of the underlying robot.
 	GetLengths(context.Context, *GetLengthsRequest) (*GetLengthsResponse, error)
+	// Stop stops a robot's gantry
+	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	mustEmbedUnimplementedGantryServiceServer()
 }
 
@@ -86,6 +99,9 @@ func (UnimplementedGantryServiceServer) MoveToPosition(context.Context, *MoveToP
 }
 func (UnimplementedGantryServiceServer) GetLengths(context.Context, *GetLengthsRequest) (*GetLengthsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetLengths not implemented")
+}
+func (UnimplementedGantryServiceServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
 func (UnimplementedGantryServiceServer) mustEmbedUnimplementedGantryServiceServer() {}
 
@@ -154,6 +170,24 @@ func _GantryService_GetLengths_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GantryService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GantryServiceServer).Stop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.gantry.v1.GantryService/Stop",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GantryServiceServer).Stop(ctx, req.(*StopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GantryService_ServiceDesc is the grpc.ServiceDesc for GantryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -172,6 +206,10 @@ var GantryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetLengths",
 			Handler:    _GantryService_GetLengths_Handler,
+		},
+		{
+			MethodName: "Stop",
+			Handler:    _GantryService_Stop_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

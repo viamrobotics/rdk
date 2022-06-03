@@ -37,7 +37,7 @@
         <template v-slot:icon>
           <ViamIcon :path="keyIcons[key]">Check</ViamIcon>
         </template>
-        <span class="text-3xl">{{ keyLetters[key] }}</span>
+        <span class="text-2xl">{{ keyLetters[key] }}</span>
       </ViamButton>
     </div>
   </div>
