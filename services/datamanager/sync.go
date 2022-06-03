@@ -22,10 +22,11 @@ var (
 	maxRetryInterval       = time.Hour
 )
 
-// syncManager is responsible for uploading files to the cloud every syncInterval.
+// syncManager is responsible for uploading files to the cloud every syncInterval, as well uploading files on manual syncs.
 type syncManager interface {
 	Start()
 	Enqueue(filesToQueue []string) error
+	Upload() error
 	Close()
 }
 
@@ -84,6 +85,14 @@ func (s *syncer) Enqueue(filesToQueue []string) error {
 		if err := os.Rename(filePath, path.Join(s.syncQueue, subPath)); err != nil {
 			return errors.Errorf("failed to move file to sync enqueue: %v", err)
 		}
+	}
+	return nil
+}
+
+// Upload uploads files that are in the SyncQueue directory to the cloud when called.
+func (s *syncer) Upload() error {
+	if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
+		return errors.Errorf("failed to upload queued file: %v", err)
 	}
 	return nil
 }
