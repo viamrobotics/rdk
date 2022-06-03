@@ -66,7 +66,7 @@
                   <span class="text-xs">Position in Revolutions</span>
                 </ViamInput>
                 <div class="column pr-4">
-                  <p class="text-xs pb-2 pt-1">Direction of Rotation</p>
+                  <p class="text-xs mb-1">Direction of Rotation</p>
                   <RadioButtons
                     :options="['Forwards', 'Backwards']"
                     defaultOption="Forwards"
@@ -106,12 +106,12 @@
                   variant="primary"
                   class="pr-2 w-32"
                   inputId="distance"
-                  v-model="position"
+                  v-model="revolutions"
                 >
                   <span class="text-xs"># in Revolutions</span>
                 </ViamInput>
                 <div class="column pr-4">
-                  <p class="text-xs pb-2 pt-1">Direction of Rotation</p>
+                  <p class="text-xs mb-1">Direction of Rotation</p>
                   <RadioButtons
                     :options="['Forwards', 'Backwards']"
                     defaultOption="Forwards"
