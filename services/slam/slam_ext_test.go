@@ -1,3 +1,5 @@
+// This file in the slam package validates the inputted config. Additional testing is done on exported
+// functions in the slam_test package.
 package slam
 
 import (
@@ -33,56 +35,33 @@ func TestConfigValidation(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("SLAM config mode tests", func(t *testing.T) {
+	t.Run("SLAM config slam mode test with invalid mode for library", func(t *testing.T) {
 		cfg.ConfigParams["mode"] = ""
-		err = runtimeConfigValidation(cfg, logger)
-		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("getting data with specified algorithm %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
-
-		testMetadata := LibraryMetadata{
-			AlgoName: "test",
-			SlamMode: map[string]mode{},
-		}
-
-		SLAMLibraries["test"] = testMetadata
-		cfg.Algorithm = "test"
-		cfg.Sensors = []string{"test_sensor"}
-		cfg.ConfigParams["mode"] = "test1"
-		err = runtimeConfigValidation(cfg, logger)
-		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("getting data with specified algorithm %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
-
-		cfg.Algorithm = "cartographer"
-		cfg.Sensors = []string{"rplidar"}
-		cfg.ConfigParams["mode"] = "2d"
-
-		delete(SLAMLibraries, "test")
-
-		cfg.ConfigParams["mode"] = "rgbd"
 		err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("getting data with specified algorithm %v, and desired mode %v", cfg.Algorithm, cfg.ConfigParams["mode"]))
 	})
 
-	t.Run("SLAM config input file pattern tests", func(t *testing.T) {
+	t.Run("SLAM config input file pattern tests with bad pattern", func(t *testing.T) {
 		cfg.ConfigParams["mode"] = "2d"
 		cfg.InputFilePattern = "dd:300:3"
 		err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("input_file_pattern (%v) does not match the regex pattern (\\d+):(\\d+):(\\d+)", cfg.InputFilePattern))
+	})
 
+	t.Run("SLAM config input file pattern tests with initial file larger then final fail", func(t *testing.T) {
 		cfg.InputFilePattern = "500:300:3"
 		err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("second value in input file pattern must be larger than the first [%v]", cfg.InputFilePattern))
+	})
 
+	t.Run("SLAM config input file pattern tests with 0 interval", func(t *testing.T) {
 		cfg.InputFilePattern = "1:15:0"
 		err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
 			errors.New("the file input pattern's interval must be greater than zero"))
-
-		err = resetFolder(name1)
-		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("SLAM config check on specified algorithm", func(t *testing.T) {
@@ -93,7 +72,7 @@ func TestConfigValidation(t *testing.T) {
 }
 
 func createTempFolderArchitecture(validArch bool) (string, error) {
-	name, err := ioutil.TempDir("/tmp", "*")
+	name, err := ioutil.TempDir("", "*")
 	if err != nil {
 		return "nil", err
 	}
@@ -110,9 +89,4 @@ func createTempFolderArchitecture(validArch bool) (string, error) {
 		}
 	}
 	return name, nil
-}
-
-func resetFolder(path string) error {
-	err := os.RemoveAll(path)
-	return err
 }
