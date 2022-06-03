@@ -352,7 +352,6 @@ func CreateWheeledBase(ctx context.Context, r robot.Robot, config *Config, logge
 		widthMm:              config.WidthMM,
 		wheelCircumferenceMm: config.WheelCircumferenceMM,
 		spinSlipFactor:       config.SpinSlipFactor,
-		logger:               logger,
 	}
 
 	if base.widthMm == 0 {
