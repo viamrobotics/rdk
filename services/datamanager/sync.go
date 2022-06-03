@@ -24,7 +24,7 @@ var (
 
 // syncManager is responsible for uploading files to the cloud every syncInterval, as well uploading files on manual syncs.
 type syncManager interface {
-	Start()
+	Start(ctx context.Context)
 	Enqueue(filesToQueue []string) error
 	Upload(ctx context.Context) error
 	Close()
@@ -90,8 +90,8 @@ func (s *syncer) Enqueue(filesToQueue []string) error {
 }
 
 // Upload uploads files that are in the SyncQueue directory to the cloud when called.
-func (s *syncer) Upload(cancelCtx context.Context) error {
-	if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
+func (s *syncer) Upload(ctx context.Context) error {
+	if err := filepath.WalkDir(s.syncQueue, s.upload(ctx)); err != nil {
 		return errors.Errorf("failed to upload queued file: %v", err)
 	}
 	return nil
@@ -99,7 +99,7 @@ func (s *syncer) Upload(cancelCtx context.Context) error {
 
 // Start queues any files already in captureDir that haven't been modified in s.queueWaitTime time, and kicks off a
 // goroutine to constantly upload files in the queue.
-func (s *syncer) Start() {
+func (s *syncer) Start(ctx context.Context) {
 	// First, move any files in captureDir to queue.
 	s.queueLock.Lock()
 	if err := filepath.WalkDir(s.captureDir, s.queueFile); err != nil {
@@ -122,7 +122,7 @@ func (s *syncer) Start() {
 			case <-s.cancelCtx.Done():
 				return
 			case <-ticker.C:
-				if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
+				if err := filepath.WalkDir(s.syncQueue, s.upload(ctx)); err != nil {
 					s.logger.Errorf("failed to upload queued file: %v", err)
 				}
 			}
@@ -179,32 +179,36 @@ func (s *syncer) Close() {
 }
 
 // upload is an fs.WalkDirFunc that uploads files to Viam cloud storage.
-func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
-	if err != nil {
-		s.logger.Errorw("failed to upload queued file", "error", err)
+
+func (s *syncer) upload(cancelCtx context.Context) fs.WalkDirFunc {
+	return func(path string, di fs.DirEntry, err error) error {
+		if err != nil {
+			s.logger.Errorw("failed to upload queued file", "error", err)
+			return nil
+		}
+
+		if di.IsDir() {
+			return nil
+		}
+
+		if s.progressTracker.inProgress(path) {
+			return nil
+		}
+
+		s.progressTracker.mark(path)
+		s.backgroundWorkers.Add(1)
+		goutils.PanicCapturingGo(func() {
+			defer s.backgroundWorkers.Done()
+			exponentialRetry(
+				cancelCtx,
+				s.cancelCtx,
+				func(ctx context.Context) error { return s.uploadFn(ctx, path) },
+				s.logger,
+			)
+		})
+		// TODO: If upload completed successfully, unmark in-progress and delete file.
 		return nil
 	}
-
-	if di.IsDir() {
-		return nil
-	}
-
-	if s.progressTracker.inProgress(path) {
-		return nil
-	}
-
-	s.progressTracker.mark(path)
-	s.backgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer s.backgroundWorkers.Done()
-		exponentialRetry(
-			s.cancelCtx,
-			func(ctx context.Context) error { return s.uploadFn(ctx, path) },
-			s.logger,
-		)
-	})
-	// TODO: If upload completed successfully, unmark in-progress and delete file.
-	return nil
 }
 
 type progressTracker struct {
@@ -234,9 +238,9 @@ func (p *progressTracker) unmark(k string) {
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.
-func exponentialRetry(ctx context.Context, fn func(ctx context.Context) error, log golog.Logger) {
+func exponentialRetry(parentCancelCtx context.Context, cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
-	if err := fn(ctx); err == nil {
+	if err := fn(cancelCtx); err == nil {
 		return
 	}
 
@@ -244,21 +248,23 @@ func exponentialRetry(ctx context.Context, fn func(ctx context.Context) error, l
 	nextWait := initialWaitTime
 	ticker := time.NewTicker(nextWait)
 	for {
-		if err := ctx.Err(); err != nil {
+		if err := cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				log.Errorw("context closed unexpectedly", "error", err)
 			}
 			return
 		}
-
 		select {
 		// If cancelled, return nil.
-		case <-ctx.Done():
+		case <-parentCancelCtx.Done():
+			ticker.Stop()
+			return
+		case <-cancelCtx.Done():
 			ticker.Stop()
 			return
 		// Otherwise, try again after nextWait.
 		case <-ticker.C:
-			if err := fn(ctx); err != nil {
+			if err := fn(cancelCtx); err != nil {
 				// If error, retry with a new nextWait.
 				log.Errorw("error while uploading file", "error", err)
 				ticker.Stop()
