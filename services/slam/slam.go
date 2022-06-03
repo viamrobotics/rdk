@@ -119,13 +119,6 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 		}
 	}
 
-	if svcConfig.ConfigParams["mode"] != "" {
-		_, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
-		if !ok {
-			return errors.Errorf("invalid mode (%v) specified for algorithm [%v]", svcConfig.ConfigParams["mode"], svcConfig.Algorithm)
-		}
-	}
-
 	return nil
 }
 
@@ -147,6 +140,7 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 		default:
 			return errors.Errorf("invalid slam algorithm %v", slamSvc.slamLib.AlgoName)
 		}
+
 		if err != nil {
 			return errors.Errorf("error getting data in desired mode: %v", err)
 		}
