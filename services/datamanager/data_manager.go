@@ -299,7 +299,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 		svc.updateCollectorsCancelFn = fn
 		svc.queueCapturedData(cancelCtx, intervalMins)
 		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
-		svc.syncer.Start()
+		svc.syncer.Start(cancelCtx)
 	}
 }
 
