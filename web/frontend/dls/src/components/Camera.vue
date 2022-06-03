@@ -1,6 +1,6 @@
 <template>
   <div>
-    <Collapse>
+    <Collapse ref="collapse">
       <div class="flex">
         <h2 class="p-4 text-xl">{{ streamName }}</h2>
         <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
@@ -505,6 +505,9 @@ export default class Base extends Vue {
     } else {
       this.maxHeight = 150;
     }
+    this.$nextTick(()=>{
+      (this.$refs.collapse as any).resizeContent()
+    })
   }
 }
 </script>
