@@ -33,6 +33,7 @@ type syncManager interface {
 type syncer struct {
 	captureDir        string
 	syncQueue         string
+	queueLock         *sync.Mutex
 	logger            golog.Logger
 	queueWaitTime     time.Duration
 	progressTracker   progressTracker
@@ -68,6 +69,8 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 
 // Enqueue moves files that are no longer being written to from captureDir to SyncQueuePath.
 func (s *syncer) Enqueue(filesToQueue []string) error {
+	s.queueLock.Lock()
+	defer s.queueLock.Unlock()
 	for _, filePath := range filesToQueue {
 		subPath, err := s.getPathUnderCaptureDir(filePath)
 		if err != nil {
@@ -89,10 +92,11 @@ func (s *syncer) Enqueue(filesToQueue []string) error {
 // goroutine to constantly upload files in the queue.
 func (s *syncer) Start() {
 	// First, move any files in captureDir to queue.
+	s.queueLock.Lock()
 	if err := filepath.WalkDir(s.captureDir, s.queueFile); err != nil {
 		s.logger.Errorf("failed to move files to sync queue: %v", err)
 	}
-
+	s.queueLock.Unlock()
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		ticker := time.NewTicker(time.Millisecond * 500)
