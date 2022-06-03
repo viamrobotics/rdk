@@ -32,7 +32,7 @@ tool-install:
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
 		github.com/edaniels/golinters/cmd/combined \
 		github.com/golangci/golangci-lint/cmd/golangci-lint
-	GOBIN=`pwd`/$(TOOL_BIN) go install github.com/bufbuild/buf/cmd/buf@v1.5.0
+	GOBIN=`pwd`/$(TOOL_BIN) go install github.com/bufbuild/buf/cmd/buf@v1.4.0
 
 buf: buf-go buf-web
 
