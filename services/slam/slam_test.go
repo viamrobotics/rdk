@@ -122,11 +122,6 @@ func createSLAMService(t *testing.T, attrCfg *slam.AttrConfig, logger golog.Logg
 func closeOutSLAMService(t *testing.T, name string) {
 	t.Helper()
 
-	if name != "" {
-		err := resetFolder(name)
-		test.That(t, err, test.ShouldBeNil)
-	}
-
 	for k := range slam.SLAMLibraries {
 		if strings.Contains(k, "fake") {
 			delete(slam.SLAMLibraries, k)
@@ -628,9 +623,4 @@ func createTempFolderArchitecture(validArch bool) (string, error) {
 		}
 	}
 	return name, nil
-}
-
-func resetFolder(path string) error {
-	err := os.RemoveAll(path)
-	return err
 }
