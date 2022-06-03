@@ -105,19 +105,23 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, _ := context.WithCancel(ctx)
+	storageCheckCancelCtx, storageCheckCancelFn := context.WithCancel(context.Background())
+
 	dataManagerSvc := &Service{
-		r:                 r,
-		logger:            logger,
-		captureDir:        viamCaptureDotDir,
-		maxStoragePercent: defaultMaxStoragePercent,
-		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
-		backgroundWorkers: sync.WaitGroup{},
-		lock:              sync.Mutex{},
-		collectorLookup:   data.CollectorLookup,
-		cancelCtx:         cancelCtx,
-		cancelFunc:        cancelFunc,
+		r:                    r,
+		logger:               logger,
+		captureDir:           viamCaptureDotDir,
+		maxStoragePercent:    defaultMaxStoragePercent,
+		collectors:           make(map[componentMethodMetadata]collectorAndConfig),
+		backgroundWorkers:    sync.WaitGroup{},
+		lock:                 sync.Mutex{},
+		cancelCtx:            cancelCtx,
+		storageCheckCancelFn: storageCheckCancelFn,
+		statfsFn:             syscall.Statfs,
 	}
+
+	go dataManagerSvc.runStorageCheckAndUpdateCollectors(storageCheckCancelCtx, time.Minute)
 
 	return dataManagerSvc, nil
 }
@@ -131,27 +135,17 @@ func (svc *Service) Close(ctx context.Context) error {
 		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
 	}
+	svc.storageCheckCancelFn()
 	svc.backgroundWorkers.Wait()
-	svc.cancelFunc()
 	return nil
 }
-
 func (svc *Service) closeCollectors() {
 	wg := sync.WaitGroup{}
-	for metadata, collector := range svc.collectors {
-		// Note: Had to add these because otherwise get a loopclosure warning:
-		// 'loop variable captured by func literal'
+	for _, collector := range svc.collectors {
 		currCollector := collector
-		currMetadata := metadata
 		wg.Add(1)
 		go func() {
-			svc.lock.Lock()
-			defer svc.lock.Unlock()
-			if currCollector.Collector != nil {
-				currCollector.Collector.Close()
-				currCollector.Collector = nil // Should we have a bool instead? collector_disabled/closed?
-				svc.collectors[currMetadata] = currCollector
-			}
+			currCollector.Collector.Close()
 			wg.Done()
 		}()
 	}
@@ -164,19 +158,16 @@ type Service struct {
 	logger            golog.Logger
 	captureDir        string
 	maxStoragePercent int
+	statfsFn          Statfs
 	enableAutoDelete  bool
 	collectors        map[componentMethodMetadata]collectorAndConfig
 	syncer            syncManager
 
-	collectorLookup    func(data.MethodMetadata) *data.CollectorConstructor
-	storageCheckTicker *time.Ticker
-	sysCall            sysCall
-
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
 	updateCollectorsCancelFn func()
+	storageCheckCancelFn     func()
 	cancelCtx                context.Context
-	cancelFunc               func()
 }
 
 // Parameters stored for each collector.
@@ -260,7 +251,7 @@ func (svc *Service) initializeOrUpdateCollector(
 	}
 
 	// Get collector constructor for the component subtype and method.
-	collectorConstructor := svc.collectorLookup(metadata)
+	collectorConstructor := data.CollectorLookup(metadata)
 	if collectorConstructor == nil {
 		return nil, errors.Errorf("failed to find collector for %s", metadata)
 	}
@@ -318,21 +309,13 @@ type DiskStatus struct {
 	PercentUsed int
 }
 
-type sysCall interface {
-	Statfs(string, *syscall.Statfs_t) error
-}
-
-type sysCallStruct struct{}
-
-func (sysCallStruct) Statfs(path string, stat *syscall.Statfs_t) error {
-	return syscall.Statfs(path, stat)
-}
+type Statfs func(string, *syscall.Statfs_t) error
 
 // DiskUsage makes a call to the underlying system to get the local disk usage.
-func DiskUsage(sys sysCall) (DiskStatus, error) {
+func DiskUsage(statfs Statfs) (DiskStatus, error) {
 	disk := DiskStatus{}
 	fs := syscall.Statfs_t{}
-	if err := sys.Statfs("/", &fs); err != nil {
+	if err := statfs("/", &fs); err != nil {
 		return disk, err
 	}
 
@@ -344,37 +327,50 @@ func DiskUsage(sys sysCall) (DiskStatus, error) {
 	return disk, nil
 }
 
-func (svc *Service) runStorageCheckAndUpdateCollectors() {
-	defer svc.storageCheckTicker.Stop()
+func (svc *Service) runStorageCheckAndUpdateCollectors(cancelCtx context.Context, interval time.Duration) {
+	svc.backgroundWorkers.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer svc.backgroundWorkers.Done()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-	for {
-		select {
-		case <-svc.cancelCtx.Done():
-			return
-		case <-svc.storageCheckTicker.C:
-			du, err := DiskUsage(svc.sysCall)
-			if err != nil {
-				svc.logger.Errorw("failed to check disk usage", "error", err)
-			}
-			if du.PercentUsed >= svc.maxStoragePercent {
-				if svc.enableAutoDelete {
-					// TODO: Add deletion logic for oldest file(s)
-				} else {
-					// If auto-delete is disabled, simply stop collecting. If disk space frees up,
-					// reset collectors with previous configuration.
-					// Note: If the user updates the config in the meantime, we still update the map
-					// of collectors, e.g. remove collectors.
-					svc.closeCollectors()
+		for {
+			if err := cancelCtx.Err(); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					svc.logger.Errorw("data manager context closed unexpectedly", "error", err)
 				}
-			} else {
-				// Reinitialize any previously paused collectors now that disk usage has freed up.
-				err := svc.reinitializeClosedCollectors()
+				return
+			}
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-ticker.C:
+				du, err := DiskUsage(svc.statfsFn)
 				if err != nil {
-					svc.logger.Warn("Issue reinitializing closed collector", err)
+					svc.logger.Errorw("failed to check disk usage", "error", err)
+				}
+				if du.PercentUsed >= svc.maxStoragePercent {
+					if svc.enableAutoDelete {
+						// TODO: Add deletion logic for oldest file(s)
+					} else {
+						// If auto-delete is disabled, simply stop collecting. If disk space frees up,
+						// restart capture on all collectors.
+						// Note: If the user updates the config in the meantime, we still update the map
+						// of collectors, e.g. remove collectors.
+						for _, collector := range svc.collectors {
+							collector.Collector.Stop()
+						}
+					}
+				} else {
+					// Reinitialize any previously stopped collectors now that disk usage has freed up.
+					err := svc.reinitializeStoppedCollectors()
+					if err != nil {
+						svc.logger.Warn("Issue reinitializing closed collector", err)
+					}
 				}
 			}
 		}
-	}
+	})
 }
 
 func (svc *Service) initOrUpdateSyncer(intervalMins int) {
@@ -441,12 +437,6 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 // This will include the first time that the user saves the config, whereas
 // init() and New() are called beforehand since Data Manager is a default service.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
-	if svc.storageCheckTicker == nil {
-		svc.storageCheckTicker = time.NewTicker(time.Minute)
-		svc.sysCall = sysCallStruct{}
-		go svc.runStorageCheckAndUpdateCollectors()
-	}
-
 	c, ok := getServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
 	if !ok {
@@ -508,13 +498,14 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func (svc *Service) reinitializeClosedCollectors() error {
-	for _, collector := range svc.collectors {
-		if collector.Collector == nil {
-			_, err := svc.initializeOrUpdateCollector(collector.Attributes, false)
-			if err != nil {
-				return err
-			}
+func (svc *Service) reinitializeStoppedCollectors() error {
+	for _, c := range svc.collectors {
+		if !c.Collector.IsCollecting() {
+			go func() {
+				if err := c.Collector.Collect(); err != nil {
+					svc.logger.Error(err.Error())
+				}
+			}()
 		}
 	}
 	return nil

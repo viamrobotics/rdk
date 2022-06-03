@@ -39,6 +39,8 @@ func (cf CaptureFunc) Capture(ctx context.Context, params map[string]string) (in
 type Collector interface {
 	SetTarget(file *os.File)
 	GetTarget() *os.File
+	Stop()
+	IsCollecting() bool
 	Close()
 	Collect() error
 }
@@ -55,6 +57,7 @@ type collector struct {
 	cancelCtx         context.Context
 	cancel            context.CancelFunc
 	capturer          Capturer
+	isCollecting      bool
 }
 
 // SetTarget updates the file being written to by the collector.
@@ -81,6 +84,7 @@ func (c *collector) Close() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	c.isCollecting = false
 	c.cancel()
 	c.backgroundWorkers.Wait()
 	if err := c.writer.Flush(); err != nil {
@@ -96,7 +100,23 @@ func (c *collector) Collect() error {
 
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(c.capture)
+	c.isCollecting = true
 	return c.write()
+}
+
+func (c *collector) Stop() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.cancelCtx.Done()
+	if err := c.writer.Flush(); err != nil {
+		c.logger.Errorw("failed to flush writer to disk", "error", err)
+	}
+	c.isCollecting = false
+}
+
+func (c *collector) IsCollecting() bool {
+	return c.isCollecting
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
