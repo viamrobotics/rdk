@@ -137,7 +137,7 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	bSize := int64(4)
 	bAvail := uint64(3)
 	bFree := uint64(3)
-	svc.statfsFn = getMockStatfsFn(blocks, bSize, bAvail, bFree)
+	svc.statfs = getMockStatfsFn(blocks, bSize, bAvail, bFree)
 
 	// Replace the default storage check with a more frequent one for testing purposes.
 	svc.storageCheckCancelFn()
@@ -160,7 +160,7 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	// Mock 66% disk usage in the system.
 	bAvail = uint64(1)
 	bFree = uint64(1)
-	svc.statfsFn = getMockStatfsFn(blocks, bSize, bAvail, bFree)
+	svc.statfs = getMockStatfsFn(blocks, bSize, bAvail, bFree)
 
 	// The running storage check should close any active collectors since we have exceeded
 	// the disk usage limit.
@@ -170,7 +170,7 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	// Mock 33% disk usage in the system.
 	bAvail = uint64(2)
 	bFree = uint64(2)
-	svc.statfsFn = getMockStatfsFn(blocks, bSize, bAvail, bFree)
+	svc.statfs = getMockStatfsFn(blocks, bSize, bAvail, bFree)
 
 	// The running storage check should reactivate collectors since we are now back below
 	// the disk usage limit.
