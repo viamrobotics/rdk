@@ -195,6 +195,8 @@ func (base *limoBase) setMotionCommand(linear_vel float64, angular_vel float64, 
 	base.controller.mu.Lock()
 	defer base.controller.mu.Unlock()
 
+	base.controller.logger.Debugf("Will set motion command %f %f %f %f", linear_vel, angular_vel, lateral_velocity, steering_angle)
+
 	// enable commanded mode
 	frame := new(limoFrame)
 	frame.id = 0x111
