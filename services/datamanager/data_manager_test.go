@@ -6,7 +6,6 @@ package datamanager
 import (
 	"context"
 	"io/ioutil"
-	"syscall"
 	"testing"
 	"time"
 
@@ -48,22 +47,12 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func getMockStatfsFn(blocks uint64, bsize uint32, bavail uint64, bfree uint64) func(string, *syscall.Statfs_t) error {
-	return func(path string, stat *syscall.Statfs_t) error {
-		stat.Blocks = blocks
-		stat.Bsize = bsize
-		stat.Bavail = bavail
-		stat.Bfree = bfree
-		return nil
-	}
-}
-
 func TestDiskUsage(t *testing.T) {
 	// Test 50% disk usage.
-	blocks := uint64(3)
-	bSize := uint32(4)
-	bAvail := uint64(1)
-	bFree := uint64(2)
+	blocks := 3
+	bSize := 4
+	bAvail := 1
+	bFree := 2
 	mockStatfsFn := getMockStatfsFn(blocks, bSize, bAvail, bFree)
 
 	du, err := DiskUsage(mockStatfsFn)
@@ -78,31 +67,31 @@ func TestDiskUsage(t *testing.T) {
 		DiskStatus{expectedAll, expectedUsed, expectedFree, expectedAvail, expectedPercentUsed})
 
 	// Test 33% disk usage.
-	bAvail = uint64(2)
-	bFree = uint64(2)
+	bAvail = 2
+	bFree = 2
 	mockStatfsFn = getMockStatfsFn(blocks, bSize, bAvail, bFree)
 
 	du, err = DiskUsage(mockStatfsFn)
 	test.That(t, err, test.ShouldBeNil)
 
-	expectedUsed = uint64(4)
-	expectedFree = uint64(8)
-	expectedAvail = uint64(8)
+	expectedUsed = 4
+	expectedFree = 8
+	expectedAvail = 8
 	expectedPercentUsed = 33
 	test.That(t, du, test.ShouldResemble,
 		DiskStatus{expectedAll, expectedUsed, expectedFree, expectedAvail, expectedPercentUsed})
 
 	// Test 0% disk usage.
-	bAvail = uint64(3)
-	bFree = uint64(3)
+	bAvail = 3
+	bFree = 3
 	mockStatfsFn = getMockStatfsFn(blocks, bSize, bAvail, bFree)
 
 	du, err = DiskUsage(mockStatfsFn)
 	test.That(t, err, test.ShouldBeNil)
 
-	expectedUsed = uint64(0)
-	expectedFree = uint64(12)
-	expectedAvail = uint64(12)
+	expectedUsed = 0
+	expectedFree = 12
+	expectedAvail = 12
 	expectedPercentUsed = 0
 	test.That(t, du, test.ShouldResemble,
 		DiskStatus{expectedAll, expectedUsed, expectedFree, expectedAvail, expectedPercentUsed})
@@ -133,10 +122,10 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	svc := dataManager.(*Service)
 
 	// Mock 0% disk usage in the system.
-	blocks := uint64(3)
-	bSize := uint32(4)
-	bAvail := uint64(3)
-	bFree := uint64(3)
+	blocks := 3
+	bSize := 4
+	bAvail := 3
+	bFree := 3
 	svc.statfs = getMockStatfsFn(blocks, bSize, bAvail, bFree)
 
 	// Replace the default storage check with a more frequent one for testing purposes.
@@ -158,8 +147,8 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	test.That(t, svc.enableAutoDelete, test.ShouldBeFalse)
 
 	// Mock 66% disk usage in the system.
-	bAvail = uint64(1)
-	bFree = uint64(1)
+	bAvail = 1
+	bFree = 1
 	svc.statfs = getMockStatfsFn(blocks, bSize, bAvail, bFree)
 
 	// The running storage check should close any active collectors since we have exceeded
@@ -168,8 +157,8 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	test.That(t, svc.hasActiveCollectors(), test.ShouldBeFalse)
 
 	// Mock 33% disk usage in the system.
-	bAvail = uint64(2)
-	bFree = uint64(2)
+	bAvail = 2
+	bFree = 2
 	svc.statfs = getMockStatfsFn(blocks, bSize, bAvail, bFree)
 
 	// The running storage check should reactivate collectors since we are now back below
