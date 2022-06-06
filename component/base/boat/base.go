@@ -211,7 +211,7 @@ func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVeloc
 
 func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
 	b.logger.Debugf("SetVelocity %v %v", linear, angular)
-	ctx, done := b.opMgr.New(ctx)
+	_, done := b.opMgr.New(ctx)
 	defer done()
 
 	b.stateMutex.Lock()
