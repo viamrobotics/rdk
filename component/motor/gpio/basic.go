@@ -140,6 +140,11 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 				errs,
 				m.A.Set(ctx, false),
 				m.B.Set(ctx, false),
+				//TODO dont be this janky about the pwm freq.
+				m.A.SetPWMFreq(ctx, 100),
+				m.B.SetPWMFreq(ctx, 100),
+				m.A.SetPWM(ctx, 0),
+				m.B.SetPWM(ctx, 0),
 			)
 		}
 
@@ -158,19 +163,24 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 	}
 
 	var pwmPin board.GPIOPin
+	var pwmStopPin board.GPIOPin
 	switch {
 	case m.PWM != nil:
 		pwmPin = m.PWM
 	case powerPct >= 0.001:
 		pwmPin = m.B
+		pwmStopPin = m.A
 		if m.dirFlip {
 			pwmPin = m.A
+			pwmStopPin = m.B
 		}
 		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 	case powerPct <= -0.001:
 		pwmPin = m.A
+		pwmStopPin = m.B
 		if m.dirFlip {
 			pwmPin = m.B
+			pwmStopPin = m.A
 		}
 		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 	default:
@@ -182,6 +192,8 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 		errs,
 		pwmPin.SetPWMFreq(ctx, m.pwmFreq),
 		pwmPin.SetPWM(ctx, powerPct),
+		pwmStopPin.SetPWMFreq(ctx, m.pwmFreq),
+		pwmStopPin.SetPWM(ctx, 0),
 	)
 }
 
