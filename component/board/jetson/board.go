@@ -264,8 +264,7 @@ func (gp gpioPin) Set(ctx context.Context, high bool) error {
 
 	delete(gp.b.pwms, gp.pinName)
 
-	gp.set(high)
-	return nil
+	return gp.set(high)
 }
 
 func (gp gpioPin) set(high bool) error {
