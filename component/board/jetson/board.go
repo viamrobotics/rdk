@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/blend/go-sdk/logger"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -293,7 +292,7 @@ func (b *jetsonBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 		b.mu.RUnlock()
 
 		if !ok {
-			logger.Error("pwm setting deleted; stopping")
+			b.logger.Error("pwm setting deleted; stopping")
 			return
 		}
 
