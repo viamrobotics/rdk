@@ -1,5 +1,5 @@
-// Package jetson implements a jetson based board.
-package jetson
+// Package ti implements a ti based board.
+package ti
 
 import (
 	"github.com/pkg/errors"
@@ -9,7 +9,7 @@ import (
 	"go.viam.com/rdk/rlog"
 )
 
-const modelName = "jetson"
+const modelName = "ti"
 
 func init() {
 	if _, err := host.Init(); err != nil {
@@ -19,7 +19,7 @@ func init() {
 	gpioMappings, err := commonsysfs.GetGPIOBoardMappings(modelName, boardInfoMappings)
 	var noBoardErr commonsysfs.NoBoardFoundError
 	if errors.As(err, &noBoardErr) {
-		rlog.Logger.Debugw("error getting jetson GPIO board mapping", "error", err)
+		rlog.Logger.Debugw("error getting ti GPIO board mapping", "error", err)
 	}
 
 	commonsysfs.RegisterBoard(modelName, gpioMappings)
