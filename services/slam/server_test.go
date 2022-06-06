@@ -1,3 +1,4 @@
+// Package slam_test server_test.go tests the SLAM service's GRPC server.
 package slam_test
 
 import (

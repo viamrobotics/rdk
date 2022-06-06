@@ -1,3 +1,4 @@
+// Package slam_test client_test.go tests the client for the SLAM service's GRPC server.
 package slam_test
 
 import (
@@ -50,7 +51,10 @@ func TestClient(t *testing.T) {
 
 	workingSLAMService.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *commonpb.Pose,
 		include bool) (string, []byte, *commonpb.PointCloudObject, error) {
-		return mimeType, imSucc, pcSucc, nil
+		if mimeType == utils.MimeTypePCD {
+			return mimeType, nil, pcSucc, nil
+		}
+		return mimeType, imSucc, nil, nil
 	}
 
 	workingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Name: workingSLAMService})
@@ -100,7 +104,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	nameSucc := "viam"
-	mimeTypeSucc := utils.MimeTypePCD
 
 	t.Run("client tests for working slam service", func(t *testing.T) {
 		// test get position
@@ -109,9 +112,15 @@ func TestClient(t *testing.T) {
 		test.That(t, pInFrame, test.ShouldResemble, pSucc)
 
 		// test get map
-		mimeType, im, pc, err := workingSLAMClient.GetMap(context.Background(), nameSucc, mimeTypeSucc, pSucc.Pose, true)
+		mimeType, im, pc, err := workingSLAMClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc.Pose, true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mimeType, test.ShouldEqual, mimeTypeSucc)
+		test.That(t, mimeType, test.ShouldEqual, utils.MimeTypePCD)
+		test.That(t, im, test.ShouldResemble, imSucc)
+		test.That(t, pc, test.ShouldResemble, pcSucc)
+
+		mimeType, im, pc, err = workingSLAMClient.GetMap(context.Background(), nameSucc, utils.MimeTypeJPEG, pSucc.Pose, true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mimeType, test.ShouldEqual, utils.MimeTypeJPEG)
 		test.That(t, im, test.ShouldResemble, imSucc)
 		test.That(t, pc, test.ShouldResemble, pcSucc)
 
@@ -131,9 +140,9 @@ func TestClient(t *testing.T) {
 		test.That(t, p, test.ShouldResemble, pSucc)
 
 		// test get map
-		mimeType, im, pc, err := workingDialedClient.GetMap(context.Background(), nameSucc, mimeTypeSucc, pSucc.Pose, true)
+		mimeType, im, pc, err := workingDialedClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc.Pose, true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mimeType, test.ShouldEqual, mimeTypeSucc)
+		test.That(t, mimeType, test.ShouldEqual, utils.MimeTypePCD)
 		test.That(t, im, test.ShouldResemble, imSucc)
 		test.That(t, pc, test.ShouldResemble, pcSucc)
 

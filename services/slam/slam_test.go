@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/slam"
@@ -561,6 +562,47 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 	if slamSvc != nil {
 		slamSvc.Close()
+	}
+
+	closeOutSLAMService(t, name)
+}
+
+func TestGetMapAndPosition(t *testing.T) {
+	name, err := createTempFolderArchitecture(true)
+	test.That(t, err, test.ShouldBeNil)
+
+	createFakeSLAMLibraries()
+
+	attrCfg := &slam.AttrConfig{
+		Algorithm:        "fake_orbslamv3",
+		Sensors:          []string{"good_camera"},
+		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory:    name,
+		MapRateSec:       200,
+		DataRateMs:       100,
+		InputFilePattern: "10:200:1",
+		Port:             "4444",
+	}
+
+	// Create slam service
+	logger := golog.NewTestLogger(t)
+	grpcServer := setupTestGRPCServer(attrCfg.Port)
+	svc, err := createSLAMService(t, attrCfg, logger, true)
+	test.That(t, err, test.ShouldBeNil)
+
+	p, err := svc.GetPosition(context.Background(), "hi")
+	test.That(t, p, test.ShouldBeNil)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
+
+	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, &commonpb.Pose{}, true)
+	test.That(t, mimeType, test.ShouldResemble, "")
+	test.That(t, im, test.ShouldResemble, []byte{})
+	test.That(t, pc, test.ShouldResemble, &commonpb.PointCloudObject{})
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM map")
+
+	grpcServer.Stop()
+	if svc != nil {
+		svc.Close()
 	}
 
 	closeOutSLAMService(t, name)

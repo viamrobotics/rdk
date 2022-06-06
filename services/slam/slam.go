@@ -239,7 +239,7 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 	return cameraName, cam, nil
 }
 
-// setupGRPCConnection uses the defined port to create a SLAM Client for communicating with the SLAM algorithms.
+// setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, error) {
 	dialOptions := rpc.WithInsecure()
 
@@ -279,7 +279,7 @@ func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, c
 
 	resp, err := slamSvc.clientAlgo.GetMap(ctx, req)
 	if err != nil {
-		return "", nil, nil, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
+		return "", []byte{}, &commonpb.PointCloudObject{}, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
 	}
 
 	return resp.MimeType, resp.GetImage(), resp.GetPointCloud(), nil
