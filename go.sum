@@ -305,8 +305,6 @@ github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19 h1:H1ItaK5N1m
 github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19/go.mod h1:i/zcokIKs893VZA41BS8jTOHW23PlqiiZEa7Y+4Nujk=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThqKBWO294ZnEPUK2W3os647RVTJB8=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
-github.com/edaniels/gostream v0.0.0-20220331015535-41ae4448d72e h1:PSZKKv1I+EJemAmuWu/O7cQOd0WaLO33o9gos68iZZo=
-github.com/edaniels/gostream v0.0.0-20220331015535-41ae4448d72e/go.mod h1:W796qaVmBtJtXsVPE54d+E/kruRfFQ9s8LrQJJm6nXg=
 github.com/edaniels/gostream v0.0.0-20220504163643-eb2e5f5e15fc h1:ITE0CkKtf5dYdmxQIJ9sQ0obnmRL+81Wc68bfjCwIG4=
 github.com/edaniels/gostream v0.0.0-20220504163643-eb2e5f5e15fc/go.mod h1:W796qaVmBtJtXsVPE54d+E/kruRfFQ9s8LrQJJm6nXg=
 github.com/edaniels/ice/v2 v2.0.0-20220204035239-204e270e6801 h1:PDPZc5flK+qvN8kdgMTDgYP3NMW7YF3umJi15Cv+BVc=
