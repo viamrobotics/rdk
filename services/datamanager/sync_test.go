@@ -38,7 +38,7 @@ func newTestSyncer(t *testing.T, uploadFn func(ctx context.Context, path string)
 }
 
 // Validates that for some captureDir, files are enqueued and uploaded exactly once.
-func TestQueuesAndUploadsOnce(t *testing.T) {
+func TestQueuesAndUploadsOnceScheduled(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
@@ -78,7 +78,7 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 // Validates that if a syncer is killed after enqueing a file, a new syncer will still pick it up and upload it.
 // This is to simulate the case where a robot is killed mid-sync; we still want that sync to resume and finish when it
 // turns back on.
-func TestRecoversAfterKilled(t *testing.T) {
+func TestRecoversAfterKilledScheduled(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
