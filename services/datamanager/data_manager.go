@@ -42,7 +42,7 @@ func init() {
 	}, &Config{})
 }
 
-// Sync defines what a Data Manager Service should be able to do.
+// Service defines what a Data Manager Service should expose to the users.
 type Service interface {
 	Sync(ctx context.Context,
 		name resource.Name) (bool, error)
@@ -283,7 +283,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 }
 
 func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
-	// if user updates config while manual sync is occuring, manual sync will be cancelled (TODO fix)
+	// if user updates config while manual sync is occurring, manual sync will be cancelled (TODO fix)
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.updateCollectorsCancelFn()

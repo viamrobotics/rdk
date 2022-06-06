@@ -24,6 +24,7 @@ func newTestSyncer(t *testing.T, uploadFn func(ctx context.Context, path string)
 	return syncer{
 		captureDir:    captureDir,
 		syncQueue:     syncQueue,
+		queueLock:     &sync.Mutex{},
 		logger:        l,
 		queueWaitTime: time.Nanosecond,
 		progressTracker: progressTracker{
@@ -46,8 +47,8 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	}
 	sut := newTestSyncer(t, uploadFn)
 
-	// Start syncer.
-	sut.Start()
+	// Start syncer, pass in its own cancel context as its the same as the test's.
+	sut.Start(sut.cancelCtx)
 
 	// Put a couple files in captureDir.
 	file1, _ := ioutil.TempFile(sut.captureDir, "whatever")
@@ -96,7 +97,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	defer os.Remove(file2.Name())
 
 	// Start syncer, let it run for a second.
-	sut.Start()
+	sut.Start(sut.cancelCtx)
 	err := sut.Enqueue([]string{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(time.Second)
@@ -140,7 +141,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Start syncer and let it run.
 	initialWaitTime = time.Millisecond * 25
 	maxRetryInterval = time.Millisecond * 150
-	sut.Start()
+	sut.Start(sut.cancelCtx)
 	err := sut.Enqueue([]string{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(time.Second)

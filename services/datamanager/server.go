@@ -1,4 +1,4 @@
-// Package datamanager contains a gRPC based motion service server
+// Package datamanager contains a gRPC based datamanager service server
 package datamanager
 
 import (
@@ -10,13 +10,13 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the MotionService from motion.proto.
+// subtypeServer implements the DataManagerService from datamanager.proto.
 type subtypeServer struct {
 	pb.UnimplementedDataManagerServiceServer
 	subtypeSvc subtype.Service
 }
 
-// NewServer constructs a motion gRPC service server.
+// NewServer constructs a datamanager gRPC service server.
 func NewServer(s subtype.Service) pb.DataManagerServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
