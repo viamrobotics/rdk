@@ -3,7 +3,9 @@ package slam
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"image"
 	"image/jpeg"
 	"os"
 	"path/filepath"
@@ -23,8 +25,8 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	pc "go.viam.com/rdk/pointcloud"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/slam/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -32,6 +34,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
 )
 
 const (
@@ -184,8 +187,8 @@ type AttrConfig struct {
 
 // Service describes the functions that are available to the service.
 type Service interface {
-	GetPosition(context.Context, string) (*commonpb.PoseInFrame, error)
-	GetMap(context.Context, string, string, *commonpb.Pose, bool) (string, []byte, *commonpb.PointCloudObject, error)
+	GetPosition(context.Context, string) (*referenceframe.PoseInFrame, error)
+	GetMap(context.Context, string, string, *referenceframe.PoseInFrame, bool) (string, image.Image, *vision.Object, error)
 	Close() error
 }
 
@@ -243,18 +246,17 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, error) {
 	dialOptions := rpc.WithInsecure()
 
-	connALGO, err := grpc.Dial(ctx, "localhost:"+port, logger, dialOptions)
+	connLib, err := grpc.Dial(ctx, "localhost:"+port, logger, dialOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	return pb.NewSLAMServiceClient(connALGO), nil
+	return pb.NewSLAMServiceClient(connLib), nil
 }
 
-// GetPosition, one of the two callable function in the SLAM service after start up, it forwards the request for position data
-// (in the form of PoseInFrame) to the slam algorithm GRPC service. Once a response is received, it is unpacked into constituent
-// parts.
-func (slamSvc *slamService) GetPosition(ctx context.Context, name string) (*commonpb.PoseInFrame, error) {
+// GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
+// it is unpacked into a PoseInFrame.
+func (slamSvc *slamService) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 	req := &pb.GetPositionRequest{Name: name}
 
 	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
@@ -262,27 +264,48 @@ func (slamSvc *slamService) GetPosition(ctx context.Context, name string) (*comm
 		return nil, errors.Errorf("error getting SLAM position : %v", err)
 	}
 
-	return resp.Pose, nil
+	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }
 
-// GetMap, one of the two callable function in the SLAM service after start up, it forwards the request for map data to the
-// slam algorithm GRPC service (either a PointCloudObject or image.Image). Once a response is received, it is unpacked into
-// constituent parts.
-func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, cp *commonpb.Pose, include bool) (
-	string, []byte, *commonpb.PointCloudObject, error) {
+// GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
+// into a mimeType and either a vision.Object or image.Image.
+func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
+	string, image.Image, *vision.Object, error) {
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,
-		CameraPosition:     cp,
+		CameraPosition:     referenceframe.PoseInFrameToProtobuf(cp).Pose,
 		IncludeRobotMarker: include,
 	}
 
+	var imData image.Image
+	var vObj *vision.Object
+
 	resp, err := slamSvc.clientAlgo.GetMap(ctx, req)
 	if err != nil {
-		return "", []byte{}, &commonpb.PointCloudObject{}, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
+		return "", imData, vObj, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
 	}
 
-	return resp.MimeType, resp.GetImage(), resp.GetPointCloud(), nil
+	switch mimeType {
+	case utils.MimeTypeJPEG:
+		imData, err = jpeg.Decode(bytes.NewReader(resp.GetImage()))
+		if err != nil {
+			return "", nil, nil, errors.Errorf("get map decode image failed: %v", err)
+		}
+	case utils.MimeTypePCD:
+		pointcloudData := resp.GetPointCloud()
+		pc, err := pc.ReadPCD(bytes.NewReader(pointcloudData.PointCloud))
+		if err != nil {
+			return "", nil, nil, errors.Errorf("get map read pointcloud failed: %v", err)
+		}
+
+		vObj, err = vision.NewObject(pc)
+		if err != nil {
+			return "", nil, nil, errors.Errorf("get map creating vision object failed: %v", err)
+		}
+	}
+
+	return resp.MimeType, imData, vObj, nil
 }
 
 // New returns a new slam service for the given robot. Will not error out as to prevent server shutdown.

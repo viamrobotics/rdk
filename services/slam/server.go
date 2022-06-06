@@ -1,9 +1,14 @@
 package slam
 
 import (
+	"bytes"
 	"context"
+	"image/jpeg"
 
+	"go.viam.com/rdk/pointcloud"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/slam/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -48,13 +53,13 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 	}
 
 	return &pb.GetPositionResponse{
-		Pose: p,
+		Pose: referenceframe.PoseInFrameToProtobuf(p),
 	}, nil
 }
 
 // GetMap returns a mimeType and a map that is either a image byte slice or PointCloudObject defined in
-// common.proto. It takes in the name of slam service as well as a mime type, and optional parameters
-// including camera position parameter and whether the resulting image should include the current robot position.
+// common.proto. It takes in the name of the slam service, mime type, and optional parameter including
+// camera position and whether the resulting image should include the current robot position.
 func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) (
 	*pb.GetMapResponse, error,
 ) {
@@ -63,7 +68,8 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 		return nil, err
 	}
 
-	mimeType, imageData, pcData, err := svc.GetMap(ctx, req.Name, req.MimeType, req.CameraPosition, req.IncludeRobotMarker)
+	pInFrame := &commonpb.PoseInFrame{Pose: req.CameraPosition}
+	mimeType, imageData, pcData, err := svc.GetMap(ctx, req.Name, req.MimeType, referenceframe.ProtobufToPoseInFrame(pInFrame), req.IncludeRobotMarker)
 	if err != nil {
 		return nil, err
 	}
@@ -71,13 +77,23 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 	resp := &pb.GetMapResponse{}
 	switch mimeType {
 	case utils.MimeTypeJPEG:
-		mapData := &pb.GetMapResponse_Image{Image: imageData}
+		var buf bytes.Buffer
+		if err := jpeg.Encode(&buf, imageData, nil); err != nil {
+			return nil, err
+		}
+
+		mapData := &pb.GetMapResponse_Image{Image: buf.Bytes()}
 		resp = &pb.GetMapResponse{
 			MimeType: mimeType,
 			Map:      mapData,
 		}
 	case utils.MimeTypePCD:
-		mapData := &pb.GetMapResponse_PointCloud{PointCloud: pcData}
+		var buf bytes.Buffer
+		if err := pointcloud.ToPCD(pcData.PointCloud, &buf, pointcloud.PCDBinary); err != nil {
+			return nil, err
+		}
+
+		mapData := &pb.GetMapResponse_PointCloud{PointCloud: &commonpb.PointCloudObject{PointCloud: buf.Bytes()}}
 		resp = &pb.GetMapResponse{
 			MimeType: mimeType,
 			Map:      mapData,

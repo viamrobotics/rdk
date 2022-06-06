@@ -1,18 +1,23 @@
 package slam
 
 import (
+	"bytes"
 	"context"
+	"image"
+	"image/jpeg"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/service/slam/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
 )
 
-// client is a client satisfies the slam.proto contract.
+// client is a client that satisfies the slam.proto contract.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.SLAMServiceClient
@@ -50,8 +55,8 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-// GetPosition client side, creates request calls slam service function GetPosition and parses the response.
-func (c *client) GetPosition(ctx context.Context, name string) (*commonpb.PoseInFrame, error) {
+// GetPosition creates a request, calls the slam service GetPosition, and parses the response into the desired PoseInFrame.
+func (c *client) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 	req := &pb.GetPositionRequest{
 		Name: name,
 	}
@@ -61,34 +66,47 @@ func (c *client) GetPosition(ctx context.Context, name string) (*commonpb.PoseIn
 		return nil, err
 	}
 	p := resp.GetPose()
-	return p, nil
+	return referenceframe.ProtobufToPoseInFrame(p), nil
 }
 
-// GetMap client side, creates request calls slam service function GetMap and parses the response.
-func (c *client) GetMap(ctx context.Context, name, mimeType string, cameraPosition *commonpb.Pose, includeRobotMarker bool) (
-	string, []byte, *commonpb.PointCloudObject, error) {
+// GetMap creates a request, calls the slam service GetMap, and parses the response into the desired mimeType and map data.
+func (c *client) GetMap(ctx context.Context, name, mimeType string, cameraPosition *referenceframe.PoseInFrame, includeRobotMarker bool) (
+	string, image.Image, *vision.Object, error) {
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,
-		CameraPosition:     cameraPosition,
+		CameraPosition:     referenceframe.PoseInFrameToProtobuf(cameraPosition).Pose,
 		IncludeRobotMarker: includeRobotMarker,
 	}
 
+	var imageData image.Image
+	vObject := &vision.Object{}
+
 	resp, err := c.client.GetMap(ctx, req)
 	if err != nil {
-		return "", []byte{}, &commonpb.PointCloudObject{}, err
+		return "", imageData, vObject, err
 	}
 
 	mimeType = resp.MimeType
 
-	imageData := []byte{}
-	pcData := &commonpb.PointCloudObject{}
 	switch mimeType {
 	case utils.MimeTypeJPEG:
-		imageData = resp.GetImage()
+		imData := resp.GetImage()
+		imageData, err = jpeg.Decode(bytes.NewReader(imData))
+		if err != nil {
+			return "", imageData, vObject, err
+		}
 	case utils.MimeTypePCD:
-		pcData = resp.GetPointCloud()
+		pcData := resp.GetPointCloud()
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcData.PointCloud))
+		if err != nil {
+			return "", imageData, vObject, err
+		}
+		vObject, err = vision.NewObject(pc)
+		if err != nil {
+			return "", imageData, vObject, err
+		}
 	}
 
-	return mimeType, imageData, pcData, nil
+	return mimeType, imageData, vObject, nil
 }

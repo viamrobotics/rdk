@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"io/ioutil"
+	"math"
 	"net"
 	"os"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -23,11 +25,12 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal"
+	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -170,7 +173,7 @@ func TestGeneralNew(t *testing.T) {
 			Sensors:       []string{},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			Port:          "4444",
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -244,7 +247,7 @@ func TestGeneralNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4444",
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -276,7 +279,7 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4444",
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -298,7 +301,7 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4444",
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -319,7 +322,7 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4444",
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -349,7 +352,7 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4444",
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -371,7 +374,7 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4444",
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -442,7 +445,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		ConfigParams:  map[string]string{"mode": "2d"},
 		DataDirectory: name,
 		DataRateMs:    dataRateMs,
-		Port:          "4444",
+		Port:          "4445",
 	}
 
 	// Create slam service
@@ -509,7 +512,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		ConfigParams:  map[string]string{"mode": "mono"},
 		DataDirectory: name,
 		DataRateMs:    dataRateMs,
-		Port:          "4444",
+		Port:          "4445",
 	}
 
 	// Create slam service
@@ -581,7 +584,7 @@ func TestGetMapAndPosition(t *testing.T) {
 		MapRateSec:       200,
 		DataRateMs:       100,
 		InputFilePattern: "10:200:1",
-		Port:             "4444",
+		Port:             "4445",
 	}
 
 	// Create slam service
@@ -594,10 +597,13 @@ func TestGetMapAndPosition(t *testing.T) {
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
-	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, &commonpb.Pose{}, true)
+	pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	cp := referenceframe.NewPoseInFrame("frame", pose)
+
+	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true)
 	test.That(t, mimeType, test.ShouldResemble, "")
-	test.That(t, im, test.ShouldResemble, []byte{})
-	test.That(t, pc, test.ShouldResemble, &commonpb.PointCloudObject{})
+	test.That(t, im, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM map")
 
 	grpcServer.Stop()
@@ -622,7 +628,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		MapRateSec:       200,
 		DataRateMs:       100,
 		InputFilePattern: "10:200:1",
-		Port:             "4444",
+		Port:             "4445",
 	}
 
 	// Create slam service
@@ -682,7 +688,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		MapRateSec:       200,
 		DataRateMs:       100,
 		InputFilePattern: "10:200:1",
-		Port:             "4444",
+		Port:             "4445",
 	}
 
 	// Create slam service
