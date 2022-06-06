@@ -428,8 +428,6 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 }
 
 // Update updates the data manager service when the config has changed.
-// This will include the first time that the user saves the config, whereas
-// init() and New() are called beforehand since Data Manager is a default service.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	c, ok := getServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
