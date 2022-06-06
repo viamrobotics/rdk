@@ -1,17 +1,8 @@
 package jetson
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-
-	"github.com/pkg/errors"
-	"go.viam.com/utils"
+	"go.viam.com/rdk/component/board/commonsysfs"
 )
-
-// adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
 
 const (
 	claraAGXXavier = "clara_agx_xavier"
@@ -21,27 +12,11 @@ const (
 	jetsonTX1      = "jetson_tx1"
 	jetsonNano     = "jetson_nano"
 	jetsonTX2NX    = "jetson_tx2_NX"
-	tiTDA4VM       = "ti_tda4vm"
 )
 
-type pinDefinition struct {
-	GPIOChipRelativeIDs map[int]int    // ngpio -> relative id
-	GPIONames           map[int]string // e.g. ngpio=169=PQ.06 for claraAGXXavier
-	GPIOChipSysFSDir    string
-	PinNumberBoard      int
-	PinNumberBCM        int
-	PinNameCVM          string
-	PinNameTegraSOC     string
-	PWMChipSysFSDir     string // empty for none
-	PWMID               int    // -1 for none
-}
-
-var boardInfoMappings = map[string]struct {
-	PinDefinitions []pinDefinition
-	Compats        []string
-}{
+var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 	claraAGXXavier: {
-		[]pinDefinition{
+		[]commonsysfs.PinDefinition{
 			{map[int]int{224: 134, 169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 			{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 			{map[int]int{224: 63, 169: 51}, map[int]string{169: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "DAP2_SCLK", "", -1},
@@ -90,40 +65,9 @@ var boardInfoMappings = map[string]struct {
 		},
 		[]string{"nvidia,e3900-0000+p2888-0004"},
 	},
-	tiTDA4VM: {
-		[]pinDefinition{
-			{map[int]int{128: 84}, map[int]string{}, "600000.gpio", 3, 2, "GPIO0_84", "", "", -1},
-			{map[int]int{128: 83}, map[int]string{}, "600000.gpio", 5, 3, "GPIO0_83", "", "", -1},
-			{map[int]int{128: 7}, map[int]string{}, "600000.gpio", 7, 4, "GPIO0_7", "", "", -1},
-			{map[int]int{128: 70}, map[int]string{}, "600000.gpio", 8, 14, "GPIO0_70", "", "", -1},
-			{map[int]int{128: 81}, map[int]string{}, "600000.gpio", 10, 15, "GPIO0_81", "", "", -1},
-			{map[int]int{128: 71}, map[int]string{}, "600000.gpio", 11, 17, "GPIO0_71", "", "", -1},
-			{map[int]int{128: 1}, map[int]string{}, "600000.gpio", 12, 18, "GPIO0_1", "", "", -1},
-			{map[int]int{128: 82}, map[int]string{}, "600000.gpio", 13, 27, "GPIO0_82", "", "", -1},
-			{map[int]int{128: 11}, map[int]string{}, "600000.gpio", 15, 22, "GPIO0_11", "", "", -1},
-			{map[int]int{128: 5}, map[int]string{}, "600000.gpio", 16, 23, "GPIO0_5", "", "", -1},
-			{map[int]int{36: 12}, map[int]string{}, "601000.gpio", 18, 24, "GPIO0_12", "", "", -1},
-			{map[int]int{128: 101}, map[int]string{}, "600000.gpio", 19, 10, "GPIO0_101", "", "", -1},
-			{map[int]int{128: 107}, map[int]string{}, "600000.gpio", 21, 9, "GPIO0_107", "", "", -1},
-			{map[int]int{128: 8}, map[int]string{}, "600000.gpio", 22, 25, "GPIO0_8", "", "", -1},
-			{map[int]int{128: 103}, map[int]string{}, "600000.gpio", 23, 11, "GPIO0_103", "", "", -1},
-			{map[int]int{128: 102}, map[int]string{}, "600000.gpio", 24, 8, "GPIO0_102", "", "", -1},
-			{map[int]int{128: 108}, map[int]string{}, "600000.gpio", 26, 7, "GPIO0_108", "", "", -1},
-			{map[int]int{128: 93}, map[int]string{}, "600000.gpio", 29, 5, "GPIO0_93", "", "3020000.pwm", 0},
-			{map[int]int{128: 94}, map[int]string{}, "600000.gpio", 31, 6, "GPIO0_94", "", "3020000.pwm", 1},
-			{map[int]int{128: 98}, map[int]string{}, "600000.gpio", 32, 12, "GPIO0_98", "", "3030000.pwm", 0},
-			{map[int]int{128: 99}, map[int]string{}, "600000.gpio", 33, 13, "GPIO0_99", "", "3030000.pwm", 1},
-			{map[int]int{128: 2}, map[int]string{}, "600000.gpio", 35, 19, "GPIO0_2", "", "", -1},
-			{map[int]int{128: 97}, map[int]string{}, "600000.gpio", 36, 16, "GPIO0_97", "", "", -1},
-			{map[int]int{128: 115}, map[int]string{}, "600000.gpio", 37, 26, "GPIO0_115", "", "", -1},
-			{map[int]int{128: 3}, map[int]string{}, "600000.gpio", 38, 20, "GPIO0_3", "", "", -1},
-			{map[int]int{128: 4}, map[int]string{}, "600000.gpio", 40, 21, "GPIO0_4", "", "", -1},
-		},
-		[]string{"ti,j721e-sk", "ti,j721e"},
-	},
-	//nolint:dupl
+
 	jetsonNX: {
-		[]pinDefinition{
+		[]commonsysfs.PinDefinition{
 			{map[int]int{224: 148, 169: 118}, map[int]string{169: "PS.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 			{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 			{map[int]int{224: 157, 169: 127}, map[int]string{169: "PT.05"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP5_SCLK", "", -1},
@@ -175,7 +119,7 @@ var boardInfoMappings = map[string]struct {
 		},
 	},
 	jetsonXavier: {
-		[]pinDefinition{
+		[]commonsysfs.PinDefinition{
 			{map[int]int{224: 134, 169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 			{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 			{map[int]int{224: 63, 169: 51}, map[int]string{169: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "DAP2_SCLK", "", -1},
@@ -240,9 +184,9 @@ var boardInfoMappings = map[string]struct {
 			"nvidia,jetson-xavier-industrial",
 		},
 	},
-	//nolint:dupl
+
 	jetsonTX2NX: {
-		[]pinDefinition{
+		[]commonsysfs.PinDefinition{
 			{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 			{map[int]int{64: 28, 47: 23}, map[int]string{47: "PW.04"}, "c2f0000.gpio", 11, 17, "UART1_RTS", "UART3_RTS", "", -1},
 			{map[int]int{192: 72, 140: 62}, map[int]string{140: "PJ.00"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP1_SCLK", "", -1},
@@ -271,7 +215,7 @@ var boardInfoMappings = map[string]struct {
 		},
 	},
 	jetsonTX2: {
-		[]pinDefinition{
+		[]commonsysfs.PinDefinition{
 			{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "PAUDIO_MCLK", "AUD_MCLK", "", -1},
 			// Output-only (due to base board)
 			{map[int]int{192: 146, 140: 117}, map[int]string{140: "PT.02"}, "2200000.gpio", 11, 17, "PUART0_RTS", "UART1_RTS", "", -1},
@@ -350,7 +294,7 @@ var boardInfoMappings = map[string]struct {
 		},
 	},
 	jetsonTX1: {
-		[]pinDefinition{
+		[]commonsysfs.PinDefinition{
 			{map[int]int{-1: 216}, nil, "6000d000.gpio", 7, 4, "AUDIO_MCLK", "AUD_MCLK", "", -1},
 			// Output-only (due to base board)
 			{map[int]int{-1: 162}, nil, "6000d000.gpio", 11, 17, "UART0_RTS", "UART1_RTS", "", -1},
@@ -383,7 +327,7 @@ var boardInfoMappings = map[string]struct {
 		},
 	},
 	jetsonNano: {
-		[]pinDefinition{
+		[]commonsysfs.PinDefinition{
 			{map[int]int{-1: 216}, nil, "6000d000.gpio", 7, 4, "GPIO9", "AUD_MCLK", "", -1},
 			{map[int]int{-1: 50}, nil, "6000d000.gpio", 11, 17, "UART1_RTS", "UART2_RTS", "", -1},
 			{map[int]int{-1: 79}, nil, "6000d000.gpio", 12, 18, "I2S0_SCLK", "DAP4_SCLK", "", -1},
@@ -415,143 +359,4 @@ var boardInfoMappings = map[string]struct {
 			"nvidia,jetson-nano",
 		},
 	},
-}
-
-type gpioBoardMapping struct {
-	gpioChipDev    string
-	gpio           int
-	gpioGlobal     int
-	hwPWMSupported bool
-}
-
-var errNoJetson = errors.New("could not determine Jetson model")
-
-func getGPIOBoardMappings() (map[int]gpioBoardMapping, error) {
-	const (
-		compatiblePath = "/proc/device-tree/compatible"
-		idsPath        = "/proc/device-tree/chosen/plugin-manager/ids"
-	)
-
-	compatiblesRd, err := ioutil.ReadFile(compatiblePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, errNoJetson
-		}
-		return nil, err
-	}
-	compatibles := utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...)
-
-	var pinDefs []pinDefinition
-	for _, info := range boardInfoMappings {
-		for _, v := range info.Compats {
-			if _, ok := compatibles[v]; ok {
-				pinDefs = info.PinDefinitions
-				break
-			}
-		}
-	}
-
-	if pinDefs == nil {
-		return nil, errNoJetson
-	}
-
-	gpioChipDirs := map[string]string{}
-	gpioChipBase := map[string]int{}
-	gpioChipNgpio := map[string]int{}
-
-	sysfsPrefixes := []string{"/sys/devices/", "/sys/devices/platform/", "/sys/devices/platform/bus@100000/"}
-
-	// Get the GPIO chip offsets
-	gpioChipNames := make(map[string]struct{}, len(pinDefs))
-	for _, pinDef := range pinDefs {
-		if pinDef.GPIOChipSysFSDir == "" {
-			continue
-		}
-		gpioChipNames[pinDef.GPIOChipSysFSDir] = struct{}{}
-	}
-	for gpioChipName := range gpioChipNames {
-		var gpioChipDir string
-		for _, prefix := range sysfsPrefixes {
-			d := prefix + gpioChipName
-			fileInfo, err := os.Stat(d)
-			if err != nil {
-				continue
-			}
-			if fileInfo.IsDir() {
-				gpioChipDir = d
-				break
-			}
-		}
-		if gpioChipDir == "" {
-			return nil, errors.Errorf("cannot find GPIO chip %q", gpioChipName)
-		}
-		files, err := os.ReadDir(gpioChipDir)
-		if err != nil {
-			return nil, err
-		}
-		for _, file := range files {
-			if !strings.HasPrefix(file.Name(), "gpiochip") {
-				continue
-			}
-			gpioChipDirs[gpioChipName] = file.Name()
-			break
-		}
-
-		gpioChipGPIODir := gpioChipDir + "/gpio"
-		files, err = os.ReadDir(gpioChipGPIODir)
-		if err != nil {
-			return nil, err
-		}
-		for _, file := range files {
-			if !strings.HasPrefix(file.Name(), "gpiochip") {
-				continue
-			}
-
-			baseFn := filepath.Join(gpioChipGPIODir, file.Name(), "base")
-			//nolint:gosec
-			baseRd, err := ioutil.ReadFile(baseFn)
-			if err != nil {
-				return nil, err
-			}
-			baseParsed, err := strconv.ParseInt(strings.TrimSpace(string(baseRd)), 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			gpioChipBase[gpioChipName] = int(baseParsed)
-
-			ngpioFn := filepath.Join(gpioChipGPIODir, file.Name(), "ngpio")
-			//nolint:gosec
-			ngpioRd, err := ioutil.ReadFile(ngpioFn)
-			if err != nil {
-				return nil, err
-			}
-			ngpioParsed, err := strconv.ParseInt(strings.TrimSpace(string(ngpioRd)), 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			gpioChipNgpio[gpioChipName] = int(ngpioParsed)
-			break
-		}
-	}
-
-	data := make(map[int]gpioBoardMapping, len(pinDefs))
-	for _, pinDef := range pinDefs {
-		key := pinDef.PinNumberBoard
-
-		chipGPIONgpio := gpioChipNgpio[pinDef.GPIOChipSysFSDir]
-		chipGPIOBase := gpioChipBase[pinDef.GPIOChipSysFSDir]
-		chipRelativeID, ok := pinDef.GPIOChipRelativeIDs[chipGPIONgpio]
-		if !ok {
-			chipRelativeID = pinDef.GPIOChipRelativeIDs[-1]
-		}
-
-		data[key] = gpioBoardMapping{
-			gpioChipDev:    gpioChipDirs[pinDef.GPIOChipSysFSDir],
-			gpio:           chipRelativeID,
-			gpioGlobal:     chipGPIOBase + chipRelativeID,
-			hwPWMSupported: pinDef.PWMID != -1,
-		}
-	}
-
-	return data, nil
 }
