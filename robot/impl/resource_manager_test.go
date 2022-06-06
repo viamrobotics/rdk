@@ -1296,21 +1296,24 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	manager := managerForRemoteRobot(injectRobot)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+		test.That(t, utils.TryClose(ctx, manager), test.ShouldBeNil)
 	}()
+	defer cancel()
 	manager.addRemote(
-		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(ctx, setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
-		newRemoteRobot(context.Background(), setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		newRemoteRobot(ctx, setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
-	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
+	_, err := manager.processManager.AddProcess(ctx, &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
+	_, err = manager.processManager.AddProcess(ctx, &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	checkEmpty := func(toCheck *resourceManager) {
@@ -1320,11 +1323,11 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
 
-	filtered, err := manager.FilterFromConfig(context.Background(), &config.Config{}, logger)
+	filtered, err := manager.FilterFromConfig(ctx, &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "what",
@@ -1374,7 +1377,7 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(ctx, &config.Config{
 		Components: []config.Component{
 			{
 				Name: "what1",
@@ -1386,7 +1389,7 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	checkEmpty(filtered)
 
 	cloned := manager.Clone()
-	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(ctx, &config.Config{
 		Components: []config.Component{
 			{
 				Name: "arm2",
@@ -1469,7 +1472,7 @@ func TestManagerFilterFromConfig(t *testing.T) {
 
 	manager = cloned.Clone()
 
-	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote2",
@@ -1589,7 +1592,7 @@ func TestManagerFilterFromConfig(t *testing.T) {
 
 	manager = cloned.Clone()
 
-	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote1",

@@ -10,10 +10,14 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 )
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
@@ -93,6 +97,24 @@ func (draft *draftRobot) Logger() golog.Logger {
 	return draft.original.Logger()
 }
 
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (draft *draftRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	return draft.original.DiscoverComponents(ctx, qs)
+}
+
+// FrameSystemConfig returns the info of each individual part that makes
+// up a robot's frame system.
+func (draft *draftRobot) FrameSystemConfig(
+	ctx context.Context,
+	additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+	return draft.original.FrameSystemConfig(ctx, additionalTransforms)
+}
+
+func (draft *draftRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	return draft.original.GetStatus(ctx, resourceNames)
+}
+
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (draft *draftRobot) Close(ctx context.Context) error {
 	return draft.original.Close(ctx)
@@ -117,6 +139,16 @@ func (draft *draftRobot) newResource(ctx context.Context, config config.Componen
 		return newResource, nil
 	}
 	return c.Reconfigurable(newResource)
+}
+
+// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+func (draft *draftRobot) TransformPose(
+	ctx context.Context,
+	pose *referenceframe.PoseInFrame,
+	dst string,
+	additionalTransforms []*commonpb.Transform,
+) (*referenceframe.PoseInFrame, error) {
+	return draft.original.TransformPose(ctx, pose, dst, additionalTransforms)
 }
 
 // newDraftRobot returns a new draft of a robot based on the given
