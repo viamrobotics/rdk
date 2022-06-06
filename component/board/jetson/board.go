@@ -259,6 +259,16 @@ func (b *jetsonBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 }
 
 func (gp gpioPin) Set(ctx context.Context, high bool) error {
+	gp.b.mu.Lock()
+	defer gp.b.mu.Unlock()
+
+	delete(gp.b.pwms, gp.pinName)
+
+	gp.set(high)
+	return nil
+}
+
+func (gp gpioPin) set(high bool) error {
 	l := gpio.Low
 	if high {
 		l = gpio.High
@@ -271,8 +281,8 @@ func (gp gpioPin) Get(ctx context.Context) (bool, error) {
 }
 
 func (gp gpioPin) PWM(ctx context.Context) (float64, error) {
-	gp.b.mu.Lock()
-	defer gp.b.mu.Unlock()
+	gp.b.mu.RLock()
+	defer gp.b.mu.RUnlock()
 
 	return float64(gp.b.pwms[gp.pinName].dutyCycle), nil
 }
@@ -287,32 +297,38 @@ func (b *jetsonBoard) startSoftwarePWMLoop(gp gpioPin) {
 
 func (b *jetsonBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 	for {
-		b.mu.RLock()
-		pwmSetting, ok := b.pwms[gp.pinName]
-		b.mu.RUnlock()
+		cont := func() bool {
+			b.mu.RLock()
+			defer b.mu.RUnlock()
+			pwmSetting, ok := b.pwms[gp.pinName]
 
-		if !ok {
-			b.logger.Error("pwm setting deleted; stopping")
-			return
-		}
+			if !ok {
+				b.logger.Error("pwm setting deleted; stopping")
+				return false
+			}
 
-		if err := gp.Set(ctx, true); err != nil {
-			b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
-			continue
-		}
-		onPeriod := time.Duration(int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())))
-		b.logger.Debugw("pwm on", "pin_name", gp.pinName, "period", onPeriod)
-		if !goutils.SelectContextOrWait(ctx, onPeriod) {
-			return
-		}
-		if err := gp.Set(ctx, false); err != nil {
-			b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
-			continue
-		}
-		offPeriod := pwmSetting.frequency.Period() - onPeriod
-		b.logger.Debugw("pwm off", "pin_name", gp.pinName, "period", offPeriod)
+			if err := gp.set(true); err != nil {
+				b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
+				return true
+			}
+			onPeriod := time.Duration(int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())))
+			b.logger.Debugw("pwm on", "pin_name", gp.pinName, "period", onPeriod)
+			if !goutils.SelectContextOrWait(ctx, onPeriod) {
+				return false
+			}
+			if err := gp.set(false); err != nil {
+				b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
+				return true
+			}
+			offPeriod := pwmSetting.frequency.Period() - onPeriod
+			b.logger.Debugw("pwm off", "pin_name", gp.pinName, "period", offPeriod)
 
-		if !goutils.SelectContextOrWait(ctx, offPeriod) {
+			if !goutils.SelectContextOrWait(ctx, offPeriod) {
+				return false
+			}
+			return true
+		}()
+		if !cont {
 			return
 		}
 	}
@@ -343,8 +359,8 @@ func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
 }
 
 func (gp gpioPin) PWMFreq(ctx context.Context) (uint, error) {
-	gp.b.mu.Lock()
-	defer gp.b.mu.Unlock()
+	gp.b.mu.RLock()
+	defer gp.b.mu.RUnlock()
 
 	return uint(gp.b.pwms[gp.pinName].frequency / physic.Hertz), nil
 }
