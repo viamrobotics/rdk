@@ -167,7 +167,7 @@ func (b *boat) velocityThreadLoop(ctx context.Context) error {
 	linear, angular := computeNextPower(&b.state, av)
 
 	b.stateMutex.Unlock()
-
+	b.logger.Debugf("going to set power to %v %v", linear, angular)
 	return b.setPowerInternal(ctx, linear, angular)
 }
 
@@ -210,6 +210,7 @@ func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVeloc
 }
 
 func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	b.logger.Debugf("SetVelocity %v %v", linear, angular)
 	ctx, done := b.opMgr.New(ctx)
 	defer done()
 
@@ -229,7 +230,7 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 	b.state.velocityAngularGoal = angular
 	b.stateMutex.Unlock()
 
-	return b.setPowerInternal(ctx, linear, angular)
+	return nil
 }
 
 func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
@@ -245,6 +246,8 @@ func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 
 func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) error {
 	power := b.cfg.computePower(linear, angular)
+
+	b.logger.Debugf("setPowerInternal %0.2f %0.2f %0.2f computePower: %v", linear.X, linear.Y, angular.Z, power)
 
 	for idx, p := range power {
 		err := b.motors[idx].SetPower(ctx, p)
