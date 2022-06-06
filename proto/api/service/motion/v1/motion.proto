@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/service/motion/v1";
-option java_package = "com.viam.rdk.proto.api.service.motion.v1";
 
 package proto.api.service.motion.v1;
 
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/service/motion/v1";
+option java_package = "com.viam.rdk.proto.api.service.motion.v1";
 
 // A MotionService declares the gRPC contract for a motion service
 service MotionService {
@@ -35,8 +36,8 @@ message MoveResponse {
 message GetPoseRequest {
   // the component whose pose is being requested
   common.v1.ResourceName component_name = 1;
-  // the reference frame in which the component's pose 
-  // should be provided, if unset this defaults 
+  // the reference frame in which the component's pose
+  // should be provided, if unset this defaults
   // to the "world" reference frame
   string destination_frame = 2;
   // pose information on any additional reference frames that are needed

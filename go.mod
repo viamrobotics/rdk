@@ -60,7 +60,7 @@ require (
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
-	go.viam.com/api v0.0.0-20220413160951-b5b0591fb5fb
+	go.viam.com/api v0.0.0-20220531145217-71ea4391ae85
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
 	go.viam.com/utils v0.0.4-0.20220421194139-f1d2bfa23179
@@ -307,6 +307,7 @@ require (
 )
 
 require (
+	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
 	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/gonum/integrate v0.0.0-20181209220457-a422b5c0fdf2 // indirect
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect

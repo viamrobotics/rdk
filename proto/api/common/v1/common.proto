@@ -1,9 +1,10 @@
 // The following is a list of messages that are used across multiple resource subtypes
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/common/v1";
-option java_package = "com.viam.rdk.proto.api.common.v1";
 
 package proto.api.common.v1;
+
+option go_package = "go.viam.com/rdk/proto/api/common/v1";
+option java_package = "com.viam.rdk.proto.api.common.v1";
 
 message ResourceName {
   string namespace = 1;
@@ -18,7 +19,7 @@ message BoardStatus {
 }
 
 message AnalogStatus {
-  // Current value of the analog reader of a robot's board 
+  // Current value of the analog reader of a robot's board
   int32 value = 1;
 }
 
@@ -50,7 +51,7 @@ message Pose {
   // degrees
   double theta = 7;
 }
-// PoseInFrame contains a pose and the and the reference frame in which it was observed 
+// PoseInFrame contains a pose and the and the reference frame in which it was observed
 message PoseInFrame {
   string reference_frame = 1;
   Pose pose = 2;
@@ -83,16 +84,16 @@ message Geometry {
   }
 }
 
-// GeometriesinFrame contains the dimensions of a given geometry, pose of its center point, and the reference frame by which it was 
-// observed. 
+// GeometriesinFrame contains the dimensions of a given geometry, pose of its center point, and the reference frame by which it was
+// observed.
 message GeometriesInFrame {
   // Reference frame of the observer of the geometry
   string reference_frame = 1;
-  // Dimensional type 
+  // Dimensional type
   repeated Geometry geometries = 2;
 }
 
-// PointCloudObject contains an image in bytes with point cloud data of all of the objects captured by a given observer as well as a 
+// PointCloudObject contains an image in bytes with point cloud data of all of the objects captured by a given observer as well as a
 // repeated list of geometries which respresents the center point and geometry of each of the objects within the point cloud
 message PointCloudObject {
   // image frame expressed in bytes
@@ -100,7 +101,6 @@ message PointCloudObject {
   // volume of a given geometry
   common.v1.GeometriesInFrame geometries = 2;
 }
-
 
 message GeoPoint {
   double latitude = 1;
@@ -117,9 +117,9 @@ message Transform {
   PoseInFrame pose_in_observer_frame = 2;
 }
 
-// WorldState contains information about the physical environment around a given robot. All of the fields within this message are optional, 
+// WorldState contains information about the physical environment around a given robot. All of the fields within this message are optional,
 // they can include information about the physical dimensions of an obstacle, the freespace of a robot, and any desired transforms between a
-// given reference frame and a new target reference frame. 
+// given reference frame and a new target reference frame.
 message WorldState {
   // a list of obstacles expressed as a geomtry and the reference frame in which it was observed; this field is optional
   repeated GeometriesInFrame obstacles = 1;

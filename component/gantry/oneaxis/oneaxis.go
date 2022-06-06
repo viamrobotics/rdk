@@ -419,6 +419,11 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, world
 	return nil
 }
 
+// Stop stops the motor of the gantry.
+func (g *oneAxis) Stop(ctx context.Context) error {
+	return g.motor.Stop(ctx)
+}
+
 //  ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	if g.model == nil {
