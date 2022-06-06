@@ -45,7 +45,7 @@ func NewClient(ctx context.Context, name string, address string, logger golog.Lo
 	return sc, nil
 }
 
-// NewClientFromConn constructs a new Client from connection passed in.
+// NewClientFromConn constructs a new Client from the connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	return newSvcClientFromConn(conn, logger)
 }

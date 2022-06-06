@@ -32,7 +32,8 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-// GetPosition returns a poseInFrame from the slam library being run and takes in a slam service name as an input.
+// GetPosition returns a poseInFrame representing the most recent robot location and takes in the slam service name
+// as an input.
 func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositionRequest) (
 	*pb.GetPositionResponse, error,
 ) {
@@ -51,9 +52,9 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 	}, nil
 }
 
-// GetMap returns a mimeType and a map that is either a image byte slice or pointCloudObject defined in
+// GetMap returns a mimeType and a map that is either a image byte slice or PointCloudObject defined in
 // common.proto. It takes in the name of slam service as well as a mime type, and optional parameters
-// including camera position parameter and if the resulting image should include the current robot position.
+// including camera position parameter and whether the resulting image should include the current robot position.
 func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) (
 	*pb.GetMapResponse, error,
 ) {
