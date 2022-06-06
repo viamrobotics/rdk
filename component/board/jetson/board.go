@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	goutils "go.viam.com/utils"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/gpio/gpioreg"
 	"periph.io/x/conn/v3/physic"
@@ -91,24 +92,37 @@ func init() {
 					analogs[analogConf.Name] = board.SmoothAnalogReader(ar, analogConf, logger)
 				}
 			}
-			return &jetsonBoard{
+
+			jb := &jetsonBoard{
 				spis:    spis,
 				analogs: analogs,
-				pwms:    map[string]setPWMting{},
-			}, nil
+				pwms:    map[string]pwmSetting{},
+				logger:  logger,
+			}
+
+			cancelCtx, cancelFunc := context.WithCancel(context.Background())
+			jb.cancelCtx = cancelCtx
+			jb.cancelFunc = cancelFunc
+
+			return jb, nil
 		}})
 	board.RegisterConfigAttributeConverter(modelName)
 }
 
 type jetsonBoard struct {
 	generic.Unimplemented
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	spis    map[string]*spiBus
 	analogs map[string]board.AnalogReader
-	pwms    map[string]setPWMting
+	pwms    map[string]pwmSetting
+	logger  golog.Logger
+
+	cancelCtx               context.Context
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
 }
 
-type setPWMting struct {
+type pwmSetting struct {
 	dutyCycle gpio.Duty
 	frequency physic.Frequency
 }
@@ -212,36 +226,37 @@ func (b *jetsonBoard) GPIOPinNames() []string {
 	return names
 }
 
-func (b *jetsonBoard) getGPIOLine(hwPin string) (gpio.PinIO, error) {
+func (b *jetsonBoard) getGPIOLine(hwPin string) (gpio.PinIO, bool, error) {
 	pinParsed, err := strconv.ParseInt(hwPin, 10, 32)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	mapping, ok := gpioMappings[int(pinParsed)]
 	if !ok {
-		return nil, errors.Errorf("invalid pin %q", hwPin)
+		return nil, false, errors.Errorf("invalid pin %q", hwPin)
 	}
 
 	pin := gpioreg.ByName(fmt.Sprintf("%d", mapping.gpioGlobal))
 	if pin == nil {
-		return nil, errors.Errorf("no global pin found for '%d'", mapping.gpioGlobal)
+		return nil, false, errors.Errorf("no global pin found for '%d'", mapping.gpioGlobal)
 	}
-	return pin, nil
+	return pin, mapping.hwPWMSupported, nil
 }
 
 type gpioPin struct {
-	b       *jetsonBoard
-	pin     gpio.PinIO
-	pinName string
+	b              *jetsonBoard
+	pin            gpio.PinIO
+	pinName        string
+	hwPWMSupported bool
 }
 
 func (b *jetsonBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
-	pin, err := b.getGPIOLine(pinName)
+	pin, hwPWMSupported, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return nil, err
 	}
 
-	return gpioPin{b, pin, pinName}, nil
+	return gpioPin{b, pin, pinName, hwPWMSupported}, nil
 }
 
 func (gp gpioPin) Set(ctx context.Context, high bool) error {
@@ -263,17 +278,39 @@ func (gp gpioPin) PWM(ctx context.Context) (float64, error) {
 	return float64(gp.b.pwms[gp.pinName].dutyCycle), nil
 }
 
-func spawn_pwm_routine(ctx context.Context, gp gpioPin) {
+// expects to already have lock acquired.
+func (b *jetsonBoard) startSoftwarePWMLoop(gp gpioPin) {
+	b.activeBackgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		b.softwarePWMLoop(b.cancelCtx, gp)
+	}, b.activeBackgroundWorkers.Done)
+}
+
+func (b *jetsonBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 	for {
-		pwm_setting := gp.b.pwms[gp.pin.Name()]
-		gp.Set(ctx, true)
-		on_period := time.Duration(int64(float64(pwm_setting.dutyCycle) / float64(gpio.DutyMax) * float64(pwm_setting.frequency.Period())))
-		fmt.Println(gp.pinName, "on:", on_period)
-		time.Sleep(on_period)
-		gp.Set(ctx, false)
-		off_period := pwm_setting.frequency.Period() - on_period
-		fmt.Println(gp.pinName, "off:", off_period)
-		time.Sleep(off_period)
+		b.mu.RLock()
+		pwmSetting := b.pwms[gp.pin.Name()]
+		b.mu.RUnlock()
+
+		if err := gp.Set(ctx, true); err != nil {
+			b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
+			continue
+		}
+		onPeriod := time.Duration(int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())))
+		b.logger.Debugw("pwm on", "pin_name", gp.pinName, "period", onPeriod)
+		if !goutils.SelectContextOrWait(ctx, onPeriod) {
+			return
+		}
+		if err := gp.Set(ctx, false); err != nil {
+			b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
+			continue
+		}
+		offPeriod := pwmSetting.frequency.Period() - onPeriod
+		b.logger.Debugw("pwm off", "pin_name", gp.pinName, "period", offPeriod)
+
+		if !goutils.SelectContextOrWait(ctx, offPeriod) {
+			return
+		}
 	}
 }
 
@@ -281,23 +318,22 @@ func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
-	last, ok := gp.b.pwms[gp.pin.Name()]
+	last, alreadySet := gp.b.pwms[gp.pinName]
+	var freqHz physic.Frequency
+	if last.frequency != 0 {
+		freqHz = last.frequency
+	}
 	duty := gpio.Duty(dutyCyclePct * float64(gpio.DutyMax))
 	last.dutyCycle = duty
-	gp.b.pwms[gp.pin.Name()] = last
+	gp.b.pwms[gp.pinName] = last
 
-	if !ok {
-		go spawn_pwm_routine(ctx, gp)
+	if gp.hwPWMSupported {
+		return gp.pin.PWM(duty, freqHz)
 	}
 
-	// last := gp.b.pwms[gp.pinName]
-	// var freqHz physic.Frequency
-	// if last.frequency != 0 {
-	// 	freqHz = last.frequency
-	// }
-	// duty := gpio.Duty(dutyCyclePct * float64(gpio.DutyMax))
-	// last.dutyCycle = duty
-	// gp.b.pwms[gp.pinName] = last
+	if !alreadySet {
+		gp.b.startSoftwarePWMLoop(gp)
+	}
 
 	return nil
 }
@@ -313,22 +349,22 @@ func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
-	last, ok := gp.b.pwms[gp.pin.Name()]
+	last, alreadySet := gp.b.pwms[gp.pinName]
+	var duty gpio.Duty
+	if last.dutyCycle != 0 {
+		duty = last.dutyCycle
+	}
 	frequency := physic.Hertz * physic.Frequency(freqHz)
 	last.frequency = frequency
-	gp.b.pwms[gp.pin.Name()] = last
+	gp.b.pwms[gp.pinName] = last
 
-	if !ok {
-		go spawn_pwm_routine(ctx, gp)
+	if gp.hwPWMSupported {
+		return gp.pin.PWM(duty, frequency)
 	}
-	// last := gp.b.pwms[gp.pinName]
-	// var duty gpio.Duty
-	// if last.dutyCycle != 0 {
-	// 	duty = last.dutyCycle
-	// }
-	// frequency := physic.Hertz * physic.Frequency(freqHz)
-	// last.frequency = frequency
-	// gp.b.pwms[gp.pinName] = last
+
+	if !alreadySet {
+		gp.b.startSoftwarePWMLoop(gp)
+	}
 
 	return nil
 }
@@ -339,4 +375,9 @@ func (b *jetsonBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error)
 
 func (b *jetsonBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
+}
+
+func (b *jetsonBoard) Close() {
+	b.cancelFunc()
+	b.activeBackgroundWorkers.Wait()
 }
