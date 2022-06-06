@@ -311,7 +311,6 @@ func (b *jetsonBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 				return true
 			}
 			onPeriod := time.Duration(int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())))
-			b.logger.Debugw("pwm on", "pin_name", gp.pinName, "period", onPeriod)
 			if !goutils.SelectContextOrWait(ctx, onPeriod) {
 				return false
 			}
@@ -320,7 +319,6 @@ func (b *jetsonBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 				return true
 			}
 			offPeriod := pwmSetting.frequency.Period() - onPeriod
-			b.logger.Debugw("pwm off", "pin_name", gp.pinName, "period", offPeriod)
 
 			if !goutils.SelectContextOrWait(ctx, offPeriod) {
 				return false
