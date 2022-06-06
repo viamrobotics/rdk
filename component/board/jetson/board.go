@@ -377,6 +377,8 @@ func (b *jetsonBoard) ModelAttributes() board.ModelAttributes {
 }
 
 func (b *jetsonBoard) Close() {
+	b.mu.Lock()
 	b.cancelFunc()
+	b.mu.Unlock()
 	b.activeBackgroundWorkers.Wait()
 }
