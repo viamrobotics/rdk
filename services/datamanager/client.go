@@ -1,4 +1,4 @@
-// Package motion contains a gRPC based motion client
+// Package datamanager contains a gRPC based datamanager service server
 package datamanager
 
 import (
@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// client is a client satisfies the data_manager.proto contract.
+// client is a client that satisfies the data_manager.proto contract.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.DataManagerServiceClient
@@ -51,10 +51,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) Sync(
-	ctx context.Context,
-	name resource.Name,
-) (bool, error) {
+func (c *client) Sync(ctx context.Context, name resource.Name) (bool, error) {
 	resp, err := c.client.Sync(ctx, &pb.SyncRequest{
 		Name: protoutils.ResourceNameToProto(name),
 	})

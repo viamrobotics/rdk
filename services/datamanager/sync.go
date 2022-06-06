@@ -50,6 +50,7 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 
 	ret := syncer{
 		syncQueue:     queuePath,
+		queueLock:     &sync.Mutex{},
 		logger:        logger,
 		captureDir:    captureDir,
 		queueWaitTime: time.Minute,
@@ -238,7 +239,7 @@ func (p *progressTracker) unmark(k string) {
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.
-func exponentialRetry(parentCancelCtx context.Context, cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) {
+func exponentialRetry(parentCtx context.Context, cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
 	if err := fn(cancelCtx); err == nil {
 		return
@@ -256,7 +257,7 @@ func exponentialRetry(parentCancelCtx context.Context, cancelCtx context.Context
 		}
 		select {
 		// If cancelled, return nil.
-		case <-parentCancelCtx.Done():
+		case <-parentCtx.Done():
 			ticker.Stop()
 			return
 		case <-cancelCtx.Done():
