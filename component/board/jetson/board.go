@@ -267,11 +267,13 @@ func spawn_pwm_routine(ctx context.Context, gp gpioPin) {
 	for {
 		pwm_setting := gp.b.pwms[gp.pin.Name()]
 		gp.Set(ctx, true)
-		on_period := float64(pwm_setting.dutyCycle) / float64(gpio.DutyMax) * float64(pwm_setting.frequency.Period())
-		time.Sleep(time.Duration(int64(on_period)))
+		on_period := time.Duration(int64(float64(pwm_setting.dutyCycle) / float64(gpio.DutyMax) * float64(pwm_setting.frequency.Period())))
+		fmt.Println(gp.pinName, "on:", on_period)
+		time.Sleep(on_period)
 		gp.Set(ctx, false)
-		off_period := pwm_setting.frequency.Period() - time.Duration(on_period)
-		time.Sleep(time.Duration(int64(off_period)))
+		off_period := pwm_setting.frequency.Period() - on_period
+		fmt.Println(gp.pinName, "off:", off_period)
+		time.Sleep(off_period)
 	}
 }
 

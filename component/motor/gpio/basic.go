@@ -140,11 +140,11 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 				errs,
 				m.A.Set(ctx, false),
 				m.B.Set(ctx, false),
-				//TODO dont be this janky about the pwm freq.
-				m.A.SetPWMFreq(ctx, 100),
-				m.B.SetPWMFreq(ctx, 100),
-				m.A.SetPWM(ctx, 0),
-				m.B.SetPWM(ctx, 0),
+				//TODO dont be this janky about the pwm freq. currently doing this to avoid kicking off the thread with freq set to 0.
+				m.A.SetPWMFreq(ctx, m.pwmFreq),
+				m.B.SetPWMFreq(ctx, m.pwmFreq),
+				m.A.SetPWM(ctx, 100),
+				m.B.SetPWM(ctx, 100),
 			)
 		}
 
@@ -193,7 +193,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 		pwmPin.SetPWMFreq(ctx, m.pwmFreq),
 		pwmPin.SetPWM(ctx, powerPct),
 		pwmStopPin.SetPWMFreq(ctx, m.pwmFreq),
-		pwmStopPin.SetPWM(ctx, 0),
+		pwmStopPin.SetPWM(ctx, 100),
 	)
 }
 
