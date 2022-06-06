@@ -1839,12 +1839,8 @@ func TestRobotReconfigure(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := metadata.FromRobot(robot)
-		test.That(t, err, test.ShouldBeNil)
-
-		resources, err := svc.Resources(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resources), test.ShouldEqual, 6)
+		resources := robot.ResourceNames()
+		test.That(t, len(resources), test.ShouldEqual, 3)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1949,13 +1945,13 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:11]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:7]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
 				[]resource.Name{arm.Named("arm1")},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[11:14]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[7:10]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{
 					arm.Named("arm3"),
@@ -1963,14 +1959,14 @@ func TestRobotReconfigure(t *testing.T) {
 					board.Named("board3"),
 				},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[14:16]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[10:12]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{
 					base.Named("base2"),
 					board.Named("board2"),
 				},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[16]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[12]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{board.Named("board1")},
 			)...))
