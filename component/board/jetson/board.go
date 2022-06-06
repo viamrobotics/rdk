@@ -93,16 +93,15 @@ func init() {
 				}
 			}
 
-			jb := &jetsonBoard{
-				spis:    spis,
-				analogs: analogs,
-				pwms:    map[string]pwmSetting{},
-				logger:  logger,
-			}
-
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
-			jb.cancelCtx = cancelCtx
-			jb.cancelFunc = cancelFunc
+			jb := &jetsonBoard{
+				spis:       spis,
+				analogs:    analogs,
+				pwms:       map[string]pwmSetting{},
+				logger:     logger,
+				cancelCtx:  cancelCtx,
+				cancelFunc: cancelFunc,
+			}
 
 			return jb, nil
 		}})
