@@ -595,7 +595,10 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 
 	// Go mostly up
 	b.tipper.SetPower(ctx, 1.0)
-	utils.SelectContextOrWait(ctx, 11000*time.Millisecond)
+	if !utils.SelectContextOrWait(ctx, 11000*time.Millisecond) {
+		b.tipper.Stop(ctx)
+		return ctx.Err()
+	}
 
 	// All off
 	b.tipper.Stop(ctx)
@@ -617,6 +620,7 @@ func (b *ResetBox) tipTableDown(ctx context.Context) error {
 
 	// Extra time for safety (actuator automatically stops on retract)
 	if !utils.SelectContextOrWait(ctx, 4000*time.Millisecond) {
+		b.tipper.Stop(ctx)
 		return ctx.Err()
 	}
 	// All Off
@@ -633,7 +637,9 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 		if err != nil {
 			return err
 		}
-		utils.SelectContextOrWait(ctx, 500*time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+			return ctx.Err()
+		}
 	}
 
 	// Raise Hammer
@@ -724,7 +730,9 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	if errs != nil {
 		return errs
 	}
-	utils.SelectContextOrWait(ctx, 1000*time.Millisecond)
+	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
+		return ctx.Err()
+	}
 	b.vibrate(ctx, 0)
 
 	// Cubes in, going up
@@ -780,14 +788,18 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		return errs
 	}
 
-	utils.SelectContextOrWait(ctx, 1000*time.Millisecond)
+	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
+		return ctx.Err()
+	}
 	// Open to load duck
 	b.vibrate(ctx, vibeLevel)
 	errs = multierr.Combine(
 		b.setSqueeze(ctx, squeezeOpen),
 		<-errArm,
 	)
-	utils.SelectContextOrWait(ctx, 1000*time.Millisecond)
+	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
+		return ctx.Err()
+	}
 	// Duck in, silence and up
 	b.vibrate(ctx, 0)
 	if errs != nil {
@@ -827,7 +839,9 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		if errs != nil {
 			return errs
 		}
-		utils.SelectContextOrWait(ctx, 3000*time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 3000*time.Millisecond) {
+			return ctx.Err()
+		}
 		b.vibrate(ctx, 0)
 		errs = multierr.Combine(
 			b.setSqueeze(ctx, squeezeClosed),
@@ -852,7 +866,6 @@ func (b *ResetBox) armHome(ctx context.Context) error {
 
 func (b *ResetBox) pickCube1(ctx context.Context) error {
 	// Grab cube 1 and reset it on the field
-	b.logger.Info("SMURF1")
 	errs := multierr.Combine(
 		b.gripper.Open(ctx),
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
@@ -861,18 +874,19 @@ func (b *ResetBox) pickCube1(ctx context.Context) error {
 	if errs != nil {
 		return errs
 	}
-	b.logger.Info("SMURF2")
 
 	grabbed, errs := b.gripper.Grab(ctx)
 	if errs != nil {
 		return errs
 	}
-	b.logger.Info("SMURF3")
 
 	if !grabbed {
 		return errors.New("missed first cube")
+	} else {
+		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+			return ctx.Err()
+		}
 	}
-	b.logger.Info("SMURF4")
 
 	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
 }
@@ -900,6 +914,10 @@ func (b *ResetBox) pickCube2(ctx context.Context) error {
 	}
 	if !grabbed {
 		return errors.New("missed second cube")
+	} else {
+		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+			return ctx.Err()
+		}
 	}
 	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
 }
@@ -924,6 +942,9 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 	// Try to grab- this should succeed if the duck is facing forwards, and fail if facing backwards
 	grabbed, errs := b.gripper.Grab(ctx)
 	if grabbed {
+		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+			return ctx.Err()
+		}
 		multierr.Combine(
 			errs,
 			b.arm.MoveToJointPositions(ctx, duckReadyPos),
@@ -950,6 +971,10 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 		}
 		if !grabbed {
 			return errors.New("missed the duck twice")
+		} else {
+			if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+				return ctx.Err()
+			}
 		}
 		multierr.Combine(
 			b.arm.MoveToJointPositions(ctx, duckReadyPos),
