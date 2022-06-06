@@ -41,6 +41,8 @@ func TestClientWorkingService(t *testing.T) {
 	pcSucc := &vision.Object{}
 	pcSucc.PointCloud = pointcloud.New()
 	err = pcSucc.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
+	test.That(t, err, test.ShouldBeNil)
+
 	imSucc := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 	workingSLAMService := &inject.SLAMService{}
@@ -159,6 +161,7 @@ func TestClientFailingService(t *testing.T) {
 	pcFail := &vision.Object{}
 	pcFail.PointCloud = pointcloud.New()
 	err = pcFail.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
+	test.That(t, err, test.ShouldBeNil)
 	imFail := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 	failingSLAMService := &inject.SLAMService{}

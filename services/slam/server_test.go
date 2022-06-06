@@ -53,7 +53,6 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("working get map function", func(t *testing.T) {
-
 		pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
 		pcSucc := &vision.Object{}
