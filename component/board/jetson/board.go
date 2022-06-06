@@ -302,7 +302,7 @@ func (b *jetsonBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 			pwmSetting, ok := b.pwms[gp.pinName]
 
 			if !ok {
-				b.logger.Error("pwm setting deleted; stopping")
+				b.logger.Debug("pwm setting deleted; stopping")
 				return false
 			}
 
