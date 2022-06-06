@@ -39,7 +39,6 @@ type pinDefinition struct {
 var boardInfoMappings = map[string]struct {
 	PinDefinitions []pinDefinition
 	Compats        []string
-	HWPWMSupported bool
 }{
 	claraAGXXavier: {
 		[]pinDefinition{
@@ -90,7 +89,6 @@ var boardInfoMappings = map[string]struct {
 			{map[int]int{224: 64, 169: 52}, map[int]string{169: "PI.00"}, "2200000.gpio", 40, 21, "I2S2_DOUT", "DAP2_DOUT", "", -1},
 		},
 		[]string{"nvidia,e3900-0000+p2888-0004"},
-		true,
 	},
 	tiTDA4VM: {
 		[]pinDefinition{
@@ -122,7 +120,6 @@ var boardInfoMappings = map[string]struct {
 			{map[int]int{128: 4}, map[int]string{}, "600000.gpio", 40, 21, "GPIO0_4", "", "", -1},
 		},
 		[]string{"ti,j721e-sk", "ti,j721e"},
-		false,
 	},
 	//nolint:dupl
 	jetsonNX: {
@@ -176,7 +173,6 @@ var boardInfoMappings = map[string]struct {
 			"nvidia,p3449-0000+p3668-0000",
 			"nvidia,p3449-0000+p3668-0001",
 		},
-		true,
 	},
 	jetsonXavier: {
 		[]pinDefinition{
@@ -243,7 +239,6 @@ var boardInfoMappings = map[string]struct {
 			"nvidia,galen-industrial",
 			"nvidia,jetson-xavier-industrial",
 		},
-		true,
 	},
 	//nolint:dupl
 	jetsonTX2NX: {
@@ -274,7 +269,6 @@ var boardInfoMappings = map[string]struct {
 		[]string{
 			"nvidia,p3509-0000+p3636-0001",
 		},
-		true,
 	},
 	jetsonTX2: {
 		[]pinDefinition{
@@ -354,7 +348,6 @@ var boardInfoMappings = map[string]struct {
 			"nvidia,quill",
 			"nvidia,storm",
 		},
-		true,
 	},
 	jetsonTX1: {
 		[]pinDefinition{
@@ -388,7 +381,6 @@ var boardInfoMappings = map[string]struct {
 			"nvidia,p2371-2180",
 			"nvidia,jetson-cv",
 		},
-		true,
 	},
 	jetsonNano: {
 		[]pinDefinition{
@@ -422,7 +414,6 @@ var boardInfoMappings = map[string]struct {
 			"nvidia,p3450-0002",
 			"nvidia,jetson-nano",
 		},
-		true,
 	},
 }
 
@@ -451,12 +442,10 @@ func getGPIOBoardMappings() (map[int]gpioBoardMapping, error) {
 	compatibles := utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...)
 
 	var pinDefs []pinDefinition
-	var hwPWMSupported bool
 	for _, info := range boardInfoMappings {
 		for _, v := range info.Compats {
 			if _, ok := compatibles[v]; ok {
 				pinDefs = info.PinDefinitions
-				hwPWMSupported = info.HWPWMSupported
 				break
 			}
 		}
@@ -560,7 +549,7 @@ func getGPIOBoardMappings() (map[int]gpioBoardMapping, error) {
 			gpioChipDev:    gpioChipDirs[pinDef.GPIOChipSysFSDir],
 			gpio:           chipRelativeID,
 			gpioGlobal:     chipGPIOBase + chipRelativeID,
-			hwPWMSupported: hwPWMSupported,
+			hwPWMSupported: pinDef.PWMID != -1,
 		}
 	}
 
