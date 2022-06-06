@@ -3,6 +3,8 @@
 
 package datamanager
 
+import "syscall"
+
 func getMockStatfsFn(blocks int, bsize int, bavail int, bfree int) func(string, *syscall.Statfs_t) error {
 	return func(path string, stat *syscall.Statfs_t) error {
 		stat.Blocks = uint64(blocks)
