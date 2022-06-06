@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blend/go-sdk/logger"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -288,8 +289,13 @@ func (b *jetsonBoard) startSoftwarePWMLoop(gp gpioPin) {
 func (b *jetsonBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 	for {
 		b.mu.RLock()
-		pwmSetting := b.pwms[gp.pin.Name()]
+		pwmSetting, ok := b.pwms[gp.pinName]
 		b.mu.RUnlock()
+
+		if !ok {
+			logger.Error("pwm setting deleted; stopping")
+			return
+		}
 
 		if err := gp.Set(ctx, true); err != nil {
 			b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
