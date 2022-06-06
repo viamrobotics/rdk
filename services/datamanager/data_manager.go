@@ -295,15 +295,14 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 
 	// Init a new syncer if we are still syncing.
 	if intervalMins > 0 {
-		cancelCtx, fn := context.WithCancel(context.Background())
-		svc.updateCollectorsCancelFn = fn
-		svc.queueCapturedData(cancelCtx, intervalMins)
 		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
-		svc.syncer.Start(cancelCtx)
+		svc.syncer.initialQueue()
+		svc.syncer.Upload()
 	}
 }
 
 // Perform a non-scheduled sync of the data in the capture directory.
+// TODO: Need to have the syncer cancel when the Sync gRPC call cancels (will likely cancel on syncer upload since that takes the most time)
 func (svc *dataManagerService) Sync(ctx context.Context, name resource.Name) (bool, error) {
 	if svc.syncer == nil {
 		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
@@ -323,7 +322,7 @@ func (svc *dataManagerService) Sync(ctx context.Context, name resource.Name) (bo
 	if err := svc.syncer.Enqueue(oldFiles); err != nil {
 		return false, err
 	}
-	if err := svc.syncer.Upload(ctx); err != nil {
+	if err := svc.syncer.Upload(); err != nil {
 		return false, err
 	}
 
@@ -421,10 +420,14 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		}
 	}
 
+	// Kick off the goroutine to sync files every intervalMins.
+	cancelCtx, fn := context.WithCancel(context.Background())
+	svc.updateCollectorsCancelFn = fn
+	svc.queueAndUploadRoutine(cancelCtx, svcConfig.SyncIntervalMins)
 	return nil
 }
 
-func (svc *dataManagerService) queueCapturedData(cancelCtx context.Context, intervalMins int) {
+func (svc *dataManagerService) queueAndUploadRoutine(cancelCtx context.Context, intervalMins int) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -462,6 +465,9 @@ func (svc *dataManagerService) queueCapturedData(cancelCtx context.Context, inte
 				}
 				svc.lock.Unlock()
 				if err := svc.syncer.Enqueue(oldFiles); err != nil {
+					svc.logger.Errorw("failed to move files to sync queue", "error", err)
+				}
+				if err := svc.syncer.Upload(); err != nil {
 					svc.logger.Errorw("failed to move files to sync queue", "error", err)
 				}
 			}

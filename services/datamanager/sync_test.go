@@ -37,8 +37,9 @@ func newTestSyncer(t *testing.T, uploadFn func(ctx context.Context, path string)
 	}
 }
 
-// Validates that for some captureDir, files are enqueued and uploaded exactly once.
-func TestQueuesAndUploadsOnce(t *testing.T) {
+// Validates that for some captureDir, files are enqueued and uploaded exactly once on the scheduled syncer.
+
+func TestQueuesAndUploadsOnceScheduled(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
@@ -47,15 +48,54 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	}
 	sut := newTestSyncer(t, uploadFn)
 
-	// Start syncer, pass in its own cancel context as its the same as the test's.
-	sut.Start(sut.cancelCtx)
+	// Start syncer, pass in its own cancel context as it's the same as the test's.
+	sut.initialQueue()
 
 	// Put a couple files in captureDir.
-	file1, _ := ioutil.TempFile(sut.captureDir, "whatever")
+	file1, _ := ioutil.TempFile(sut.captureDir, "file1")
 	defer os.Remove(file1.Name())
-	file2, _ := ioutil.TempFile(sut.captureDir, "whatever2")
+	file2, _ := ioutil.TempFile(sut.captureDir, "file2")
 	defer os.Remove(file2.Name())
 	err := sut.Enqueue([]string{file1.Name(), file2.Name()})
+	test.That(t, err, test.ShouldBeNil)
+	// Give it a second to run and upload files.
+	// Queue/upload with the syncer, let it run for a second.
+	err = sut.Upload()
+	time.Sleep(time.Second)
+
+	// Verify files were enqueued and uploaded.
+	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
+	if err != nil {
+		t.Fatalf("failed to list files in captureDir")
+	}
+	filesInQueue, err := ioutil.ReadDir(sut.syncQueue)
+	if err != nil {
+		t.Fatalf("failed to list files in syncQueue")
+	}
+	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
+	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
+	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 2)
+	sut.Close()
+}
+
+// Validates that for some captureDir, files are enqueued and uploaded exactly once on the manual syncer.
+func TestQueuesAndUploadsOnceManual(t *testing.T) {
+	var uploadCount uint64
+	uploadFn := func(ctx context.Context, path string) error {
+		atomic.AddUint64(&uploadCount, 1)
+		_ = os.Remove(path)
+		return nil
+	}
+	sut := newTestSyncer(t, uploadFn)
+
+	// Put a couple files in captureDir, then put them in the sync queue and upload them.
+	file1, _ := ioutil.TempFile(sut.captureDir, "file1")
+	defer os.Remove(file1.Name())
+	file2, _ := ioutil.TempFile(sut.captureDir, "file2")
+	defer os.Remove(file2.Name())
+	err := sut.Enqueue([]string{file1.Name(), file2.Name()})
+	test.That(t, err, test.ShouldBeNil)
+	err = sut.Upload()
 	test.That(t, err, test.ShouldBeNil)
 	// Give it a second to run and upload files.
 	time.Sleep(time.Second)
@@ -67,7 +107,7 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	}
 	filesInQueue, err := ioutil.ReadDir(sut.syncQueue)
 	if err != nil {
-		t.Fatalf("failed to list files in captureDir")
+		t.Fatalf("failed to list files in syncQueue")
 	}
 	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
 	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
@@ -75,10 +115,45 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	sut.Close()
 }
 
-// Validates that if a syncer is killed after enqueing a file, a new syncer will still pick it up and upload it.
+// Validates that we can enqueue files without duplicates with both the manual syncer and scheduled syncer trying to queue.
+func TestManualThenScheduledSync(t *testing.T) {
+	var uploadCount uint64
+	uploadFn := func(ctx context.Context, path string) error {
+		atomic.AddUint64(&uploadCount, 1)
+		_ = os.Remove(path)
+		return nil
+	}
+	sut := newTestSyncer(t, uploadFn)
+
+	// Put a couple files in captureDir, then have the manual + scheduled syncer put them in the sync queue.
+	file1, _ := ioutil.TempFile(sut.captureDir, "file1")
+	defer os.Remove(file1.Name())
+	file2, _ := ioutil.TempFile(sut.captureDir, "file2")
+	defer os.Remove(file2.Name())
+	err := sut.Enqueue([]string{file1.Name(), file2.Name()})
+	test.That(t, err, test.ShouldBeNil)
+	sut.initialQueue()
+	sut.Upload()
+	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
+	if err != nil {
+		t.Fatalf("failed to list files in captureDir")
+	}
+	filesInQueue, err := ioutil.ReadDir(sut.syncQueue)
+	if err != nil {
+		t.Fatalf("failed to list files in syncQueue")
+	}
+	// Wait 100 ms so both can have the chance to queue, but the scheduled syncer doesn't start uploading yet.
+	time.Sleep(time.Millisecond * 100)
+	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
+	test.That(t, len(filesInQueue), test.ShouldEqual, 2)
+
+	sut.Close()
+}
+
+// Validates that if a scheduled syncer is killed after enqueueing a file, a new syncer will still pick it up and upload it.
 // This is to simulate the case where a robot is killed mid-sync; we still want that sync to resume and finish when it
 // turns back on.
-func TestRecoversAfterKilled(t *testing.T) {
+func TestRecoversAfterKilledScheduled(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
@@ -88,17 +163,19 @@ func TestRecoversAfterKilled(t *testing.T) {
 	sut := newTestSyncer(t, uploadFn)
 
 	// Put a file in syncDir; this simulates a file that was enqueued by some previous syncer.
-	file1, _ := ioutil.TempFile(sut.syncQueue, "whatever")
+	file1, _ := ioutil.TempFile(sut.syncQueue, "file1")
 	defer os.Remove(file1.Name())
 
 	// Put a file in captureDir; this simulates a file that was written but not yet queued by some previous syncer.
 	// It should be synced even if it is not specified in the list passed to Enqueue.
-	file2, _ := ioutil.TempFile(sut.captureDir, "whatever")
+	file2, _ := ioutil.TempFile(sut.captureDir, "file1")
 	defer os.Remove(file2.Name())
 
-	// Start syncer, let it run for a second.
-	sut.Start(sut.cancelCtx)
+	// Queue/upload with the syncer, let it run for a second.
+	sut.initialQueue()
 	err := sut.Enqueue([]string{})
+	test.That(t, err, test.ShouldBeNil)
+	err = sut.Upload()
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(time.Second)
 
@@ -135,17 +212,16 @@ func TestUploadExponentialRetry(t *testing.T) {
 	sut := newTestSyncer(t, uploadFunc)
 
 	// Put a file to be synced in captureDir.
-	file1, _ := ioutil.TempFile(sut.captureDir, "whatever")
+	file1, _ := ioutil.TempFile(sut.captureDir, "file1")
 	defer os.Remove(file1.Name())
 
-	// Start syncer and let it run.
-	initialWaitTime = time.Millisecond * 25
-	maxRetryInterval = time.Millisecond * 150
-	sut.Start(sut.cancelCtx)
+	// Queue/upload with the syncer, let it run for a second.
+	sut.initialQueue()
 	err := sut.Enqueue([]string{})
 	test.That(t, err, test.ShouldBeNil)
+	err = sut.Upload()
+	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(time.Second)
-	sut.Close()
 
 	// Test that upload failed 4 times then succeeded once.
 	test.That(t, failureCount, test.ShouldEqual, 4)
