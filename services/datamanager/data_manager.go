@@ -137,6 +137,7 @@ func (svc *Service) Close(ctx context.Context) error {
 	svc.backgroundWorkers.Wait()
 	return nil
 }
+
 func (svc *Service) closeCollectors() {
 	wg := sync.WaitGroup{}
 	for _, collector := range svc.collectors {
