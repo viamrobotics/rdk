@@ -34,6 +34,31 @@ func (m mockClient) Context() context.Context {
 	return context.TODO()
 }
 
+func TestFileUpload(t *testing.T) {
+	msg_empty := []byte("")
+	// msg_contents := []byte("This is a message.")
+
+	tests := []struct {
+		name    string
+		toSend  []byte
+		expSend v1.UploadRequest
+	}{
+		{
+			name:   "empty",
+			toSend: []byte{},
+			expSend: v1.UploadRequest{
+				UploadPacket: &v1.UploadRequest_FileContents{
+					FileContents: &v1.FileData{
+						Data: msg_empty,
+					},
+				},
+			},
+		},
+	}
+
+	test.That(t, len(tests), test.ShouldEqual, 1)
+}
+
 func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
 	t.Helper()
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
