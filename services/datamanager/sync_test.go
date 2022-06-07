@@ -116,8 +116,8 @@ func TestQueuesAndUploadsOnceManual(t *testing.T) {
 	sut.Close()
 }
 
-// Validates that we can enqueue files without duplicates with both the manual syncer and scheduled syncer trying to queue.
-func TestManualThenScheduledSync(t *testing.T) {
+// Validates that we can enqueue files without duplicates.
+func TestQueueSyncLock(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
@@ -133,7 +133,8 @@ func TestManualThenScheduledSync(t *testing.T) {
 	defer os.Remove(file2.Name())
 	err := sut.Queue([]string{file1.Name(), file2.Name()})
 	test.That(t, err, test.ShouldBeNil)
-	sut.initialQueue()
+	err = sut.initialQueue()
+	test.That(t, err, test.ShouldBeNil)
 	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
 	if err != nil {
 		t.Fatalf("failed to list files in captureDir")
