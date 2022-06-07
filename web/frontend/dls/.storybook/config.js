@@ -25,7 +25,7 @@ import { faCheckSquare } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import ViamInfoButton from '../src/components/ViamInfoButton';
 import ClickOutside from "../src/directives/clickOutside";
-import MotorDetailNew from '../src/components/MotorDetailNew';
+import MotorDetail from '../src/components/MotorDetail';
 
 library.add(faCheckSquare)
 
@@ -51,7 +51,7 @@ Vue.component('RadioButtons', RadioButtons);
 Vue.component('Camera', Camera);
 Vue.component('ViamInfoButton', ViamInfoButton);
 Vue.directive("click-outside", ClickOutside);
-Vue.component('MotorDetailNew', MotorDetailNew);
+Vue.component('MotorDetail', MotorDetail);
 
 const req = require.context('../src/stories', true, /.stories.js$/);
 function loadStories() {
