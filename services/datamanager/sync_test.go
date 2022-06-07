@@ -56,7 +56,7 @@ func TestQueuesAndUploadsOnceScheduled(t *testing.T) {
 	defer os.Remove(file1.Name())
 	file2, _ := ioutil.TempFile(sut.captureDir, "file2")
 	defer os.Remove(file2.Name())
-	err := sut.Enqueue([]string{file1.Name(), file2.Name()})
+	err := sut.Queue([]string{file1.Name(), file2.Name()})
 	test.That(t, err, test.ShouldBeNil)
 	// Give it a second to run and upload files.
 	// Queue/upload with the syncer, let it run for a second.
@@ -94,7 +94,7 @@ func TestQueuesAndUploadsOnceManual(t *testing.T) {
 	defer os.Remove(file1.Name())
 	file2, _ := ioutil.TempFile(sut.captureDir, "file2")
 	defer os.Remove(file2.Name())
-	err := sut.Enqueue([]string{file1.Name(), file2.Name()})
+	err := sut.Queue([]string{file1.Name(), file2.Name()})
 	test.That(t, err, test.ShouldBeNil)
 	err = sut.Upload()
 	test.That(t, err, test.ShouldBeNil)
@@ -131,7 +131,7 @@ func TestManualThenScheduledSync(t *testing.T) {
 	defer os.Remove(file1.Name())
 	file2, _ := ioutil.TempFile(sut.captureDir, "file2")
 	defer os.Remove(file2.Name())
-	err := sut.Enqueue([]string{file1.Name(), file2.Name()})
+	err := sut.Queue([]string{file1.Name(), file2.Name()})
 	test.That(t, err, test.ShouldBeNil)
 	sut.initialQueue()
 	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
@@ -167,13 +167,13 @@ func TestRecoversAfterKilledScheduled(t *testing.T) {
 	defer os.Remove(file1.Name())
 
 	// Put a file in captureDir; this simulates a file that was written but not yet queued by some previous syncer.
-	// It should be synced even if it is not specified in the list passed to Enqueue.
+	// It should be synced even if it is not specified in the list passed to Queue.
 	file2, _ := ioutil.TempFile(sut.captureDir, "file1")
 	defer os.Remove(file2.Name())
 
 	// Queue/upload with the syncer, let it run for a second.
 	sut.initialQueue()
-	err := sut.Enqueue([]string{})
+	err := sut.Queue([]string{})
 	test.That(t, err, test.ShouldBeNil)
 	err = sut.Upload()
 	test.That(t, err, test.ShouldBeNil)

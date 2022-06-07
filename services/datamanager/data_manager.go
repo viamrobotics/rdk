@@ -283,7 +283,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 }
 
 func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
-	// if user updates config while manual sync is occurring, manual sync will be cancelled (TODO fix)
+	// if user updates config while manual sync is occurring, manual sync will be cancelled (TODO fix?)
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.updateCollectorsCancelFn()
@@ -293,20 +293,19 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 		svc.updateCollectorsCancelFn = nil
 	}
 
-	// Init a new syncer if we are still syncing.
-	if intervalMins > 0 {
-		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
-		svc.syncer.initialQueue()
-		if err := svc.syncer.Upload(); err != nil {
-			svc.logger.Errorw("failed to upload files in queue", "error", err)
-		}
+	// Init a new syncer.
+	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
+	// TODO: Decide if we want queue/upload on startup or new config change.
+	svc.syncer.initialQueue()
+	if err := svc.syncer.Upload(); err != nil {
+		svc.logger.Errorw("failed to upload files in queue", "error", err)
 	}
 }
 
 // Perform a non-scheduled sync of the data in the capture directory.
 // TODO: Need to have the syncer cancel when the Sync gRPC call cancels (will likely cancel on syncer upload since that takes the most time)
 func (svc *dataManagerService) Sync(ctx context.Context, name resource.Name) (bool, error) {
-	if svc.syncer == nil {
+	if svc.syncer == nil { // should never happen
 		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
 	}
 	oldFiles := make([]string, 0, len(svc.collectors))
@@ -321,7 +320,7 @@ func (svc *dataManagerService) Sync(ctx context.Context, name resource.Name) (bo
 		collector.Collector.SetTarget(nextTarget)
 	}
 	svc.lock.Unlock()
-	if err := svc.syncer.Enqueue(oldFiles); err != nil {
+	if err := svc.syncer.Queue(oldFiles); err != nil {
 		return false, err
 	}
 	if err := svc.syncer.Upload(); err != nil {
@@ -425,11 +424,11 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	// Kick off the goroutine to sync files every intervalMins.
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.updateCollectorsCancelFn = fn
-	svc.queueAndUploadRoutine(cancelCtx, svcConfig.SyncIntervalMins)
+	svc.startScheduledSyncRoutine(cancelCtx, svcConfig.SyncIntervalMins)
 	return nil
 }
 
-func (svc *dataManagerService) queueAndUploadRoutine(cancelCtx context.Context, intervalMins int) {
+func (svc *dataManagerService) startScheduledSyncRoutine(cancelCtx context.Context, intervalMins int) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -449,7 +448,7 @@ func (svc *dataManagerService) queueAndUploadRoutine(cancelCtx context.Context, 
 				for _, collector := range svc.collectors {
 					files = append(files, collector.Collector.GetTarget().Name())
 				}
-				if err := svc.syncer.Enqueue(files); err != nil {
+				if err := svc.syncer.Queue(files); err != nil {
 					svc.logger.Errorw("failed to move files to sync queue", "error", err)
 				}
 				return
@@ -466,7 +465,7 @@ func (svc *dataManagerService) queueAndUploadRoutine(cancelCtx context.Context, 
 					collector.Collector.SetTarget(nextTarget)
 				}
 				svc.lock.Unlock()
-				if err := svc.syncer.Enqueue(oldFiles); err != nil {
+				if err := svc.syncer.Queue(oldFiles); err != nil {
 					svc.logger.Errorw("failed to move files to sync queue", "error", err)
 				}
 				if err := svc.syncer.Upload(); err != nil {
