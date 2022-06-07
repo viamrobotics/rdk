@@ -161,6 +161,18 @@ func TestGetParentsAndChildren(t *testing.T) {
 		NewName("namespace", "atype", "asubtype", "C"))
 	out = g.GetAllChildrenOf(NewName("namespace", "atype", "asubtype", "C"))
 	test.That(t, len(out), test.ShouldEqual, 0)
+
+	test.That(t, g.GetAllParentsOf(NewName("namespace", "atype", "asubtype", "Z")),
+		test.ShouldBeEmpty)
+
+	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "A"),
+		NewName("namespace", "atype", "asubtype", "F")), test.ShouldBeTrue)
+	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "F"),
+		NewName("namespace", "atype", "asubtype", "A")), test.ShouldBeFalse)
+	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "Z"),
+		NewName("namespace", "atype", "asubtype", "F")), test.ShouldBeFalse)
+	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "A"),
+		NewName("namespace", "atype", "asubtype", "Z")), test.ShouldBeFalse)
 }
 
 func TestGraphSubGraph(t *testing.T) {
