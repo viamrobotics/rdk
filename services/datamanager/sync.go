@@ -24,7 +24,7 @@ var (
 
 // syncManager is responsible for uploading files to the cloud every syncInterval, as well uploading files on manual syncs.
 type syncManager interface {
-	initialQueue()
+	initialQueue() error
 	Queue(filesToQueue []string) error
 	Upload() error
 	Close()
@@ -91,7 +91,7 @@ func (s *syncer) Queue(filesToQueue []string) error {
 }
 
 // Upload uploads files that are in the SyncQueue directory to the cloud when called.
-func (s *syncer) Upload() error { // Upload currently doesn't return any real errors
+func (s *syncer) Upload() error { // Upload currently doesn't return any real errors since it's kicking off goroutines.
 	if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
 		return errors.Errorf("failed to upload queued file: %v", err)
 	}
@@ -99,13 +99,14 @@ func (s *syncer) Upload() error { // Upload currently doesn't return any real er
 }
 
 // initialQueue queues any files already in captureDir that haven't been modified in s.queueWaitTime time.
-func (s *syncer) initialQueue() {
+func (s *syncer) initialQueue() error {
 	// First, move any files in captureDir to queue.
 	s.queueLock.Lock()
 	if err := filepath.WalkDir(s.captureDir, s.queueFile); err != nil {
-		s.logger.Errorf("failed to move files to sync queue: %v", err)
+		return err
 	}
 	s.queueLock.Unlock()
+	return nil
 }
 
 // queueFile is an fs.WalkDirFunc that moves matching files to s.syncQueue.

@@ -296,7 +296,9 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 	// Init a new syncer.
 	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
 	// TODO: Decide if we want queue/upload on startup or new config change.
-	svc.syncer.initialQueue()
+	if err := svc.syncer.initialQueue(); err != nil {
+		svc.logger.Errorf("failed to move files to sync queue: %v", err)
+	}
 	if err := svc.syncer.Upload(); err != nil {
 		svc.logger.Errorw("failed to upload files in queue", "error", err)
 	}
