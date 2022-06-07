@@ -144,7 +144,7 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 		logger.Debug("opening serial connection")
 		serialOptions := serial.OpenOptions{
 			PortName:          c.SerialDevice,
-			BaudRate:          0010004,
+			BaudRate:          460800,
 			DataBits:          8,
 			StopBits:          1,
 			MinimumReadSize:   1,
@@ -153,6 +153,7 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 
 		port, err := serial.Open(serialOptions)
 		if err != nil {
+			logger.Error(err)
 			return nil, err
 		}
 		ctrl.port = port
@@ -169,7 +170,7 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 	var frame_len uint8 = 0x0e
 	var data = make([]uint8, 14)
 	data[0] = 0x55
-	data[1] = 0x0e // frame length
+	data[1] = frame_len // frame length
 	data[2] = uint8(frame.id >> 8)
 	data[3] = uint8(frame.id & 0xff)
 	for i := 0; i < 8; i++ {
@@ -182,9 +183,11 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 		c.logger.Debug("writing to test chan")
 		c.testChan <- data
 	} else {
-		_, err := c.port.Write(data)
+		n, err := c.port.Write(data)
 		if err != nil {
 			return err
+		} else {
+			c.logger.Debugf("Sent %d bytes %v", n, data)
 		}
 	}
 
@@ -200,10 +203,10 @@ func (base *limoBase) setMotionCommand(linear_vel float64, angular_vel float64, 
 	// enable commanded mode
 	frame := new(limoFrame)
 	frame.id = 0x111
-	linear_cmd := uint16(linear_vel * 1000)
-	angular_cmd := uint16(angular_vel * 1000)
-	lateral_cmd := uint16(lateral_velocity * 1000)
-	steering_cmd := uint16(steering_angle * 1000)
+	linear_cmd := int16(linear_vel * 1000)
+	angular_cmd := int16(angular_vel * 1000)
+	lateral_cmd := int16(lateral_velocity * 1000)
+	steering_cmd := int16(steering_angle * 1000)
 
 	frame.data = make([]uint8, 8)
 	frame.data[0] = uint8(linear_cmd >> 8)
@@ -215,6 +218,9 @@ func (base *limoBase) setMotionCommand(linear_vel float64, angular_vel float64, 
 	frame.data[6] = uint8(steering_cmd >> 8)
 	frame.data[7] = uint8(steering_cmd & 0x00ff)
 	err := base.controller.sendFrame(frame)
+	if err != nil {
+		base.controller.logger.Error(err)
+	}
 	return err
 }
 
@@ -245,15 +251,12 @@ func (base *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec
 	})
 	defer timer.Stop()
 
-	base.setMotionCommand(mmPerSec, 0, 0, 0)
-
-	return nil
+	return base.setMotionCommand(mmPerSec, 0, 0, 0)
 }
 
 func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
 	base.opMgr.CancelRunning(ctx)
-	base.setMotionCommand(linear.Y, angular.Z, 0, 0)
-	return nil
+	return base.setMotionCommand(linear.Y, angular.Z, 0, 0)
 }
 
 func (base *limoBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
