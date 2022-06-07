@@ -4,7 +4,6 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -208,7 +207,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 			return nil
 		}
 		failureCount++
-		return errors.New("fail for the first 4 tries, then succeed: " + strconv.Itoa(failureCount) + " " + strconv.Itoa(successCount))
+		return errors.New("fail for the first 4 tries, then succeed")
 	}
 	sut := newTestSyncer(t, uploadFunc)
 
@@ -217,15 +216,17 @@ func TestUploadExponentialRetry(t *testing.T) {
 	defer os.Remove(file1.Name())
 
 	// Queue/upload with the syncer, let it run for a second.
+	initialWaitTime = time.Millisecond * 25
+	maxRetryInterval = time.Millisecond * 150
 	sut.initialQueue()
 	err := sut.Upload()
 	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second)
+	sut.Close()
 
 	// Test that upload failed 4 times then succeeded once.
 	test.That(t, failureCount, test.ShouldEqual, 4)
 	test.That(t, successCount, test.ShouldEqual, 1)
-
 	// Test that exponential increase happens.
 	// First retry should wait initialWaitTime
 	// Give some leeway so small variations in timing don't cause test failures.
