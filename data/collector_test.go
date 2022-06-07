@@ -220,7 +220,7 @@ func TestStop(t *testing.T) {
 	test.That(t, getFileSize(target1), test.ShouldEqual, fileSize)
 
 	// Start capturing again.
-	go c.Collect()
+	c.Start()
 	time.Sleep(time.Millisecond * 25)
 	c.Close()
 
