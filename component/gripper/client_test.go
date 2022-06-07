@@ -39,6 +39,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) { return grabbed1, nil }
+	injectGripper.StopFunc = func(ctx context.Context) error { return nil }
 
 	injectGripper2 := &inject.Gripper{}
 	injectGripper2.OpenFunc = func(ctx context.Context) error {
@@ -46,6 +47,9 @@ func TestClient(t *testing.T) {
 		return errors.New("can't open")
 	}
 	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
+	injectGripper2.StopFunc = func(ctx context.Context) error {
+		return gripper.ErrStopUnimplemented
+	}
 
 	gripperSvc, err := subtype.New(
 		map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2})
@@ -92,6 +96,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, grabbed, test.ShouldEqual, grabbed1)
 
+		test.That(t, gripper1Client.Stop(context.Background()), test.ShouldBeNil)
+
 		test.That(t, utils.TryClose(context.Background(), gripper1Client), test.ShouldBeNil)
 	})
 
@@ -111,6 +117,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
 		test.That(t, grabbed, test.ShouldEqual, false)
+
+		err = gripper2Client.Stop(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, gripper.ErrStopUnimplemented.Error())
 
 		test.That(t, utils.TryClose(context.Background(), gripper2Client), test.ShouldBeNil)
 	})
