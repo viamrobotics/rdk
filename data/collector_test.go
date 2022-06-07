@@ -70,6 +70,11 @@ func TestNewCollector(t *testing.T) {
 // is called floor(time_passed/interval) times in the ticker (interval >= 2ms) case.
 func TestSuccessfulWrite(t *testing.T) {
 	l := golog.NewTestLogger(t)
+	// Set sleepIntervalCutoff high, because tests using the prod cutoff (2ms) have enough variation in timing
+	// to make them flaky.
+	sleepCaptureCutoff = time.Millisecond * 100
+	tickerInterval := time.Millisecond * 101
+	sleepInterval := time.Millisecond * 99
 
 	tests := []struct {
 		name           string
@@ -83,7 +88,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			capturer: dummyStructCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond * 100,
+				Interval:      tickerInterval,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
@@ -97,7 +102,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			capturer: dummyStructCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond * 99,
+				Interval:      sleepInterval,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
@@ -111,7 +116,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			capturer: dummyBinaryCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond * 100,
+				Interval:      tickerInterval,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
@@ -125,7 +130,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			capturer: dummyBinaryCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond * 99,
+				Interval:      sleepInterval,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
@@ -141,10 +146,6 @@ func TestSuccessfulWrite(t *testing.T) {
 		tc.params.Target = target
 		c, _ := NewCollector(tc.capturer, tc.params)
 		go c.Collect()
-
-		// Set sleepIntervalCutoff high, because tests using the prod cutoff (2ms) have enough variation in timing
-		// to make them flaky.
-		sleepCaptureCutoff = time.Millisecond * 100
 
 		// Verify that it writes to the file at all.
 		time.Sleep(tc.wait)
