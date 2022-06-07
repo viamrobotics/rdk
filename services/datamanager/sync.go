@@ -13,11 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
-
 	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	goutils "go.viam.com/utils"
 )
 
@@ -285,7 +284,9 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 	if err != nil {
 		return errors.Wrapf(err, "error while opening file %s", path)
 	}
-	_, _ = f.Seek(0, 0)
+	if _, err = f.Seek(0, 0); err != nil {
+		return nil
+	}
 
 	// Then stream SensorData's one by one.
 	for {
@@ -305,7 +306,6 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 		if err := client.SendMsg(&toSend); err != nil {
 			return errors.Wrap(err, "error while sending sensorData")
 		}
-
 	}
 
 	// Close stream and receive response.
@@ -322,7 +322,9 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	if err != nil {
 		return errors.Wrapf(err, "error while opening file %s", path)
 	}
-	_, _ = f.Seek(0, 0)
+	if _, err = f.Seek(0, 0); err != nil {
+		return err
+	}
 
 	// Then stream SensorData's one by one.
 	for {
@@ -342,7 +344,6 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		if err := client.SendMsg(&toSend); err != nil {
 			return errors.Wrap(err, "error while sending sensorData")
 		}
-
 	}
 
 	// Close stream and receive response.
@@ -359,11 +360,11 @@ func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncServic
 	if err != nil {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
-	_, _ = f.Seek(0, 0)
-	_, err = readNextSensorData(f)
-	if err != nil {
+	if _, err = f.Seek(0, 0); err != nil {
+		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
+	}
+	if _, err = readNextFileData(f); err != nil {
 		return v1.DataType_DATA_TYPE_FILE, nil
-
 	}
 	return v1.DataType_DATA_TYPE_BINARY_SENSOR, nil
 }
@@ -374,7 +375,9 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return errors.Wrapf(err, "error while opening file %s", path)
 	}
 	// Resets file pointer; if you ever want to go back to the start of a file, need to call this
-	_, _ = f.Seek(0, 0)
+	if _, err = f.Seek(0, 0); err != nil {
+		return err
+	}
 
 	// First get uploadMetadata fields that we have access to with simple logic.
 	fileNameIncludingTimeStamp := f.Name()
@@ -437,13 +440,6 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 	return r, nil
 }
 
-/**
-What's on disk is not delimited proto in the arbitrary file case
-IT's any sort of file
-so you're going to want to read the file -> []byte
-Then use that to construct a FileData{data: those^ bytes}
-Which is what you send
-*/
 func readNextFileData(f *os.File) (*v1.FileData, error) {
 	data, err := ioutil.ReadAll(f)
 	if err != nil {
@@ -451,14 +447,6 @@ func readNextFileData(f *os.File) (*v1.FileData, error) {
 	}
 	r := &v1.FileData{
 		Data: data,
-	}
-	return r, nil
-}
-
-func readUploadMetadata(f *os.File) (*v1.UploadMetadata, error) {
-	r := &v1.UploadMetadata{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, err
 	}
 	return r, nil
 }

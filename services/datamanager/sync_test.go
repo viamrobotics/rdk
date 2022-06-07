@@ -9,10 +9,9 @@ import (
 	"testing"
 	"time"
 
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
-
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 )
 
