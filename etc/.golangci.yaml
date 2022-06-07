@@ -46,12 +46,6 @@ linters-settings:
       - G601
   gci:
     local-prefixes: go.viam.com/rdk
-  gomoddirectives:
-    replace-allow-list:
-      - github.com/jblindsay/lidario
-      - github.com/starship-technologies/gobag
-      - github.com/grandcat/zeroconf
-      - github.com/pion/ice/v2
   govet:
     enable-all: true
     disable:

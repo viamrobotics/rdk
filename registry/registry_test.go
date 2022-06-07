@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
@@ -73,4 +74,19 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	creator = ResourceSubtypeLookup(subtype3)
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
+}
+
+func TestDiscoveryFunctionRegistry(t *testing.T) {
+	df := func(ctx context.Context) (interface{}, error) { return []discovery.Discovery{}, nil }
+	invalidSubtypeQuery := discovery.NewQuery(resource.SubtypeName("some subtype"), "some model")
+	test.That(t, func() { RegisterDiscoveryFunction(invalidSubtypeQuery, df) }, test.ShouldPanic)
+
+	validSubtypeQuery := discovery.NewQuery(acme.ResourceSubtype, "some model")
+	_, ok := DiscoveryFunctionLookup(validSubtypeQuery)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	test.That(t, func() { RegisterDiscoveryFunction(validSubtypeQuery, df) }, test.ShouldNotPanic)
+	acmeDF, ok := DiscoveryFunctionLookup(validSubtypeQuery)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, acmeDF, test.ShouldEqual, df)
 }

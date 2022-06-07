@@ -1,6 +1,8 @@
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
-PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
+TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
+
+PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 VERSION := $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)
 GIT_REVISION := $(shell git rev-parse HEAD | tr -d '\n')
@@ -21,8 +23,7 @@ build-web: buf-web
 	cd web/frontend && npm ci && npx webpack build --config ./webpack.prod.js
 
 tool-install:
-	GOBIN=`pwd`/bin go install google.golang.org/protobuf/cmd/protoc-gen-go \
-		github.com/bufbuild/buf/cmd/buf \
+	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-lint \
 		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
@@ -31,12 +32,14 @@ tool-install:
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
 		github.com/edaniels/golinters/cmd/combined \
 		github.com/golangci/golangci-lint/cmd/golangci-lint
+	GOBIN=`pwd`/$(TOOL_BIN) go install github.com/bufbuild/buf/cmd/buf@v1.4.0
 
 buf: buf-go buf-web
 
 buf-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) buf lint
-	PATH=$(PATH_WITH_TOOLS) buf generate
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s format -w
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s generate
 
 buf-web: tool-install
 	npm install
@@ -48,9 +51,10 @@ buf-web: tool-install
 lint: lint-go lint-web
 
 lint-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) buf lint
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=bin/combined
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs bin/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s format -w
+	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
+	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 lint-web:
 	cd web/frontend/dls && npm run lint

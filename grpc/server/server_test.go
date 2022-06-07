@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
@@ -64,6 +65,29 @@ func TestServer(t *testing.T) {
 		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
+	})
+
+	t.Run("Discovery", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
+		server := server.New(injectRobot)
+		q := discovery.Query{arm.Named("arm").ResourceSubtype, "some arm"}
+		disc := discovery.Discovery{Query: q, Results: struct{}{}}
+		discoveries := []discovery.Discovery{disc}
+		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+			return discoveries, nil
+		}
+		req := &pb.DiscoverComponentsRequest{
+			Queries: []*pb.DiscoveryQuery{{Subtype: string(q.SubtypeName), Model: q.Model}},
+		}
+
+		resp, err := server.DiscoverComponents(context.Background(), req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+
+		observed := resp.Discovery[0].Results.AsMap()
+		expected := map[string]interface{}{}
+		test.That(t, observed, test.ShouldResemble, expected)
 	})
 }
 

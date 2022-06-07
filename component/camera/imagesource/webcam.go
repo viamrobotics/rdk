@@ -8,21 +8,27 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/media"
 	"github.com/pion/mediadevices"
+	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
+	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
+const model = "webcam"
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"webcam",
+		model,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
@@ -36,7 +42,7 @@ func init() {
 			return NewWebcamSource(attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "webcam",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -54,6 +60,75 @@ func init() {
 			result.AttrConfig = cameraAttrs
 			return result, nil
 		}, &WebcamAttrs{})
+
+	registry.RegisterDiscoveryFunction(
+		discovery.NewQuery(camera.SubtypeName, model),
+		func(ctx context.Context) (interface{}, error) { return Discover(ctx, getVideoDrivers) },
+	)
+}
+
+func getVideoDrivers() []driver.Driver {
+	return driver.GetManager().Query(driver.FilterVideoRecorder())
+}
+
+// CameraConfig is collection of configuration options for a camera.
+type CameraConfig struct {
+	Label      string
+	Status     driver.State
+	Properties []prop.Media
+}
+
+// Discover webcam attributes.
+func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webcams, error) {
+	var webcams []*pb.Webcam
+	drivers := getDrivers()
+	for _, d := range drivers {
+		driverInfo := d.Info()
+
+		props, err := getProperties(d)
+		if len(props) == 0 {
+			rlog.Logger.Warnw("no properties detected for driver, skipping discovery...", "driver", d.Info().Label)
+			continue
+		} else if err != nil {
+			rlog.Logger.Warnw("cannot access driver properties, skipping discovery...", "driver", d.Info().Label, "error", err)
+			continue
+		}
+
+		wc := &pb.Webcam{
+			Label:      driverInfo.Label,
+			Status:     string(d.Status()),
+			Properties: make([]*pb.Property, 0, len(d.Properties())),
+		}
+
+		for _, prop := range props {
+			pbProp := &pb.Property{
+				Video: &pb.Video{
+					Width:       int32(prop.Video.Width),
+					Height:      int32(prop.Video.Height),
+					FrameFormat: string(prop.Video.FrameFormat),
+				},
+			}
+			wc.Properties = append(wc.Properties, pbProp)
+		}
+		webcams = append(webcams, wc)
+	}
+	return &pb.Webcams{Webcams: webcams}, nil
+}
+
+func getProperties(d driver.Driver) (_ []prop.Media, err error) {
+	// Need to open driver to get properties
+	if d.Status() == driver.StateClosed {
+		errOpen := d.Open()
+		if errOpen != nil {
+			return nil, errOpen
+		}
+		defer func() {
+			if errClose := d.Close(); errClose != nil {
+				err = errClose
+			}
+		}()
+	}
+	return d.Properties(), err
 }
 
 // WebcamAttrs is the attribute struct for webcams.
