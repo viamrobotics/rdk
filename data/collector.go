@@ -99,9 +99,9 @@ func (c *collector) Collect() error {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
+	c.isCollecting = true
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(c.capture)
-	c.isCollecting = true
 	return c.write()
 }
 
