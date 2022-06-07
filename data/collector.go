@@ -39,6 +39,7 @@ func (cf CaptureFunc) Capture(ctx context.Context, params map[string]string) (in
 type Collector interface {
 	SetTarget(file *os.File)
 	GetTarget() *os.File
+	Start()
 	Stop()
 	IsCollecting() bool
 	Close()
@@ -104,17 +105,26 @@ func (c *collector) Collect() error {
 	return c.write()
 }
 
+// Stop pauses the Collector.
 func (c *collector) Stop() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.cancelCtx.Done()
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
 	c.isCollecting = false
 }
 
+// Start restarts a paused Collector.
+func (c *collector) Start() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.isCollecting = true
+}
+
+// Checks whether the collector is actively capturing data.
 func (c *collector) IsCollecting() bool {
 	return c.isCollecting
 }
@@ -148,6 +158,13 @@ func (c *collector) sleepBasedCapture() {
 			return
 		}
 
+		if !c.isCollecting {
+			captureWorkers.Wait()
+			close(c.queue)
+			c.queue = make(chan *v1.SensorData)
+			return
+		}
+
 		select {
 		case <-c.cancelCtx.Done():
 			captureWorkers.Wait()
@@ -176,6 +193,13 @@ func (c *collector) tickerBasedCapture() {
 			}
 			captureWorkers.Wait()
 			close(c.queue)
+			return
+		}
+
+		if !c.isCollecting {
+			captureWorkers.Wait()
+			close(c.queue)
+			c.queue = make(chan *v1.SensorData)
 			return
 		}
 
