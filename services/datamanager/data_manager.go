@@ -297,7 +297,9 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 	if intervalMins > 0 {
 		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
 		svc.syncer.initialQueue()
-		svc.syncer.Upload()
+		if err := svc.syncer.Upload(); err != nil {
+			svc.logger.Errorw("failed to upload files in queue", "error", err)
+		}
 	}
 }
 
