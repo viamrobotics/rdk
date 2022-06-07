@@ -3,6 +3,7 @@ package datamanager
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -12,7 +13,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	goutils "go.viam.com/utils"
 )
 
@@ -20,6 +23,7 @@ var (
 	initialWaitTime        = time.Second
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
+	bufferSize             = 10
 )
 
 // syncManager is responsible for uploading files to the cloud every syncInterval.
@@ -29,6 +33,7 @@ type syncManager interface {
 	Close()
 }
 
+// TODO: replace uploadFn with some Uploader interface with Upload/Close methods
 // syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type syncer struct {
 	captureDir        string
@@ -36,11 +41,13 @@ type syncer struct {
 	logger            golog.Logger
 	queueWaitTime     time.Duration
 	progressTracker   progressTracker
-	uploadFn          func(ctx context.Context, path string) error
+	uploadFn          uploadFn
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
 }
+
+type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error
 
 // newSyncer returns a new syncer.
 func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer {
@@ -56,11 +63,9 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 			m:    make(map[string]struct{}),
 		},
 		backgroundWorkers: sync.WaitGroup{},
-		uploadFn: func(ctx context.Context, path string) error {
-			return nil
-		},
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		uploadFn:          viamUpload,
+		cancelCtx:         cancelCtx,
+		cancelFunc:        cancelFunc,
 	}
 
 	return &ret
@@ -187,7 +192,8 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 		defer s.backgroundWorkers.Done()
 		exponentialRetry(
 			s.cancelCtx,
-			func(ctx context.Context) error { return s.uploadFn(ctx, path) },
+			// TODO: figure out how to build client, and make it a field of s.
+			func(ctx context.Context) error { return s.uploadFn(ctx, nil, path) },
 			s.logger,
 		)
 	})
@@ -270,4 +276,222 @@ func getNextWait(lastWait time.Duration) time.Duration {
 		return maxRetryInterval
 	}
 	return nextWait
+}
+
+func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	// Open file
+	//nolint
+	f, err := os.Open(path)
+	if err != nil {
+		return errors.Wrapf(err, "error while opening file %s", path)
+	}
+	if _, err = f.Seek(0, 0); err != nil {
+		return err
+	}
+
+	// Then stream SensorData's one by one.
+	for {
+		next, err := readNextSensorData(f)
+
+		// If EOF, we're done reading the file.
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return errors.Wrap(err, "error while reading sensorData")
+		}
+		toSend := &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_SensorContents{
+				SensorContents: next,
+			},
+		}
+		if err := client.Send(toSend); err != nil {
+			return errors.Wrap(err, "error while sending sensorData")
+		}
+	}
+
+	if err = f.Close(); err != nil {
+		return err
+	}
+
+	// Close stream and receive response.
+	if _, err := client.CloseAndRecv(); err != nil {
+		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
+	}
+
+	return nil
+}
+
+// TODO:
+// When we add chunking for arbitrary data type file uploads we need to
+// process the data as a stream, this would include a buffer and a loop
+// that iterates and keeps reading and recording more data from the file.
+func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	// Open file
+	//nolint
+	f, err := os.Open(path)
+	if err != nil {
+		return errors.Wrapf(err, "error while opening file %s", path)
+	}
+	if _, err = f.Seek(0, 0); err != nil {
+		return err
+	}
+
+	for {
+		next, err := readNextFileDataChunking(f)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		toSend := &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_FileContents{
+				FileContents: next,
+			},
+		}
+
+		if err := client.Send(toSend); err != nil {
+			return errors.Wrap(err, "error while sending sensorData")
+		}
+	}
+
+	if err = f.Close(); err != nil {
+		return err
+	}
+
+	// Close stream and receive response.
+	if _, err := client.CloseAndRecv(); err != nil {
+		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
+	}
+
+	return nil
+}
+
+func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncService_UploadClient, path string) (v1.DataType, error) {
+	// Open file
+	//nolint
+	f, err := os.Open(path)
+	if err != nil {
+		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
+	}
+	if _, err = f.Seek(0, 0); err != nil {
+		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
+	}
+
+	// Read the file as if it is SensorData, if err is not nil
+	// we assume it is FileData
+	sensorData, err := readNextSensorData(f)
+	// TODO(DATA-166) - figure out what error is returned by above
+	// so we aren't ignoring errors
+	//nolint
+	if err != nil {
+		return v1.DataType_DATA_TYPE_FILE, nil
+	}
+
+	// After narrowing down the file is SensorData, we need to
+	// determine if its BinaryData or TabularData. To do this we
+	// see if SensorData contains an arbitrary struct or a byte
+	// slice. If it is neither, return unspecified data type and
+	// an error that sensordata is not specified.
+	if s := sensorData.GetStruct(); s != nil {
+		return v1.DataType_DATA_TYPE_TABULAR_SENSOR, nil
+	}
+	if b := sensorData.GetBinary(); b != nil {
+		return v1.DataType_DATA_TYPE_BINARY_SENSOR, nil
+	}
+	return v1.DataType_DATA_TYPE_UNSPECIFIED, errors.New("sensordata data type not specified")
+}
+
+func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	// Open file
+	//nolint
+	f, err := os.Open(path)
+	if err != nil {
+		return errors.Wrapf(err, "error while opening file %s", path)
+	}
+	// Resets file pointer; if you ever want to go back to the start of a file, need to call this
+	if _, err = f.Seek(0, 0); err != nil {
+		return err
+	}
+
+	// First get uploadMetadata fields that we have access to with simple logic.
+	fileNameIncludingTimeStamp := f.Name()
+	btCaptureDirAndSubtypeName := strings.Index(fileNameIncludingTimeStamp, "/")
+	btSubtypeNameAndComponentName := strings.Index(fileNameIncludingTimeStamp[btCaptureDirAndSubtypeName+1:], "/")
+	btComponentNameAndFileStampName := strings.Index(fileNameIncludingTimeStamp[btSubtypeNameAndComponentName+1:], "/")
+
+	// Potentially useful values in the future (come from filename):
+	// sCaptureDir := fileNameIncludingTimeStamp[:btCaptureDirAndSubtypeName]
+	// sSubtypeName := fileNameIncludingTimeStamp[btCaptureDirAndSubtypeName+1 : btSubtypeNameAndComponentName]
+
+	// METADATA FIELDS FOR CONSTRUCTION BELOW:
+	// PartName: TODO [DATA-164]
+	// ComponentName: Below
+	// MethodName: TODO [DATA-164]
+	// Type: Below
+	// FileName: Above
+
+	componentName := fileNameIncludingTimeStamp[btSubtypeNameAndComponentName+1 : btComponentNameAndFileStampName]
+	dataType, err := getDataTypeFromLeadingMessage(ctx, client, path)
+	if err != nil {
+		return errors.Wrap(err, "error while getting metadata data type")
+	}
+
+	// Actually construct the Metadata
+	md := &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			// TODO: Figure out best way to pass these in.
+			Metadata: &v1.UploadMetadata{
+				PartName:      "TODO [DATA-164]",
+				ComponentName: componentName,
+				MethodName:    "TODO [DATA-164]",
+				Type:          dataType,
+				FileName:      fileNameIncludingTimeStamp,
+			},
+		},
+	}
+	if err := client.Send(md); err != nil {
+		return errors.Wrap(err, "error while sending upload metadata")
+	}
+
+	mdtype := md.GetMetadata().GetType()
+	switch mdtype {
+	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
+		return sensorUpload(ctx, client, path)
+	case v1.DataType_DATA_TYPE_FILE:
+		return fileUpload(ctx, client, path)
+	case v1.DataType_DATA_TYPE_UNSPECIFIED:
+		return errors.New("no data type specified in upload metadata")
+	default:
+		return errors.New("no data type specified in upload metadata")
+	}
+}
+
+func readNextSensorData(f *os.File) (*v1.SensorData, error) {
+	if _, err := f.Seek(0, 1); err != nil {
+		return nil, err
+	}
+	r := &v1.SensorData{}
+	_, err := pbutil.ReadDelimited(f, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func readNextFileDataChunking(f *os.File) (*v1.FileData, error) {
+	_, err := f.Seek(0, 1)
+	if err != nil {
+		return nil, err
+	}
+	byteArr := make([]byte, bufferSize)
+	numBytesRead, err := f.Read(byteArr)
+	if numBytesRead < bufferSize {
+		byteArr = byteArr[:numBytesRead]
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &v1.FileData{Data: byteArr}, nil
 }
