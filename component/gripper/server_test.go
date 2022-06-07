@@ -41,12 +41,16 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) { return success1, nil }
+	injectGripper.StopFunc = func(ctx context.Context) error { return nil }
 
 	injectGripper2.OpenFunc = func(ctx context.Context) error {
 		gripperOpen = testGripperName2
 		return errors.New("can't open")
 	}
 	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
+	injectGripper2.StopFunc = func(ctx context.Context) error {
+		return gripper.ErrStopUnimplemented
+	}
 
 	t.Run("open", func(t *testing.T) {
 		_, err := gripperServer.Open(context.Background(), &pb.OpenRequest{Name: missingGripperName})
@@ -80,5 +84,18 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
 		test.That(t, resp, test.ShouldBeNil)
+	})
+
+	t.Run("stop", func(t *testing.T) {
+		_, err = gripperServer.Stop(context.Background(), &pb.StopRequest{Name: missingGripperName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
+
+		_, err := gripperServer.Stop(context.Background(), &pb.StopRequest{Name: testGripperName})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = gripperServer.Stop(context.Background(), &pb.StopRequest{Name: testGripperName2})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, gripper.ErrStopUnimplemented)
 	})
 }

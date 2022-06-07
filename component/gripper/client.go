@@ -88,6 +88,13 @@ func (c *client) Grab(ctx context.Context) (bool, error) {
 	return resp.Success, nil
 }
 
+func (c *client) Stop(ctx context.Context) error {
+	_, err := c.client.Stop(ctx, &pb.StopRequest{
+		Name: c.name,
+	})
+	return err
+}
+
 func (c *client) ModelFrame() referenceframe.Model {
 	// TODO(erh): this feels wrong
 	return nil
