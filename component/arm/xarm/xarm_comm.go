@@ -330,6 +330,9 @@ func (x *xArm) Close(ctx context.Context) error {
 	if err := x.toggleBrake(ctx, false); err != nil {
 		return err
 	}
+	if !utils.SelectContextOrWait(ctx, time.Duration(2800*time.Millisecond)) {
+		return ctx.Err()
+	}
 	if err := x.toggleServos(ctx, false); err != nil {
 		return err
 	}
@@ -407,7 +410,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldStat
 	if err != nil {
 		return err
 	}
-	solution, err := x.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
+	solution, err := arm.PlanArmLinearMotionWaypoints(ctx, x.mp, pos, referenceframe.JointPosToInputs(joints), worldState)
 	if err != nil {
 		return err
 	}

@@ -155,7 +155,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	}
 
 	seed := sf.mapToSlice(seedMap)
-	resultSlices, err := plannerRunner(ctx, planner, goals, seed, opts, 0)
+	resultSlices, err := PlannerRunner(ctx, planner, goals, seed, opts, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -263,12 +263,12 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	return inputs
 }
 
-func (sf *solverFrame) sliceToMapConf(inputSlice *configuration) map[string][]frame.Input {
+func (sf *solverFrame) sliceToMapConf(inputSlice []frame.Input) map[string][]frame.Input {
 	inputs := frame.StartPositions(sf.fss)
 	i := 0
 	for _, frame := range sf.frames {
 		fLen := i + len(frame.DoF())
-		inputs[frame.Name()] = inputSlice.inputs[i:fLen]
+		inputs[frame.Name()] = inputSlice[i:fLen]
 		i = fLen
 	}
 	return inputs
