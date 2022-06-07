@@ -54,7 +54,7 @@
         { 'overflow-y-hidden': !expandedCompleted },
       ]"
       data-cy="collapse-content"
-      :style="{ height: height + 'px' }"
+      :style="{ height: height }"
     >
       <div ref="content">
         <slot name="content" />
@@ -121,7 +121,7 @@ export default Vue.extend({
       if (this.collapsed) {
         this.height = 0;
       } else {
-        this.height = this.$refs.content.offsetHeight;
+        this.height = 'auto';
       }
     },
   },

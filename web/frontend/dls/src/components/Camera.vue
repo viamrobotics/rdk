@@ -8,7 +8,7 @@
       <template v-slot:content>
         <div
           class="border-l border-r border-b border-black p-2"
-          :style="{ height: height + 'px' }"
+          :style="{ height: height }"
         >
           <Container>
             <div class="pt-4">
