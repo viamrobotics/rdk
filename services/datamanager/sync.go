@@ -25,7 +25,7 @@ var (
 // syncManager is responsible for uploading files to the cloud every syncInterval, as well uploading files on manual syncs.
 type syncManager interface {
 	initialQueue()
-	Enqueue(filesToQueue []string) error
+	Queue(filesToQueue []string) error
 	Upload() error
 	Close()
 }
@@ -70,7 +70,7 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 }
 
 // Enqueue moves files that are no longer being written to from captureDir to SyncQueuePath.
-func (s *syncer) Enqueue(filesToQueue []string) error {
+func (s *syncer) Queue(filesToQueue []string) error {
 	s.queueLock.Lock()
 	defer s.queueLock.Unlock()
 	for _, filePath := range filesToQueue {
