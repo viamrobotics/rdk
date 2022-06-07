@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"io/ioutil"
 	"log"
+	"path/filepath"
 	"runtime"
-	"strconv"
 
 	tflite "github.com/mattn/go-tflite"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/config"
 	tfliteSchema "go.viam.com/rdk/ml/inference/tflite"
 	metadata "go.viam.com/rdk/ml/inference/tflite_metadata"
 )
@@ -20,7 +19,7 @@ type TFLiteStruct struct {
 	model              *tflite.Model
 	interpreter        Interpreter
 	interpreterOptions *tflite.InterpreterOptions
-	info               *TFLiteInfo
+	Info               *TFLiteInfo
 	modelPath          string
 }
 
@@ -107,7 +106,7 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 		model:              tFLiteModel,
 		interpreter:        interpreter,
 		interpreterOptions: loader.interpreterOptions,
-		info:               info,
+		Info:               info,
 		modelPath:          modelPath,
 	}
 
@@ -139,13 +138,13 @@ func (model *TFLiteStruct) Close() {
 
 // TFLiteInfo holds information about a model that are useful for creating input tensors bytes.
 type TFLiteInfo struct {
-	inputHeight       int
-	inputWidth        int
-	inputChannels     int
-	inputTensorType   string
-	inputTensorCount  int
-	outputTensorCount int
-	outputTensorTypes []string
+	InputHeight       int
+	InputWidth        int
+	InputChannels     int
+	InputTensorType   string
+	InputTensorCount  int
+	OutputTensorCount int
+	OutputTensorTypes []string
 }
 
 func getInfo(inter Interpreter) *TFLiteInfo {
@@ -158,19 +157,19 @@ func getInfo(inter Interpreter) *TFLiteInfo {
 	}
 
 	info := &TFLiteInfo{
-		inputHeight:       input.Dim(1),
-		inputWidth:        input.Dim(2),
-		inputChannels:     input.Dim(3),
-		inputTensorType:   input.Type().String(),
-		inputTensorCount:  inter.GetInputTensorCount(),
-		outputTensorCount: numOut,
-		outputTensorTypes: outTypes,
+		InputHeight:       input.Dim(1),
+		InputWidth:        input.Dim(2),
+		InputChannels:     input.Dim(3),
+		InputTensorType:   input.Type().String(),
+		InputTensorCount:  inter.GetInputTensorCount(),
+		OutputTensorCount: numOut,
+		OutputTensorTypes: outTypes,
 	}
 	return info
 }
 
 // Infer takes the input array in desired type and returns a map of the output tensors.
-func (model *TFLiteStruct) Infer(inputTensor interface{}) (config.AttributeMap, error) {
+func (model *TFLiteStruct) Infer(inputTensor interface{}) ([]interface{}, error) {
 	interpreter := model.interpreter
 	input := interpreter.GetInputTensor(0)
 	status := input.CopyFromBuffer(inputTensor)
@@ -184,42 +183,51 @@ func (model *TFLiteStruct) Infer(inputTensor interface{}) (config.AttributeMap, 
 	}
 
 	// TODO: change back to config.AttributeMap because the tensors can be diff types
-	var output config.AttributeMap
+	var output []interface{}
 	numOutputTensors := interpreter.GetOutputTensorCount()
 	for i := 0; i < numOutputTensors; i++ {
 		var buf interface{}
 		currTensor := interpreter.GetOutputTensor(i)
+		if currTensor == nil {
+			continue
+		}
 		switch currTensor.Type() {
 		case tflite.Float32:
-			buf = make([]float32, currTensor.ByteSize()/4)
+			buf = currTensor.Float32s()
 		case tflite.UInt8:
-			buf = make([]uint8, currTensor.ByteSize())
+			buf = currTensor.UInt8s()
 		case tflite.Bool:
 			buf = make([]bool, currTensor.ByteSize())
+			currTensor.CopyToBuffer(buf)
 		case tflite.Int8:
-			buf = make([]int8, currTensor.ByteSize())
+			buf = currTensor.Int8s()
 		case tflite.Int16:
-			buf = make([]int16, currTensor.ByteSize()/2)
+			buf = currTensor.Int16s()
 		case tflite.Int32:
-			buf = make([]int32, currTensor.ByteSize()/4)
+			buf = currTensor.Int32s()
 		case tflite.Int64:
-			buf = make([]int64, currTensor.ByteSize()/8)
+			buf = currTensor.Int64s()
 		case tflite.Complex64:
 			buf = make([]complex64, currTensor.ByteSize()/8)
+			currTensor.CopyToBuffer(buf)
 		case tflite.String:
 			// TODO: look into what to do if it's a string since
 			// strings are diff lengths and take up diff number
 			// of bytes depending on the word
 			buf = make([]byte, currTensor.ByteSize())
+			currTensor.CopyToBuffer(buf)
 		case tflite.NoType:
 			buf = make([]byte, currTensor.ByteSize())
+			currTensor.CopyToBuffer(buf)
 		default:
 			buf = make([]byte, currTensor.ByteSize())
+			currTensor.CopyToBuffer(buf)
 		}
-		currTensor.CopyToBuffer(buf)
-		output["out"+strconv.Itoa(i)] = buf
+		// if buf != nil {
+		// 	output["out"+strconv.Itoa(i)] = buf
+		// }
+		output = append(output, buf)
 	}
-
 	return output, nil
 }
 
@@ -239,6 +247,12 @@ const tfLiteMetadataName string = "TFLITE_METADATA"
 
 // getTFLiteMetadataBytes takes a model path of a tflite file and extracts the metadata buffer from the entire model.
 func getTFLiteMetadataBytes(modelPath string) ([]byte, error) {
+	_, b, _, ok := runtime.Caller(0)
+	if !ok {
+		return nil, errors.New("failed to get base path")
+	}
+	basePath := filepath.Dir(b)
+	modelPath = filepath.Join(basePath, filepath.Clean(modelPath))
 	buf, err := ioutil.ReadFile(modelPath)
 	if err != nil {
 		return nil, err
