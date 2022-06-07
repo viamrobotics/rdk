@@ -22,10 +22,8 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var (
-	// The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
-	sleepCaptureCutoff = 2 * time.Millisecond
-)
+// The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
+var sleepCaptureCutoff = 2 * time.Millisecond
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
