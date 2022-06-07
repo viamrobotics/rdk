@@ -7,7 +7,6 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/a8m/envsubst v1.3.0
 	github.com/adrianmo/go-nmea v1.3.0
-	github.com/alessio/shellescape v1.4.1
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/bep/debounce v1.2.0
 	github.com/bufbuild/buf v1.1.0
@@ -47,7 +46,6 @@ require (
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
-	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.3.4-0.20220328105715-70261260cb6f
 	github.com/pion/webrtc/v3 v3.1.41
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
@@ -63,7 +61,7 @@ require (
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
-	go.viam.com/api v0.0.0-20220531145217-71ea4391ae85
+	go.viam.com/api v0.0.0-20220606174946-797a6377e80e
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
 	go.viam.com/utils v0.0.4-0.20220608164619-a8da460574c9
