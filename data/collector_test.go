@@ -72,72 +72,67 @@ func TestSuccessfulWrite(t *testing.T) {
 	l := golog.NewTestLogger(t)
 
 	tests := []struct {
-		name                string
-		capturer            Capturer
-		params              CollectorParams
-		wait                time.Duration
-		minExpectReadings   int
-		maxExpectedReadings int
+		name           string
+		capturer       Capturer
+		params         CollectorParams
+		wait           time.Duration
+		expectReadings int
 	}{
 		{
 			name:     "Ticker based struct writer.",
 			capturer: dummyStructCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond * 25,
+				Interval:      time.Millisecond * 100,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Millisecond * 70,
-			minExpectReadings:   2,
-			maxExpectedReadings: 2,
+			wait:           time.Millisecond * 250,
+			expectReadings: 2,
 		},
 		{
 			name:     "Sleep based struct writer.",
 			capturer: dummyStructCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond,
+				Interval:      time.Millisecond * 99,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Millisecond * 20,
-			minExpectReadings:   10,
-			maxExpectedReadings: 25,
+			wait:           time.Millisecond * 250,
+			expectReadings: 2,
 		},
 		{
 			name:     "Ticker based binary writer.",
 			capturer: dummyBinaryCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond * 25,
+				Interval:      time.Millisecond * 100,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Millisecond * 70,
-			minExpectReadings:   2,
-			maxExpectedReadings: 2,
+			wait:           time.Millisecond * 250,
+			expectReadings: 2,
 		},
 		{
 			name:     "Sleep based binary writer.",
 			capturer: dummyBinaryCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond,
+				Interval:      time.Millisecond * 99,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Millisecond * 20,
-			minExpectReadings:   10,
-			maxExpectedReadings: 25,
+			wait:           time.Millisecond * 250,
+			expectReadings: 2,
 		},
 	}
 
@@ -147,6 +142,10 @@ func TestSuccessfulWrite(t *testing.T) {
 		c, _ := NewCollector(tc.capturer, tc.params)
 		go c.Collect()
 
+		// Set sleepIntervalCutoff high, because tests using the prod cutoff (2ms) have enough variation in timing
+		// to make them flaky.
+		sleepCaptureCutoff = time.Millisecond * 100
+
 		// Verify that it writes to the file at all.
 		time.Sleep(tc.wait)
 		c.Close()
@@ -154,10 +153,7 @@ func TestSuccessfulWrite(t *testing.T) {
 		test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
 
 		// Verify that the data it wrote matches what we expect.
-		// Allow a range of readings, because when durations get small (<<ms) there can be slight variation, and we
-		// don't want the tests to be too noise-y. A range of -10/+5 was chosen for sleepBasedReadings because we
-		// confirmed that this got a failure rate that was sufficiently low (<<1%).
-		validateReadings(t, target, tc.minExpectReadings, tc.maxExpectedReadings)
+		validateReadings(t, target, tc.expectReadings)
 
 		// Next reading should fail; there should be at most max readings.
 		_, err := readNextSensorData(target)
@@ -299,15 +295,12 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
-func validateReadings(t *testing.T, file *os.File, min int, max int) {
+func validateReadings(t *testing.T, file *os.File, n int) {
 	t.Helper()
 	_, _ = file.Seek(0, 0)
-	for i := 0; i < max; i++ {
+	for i := 0; i < n; i++ {
 		read, err := readNextSensorData(file)
 		if err != nil {
-			if i > min {
-				return
-			}
 			t.Fatalf("failed to read SensorData from file: %v", err)
 		}
 		if read.GetStruct() != nil {
