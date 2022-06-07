@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -62,6 +63,7 @@ func TestQueuesAndUploadsOnceScheduled(t *testing.T) {
 	// Queue/upload with the syncer, let it run for a second.
 	err = sut.Upload()
 	time.Sleep(time.Second)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Verify files were enqueued and uploaded.
 	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
@@ -133,7 +135,6 @@ func TestManualThenScheduledSync(t *testing.T) {
 	err := sut.Enqueue([]string{file1.Name(), file2.Name()})
 	test.That(t, err, test.ShouldBeNil)
 	sut.initialQueue()
-	sut.Upload()
 	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
 	if err != nil {
 		t.Fatalf("failed to list files in captureDir")
@@ -207,7 +208,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 			return nil
 		}
 		failureCount++
-		return errors.New("fail for the first 4 tries, then succeed")
+		return errors.New("fail for the first 4 tries, then succeed: " + strconv.Itoa(failureCount) + " " + strconv.Itoa(successCount))
 	}
 	sut := newTestSyncer(t, uploadFunc)
 
@@ -217,11 +218,9 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// Queue/upload with the syncer, let it run for a second.
 	sut.initialQueue()
-	err := sut.Enqueue([]string{})
+	err := sut.Upload()
 	test.That(t, err, test.ShouldBeNil)
-	err = sut.Upload()
-	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 2)
 
 	// Test that upload failed 4 times then succeeded once.
 	test.That(t, failureCount, test.ShouldEqual, 4)

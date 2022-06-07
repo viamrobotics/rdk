@@ -91,7 +91,7 @@ func (s *syncer) Enqueue(filesToQueue []string) error {
 }
 
 // Upload uploads files that are in the SyncQueue directory to the cloud when called.
-func (s *syncer) Upload() error {
+func (s *syncer) Upload() error { // Upload currently doesn't return any real errors
 	if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
 		return errors.Errorf("failed to upload queued file: %v", err)
 	}
@@ -106,7 +106,6 @@ func (s *syncer) initialQueue() {
 		s.logger.Errorf("failed to move files to sync queue: %v", err)
 	}
 	s.queueLock.Unlock()
-	s.Upload()
 }
 
 // queueFile is an fs.WalkDirFunc that moves matching files to s.syncQueue.
@@ -158,7 +157,6 @@ func (s *syncer) Close() {
 }
 
 // upload is an fs.WalkDirFunc that uploads files to Viam cloud storage.
-
 func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		s.logger.Errorw("failed to upload queued file", "error", err)
@@ -214,7 +212,7 @@ func (p *progressTracker) unmark(k string) {
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.
-func exponentialRetry(ctx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) {
+func exponentialRetry(ctx context.Context, fn func(ctx context.Context) error, log golog.Logger) {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
 	if err := fn(ctx); err == nil {
 		return
