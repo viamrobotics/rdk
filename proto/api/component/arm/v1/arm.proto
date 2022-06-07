@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/arm/v1";
-option java_package = "com.viam.rdk.proto.api.component.arm.v1";
 
 package proto.api.component.arm.v1;
 
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/arm/v1";
+option java_package = "com.viam.rdk.proto.api.component.arm.v1";
 
 // An ArmService services all arms associated with a robot
 service ArmService {
@@ -13,7 +14,7 @@ service ArmService {
   rpc GetEndPosition(GetEndPositionRequest) returns (GetEndPositionResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/component/arm/{name}/position"
-    };  
+    };
   }
 
   // MoveToPosition moves the mount point of the robot's end effector to the requested position.
@@ -21,14 +22,14 @@ service ArmService {
   rpc MoveToPosition(MoveToPositionRequest) returns (MoveToPositionResponse) {
     option (google.api.http) = {
       put: "/viam/api/v1/component/arm/{name}/position"
-    };  
+    };
   }
 
   // GetJointPositions lists the joint positions (in degrees) of every joint on a robot
   rpc GetJointPositions(GetJointPositionsRequest) returns (GetJointPositionsResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/component/arm/{name}/joint_positions"
-    };  
+    };
   }
 
   // MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
@@ -36,14 +37,14 @@ service ArmService {
   rpc MoveToJointPositions(MoveToJointPositionsRequest) returns (MoveToJointPositionsResponse) {
     option (google.api.http) = {
       put: "/viam/api/v1/component/arm/{name}/joint_positions"
-    };  
+    };
   }
 
-  // Stop stops a robot's arm 
+  // Stop stops a robot's arm
   rpc Stop(StopRequest) returns (StopResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/arm/{name}/stop"
-    };  
+    };
   }
 }
 
@@ -102,6 +103,6 @@ message StopRequest {
 message StopResponse {}
 
 message Status {
-  common.v1.Pose   end_position = 1;
+  common.v1.Pose end_position = 1;
   JointPositions joint_positions = 2;
 }
