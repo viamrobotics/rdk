@@ -1,7 +1,6 @@
 package inference
 
 import (
-	"fmt"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -13,19 +12,11 @@ import (
 
 const badPath string = "bad path"
 
-var _, b, _, _ = runtime.Caller(0)
-var basepath = filepath.Dir(b)
-var tfliteModelPath = basepath + "/testing_files/model_with_metadata.tflite"
-
-type Interpreter interface {
-	AllocateTensors() tflite.Status
-	Invoke() tflite.Status
-	GetOutputTensorCount() int
-	GetInputTensorCount() int
-	GetInputTensor(i int) *tflite.Tensor
-	GetOutputTensor(i int) *tflite.Tensor
-	Delete()
-}
+var (
+	_, b, _, _      = runtime.Caller(0)
+	basepath        = filepath.Dir(b)
+	tfliteModelPath = basepath + "/testing_files/model_with_metadata.tflite"
+)
 
 type fakeInterpreter struct {
 	outTensorNum int
@@ -37,7 +28,6 @@ func goodInterpreterLoader(model *tflite.Model, options *tflite.InterpreterOptio
 }
 
 func (fI fakeInterpreter) AllocateTensors() tflite.Status {
-	fmt.Println("fake allocate tensors called")
 	return tflite.OK
 }
 
@@ -61,14 +51,11 @@ func (fI fakeInterpreter) GetInputTensor(i int) *tflite.Tensor {
 	return &tflite.Tensor{}
 }
 
-func (fI fakeInterpreter) Delete() {
-	return
-}
+func (fI fakeInterpreter) Delete() {}
 
 var goodOptions *tflite.InterpreterOptions = &tflite.InterpreterOptions{}
 
 func goodGetInfo(i Interpreter) *TFLiteInfo {
-	fmt.Println("getting info stuff")
 	return &TFLiteInfo{}
 }
 
@@ -81,13 +68,22 @@ func TestLoadModel(t *testing.T) {
 
 	structInfo := tfliteStruct.info
 	test.That(t, structInfo, test.ShouldNotBeNil)
-	test.That(t, structInfo.inputHeight, test.ShouldEqual, 640)
-	test.That(t, structInfo.inputWidth, test.ShouldEqual, 640)
-	test.That(t, structInfo.inputChannels, test.ShouldEqual, 3)
+
+	h := structInfo.inputHeight
+	w := structInfo.inputWidth
+	c := structInfo.inputChannels
+	test.That(t, h, test.ShouldEqual, 640)
+	test.That(t, w, test.ShouldEqual, 640)
+	test.That(t, c, test.ShouldEqual, 3)
 	test.That(t, structInfo.inputTensorType, test.ShouldEqual, "Float32")
 	test.That(t, structInfo.inputTensorCount, test.ShouldEqual, 1)
 	test.That(t, structInfo.outputTensorCount, test.ShouldEqual, 4)
 	test.That(t, structInfo.outputTensorTypes, test.ShouldResemble, []string{"Float32", "Float32", "Float32", "Float32"})
+
+	buf := make([]float32, c*h*w)
+	outTensors, err := tfliteStruct.Infer(buf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outTensors, test.ShouldNotBeNil)
 }
 
 func TestLoadTFLiteStruct(t *testing.T) {
@@ -108,7 +104,6 @@ func TestLoadTFLiteStruct(t *testing.T) {
 	tfStruct, err = loader.Load(badPath)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot load model"))
 	test.That(t, tfStruct, test.ShouldBeNil)
-
 }
 
 func modelLoader(path string) *tflite.Model {
