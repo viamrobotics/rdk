@@ -10,4 +10,5 @@ import (
 	_ "go.viam.com/rdk/component/board/jetson"
 	_ "go.viam.com/rdk/component/board/numato"
 	_ "go.viam.com/rdk/component/board/pi"
+	_ "go.viam.com/rdk/component/board/ti"
 )
