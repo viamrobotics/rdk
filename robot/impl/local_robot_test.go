@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/test"
@@ -202,7 +203,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
 
 	for idx := 0; idx < expectedStatusLength; idx++ {
-		test.That(t, statuses[idx].Status, test.ShouldResemble, struct{}{})
+		test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]interface{}{})
 	}
 
 	statuses, err = r2.GetStatus(
@@ -211,24 +212,31 @@ func TestConfigRemote(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 3)
-	test.That(
-		t,
-		statuses[0].Status,
-		test.ShouldResemble,
-		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
-	)
-	test.That(
-		t,
-		statuses[1].Status,
-		test.ShouldResemble,
-		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
-	)
-	test.That(
-		t,
-		statuses[2].Status,
-		test.ShouldResemble,
-		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
-	)
+
+	armStatus := &armpb.Status{
+		EndPosition:    &commonpb.Pose{},
+		JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+	}
+	convMap := &armpb.Status{}
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(statuses[0].Status)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, armStatus)
+
+	convMap = &armpb.Status{}
+	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(statuses[1].Status)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, armStatus)
+
+	convMap = &armpb.Status{}
+	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(statuses[2].Status)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, armStatus)
 
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -423,28 +431,34 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(statuses), test.ShouldEqual, 2)
-			test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
-			test.That(t, statuses[1].Status, test.ShouldResemble, struct{}{})
+			test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
+			test.That(t, statuses[1].Status, test.ShouldResemble, map[string]interface{}{})
 
 			statuses, err = r2.GetStatus(
 				context.Background(), []resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm")},
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(statuses), test.ShouldEqual, 2)
-			test.That(
-				t,
-				statuses[0].Status,
-				test.ShouldResemble,
-				&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
-			)
-			test.That(
-				t,
-				statuses[1].Status,
-				test.ShouldResemble,
-				&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
-			)
-			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
+			armStatus := &armpb.Status{
+				EndPosition:    &commonpb.Pose{},
+				JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+			}
+			convMap := &armpb.Status{}
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+			test.That(t, err, test.ShouldBeNil)
+			err = decoder.Decode(statuses[0].Status)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, convMap, test.ShouldResemble, armStatus)
+
+			convMap = &armpb.Status{}
+			decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+			test.That(t, err, test.ShouldBeNil)
+			err = decoder.Decode(statuses[1].Status)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, convMap, test.ShouldResemble, armStatus)
+
+			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
@@ -614,20 +628,24 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	statuses, err := r2.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
-	test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
+	test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
 
 	statuses, err = r2.GetStatus(context.Background(), []resource.Name{arm.Named("pieceArm")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
-	test.That(
-		t,
-		statuses[0].Status,
-		test.ShouldResemble,
-		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
-	)
+
+	armStatus := &armpb.Status{
+		EndPosition:    &commonpb.Pose{},
+		JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+	}
+	convMap := &armpb.Status{}
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(statuses[0].Status)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, armStatus)
 
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
-
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
@@ -801,7 +819,7 @@ func TestStatusService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	expected := map[resource.Name]interface{}{
 		arm.Named("pieceArm"): armStatus,
-		gps.Named("gps1"):     struct{}{},
+		gps.Named("gps1"):     map[string]interface{}{},
 	}
 
 	statuses, err := r.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
@@ -850,7 +868,7 @@ func TestGetStatus(t *testing.T) {
 		},
 	)
 
-	statuses := []robot.Status{{Name: button1, Status: struct{}{}}}
+	statuses := []robot.Status{{Name: button1, Status: map[string]interface{}{}}}
 	logger := golog.NewTestLogger(t)
 	resourceNames := []resource.Name{working1, button1, fail1}
 	resourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource", fail1: "resource"}
@@ -884,7 +902,7 @@ func TestGetStatus(t *testing.T) {
 	t.Run("many status", func(t *testing.T) {
 		expected := map[resource.Name]interface{}{
 			working1: workingStatus,
-			button1:  struct{}{},
+			button1:  map[string]interface{}{},
 		}
 		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -920,7 +938,7 @@ func TestGetStatus(t *testing.T) {
 		workingResourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource"}
 		expected := map[resource.Name]interface{}{
 			working1: workingStatus,
-			button1:  struct{}{},
+			button1:  map[string]interface{}{},
 		}
 		r, err := robotimpl.RobotFromResources(context.Background(), workingResourceMap, logger)
 		test.That(t, err, test.ShouldBeNil)

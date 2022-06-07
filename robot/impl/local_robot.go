@@ -259,7 +259,7 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 			}
 			// if resource subtype has an associated CreateStatus method, use that
 			// otherwise return an empty status
-			var status interface{} = struct{}{}
+			var status interface{} = map[string]interface{}{}
 			var err error
 			subtype := registry.ResourceSubtypeLookup(name.Subtype)
 			if subtype != nil && subtype.Status != nil {
