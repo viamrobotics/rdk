@@ -13,7 +13,26 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
+	"google.golang.org/grpc"
 )
+
+// implements DataSyncService_UploadClient
+type mockClient struct {
+	toSend []byte
+	grpc.ClientStream
+}
+
+func (m mockClient) Send(req *v1.UploadRequest) error {
+	return nil
+}
+
+func (m mockClient) CloseAndRecv(res *v1.UploadResponse) (*v1.UploadResponse, error) {
+	return &v1.UploadResponse{}, nil
+}
+
+func (m mockClient) Context() context.Context {
+	return context.TODO()
+}
 
 func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
 	t.Helper()
