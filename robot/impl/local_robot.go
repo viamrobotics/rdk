@@ -165,6 +165,12 @@ func (r *localRobot) StopWeb() error {
 	return webSvc.Close()
 }
 
+// remoteNameByResource returns the remote the resource is pulled from, if found.
+// False can mean either the resource doesn't exist or is local to the robot.
+func (r *localRobot) remoteNameByResource(resourceName resource.Name) (string, bool) {
+	return r.manager.remoteNameByResource(resourceName)
+}
+
 func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.mu.Lock()
 	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Nodes))
@@ -192,24 +198,79 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 		deduped[name] = struct{}{}
 	}
 
+	// group each resource name by remote and also get its corresponding name on the remote
+	groupedResources := make(map[string][]resource.Name)
+	remoteRNames := make(map[resource.Name]resource.Name)
+	for name := range deduped {
+		remoteName, ok := r.remoteNameByResource(name)
+		if !ok {
+			continue
+		}
+		remote, ok := r.RemoteByName(remoteName)
+		if !ok {
+			// should never happen
+			continue
+		}
+		rRobot, ok := remote.(*remoteRobot)
+		if !ok {
+			// should never happen
+			continue
+		}
+		unprefixed := rRobot.unprefixResourceName(name)
+		remoteRNames[unprefixed] = name
+
+		lst, ok := groupedResources[remoteName]
+		if !ok {
+			lst = make([]resource.Name, 0)
+		}
+		groupedResources[remoteName] = append(lst, unprefixed)
+	}
+
+	// make requests and map it back to the local resource name
+	remoteStatuses := make(map[resource.Name]robot.Status)
+	for remoteName, resourceNames := range groupedResources {
+		remote, ok := r.RemoteByName(remoteName)
+		if !ok {
+			// should never happen
+			continue
+		}
+		s, err := remote.GetStatus(ctx, resourceNames)
+		if err != nil {
+			return nil, err
+		}
+		for _, stat := range s {
+			mappedName, ok := remoteRNames[stat.Name]
+			if !ok {
+				// should never happen
+				continue
+			}
+			stat.Name = mappedName
+			remoteStatuses[mappedName] = stat
+		}
+	}
+
 	statuses := make([]robot.Status, 0, len(deduped))
 	for name := range deduped {
-		resource, ok := resources[name]
+		resourceStatus, ok := remoteStatuses[name]
 		if !ok {
-			return nil, utils.NewResourceNotFoundError(name)
-		}
-		// if resource subtype has an associated CreateStatus method, use that
-		// otherwise return an empty status
-		var status interface{} = struct{}{}
-		var err error
-		subtype := registry.ResourceSubtypeLookup(name.Subtype)
-		if subtype != nil && subtype.Status != nil {
-			status, err = subtype.Status(ctx, resource)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get status from %q", name)
+			resource, ok := resources[name]
+			if !ok {
+				return nil, utils.NewResourceNotFoundError(name)
 			}
+			// if resource subtype has an associated CreateStatus method, use that
+			// otherwise return an empty status
+			var status interface{} = struct{}{}
+			var err error
+			subtype := registry.ResourceSubtypeLookup(name.Subtype)
+			if subtype != nil && subtype.Status != nil {
+				status, err = subtype.Status(ctx, resource)
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to get status from %q", name)
+				}
+			}
+			resourceStatus = robot.Status{Name: name, Status: status}
 		}
-		statuses = append(statuses, robot.Status{Name: name, Status: status})
+		statuses = append(statuses, resourceStatus)
 	}
 	return statuses, nil
 }
@@ -270,7 +331,7 @@ func newWithResources(
 	if err := r.updateDefaultServices(ctx); err != nil {
 		return nil, err
 	}
-
+	r.manager.updateResourceRemoteNames()
 	successful = true
 	return r, nil
 }
