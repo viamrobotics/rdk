@@ -133,6 +133,13 @@ func removeResFromSet(rd resourceDependencies, key, node Name) {
 	}
 }
 
+// IsNodeDependingOn returns true if child is depending on node.
+func (g *Graph) IsNodeDependingOn(node, child Name) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.isNodeDependingOn(node, child)
+}
+
 // AddNode adds a node to the graph.
 func (g *Graph) AddNode(node Name, iface interface{}) {
 	g.mu.Lock()

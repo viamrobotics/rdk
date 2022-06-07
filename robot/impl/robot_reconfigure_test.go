@@ -200,6 +200,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		emptyConf := ConfigFromFile(t, "data/diff_config_empty.json")
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
+
 		ctx := context.Background()
 		robot, err := New(ctx, emptyConf, logger)
 		test.That(t, err, test.ShouldBeNil)
