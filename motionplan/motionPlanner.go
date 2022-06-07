@@ -4,6 +4,7 @@ package motionplan
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 
 	"go.viam.com/utils"
@@ -22,6 +23,8 @@ const (
 	defaultEpsilon = 0.001
 	// Default motion constraint name.
 	defaultMotionConstraint = "defaultMotionConstraint"
+	// Solve for waypoints this far apart to speed solving
+	pathStepSize = 10.0
 )
 
 // MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
@@ -117,20 +120,37 @@ func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.minScore = minScore
 }
 
-func plannerRunner(ctx context.Context,
+// Clone makes a deep copy of the PlannerOptions
+func (p *PlannerOptions) Clone() *PlannerOptions {
+	opt := &PlannerOptions{}
+	opt.constraints = p.constraints
+	opt.metric = p.metric
+	opt.pathDist = p.pathDist
+	opt.maxSolutions = p.maxSolutions
+	opt.minScore = p.minScore
+	
+	return opt
+}
+
+func PlannerRunner(ctx context.Context,
 	planner MotionPlanner,
 	goals []spatial.Pose,
 	seed []frame.Input,
 	opts []*PlannerOptions,
 	iter int,
-) ([]*configuration, error) {
+) ([][]frame.Input, error) {
+	fmt.Println("goals:")
+	for _, goal := range goals{
+		fmt.Println(spatial.PoseToProtobuf(goal))
+	}
+	fmt.Println("opts", opts)
 	var err error
 	goal := goals[iter]
 	opt := opts[iter]
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
 	}
-	remainingSteps := []*configuration{}
+	remainingSteps := [][]frame.Input{}
 	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
 		endpointPreview := make(chan *configuration, 1)
@@ -155,10 +175,10 @@ func plannerRunner(ctx context.Context,
 			select {
 			case nextSeed := <-endpointPreview:
 				// Got a solution preview, start solving the next motion in a new thread.
-				if iter < len(goals)-1 {
+				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = plannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
+					remainingSteps, err = PlannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -176,7 +196,13 @@ func plannerRunner(ctx context.Context,
 						if finalSteps.err != nil {
 							return nil, finalSteps.err
 						}
-						return append(finalSteps.steps, remainingSteps...), nil
+						results := make([][]frame.Input, 0, len(finalSteps.steps) + len(remainingSteps))
+						for _, step := range finalSteps.steps {
+							results = append(results, step.inputs)
+						}
+						results = append(results, remainingSteps...)
+						fmt.Println(iter, "ret 1", results)
+						return results, nil
 					default:
 					}
 				}
@@ -185,42 +211,46 @@ func plannerRunner(ctx context.Context,
 				if finalSteps.err != nil {
 					return nil, finalSteps.err
 				}
-				if iter < len(goals)-1 {
+				if iter+1 < len(goals) {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
+					remainingSteps, err = PlannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
 				}
-				return append(finalSteps.steps, remainingSteps...), nil
+				results := make([][]frame.Input, 0, len(finalSteps.steps) + len(remainingSteps))
+				for _, step := range finalSteps.steps {
+					results = append(results, step.inputs)
+				}
+				results = append(results, remainingSteps...)
+				fmt.Println(iter, "ret 2", results)
+				return results, nil
 			default:
 			}
 		}
 	} else {
-		resultSlices := []*configuration{}
 		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
 		if err != nil {
 			return nil, err
 		}
-		for _, step := range resultSlicesRaw {
-			resultSlices = append(resultSlices, &configuration{step})
-		}
 		if iter < len(goals)-2 {
 			// in this case, we create the next step (and thus the remaining steps) and the
 			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
+			remainingSteps, err = PlannerRunner(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
 			if err != nil {
 				return nil, err
 			}
 		}
-		return append(resultSlices, remainingSteps...), nil
+		fmt.Println("ret 3")
+		return append(resultSlicesRaw, remainingSteps...), nil
 	}
 }
-// getSteps will determine the number of steps which should be used to get from the seed to the goal.
+
+// GetSteps will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step.
-func getSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
+func GetSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
 	// use a default size of 1 if zero is passed in to avoid divide-by-zero
 	if stepSize == 0 {
 		stepSize = 1.

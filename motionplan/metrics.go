@@ -27,7 +27,7 @@ type combinableMetric struct {
 func (m *combinableMetric) combinedDist(p1, p2 spatial.Pose) float64 {
 	dist := 0.
 	for _, metric := range m.metrics {
-		dist = +metric(p1, p2)
+		dist += metric(p1, p2)
 	}
 	return dist
 }

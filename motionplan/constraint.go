@@ -42,7 +42,7 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	if err != nil {
 		return false, nil
 	}
-	steps := getSteps(ci.StartPos, ci.EndPos, resolution)
+	steps := GetSteps(ci.StartPos, ci.EndPos, resolution)
 
 	var lastGood []referenceframe.Input
 	// Seed with just the start position to walk the path
