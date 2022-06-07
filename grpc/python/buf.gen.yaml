@@ -1,6 +1,0 @@
-version: v1beta1
-plugins:
-  - name: python
-    out: grpc/python/gen
-  - name: grpclib_python
-    out: grpc/python/gen

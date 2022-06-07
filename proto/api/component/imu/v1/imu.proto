@@ -1,37 +1,38 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/imu/v1";
-option java_package = "com.viam.rdk.proto.api.component.imu.v1";
 
 package proto.api.component.imu.v1;
 
 import "google/api/annotations.proto";
 
+option go_package = "go.viam.com/rdk/proto/api/component/imu/v1";
+option java_package = "com.viam.rdk.proto.api.component.imu.v1";
+
 // IMUService services all IMUs associated with a robot
 service IMUService {
   // ReadAngularVelocity returns the most recent angular velocity reading from the given IMU.
   rpc ReadAngularVelocity(ReadAngularVelocityRequest) returns (ReadAngularVelocityResponse) {
-      option (google.api.http) = {
+    option (google.api.http) = {
       get: "/viam/api/v1/component/imu/{name}/angular_velocity"
     };
   }
 
   // ReadOrientation returns the most recent orientation reading from the given IMU.
   rpc ReadOrientation(ReadOrientationRequest) returns (ReadOrientationResponse) {
-      option (google.api.http) = {
+    option (google.api.http) = {
       get: "/viam/api/v1/component/imu/{name}/orientation"
     };
   }
 
   // ReadAcceleration returns the most recent acceleration reading from the given IMU.
   rpc ReadAcceleration(ReadAccelerationRequest) returns (ReadAccelerationResponse) {
-      option (google.api.http) = {
+    option (google.api.http) = {
       get: "/viam/api/v1/component/imu/{name}/acceleration"
     };
   }
-  
+
   // ReadMagnetometer returns the most recent magnetometer reading from the given IMU, if avaiable
   rpc ReadMagnetometer(ReadMagnetometerRequest) returns (ReadMagnetometerResponse) {
-      option (google.api.http) = {
+    option (google.api.http) = {
       get: "/viam/api/v1/component/imu/{name}/magnetometer"
     };
   }
@@ -68,7 +69,6 @@ message Acceleration {
   double z_mm_per_sec_per_sec = 3;
 }
 
-
 // Magnetometer contains magnetic field readings in gauss x/y/z axes.
 message Magnetometer {
   // Magnetometer in gauss across the x-axis
@@ -78,7 +78,6 @@ message Magnetometer {
   // Magnetometer in gauss across the z-axis
   double z_gauss = 3;
 }
-
 
 message ReadAngularVelocityRequest {
   // Name of an IMU
@@ -110,7 +109,6 @@ message ReadAccelerationResponse {
   // Acceleration contains acceleration in mm/s^2 across x/y/z axes.
   Acceleration acceleration = 1;
 }
-
 
 message ReadMagnetometerRequest {
   // Name of an IMU

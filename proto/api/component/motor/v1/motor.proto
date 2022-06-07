@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/motor/v1";
-option java_package = "com.viam.rdk.proto.api.component.motor.v1";
 
 package proto.api.component.motor.v1;
 
-import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/motor/v1";
+option java_package = "com.viam.rdk.proto.api.component.motor.v1";
 
 // A MotorService maintains all motors associated with a robot
 service MotorService {
@@ -61,8 +62,8 @@ service MotorService {
     };
   }
 
-  // Stop turns the robot's motor off 
-  
+  // Stop turns the robot's motor off
+
   rpc Stop(StopRequest) returns (StopResponse) {
     option (google.api.http) = {
       put: "/viam/api/v1/component/motor/{name}/stop"

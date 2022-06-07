@@ -1,12 +1,13 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/service/vision/v1";
-option java_package = "com.viam.rdk.proto.api.service.vision.v1";
 
 package proto.api.service.vision.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/service/vision/v1";
+option java_package = "com.viam.rdk.proto.api.service.vision.v1";
 
 // VisionService declares the gRPC contract for a vision service
 service VisionService {
@@ -63,35 +64,35 @@ message GetDetectorNamesResponse {
 }
 
 message AddDetectorRequest {
-   string detector_name = 1;
-   string detector_model_type = 2;
-   google.protobuf.Struct detector_parameters = 3;
+  string detector_name = 1;
+  string detector_model_type = 2;
+  google.protobuf.Struct detector_parameters = 3;
 }
 
 message AddDetectorResponse {}
 
 message GetDetectionsRequest {
-   // name of camera source to use as input
-   string camera_name = 1;
-   // name of the registered detector to use
-   string detector_name = 2;
+  // name of camera source to use as input
+  string camera_name = 1;
+  // name of the registered detector to use
+  string detector_name = 2;
 }
 
 message GetDetectionsResponse {
-   // the bounding boxes and labels
-   repeated Detection detections = 1;
+  // the bounding boxes and labels
+  repeated Detection detections = 1;
 }
 
 message Detection {
-   // the four corners of the box
-   int64 x_min = 1;
-   int64 y_min = 2;
-   int64 x_max = 3;
-   int64 y_max = 4;
-   // the confidence of the detection
-   double confidence = 5;
-   // label associated with the detected object
-   string class_name = 6;
+  // the four corners of the box
+  int64 x_min = 1;
+  int64 y_min = 2;
+  int64 x_max = 3;
+  int64 y_max = 4;
+  // the confidence of the detection
+  double confidence = 5;
+  // label associated with the detected object
+  string class_name = 6;
 }
 
 message GetSegmenterNamesRequest {}
@@ -107,8 +108,8 @@ message GetSegmenterParametersRequest {
 }
 
 message TypedParameter {
-   string name = 1;
-   string type = 2;
+  string name = 1;
+  string type = 2;
 }
 
 message GetSegmenterParametersResponse {
@@ -133,4 +134,3 @@ message GetObjectPointCloudsResponse {
   // List of objects in the scene
   repeated common.v1.PointCloudObject objects = 2;
 }
-

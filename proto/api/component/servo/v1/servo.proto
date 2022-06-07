@@ -1,10 +1,11 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/servo/v1";
-option java_package = "com.viam.rdk.proto.api.component.servo.v1";
 
 package proto.api.component.servo.v1;
 
 import "google/api/annotations.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/servo/v1";
+option java_package = "com.viam.rdk.proto.api.component.servo.v1";
 
 // A ServoService maintains all servos associated with a robot
 service ServoService {
@@ -22,17 +23,23 @@ service ServoService {
       get: "/viam/api/v1/component/servo/{name}/position"
     };
   }
+
+  // Stop stops a robot's servo
+  rpc Stop(StopRequest) returns (StopResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/component/servo/{name}/stop"
+    };
+  }
 }
 
 message MoveRequest {
   // the name of the servo, as registered
   string name = 1;
   // the degrees by which to rotate the servo. Accepted values are between 0 and 180
-  uint32 angle_deg = 2; 
+  uint32 angle_deg = 2;
 }
 
 message MoveResponse {}
-
 
 message GetPositionRequest {
   // the name of the servo, as registered
@@ -43,6 +50,13 @@ message GetPositionResponse {
   // the degrees from neutral by which the servo is currently rotated. Values are between 0 and 180
   uint32 position_deg = 1;
 }
+
+message StopRequest {
+  // Name of a servo
+  string name = 1;
+}
+
+message StopResponse {}
 
 message Status {
   uint32 position_deg = 1;

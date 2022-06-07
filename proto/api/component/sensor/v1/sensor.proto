@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/sensor/v1";
-option java_package = "com.viam.rdk.proto.api.component.sensor.v1";
 
 package proto.api.component.sensor.v1;
 
-import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/sensor/v1";
+option java_package = "com.viam.rdk.proto.api.component.sensor.v1";
 
 // SensorService services all generic sensors associated with a robot
 service SensorService {

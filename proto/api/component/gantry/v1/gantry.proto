@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/gantry/v1";
-option java_package = "com.viam.rdk.proto.api.component.gantry.v1";
 
 package proto.api.component.gantry.v1;
 
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/gantry/v1";
+option java_package = "com.viam.rdk.proto.api.component.gantry.v1";
 
 // An GantryService services all gantries associated with a robot
 service GantryService {
@@ -27,6 +28,13 @@ service GantryService {
   rpc GetLengths(GetLengthsRequest) returns (GetLengthsResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/component/gantry/{name}/lengths"
+    };
+  }
+
+  // Stop stops a robot's gantry
+  rpc Stop(StopRequest) returns (StopResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/component/gantry/{name}/stop"
     };
   }
 }
@@ -54,6 +62,13 @@ message GetLengthsRequest {
 message GetLengthsResponse {
   repeated double lengths_mm = 1;
 }
+
+message StopRequest {
+  // Name of a gantry
+  string name = 1;
+}
+
+message StopResponse {}
 
 message Status {
   repeated double positions_mm = 1;
