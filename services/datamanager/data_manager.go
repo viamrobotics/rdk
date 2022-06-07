@@ -494,11 +494,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 func (svc *Service) reinitializeStoppedCollectors() {
 	for _, c := range svc.collectors {
 		if !c.Collector.IsCollecting() {
-			go func() {
-				if err := c.Collector.Collect(); err != nil {
-					svc.logger.Error(err.Error())
-				}
-			}()
+			c.Collector.Start()
 		}
 	}
 }
