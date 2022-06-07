@@ -2,7 +2,7 @@
   <div>
     <Collapse>
       <div class="flex float-left">
-        <h2 class="p-4 text-xl">{{ baseName }}</h2>
+        <h2 class="p-4 text-xl">{{ motorName }}</h2>
         <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
         <div class="p-4 flex items-center flex-wrap" v-if="motorStatus.positionReporting">
           <p class="flex items-center border border-black rounded-full px-2 leading-tight">Position {{ motorStatus.position }}</p>
@@ -227,8 +227,7 @@ import {
   },
 })
 export default class MotorDetailNew extends Vue {
-  @Prop({ default: null }) streamName!: string;
-  @Prop({ default: null }) baseName!: string;
+  @Prop({ default: null }) motorName!: string;
   @Prop({ default: null }) crumbs!: [string];
   @Prop() motorStatus!: Status.AsObject;
 
@@ -237,24 +236,17 @@ export default class MotorDetailNew extends Vue {
   mdiCloseOctagonOutline = mdiCloseOctagonOutline;
   mdiInformation = mdiAlertOctagonOutline;
   maxHeight = 500;
-  selectedValue = "NoCamera";
-  isContinuous = true;
-  streamId = "stream-preview-" + this.streamName;
-  selectedItem = "keyboard";
-  pressedKey = 0;
-  movementMode = "";
+  infoGo = ["Continously moves"];
+  infoGoTo = ["Relative to Home"];
+  infoGoFor = ["Relative to where robot is currently is"];
   movementType = "Go";
   direction: -1 | 1 = 1;
-  spinType = "";
   position = 0;
   rpm = 0;
   power = 0;
   type = "go";
   speed = 0;
   revolutions = 0;
-  infoGo = ["Continously moves"];
-  infoGoTo = ["Relative to Home"];
-  infoGoFor = ["Relative to where robot is currently is"];
 
   beforeMount(): void {
     window.addEventListener("resize", this.resizeContent);
@@ -268,12 +260,7 @@ export default class MotorDetailNew extends Vue {
     this.resizeContent();
   }
 
-  setMovementMode(e: string): void {
-    console.log(e);
-    this.movementMode = e;
-  }
   setMovementType(e: string): void {
-    console.log(e);
     this.movementType = e;
     switch (this.movementType) {
       case "Go":
@@ -287,17 +274,14 @@ export default class MotorDetailNew extends Vue {
         break;
     }
   }
-  setSpinType(e: string): void {
-    console.log(e);
-    this.spinType = e;
-  }
+
   setDirection(e: string): void {
     console.log(e);
     switch (e) {
       case "Forwards":
           this.direction = 1;
           break;
-      case "Backwars":
+      case "Backwards":
           this.direction = -1;
           break;
       default:
@@ -307,7 +291,6 @@ export default class MotorDetailNew extends Vue {
   }
   motorRun(): void {
     const command = this.asObject();
-    console.log(command);
     this.$emit("motor-run", command);
   }
   motorStop(e: Event): void {
