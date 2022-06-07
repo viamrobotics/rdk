@@ -1,4 +1,4 @@
-// package inference contains functions to access tflite
+// package inference allows users to do inference through tflite (tf, pytorch, etc in the future)
 package inference
 
 // #cgo LDFLAGS: -L/Users/alexiswei/Documents/repos/tensorflow/bazel-bin/tensorflow/lite/c

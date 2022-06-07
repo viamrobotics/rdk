@@ -13,9 +13,8 @@ import (
 const badPath string = "bad path"
 
 var (
-	_, b, _, _      = runtime.Caller(0)
-	basepath        = filepath.Dir(b)
-	tfliteModelPath = basepath + "/testing_files/model_with_metadata.tflite"
+	_, b, _, _ = runtime.Caller(0)
+	basePath   = filepath.Dir(b)
 )
 
 type fakeInterpreter struct {
@@ -60,30 +59,43 @@ func goodGetInfo(i Interpreter) *TFLiteInfo {
 }
 
 func TestLoadModel(t *testing.T) {
+	tfliteModelPath := basePath + "/testing_files/model_with_metadata.tflite"
 	loader, err := NewDefaultTFLiteModelLoader()
 	test.That(t, err, test.ShouldBeNil)
 	tfliteStruct, err := loader.Load(tfliteModelPath)
 	test.That(t, tfliteStruct, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	structInfo := tfliteStruct.info
+	structInfo := tfliteStruct.Info
 	test.That(t, structInfo, test.ShouldNotBeNil)
 
-	h := structInfo.inputHeight
-	w := structInfo.inputWidth
-	c := structInfo.inputChannels
+	h := structInfo.InputHeight
+	w := structInfo.InputWidth
+	c := structInfo.InputChannels
 	test.That(t, h, test.ShouldEqual, 640)
 	test.That(t, w, test.ShouldEqual, 640)
 	test.That(t, c, test.ShouldEqual, 3)
-	test.That(t, structInfo.inputTensorType, test.ShouldEqual, "Float32")
-	test.That(t, structInfo.inputTensorCount, test.ShouldEqual, 1)
-	test.That(t, structInfo.outputTensorCount, test.ShouldEqual, 4)
-	test.That(t, structInfo.outputTensorTypes, test.ShouldResemble, []string{"Float32", "Float32", "Float32", "Float32"})
+	test.That(t, structInfo.InputTensorType, test.ShouldEqual, "Float32")
+	test.That(t, structInfo.InputTensorCount, test.ShouldEqual, 1)
+	test.That(t, structInfo.OutputTensorCount, test.ShouldEqual, 4)
+	test.That(t, structInfo.OutputTensorTypes, test.ShouldResemble, []string{"Float32", "Float32", "Float32", "Float32"})
 
 	buf := make([]float32, c*h*w)
 	outTensors, err := tfliteStruct.Infer(buf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outTensors, test.ShouldNotBeNil)
+	test.That(t, len(outTensors), test.ShouldEqual, 4)
+
+	tfliteStruct.Close()
+}
+
+func TestLoadRealBadPath(t *testing.T) {
+	tfliteModelPath := basePath + "/testing_files/does_not_exist.tflite"
+	loader, err := NewDefaultTFLiteModelLoader()
+	test.That(t, err, test.ShouldBeNil)
+	tfliteStruct, err := loader.Load(tfliteModelPath)
+	test.That(t, tfliteStruct, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, "cannot load model")
 }
 
 func TestLoadTFLiteStruct(t *testing.T) {
