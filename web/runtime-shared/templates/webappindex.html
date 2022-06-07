@@ -1733,13 +1733,12 @@
             v-for="motor in filterResources('rdk', 'component', 'motor')"
             :key="'new-' + motor.name"
             v-if="resourceStatusByName(motor)"  
-            :stream-name="motor.name" 
-            :base-name="motor.name" 
+            :motor-name="motor.name" 
             :crumbs="['motor', motor.name]" 
             :motor-status="resourceStatusByName(motor)"
             v-on:motor-run="motorCommand(motor.name, $event)"
             v-on:motor-stop="motorCommand(motor.name, $event)">
-          </motor-detail-new>
+          </motor-detail>
 
           <!-- ******* INPUT VIEW *******  -->
           <input-controller
