@@ -123,19 +123,22 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	bSize := 4
 	bAvail := 3
 	bFree := 3
+	svc.lock.Lock()
 	svc.statfs = getMockStatfsFn(blocks, bSize, bAvail, bFree)
+	svc.lock.Unlock()
 
 	// Replace the default storage check with a more frequent one for testing purposes.
+	sleepTime := time.Millisecond * 5
 	svc.storageCheckCancelFn()
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	svc.storageCheckCancelFn = cancelFn
-	go svc.runStorageCheckAndUpdateCollectors(cancelCtx, time.Millisecond)
+	time.Sleep(sleepTime)
+	svc.runStorageCheckAndUpdateCollectors(cancelCtx, time.Millisecond)
 
 	// Load config with an arm, maximum storage percent of 40%, and disabled auto-delete.
 	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/fake_robot_with_data_manager.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	svc.Update(context.Background(), conf)
-	sleepTime := time.Millisecond * 5
 	time.Sleep(sleepTime)
 
 	// Check that collectors are running.
@@ -146,7 +149,9 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	// Mock 66% disk usage in the system.
 	bAvail = 1
 	bFree = 1
+	svc.lock.Lock()
 	svc.statfs = getMockStatfsFn(blocks, bSize, bAvail, bFree)
+	svc.lock.Unlock()
 
 	// The running storage check should close any active collectors since we have exceeded
 	// the disk usage limit.
@@ -156,7 +161,9 @@ func TestRunStorageCheckWithDisabledAutoDeletion(t *testing.T) {
 	// Mock 33% disk usage in the system.
 	bAvail = 2
 	bFree = 2
+	svc.lock.Lock()
 	svc.statfs = getMockStatfsFn(blocks, bSize, bAvail, bFree)
+	svc.lock.Unlock()
 
 	// The running storage check should reactivate collectors since we are now back below
 	// the disk usage limit.
