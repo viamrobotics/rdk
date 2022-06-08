@@ -1,14 +1,14 @@
-import itertools
-import math
-import json
-from functools import partial
 import sys
-import matplotlib.pyplot as plt
+import json
+import time
+import itertools
 import numpy as np
-from matplotlib.animation import FuncAnimation
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.widgets
 import mpl_toolkits.axes_grid1
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
 class Box():
@@ -39,6 +39,7 @@ class Box():
     def artists(self):
         return self.faces
 
+
 class EntityGroup():
     def __init__(self, ax, example_data, color):
         self.entities = [Box(ax, color) for _ in range(len(example_data))]
@@ -53,25 +54,120 @@ class EntityGroup():
         ]
         return self.artists
 
+
 class Scene():
     def __init__(self, ax, example_data):
-        self.model = EntityGroup(ax, example_data["model"], 'r')
         # TODO: account for multiple types of obstacles
         self.obstacles = EntityGroup(ax, example_data["obstacles0"], 'b')
+        self.model = EntityGroup(ax, example_data["model"], 'r')
         self.artists = list(itertools.chain.from_iterable([self.obstacles.artists, self.model.artists]))
 
     def draw(self, data):
+        # TODO: fix draw order of entities in the scene
         # TODO: add some error checking here
         obstacle_artist = self.obstacles.draw(data["obstacles0"])
         model_artist = self.model.draw(data["model"])
         self.artists = list(itertools.chain.from_iterable([obstacle_artist, model_artist]))
         return self.artists
 
+
+class Player(FuncAnimation):
+    def __init__(self, fig, func, init_func=None, fargs=None, num_frames=100, pos=(0.125, 0.92), **kwargs):
+        # initialize class variables from input
+        self.current_frame = 0
+        self.min =0
+        self.max = num_frames - 1
+        self.runs = True
+        self.forwards = True
+        self.fig = fig
+        self.func = func
+
+        # setup axes
+        one_back_ax = self.fig.add_axes([pos[0],pos[1], 0.64, 0.04])
+        divider = mpl_toolkits.axes_grid1.make_axes_locatable(one_back_ax)
+        back_ax = divider.append_axes("right", size="80%", pad=0.05)
+        stop_ax = divider.append_axes("right", size="80%", pad=0.05)
+        forward_ax = divider.append_axes("right", size="80%", pad=0.05)
+        ofax = divider.append_axes("right", size="100%", pad=0.05)
+        sliderax = divider.append_axes("right", size="500%", pad=0.07)
+
+        # add widgets
+        self.button_one_back = matplotlib.widgets.Button(one_back_ax, label='$\u29CF$')
+        self.button_back = matplotlib.widgets.Button(back_ax, label='$\u25C0$')
+        self.button_stop = matplotlib.widgets.Button(stop_ax, label='$\u25A0$')
+        self.button_forward = matplotlib.widgets.Button(forward_ax, label='$\u25B6$')
+        self.button_one_forward = matplotlib.widgets.Button(ofax, label='$\u29D0$')
+        self.slider = matplotlib.widgets.Slider(sliderax, '', self.min, self.max, valinit=self.current_frame)
+
+        # assign functions to widgets
+        self.button_one_back.on_clicked(self.one_backward)
+        self.button_back.on_clicked(self.backward)
+        self.button_stop.on_clicked(self.stop)
+        self.button_forward.on_clicked(self.forward)
+        self.button_one_forward.on_clicked(self.one_forward)
+        self.slider.on_changed(self.set_pos)
+
+        # subclass as a FuncAnimation
+        FuncAnimation.__init__(self, self.fig, self.update, frames=self.play(), init_func=init_func, fargs=fargs, **kwargs )    
+
+    def play(self):
+        while self.runs:
+            self.current_frame = self.current_frame+self.forwards-(not self.forwards)
+            if self.current_frame > self.min and self.current_frame < self.max:
+                yield self.current_frame
+            else:
+                self.stop()
+                yield self.current_frame
+
+    def start(self):
+        self.runs=True
+        self.event_source.start()
+
+    def stop(self, event=None):
+        self.runs = False
+        self.event_source.stop()
+
+    def forward(self, event=None):
+        self.forwards = True
+        self.start()
+
+    def backward(self, event=None):
+        self.forwards = False
+        self.start()
+
+    def one_forward(self, event=None):
+        self.forwards = True
+        self.one_step()
+
+    def one_backward(self, event=None):
+        self.forwards = False
+        self.one_step()
+
+    def one_step(self):
+        if self.current_frame > self.min and self.current_frame < self.max:
+            self.current_frame = self.current_frame+self.forwards-(not self.forwards)
+        elif self.current_frame == self.min and self.forwards:
+            self.current_frame+=1
+        elif self.current_frame == self.max and not self.forwards:
+            self.current_frame-=1
+        self.func(self.current_frame)
+        self.slider.set_val(self.current_frame)
+        self.fig.canvas.draw_idle()
+
+    def set_pos(self, i):
+        self.current_frame = int(self.slider.val)
+        self.func(self.current_frame)
+
+    def update(self, i):
+        self.slider.set_val(i)
+
+
 class Video():
     def __init__(self, path, fps=5, loop_delay=2):
         # load scene from file
         fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d', proj_type='persp')
+        fig.canvas.set_window_title('Viam Visualizer')
+        ax = Axes3D(fig)
         with open(path) as file:
             self.frames = json.load(file)
         self.scene = Scene(ax, self.frames[0])
@@ -80,20 +176,14 @@ class Video():
         ax.dist=10
         ax.azim=30
         ax.elev=10
+        # TODO: make the plot extents programatic
         ax.set_xlim(-1000, 1000)
         ax.set_ylim(-1000, 1000)
         ax.set_zlim(-200, 1800)
         ax.set_box_aspect(np.ptp([ax.get_xlim(), ax.get_ylim(), ax.get_zlim()], axis=1))
 
         # start video
-        ani = FuncAnimation(
-            fig, 
-            self.play, 
-            frames=len(self.frames), 
-            interval=1000/fps, 
-            repeat=loop_delay is not None, 
-            repeat_delay=loop_delay * 1000
-        )
+        Player(fig, self.play, num_frames=len(self.frames), interval=1000/fps)
         plt.show()
 
     def play(self, frame):
