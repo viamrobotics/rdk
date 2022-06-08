@@ -48,9 +48,9 @@ func (cp *CamPose) Pose() (spatialmath.Pose, error) {
 func adjustPoseSign(pose *mat.Dense) *mat.Dense {
 	// take 3x3 sub-matrix
 	subPose := pose.Slice(0, 3, 0, 3)
-	m := mat.DenseCopyOf(subPose)
+
 	// if determinant is negative, scale by -1
-	if mat.Det(m) < 0 {
+	if m := mat.DenseCopyOf(subPose); mat.Det(m) < 0 {
 		pose.Scale(-1, pose)
 	}
 	return pose

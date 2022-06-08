@@ -3,7 +3,6 @@ package wx250s
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"

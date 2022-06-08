@@ -3,7 +3,6 @@ package universalrobots
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
