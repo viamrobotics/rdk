@@ -94,7 +94,7 @@ func TestSuccessfulWrite(t *testing.T) {
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:           time.Millisecond * 250,
+			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
 			expectReadings: 2,
 		},
 		{
@@ -108,7 +108,7 @@ func TestSuccessfulWrite(t *testing.T) {
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:           time.Millisecond * 250,
+			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
 			expectReadings: 2,
 		},
 		{
@@ -122,7 +122,7 @@ func TestSuccessfulWrite(t *testing.T) {
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:           time.Millisecond * 250,
+			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
 			expectReadings: 2,
 		},
 		{
@@ -136,7 +136,7 @@ func TestSuccessfulWrite(t *testing.T) {
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:           time.Millisecond * 250,
+			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
 			expectReadings: 2,
 		},
 	}
