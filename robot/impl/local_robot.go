@@ -208,13 +208,13 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 		remote, ok := r.RemoteByName(remoteName)
 		if !ok {
 			// should never happen
-			r.Logger().Debugw("remote robot not found while creating status", "remote", remoteName)
+			r.Logger().Errorw("remote robot not found while creating status", "remote", remoteName)
 			continue
 		}
 		rRobot, ok := remote.(*remoteRobot)
 		if !ok {
 			// should never happen
-			r.Logger().Debugw("remote robot not a *remoteRobot while creating status", "remote", remoteName)
+			r.Logger().Errorw("remote robot not a *remoteRobot while creating status", "remote", remoteName)
 			continue
 		}
 		unprefixed := rRobot.unprefixResourceName(name)
@@ -232,7 +232,7 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 		remote, ok := r.RemoteByName(remoteName)
 		if !ok {
 			// should never happen
-			r.Logger().Debugw("remote robot not found while creating status", "remote", remoteName)
+			r.Logger().Errorw("remote robot not found while creating status", "remote", remoteName)
 			continue
 		}
 		remoteRNames := make([]resource.Name, 0, len(resourceNamesMappings))
@@ -248,7 +248,7 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 			mappedName, ok := resourceNamesMappings[stat.Name]
 			if !ok {
 				// should never happen
-				r.Logger().Debugw(
+				r.Logger().Errorw(
 					"failed to find corresponding resource name for remote resource name while creating status",
 					"resource", stat.Name,
 				)
