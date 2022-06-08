@@ -200,7 +200,6 @@ func (draft *draftRobot) Rollback(ctx context.Context) error {
 func (draft *draftRobot) ProcessAndCommit(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
-			draft.original.logger.Infow("rolling back draft changes due to error", "error", err)
 			if rollbackErr := draft.Rollback(ctx); rollbackErr != nil {
 				err = multierr.Combine(err, errors.Wrap(rollbackErr, "error rolling back draft changes"))
 			}
