@@ -166,7 +166,14 @@ func (ms *motionService) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	output, err := solver.SolvePose(ctx, input, goalPose.Pose(), componentName.Name, solvingFrame)
+	output, err := solver.SolveWaypointsWithOptions(ctx,
+		input,
+		[]spatialmath.Pose{goalPose.Pose()},
+		componentName.Name,
+		solvingFrame,
+		worldState,
+		[]*motionplan.PlannerOptions{},
+	)
 	if err != nil {
 		return false, err
 	}
