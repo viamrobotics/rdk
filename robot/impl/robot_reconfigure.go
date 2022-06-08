@@ -107,7 +107,8 @@ func (draft *draftRobot) DiscoverComponents(ctx context.Context, qs []discovery.
 // up a robot's frame system.
 func (draft *draftRobot) FrameSystemConfig(
 	ctx context.Context,
-	additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+	additionalTransforms []*commonpb.Transform,
+) (framesystemparts.Parts, error) {
 	return draft.original.FrameSystemConfig(ctx, additionalTransforms)
 }
 
