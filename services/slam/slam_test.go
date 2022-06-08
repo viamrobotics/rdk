@@ -624,11 +624,9 @@ func TestSLAMProcessFail(t *testing.T) {
 			BinaryLocation: "fail",
 		}
 
-		errCheck := fmt.Sprintf("\"%v\": executable file not found in $PATH", "fail")
 		cmd, err := slamSvc.StartSLAMProcess(cancelCtx)
 		test.That(t, cmd, test.ShouldResemble, []string{})
-		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("problem adding slam process: error running process \"%v\": exec: %v", "fail", errCheck))
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, errors.New("problem adding slam process:"))
 
 		cancelFunc()
 
