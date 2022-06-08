@@ -199,8 +199,7 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 	}
 
 	// group each resource name by remote and also get its corresponding name on the remote
-	groupedResources := make(map[string][]resource.Name)
-	remoteRNames := make(map[resource.Name]resource.Name)
+	groupedResources := make(map[string]map[resource.Name]resource.Name)
 	for name := range deduped {
 		remoteName, ok := r.remoteNameByResource(name)
 		if !ok {
@@ -209,46 +208,56 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 		remote, ok := r.RemoteByName(remoteName)
 		if !ok {
 			// should never happen
+			r.Logger().Debugw("remote robot not found while creating status", "remote", remoteName)
 			continue
 		}
 		rRobot, ok := remote.(*remoteRobot)
 		if !ok {
 			// should never happen
+			r.Logger().Debugw("remote robot not a *remoteRobot while creating status", "remote", remoteName)
 			continue
 		}
 		unprefixed := rRobot.unprefixResourceName(name)
-		remoteRNames[unprefixed] = name
 
-		lst, ok := groupedResources[remoteName]
+		mappings, ok := groupedResources[remoteName]
 		if !ok {
-			lst = make([]resource.Name, 0)
+			mappings = make(map[resource.Name]resource.Name)
 		}
-		groupedResources[remoteName] = append(lst, unprefixed)
+		mappings[unprefixed] = name
+		groupedResources[remoteName] = mappings
 	}
-
 	// make requests and map it back to the local resource name
 	remoteStatuses := make(map[resource.Name]robot.Status)
-	for remoteName, resourceNames := range groupedResources {
+	for remoteName, resourceNamesMappings := range groupedResources {
 		remote, ok := r.RemoteByName(remoteName)
 		if !ok {
 			// should never happen
+			r.Logger().Debugw("remote robot not found while creating status", "remote", remoteName)
 			continue
 		}
-		s, err := remote.GetStatus(ctx, resourceNames)
+		remoteRNames := make([]resource.Name, 0, len(resourceNamesMappings))
+		for n := range resourceNamesMappings {
+			remoteRNames = append(remoteRNames, n)
+		}
+
+		s, err := remote.GetStatus(ctx, remoteRNames)
 		if err != nil {
 			return nil, err
 		}
 		for _, stat := range s {
-			mappedName, ok := remoteRNames[stat.Name]
+			mappedName, ok := resourceNamesMappings[stat.Name]
 			if !ok {
 				// should never happen
+				r.Logger().Debugw(
+					"failed to find corresponding resource name for remote resource name while creating status",
+					"resource", stat.Name,
+				)
 				continue
 			}
 			stat.Name = mappedName
 			remoteStatuses[mappedName] = stat
 		}
 	}
-
 	statuses := make([]robot.Status, 0, len(deduped))
 	for name := range deduped {
 		resourceStatus, ok := remoteStatuses[name]

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"math"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
@@ -25,12 +27,15 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/grpc/server"
+	"go.viam.com/rdk/testutils/inject"
 
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -962,4 +967,98 @@ func TestGetStatus(t *testing.T) {
 		test.That(t, actual[0].Status, test.ShouldResemble, expected[actual[0].Name])
 		test.That(t, actual[1].Status, test.ShouldResemble, expected[actual[1].Name])
 	})
+}
+
+func TestGetStatusRemote(t *testing.T) {
+	// set up remotes
+	port1, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	addr1 := fmt.Sprintf("localhost:%d", port1)
+	listener1, err := net.Listen("tcp", addr1)
+	test.That(t, err, test.ShouldBeNil)
+	port2, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	addr2 := fmt.Sprintf("localhost:%d", port2)
+	listener2, err := net.Listen("tcp", addr2)
+	test.That(t, err, test.ShouldBeNil)
+	gServer1 := grpc.NewServer()
+	gServer2 := grpc.NewServer()
+	resourcesFunc := func() []resource.Name { return []resource.Name{arm.Named("arm1"), arm.Named("arm2")} }
+	statusCallCount := 0
+
+	injectRobot1 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	armStatus := &armpb.Status{
+		EndPosition:    &commonpb.Pose{},
+		JointPositions: &armpb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
+	}
+	injectRobot1.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		statusCallCount++
+		statuses := make([]robot.Status, 0, len(resourceNames))
+		for _, n := range resourceNames {
+			statuses = append(statuses, robot.Status{Name: n, Status: armStatus})
+		}
+		return statuses, nil
+	}
+	injectRobot2 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	injectRobot2.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		statusCallCount++
+		statuses := make([]robot.Status, 0, len(resourceNames))
+		for _, n := range resourceNames {
+			statuses = append(statuses, robot.Status{Name: n, Status: armStatus})
+		}
+		return statuses, nil
+	}
+	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
+	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
+
+	go gServer1.Serve(listener1)
+	defer gServer1.Stop()
+	go gServer2.Serve(listener2)
+	defer gServer2.Stop()
+
+	remoteConfig := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr1,
+				Prefix:  false,
+			},
+			{
+				Name:    "bar",
+				Address: addr2,
+				Prefix:  true,
+			},
+		},
+	}
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	r, err := robotimpl.New(ctx, remoteConfig, logger)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(
+		t,
+		rtestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		rtestutils.NewResourceNameSet(
+			vision.Name, sensors.Name, datamanager.Name,
+			arm.Named("arm1"), arm.Named("arm2"), arm.Named("bar.arm1"), arm.Named("bar.arm2"),
+		),
+	)
+	statuses, err := r.GetStatus(
+		ctx, []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("bar.arm1"), arm.Named("bar.arm2")},
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(statuses), test.ShouldEqual, 4)
+	test.That(t, statusCallCount, test.ShouldEqual, 2)
+
+	for _, status := range statuses {
+		convMap := &armpb.Status{}
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+		test.That(t, err, test.ShouldBeNil)
+		err = decoder.Decode(status.Status)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, convMap, test.ShouldResemble, armStatus)
+	}
 }
