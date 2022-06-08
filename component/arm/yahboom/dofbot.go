@@ -3,7 +3,6 @@ package yahboom
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"
