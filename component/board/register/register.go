@@ -2,7 +2,6 @@
 package register
 
 import (
-
 	// for boards.
 	_ "go.viam.com/rdk/component/board/arduino"
 	_ "go.viam.com/rdk/component/board/fake"
@@ -10,4 +9,5 @@ import (
 	_ "go.viam.com/rdk/component/board/jetson"
 	_ "go.viam.com/rdk/component/board/numato"
 	_ "go.viam.com/rdk/component/board/pi"
+	_ "go.viam.com/rdk/component/board/ti"
 )

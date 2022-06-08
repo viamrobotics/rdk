@@ -124,7 +124,8 @@ func (r *reconfigurableBase) Do(ctx context.Context, cmd map[string]interface{})
 }
 
 func (r *reconfigurableBase) MoveStraight(
-	ctx context.Context, distanceMm int, mmPerSec float64) error {
+	ctx context.Context, distanceMm int, mmPerSec float64,
+) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveStraight(ctx, distanceMm, mmPerSec)

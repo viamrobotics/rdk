@@ -100,6 +100,25 @@ func TestBoatConfig(t *testing.T) {
 	l, a = r3.Vector{}, r3.Vector{Z: .125}
 	powers = cfg.computePower(l, a)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
+
+	l, a = r3.Vector{X: 1, Y: 1}, r3.Vector{}
+	powers = cfg.computePower(l, a)
+	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
+	test.That(t, powers[0]+powers[1]+powers[2]+-1*powers[3], test.ShouldAlmostEqual, powers[4]+-1*powers[5], .01)
+
+	l, a = r3.Vector{X: .2, Y: 1}, r3.Vector{}
+	powers = cfg.computePower(l, a)
+	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
+
+	l, a = r3.Vector{X: -1, Y: -1}, r3.Vector{}
+	powers = cfg.computePower(l, a)
+	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
+	test.That(t, powers[0]+powers[1]+powers[2]+-1*powers[3], test.ShouldAlmostEqual, powers[4]+-1*powers[5], .01)
+
+	l, a = r3.Vector{X: -.9, Y: -.9}, r3.Vector{}
+	powers = cfg.computePower(l, a)
+	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
+	test.That(t, powers[0]+powers[1]+powers[2]+-1*powers[3], test.ShouldAlmostEqual, powers[4]+-1*powers[5], .01)
 }
 
 func weightsAlmostEqual(actual interface{}, expected ...interface{}) string {

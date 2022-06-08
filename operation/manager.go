@@ -101,7 +101,8 @@ func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTi
 func (sm *SingleOperationManager) WaitForSuccess(
 	ctx context.Context,
 	pollTime time.Duration,
-	testFunc func(ctx context.Context) (bool, error)) error {
+	testFunc func(ctx context.Context) (bool, error),
+) error {
 	ctx, finish := sm.New(ctx)
 	defer finish()
 

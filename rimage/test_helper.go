@@ -1,7 +1,6 @@
 package rimage
 
 import (
-
 	// for test_helper.html.
 	_ "embed"
 	"encoding/json"
