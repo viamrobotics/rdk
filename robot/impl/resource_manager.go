@@ -287,7 +287,8 @@ func (manager *resourceManager) UpdateConfig(ctx context.Context,
 	added *config.Config,
 	modified *config.ModifiedConfigDiff,
 	logger golog.Logger,
-	robot *draftRobot) (PartsMergeResult, error) {
+	robot *draftRobot,
+) (PartsMergeResult, error) {
 	var leftovers PartsMergeResult
 	replacedRemotes, err := manager.updateRemotes(ctx, added.Remotes, modified.Remotes, logger)
 	leftovers.ReplacedRemotes = replacedRemotes
@@ -313,7 +314,8 @@ func (manager *resourceManager) UpdateConfig(ctx context.Context,
 
 func (manager *resourceManager) updateProcesses(ctx context.Context,
 	addProcesses []pexec.ProcessConfig,
-	modifiedProcesses []pexec.ProcessConfig) ([]pexec.ManagedProcess, error) {
+	modifiedProcesses []pexec.ProcessConfig,
+) ([]pexec.ManagedProcess, error) {
 	var replacedProcess []pexec.ManagedProcess
 	if err := manager.newProcesses(ctx, addProcesses); err != nil {
 		return nil, err
@@ -334,7 +336,8 @@ func (manager *resourceManager) updateProcesses(ctx context.Context,
 func (manager *resourceManager) updateRemotes(ctx context.Context,
 	addedRemotes []config.Remote,
 	modifiedRemotes []config.Remote,
-	logger golog.Logger) ([]*remoteRobot, error) {
+	logger golog.Logger,
+) ([]*remoteRobot, error) {
 	var replacedRemotes []*remoteRobot
 	if err := manager.newRemotes(ctx, addedRemotes, logger); err != nil {
 		return nil, err
@@ -387,7 +390,8 @@ func (manager *resourceManager) reconfigureResource(ctx context.Context, old, ne
 func (manager *resourceManager) updateServices(ctx context.Context,
 	addedServices []config.Service,
 	modifiedServices []config.Service,
-	robot *draftRobot) error {
+	robot *draftRobot,
+) error {
 	for _, c := range addedServices {
 		// DataManagerService has to be specifically excluded since it's defined in the config but is a default
 		// service that we only want to reconfigure rather than reinstantiate with New().
@@ -425,7 +429,8 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 	rName resource.Name,
 	conf config.Component,
 	old interface{},
-	r *draftRobot) error {
+	r *draftRobot,
+) error {
 	obj, canValidate := old.(config.CompononentUpdate)
 	res := config.Rebuild
 	if canValidate {
@@ -511,7 +516,8 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 
 func (manager *resourceManager) updateComponents(ctx context.Context,
 	logger golog.Logger,
-	robot *draftRobot) error {
+	robot *draftRobot,
+) error {
 	sorted := manager.resources.ReverseTopologicalSort()
 	for _, c := range sorted {
 		wrapper, ok := manager.resources.Nodes[c].(*resourceUpdateWrapper)
@@ -538,7 +544,8 @@ func (manager *resourceManager) updateComponents(ctx context.Context,
 func (manager *resourceManager) updateComponentsGraph(addedComponents []config.Component,
 	modifiedComponents []config.Component,
 	logger golog.Logger,
-	robot *draftRobot) error {
+	robot *draftRobot,
+) error {
 	// Assumptions :
 	// added & modified slices are ordered
 	for _, add := range addedComponents {
