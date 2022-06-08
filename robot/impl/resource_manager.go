@@ -588,7 +588,7 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 		for _, pdep := range parents {
 			mapParents[pdep] = false
 		}
-		// parse the dependency tree and optionnally add/remove components
+		// parse the dependency tree and optionally add/remove components
 		for _, dep := range modif.DependsOn {
 			var comp resource.Name
 			if r := robot.original.config.FindComponent(dep); r != nil {
@@ -596,7 +596,7 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 			} else if r, ok := manager.resources.FindNodeByName(dep); ok {
 				comp = *r
 			} else {
-				return errors.Errorf("componenent %q depends on non-existent component %q",
+				return errors.Errorf("component %q depends on non-existent component %q",
 					rName.Name, dep)
 			}
 			if _, ok := mapParents[comp]; ok {

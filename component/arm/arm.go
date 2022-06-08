@@ -223,7 +223,7 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	return nil
 }
 
-// ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
+// ShouldUpdate helps hint the reconfiguration process on what strategy to use given a modified config.
 // See robot.ShouldUpdateAction for more information.
 func (r *reconfigurableArm) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
 	obj, canUpdate := r.actual.(interface {

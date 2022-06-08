@@ -69,10 +69,10 @@ const (
 	// None is returned when the new configuration doesn't change the the resource.
 	None ShouldUpdateAction = iota
 	// Reconfigure is returned when the resource should be updated without recreating its proxies.
-	// Note that two instances (old&new) will coexist, all dependcies will be destroyed and recreated.
+	// Note that two instances (old&new) will coexist, all dependencies will be destroyed and recreated.
 	Reconfigure
-	// Rebuild is returned when the resource and it's proxies should be drestroyed and recreated,
-	// all dependcies will be destroyed and recreated.
+	// Rebuild is returned when the resource and it's proxies should be destroyed and recreated,
+	// all dependencies will be destroyed and recreated.
 	Rebuild
 )
 
