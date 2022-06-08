@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
@@ -182,4 +183,33 @@ func RegisteredResourceSubtypes() map[resource.Subtype]ResourceSubtype {
 		panic(err)
 	}
 	return copied.(map[resource.Subtype]ResourceSubtype)
+}
+
+var discoveryFunctions = map[discovery.Query]discovery.Discover{}
+
+// DiscoveryFunctionLookup finds a discovery function registration for a given query.
+func DiscoveryFunctionLookup(q discovery.Query) (discovery.Discover, bool) {
+	df, ok := discoveryFunctions[q]
+	return df, ok
+}
+
+// RegisterDiscoveryFunction registers a discovery function for a given query.
+func RegisterDiscoveryFunction(q discovery.Query, discover discovery.Discover) {
+	_, ok := lookupSubtype(q.SubtypeName)
+	if !ok {
+		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q", q.SubtypeName))
+	}
+	if _, ok := discoveryFunctions[q]; ok {
+		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q", q.SubtypeName, q.Model))
+	}
+	discoveryFunctions[q] = discover
+}
+
+func lookupSubtype(subtypeName resource.SubtypeName) (*resource.Subtype, bool) {
+	for s := range RegisteredResourceSubtypes() {
+		if s.ResourceSubtype == subtypeName {
+			return &s, true
+		}
+	}
+	return nil, false
 }

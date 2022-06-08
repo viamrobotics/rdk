@@ -94,3 +94,13 @@ func (s *subtypeServer) MoveToJointPositions(
 	}
 	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.PositionDegs)
 }
+
+// Stop stops the arm specified.
+func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.Name)
+	arm, err := s.getArm(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.StopResponse{}, arm.Stop(ctx)
+}

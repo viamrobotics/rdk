@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -55,11 +56,16 @@ func Named(name string) resource.Name {
 // A Gripper represents a physical robotic gripper.
 type Gripper interface {
 	// Open opens the gripper.
+	// This will block until done or a new operation cancels this one
 	Open(ctx context.Context) error
 
 	// Grab makes the gripper grab.
 	// returns true if we grabbed something.
+	// This will block until done or a new operation cancels this one
 	Grab(ctx context.Context) (bool, error)
+
+	// Stop stops the gripper. It is assumed the gripper stops immediately.
+	Stop(ctx context.Context) error
 
 	generic.Generic
 	referenceframe.ModelFramer
@@ -80,6 +86,9 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Gripper(&reconfigurableGripper{})
 	_ = resource.Reconfigurable(&reconfigurableGripper{})
+
+	// ErrStopUnimplemented is used for when Stop() is unimplemented.
+	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.
@@ -127,6 +136,12 @@ func (g *reconfigurableGripper) Grab(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual.Grab(ctx)
+}
+
+func (g *reconfigurableGripper) Stop(ctx context.Context) error {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Stop(ctx)
 }
 
 // Reconfigure reconfigures the resource.

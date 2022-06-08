@@ -22,7 +22,7 @@ func debugImageSourceOrSkip(t *testing.T) {
 	t.Helper()
 	imageSourceTest := os.Getenv(debugImageSource)
 	if imageSourceTest == "" {
-		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugImageSource))
+		t.Skipf("set environmental variable %q to run this test", debugImageSource)
 	}
 }
 
@@ -46,7 +46,7 @@ func doServerSourceTest(t *testing.T, s gostream.ImageSource) {
 }
 
 func TestDualServerSourceNoDepth(t *testing.T) {
-	s := dualServerSource{ColorURL: "https://via.placeholder.com/350x150", DepthURL: ""}
+	s := dualServerSource{ColorURL: "https://via.placeholder.com/350x150.jpg", DepthURL: ""}
 	_, _, err := s.Next(context.Background())
 	test.That(t, err, test.ShouldBeError, errors.New("couldn't ready depth url: Get \"\": unsupported protocol scheme \"\""))
 }

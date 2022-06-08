@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/inputcontroller/v1";
-option java_package = "com.viam.rdk.proto.api.component.inputcontroller.v1";
 
 package proto.api.component.inputcontroller.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/inputcontroller/v1";
+option java_package = "com.viam.rdk.proto.api.component.inputcontroller.v1";
 
 // InputControllerService servicestains all input controller associated with a robot
 service InputControllerService {
@@ -16,22 +17,22 @@ service InputControllerService {
     };
   }
 
-	// GetEvents returns a list of events representing the last event on each control of a give Input Controller
+  // GetEvents returns a list of events representing the last event on each control of a give Input Controller
   rpc GetEvents(GetEventsRequest) returns (GetEventsResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/component/input/{controller}/events"
     };
   }
 
-  // StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
+  // StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
   rpc StreamEvents(StreamEventsRequest) returns (stream StreamEventsResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/component/input/{controller}/event_stream"
     };
   }
 
-  // TriggerEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
-  // like button presses or axis movements  
+  // TriggerEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
+  // like button presses or axis movements
   rpc TriggerEvent(TriggerEventRequest) returns (TriggerEventResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/input/{controller}/event"
@@ -46,30 +47,29 @@ message GetControlsRequest {
 
 message GetControlsResponse {
   // Returns a list of all the controls (buttons and axes) that are
-  // available to a given Input Controller 
+  // available to a given Input Controller
   repeated string controls = 1;
 }
 
 message GetEventsRequest {
-  // Name of an input controller 
+  // Name of an input controller
   string controller = 1;
 }
 
 message GetEventsResponse {
-  // Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all 
-  // buttons/axes on a given input controller 
+  // Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all
+  // buttons/axes on a given input controller
   repeated Event events = 1;
 }
 
 message TriggerEventRequest {
-  // Name of an input controller 
+  // Name of an input controller
   string controller = 1;
-  // Digitally assert a given event 
+  // Digitally assert a given event
   Event event = 2;
 }
 
-message TriggerEventResponse {
-}
+message TriggerEventResponse {}
 
 message Event {
   // Timestamp of event
@@ -90,10 +90,10 @@ message StreamEventsRequest {
     // To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
     repeated string events = 2;
     // Specify which event types to stop recieving events for
-    // This can be an empty list 
+    // This can be an empty list
     repeated string cancelled_events = 3;
   }
-  // Name of an input controller 
+  // Name of an input controller
   string controller = 1;
   // A list of Events
   repeated Events events = 2;

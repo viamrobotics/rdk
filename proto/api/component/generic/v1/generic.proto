@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/generic/v1";
-option java_package = "com.viam.rdk.proto.api.component.generic.v1";
 
 package proto.api.component.generic.v1;
 
-import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/generic/v1";
+option java_package = "com.viam.rdk.proto.api.component.generic.v1";
 
 // GenericService services all generic commands associated with a robot
 service GenericService {
@@ -25,4 +26,3 @@ message DoRequest {
 message DoResponse {
   google.protobuf.Struct result = 1;
 }
-

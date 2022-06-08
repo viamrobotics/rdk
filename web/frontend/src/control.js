@@ -2,8 +2,6 @@
 const { grpc } = require('@improbable-eng/grpc-web');
 window.robotApi = require('./gen/proto/api/robot/v1/robot_pb');
 const { RobotServiceClient } = require('./gen/proto/api/robot/v1/robot_pb_service');
-window.metadataApi = require('./gen/proto/api/service/metadata/v1/metadata_pb');
-const { MetadataServiceClient } = require('./gen/proto/api/service/metadata/v1/metadata_pb_service');
 window.commonApi = require('./gen/proto/api/common/v1/common_pb');
 window.armApi = require('./gen/proto/api/component/arm/v1/arm_pb');
 const { ArmServiceClient } = require('./gen/proto/api/component/arm/v1/arm_pb_service');
@@ -33,8 +31,6 @@ window.sensorsApi = require('./gen/proto/api/service/sensors/v1/sensors_pb');
 const { SensorsServiceClient } = require('./gen/proto/api/service/sensors/v1/sensors_pb_service');
 window.servoApi = require('./gen/proto/api/component/servo/v1/servo_pb');
 const { ServoServiceClient } = require('./gen/proto/api/component/servo/v1/servo_pb_service');
-window.statusApi = require('./gen/proto/api/service/status/v1/status_pb');
-const { StatusServiceClient } = require('./gen/proto/api/service/status/v1/status_pb_service');
 window.streamApi = require('./gen/proto/stream/v1/stream_pb');
 const { StreamServiceClient } = require('./gen/proto/stream/v1/stream_pb_service');
 const { dialDirect, dialWebRTC } = require('@viamrobotics/rpc');
@@ -109,7 +105,6 @@ const connect = async (authEntity, creds) => {
 	window.connect = () => connect(authEntity, creds);
 
 	window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
-	window.metadataService = new MetadataServiceClient(window.webrtcHost, { transport: transportFactory });
 
 	// TODO: these should be created as needed for #272
 	window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
@@ -126,7 +121,6 @@ const connect = async (authEntity, creds) => {
 	window.visionService = new VisionServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
-	window.statusService = new StatusServiceClient(window.webrtcHost, { transport: transportFactory });
 };
 window.connect = connect;
 

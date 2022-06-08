@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -21,8 +22,8 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/navigation"
-	"go.viam.com/rdk/services/web"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -284,9 +285,12 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 	return b.SteerAndMove(ctx, dir, speed)
 }
 
-// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	return errors.New("boat can't move in arc yet")
+func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	return errors.New("boat can't set power yet")
+}
+
+func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	return errors.New("boat can't set velocity yet")
 }
 
 func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {

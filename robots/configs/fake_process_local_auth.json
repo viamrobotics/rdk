@@ -1,4 +1,8 @@
 {
+    "network": {
+        "fqdn": "something-unique",
+        "bind_address": ":8080"
+    },
     "auth": {
         "handlers": [
             {

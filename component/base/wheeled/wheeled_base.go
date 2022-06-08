@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -80,21 +81,7 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
-	fs := []rdkutils.SimpleFunc{}
-
-	// Send motor commands
-	for _, m := range base.left {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, -rpm, revolutions) })
-	}
-	for _, m := range base.right {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rpm, revolutions) })
-	}
-
-	_, err := rdkutils.RunInParallel(ctx, fs)
-	if err != nil {
-		return multierr.Combine(err, base.Stop(ctx))
-	}
-	return nil
+	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
@@ -113,48 +100,78 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	// Straight math
 	rpm, rotations := base.straightDistanceToMotorInfo(distanceMm, mmPerSec)
 
-	// Send motor commands
-	for _, m := range base.allMotors {
-		err := m.GoFor(ctx, rpm, rotations)
-		if err != nil {
-			return multierr.Combine(err, base.Stop(ctx))
-		}
-	}
-
-	return base.WaitForMotorsToStop(ctx)
+	return base.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
-func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64) error {
-	ctx, done := base.opMgr.New(ctx)
-	defer done()
+func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
+	fs := []rdkutils.SimpleFunc{}
 
-	// Stop the motors if the speed is 0
-	if math.Abs(mmPerSec) < 0.0001 {
-		err := base.Stop(ctx)
-		if err != nil {
-			return errors.Errorf("error when trying to arc at a speed of 0: %v", err)
-		}
-		return err
+	for _, m := range base.left {
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations) })
 	}
 
-	// Arc math
-	rpmLR, revLR := base.arcMath(distanceMm, mmPerSec, angleDeg)
+	for _, m := range base.right {
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations) })
+	}
+
+	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+		return multierr.Combine(err, base.Stop(ctx))
+	}
+	return nil
+}
+
+func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
+	x := linear.Y
+	y := angular.Z
+
+	// convert to polar coordinates
+	r := math.Hypot(x, y)
+	t := math.Atan2(y, x)
+
+	// rotate by 45 degrees
+	t += math.Pi / 4
+
+	// back to cartesian
+	left := r * math.Cos(t)
+	right := r * math.Sin(t)
+
+	// rescale the new coords
+	left *= math.Sqrt(2)
+	right *= math.Sqrt(2)
+
+	// clamp to -1/+1
+	left = math.Max(-1, math.Min(left, 1))
+	right = math.Max(-1, math.Min(right, 1))
+
+	return left, right
+}
+
+func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	base.opMgr.CancelRunning(ctx)
+	l, r := base.velocityMath(linear.Y, angular.Z)
+	return base.runAll(ctx, l, 0, r, 0)
+}
+
+func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	base.opMgr.CancelRunning(ctx)
+
+	lPower, rPower := base.setPowerMath(linear, angular)
 
 	// Send motor commands
 	var err error
 	for _, m := range base.left {
-		err = multierr.Combine(err, m.GoFor(ctx, rpmLR[0], revLR[0]))
+		err = multierr.Combine(err, m.SetPower(ctx, lPower))
 	}
 
 	for _, m := range base.right {
-		err = multierr.Combine(err, m.GoFor(ctx, rpmLR[1], revLR[1]))
+		err = multierr.Combine(err, m.SetPower(ctx, rPower))
 	}
 
 	if err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
 	}
 
-	return base.WaitForMotorsToStop(ctx)
+	return nil
 }
 
 // returns rpm, revolutions for a spin motion.
@@ -169,44 +186,22 @@ func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64
 	return rpm, revolutions
 }
 
-func (base *wheeledBase) arcMath(distanceMm int, mmPerSec float64, angleDeg float64) ([]float64, []float64) {
-	// Spin the base if the distance is 0
-	if distanceMm == 0 {
-		rpm, revolutions := base.spinMath(angleDeg, mmPerSec)
-		rpms := []float64{-rpm, rpm}
-		rots := []float64{revolutions, revolutions}
-
-		return rpms, rots
-	}
-
-	if distanceMm < 0 {
-		distanceMm *= -1
-		mmPerSec *= -1
-	}
-
+// return rpms left, right.
+func (base *wheeledBase) velocityMath(mmPerSec float64, degsPerSec float64) (float64, float64) {
 	// Base calculations
 	v := mmPerSec
-	t := float64(distanceMm) / mmPerSec
 	r := float64(base.wheelCircumferenceMm) / (2.0 * math.Pi)
 	l := float64(base.widthMm)
 
-	degsPerSec := angleDeg / t
 	w0 := degsPerSec / 180 * math.Pi
 	wL := (v / r) - (l * w0 / (2 * r))
 	wR := (v / r) + (l * w0 / (2 * r))
-
-	// Calculate # of rotations
-	rotL := wL * t / (2 * math.Pi)
-	rotR := wR * t / (2 * math.Pi)
 
 	// RPM = revolutions (unit) * deg/sec * (1 rot / 2pi deg) * (60 sec / 1 min) = rot/min
 	rpmL := (wL / (2 * math.Pi)) * 60
 	rpmR := (wR / (2 * math.Pi)) * 60
 
-	rpms := []float64{rpmL, rpmR}
-	rots := []float64{rotL, rotR}
-
-	return rpms, rots
+	return rpmL, rpmR
 }
 
 func (base *wheeledBase) straightDistanceToMotorInfo(distanceMm int, mmPerSec float64) (float64, float64) {

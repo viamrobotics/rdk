@@ -3,7 +3,6 @@ package universalrobots
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -262,6 +261,15 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSt
 // MoveToJointPositions TODO.
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
+}
+
+// Stop stops the arm with some deceleration.
+func (ua *URArm) Stop(ctx context.Context) error {
+	ua.opMgr.CancelRunning(ctx)
+	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speed)
+
+	_, err := ua.conn.Write([]byte(cmd))
+	return err
 }
 
 // MoveToJointPositionRadians TODO.
