@@ -316,7 +316,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
-		svc.syncer.Start(cancelCtx)
+		svc.syncer.Start()
 	}
 }
 
@@ -340,10 +340,7 @@ func (svc *dataManagerService) Sync(ctx context.Context) error {
 	if err := svc.syncer.Enqueue(oldFiles); err != nil {
 		return err
 	}
-	if err := svc.syncer.Upload(ctx); err != nil {
-		return err
-	}
-
+	svc.syncer.Upload()
 	return nil
 }
 
