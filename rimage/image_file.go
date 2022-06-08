@@ -49,6 +49,7 @@ func NewImageFromFile(fn string) (*Image, error) {
 
 // WriteImageToFile writes the given image to a file at the supplied path.
 func WriteImageToFile(path string, img image.Image) (err error) {
+	//nolint:gosec
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -118,11 +119,12 @@ func CloneImage(img image.Image) *Image {
 // SaveImage takes an image.Image and saves it to a jpeg at the given
 // file location and also returns the location back.
 func SaveImage(pic image.Image, loc string) error {
+	//nolint:gosec
 	f, err := os.Create(loc)
 	if err != nil {
 		return errors.Wrapf(err, "can't save at location %s", loc)
 	}
-	defer func() { //nolint:gosec
+	defer func() {
 		if err := f.Close(); err != nil {
 			panic(err)
 		}
