@@ -415,7 +415,7 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 		buf := make([]byte, 16)
 		for {
 			read, err := in.Read(buf)
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
