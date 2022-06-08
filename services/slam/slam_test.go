@@ -192,36 +192,33 @@ func TestGeneralNew(t *testing.T) {
 		}
 	})
 
-	// t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
-	// 	attrCfg := &slam.AttrConfig{
-	// 		Algorithm:     "test",
-	// 		Sensors:       []string{},
-	// 		ConfigParams:  map[string]string{"mode": "2d"},
-	// 		DataDirectory: name,
-	// 		DataRateMs:    100,
-	// 	}
+	t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
+		attrCfg := &slam.AttrConfig{
+			Algorithm:     "test",
+			Sensors:       []string{},
+			ConfigParams:  map[string]string{"mode": "2d"},
+			DataDirectory: name,
+			DataRateMs:    100,
+		}
 
-	// 	slam.SLAMLibraries["test"] = slam.LibraryMetadata{
-	// 		AlgoName:       "test",
-	// 		AlgoType:       99,
-	// 		SlamMode:       slam.SLAMLibraries["cartographer"].SlamMode,
-	// 		BinaryLocation: "",
-	// 	}
+		slam.SLAMLibraries["test"] = slam.LibraryMetadata{
+			AlgoName:       "test",
+			AlgoType:       99,
+			SlamMode:       slam.SLAMLibraries["cartographer"].SlamMode,
+			BinaryLocation: "",
+		}
 
-	// 	// Create slam service
-	// 	logger := golog.NewTestLogger(t)
-	// 	svc, err := createSLAMService(t, attrCfg, logger, false)
-	// 	test.That(t, err, test.ShouldBeError,
-	// 		errors.Errorf("error with slam service slam process: problem starting slam process: "+
-	// 			"error running process \"%v\": fork/exec : no such file or directory",
-	// 			slam.SLAMLibraries[attrCfg.Algorithm].BinaryLocation))
+		// Create slam service
+		logger := golog.NewTestLogger(t)
+		svc, err := createSLAMService(t, attrCfg, logger, false)
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, errors.New("error with slam service slam process:"))
 
-	// 	if svc != nil {
-	// 		svc.Close()
-	// 	}
+		if svc != nil {
+			svc.Close()
+		}
 
-	// 	delete(slam.SLAMLibraries, "test")
-	// })
+		delete(slam.SLAMLibraries, "test")
+	})
 
 	t.Run("New slam service the fails at slam process due to binary location", func(t *testing.T) {
 		attrCfg := &slam.AttrConfig{
@@ -235,10 +232,7 @@ func TestGeneralNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		svc, err := createSLAMService(t, attrCfg, logger, false)
-		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("error with slam service slam process: problem starting slam process: "+
-				"error running process \"%v\": fork/exec : no such file or directory",
-				slam.SLAMLibraries[attrCfg.Algorithm].BinaryLocation))
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, errors.New("error with slam service slam process:"))
 
 		if svc != nil {
 			svc.Close()
