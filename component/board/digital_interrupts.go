@@ -180,12 +180,13 @@ func (i *ServoDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 // Tick records the time between two successive low signals (pulse width). How it is
 // interpreted is based off the consumer of Value.
 func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64) error {
-	if i.last == 0 {
-		return nil
-	}
 
 	diff := now - i.last
 	i.last = now
+
+	if i.last == 0 {
+		return nil
+	}
 
 	if high {
 		// this is time between signals, ignore
