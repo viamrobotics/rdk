@@ -35,6 +35,7 @@ func main() {
 // saveImageAsPng saves image as png in current directory.
 func saveImageAsPng(img image.Image, filename string) error {
 	path := ""
+	//nolint:gosec
 	f, err := os.Create(path + filename)
 	if err != nil {
 		return err

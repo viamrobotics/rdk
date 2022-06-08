@@ -3,7 +3,6 @@ package varm
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"math"
