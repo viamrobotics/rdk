@@ -399,15 +399,15 @@ func (r *reconfigurableBoard) Close(ctx context.Context) error {
 }
 
 // ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
-// See robot.ShouldUpdateAction for more information.
-func (r *reconfigurableBoard) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
+// See config.ShouldUpdateAction for more information.
+func (r *reconfigurableBoard) ShouldUpdate(c *config.Component) config.ShouldUpdateAction {
 	obj, canUpdate := r.actual.(interface {
-		ShouldUpdate(config *config.Component) robot.ShouldUpdateAction
+		ShouldUpdate(config *config.Component) config.ShouldUpdateAction
 	})
 	if canUpdate {
 		return obj.ShouldUpdate(c)
 	}
-	return robot.Reconfigure
+	return config.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.

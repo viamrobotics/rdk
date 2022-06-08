@@ -224,15 +224,13 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 }
 
 // ShouldUpdate helps hint the reconfiguration process on what strategy to use given a modified config.
-// See robot.ShouldUpdateAction for more information.
-func (r *reconfigurableArm) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
-	obj, canUpdate := r.actual.(interface {
-		ShouldUpdate(config *config.Component) robot.ShouldUpdateAction
-	})
+// See config.ShouldUpdateAction for more information.
+func (r *reconfigurableArm) ShouldUpdate(c *config.Component) config.ShouldUpdateAction {
+	obj, canUpdate := r.actual.(config.CompononentUpdate)
 	if canUpdate {
 		return obj.ShouldUpdate(c)
 	}
-	return robot.Reconfigure
+	return config.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
