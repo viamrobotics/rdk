@@ -3,7 +3,6 @@ package yahboom
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -280,7 +279,9 @@ func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error
 }
 
 func (a *dofBot) Stop(ctx context.Context) error {
-	// RSDK-374: Implement Stop
+	// RSDK-374: Implement Stop for arm
+	// RSDK-388: Implement Stop for gripper, might need to split the structs up if we
+	// want the Stop to arm/gripper specific.
 	return arm.ErrStopUnimplemented
 }
 

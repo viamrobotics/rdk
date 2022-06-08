@@ -2,7 +2,6 @@
 package register
 
 import (
-
 	// register services.
 	_ "go.viam.com/rdk/services/baseremotecontrol"
 	_ "go.viam.com/rdk/services/datamanager"

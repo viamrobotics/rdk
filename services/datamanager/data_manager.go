@@ -12,13 +12,16 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	servicepb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
@@ -26,6 +29,19 @@ func init() {
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
+		},
+	})
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&servicepb.DataManagerService_ServiceDesc,
+				NewServer(subtypeSvc),
+				servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 	cType := config.ServiceType(SubtypeName)
@@ -44,8 +60,7 @@ func init() {
 
 // Service defines what a Data Manager Service should expose to the users.
 type Service interface {
-	Sync(ctx context.Context,
-		name resource.Name) (bool, error)
+	Sync(ctx context.Context) error
 }
 
 // SubtypeName is the name of the type of service.
@@ -82,6 +97,7 @@ type dataCaptureConfig struct {
 	CaptureQueueSize   int                  `json:"capture_queue_size"`
 	CaptureBufferSize  int                  `json:"capture_buffer_size"`
 	AdditionalParams   map[string]string    `json:"additional_params"`
+	Disabled           bool                 `json:"disabled"`
 }
 
 type dataCaptureConfigs struct {
@@ -93,6 +109,7 @@ type Config struct {
 	CaptureDir          string   `json:"capture_dir"`
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
 	SyncIntervalMins    int      `json:"sync_interval_mins"`
+	Disabled            bool     `json:"disabled"`
 }
 
 // TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
@@ -182,6 +199,7 @@ func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, 
 		return nil, err
 	}
 	fileName := filepath.Join(fileDir, getFileTimestampName())
+	//nolint:gosec
 	return os.Create(fileName)
 }
 
@@ -293,20 +311,22 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 		svc.updateCollectorsCancelFn = nil
 	}
 
-	// Init a new syncer if we are still syncing.
+	// Init a new syncer.
+	cancelCtx, fn := context.WithCancel(context.Background())
+	svc.updateCollectorsCancelFn = fn
+	svc.queueCapturedData(cancelCtx, intervalMins)
+	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
+
+	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
-		cancelCtx, fn := context.WithCancel(context.Background())
-		svc.updateCollectorsCancelFn = fn
-		svc.queueCapturedData(cancelCtx, intervalMins)
-		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
-		svc.syncer.Start(cancelCtx)
+		svc.syncer.Start()
 	}
 }
 
 // Perform a non-scheduled sync of the data in the capture directory.
-func (svc *dataManagerService) Sync(ctx context.Context, name resource.Name) (bool, error) {
+func (svc *dataManagerService) Sync(ctx context.Context) error {
 	if svc.syncer == nil {
-		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
+		panic("no syncer found! called before syncer initialization?")
 	}
 	oldFiles := make([]string, 0, len(svc.collectors))
 	svc.lock.Lock()
@@ -321,13 +341,10 @@ func (svc *dataManagerService) Sync(ctx context.Context, name resource.Name) (bo
 	}
 	svc.lock.Unlock()
 	if err := svc.syncer.Enqueue(oldFiles); err != nil {
-		return false, err
+		return err
 	}
-	if err := svc.syncer.Upload(ctx); err != nil {
-		return false, err
-	}
-
-	return true, nil
+	svc.syncer.Upload()
+	return nil
 }
 
 // Get the config associated with the data manager service.
@@ -380,6 +397,14 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	svcConfig, ok := c.ConvertedAttributes.(*Config)
+
+	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
+	if svcConfig.Disabled {
+		svc.closeCollectors()
+		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
+		return nil
+	}
+
 	if !ok {
 		return utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
 	}
@@ -402,7 +427,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
 	for _, attributes := range allComponentAttributes {
-		if attributes.CaptureFrequencyHz > 0 {
+		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
 			componentMetadata, err := svc.initializeOrUpdateCollector(
 				attributes, updateCaptureDir)
 			if err != nil {

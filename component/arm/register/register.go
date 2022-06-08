@@ -2,7 +2,6 @@
 package register
 
 import (
-
 	// register arms.
 	_ "go.viam.com/rdk/component/arm/eva"
 	_ "go.viam.com/rdk/component/arm/fake"
