@@ -270,7 +270,8 @@ func (slamSvc *slamService) GetPosition(ctx context.Context, name string) (*refe
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
 // into a mimeType and either a vision.Object or image.Image.
 func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
-	string, image.Image, *vision.Object, error) {
+	string, image.Image, *vision.Object, error,
+) {
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,
