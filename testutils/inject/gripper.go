@@ -14,6 +14,7 @@ type Gripper struct {
 	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	OpenFunc  func(ctx context.Context) error
 	GrabFunc  func(ctx context.Context) (bool, error)
+	StopFunc  func(ctx context.Context) error
 	CloseFunc func(ctx context.Context) error
 }
 
@@ -31,6 +32,14 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 		return g.Gripper.Grab(ctx)
 	}
 	return g.GrabFunc(ctx)
+}
+
+// Stop calls the injected Stop or the real version.
+func (g *Gripper) Stop(ctx context.Context) error {
+	if g.StopFunc == nil {
+		return g.Gripper.Stop(ctx)
+	}
+	return g.StopFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

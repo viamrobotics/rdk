@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-
 	// trigger registrations.
 	_ "go.viam.com/rdk/robot/impl"
 )

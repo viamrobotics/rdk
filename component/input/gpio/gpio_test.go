@@ -49,19 +49,19 @@ func TestGPIOInput(t *testing.T) {
 	ic := gpio.Config{
 		Board: "main",
 		Buttons: map[string]gpio.ButtonConfig{
-			"interrupt1": gpio.ButtonConfig{
+			"interrupt1": {
 				Control:    input.ButtonNorth,
 				Invert:     false,
 				DebounceMs: 0,
 			},
-			"interrupt2": gpio.ButtonConfig{
+			"interrupt2": {
 				Control:    input.ButtonSouth,
 				Invert:     true,
 				DebounceMs: -1,
 			},
 		},
 		Axes: map[string]gpio.AxisConfig{
-			"analog1": gpio.AxisConfig{
+			"analog1": {
 				Control:       input.AbsoluteX,
 				Min:           0,
 				Max:           1023,
@@ -71,7 +71,7 @@ func TestGPIOInput(t *testing.T) {
 				PollHz:        0,
 				Invert:        false,
 			},
-			"analog2": gpio.AxisConfig{
+			"analog2": {
 				Control:       input.AbsoluteY,
 				Min:           0,
 				Max:           1023,
@@ -81,7 +81,7 @@ func TestGPIOInput(t *testing.T) {
 				PollHz:        50,
 				Invert:        false,
 			},
-			"analog3": gpio.AxisConfig{
+			"analog3": {
 				Control:       input.AbsoluteRX,
 				Min:           -5000,
 				Max:           5000,

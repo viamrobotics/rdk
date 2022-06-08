@@ -2,7 +2,6 @@ package fake
 
 import (
 	"context"
-
 	// for arm model.
 	_ "embed"
 
