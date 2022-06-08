@@ -2,7 +2,6 @@
 package register
 
 import (
-
 	// register bases.
 	_ "go.viam.com/rdk/component/base/boat"
 	_ "go.viam.com/rdk/component/base/fake"
