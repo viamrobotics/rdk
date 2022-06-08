@@ -111,7 +111,7 @@ func (a *Arm) Close() {
 }
 
 // ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
-// See robot.ShouldUpdateAction for more information.
-func (a *Arm) ShouldUpdate(config *config.Component) robot.ShouldUpdateAction {
-	return robot.Reconfigure
+// See config.ShouldUpdateAction for more information.
+func (a *Arm) ShouldUpdate(cfg *config.Component) config.ShouldUpdateAction {
+	return config.Reconfigure
 }

@@ -181,14 +181,12 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 	return nil
 }
 
-func (r *reconfigurableBase) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
-	obj, canUpdate := r.actual.(interface {
-		ShouldUpdate(config *config.Component) robot.ShouldUpdateAction
-	})
+func (r *reconfigurableBase) ShouldUpdate(c *config.Component) config.ShouldUpdateAction {
+	obj, canUpdate := r.actual.(config.CompononentUpdate)
 	if canUpdate {
 		return obj.ShouldUpdate(c)
 	}
-	return robot.Reconfigure
+	return config.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.

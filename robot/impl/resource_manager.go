@@ -426,17 +426,15 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 	conf config.Component,
 	old interface{},
 	r *draftRobot) error {
-	obj, canValidate := old.(interface {
-		ShouldUpdate(config *config.Component) robot.ShouldUpdateAction
-	})
-	res := robot.Rebuild
+	obj, canValidate := old.(config.CompononentUpdate)
+	res := config.Rebuild
 	if canValidate {
 		res = obj.ShouldUpdate(&conf)
 	}
 	switch res {
-	case robot.None:
+	case config.None:
 		return nil
-	case robot.Reconfigure:
+	case config.Reconfigure:
 		sg, err := manager.resources.SubGraphFrom(rName)
 		if err != nil {
 			return err
@@ -472,7 +470,7 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 			return err
 		}
 		manager.resources.Nodes[rName] = rr
-	case robot.Rebuild:
+	case config.Rebuild:
 		sg, err := manager.resources.SubGraphFrom(rName)
 		if err != nil {
 			return err

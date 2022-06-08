@@ -80,13 +80,13 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 }
 
 // ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
-// See robot.ShouldUpdateAction for more information.
-func (b *Board) ShouldUpdate(c *config.Component) robot.ShouldUpdateAction {
+// See config.ShouldUpdateAction for more information.
+func (b *Board) ShouldUpdate(c *config.Component) config.ShouldUpdateAction {
 	_, ok := c.ConvertedAttributes.(*board.Config)
 	if !ok {
-		return robot.Rebuild
+		return config.Rebuild
 	}
-	return robot.Reconfigure
+	return config.Reconfigure
 }
 
 // A Board provides dummy data from fake parts in order to implement a Board.
