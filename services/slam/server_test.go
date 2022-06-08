@@ -66,7 +66,8 @@ func TestServer(t *testing.T) {
 		}
 
 		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
-			include bool) (string, image.Image, *vision.Object, error) {
+			include bool,
+		) (string, image.Image, *vision.Object, error) {
 			return mimeType, imSucc, pcSucc, nil
 		}
 
@@ -116,7 +117,8 @@ func TestServer(t *testing.T) {
 		}
 
 		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
-			include bool) (string, image.Image, *vision.Object, error) {
+			include bool,
+		) (string, image.Image, *vision.Object, error) {
 			return mimeType, nil, nil, errors.New("failure to get map")
 		}
 

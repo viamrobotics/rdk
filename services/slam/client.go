@@ -71,7 +71,8 @@ func (c *client) GetPosition(ctx context.Context, name string) (*referenceframe.
 
 // GetMap creates a request, calls the slam service GetMap, and parses the response into the desired mimeType and map data.
 func (c *client) GetMap(ctx context.Context, name, mimeType string, cameraPosition *referenceframe.PoseInFrame, includeRobotMarker bool) (
-	string, image.Image, *vision.Object, error) {
+	string, image.Image, *vision.Object, error,
+) {
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,

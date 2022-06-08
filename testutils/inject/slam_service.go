@@ -36,7 +36,8 @@ func (slamSvc *SLAMService) GetPosition(ctx context.Context, name string) (*refe
 
 // GetMap calls the injected GetMapFunc or the real version.
 func (slamSvc *SLAMService) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
-	string, image.Image, *vision.Object, error) {
+	string, image.Image, *vision.Object, error,
+) {
 	if slamSvc.GetMapFunc == nil {
 		return slamSvc.Service.GetMap(ctx, name, mimeType, cp, include)
 	}
