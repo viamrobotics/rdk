@@ -119,7 +119,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		statfs:               syscall.Statfs,
 	}
 
-	go dataManagerSvc.runStorageCheckAndUpdateCollectors(storageCheckCancelCtx, time.Minute)
+	dataManagerSvc.runStorageCheckAndUpdateCollectors(storageCheckCancelCtx, time.Minute)
 
 	return dataManagerSvc, nil
 }
@@ -286,7 +286,9 @@ func (svc *Service) initializeOrUpdateCollector(
 	if err != nil {
 		return nil, err
 	}
+	svc.lock.Lock()
 	svc.collectors[componentMetadata] = collectorAndConfig{collector, attributes}
+	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
 	go func() {
@@ -343,6 +345,7 @@ func (svc *Service) runStorageCheckAndUpdateCollectors(cancelCtx context.Context
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
+				svc.lock.Lock()
 				du, err := DiskUsage(svc.statfs)
 				if err != nil {
 					svc.logger.Errorw("failed to check disk usage", "error", err)
@@ -363,6 +366,7 @@ func (svc *Service) runStorageCheckAndUpdateCollectors(cancelCtx context.Context
 					// Reinitialize any previously stopped collectors now that disk usage has freed up.
 					svc.reinitializeStoppedCollectors()
 				}
+				svc.lock.Unlock()
 			}
 		}
 	})
@@ -441,6 +445,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	if !ok {
 		return utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
 	}
+	svc.lock.Lock()
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 	svc.enableAutoDelete = svcConfig.EnableAutoDelete
@@ -449,6 +454,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	} else {
 		svc.maxStoragePercent = defaultMaxStoragePercent
 	}
+	svc.lock.Unlock()
 
 	// TODO: Set defaults here for capture buffer size and queue size,
 	// since removing them from the config here will set to zero.

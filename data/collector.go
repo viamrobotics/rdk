@@ -99,7 +99,10 @@ func (c *collector) Collect() error {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
+	c.lock.Lock()
 	c.isCollecting = true
+	c.lock.Unlock()
+
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(c.capture)
 	return c.write()
@@ -126,6 +129,9 @@ func (c *collector) Start() {
 
 // Checks whether the collector is actively capturing data.
 func (c *collector) IsCollecting() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	return c.isCollecting
 }
 
@@ -158,12 +164,15 @@ func (c *collector) sleepBasedCapture() {
 			return
 		}
 
+		c.lock.Lock()
 		if !c.isCollecting {
 			captureWorkers.Wait()
 			close(c.queue)
 			c.queue = make(chan *v1.SensorData)
+			c.lock.Unlock()
 			return
 		}
+		c.lock.Unlock()
 
 		select {
 		case <-c.cancelCtx.Done():
@@ -196,12 +205,15 @@ func (c *collector) tickerBasedCapture() {
 			return
 		}
 
+		c.lock.Lock()
 		if !c.isCollecting {
 			captureWorkers.Wait()
 			close(c.queue)
 			c.queue = make(chan *v1.SensorData)
+			c.lock.Unlock()
 			return
 		}
+		c.lock.Unlock()
 
 		select {
 		case <-c.cancelCtx.Done():
@@ -292,6 +304,7 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		cancel:            cancelFunc,
 		backgroundWorkers: sync.WaitGroup{},
 		capturer:          capturer,
+		isCollecting:      false,
 	}, nil
 }
 
