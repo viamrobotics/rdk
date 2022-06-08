@@ -1,10 +1,8 @@
 package inference
 
 import (
-	"bytes"
 	"io/ioutil"
 	"log"
-	"path/filepath"
 	"runtime"
 
 	tflite "github.com/mattn/go-tflite"
@@ -13,6 +11,8 @@ import (
 	tfliteSchema "go.viam.com/rdk/ml/inference/tflite"
 	metadata "go.viam.com/rdk/ml/inference/tflite_metadata"
 )
+
+const tfLiteMetadataName string = "TFLITE_METADATA"
 
 // TFLiteStruct holds information, model and interpreter of a tflite model in go.
 type TFLiteStruct struct {
@@ -44,7 +44,7 @@ type TFLiteModelLoader struct {
 
 // NewDefaultTFLiteModelLoader returns the default loader when using tflite.
 func NewDefaultTFLiteModelLoader() (*TFLiteModelLoader, error) {
-	options, err := loadTFLiteInterpreterOptions(runtime.NumCPU())
+	options, err := createTFLiteInterpreterOptions(runtime.NumCPU())
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func NewTFLiteModelLoader(numThreads int) (*TFLiteModelLoader, error) {
 		return nil, errors.New("numThreads must be a positive integer")
 	}
 
-	options, err := loadTFLiteInterpreterOptions(numThreads)
+	options, err := createTFLiteInterpreterOptions(numThreads)
 	if err != nil {
 		return nil, err
 	}
@@ -84,12 +84,12 @@ func NewTFLiteModelLoader(numThreads int) (*TFLiteModelLoader, error) {
 func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 	tFLiteModel := loader.newModelFromFile(modelPath)
 	if tFLiteModel == nil {
-		return nil, errors.New("cannot load model")
+		return nil, FailedToLoadError("model")
 	}
 
 	interpreter, err := loader.newInterpreter(tFLiteModel, loader.interpreterOptions)
 	if err != nil {
-		return nil, errors.New("failed to create interpreter")
+		return nil, err
 	}
 
 	status := interpreter.AllocateTensors()
@@ -99,7 +99,7 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 
 	info := loader.getInfo(interpreter)
 	if info == nil {
-		return nil, errors.New("failed to get info")
+		return nil, FailedToGetError("info")
 	}
 
 	modelStruct := &TFLiteStruct{
@@ -113,11 +113,11 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 	return modelStruct, nil
 }
 
-// loadTFLiteInterpreterOptions returns tflite interpreterOptions with settings.
-func loadTFLiteInterpreterOptions(numThreads int) (*tflite.InterpreterOptions, error) {
+// createTFLiteInterpreterOptions returns tflite interpreterOptions with settings.
+func createTFLiteInterpreterOptions(numThreads int) (*tflite.InterpreterOptions, error) {
 	options := tflite.NewInterpreterOptions()
 	if options == nil {
-		return nil, errors.New("interpreter options failed to be created")
+		return nil, FailedToLoadError("interpreter options")
 	}
 
 	options.SetNumThread(numThreads)
@@ -147,6 +147,7 @@ type TFLiteInfo struct {
 	OutputTensorTypes []string
 }
 
+// getInfo provides some input and output tensor information based on a tflite interpreter.
 func getInfo(inter Interpreter) *TFLiteInfo {
 	input := inter.GetInputTensor(0)
 
@@ -182,7 +183,6 @@ func (model *TFLiteStruct) Infer(inputTensor interface{}) ([]interface{}, error)
 		return nil, errors.New("invoke failed")
 	}
 
-	// TODO: change back to config.AttributeMap because the tensors can be diff types
 	var output []interface{}
 	numOutputTensors := interpreter.GetOutputTensorCount()
 	for i := 0; i < numOutputTensors; i++ {
@@ -210,29 +210,19 @@ func (model *TFLiteStruct) Infer(inputTensor interface{}) ([]interface{}, error)
 		case tflite.Complex64:
 			buf = make([]complex64, currTensor.ByteSize()/8)
 			currTensor.CopyToBuffer(buf)
-		case tflite.String:
-			// TODO: look into what to do if it's a string since
-			// strings are diff lengths and take up diff number
-			// of bytes depending on the word
-			buf = make([]byte, currTensor.ByteSize())
-			currTensor.CopyToBuffer(buf)
-		case tflite.NoType:
+		case tflite.String, tflite.NoType:
 			buf = make([]byte, currTensor.ByteSize())
 			currTensor.CopyToBuffer(buf)
 		default:
-			buf = make([]byte, currTensor.ByteSize())
-			currTensor.CopyToBuffer(buf)
+			return nil, FailedToGetError("output tensor type")
 		}
-		// if buf != nil {
-		// 	output["out"+strconv.Itoa(i)] = buf
-		// }
 		output = append(output, buf)
 	}
 	return output, nil
 }
 
 // GetMetadata provides the metadata information based on the model flatbuffer file.
-func (model *TFLiteStruct) GetMetadata() (interface{}, error) {
+func (model *TFLiteStruct) GetMetadata() (*metadata.ModelMetadataT, error) {
 	b, err := getTFLiteMetadataBytes(model.modelPath)
 	if err != nil {
 		return nil, err
@@ -243,16 +233,8 @@ func (model *TFLiteStruct) GetMetadata() (interface{}, error) {
 	return getTFLiteMetadataAsStruct(b), nil
 }
 
-const tfLiteMetadataName string = "TFLITE_METADATA"
-
 // getTFLiteMetadataBytes takes a model path of a tflite file and extracts the metadata buffer from the entire model.
 func getTFLiteMetadataBytes(modelPath string) ([]byte, error) {
-	_, b, _, ok := runtime.Caller(0)
-	if !ok {
-		return nil, errors.New("failed to get base path")
-	}
-	basePath := filepath.Dir(b)
-	modelPath = filepath.Join(basePath, filepath.Clean(modelPath))
 	buf, err := ioutil.ReadFile(modelPath)
 	if err != nil {
 		return nil, err
@@ -268,14 +250,14 @@ func getTFLiteMetadataBytes(modelPath string) ([]byte, error) {
 		metadata := &tfliteSchema.Metadata{}
 
 		if success := model.Metadata(metadata, i); !success {
-			return nil, errors.New("failed to assign metadata")
+			return nil, FailedToLoadError("metadata")
 		}
 
-		if bytes.Equal([]byte(tfLiteMetadataName), metadata.Name()) {
+		if tfLiteMetadataName == string(metadata.Name()) {
 			metadataBuffer := &tfliteSchema.Buffer{}
 			success := model.Buffers(metadataBuffer, int(metadata.Buffer()))
 			if !success {
-				return nil, errors.New("failed to assign metadata buffer")
+				return nil, FailedToLoadError("metadata buffer")
 			}
 
 			bufInBytes := metadataBuffer.DataBytes()
@@ -297,7 +279,7 @@ func getTFLiteMetadataAsStruct(metaBytes []byte) *metadata.ModelMetadataT {
 func getInterpreter(model *tflite.Model, options *tflite.InterpreterOptions) (Interpreter, error) {
 	interpreter := tflite.NewInterpreter(model, options)
 	if interpreter == nil {
-		return nil, errors.New("failed to create interpreter")
+		return nil, FailedToLoadError("interpreter")
 	}
 
 	return interpreter, nil
