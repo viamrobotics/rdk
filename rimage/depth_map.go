@@ -313,6 +313,7 @@ func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 
 // WriteToFile writes this depth map to the given file.
 func (dm *DepthMap) WriteToFile(fn string) (err error) {
+	//nolint:gosec
 	f, err := os.Create(fn)
 	if err != nil {
 		return err

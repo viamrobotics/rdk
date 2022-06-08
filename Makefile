@@ -57,8 +57,8 @@ lint-go: tool-install
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 lint-web:
-	cd web/frontend/dls && npm run lint
-	cd web/frontend && npm run lint
+	cd web/frontend/dls && npm ci && npm run lint
+	cd web/frontend && npm ci && npm run lint
 
 cover:
 	./etc/test.sh cover
