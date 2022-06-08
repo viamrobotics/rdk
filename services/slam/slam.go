@@ -3,7 +3,9 @@ package slam
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"image"
 	"image/jpeg"
 	"os"
 	"path/filepath"
@@ -17,16 +19,22 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	pc "go.viam.com/rdk/pointcloud"
+	pb "go.viam.com/rdk/proto/api/service/slam/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
 )
 
 const (
@@ -36,6 +44,19 @@ const (
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.SLAMService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterSLAMServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			svc, err := New(ctx, r, c, logger)
@@ -161,24 +182,29 @@ type AttrConfig struct {
 	MapRateSec       int               `json:"map_rate_sec"`
 	DataDirectory    string            `json:"data_dir"`
 	InputFilePattern string            `json:"input_file_pattern"`
+	Port             string            `json:"port"`
 }
 
 // Service describes the functions that are available to the service.
 type Service interface {
-	Close()
+	GetPosition(context.Context, string) (*referenceframe.PoseInFrame, error)
+	GetMap(context.Context, string, string, *referenceframe.PoseInFrame, bool) (string, image.Image, *vision.Object, error)
+	Close() error
 }
 
 // SlamService is the structure of the slam service.
 type slamService struct {
-	cameraName       string
-	slamLib          LibraryMetadata
-	slamMode         mode
-	slamProcess      pexec.ProcessManager
+	cameraName  string
+	slamLib     LibraryMetadata
+	slamMode    mode
+	slamProcess pexec.ProcessManager
+	clientAlgo  pb.SLAMServiceClient
+
 	configParams     map[string]string
 	dataDirectory    string
 	inputFilePattern string
 
-	port       int
+	port       string
 	dataRateMs int
 	mapRateSec int
 
@@ -216,6 +242,73 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 	return cameraName, cam, nil
 }
 
+// setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
+func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, error) {
+	dialOptions := rpc.WithInsecure()
+
+	connLib, err := grpc.Dial(ctx, "localhost:"+port, logger, dialOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return pb.NewSLAMServiceClient(connLib), nil
+}
+
+// GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
+// it is unpacked into a PoseInFrame.
+func (slamSvc *slamService) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+	req := &pb.GetPositionRequest{Name: name}
+
+	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
+	if err != nil {
+		return nil, errors.Errorf("error getting SLAM position : %v", err)
+	}
+
+	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+}
+
+// GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
+// into a mimeType and either a vision.Object or image.Image.
+func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
+	string, image.Image, *vision.Object, error,
+) {
+	req := &pb.GetMapRequest{
+		Name:               name,
+		MimeType:           mimeType,
+		CameraPosition:     referenceframe.PoseInFrameToProtobuf(cp).Pose,
+		IncludeRobotMarker: include,
+	}
+
+	var imData image.Image
+	var vObj *vision.Object
+
+	resp, err := slamSvc.clientAlgo.GetMap(ctx, req)
+	if err != nil {
+		return "", imData, vObj, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
+	}
+
+	switch mimeType {
+	case utils.MimeTypeJPEG:
+		imData, err = jpeg.Decode(bytes.NewReader(resp.GetImage()))
+		if err != nil {
+			return "", nil, nil, errors.Errorf("get map decode image failed: %v", err)
+		}
+	case utils.MimeTypePCD:
+		pointcloudData := resp.GetPointCloud()
+		pc, err := pc.ReadPCD(bytes.NewReader(pointcloudData.PointCloud))
+		if err != nil {
+			return "", nil, nil, errors.Errorf("get map read pointcloud failed: %v", err)
+		}
+
+		vObj, err = vision.NewObject(pc)
+		if err != nil {
+			return "", nil, nil, errors.Errorf("get map creating vision object failed: %v", err)
+		}
+	}
+
+	return resp.MimeType, imData, vObj, nil
+}
+
 // New returns a new slam service for the given robot. Will not error out as to prevent server shutdown.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
@@ -232,9 +325,15 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, errors.Errorf("runtime slam config error: %v", err)
 	}
 
-	p, err := goutils.TryReserveRandomPort()
-	if err != nil {
-		return nil, errors.Errorf("error trying to return a random port: %v", err)
+	var port string
+	if svcConfig.Port == "" {
+		p, err := goutils.TryReserveRandomPort()
+		if err != nil {
+			return nil, errors.Errorf("error trying to return a random port: %v", err)
+		}
+		port = strconv.Itoa(p)
+	} else {
+		port = svcConfig.Port
 	}
 
 	slamLib := SLAMLibraries[svcConfig.Algorithm]
@@ -266,7 +365,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		configParams:            svcConfig.ConfigParams,
 		dataDirectory:           svcConfig.DataDirectory,
 		inputFilePattern:        svcConfig.InputFilePattern,
-		port:                    p,
+		port:                    port,
 		dataRateMs:              dataRate,
 		mapRateSec:              mapRate,
 		cancelFunc:              cancelFunc,
@@ -275,27 +374,38 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	}
 
 	if err := runtimeServiceValidation(cancelCtx, cam, slamSvc); err != nil {
-		slamSvc.Close()
+		if err := slamSvc.Close(); err != nil {
+			return nil, errors.Errorf("error closing out after slam service error: %v", err)
+		}
 		return nil, errors.Errorf("runtime slam service error: %v", err)
 	}
 
 	slamSvc.StartDataProcess(cancelCtx, cam)
 
 	if _, err := slamSvc.StartSLAMProcess(ctx); err != nil {
-		slamSvc.Close()
+		if err := slamSvc.Close(); err != nil {
+			return nil, errors.Errorf("error closing out after slam process error: %v", err)
+		}
 		return nil, errors.Errorf("error with slam service slam process: %v", err)
 	}
+
+	client, err := setupGRPCConnection(ctx, port, logger)
+	if err != nil {
+		return nil, errors.Errorf("error with initial grpc client to slam algorithm: %v", err)
+	}
+	slamSvc.clientAlgo = client
 
 	return slamSvc, nil
 }
 
 // Close out of all slam related processes.
-func (slamSvc *slamService) Close() {
+func (slamSvc *slamService) Close() error {
 	slamSvc.cancelFunc()
 	if err := slamSvc.StopSLAMProcess(); err != nil {
-		slamSvc.logger.Warnw("error occurred during closeout of process", "error", err)
+		return errors.Errorf("error occurred during closeout of process: %v", err)
 	}
 	slamSvc.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // TODO 05/10/2022: Remove from SLAM service once GRPC data transfer is available.
