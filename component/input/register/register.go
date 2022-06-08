@@ -2,7 +2,6 @@
 package register
 
 import (
-
 	// for inputs.
 	_ "go.viam.com/rdk/component/input/fake"
 	_ "go.viam.com/rdk/component/input/gamepad"
