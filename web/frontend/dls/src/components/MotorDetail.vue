@@ -5,7 +5,11 @@
         <h2 class="p-4 text-xl">{{ motorName }}</h2>
         <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
         <div class="p-4 flex items-center flex-wrap" v-if="motorStatus.positionReporting">
-          <p class="flex items-center border border-black rounded-full px-2 leading-tight">Position {{ motorStatus.position }}</p>
+          <p
+            class="flex items-center border border-black rounded-full px-2 leading-tight"
+          >
+            Position {{ motorStatus.position }}
+          </p>
         </div>
         <div class="p-4 flex items-center flex-wrap">
           <ViamBadge color="green" v-if="motorStatus.isOn">Running</ViamBadge>
@@ -21,38 +25,32 @@
         </ViamButton>
       </div>
       <template v-slot:content>
-        <div
-          class=""
-          :style="{ height: maxHeight + 'px' }"
-        >
+        <div class="" :style="{ height: maxHeight + 'px' }">
           <div
             class="border border-black p-4 grid grid-cols-1"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div class="grid">
-              <div
-                class="column"
-              >
+              <div class="column">
                 <p class="text-xs pb-2">Set Power</p>
                 <RadioButtons
-                  :options="['Go', 'Go To', 'Go For']"
+                  :options="
+                    motorStatus.positionReporting ? ['Go', 'Go To', 'Go For'] : ['Go']
+                  "
                   defaultOption="Go"
                   :disabledOptions="[]"
                   v-on:selectOption="setMovementType($event)"
                 />
               </div>
-              <div
-                class="flex pt-4"
-                v-if="movementType === 'Go To'"
-              >
+              <div class="flex pt-4" v-if="movementType === 'Go To'">
                 <div class="place-self-end pr-2">
-                <span class="text-2xl">{{ movementType }}</span>
-                <viam-info-button
+                  <span class="text-2xl">{{ movementType }}</span>
+                  <viam-info-button
                     class="pb-2"
                     :iconPath="mdiInformation"
                     :infoRows="infoGoTo"
-                >
-                </viam-info-button>
+                  >
+                  </viam-info-button>
                 </div>
                 <ViamInput
                   type="number"
@@ -85,19 +83,16 @@
                 >
                   <span class="text-xs">RPM</span>
                 </ViamInput>
-            </div>
-              <div
-                class="flex pt-4"
-                v-if="movementType === 'Go For'"
-              >
+              </div>
+              <div class="flex pt-4" v-if="movementType === 'Go For'">
                 <div class="place-self-end pr-2">
-                <span class="text-2xl">{{ movementType }}</span>
-                <viam-info-button
+                  <span class="text-2xl">{{ movementType }}</span>
+                  <viam-info-button
                     class="pb-2"
                     :iconPath="mdiInformation"
                     :infoRows="infoGoFor"
-                >
-                </viam-info-button>
+                  >
+                  </viam-info-button>
                 </div>
                 <ViamInput
                   type="number"
@@ -130,19 +125,16 @@
                 >
                   <span class="text-xs">RPM</span>
                 </ViamInput>
-            </div>
-            <div
-                class="flex items-start pt-4"
-                v-if="movementType === 'Go'"
-              >
+              </div>
+              <div class="flex items-start pt-4" v-if="movementType === 'Go'">
                 <div class="place-self-end pr-2">
-                <span class="text-2xl">{{ movementType }}</span>
-                <viam-info-button
+                  <span class="text-2xl">{{ movementType }}</span>
+                  <viam-info-button
                     class="pb-2"
                     :iconPath="mdiInformation"
                     :infoRows="infoGo"
-                >
-                </viam-info-button>
+                  >
+                  </viam-info-button>
                 </div>
                 <div class="column pr-4">
                   <p class="text-xs pb-2 pt-1">Direction of Rotation</p>
@@ -167,12 +159,7 @@
             </div>
             <div class="flex flex-row-reverse">
               <div>
-                <ViamButton
-                  color="success"
-                  group
-                  variant="primary"
-                  @click="motorRun()"
-                >
+                <ViamButton color="success" group variant="primary" @click="motorRun()">
                   <template v-slot:icon>
                     <ViamIcon color="white" :path="mdiPlayCircleOutline">RUN</ViamIcon>
                   </template>
@@ -197,7 +184,7 @@ import {
   mdiRestore,
   mdiPlayCircleOutline,
   mdiCloseOctagonOutline,
-  mdiAlertOctagonOutline
+  mdiAlertOctagonOutline,
 } from "@mdi/js";
 import Tabs from "./Tabs.vue";
 import Tab from "./Tab.vue";
@@ -226,7 +213,7 @@ import {
     ViamBadge,
   },
 })
-export default class MotorDetailNew extends Vue {
+export default class MotorDetail extends Vue {
   @Prop({ default: null }) motorName!: string;
   @Prop({ default: null }) crumbs!: [string];
   @Prop() motorStatus!: Status.AsObject;
@@ -276,125 +263,39 @@ export default class MotorDetailNew extends Vue {
   }
 
   setDirection(e: string): void {
-    console.log(e);
     switch (e) {
       case "Forwards":
-          this.direction = 1;
-          break;
+        this.direction = 1;
+        break;
       case "Backwards":
-          this.direction = -1;
-          break;
+        this.direction = -1;
+        break;
       default:
-          this.direction = 1;
+        this.direction = 1;
     }
-
   }
+
   motorRun(): void {
-    const command = this.asObject();
+    const command = {
+      direction: this.direction,
+      position: this.position,
+      rpm: this.rpm,
+      power: this.power,
+      type: this.type,
+      speed: this.speed,
+      revolutions: this.revolutions,
+    };
     this.$emit("motor-run", command);
   }
+
   motorStop(e: Event): void {
     e.preventDefault();
     e.stopPropagation();
-    this.type = "go";
-    this.position = 0;
-    this.speed = 0;
-    this.direction = 1;
-    this.revolutions = 0;
-    this.power = 0;
-    const command = this.asObject();
-    console.log(command);
-    this.$emit("motor-stop", command);
+    this.$emit("motor-stop");
   }
+
   resizeContent(): void {
-      this.maxHeight = 250;
-  }
-
-  private validateRevolutions(revolutions: number): string {
-    revolutions = Number.parseFloat(revolutions.toString());
-    if (Number.isNaN(revolutions)) {
-      return "Input is not a number";
-    }
-    return "";
-  }
-
-  private validateRPM(rpm: number): string {
-    rpm = Number.parseFloat(rpm.toString());
-    if (Number.isNaN(rpm)) {
-      return "Input is not a number";
-    }
-    return "";
-  }
-
-  private validatePower(power: number): string {
-    power = Number.parseFloat(power.toString());
-    if (Number.isNaN(power)) {
-      return "Input is not a number";
-    } else if (power > 100) {
-      return "Power cannot be greater than 100%";
-    } else if (power < -100) {
-      return "Power cannot be less than -100%";
-    }
-    return "";
-  }
-
-  private validatePosition(position: number): string {
-    position = Number.parseFloat(position.toString());
-    if (Number.isNaN(position)) {
-      return "Input is not a number";
-    }
-    return "";
-  }
-
-  validate(): { [key: string]: string } {
-    let toReturn: { [key: string]: string } = {};
-    switch (this.movementType) {
-      case "Go":
-        toReturn = {
-          speed: this.validatePower(this.speed),
-        };
-        break;
-      case "Go For":
-        toReturn = {
-          speed: this.validateRPM(this.speed),
-          revolutions: this.validateRevolutions(this.revolutions),
-        };
-        break;
-      case "Go To":
-        toReturn = {
-          speed: this.validateRPM(this.speed),
-          position: this.validatePosition(this.position),
-        };
-        break;
-    }
-    return toReturn;
-  }
-
-  asObject(): {
-    type: string;
-    request: any;
-  } {
-    let req;
-    switch (this.movementType) {
-      case "Go":
-        req = new SetPowerRequest();
-        req.setPowerPct((this.power * this.direction) / 100);
-        break;
-      case "Go For":
-        req = new GoForRequest();
-        req.setRpm(this.rpm * this.direction);
-        req.setRevolutions(this.revolutions);
-        break;
-      case "Go To":
-        req = new GoToRequest();
-        req.setRpm(this.rpm);
-        req.setPositionRevolutions(this.position);
-        break;
-    }
-    return {
-      type: this.type.toString(),
-      request: req,
-    };
+    this.maxHeight = 250;
   }
 }
 </script>

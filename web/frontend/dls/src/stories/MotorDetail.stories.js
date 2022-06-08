@@ -1,6 +1,6 @@
 import { storiesOf } from "@storybook/vue";
 
-storiesOf("MotorDetailNew", module).add("Default MotorDetailNew", () => ({
+storiesOf("MotorDetail", module).add("Default MotorDetail", () => ({
   data() {
     return {
       streamName: "Left Motor",
@@ -13,5 +13,5 @@ storiesOf("MotorDetailNew", module).add("Default MotorDetailNew", () => ({
     };
   },
   template:
-    '<MotorDetailNew :streamName="streamName"  :baseName="streamName" :crumbs="crumbs"  :motorStatus="motorStatus"></MotorDetailNew>',
+    '<MotorDetail :streamName="streamName"  :baseName="streamName" :crumbs="crumbs"  :motorStatus="motorStatus"></MotorDetail>',
 }));
