@@ -37,7 +37,8 @@ func setupWorkingBase(
 	}
 
 	workingBase.SpinFunc = func(
-		ctx context.Context, angleDeg, degsPerSec float64) error {
+		ctx context.Context, angleDeg, degsPerSec float64,
+	) error {
 		argsReceived["Spin"] = []interface{}{angleDeg, degsPerSec}
 		return nil
 	}
