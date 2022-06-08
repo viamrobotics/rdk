@@ -363,9 +363,10 @@ func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncServic
 	if _, err = f.Seek(0, 0); err != nil {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
-	if _, err = readNextFileData(f); err != nil {
+	if _, err = readNextSensorData(f); err != nil {
 		return v1.DataType_DATA_TYPE_FILE, nil
 	}
+	// THIS LOGIC NEEDS TO BE RE-THOUGHT THROUGH
 	return v1.DataType_DATA_TYPE_BINARY_SENSOR, nil
 }
 
