@@ -77,7 +77,7 @@ func init() {
 }
 
 // XArmModel returns the kinematics model of the xArm, also has all Frame information.
-func xArmModel(dof int) (referenceframe.Model, error) {
+func XArmModel(dof int) (referenceframe.Model, error) {
 	if dof == 6 {
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
 	} else if dof == 7 {
@@ -93,7 +93,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	if err != nil {
 		return nil, err
 	}
-	model, err := xArmModel(dof)
+	model, err := XArmModel(dof)
 	if err != nil {
 		return nil, err
 	}

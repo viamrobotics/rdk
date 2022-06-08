@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/arm/xarm"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -19,9 +20,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
-
-//go:embed static_arm_model.json
-var armModelJSON []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
@@ -37,7 +35,7 @@ func init() {
 // NewArm returns a new fake arm.
 func NewArm(cfg config.Component) (arm.Arm, error) {
 	name := cfg.Name
-	model, err := referenceframe.UnmarshalModelJSON(armModelJSON, "")
+	model, err := xarm.XArmModel(6)
 	if err != nil {
 		return nil, err
 	}
