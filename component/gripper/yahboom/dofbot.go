@@ -3,7 +3,6 @@ package yahboom
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -31,12 +30,12 @@ func init() {
 				return nil, err
 			}
 
-			goodArm, ok := utils.UnwrapProxy(myArm).(gripper.Gripper)
+			gripper, ok := utils.UnwrapProxy(myArm).(gripper.Gripper)
 			if !ok {
 				return nil, fmt.Errorf("yahboom-dofbot gripper got not a dofbot arm, got %T", myArm)
 			}
 
-			return goodArm, nil
+			return gripper, nil
 		},
 	})
 }

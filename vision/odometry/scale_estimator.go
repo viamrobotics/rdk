@@ -91,7 +91,8 @@ func getSelected3DFeatures(f3d []r3.Vector, ids []int) []r3.Vector {
 // GetTriangulated3DPointsFrom2DKeypoints gets the triangulated 3D point cloud from the matched 2D keypoints, the
 // second camera pose and the intrinsic camera matrix.
 func GetTriangulated3DPointsFrom2DKeypoints(pts1, pts2 []r2.Point, pose *transform.CamPose,
-	intrinsics *transform.PinholeCameraIntrinsics) ([]r3.Vector, error) {
+	intrinsics *transform.PinholeCameraIntrinsics,
+) ([]r3.Vector, error) {
 	intrinsicK := intrinsics.GetCameraMatrix()
 	// homogenize 2d keypoints in image coordinates
 	pts1H := transform.Convert2DPointsToHomogeneousPoints(pts1)
@@ -110,7 +111,8 @@ func GetTriangulated3DPointsFrom2DKeypoints(pts1, pts2 []r2.Point, pose *transfo
 // getGroundInlierPoints takes a list of 3D points, a list of 3D triangles, and two thresholds, and returns the indices
 // of the points that are inliers of the ground plane.
 func getGroundInlierPoints(p3d []r3.Vector, triangles3D [][]r3.Vector, thresholdNormalAngle,
-	thresholdPlaneInlier float64) ([]int, error) {
+	thresholdPlaneInlier float64,
+) ([]int, error) {
 	inliersGround := make([]int, 0, len(p3d))
 	maxInliers := 0
 	groundFound := false
@@ -138,7 +140,8 @@ func getGroundInlierPoints(p3d []r3.Vector, triangles3D [][]r3.Vector, threshold
 // GetPointsOnGroundPlane gets the ids of matched keypoints that belong to the ground plane.
 func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 	thresholdNormalAngle, thresholdPlaneInlier float64,
-	intrinsics *transform.PinholeCameraIntrinsics) ([]int, []r3.Vector, error) {
+	intrinsics *transform.PinholeCameraIntrinsics,
+) ([]int, []r3.Vector, error) {
 	// get 3D points
 	f3d, err := GetTriangulated3DPointsFrom2DKeypoints(pts1, pts2, pose, intrinsics)
 	if err != nil {
@@ -180,7 +183,8 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 
 // EstimateCameraHeight estimates the camera height wrt to ground plane.
 func EstimateCameraHeight(pts1, pts2 []r2.Point, pose *transform.CamPose,
-	thresholdNormalAngle, thresholdPlaneInlier float64, intrinsics *transform.PinholeCameraIntrinsics) (float64, error) {
+	thresholdNormalAngle, thresholdPlaneInlier float64, intrinsics *transform.PinholeCameraIntrinsics,
+) (float64, error) {
 	_, pointsGround, err := GetPointsOnGroundPlane(pts1, pts2, pose, thresholdNormalAngle, thresholdPlaneInlier, intrinsics)
 	if err != nil {
 		return 0, err

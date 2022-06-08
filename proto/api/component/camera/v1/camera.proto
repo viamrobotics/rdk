@@ -1,12 +1,13 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/camera/v1";
-option java_package = "com.viam.rdk.proto.api.component.camera.v1";
 
 package proto.api.component.camera.v1;
 
 import "google/api/annotations.proto";
 import "google/api/httpbody.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/camera/v1";
+option java_package = "com.viam.rdk.proto.api.component.camera.v1";
 
 // A CameraService services all cameras associated with a robot
 service CameraService {
@@ -33,7 +34,6 @@ service CameraService {
       get: "/viam/api/v1/component/camera/{name}/point_cloud"
     };
   }
-
 }
 
 message GetFrameRequest {

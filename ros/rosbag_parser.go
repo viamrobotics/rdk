@@ -6,8 +6,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/edaniels/gobag/rosbag"
 	"github.com/pkg/errors"
-	"github.com/starship-technologies/gobag/rosbag"
 	"go.viam.com/utils"
 )
 
