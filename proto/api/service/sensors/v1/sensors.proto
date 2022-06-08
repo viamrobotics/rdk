@@ -1,12 +1,13 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/service/sensors/v1";
-option java_package = "com.viam.rdk.proto.api.service.sensors.v1";
 
 package proto.api.service.sensors.v1;
 
-import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/service/sensors/v1";
+option java_package = "com.viam.rdk.proto.api.service.sensors.v1";
 
 // A SensorsService services keeps track of all sensors associated with a robot
 service SensorsService {
@@ -43,4 +44,3 @@ message Readings {
 message GetReadingsResponse {
   repeated Readings readings = 1;
 }
-

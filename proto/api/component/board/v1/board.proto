@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/board/v1";
-option java_package = "com.viam.rdk.proto.api.component.board.v1";
 
 package proto.api.component.board.v1;
 
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/board/v1";
+option java_package = "com.viam.rdk.proto.api.component.board.v1";
 
 // BoardService services all Boards associated with a robot
 service BoardService {
@@ -18,42 +19,42 @@ service BoardService {
   rpc SetGPIO(SetGPIORequest) returns (SetGPIOResponse) {
     option (google.api.http) = {
       put: "/viam/api/v1/component/board/{name}/gpio"
-    };  
+    };
   }
 
   // GetGPIO gets the high/low state of the given pin of a board of the underlying robot.
   rpc GetGPIO(GetGPIORequest) returns (GetGPIOResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/component/board/{name}/gpio"
-    };  
+    };
   }
 
   // PWM gets the duty cycle of the given pin of a board of the underlying robot.
   rpc PWM(PWMRequest) returns (PWMResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/component/board/{name}/pwm"
-    };  
+    };
   }
 
   // SetPWM sets the given pin of a board of the underlying robot to the given duty cycle.
   rpc SetPWM(SetPWMRequest) returns (SetPWMResponse) {
     option (google.api.http) = {
       put: "/viam/api/v1/component/board/{name}/pwm"
-    };  
+    };
   }
 
   // PWMFrequency gets the PWM frequency of the given pin of a board of the underlying robot.
   rpc PWMFrequency(PWMFrequencyRequest) returns (PWMFrequencyResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/component/board/{name}/pwm_freq"
-    };  
+    };
   }
 
   // SetPWMFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
   rpc SetPWMFrequency(SetPWMFrequencyRequest) returns (SetPWMFrequencyResponse) {
     option (google.api.http) = {
       put: "/viam/api/v1/component/board/{name}/pwm_freq"
-    };  
+    };
   }
 
   // Analog Reader
