@@ -2,7 +2,6 @@ package vision
 
 import (
 	"bufio"
-	"fmt"
 	"image"
 	"os"
 	"strconv"
@@ -16,10 +15,6 @@ import (
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
-
-// THINK ON IT. WHEN SHOULD YOU LOAD THE MODEL? CLOSE IT?
-// WHAT FUNCTIONS DO WE STILL NEED? WHAT SHOULD BE REMOVED
-// REMEMBER THAT YOU INFER/CLOSE/ETC ON THE INTERNAL MODEL
 
 // TfliteDetectorConfig specifies the fields necessary for creating a TFLite detector.
 type TfliteDetectorConfig struct {
@@ -57,7 +52,7 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 	//This function has to be the detector
 	return func(img image.Image) ([]objectdetection.Detection, error) {
 		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear) //resize image
-		labelMap, err := loadLabels(*params.LabelPath)		//check for labelmap
+		labelMap, err := loadLabels(*params.LabelPath)                       //check for labelmap
 		if err != nil {
 			logger.Info("did not retrieve class labels")
 		}
@@ -71,7 +66,7 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 }
 
 // addTfliteModel uses the AddModel function in the inference package to register a tflite model
-func addTfliteModel(filepath string , numThreads *int) (inf.TFLiteStruct, error) {
+func addTfliteModel(filepath string, numThreads *int) (inf.TFLiteStruct, error) {
 	var model inf.TFLiteStruct
 
 	if numThreads == nil {
@@ -96,12 +91,11 @@ func addTfliteModel(filepath string , numThreads *int) (inf.TFLiteStruct, error)
 	return model, nil
 }
 
-
 // tfliteInfer uses the Infer function in the inf package to return the output tensors from the model
-func tfliteInfer(model *inf.TFLiteStruct, image image.Image) (config.AttributeMap, error) {
+func tfliteInfer(model *inf.TFLiteStruct, image image.Image) ([]interface{}, error) {
 	//Converts the image to bytes before sending it off
 	imgBuff := imageToBuffer(image)
-	out, err := model.Infer(imgBuff)	//out is gonna be a config.AttributeMap
+	out, err := model.Infer(imgBuff) //out is gonna be a []interface{}
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't infer from model")
 	}
@@ -125,33 +119,36 @@ func imageToBuffer(img image.Image) []byte {
 	return output
 }
 
-func unpackTensors(tensors config.AttributeMap, model *inf.TFLiteStruct, labelMap []string, logger golog.Logger) []objectdetection.Detection {
-	
+// unpackTensors takes the model's output tensors as input and forms them into objdet.Detections
+func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []string, logger golog.Logger) []objectdetection.Detection {
+
 	//Gather slices for the bboxes, scores, and labels, using TensorOrder
 	var labels []int
 	var bboxes []float64
 	var scores []float64
-	tensorOrder, err := getTensorOrder(model) 	//location = 0 , category = 1, score = 2 for tensor order
+	tensorOrder, err := getTensorOrder(model) //location = 0 , category = 1, score = 2 for tensor order
 	if err != nil {
-		//We couldn't get a tensor order from the metadata... 
+		//CAN THIS BE LOUDER SOMEHOW?
 		logger.Info("could not find tensor order. Using default order: location, category, score")
-		tensorOrder = []int{0,1,2}
-	} 
-	//Ok but where do we get the actual tensors from? (Assuming config.AttributeMap)--------------------
-	//Must  change if we get them from interface
-	b := tensors[fmt.Sprint("out", getIndex(tensorOrder, 0))] //the boundingbox tensor from tensors
-	bboxes = b.([]float64)
-	l := tensors[fmt.Sprint("out", getIndex(tensorOrder, 1))] //the label tensor from tensors
-	labels = l.([]int)
-	s := tensors[fmt.Sprint("out", getIndex(tensorOrder, 2))] //the score tensor from tensors
-	scores = s.([]float64)
+		tensorOrder = []int{0, 1, 2}
+	}
 
-	//---------------------------------------------------------------------------------------------
+	bboxes = tensors[getIndex(tensorOrder, 0)].([]float64)
+	labels = tensors[getIndex(tensorOrder, 1)].([]int)
+	scores = tensors[getIndex(tensorOrder, 2)].([]float64)
+
+	/*
+		//Break in case of tensors is actually a config.AttributeMap
+		bboxes = tensors[fmt.Sprint("out", getIndex(tensorOrder, 0))].([]float64)
+		labels = tensors[fmt.Sprint("out", getIndex(tensorOrder, 1))].([]int)
+		scores = tensors[fmt.Sprint("out", getIndex(tensorOrder, 2))].([]float64)
+	*/
 
 	//Get the bounding box order (try from the metadata. If not, smart-default: xx,yy )
 	//xmin=0, xmax=1, ymin=2, ymax=3 for bounding box order
 	boxOrder, err := getBboxOrder(model)
 	if err != nil {
+		//WISH THIS WAS LOUDER TOO
 		logger.Info("assuming bounding box tensor is in the default order: [x x y y]")
 		boxOrder = []int{1, 0, 3, 2}
 		if bboxes[0] > bboxes[1] { //the first val is bigger than the second
@@ -169,8 +166,7 @@ func unpackTensors(tensors config.AttributeMap, model *inf.TFLiteStruct, labelMa
 			boxOrder[3] = 3
 		}
 	}
-
-	w,h := model.Info.InputWidth, model.Info.InputHeight
+	w, h := model.Info.InputWidth, model.Info.InputHeight
 
 	//Detection gathering
 	detections := make([]objectdetection.Detection, len(scores))
@@ -222,6 +218,8 @@ func getIndex(s []int, num int) int {
 	return -1
 }
 
+// getStringIndex just returns the index of a string in an array of strings
+// Will return -1 if it's not there
 func getStringIndex(s []string, word string) int {
 	for i, v := range s {
 		if v == word || strings.ToLower(v) == word {
@@ -231,8 +229,8 @@ func getStringIndex(s []string, word string) int {
 	return -1
 }
 
-// getBboxOrder checks the metadata (from inf package) and looks for the bounding box order
-// according to where it should be in the schema.
+// getBboxOrder checks the metadata and looks for the bounding box order
+// returned as []int, where 0=xmin, 1=xmax, 2=ymin, 3=ymax
 func getBboxOrder(model *inf.TFLiteStruct) ([]int, error) {
 	bboxOrder := make([]int, 4)
 	m, err := model.GetMetadata()
@@ -256,6 +254,8 @@ func getBboxOrder(model *inf.TFLiteStruct) ([]int, error) {
 	return bboxOrder, nil
 }
 
+// getTensorOrder checks the metadata for the order of the output tensors
+// returned as []int where 0=bounding box location, 1=class/category/label, 2= confidence score
 func getTensorOrder(model *inf.TFLiteStruct) ([]int, error) {
 	tensorOrder := make([]int, 4) //location = 0 , category = 1, score = 2
 	m, err := model.GetMetadata()
@@ -285,7 +285,6 @@ func getTensorOrder(model *inf.TFLiteStruct) ([]int, error) {
 		This is another way to do it via each specific input. Less robust maybe
 		tensorData := m.(ModelMetadataT).SubgraphMetadata[0].OutputTensorMetadata
 		//tensorData should be a []TensorMetadataT from the metadata telling me about each tensor in order
-
 		for _, t := range(tensorData){
 			switch name := strings.ToLower(t.Name); name {
 			case "location":
@@ -301,5 +300,4 @@ func getTensorOrder(model *inf.TFLiteStruct) ([]int, error) {
 	*/
 
 	return tensorOrder, nil
-
 }
