@@ -13,5 +13,5 @@ storiesOf("MotorDetail", module).add("Default MotorDetail", () => ({
     };
   },
   template:
-    '<MotorDetail :streamName="streamName"  :baseName="streamName" :crumbs="crumbs"  :motorStatus="motorStatus"></MotorDetail>',
+    '<MotorDetail :motorName="motorName" :crumbs="crumbs"  :motorStatus="motorStatus"></MotorDetail>',
 }));

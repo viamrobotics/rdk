@@ -4,7 +4,10 @@
       <div class="flex float-left">
         <h2 class="p-4 text-xl">{{ motorName }}</h2>
         <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
-        <div class="p-4 flex items-center flex-wrap" v-if="motorStatus.positionReporting">
+        <div
+          class="p-4 flex items-center flex-wrap"
+          v-if="motorStatus.positionReporting"
+        >
           <p
             class="flex items-center border border-black rounded-full px-2 leading-tight"
           >
@@ -19,7 +22,9 @@
       <div class="p-2 float-right">
         <ViamButton color="danger" group variant="primary" @click="motorStop">
           <template v-slot:icon>
-            <ViamIcon color="white" :path="mdiCloseOctagonOutline">STOP</ViamIcon>
+            <ViamIcon color="white" :path="mdiCloseOctagonOutline"
+              >STOP</ViamIcon
+            >
           </template>
           STOP
         </ViamButton>
@@ -35,7 +40,9 @@
                 <p class="text-xs pb-2">Set Power</p>
                 <RadioButtons
                   :options="
-                    motorStatus.positionReporting ? ['Go', 'Go For', 'Go To'] : ['Go']
+                    motorStatus.positionReporting
+                      ? ['Go', 'Go For', 'Go To']
+                      : ['Go']
                   "
                   defaultOption="Go"
                   :disabledOptions="[]"
@@ -150,9 +157,16 @@
             </div>
             <div class="flex flex-row-reverse">
               <div>
-                <ViamButton color="success" group variant="primary" @click="motorRun()">
+                <ViamButton
+                  color="success"
+                  group
+                  variant="primary"
+                  @click="motorRun()"
+                >
                   <template v-slot:icon>
-                    <ViamIcon color="white" :path="mdiPlayCircleOutline">RUN</ViamIcon>
+                    <ViamIcon color="white" :path="mdiPlayCircleOutline"
+                      >RUN</ViamIcon
+                    >
                   </template>
                   RUN
                 </ViamButton>
@@ -184,12 +198,7 @@ import ViamBadge from "./Badge.vue";
 import Popper from "vue-popperjs";
 import "vue-popperjs/dist/vue-popper.css";
 import ViamButton from "./Button.vue";
-import {
-  SetPowerRequest,
-  GoForRequest,
-  GoToRequest,
-  Status,
-} from "proto/api/component/motor/v1/motor_pb";
+import { Status } from "proto/api/component/motor/v1/motor_pb";
 
 @Component({
   components: {
