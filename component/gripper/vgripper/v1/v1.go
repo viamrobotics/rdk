@@ -3,7 +3,6 @@ package vgripper
 
 import (
 	"context"
-
 	// used to import model referenceframe.
 	_ "embed"
 	"math"

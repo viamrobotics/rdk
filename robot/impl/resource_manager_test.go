@@ -216,6 +216,38 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, err, test.ShouldBeError)
 }
 
+func TestManagerResourceRemoteName(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := &inject.RemoteRobot{}
+	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return armNames }
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) { return struct{}{}, nil }
+	injectRobot.LoggerFunc = func() golog.Logger { return logger }
+
+	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
+
+	injectRemote := &inject.RemoteRobot{}
+	injectRemote.ResourceNamesFunc = func() []resource.Name { return rdktestutils.AddSuffixes(armNames, "_r1") }
+	injectRemote.ResourceByNameFunc = func(name resource.Name) (interface{}, error) { return struct{}{}, nil }
+	injectRemote.LoggerFunc = func() golog.Logger { return logger }
+	manager.addRemote(
+		newRemoteRobot(context.Background(), injectRemote, config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+
+	manager.updateResourceRemoteNames()
+
+	test.That(
+		t,
+		manager.resourceRemoteNames,
+		test.ShouldResemble,
+		map[resource.Name]string{arm.Named("arm1_r1"): "remote1", arm.Named("arm2_r1"): "remote1"},
+	)
+}
+
 func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
