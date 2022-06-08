@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/subtype"
 )
@@ -54,4 +55,14 @@ func (s *subtypeServer) Grab(ctx context.Context, req *pb.GrabRequest) (*pb.Grab
 		return nil, err
 	}
 	return &pb.GrabResponse{Success: success}, nil
+}
+
+// Stop stops the gripper specified.
+func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.Name)
+	gripper, err := s.getGripper(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.StopResponse{}, gripper.Stop(ctx)
 }
