@@ -78,6 +78,8 @@ do_linux(){
 		export VIAM_DEV_ENV=1
 		eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 		export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
+		export CGO_LDFLAGS=-L/home/linuxbrew/.linuxbrew/lib
+		export CGO_CFLAGS=-I/home/linuxbrew/.linuxbrew/include
 		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		export CC=gcc-11
 		export CXX=g++-11
@@ -103,6 +105,8 @@ do_darwin(){
 			export VIAM_DEV_ENV=1
 			eval "\$(/opt/homebrew/bin/brew shellenv)"
 			export LIBRARY_PATH=/opt/homebrew/lib
+			export CGO_LDFLAGS=-L/opt/homebrew/lib
+			export CGO_CFLAGS=-I/opt/homebrew/include
 			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		fi
 		EOS
