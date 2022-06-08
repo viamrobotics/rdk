@@ -526,6 +526,7 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cam camera
 	}
 
 	filename := createTimestampFilename(slamSvc.cameraName, slamSvc.dataDirectory, fileType)
+	//nolint:gosec
 	f, err := os.Create(filename)
 	if err != nil {
 		return filename, err
@@ -578,6 +579,7 @@ func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context, cam camera.
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
 	filename := createTimestampFilename(slamSvc.cameraName, slamSvc.dataDirectory, fileType)
+	//nolint:gosec
 	f, err := os.Create(filename)
 	if err != nil {
 		return filename, err

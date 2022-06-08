@@ -157,7 +157,8 @@ func TestServerObjectSegmentation(t *testing.T) {
 	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
 		cameraName string,
 		segmenterName string,
-		params config.AttributeMap) ([]*viz.Object, error) {
+		params config.AttributeMap,
+	) ([]*viz.Object, error) {
 		switch segmenterName {
 		case vision.RadiusClusteringSegmenter:
 			segments, err := segmentation.RadiusClustering(ctx, injCam, params)
