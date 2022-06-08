@@ -2,8 +2,6 @@ syntax = "proto3";
 option go_package = "go.viam.com/rdk/proto/api/service/datamanager/v1";
 package proto.api.service.datamanager.v1;
 
-//import "google/protobuf/struct.proto";
-import "proto/api/common/v1/common.proto";
 //import "google/api/annotations.proto";
 
 // A DataManagerService service manages data between the robot and the cloud.
@@ -17,9 +15,7 @@ service DataManagerService {
 }
 
 message SyncRequest {
-  common.v1.ResourceName name = 1;
 }
 
 message SyncResponse {
-  bool success = 1;
 }

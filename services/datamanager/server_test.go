@@ -7,9 +7,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/gripper"
 	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/subtype"
@@ -26,22 +24,20 @@ func newServer(omMap map[resource.Name]interface{}) (pb.DataManagerServiceServer
 }
 
 func TestServerSync(t *testing.T) {
-	syncRequest := &pb.SyncRequest{
-		Name: protoutils.ResourceNameToProto(gripper.Named("fake")),
-	}
+	syncRequest := &pb.SyncRequest{}
 
 	omMap := map[resource.Name]interface{}{}
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Sync(context.Background(), syncRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:data_manager\" not found"))
 
-	// set up the robot with something that is not an motion service
-	omMap = map[resource.Name]interface{}{datamanager.Name: "not motion"}
+	// set up the robot with something that is not an datamanager service
+	omMap = map[resource.Name]interface{}{datamanager.Name: "not datamanager"}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Sync(context.Background(), syncRequest)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", "string"))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("datamanager.Service", "string"))
 
 	// error
 	injectMS := &inject.DataManagerService{}
@@ -50,12 +46,11 @@ func TestServerSync(t *testing.T) {
 	}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
-	passedErr := errors.New("fake move error")
+	passedErr := errors.New("fake sync error")
 	injectMS.SyncFunc = func(
 		ctx context.Context,
-		componentName resource.Name,
-	) (bool, error) {
-		return false, passedErr
+	) error {
+		return passedErr
 	}
 
 	_, err = server.Sync(context.Background(), syncRequest)
@@ -64,11 +59,9 @@ func TestServerSync(t *testing.T) {
 	// returns response
 	injectMS.SyncFunc = func(
 		ctx context.Context,
-		componentName resource.Name,
-	) (bool, error) {
-		return true, nil
+	) error {
+		return nil
 	}
-	resp, err := server.Sync(context.Background(), syncRequest)
+	_, err = server.Sync(context.Background(), syncRequest)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 }
