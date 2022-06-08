@@ -1,6 +1,5 @@
 import sys
 import json
-import time
 import itertools
 import numpy as np
 import matplotlib.widgets
@@ -83,23 +82,26 @@ class Player(FuncAnimation):
         self.func = func
 
         # setup axes
-        one_back_ax = self.fig.add_axes([pos[0],pos[1], 0.64, 0.04])
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(one_back_ax)
+        replay_ax = self.fig.add_axes([pos[0],pos[1], 0.64, 0.04])
+        divider = mpl_toolkits.axes_grid1.make_axes_locatable(replay_ax)
+        one_back_ax = divider.append_axes("right", size="80%", pad=0.05)
         back_ax = divider.append_axes("right", size="80%", pad=0.05)
         stop_ax = divider.append_axes("right", size="80%", pad=0.05)
         forward_ax = divider.append_axes("right", size="80%", pad=0.05)
-        ofax = divider.append_axes("right", size="100%", pad=0.05)
+        one_forward_ax = divider.append_axes("right", size="100%", pad=0.05)
         sliderax = divider.append_axes("right", size="500%", pad=0.07)
 
         # add widgets
+        self.button_replay = matplotlib.widgets.Button(replay_ax, label='$\u27F2$')
         self.button_one_back = matplotlib.widgets.Button(one_back_ax, label='$\u29CF$')
         self.button_back = matplotlib.widgets.Button(back_ax, label='$\u25C0$')
         self.button_stop = matplotlib.widgets.Button(stop_ax, label='$\u25A0$')
         self.button_forward = matplotlib.widgets.Button(forward_ax, label='$\u25B6$')
-        self.button_one_forward = matplotlib.widgets.Button(ofax, label='$\u29D0$')
+        self.button_one_forward = matplotlib.widgets.Button(one_forward_ax, label='$\u29D0$')
         self.slider = matplotlib.widgets.Slider(sliderax, '', self.min, self.max, valinit=self.current_frame)
 
         # assign functions to widgets
+        self.button_replay.on_clicked(self.replay)
         self.button_one_back.on_clicked(self.one_backward)
         self.button_back.on_clicked(self.backward)
         self.button_stop.on_clicked(self.stop)
@@ -112,7 +114,7 @@ class Player(FuncAnimation):
 
     def play(self):
         while self.runs:
-            self.current_frame = self.current_frame+self.forwards-(not self.forwards)
+            self.current_frame = self.current_frame + self.forwards - (not self.forwards)
             if self.current_frame > self.min and self.current_frame < self.max:
                 yield self.current_frame
             else:
@@ -135,6 +137,10 @@ class Player(FuncAnimation):
         self.forwards = False
         self.start()
 
+    def replay(self, event=None):
+        self.draw_frame(0)
+        self.forward()
+
     def one_forward(self, event=None):
         self.forwards = True
         self.one_step()
@@ -145,29 +151,32 @@ class Player(FuncAnimation):
 
     def one_step(self):
         if self.current_frame > self.min and self.current_frame < self.max:
-            self.current_frame = self.current_frame+self.forwards-(not self.forwards)
+            self.draw_frame(self.current_frame + self.forwards - (not self.forwards))
         elif self.current_frame == self.min and self.forwards:
-            self.current_frame+=1
+            self.draw_frame(self.current_frame + 1)
         elif self.current_frame == self.max and not self.forwards:
-            self.current_frame-=1
-        self.func(self.current_frame)
-        self.slider.set_val(self.current_frame)
+            self.draw_frame(self.current_frame - 1)
+
+    def set_pos(self, val):
+        self.draw_frame(int(self.slider.val))
+
+    def update(self, val):
+        self.slider.set_val(val)
+
+    def draw_frame(self, frame):
+        self.current_frame = frame
+        self.func(frame)
+        self.slider.set_val(frame)
         self.fig.canvas.draw_idle()
-
-    def set_pos(self, i):
-        self.current_frame = int(self.slider.val)
-        self.func(self.current_frame)
-
-    def update(self, i):
-        self.slider.set_val(i)
 
 
 class Video():
-    def __init__(self, path, fps=5, loop_delay=2):
+    def __init__(self, path, fps=4):
         # load scene from file
         fig = plt.figure()
-        fig.canvas.set_window_title('Viam Visualizer')
-        ax = Axes3D(fig)
+        fig.canvas.manager.set_window_title('Viam Visualizer')
+        ax = Axes3D(fig, auto_add_to_figure=False)
+        fig.add_axes(ax)
         with open(path) as file:
             self.frames = json.load(file)
         self.scene = Scene(ax, self.frames[0])
