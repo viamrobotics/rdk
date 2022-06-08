@@ -24,7 +24,6 @@ build-web: buf-web
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
-		github.com/bufbuild/buf/cmd/buf \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-lint \
 		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
@@ -33,11 +32,13 @@ tool-install:
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
 		github.com/edaniels/golinters/cmd/combined \
 		github.com/golangci/golangci-lint/cmd/golangci-lint
+	GOBIN=`pwd`/$(TOOL_BIN) go install github.com/bufbuild/buf/cmd/buf@v1.4.0
 
 buf: buf-go buf-web
 
 buf-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s format -w
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s generate
 
 buf-web: tool-install
@@ -50,7 +51,8 @@ buf-web: tool-install
 lint: lint-go lint-web
 
 lint-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) buf lint
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
+	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s format -w
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
