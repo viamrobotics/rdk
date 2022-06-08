@@ -2,7 +2,6 @@
 package register
 
 import (
-
 	// for boards.
 	_ "go.viam.com/rdk/component/board/arduino"
 	_ "go.viam.com/rdk/component/board/fake"

@@ -143,8 +143,7 @@ func (c *client) RegisterControlCallback(ctx context.Context, control Control, t
 		c.callbacks = make(map[Control]map[EventType]ControlFunction)
 	}
 
-	_, ok := c.callbacks[control]
-	if !ok {
+	if _, ok := c.callbacks[control]; !ok {
 		c.callbacks[control] = make(map[EventType]ControlFunction)
 	}
 

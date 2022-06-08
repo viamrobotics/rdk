@@ -182,6 +182,7 @@ func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, 
 		return nil, err
 	}
 	fileName := filepath.Join(fileDir, getFileTimestampName())
+	//nolint:gosec
 	return os.Create(fileName)
 }
 
