@@ -211,7 +211,7 @@ func TestGeneralNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		svc, err := createSLAMService(t, attrCfg, logger, false)
-		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, errors.New("error with slam service slam process:"))
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
 
 		if svc != nil {
 			svc.Close()
@@ -232,7 +232,7 @@ func TestGeneralNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		svc, err := createSLAMService(t, attrCfg, logger, false)
-		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, errors.New("error with slam service slam process:"))
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
 
 		if svc != nil {
 			svc.Close()
@@ -626,7 +626,7 @@ func TestSLAMProcessFail(t *testing.T) {
 
 		cmd, err := slamSvc.StartSLAMProcess(cancelCtx)
 		test.That(t, cmd, test.ShouldResemble, []string{})
-		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, errors.New("problem adding slam process:"))
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "problem adding slam process:")
 
 		cancelFunc()
 
