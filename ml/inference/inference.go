@@ -1,8 +1,6 @@
 // package inference allows users to do inference through tflite (tf, pytorch, etc in the future)
 package inference
 
-// #cgo LDFLAGS: -L/Users/alexiswei/Documents/repos/tensorflow/bazel-bin/tensorflow/lite/c
-// #cgo CFLAGS: -I/Users/alexiswei/Documents/repos/tensorflow/
 import "C"
 import (
 	"github.com/pkg/errors"
