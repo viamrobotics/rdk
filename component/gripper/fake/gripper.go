@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 

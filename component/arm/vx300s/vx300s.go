@@ -3,7 +3,6 @@ package vx300s
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"
