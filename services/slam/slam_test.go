@@ -8,23 +8,29 @@ import (
 	"fmt"
 	"image"
 	"io/ioutil"
+	"math"
+	"net"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal"
+	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -63,6 +69,14 @@ func closeOutSLAMService(t *testing.T, name string) {
 	}
 
 	deleteFakeSLAMLibraries()
+}
+
+func setupTestGRPCServer(port string) *grpc.Server {
+	listener2, _ := net.Listen("tcp", "localhost:"+port)
+	gServer2 := grpc.NewServer()
+	go gServer2.Serve(listener2)
+
+	return gServer2
 }
 
 func setupInjectRobot() *inject.Robot {
@@ -159,13 +173,16 @@ func TestGeneralNew(t *testing.T) {
 			Sensors:       []string{},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
+			Port:          "4445",
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, logger, true)
 		test.That(t, err, test.ShouldBeNil)
 
+		grpcServer.Stop()
 		if svc != nil {
 			svc.Close()
 		}
@@ -227,6 +244,7 @@ func TestGeneralNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    100,
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -255,13 +273,16 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    100,
+			Port:          "4445",
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, logger, true)
 		test.That(t, err, test.ShouldBeNil)
 
+		grpcServer.Stop()
 		if svc != nil {
 			svc.Close()
 		}
@@ -274,6 +295,7 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    100,
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -294,6 +316,7 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    100,
+			Port:          "4445",
 		}
 
 		// Create slam service
@@ -323,13 +346,16 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
 			DataRateMs:    100,
+			Port:          "4445",
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, logger, true)
 		test.That(t, err, test.ShouldBeNil)
 
+		grpcServer.Stop()
 		if svc != nil {
 			svc.Close()
 		}
@@ -342,13 +368,16 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    100,
+			Port:          "4445",
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, logger, true)
 		test.That(t, err, test.ShouldBeNil)
 
+		grpcServer.Stop()
 		if svc != nil {
 			svc.Close()
 		}
@@ -410,13 +439,16 @@ func TestCartographerDataProcess(t *testing.T) {
 		ConfigParams:  map[string]string{"mode": "2d"},
 		DataDirectory: name,
 		DataRateMs:    dataRateMs,
+		Port:          "4445",
 	}
 
 	// Create slam service
 	logger, obs := golog.NewObservedTestLogger(t)
+	grpcServer := setupTestGRPCServer(attrCfg.Port)
 	svc, err := createSLAMService(t, attrCfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 
+	grpcServer.Stop()
 	if svc != nil {
 		svc.Close()
 	}
@@ -474,13 +506,16 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		ConfigParams:  map[string]string{"mode": "mono"},
 		DataDirectory: name,
 		DataRateMs:    dataRateMs,
+		Port:          "4445",
 	}
 
 	// Create slam service
 	logger, obs := golog.NewObservedTestLogger(t)
+	grpcServer := setupTestGRPCServer(attrCfg.Port)
 	svc, err := createSLAMService(t, attrCfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 
+	grpcServer.Stop()
 	if svc != nil {
 		svc.Close()
 	}
@@ -529,6 +564,50 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	closeOutSLAMService(t, name)
 }
 
+func TestGetMapAndPosition(t *testing.T) {
+	name, err := createTempFolderArchitecture(true)
+	test.That(t, err, test.ShouldBeNil)
+
+	createFakeSLAMLibraries()
+
+	attrCfg := &slam.AttrConfig{
+		Algorithm:        "fake_orbslamv3",
+		Sensors:          []string{"good_camera"},
+		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory:    name,
+		MapRateSec:       200,
+		DataRateMs:       100,
+		InputFilePattern: "10:200:1",
+		Port:             "4445",
+	}
+
+	// Create slam service
+	logger := golog.NewTestLogger(t)
+	grpcServer := setupTestGRPCServer(attrCfg.Port)
+	svc, err := createSLAMService(t, attrCfg, logger, true)
+	test.That(t, err, test.ShouldBeNil)
+
+	p, err := svc.GetPosition(context.Background(), "hi")
+	test.That(t, p, test.ShouldBeNil)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
+
+	pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	cp := referenceframe.NewPoseInFrame("frame", pose)
+
+	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true)
+	test.That(t, mimeType, test.ShouldResemble, "")
+	test.That(t, im, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldBeNil)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM map")
+
+	grpcServer.Stop()
+	if svc != nil {
+		svc.Close()
+	}
+
+	closeOutSLAMService(t, name)
+}
+
 func TestSLAMProcessSuccess(t *testing.T) {
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
@@ -543,10 +622,12 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		MapRateSec:       200,
 		DataRateMs:       100,
 		InputFilePattern: "10:200:1",
+		Port:             "4445",
 	}
 
 	// Create slam service
 	logger := golog.NewTestLogger(t)
+	grpcServer := setupTestGRPCServer(attrCfg.Port)
 	svc, err := createSLAMService(t, attrCfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -578,6 +659,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	grpcServer.Stop()
 	if svc != nil {
 		svc.Close()
 		slamSvc.Close()
@@ -600,10 +682,12 @@ func TestSLAMProcessFail(t *testing.T) {
 		MapRateSec:       200,
 		DataRateMs:       100,
 		InputFilePattern: "10:200:1",
+		Port:             "4445",
 	}
 
 	// Create slam service
 	logger := golog.NewTestLogger(t)
+	grpcServer := setupTestGRPCServer(attrCfg.Port)
 	svc, err := createSLAMService(t, attrCfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -634,8 +718,38 @@ func TestSLAMProcessFail(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	grpcServer.Stop()
 	if svc != nil {
 		slamSvc.Close()
+		svc.Close()
+	}
+
+	closeOutSLAMService(t, name)
+}
+
+func TestGRPCConnection(t *testing.T) {
+	name, err := createTempFolderArchitecture(true)
+	test.That(t, err, test.ShouldBeNil)
+
+	createFakeSLAMLibraries()
+
+	attrCfg := &slam.AttrConfig{
+		Algorithm:        "fake_orbslamv3",
+		Sensors:          []string{"good_camera"},
+		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory:    name,
+		MapRateSec:       200,
+		DataRateMs:       100,
+		InputFilePattern: "10:200:1",
+		Port:             "-1",
+	}
+
+	// Create slam service
+	logger := golog.NewTestLogger(t)
+	svc, err := createSLAMService(t, attrCfg, logger, false)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with initial grpc client to slam algorithm")
+
+	if svc != nil {
 		svc.Close()
 	}
 
