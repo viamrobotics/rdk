@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -363,11 +364,16 @@ func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncServic
 	if _, err = f.Seek(0, 0); err != nil {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
-	if _, err = readNextSensorData(f); err != nil {
+	isBinaryData := true
+	if _, isBinaryData, err = readNextSensorDataInitial(f); err != nil {
 		return v1.DataType_DATA_TYPE_FILE, nil
 	}
 	// THIS LOGIC NEEDS TO BE RE-THOUGHT THROUGH
-	return v1.DataType_DATA_TYPE_BINARY_SENSOR, nil
+	if isBinaryData {
+		return v1.DataType_DATA_TYPE_BINARY_SENSOR, nil
+	}
+	return v1.DataType_DATA_TYPE_TABULAR_SENSOR, nil
+
 }
 
 func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
@@ -439,6 +445,18 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+func readNextSensorDataInitial(f *os.File) (*v1.SensorData, bool, error) {
+	isBinary := true
+	r := &v1.SensorData{}
+	if _, err := pbutil.ReadDelimited(f, r); err != nil {
+		return nil, isBinary, err
+	}
+	if reflect.TypeOf(r.GetStruct()) == reflect.TypeOf((&v1.SensorData{}).GetStruct()) {
+		return r, !isBinary, nil
+	}
+	return r, isBinary, nil
 }
 
 func readNextFileData(f *os.File) (*v1.FileData, error) {
