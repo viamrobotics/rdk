@@ -313,7 +313,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		stream, err := svc.streamServer.Server.NewStream(config)
 
 		// Skip if stream is already registered, otherwise raise any other errors
-		var registeredError *gostream.ErrStreamAlreadyRegistered
+		var registeredError *gostream.StreamAlreadyRegisteredError
 		if errors.As(err, &registeredError) {
 			svc.logger.Warn(registeredError.Error())
 			continue
