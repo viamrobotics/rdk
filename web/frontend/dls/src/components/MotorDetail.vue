@@ -35,7 +35,7 @@
                 <p class="text-xs pb-2">Set Power</p>
                 <RadioButtons
                   :options="
-                    motorStatus.positionReporting ? ['Go', 'Go To', 'Go For'] : ['Go']
+                    motorStatus.positionReporting ? ['Go', 'Go For', 'Go To'] : ['Go']
                   "
                   defaultOption="Go"
                   :disabledOptions="[]"
@@ -48,7 +48,7 @@
                   <viam-info-button
                     class="pb-2"
                     :iconPath="mdiInformation"
-                    :infoRows="infoGoTo"
+                    :infoRows="['Relative to Home']"
                   >
                   </viam-info-button>
                 </div>
@@ -63,15 +63,6 @@
                 >
                   <span class="text-xs">Position in Revolutions</span>
                 </ViamInput>
-                <div class="column pr-4">
-                  <p class="text-xs mb-1">Direction of Rotation</p>
-                  <RadioButtons
-                    :options="['Forwards', 'Backwards']"
-                    defaultOption="Forwards"
-                    :disabledOptions="[]"
-                    v-on:selectOption="setDirection($event)"
-                  />
-                </div>
                 <ViamInput
                   type="number"
                   color="primary"
@@ -90,7 +81,7 @@
                   <viam-info-button
                     class="pb-2"
                     :iconPath="mdiInformation"
-                    :infoRows="infoGoFor"
+                    :infoRows="['Relative to where the robot is currently']"
                   >
                   </viam-info-button>
                 </div>
@@ -132,7 +123,7 @@
                   <viam-info-button
                     class="pb-2"
                     :iconPath="mdiInformation"
-                    :infoRows="infoGo"
+                    :infoRows="['Continously moves']"
                   >
                   </viam-info-button>
                 </div>
@@ -223,9 +214,6 @@ export default class MotorDetail extends Vue {
   mdiCloseOctagonOutline = mdiCloseOctagonOutline;
   mdiInformation = mdiAlertOctagonOutline;
   maxHeight = 500;
-  infoGo = ["Continously moves"];
-  infoGoTo = ["Relative to Home"];
-  infoGoFor = ["Relative to where robot is currently is"];
   movementType = "Go";
   direction: -1 | 1 = 1;
   position = 0;
