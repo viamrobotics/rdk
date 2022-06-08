@@ -137,6 +137,12 @@ func TestLoadTFLiteStruct(t *testing.T) {
 	test.That(t, tfStruct, test.ShouldBeNil)
 }
 
+func TestMetadataReader(t *testing.T) {
+	val, err := getTFLiteMetadataBytes(badPath)
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, val, test.ShouldBeNil)
+}
+
 func modelLoader(path string) *tflite.Model {
 	if path == badPath {
 		return nil
