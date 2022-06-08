@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/config"
 )
 
+// TODO: make edits to this package in order to install the tflite c api onto viam image
 type MLModel interface {
 	// Infer takes an already ordered input tensor as an array,
 	// and makes an inference on the model, returning an output tensor map

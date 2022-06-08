@@ -211,6 +211,8 @@ func (model *TFLiteStruct) Infer(inputTensor interface{}) ([]interface{}, error)
 			buf = make([]complex64, currTensor.ByteSize()/8)
 			currTensor.CopyToBuffer(buf)
 		case tflite.String, tflite.NoType:
+			// TODO: find a model that outputs tflite.String to test
+			// if there is a better solution than this
 			buf = make([]byte, currTensor.ByteSize())
 			currTensor.CopyToBuffer(buf)
 		default:
