@@ -15,7 +15,7 @@ type DataManagerService struct {
 	) error
 }
 
-// Move calls the injected Move or the real variant.
+// Sync calls the injected Sync or the real variant.
 func (svc *DataManagerService) Sync(
 	ctx context.Context,
 ) error {

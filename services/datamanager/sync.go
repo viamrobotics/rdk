@@ -92,7 +92,9 @@ func (s *syncer) Enqueue(filesToQueue []string) error {
 
 // Upload uploads files that are in the SyncQueue directory to the cloud when called.
 func (s *syncer) Upload() {
-	filepath.WalkDir(s.syncQueue, s.upload)
+	if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
+		s.logger.Errorf("failed to upload file to sync queue: %v", err)
+	}
 }
 
 // Start queues any files already in captureDir that haven't been modified in s.queueWaitTime time, and kicks off a
