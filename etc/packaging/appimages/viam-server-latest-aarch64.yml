@@ -7,8 +7,8 @@ script:
  - mkdir -p "$APPDIR/usr/share/icons/viam/256x256/apps/"
  - cp ./viam-server.png "$APPDIR/usr/share/icons/viam/256x256/apps/viam-server.png"
  - mkdir -p "$APPDIR/aix.d/"
- - cp ./install "$APPDIR/aix.d/install"
- - chmod 755 "$APPDIR/aix.d/install"
+ - cp ./install ./postupdate "$APPDIR/aix.d/"
+ - chmod 755 "$APPDIR/aix.d/install" "$APPDIR/aix.d/postupdate"
  - cp ./viam-server.service "$APPDIR/"
  - go install github.com/Otterverse/aix@latest
  - cp `go env GOPATH`/bin/aix "$APPDIR/usr/bin/"

@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-
 	// trigger registrations.
 	_ "go.viam.com/rdk/robot/impl"
 )
@@ -82,6 +81,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			var printTypeInfo func(t reflect.Type, indent int)
 			printTypeInfo = func(t reflect.Type, indent int) {
 				indentStr := strings.Repeat("\t", indent)
+
 				switch t.Kind() {
 				case reflect.Ptr:
 					fmt.Fprintf(os.Stdout, "(optional) ")
