@@ -5,7 +5,6 @@ import (
 	"context"
 
 	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -38,12 +37,11 @@ func (server *subtypeServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
-	success, err := svc.Sync(
+	err = svc.Sync(
 		ctx,
-		protoutils.ResourceNameFromProto(req.GetName()),
 	)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.SyncResponse{Success: success}, nil
+	return &pb.SyncResponse{}, nil
 }

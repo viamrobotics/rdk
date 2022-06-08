@@ -9,8 +9,6 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
 )
 
 // client is a client that satisfies the data_manager.proto contract.
@@ -51,12 +49,10 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) Sync(ctx context.Context, name resource.Name) (bool, error) {
-	resp, err := c.client.Sync(ctx, &pb.SyncRequest{
-		Name: protoutils.ResourceNameToProto(name),
-	})
+func (c *client) Sync(ctx context.Context) error {
+	_, err := c.client.Sync(ctx, &pb.SyncRequest{})
 	if err != nil {
-		return false, err
+		return err
 	}
-	return resp.Success, nil
+	return nil
 }

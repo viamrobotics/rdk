@@ -3,7 +3,6 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 )
 
@@ -13,17 +12,15 @@ type DataManagerService struct {
 	datamanager.Service
 	SyncFunc func(
 		ctx context.Context,
-		componentName resource.Name,
-	) (bool, error)
+	) error
 }
 
 // Move calls the injected Move or the real variant.
 func (svc *DataManagerService) Sync(
 	ctx context.Context,
-	componentName resource.Name,
-) (bool, error) {
+) error {
 	if svc.SyncFunc == nil {
-		return svc.Service.Sync(ctx, componentName)
+		return svc.Service.Sync(ctx)
 	}
-	return svc.SyncFunc(ctx, componentName)
+	return svc.SyncFunc(ctx)
 }
