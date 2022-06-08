@@ -22,6 +22,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
+	"go.uber.org/multierr"
 	"go.viam.com/rdk/resource"
 )
 
@@ -449,6 +450,14 @@ func Read(
 	return FromReader(ctx, filePath, bytes.NewReader(buf), logger)
 }
 
+type parsingError struct {
+	wrapped error
+}
+
+func (e parsingError) Error() string {
+	return e.wrapped.Error()
+}
+
 // FromReader reads a config from the given reader and specifies
 // where, if applicable, the file the reader originated from.
 func FromReader(
@@ -458,6 +467,15 @@ func FromReader(
 	logger golog.Logger,
 ) (*Config, error) {
 	cfg, _, err := fromReader(ctx, originalPath, r, false, logger)
+
+	var parsingErr *parsingError
+	if errors.As(err, parsingErr) {
+		if deleteErr := os.Remove(originalPath); deleteErr != nil {
+			return cfg, multierr.Combine(deleteErr, err)
+		}
+		logger.Infow("deleted unparseable cached config", "path", originalPath)
+	}
+
 	return cfg, err
 }
 
@@ -480,10 +498,10 @@ func fromReader(
 		return nil, nil, err
 	}
 	if err := json.Unmarshal(rd, &cfg); err != nil {
-		return nil, nil, errors.Wrap(err, "cannot parse config")
+		return nil, nil, &parsingError{errors.Wrap(err, "cannot parse config")}
 	}
 	if err := json.Unmarshal(rd, &unprocessedConfig); err != nil {
-		return nil, nil, errors.Wrap(err, "cannot parse config")
+		return nil, nil, &parsingError{errors.Wrap(err, "cannot parse config")}
 	}
 	if err := cfg.Ensure(skipCloud); err != nil {
 		return nil, nil, err
