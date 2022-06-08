@@ -100,7 +100,7 @@ func (s *syncer) Upload() {
 func (s *syncer) Start() {
 	// First, move any files in captureDir to queue.
 	s.queueLock.Lock()
-	if err := filepath.WalkDir(captureDir, s.queueFile); err != nil {
+	if err := filepath.WalkDir(s.captureDir, s.queueFile); err != nil {
 		s.logger.Errorf("failed to move files to sync queue: %v", err)
 	}
 	s.queueLock.Unlock()
