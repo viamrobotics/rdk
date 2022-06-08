@@ -228,10 +228,7 @@ func TestGeneralNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		svc, err := createSLAMService(t, attrCfg, logger, false)
-		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("error with slam service slam process: problem starting slam process: "+
-				"error running process \"%v\": fork/exec : no such file or directory",
-				slam.SLAMLibraries[attrCfg.Algorithm].BinaryLocation))
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
 
 		if svc != nil {
 			svc.Close()
@@ -253,10 +250,7 @@ func TestGeneralNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		svc, err := createSLAMService(t, attrCfg, logger, false)
-		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("error with slam service slam process: problem starting slam process: "+
-				"error running process \"%v\": fork/exec : no such file or directory",
-				slam.SLAMLibraries[attrCfg.Algorithm].BinaryLocation))
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
 
 		if svc != nil {
 			svc.Close()
@@ -714,11 +708,9 @@ func TestSLAMProcessFail(t *testing.T) {
 			BinaryLocation: "fail",
 		}
 
-		errCheck := fmt.Sprintf("\"%v\": executable file not found in $PATH", "fail")
 		cmd, err := slamSvc.StartSLAMProcess(cancelCtx)
 		test.That(t, cmd, test.ShouldResemble, []string{})
-		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("problem adding slam process: error running process \"%v\": exec: %v", "fail", errCheck))
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "problem adding slam process:")
 
 		cancelFunc()
 
