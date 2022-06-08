@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 
@@ -28,7 +27,9 @@ func init() {
 				return nil, err
 			}
 
-			return &Gripper{Name: config.Name, model: model}, nil
+			var g gripper.Gripper = &Gripper{Name: config.Name, model: model}
+
+			return g, nil
 		},
 	})
 }
@@ -53,4 +54,9 @@ func (g *Gripper) Open(ctx context.Context) error {
 // Grab does nothing.
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return false, nil
+}
+
+// Stop doesn't do anything for a fake gripper.
+func (g *Gripper) Stop(ctx context.Context) error {
+	return nil
 }

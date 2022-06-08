@@ -74,7 +74,7 @@ func createControlLoop(logger golog.Logger, cfg ControlConfig, m Controllable) (
 		for _, dep := range b.blk.Config(c.cancelCtx).DependsOn {
 			blockDep, ok := c.blocks[dep]
 			if !ok {
-				return nil, errors.Errorf("block %s depends on %s but it doesn't exists!", b.blk.Config(c.cancelCtx).Name, dep)
+				return nil, errors.Errorf("block %s depends on %s but it does not exist", b.blk.Config(c.cancelCtx).Name, dep)
 			}
 			blockDep.outs = append(blockDep.outs, make(chan []Signal))
 			b.ins = append(b.ins, blockDep.outs[len(blockDep.outs)-1])

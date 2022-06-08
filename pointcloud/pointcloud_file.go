@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/lidario"
 	"github.com/golang/geo/r3"
-	"github.com/jblindsay/lidario"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -415,7 +415,7 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 		buf := make([]byte, 16)
 		for {
 			read, err := in.Read(buf)
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
