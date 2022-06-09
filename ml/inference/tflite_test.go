@@ -80,10 +80,6 @@ func TestLoadModel(t *testing.T) {
 	test.That(t, outTensors, test.ShouldNotBeNil)
 	test.That(t, len(outTensors), test.ShouldEqual, 4)
 
-	meta, err := tfliteStruct.GetMetadata()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, meta, test.ShouldNotBeNil)
-	test.That(t, meta.SubgraphMetadata[0].OutputTensorGroups[0].TensorNames, test.ShouldResemble, []string{"location", "category", "score"})
 	tfliteStruct.Close()
 }
 
@@ -143,6 +139,21 @@ func TestBadInterpreter(t *testing.T) {
 	test.That(t, tfStruct, test.ShouldBeNil)
 }
 
+func TestHasMetadata(t *testing.T) {
+	tfliteModelPath := basePath + "/testing_files/model_with_metadata.tflite"
+	loader, err := NewDefaultTFLiteModelLoader()
+	test.That(t, err, test.ShouldBeNil)
+	tfliteStruct, err := loader.Load(tfliteModelPath)
+	test.That(t, tfliteStruct, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	meta, err := tfliteStruct.GetMetadata()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, meta, test.ShouldNotBeNil)
+	test.That(t, meta.SubgraphMetadata[0].OutputTensorGroups[0].TensorNames, test.ShouldResemble, []string{"location", "category", "score"})
+
+	tfliteStruct.Close()
+}
 func TestNoMetadata(t *testing.T) {
 	tfliteModelPath := basePath + "/testing_files/fizzbuzz_model.tflite"
 	loader, err := NewDefaultTFLiteModelLoader()
@@ -152,8 +163,10 @@ func TestNoMetadata(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	fizzMeta, err := tfliteStruct.GetMetadata()
-	test.That(t, err, test.ShouldBeError, DoesNotExistError("metadata"))
+	test.That(t, err, test.ShouldBeError, MetadataDoesNotExistError())
 	test.That(t, fizzMeta, test.ShouldBeNil)
+
+	tfliteStruct.Close()
 }
 
 func modelLoader(path string) *tflite.Model {
