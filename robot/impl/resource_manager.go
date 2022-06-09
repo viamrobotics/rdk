@@ -469,6 +469,36 @@ func (manager *resourceManager) updateServices(ctx context.Context,
 	return nil
 }
 
+func (manager *resourceManager) markChildrenForUpdate(ctx context.Context, rName resource.Name, r *draftRobot) error {
+	sg, err := manager.resources.SubGraphFrom(rName)
+	if err != nil {
+		return err
+	}
+	sorted := sg.TopologicalSort()
+	for _, x := range sorted {
+		var originalConfig config.Component
+		if _, ok := manager.resources.Nodes[x].(*resourceUpdateWrapper); ok {
+			continue
+		}
+		for _, c := range r.original.config.Components {
+			if c.ResourceName() == x {
+				originalConfig = c
+			}
+		}
+		if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
+			return err
+		}
+		wrapper := &resourceUpdateWrapper{
+			real:       nil,
+			config:     originalConfig,
+			isAdded:    true,
+			isModified: false,
+		}
+		manager.resources.Nodes[x] = wrapper
+	}
+	return nil
+}
+
 func (manager *resourceManager) updateComponent(ctx context.Context,
 	rName resource.Name,
 	conf config.Component,
@@ -484,31 +514,8 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 	case config.None:
 		return nil
 	case config.Reconfigure:
-		sg, err := manager.resources.SubGraphFrom(rName)
-		if err != nil {
+		if err := manager.markChildrenForUpdate(ctx, rName, r); err != nil {
 			return err
-		}
-		sorted := sg.TopologicalSort()
-		for _, x := range sorted {
-			var originalConfig config.Component
-			if _, ok := manager.resources.Nodes[x].(*resourceUpdateWrapper); ok {
-				continue
-			}
-			for _, c := range r.original.config.Components {
-				if c.ResourceName() == x {
-					originalConfig = c
-				}
-			}
-			if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
-				return err
-			}
-			wrapper := &resourceUpdateWrapper{
-				real:       nil,
-				config:     originalConfig,
-				isAdded:    true,
-				isModified: false,
-			}
-			manager.resources.Nodes[x] = wrapper
 		}
 		nr, err := r.newResource(ctx, conf)
 		if err != nil {
@@ -520,31 +527,8 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 		}
 		manager.resources.Nodes[rName] = rr
 	case config.Rebuild:
-		sg, err := manager.resources.SubGraphFrom(rName)
-		if err != nil {
+		if err := manager.markChildrenForUpdate(ctx, rName, r); err != nil {
 			return err
-		}
-		sorted := sg.TopologicalSort()
-		for _, x := range sorted {
-			var originalConfig config.Component
-			if _, ok := manager.resources.Nodes[x].(*resourceUpdateWrapper); ok {
-				continue
-			}
-			for _, c := range r.original.config.Components {
-				if c.ResourceName() == x {
-					originalConfig = c
-				}
-			}
-			if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
-				return err
-			}
-			wrapper := &resourceUpdateWrapper{
-				real:       nil,
-				config:     originalConfig,
-				isAdded:    true,
-				isModified: false,
-			}
-			manager.resources.Nodes[x] = wrapper
 		}
 		if err := utils.TryClose(ctx, old); err != nil {
 			return err
