@@ -297,6 +297,15 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	cfg, err := config.Read(initialReadCtx, argsParsed.ConfigFile, logger)
 	if err != nil {
+		var parsingErr *config.ParsingError
+		if errors.As(err, parsingErr) {
+			if deleteErr := os.Remove(argsParsed.ConfigFile); deleteErr != nil {
+				err = multierr.Combine(deleteErr, err)
+			} else {
+				logger.Info("deleted unparseable cached config")
+			}
+		}
+
 		cancel()
 		return err
 	}
