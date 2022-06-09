@@ -222,10 +222,17 @@ func TestStop(t *testing.T) {
 	// Start capturing again.
 	c.Start()
 	time.Sleep(time.Millisecond * 25)
-	c.Close()
+	c.Stop()
 
 	// Assert that capture restarted and wrote to file after the last stop.
-	test.That(t, getFileSize(target1), test.ShouldBeGreaterThan, fileSize)
+	newFileSize := getFileSize(target1)
+	test.That(t, newFileSize, test.ShouldBeGreaterThan, fileSize)
+
+	// Assert that capture is no longer being called.
+	time.Sleep(time.Millisecond * 25)
+	test.That(t, getFileSize(target1), test.ShouldEqual, newFileSize)
+
+	c.Close()
 }
 
 func TestSetTarget(t *testing.T) {
