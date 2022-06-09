@@ -109,8 +109,8 @@ func (a *Arm) Close() {
 	a.CloseCount++
 }
 
-// ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
-// See config.ShouldUpdateAction for more information.
-func (a *Arm) ShouldUpdate(cfg *config.Component) config.ShouldUpdateAction {
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (a *Arm) UpdateAction(cfg *config.Component) config.UpdateActionType {
 	return config.Reconfigure
 }

@@ -478,7 +478,7 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 	obj, canValidate := old.(config.CompononentUpdate)
 	res := config.Rebuild
 	if canValidate {
-		res = obj.ShouldUpdate(&conf)
+		res = obj.UpdateAction(&conf)
 	}
 	switch res {
 	case config.None:

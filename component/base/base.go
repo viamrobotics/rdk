@@ -182,10 +182,10 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 	return nil
 }
 
-func (r *reconfigurableBase) ShouldUpdate(c *config.Component) config.ShouldUpdateAction {
+func (r *reconfigurableBase) UpdateAction(c *config.Component) config.UpdateActionType {
 	obj, canUpdate := r.actual.(config.CompononentUpdate)
 	if canUpdate {
-		return obj.ShouldUpdate(c)
+		return obj.UpdateAction(c)
 	}
 	return config.Reconfigure
 }
