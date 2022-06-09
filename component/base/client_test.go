@@ -36,16 +36,9 @@ func setupWorkingBase(
 		return nil
 	}
 
-	workingBase.MoveArcFunc = func(
-		ctx context.Context, distanceMm int,
-		mmPerSec, angleDeg float64,
-	) error {
-		argsReceived["MoveArc"] = []interface{}{distanceMm, mmPerSec, angleDeg}
-		return nil
-	}
-
 	workingBase.SpinFunc = func(
-		ctx context.Context, angleDeg, degsPerSec float64) error {
+		ctx context.Context, angleDeg, degsPerSec float64,
+	) error {
 		argsReceived["Spin"] = []interface{}{angleDeg, degsPerSec}
 		return nil
 	}
@@ -65,12 +58,6 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	brokenBase.MoveStraightFunc = func(
 		ctx context.Context,
 		distanceMm int, mmPerSec float64,
-	) error {
-		return errors.New(errMsg)
-	}
-	brokenBase.MoveArcFunc = func(
-		ctx context.Context, distanceMm int,
-		mmPerSec, angleDeg float64,
 	) error {
 		return errors.New(errMsg)
 	}
@@ -161,19 +148,12 @@ func TestClient(t *testing.T) {
 		workingBaseClient2, ok := client.(base.Base)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		distance := 42
-		mmPerSec := 42.0
 		degsPerSec := 42.0
 		angleDeg := 30.0
 
-		expectedArgs := []interface{}{distance, mmPerSec, angleDeg}
-		err = workingBaseClient2.MoveArc(context.Background(), distance, mmPerSec, angleDeg)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, argsReceived["MoveArc"], test.ShouldResemble, expectedArgs)
-
 		err = workingBaseClient2.Spin(context.Background(), angleDeg, degsPerSec)
 		test.That(t, err, test.ShouldBeNil)
-		expectedArgs = []interface{}{angleDeg, degsPerSec}
+		expectedArgs := []interface{}{angleDeg, degsPerSec}
 		test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -184,9 +164,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		err = failingBaseClient.MoveStraight(context.Background(), 42, 42.0)
-		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
-
-		err = failingBaseClient.MoveArc(context.Background(), 42, 42.0, 42.0)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
 		err = failingBaseClient.Spin(context.Background(), 42.0, 42.0)

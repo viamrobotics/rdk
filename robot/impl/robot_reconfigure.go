@@ -21,7 +21,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if diff.ResourcesEqual {
 		return nil
 	}
-	r.logger.Debugf("reconfiguring with %s", diff)
+	r.logger.Debugf("reconfiguring with %+v", diff)
 	draft := newDraftRobot(r, diff)
 	err = draft.ProcessAndCommit(ctx)
 	if err != nil {
@@ -32,7 +32,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err := r.updateDefaultServices(ctx); err != nil {
 		return err
 	}
-
+	r.manager.updateResourceRemoteNames()
 	return nil
 }
 

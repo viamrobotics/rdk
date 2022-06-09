@@ -2,7 +2,6 @@
 package register
 
 import (
-
 	// for motors.
 	_ "go.viam.com/rdk/component/motor/dmc4000"
 	_ "go.viam.com/rdk/component/motor/ezopmp"

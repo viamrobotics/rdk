@@ -22,7 +22,7 @@ func debugImageSourceOrSkip(t *testing.T) {
 	t.Helper()
 	imageSourceTest := os.Getenv(debugImageSource)
 	if imageSourceTest == "" {
-		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugImageSource))
+		t.Skipf("set environmental variable %q to run this test", debugImageSource)
 	}
 }
 
