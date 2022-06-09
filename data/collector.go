@@ -168,7 +168,6 @@ func (c *collector) sleepBasedCapture() {
 		if !c.isCollecting {
 			captureWorkers.Wait()
 			close(c.queue)
-			c.queue = make(chan *v1.SensorData)
 			c.lock.Unlock()
 			return
 		}
@@ -209,7 +208,6 @@ func (c *collector) tickerBasedCapture() {
 		if !c.isCollecting {
 			captureWorkers.Wait()
 			close(c.queue)
-			c.queue = make(chan *v1.SensorData)
 			c.lock.Unlock()
 			return
 		}
