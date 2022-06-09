@@ -298,7 +298,7 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	cfg, err := config.Read(initialReadCtx, argsParsed.ConfigFile, logger)
 	if err != nil {
 		var parsingErr *config.ParsingError
-		if errors.As(err, parsingErr) {
+		if errors.As(err, &parsingErr) {
 			if deleteErr := os.Remove(argsParsed.ConfigFile); deleteErr != nil {
 				err = multierr.Combine(deleteErr, err)
 			} else {
