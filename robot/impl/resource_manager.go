@@ -23,10 +23,11 @@ import (
 
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
-	remotes        map[string]*remoteRobot
-	resources      *resource.Graph
-	processManager pexec.ProcessManager
-	opts           resourceManagerOptions
+	remotes             map[string]*remoteRobot
+	resources           *resource.Graph
+	processManager      pexec.ProcessManager
+	opts                resourceManagerOptions
+	resourceRemoteNames map[resource.Name]string
 }
 
 type resourceUpdateWrapper struct {
@@ -56,10 +57,11 @@ func newResourceManager(
 	logger golog.Logger,
 ) *resourceManager {
 	return &resourceManager{
-		remotes:        map[string]*remoteRobot{},
-		resources:      resource.NewGraph(),
-		processManager: pexec.NewProcessManager(logger),
-		opts:           opts,
+		remotes:             map[string]*remoteRobot{},
+		resources:           resource.NewGraph(),
+		processManager:      pexec.NewProcessManager(logger),
+		opts:                opts,
+		resourceRemoteNames: make(map[resource.Name]string),
 	}
 }
 
@@ -116,6 +118,35 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 	return manager.mergeResourceNamesWithRemotes(names)
 }
 
+// updateResourceRemoteNames populates the resourceRemoteNames map.
+func (manager *resourceManager) updateResourceRemoteNames() {
+	manager.resourceRemoteNames = make(map[resource.Name]string)
+	names := manager.ResourceNames()
+	for _, n := range names {
+		// skip local parts
+		if _, ok := manager.resources.Nodes[n]; ok {
+			continue
+		}
+		// skip if name clash
+		if _, err := manager.ResourceByName(n); err != nil {
+			continue
+		}
+		for remoteName, remote := range manager.remotes {
+			if _, err := remote.ResourceByName(n); err == nil {
+				manager.resourceRemoteNames[n] = remoteName
+				break
+			}
+		}
+	}
+}
+
+// remoteNameByResource returns the remote the resource is pulled from, if found.
+// False can mean either the resource doesn't exist or is local to the robot.
+func (manager *resourceManager) remoteNameByResource(resourceName resource.Name) (string, bool) {
+	name, ok := manager.resourceRemoteNames[resourceName]
+	return name, ok
+}
+
 // Clone provides a shallow copy of each part.
 func (manager *resourceManager) Clone() *resourceManager {
 	var clonedManager resourceManager
@@ -132,6 +163,12 @@ func (manager *resourceManager) Clone() *resourceManager {
 	}
 	if manager.processManager != nil {
 		clonedManager.processManager = manager.processManager.Clone()
+	}
+	if len(manager.resourceRemoteNames) != 0 {
+		clonedManager.resourceRemoteNames = make(map[resource.Name]string, len(manager.resourceRemoteNames))
+		for k, v := range manager.resourceRemoteNames {
+			clonedManager.resourceRemoteNames[k] = v
+		}
 	}
 	clonedManager.opts = manager.opts
 	return &clonedManager
