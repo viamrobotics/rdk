@@ -57,3 +57,12 @@ func (server *subtypeServer) GetPosition(
 	}
 	return &pb.GetPositionResponse{PositionDeg: uint32(angleDeg)}, nil
 }
+
+func (server *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.Name)
+	servo, err := server.getServo(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.StopResponse{}, servo.Stop(ctx)
+}

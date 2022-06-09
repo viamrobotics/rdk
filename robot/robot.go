@@ -8,13 +8,21 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 type Robot interface {
+	// DiscoverComponents returns discovered component configurations.
+	DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error)
+
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 
@@ -35,6 +43,20 @@ type Robot interface {
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
+
+	// FrameSystemConfig returns the individual parts that make up a robot's frame system
+	FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
+
+	// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+	TransformPose(
+		ctx context.Context,
+		pose *referenceframe.PoseInFrame,
+		dst string,
+		additionalTransforms []*commonpb.Transform,
+	) (*referenceframe.PoseInFrame, error)
+
+	// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+	GetStatus(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error
@@ -57,6 +79,28 @@ type LocalRobot interface {
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
+
+	// StartWeb starts the web server, will return an error if server is already up.
+	StartWeb(ctx context.Context, o weboptions.Options) error
+
+	// StopWeb stops the web server, will be a noop if server is not up.
+	StopWeb() error
+}
+
+// A RemoteRobot is a Robot that was created through a connection.
+type RemoteRobot interface {
+	Robot
+
+	// Connected returns whether the remote is connected or not.
+	Connected() bool
+}
+
+// Status holds a resource name and its corresponding status. Status is expected to be comprised of string keys
+// and values comprised of primitives, list of primitives, maps with string keys (or at least can be decomposed into one),
+// or lists of the forementioned type of maps. Results with other types of data are not guaranteed.
+type Status struct {
+	Name   resource.Name
+	Status interface{}
 }
 
 // AllResourcesByName returns an array of all resources that have this simple name.

@@ -71,10 +71,14 @@ type Gantry interface {
 
 	// MoveToPosition is in meters
 	// The worldState argument should be treated as optional by all implementing drivers
+	// This will block until done or a new operation cancels this one
 	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState) error
 
 	// GetLengths is the length of gantries in meters
 	GetLengths(ctx context.Context) ([]float64, error)
+
+	// Stop stops the gantry. It is assumed the gantry stops immediately.
+	Stop(ctx context.Context) error
 
 	generic.Generic
 	referenceframe.ModelFramer
@@ -170,6 +174,12 @@ func (g *reconfigurableGantry) MoveToPosition(
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.MoveToPosition(ctx, positionsMm, worldState)
+}
+
+func (g *reconfigurableGantry) Stop(ctx context.Context) error {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Stop(ctx)
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {

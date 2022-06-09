@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/camera"
@@ -22,11 +23,12 @@ func TestSegmenterMap(t *testing.T) {
 	}{}
 	fnName := "x"
 	segMap := make(segmenterMap)
+	testlog := golog.NewLogger("testlog")
 	// no segmenter
-	err := segMap.registerSegmenter(fnName, SegmenterRegistration{nil, []utils.TypedName{}})
+	err := segMap.registerSegmenter(fnName, SegmenterRegistration{nil, []utils.TypedName{}}, testlog)
 	test.That(t, err, test.ShouldNotBeNil)
 	// success
-	err = segMap.registerSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)})
+	err = segMap.registerSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)}, testlog)
 	test.That(t, err, test.ShouldBeNil)
 	// segmenter names
 	names := segMap.segmenterNames()
@@ -41,6 +43,6 @@ func TestSegmenterMap(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
 	test.That(t, creator, test.ShouldBeNil)
 	// duplicate
-	err = segMap.registerSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)})
-	test.That(t, err, test.ShouldNotBeNil)
+	err = segMap.registerSegmenter(fnName, SegmenterRegistration{fn, utils.JSONTags(params)}, testlog)
+	test.That(t, err, test.ShouldBeNil)
 }

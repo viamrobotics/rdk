@@ -35,6 +35,7 @@ func main() {
 // saveImageAsPng saves image as png in current directory.
 func saveImageAsPng(img image.Image, filename string) error {
 	path := ""
+	//nolint:gosec
 	f, err := os.Create(path + filename)
 	if err != nil {
 		return err
@@ -95,13 +96,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return err
 	}
 
-	rb, err := ros.ReadBag(argsParsed.RosbagFile, logger)
+	rb, err := ros.ReadBag(argsParsed.RosbagFile)
 	if err != nil {
 		return err
 	}
 
 	topics := []string{"/L515_ImageWithDepth"}
-	err = ros.WriteTopicsJSON(rb, 0, 0, topics, logger)
+	err = ros.WriteTopicsJSON(rb, 0, 0, topics)
 	if err != nil {
 		return err
 	}

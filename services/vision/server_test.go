@@ -8,6 +8,8 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	// register cameras for testing.
+	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/resource"
@@ -155,7 +157,8 @@ func TestServerObjectSegmentation(t *testing.T) {
 	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
 		cameraName string,
 		segmenterName string,
-		params config.AttributeMap) ([]*viz.Object, error) {
+		params config.AttributeMap,
+	) ([]*viz.Object, error) {
 		switch segmenterName {
 		case vision.RadiusClusteringSegmenter:
 			segments, err := segmentation.RadiusClustering(ctx, injCam, params)

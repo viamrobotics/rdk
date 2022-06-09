@@ -17,6 +17,8 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -49,11 +51,12 @@ func getPortMutex(port string) *sync.Mutex {
 type wx250s struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
+	opMgr    operation.SingleOperationManager
 	generic.Unimplemented
 }
 
 // newGripper TODO.
-func newGripper(attributes config.AttributeMap, logger golog.Logger) (*wx250s, error) {
+func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.Gripper, error) {
 	usbPort := attributes.String("usb_port")
 	jServo := findServo(usbPort, attributes.String("baud_rate"), logger)
 	err := jServo.SetTorqueEnable(true)
@@ -71,6 +74,8 @@ func (g *wx250s) GetMoveLock() *sync.Mutex {
 
 // Open TODO.
 func (g *wx250s) Open(ctx context.Context) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(150)
@@ -100,6 +105,8 @@ func (g *wx250s) Open(ctx context.Context) error {
 
 // Grab TODO.
 func (g *wx250s) Grab(ctx context.Context) (bool, error) {
+	_, done := g.opMgr.New(ctx)
+	defer done()
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(-350)
@@ -123,9 +130,20 @@ func (g *wx250s) Grab(ctx context.Context) (bool, error) {
 	return didGrab, nil
 }
 
+// Stop is unimplemented for wx250s.
+func (g *wx250s) Stop(ctx context.Context) error {
+	// RSDK-388: Implement Stop
+	return gripper.ErrStopUnimplemented
+}
+
 // Close closes the connection, not the gripper.
 func (g *wx250s) Close() error {
 	return g.jServo.SetTorqueEnable(false)
+}
+
+// ModelFrame is unimplemented for wx250s.
+func (g *wx250s) ModelFrame() referenceframe.Model {
+	return nil
 }
 
 // findServo finds the gripper numbered Dynamixel servo on the specified USB port
