@@ -361,8 +361,10 @@ func readFromCloud(
 			if errors.As(err, &parsingErr) {
 				if deleteErr := deleteCachedConfig(cloudCfg.ID); deleteErr != nil {
 					return nil, nil, multierr.Combine(deleteErr, err)
+				} else {
+					logger.Infow("deleted unparseable cached config", "error", err)
+					return nil, nil, err
 				}
-				logger.Info("deleted unparseable cached config")
 			} else if err != nil {
 				return nil, nil, err
 			}
