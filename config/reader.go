@@ -357,7 +357,7 @@ func readFromCloud(
 		if err == nil {
 			cachedConfig, _, err := fromReader(ctx, "", cachedConfigReader, true, logger)
 
-			var parsingErr *ParsingError
+			var parsingErr *parsingError
 			if errors.As(err, &parsingErr) {
 				if deleteErr := deleteCachedConfig(cloudCfg.ID); deleteErr != nil {
 					return nil, nil, multierr.Combine(deleteErr, err)
@@ -463,11 +463,11 @@ func Read(
 }
 
 // ParsingError is used when a configuration file cannot be parsed.
-type ParsingError struct {
+type parsingError struct {
 	wrapped error
 }
 
-func (e ParsingError) Error() string {
+func (e parsingError) Error() string {
 	return e.wrapped.Error()
 }
 
@@ -502,10 +502,10 @@ func fromReader(
 		return nil, nil, err
 	}
 	if err := json.Unmarshal(rd, &cfg); err != nil {
-		return nil, nil, &ParsingError{errors.Wrap(err, "cannot parse config")}
+		return nil, nil, &parsingError{errors.Wrap(err, "cannot parse config")}
 	}
 	if err := json.Unmarshal(rd, &unprocessedConfig); err != nil {
-		return nil, nil, &ParsingError{errors.Wrap(err, "cannot parse config")}
+		return nil, nil, &parsingError{errors.Wrap(err, "cannot parse config")}
 	}
 	if err := cfg.Ensure(skipCloud); err != nil {
 		return nil, nil, err
