@@ -85,7 +85,7 @@
       }
 
       function fixArmStatus(old) {
-        var newStatus = { pos_pieces : [], joint_pieces : [] };
+        var newStatus = { pos_pieces : [], joint_pieces : [], is_moving: old["is_moving"] || false };
         var fieldSetters = [
           ["x", "X"],
           ["y", "Y"],
@@ -113,6 +113,7 @@
               }
             );
         }
+        console.log(newStatus.is_moving)
         return newStatus;
       }
 
