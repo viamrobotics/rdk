@@ -80,6 +80,22 @@ func NewTFLiteModelLoader(numThreads int) (*TFLiteModelLoader, error) {
 	return loader, nil
 }
 
+// createTFLiteInterpreterOptions returns tflite interpreterOptions with settings.
+func createTFLiteInterpreterOptions(numThreads int) (*tflite.InterpreterOptions, error) {
+	options := tflite.NewInterpreterOptions()
+	if options == nil {
+		return nil, FailedToLoadError("interpreter options")
+	}
+
+	options.SetNumThread(numThreads)
+
+	options.SetErrorReporter(func(msg string, userData interface{}) {
+		log.Println(msg)
+	}, nil)
+
+	return options, nil
+}
+
 // Load returns a TFLite struct that is ready to be used for inferences.
 func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 	tFLiteModel := loader.newModelFromFile(modelPath)
@@ -98,9 +114,6 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 	}
 
 	info := loader.getInfo(interpreter)
-	if info == nil {
-		return nil, FailedToGetError("info")
-	}
 
 	modelStruct := &TFLiteStruct{
 		model:              tFLiteModel,
@@ -111,29 +124,6 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 	}
 
 	return modelStruct, nil
-}
-
-// createTFLiteInterpreterOptions returns tflite interpreterOptions with settings.
-func createTFLiteInterpreterOptions(numThreads int) (*tflite.InterpreterOptions, error) {
-	options := tflite.NewInterpreterOptions()
-	if options == nil {
-		return nil, FailedToLoadError("interpreter options")
-	}
-
-	options.SetNumThread(numThreads)
-
-	options.SetErrorReporter(func(msg string, userData interface{}) {
-		log.Println(msg)
-	}, nil)
-
-	return options, nil
-}
-
-// Close should be called at the end of using the interpreter to delete related models and interpreters.
-func (model *TFLiteStruct) Close() {
-	model.model.Delete()
-	model.interpreterOptions.Delete()
-	model.interpreter.Delete()
 }
 
 // TFLiteInfo holds information about a model that are useful for creating input tensors bytes.
@@ -169,7 +159,7 @@ func getInfo(inter Interpreter) *TFLiteInfo {
 	return info
 }
 
-// Infer takes the input array in desired type and returns a map of the output tensors.
+// Infer takes an input array in desired type and returns an array of the output tensors.
 func (model *TFLiteStruct) Infer(inputTensor interface{}) ([]interface{}, error) {
 	interpreter := model.interpreter
 	input := interpreter.GetInputTensor(0)
@@ -230,7 +220,7 @@ func (model *TFLiteStruct) GetMetadata() (*metadata.ModelMetadataT, error) {
 		return nil, err
 	}
 	if len(b) == 0 {
-		return nil, errors.New("no metadata is present")
+		return nil, DoesNotExistError("metadata")
 	}
 	return getTFLiteMetadataAsStruct(b), nil
 }
@@ -276,6 +266,13 @@ func getTFLiteMetadataAsStruct(metaBytes []byte) *metadata.ModelMetadataT {
 	meta := metadata.GetRootAsModelMetadata(metaBytes, 0)
 	structMeta := meta.UnPack()
 	return structMeta
+}
+
+// Close should be called at the end of using the interpreter to delete related models and interpreters.
+func (model *TFLiteStruct) Close() {
+	model.model.Delete()
+	model.interpreterOptions.Delete()
+	model.interpreter.Delete()
 }
 
 // getInterpreter conforms a *tflite.Interpreter to the Interpreter interface.
