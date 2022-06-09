@@ -1,12 +1,13 @@
 package keypoints
 
 import (
-	"go.viam.com/rdk/utils"
 	"image"
 	"math/rand"
 	"testing"
 
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/utils"
 )
 
 func generateRandomKeypoint(max int) image.Point {
