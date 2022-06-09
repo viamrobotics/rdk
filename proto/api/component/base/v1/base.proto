@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/base/v1";
-option java_package = "com.viam.rdk.proto.api.component.base.v1";
 
 package proto.api.component.base.v1;
 
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/base/v1";
+option java_package = "com.viam.rdk.proto.api.component.base.v1";
 
 service BaseService {
   // MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
@@ -14,39 +15,38 @@ service BaseService {
   rpc MoveStraight(MoveStraightRequest) returns (MoveStraightResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/move_straight"
-    };  
+    };
   }
 
-  // MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-  // a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
-  // This method blocks until completed or cancelled
-  rpc MoveArc(MoveArcRequest) returns (MoveArcResponse) {
-    option (google.api.http) = {
-      post: "/viam/api/v1/component/base/{name}/move_arc"
-    };  
-  }
-
-  // Spin spins a robot's base by an given angle, expressed in degrees, and a given 
+  // Spin spins a robot's base by an given angle, expressed in degrees, and a given
   // angular speed, expressed in degrees per second
   // This method blocks until completed or cancelled
   rpc Spin(SpinRequest) returns (SpinResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/spin"
-    };  
+    };
   }
 
-  // SetPower sets the linear and angular velocity of a base
+  // SetPower sets the linear and angular power of a base
+  // -1 -> 1 in terms of power for each direction
   rpc SetPower(SetPowerRequest) returns (SetPowerResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/set_power"
-    };  
+    };
   }
 
-  // Stop stops a robot's base 
+  // SetVelocity sets the linear and angular velocity of a base
+  rpc SetVelocity(SetVelocityRequest) returns (SetVelocityResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/component/base/{name}/set_velocity"
+    };
+  }
+
+  // Stop stops a robot's base
   rpc Stop(StopRequest) returns (StopResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/base/{name}/stop"
-    };  
+    };
   }
 }
 
@@ -60,19 +60,6 @@ message MoveStraightRequest {
 }
 
 message MoveStraightResponse {}
-
-message MoveArcRequest {
-  // Name of a base
-  string name = 1;
-  // Desired travel distance in millimeters
-  int64 distance_mm = 2;
-  // Desired speed in millimeters per second 
-  double mm_per_sec = 3;
-  // Desired angle in degrees
-  double angle_deg = 4;
-}
-
-message MoveArcResponse {}
 
 message SpinRequest {
   // Name of a base
@@ -95,10 +82,21 @@ message StopResponse {}
 message SetPowerRequest {
   // Name of a base
   string name = 1;
-  // Desired linear power percentage as -1 -> 1 
+  // Desired linear power percentage as -1 -> 1
   common.v1.Vector3 linear = 2;
-  // Desired angular power percentage % as -1 -> 1 
+  // Desired angular power percentage % as -1 -> 1
   common.v1.Vector3 angular = 3;
 }
 
-message SetPowerResponse{}
+message SetPowerResponse {}
+
+message SetVelocityRequest {
+  // Name of a base
+  string name = 1;
+  // Desired linear velocity in mm per second
+  common.v1.Vector3 linear = 2;
+  // Desired angular velocity in degrees per second
+  common.v1.Vector3 angular = 3;
+}
+
+message SetVelocityResponse {}

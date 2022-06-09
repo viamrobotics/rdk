@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -262,6 +263,12 @@ func (rr *remoteRobot) unprefixResourceName(name resource.Name) resource.Name {
 	)
 }
 
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (rr *remoteRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	return rr.robot.DiscoverComponents(ctx, qs)
+}
+
 func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }
@@ -313,6 +320,10 @@ func (rr *remoteRobot) TransformPose(
 	additionalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	return rr.robot.TransformPose(ctx, pose, dst, additionalTransforms)
+}
+
+func (rr *remoteRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	return rr.robot.GetStatus(ctx, resourceNames)
 }
 
 func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {

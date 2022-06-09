@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -26,7 +27,6 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
@@ -44,7 +44,6 @@ var (
 	// defaultSvc is a list of default robot services.
 	defaultSvc = []resource.Name{
 		sensors.Name,
-		status.Name,
 		datamanager.Name,
 		vision.Name,
 	}
@@ -166,6 +165,125 @@ func (r *localRobot) StopWeb() error {
 	return webSvc.Close()
 }
 
+// remoteNameByResource returns the remote the resource is pulled from, if found.
+// False can mean either the resource doesn't exist or is local to the robot.
+func (r *localRobot) remoteNameByResource(resourceName resource.Name) (string, bool) {
+	return r.manager.remoteNameByResource(resourceName)
+}
+
+func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	r.mu.Lock()
+	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Nodes))
+	for _, name := range r.ResourceNames() {
+		resource, err := r.ResourceByName(name)
+		if err != nil {
+			return nil, utils.NewResourceNotFoundError(name)
+		}
+		resources[name] = resource
+	}
+	r.mu.Unlock()
+
+	namesToDedupe := resourceNames
+	// if no names, return all
+	if len(namesToDedupe) == 0 {
+		namesToDedupe = make([]resource.Name, 0, len(resources))
+		for name := range resources {
+			namesToDedupe = append(namesToDedupe, name)
+		}
+	}
+
+	// dedupe resourceNames
+	deduped := make(map[resource.Name]struct{}, len(namesToDedupe))
+	for _, name := range namesToDedupe {
+		deduped[name] = struct{}{}
+	}
+
+	// group each resource name by remote and also get its corresponding name on the remote
+	groupedResources := make(map[string]map[resource.Name]resource.Name)
+	for name := range deduped {
+		remoteName, ok := r.remoteNameByResource(name)
+		if !ok {
+			continue
+		}
+		remote, ok := r.RemoteByName(remoteName)
+		if !ok {
+			// should never happen
+			r.Logger().Errorw("remote robot not found while creating status", "remote", remoteName)
+			continue
+		}
+		rRobot, ok := remote.(*remoteRobot)
+		if !ok {
+			// should never happen
+			r.Logger().Errorw("remote robot not a *remoteRobot while creating status", "remote", remoteName)
+			continue
+		}
+		unprefixed := rRobot.unprefixResourceName(name)
+
+		mappings, ok := groupedResources[remoteName]
+		if !ok {
+			mappings = make(map[resource.Name]resource.Name)
+		}
+		mappings[unprefixed] = name
+		groupedResources[remoteName] = mappings
+	}
+	// make requests and map it back to the local resource name
+	remoteStatuses := make(map[resource.Name]robot.Status)
+	for remoteName, resourceNamesMappings := range groupedResources {
+		remote, ok := r.RemoteByName(remoteName)
+		if !ok {
+			// should never happen
+			r.Logger().Errorw("remote robot not found while creating status", "remote", remoteName)
+			continue
+		}
+		remoteRNames := make([]resource.Name, 0, len(resourceNamesMappings))
+		for n := range resourceNamesMappings {
+			remoteRNames = append(remoteRNames, n)
+		}
+
+		s, err := remote.GetStatus(ctx, remoteRNames)
+		if err != nil {
+			return nil, err
+		}
+		for _, stat := range s {
+			mappedName, ok := resourceNamesMappings[stat.Name]
+			if !ok {
+				// should never happen
+				r.Logger().Errorw(
+					"failed to find corresponding resource name for remote resource name while creating status",
+					"resource", stat.Name,
+				)
+				continue
+			}
+			stat.Name = mappedName
+			remoteStatuses[mappedName] = stat
+		}
+	}
+	statuses := make([]robot.Status, 0, len(deduped))
+	for name := range deduped {
+		resourceStatus, ok := remoteStatuses[name]
+		if !ok {
+			resource, ok := resources[name]
+			if !ok {
+				return nil, utils.NewResourceNotFoundError(name)
+			}
+			// if resource subtype has an associated CreateStatus method, use that
+			// otherwise return an empty status
+			var status interface{} = map[string]interface{}{}
+			var err error
+			subtype := registry.ResourceSubtypeLookup(name.Subtype)
+			if subtype != nil && subtype.Status != nil {
+				status, err = subtype.Status(ctx, resource)
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to get status from %q", name)
+				}
+			}
+			resourceStatus = robot.Status{Name: name, Status: status}
+		}
+		statuses = append(statuses, resourceStatus)
+	}
+	return statuses, nil
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -209,6 +327,7 @@ func newWithResources(
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
+
 	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
@@ -221,7 +340,7 @@ func newWithResources(
 	if err := r.updateDefaultServices(ctx); err != nil {
 		return nil, err
 	}
-
+	r.manager.updateResourceRemoteNames()
 	successful = true
 	return r, nil
 }
@@ -358,4 +477,32 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 // to support more streamlined reconfiguration functionality.
 func RobotFromResources(ctx context.Context, resources map[resource.Name]interface{}, logger golog.Logger) (robot.LocalRobot, error) {
 	return newWithResources(ctx, &config.Config{}, resources, logger)
+}
+
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	// dedupe queries
+	deduped := make(map[discovery.Query]struct{}, len(qs))
+	for _, q := range qs {
+		deduped[q] = struct{}{}
+	}
+
+	discoveries := make([]discovery.Discovery, 0, len(deduped))
+	for q := range deduped {
+		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q)
+		if !ok {
+			r.logger.Warnw("no discovery function registered", "subtype", q.SubtypeName, "model", q.Model)
+			continue
+		}
+
+		if discoveryFunction != nil {
+			discovered, err := discoveryFunction(ctx)
+			if err != nil {
+				return nil, &discovery.DiscoverError{q}
+			}
+			discoveries = append(discoveries, discovery.Discovery{Query: q, Results: discovered})
+		}
+	}
+	return discoveries, nil
 }

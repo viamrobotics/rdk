@@ -1,9 +1,11 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/service/datamanager/v1";
+
 package proto.api.service.datamanager.v1;
 
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/service/datamanager/v1";
 
 message SensorMetadata {
   google.protobuf.Timestamp time_requested = 1;
