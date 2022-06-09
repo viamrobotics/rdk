@@ -98,12 +98,12 @@ func createTFLiteInterpreterOptions(numThreads int) (*tflite.InterpreterOptions,
 
 // Load returns a TFLite struct that is ready to be used for inferences.
 func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
-	tFLiteModel := loader.newModelFromFile(modelPath)
-	if tFLiteModel == nil {
+	tfLiteModel := loader.newModelFromFile(modelPath)
+	if tfLiteModel == nil {
 		return nil, FailedToLoadError("model")
 	}
 
-	interpreter, err := loader.newInterpreter(tFLiteModel, loader.interpreterOptions)
+	interpreter, err := loader.newInterpreter(tfLiteModel, loader.interpreterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 	info := loader.getInfo(interpreter)
 
 	modelStruct := &TFLiteStruct{
-		model:              tFLiteModel,
+		model:              tfLiteModel,
 		interpreter:        interpreter,
 		interpreterOptions: loader.interpreterOptions,
 		Info:               info,
@@ -220,7 +220,7 @@ func (model *TFLiteStruct) GetMetadata() (*metadata.ModelMetadataT, error) {
 		return nil, err
 	}
 	if len(b) == 0 {
-		return nil, DoesNotExistError("metadata")
+		return nil, MetadataDoesNotExistError()
 	}
 	return getTFLiteMetadataAsStruct(b), nil
 }

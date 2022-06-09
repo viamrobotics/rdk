@@ -22,14 +22,14 @@ type MLModel interface {
 
 // FailedToLoadError is the default error message for when expected resources for inference fail to load
 func FailedToLoadError(name string) error {
-	return errors.Errorf("failed to load %s \n", name)
+	return errors.Errorf("failed to load %s", name)
 }
 
 // FailedToGetError is the default error message for when expected information will be fetched fails
 func FailedToGetError(name string) error {
-	return errors.Errorf("failed to get %s \n", name)
+	return errors.Errorf("failed to get %s", name)
 }
 
-func DoesNotExistError(name string) error {
-	return errors.Errorf("%s does not exist \n", name)
+func MetadataDoesNotExistError() error {
+	return errors.New("metadata does not exist")
 }
