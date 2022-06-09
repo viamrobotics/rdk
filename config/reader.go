@@ -358,7 +358,7 @@ func readFromCloud(
 			cachedConfig, _, err := fromReader(ctx, "", cachedConfigReader, true, logger)
 
 			var parsingErr *ParsingError
-			if errors.As(err, parsingErr) {
+			if errors.As(err, &parsingErr) {
 				if deleteErr := deleteCachedConfig(cloudCfg.ID); deleteErr != nil {
 					return nil, nil, multierr.Combine(deleteErr, err)
 				} else {
