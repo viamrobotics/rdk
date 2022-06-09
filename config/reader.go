@@ -262,6 +262,10 @@ func openFromCache(id string) (io.ReadCloser, error) {
 	return os.Open(getCloudCacheFilePath(id))
 }
 
+func deleteCachedConfig(id string) error {
+	return os.Remove(getCloudCacheFilePath(id))
+}
+
 func storeToCache(id string, cfg *Config) error {
 	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
 		return err
@@ -352,9 +356,18 @@ func readFromCloud(
 		cachedConfigReader, err := openFromCache(cloudCfg.ID)
 		if err == nil {
 			cachedConfig, _, err := fromReader(ctx, "", cachedConfigReader, true, logger)
-			if err != nil {
+
+			var parsingErr *ParsingError
+			if errors.As(err, parsingErr) {
+				if deleteErr := deleteCachedConfig(cloudCfg.ID); deleteErr != nil {
+					return nil, nil, multierr.Combine(deleteErr, err)
+				} else {
+					logger.Info("deleted unparseable cached config")
+				}
+			} else if err != nil {
 				return nil, nil, err
 			}
+
 			if cachedConfig.Cloud != nil {
 				tlsCertificate = cachedConfig.Cloud.TLSCertificate
 				tlsPrivateKey = cachedConfig.Cloud.TLSPrivateKey
@@ -450,11 +463,12 @@ func Read(
 	return FromReader(ctx, filePath, bytes.NewReader(buf), logger)
 }
 
-type parsingError struct {
+// ParsingError is used when a configuration file cannot be parsed.
+type ParsingError struct {
 	wrapped error
 }
 
-func (e parsingError) Error() string {
+func (e ParsingError) Error() string {
 	return e.wrapped.Error()
 }
 
@@ -467,15 +481,6 @@ func FromReader(
 	logger golog.Logger,
 ) (*Config, error) {
 	cfg, _, err := fromReader(ctx, originalPath, r, false, logger)
-
-	var parsingErr *parsingError
-	if errors.As(err, parsingErr) {
-		if deleteErr := os.Remove(originalPath); deleteErr != nil {
-			return cfg, multierr.Combine(deleteErr, err)
-		}
-		logger.Infow("deleted unparseable cached config", "path", originalPath)
-	}
-
 	return cfg, err
 }
 
@@ -498,10 +503,10 @@ func fromReader(
 		return nil, nil, err
 	}
 	if err := json.Unmarshal(rd, &cfg); err != nil {
-		return nil, nil, &parsingError{errors.Wrap(err, "cannot parse config")}
+		return nil, nil, &ParsingError{errors.Wrap(err, "cannot parse config")}
 	}
 	if err := json.Unmarshal(rd, &unprocessedConfig); err != nil {
-		return nil, nil, &parsingError{errors.Wrap(err, "cannot parse config")}
+		return nil, nil, &ParsingError{errors.Wrap(err, "cannot parse config")}
 	}
 	if err := cfg.Ensure(skipCloud); err != nil {
 		return nil, nil, err
