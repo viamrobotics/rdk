@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"os"
@@ -259,7 +260,7 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, error) {
 	dialOptions := rpc.WithInsecure()
 
-	connLib, err := grpc.Dial(ctx, "localhost:"+port, logger, dialOptions)
+	connLib, err := grpc.Dial(ctx, port, logger, dialOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +345,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		if err != nil {
 			return nil, errors.Errorf("error trying to return a random port: %v", err)
 		}
-		port = strconv.Itoa(p)
+		port = fmt.Sprintf("localhost:%d", p)
 	} else {
 		port = svcConfig.Port
 	}
@@ -474,7 +475,7 @@ func (slamSvc *slamService) StartDataProcess(cancelCtx context.Context, cam came
 }
 
 // startSLAMProcess starts up the SLAM library process by calling the executable binary and giving it the necessary arguments.
-func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) ([]string, error) {
+func (slamSvc *slamService) StartSLAMProcess(cancelCtx context.Context) ([]string, error) {
 	var args []string
 
 	args = append(args, "-sensors="+slamSvc.cameraName)
@@ -490,19 +491,26 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) ([]string, err
 		Name:    SLAMLibraries[slamSvc.slamLib.AlgoName].BinaryLocation,
 		Args:    args,
 		Log:     true,
-		OneShot: true,
+		OneShot: false,
 	}
 
-	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, processCfg)
+	_, err := slamSvc.slamProcess.AddProcessFromConfig(cancelCtx, processCfg)
 	if err != nil {
 		return []string{}, errors.Errorf("problem adding slam process: %v", err)
 	}
 
 	slamSvc.logger.Debug("starting slam process")
 
-	if err = slamSvc.slamProcess.Start(ctx); err != nil {
+	// slamSvc.activeBackgroundWorkers.Add(1)
+
+	// goutils.PanicCapturingGo(func() {
+	// 	defer slamSvc.activeBackgroundWorkers.Done()
+
+	if err = slamSvc.slamProcess.Start(cancelCtx); err != nil {
+		//slamSvc.logger.Warnw("problem starting slam process", "error", err)
 		return []string{}, errors.Errorf("problem starting slam process: %v", err)
 	}
+	//})
 
 	cmd := append([]string{processCfg.Name}, processCfg.Args...)
 
