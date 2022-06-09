@@ -86,7 +86,7 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 func TestGripperVoxelObjectSegmentation(t *testing.T) {
 	objSegTest := os.Getenv(debugObjSeg)
 	if objSegTest == "" {
-		t.Skip("set environmental variable %q to run this test", debugObjSeg)
+		t.Skipf("set environmental variable %q to run this test", debugObjSeg)
 	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper", "*.both.gz", true)
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"))
