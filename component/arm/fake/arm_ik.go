@@ -2,7 +2,6 @@ package fake
 
 import (
 	"context"
-
 	// for arm model.
 	_ "embed"
 
@@ -107,6 +106,11 @@ func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositi
 // GetJointPositions returns the set joints.
 func (a *ArmIK) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	return a.joints, nil
+}
+
+// Stop doesn't do anything for a fake arm.
+func (a *ArmIK) Stop(ctx context.Context) error {
+	return nil
 }
 
 // CurrentInputs TODO.

@@ -3,6 +3,7 @@ package multiaxis
 
 import (
 	"context"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -11,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -32,6 +34,7 @@ type multiAxis struct {
 	lengthsMm []float64
 	logger    golog.Logger
 	model     referenceframe.Model
+	opMgr     operation.SingleOperationManager
 }
 
 // Validate ensures all parts of the config are valid.
@@ -97,6 +100,9 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 
 // MoveToPosition moves along an axis using inputs in millimeters.
 func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
+
 	if len(positions) == 0 {
 		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
 	}
@@ -163,6 +169,21 @@ func (g *multiAxis) GetLengths(ctx context.Context) ([]float64, error) {
 		lengths = append(lengths, lng...)
 	}
 	return lengths, nil
+}
+
+// Stop stops the subaxes of the gantry simultaneously.
+func (g *multiAxis) Stop(ctx context.Context) error {
+	wg := sync.WaitGroup{}
+	for _, subAx := range g.subAxes {
+		currG := subAx
+		wg.Add(1)
+		utils.ManagedGo(func() {
+			if err := currG.Stop(ctx); err != nil {
+				g.logger.Errorw("failed to stop subaxis", "error", err)
+			}
+		}, wg.Done)
+	}
+	return nil
 }
 
 // CurrentInputs returns the current inputs of the Gantry frame.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -205,21 +206,15 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("joy stick control mode for input X", func(t *testing.T) {
-		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventX, 0.5, 0.6)
+		mmPerSec, degsPerSec := oneJoyStickEvent(eventX, 0.5, 0.6)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.5, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, -1.0, .001)
 	})
 
 	t.Run("joy stick control mode for input Y", func(t *testing.T) {
-		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventY, 0.5, 0.6)
+		mmPerSec, degsPerSec := oneJoyStickEvent(eventY, 0.5, 0.6)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
-	})
-
-	t.Run("joy stick control mode for input Hat0X (invalid event)", func(t *testing.T) {
-		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventHat0X, 0.5, 0.6)
-		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.0, .001)
-		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	// TriggerSpeedControl
@@ -234,25 +229,25 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("trigger speed control mode for input X", func(t *testing.T) {
-		mmPerSec, degsPerSec := svc1.triggerSpeedEvent(eventX, 0.5, 0.6)
+		mmPerSec, degsPerSec := triggerSpeedEvent(eventX, 0.5, 0.6)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.5, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("trigger speed control mode for input Z", func(t *testing.T) {
-		mmPerSec, degsPerSec := svc1.triggerSpeedEvent(eventZ, 0.8, 0.8)
+		mmPerSec, degsPerSec := triggerSpeedEvent(eventZ, 0.8, 0.8)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.75, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.8, .001)
 	})
 
 	t.Run("trigger speed control mode for input RZ", func(t *testing.T) {
-		mmPerSec, degsPerSec := svc1.triggerSpeedEvent(eventRZ, 0.8, 0.8)
+		mmPerSec, degsPerSec := triggerSpeedEvent(eventRZ, 0.8, 0.8)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.85, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.8, .001)
 	})
 
 	t.Run("trigger speed control mode for input Y (invalid event)", func(t *testing.T) {
-		mmPerSec, degsPerSec := svc1.triggerSpeedEvent(eventY, 0.8, 0.8)
+		mmPerSec, degsPerSec := triggerSpeedEvent(eventY, 0.8, 0.8)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.8, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.8, .001)
 	})
@@ -264,13 +259,13 @@ func TestBaseRemoteControl(t *testing.T) {
 	arrows[input.AbsoluteHat0Y] = 0.0
 
 	t.Run("arrow control mode for input X", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := svc2.arrowEvent(eventHat0X, arrows)
+		mmPerSec, degsPerSec, _ := arrowEvent(eventHat0X, arrows)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, -1.0, .001)
 	})
 
 	t.Run("arrow control mode for input Y", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := svc2.arrowEvent(eventHat0Y, arrows)
+		mmPerSec, degsPerSec, _ := arrowEvent(eventHat0Y, arrows)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, -1.0, .001)
 	})
@@ -298,15 +293,15 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("button control mode for input X and B", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := svc3.buttonControlEvent(eventButtonNorthPress, buttons)
+		mmPerSec, degsPerSec, _ := buttonControlEvent(eventButtonNorthPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 
-		mmPerSec, degsPerSec, _ = svc3.buttonControlEvent(eventButtonSouthPress, buttons)
+		mmPerSec, degsPerSec, _ = buttonControlEvent(eventButtonSouthPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 
-		mmPerSec, degsPerSec, _ = svc3.buttonControlEvent(eventButtonNorthRelease, buttons)
+		mmPerSec, degsPerSec, _ = buttonControlEvent(eventButtonNorthRelease, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
@@ -327,23 +322,17 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("button control mode for input Y and A", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := svc3.buttonControlEvent(eventButtonEastPress, buttons)
+		mmPerSec, degsPerSec, _ := buttonControlEvent(eventButtonEastPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, -1.0, .001)
 
-		mmPerSec, degsPerSec, _ = svc3.buttonControlEvent(eventButtonWestPress, buttons)
+		mmPerSec, degsPerSec, _ = buttonControlEvent(eventButtonWestPress, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 
-		mmPerSec, degsPerSec, _ = svc3.buttonControlEvent(eventButtonEastRelease, buttons)
+		mmPerSec, degsPerSec, _ = buttonControlEvent(eventButtonEastRelease, buttons)
 		test.That(t, mmPerSec, test.ShouldAlmostEqual, -1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
-	})
-
-	t.Run("button control mode for input joystick Y (invalid event)", func(t *testing.T) {
-		mmPerSec, degsPerSec, _ := svc3.buttonControlEvent(eventY, buttons)
-		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.0, .001)
-		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	err = svc.Close(ctx)
@@ -365,3 +354,46 @@ func TestBaseRemoteControl(t *testing.T) {
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestLowLevel(t *testing.T) {
+	test.That(t, scaleThrottle(.01), test.ShouldAlmostEqual, 0, .001)
+	test.That(t, scaleThrottle(-.01), test.ShouldAlmostEqual, 0, .001)
+
+	test.That(t, scaleThrottle(.33), test.ShouldAlmostEqual, 0.4, .001)
+	test.That(t, scaleThrottle(.81), test.ShouldAlmostEqual, 0.9, .001)
+	test.That(t, scaleThrottle(1.0), test.ShouldAlmostEqual, 1.0, .001)
+
+	test.That(t, scaleThrottle(-.81), test.ShouldAlmostEqual, -0.9, .001)
+	test.That(t, scaleThrottle(-1.0), test.ShouldAlmostEqual, -1.0, .001)
+}
+
+func TestSimilar(t *testing.T) {
+	test.That(t, similar(r3.Vector{}, r3.Vector{}, 1), test.ShouldBeTrue)
+	test.That(t, similar(r3.Vector{X: 2}, r3.Vector{}, 1), test.ShouldBeFalse)
+	test.That(t, similar(r3.Vector{Y: 2}, r3.Vector{}, 1), test.ShouldBeFalse)
+	test.That(t, similar(r3.Vector{Z: 2}, r3.Vector{}, 1), test.ShouldBeFalse)
+}
+
+func TestParseEvent(t *testing.T) {
+	state := throttleState{}
+
+	l, a := parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteX, Value: .5})
+	test.That(t, similar(state.linearThrottle, r3.Vector{}, .1), test.ShouldBeTrue)
+	test.That(t, similar(state.angularThrottle, r3.Vector{}, .1), test.ShouldBeTrue)
+
+	test.That(t, similar(l, r3.Vector{}, .1), test.ShouldBeTrue)
+	test.That(t, similar(a, r3.Vector{Z: -.5}, .1), test.ShouldBeTrue)
+
+	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteY, Value: .5})
+	test.That(t, similar(l, r3.Vector{Z: -.5}, .1), test.ShouldBeTrue)
+	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
+
+	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteRX, Value: .5})
+	test.That(t, similar(l, r3.Vector{X: .5}, .1), test.ShouldBeTrue)
+	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
+
+	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteRY, Value: .5})
+	test.That(t, similar(l, r3.Vector{Y: -.5}, .1), test.ShouldBeTrue)
+	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
+}
+

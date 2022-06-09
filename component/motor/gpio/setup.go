@@ -41,6 +41,12 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
+
+			err = m.Stop(ctx)
+			if err != nil {
+				return nil, err
+			}
+
 			return m, nil
 		},
 	}

@@ -2,7 +2,7 @@
   <component
     :is="tag"
     :class="[
-      'border-l tracking-widest duration-150 py-2 px-4 px-6 text-xs outline-none relative',
+      'border-l tracking-widest duration-150 py-2 px-2 text-xs outline-none relative',
       {
         'border-t border-l font-bold border-r border-black bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-50':
           selected,

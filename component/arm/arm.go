@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -74,13 +75,18 @@ type Arm interface {
 
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
+	// This will block until done or a new operation cancels this one
 	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
+	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error
 
 	// GetJointPositions returns the current joint positions of the arm.
 	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
+
+	// Stop stops the arm. It is assumed the arm stops immediately.
+	Stop(ctx context.Context) error
 
 	generic.Generic
 	referenceframe.ModelFramer
@@ -90,6 +96,9 @@ type Arm interface {
 var (
 	_ = Arm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
+
+	// ErrStopUnimplemented is used for when Stop() is unimplemented.
+	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
@@ -167,6 +176,12 @@ func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.JointPos
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetJointPositions(ctx)
+}
+
+func (r *reconfigurableArm) Stop(ctx context.Context) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Stop(ctx)
 }
 
 func (r *reconfigurableArm) ModelFrame() referenceframe.Model {

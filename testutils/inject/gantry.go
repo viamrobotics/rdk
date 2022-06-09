@@ -17,6 +17,7 @@ type Gantry struct {
 	GetPositionFunc    func(ctx context.Context) ([]float64, error)
 	MoveToPositionFunc func(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error
 	GetLengthsFunc     func(ctx context.Context) ([]float64, error)
+	StopFunc           func(ctx context.Context) error
 	CloseFunc          func(ctx context.Context) error
 	ModelFrameFunc     func() referenceframe.Model
 }
@@ -43,6 +44,14 @@ func (a *Gantry) GetLengths(ctx context.Context) ([]float64, error) {
 		return a.Gantry.GetLengths(ctx)
 	}
 	return a.GetLengthsFunc(ctx)
+}
+
+// Stop calls the injected Stop or the real version.
+func (a *Gantry) Stop(ctx context.Context) error {
+	if a.StopFunc == nil {
+		return a.Gantry.Stop(ctx)
+	}
+	return a.StopFunc(ctx)
 }
 
 // ModelFrame returns a Gantry ModelFrame.

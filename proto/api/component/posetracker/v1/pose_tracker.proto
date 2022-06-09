@@ -1,20 +1,21 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/v1";
-option java_package = "com.viam.rdk.proto.api.component.v1";
 
 package proto.api.component.posetracker.v1;
 
-import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/v1";
+option java_package = "com.viam.rdk.proto.api.component.v1";
 
 // A PoseTrackerService maintains all pose trackers associated with a robot
 service PoseTrackerService {
   // GetPoses returns the current pose of each body tracked by the pose tracker
   rpc GetPoses(GetPosesRequest) returns (GetPosesResponse) {
-      option (google.api.http) = {
-          get: "/viam/api/v1/component/pose_tracker/{name}/poses"
-      };
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/pose_tracker/{name}/poses"
+    };
   }
 }
 

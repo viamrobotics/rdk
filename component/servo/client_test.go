@@ -2,11 +2,11 @@ package servo_test
 
 import (
 	"context"
-	"errors"
 	"net"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -36,15 +36,21 @@ func TestClient(t *testing.T) {
 	workingServo.MoveFunc = func(ctx context.Context, angle uint8) error {
 		return nil
 	}
-	workingServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+	workingServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return 20, nil
+	}
+	workingServo.StopFunc = func(ctx context.Context) error {
+		return nil
 	}
 
 	failingServo.MoveFunc = func(ctx context.Context, angle uint8) error {
 		return errors.New("move failed")
 	}
-	failingServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+	failingServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return 0, errors.New("current angle not readable")
+	}
+	failingServo.StopFunc = func(ctx context.Context) error {
+		return errors.New("no stop")
 	}
 
 	resourceMap := map[resource.Name]interface{}{
@@ -87,6 +93,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentDeg, test.ShouldEqual, 20)
 
+		test.That(t, workingServoClient.Stop(context.Background()), test.ShouldBeNil)
+
 		test.That(t, utils.TryClose(context.Background(), workingServoClient), test.ShouldBeNil)
 	})
 
@@ -99,6 +107,10 @@ func TestClient(t *testing.T) {
 
 		_, err = failingServoClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
+
+		err = failingServoClient.Stop(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no stop")
 
 		test.That(t, utils.TryClose(context.Background(), failingServoClient), test.ShouldBeNil)
 	})

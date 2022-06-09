@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/service/navigation/v1";
-option java_package = "com.viam.rdk.proto.api.service.navigation.v1";
 
 package proto.api.service.navigation.v1;
 
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/service/navigation/v1";
+option java_package = "com.viam.rdk.proto.api.service.navigation.v1";
 
 // A NavigationService declares the gRPC contract for a Navigation service
 service NavigationService {

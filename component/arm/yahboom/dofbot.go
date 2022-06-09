@@ -3,7 +3,6 @@ package yahboom
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -20,6 +19,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -81,6 +81,7 @@ type dofBot struct {
 	mu     sync.Mutex
 	muMove sync.Mutex
 	logger golog.Logger
+	opMgr  operation.SingleOperationManager
 }
 
 func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.MotionPlanner, error) {
@@ -143,6 +144,9 @@ func (a *dofBot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the given absolute position.
 func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -159,6 +163,9 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSt
 
 // MoveToJointPositions moves the arm's joints to the given positions.
 func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	a.muMove.Lock()
 	defer a.muMove.Unlock()
 	if len(pos.Degrees) > 5 {
@@ -271,6 +278,13 @@ func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error
 	return joints[joint-1].toDegrees(int(res)), nil
 }
 
+func (a *dofBot) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop for arm
+	// RSDK-388: Implement Stop for gripper, might need to split the structs up if we
+	// want the Stop to arm/gripper specific.
+	return arm.ErrStopUnimplemented
+}
+
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
 func (a *dofBot) ModelFrame() referenceframe.Model {
 	return a.model
@@ -278,6 +292,9 @@ func (a *dofBot) ModelFrame() referenceframe.Model {
 
 // Open opens the gripper.
 func (a *dofBot) Open(ctx context.Context) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -300,6 +317,9 @@ const (
 // (position > grabAngle) or the position changes little (< minMovement)
 // between iterations.
 func (a *dofBot) Grab(ctx context.Context) (bool, error) {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 

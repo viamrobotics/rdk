@@ -56,6 +56,9 @@ func TestServer(t *testing.T) {
 		capArmJointPos = jp
 		return nil
 	}
+	injectArm.StopFunc = func(ctx context.Context) error {
+		return nil
+	}
 
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	positionDegs2 := &pb.JointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
@@ -73,6 +76,9 @@ func TestServer(t *testing.T) {
 	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
 		capArmJointPos = jp
 		return errors.New("can't move to joint positions")
+	}
+	injectArm2.StopFunc = func(ctx context.Context) error {
+		return arm.ErrStopUnimplemented
 	}
 
 	t.Run("arm position", func(t *testing.T) {
@@ -146,5 +152,18 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to joint positions")
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs1.String())
+	})
+
+	t.Run("stop", func(t *testing.T) {
+		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: missingArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
+		_, err := armServer.Stop(context.Background(), &pb.StopRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: failArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, arm.ErrStopUnimplemented)
 	})
 }
