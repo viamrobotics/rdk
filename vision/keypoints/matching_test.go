@@ -77,15 +77,15 @@ func TestMatchKeypoints(t *testing.T) {
 		1000,
 	}
 	// test matches with itself
-	matches := MatchKeypoints(briefDescriptors, briefDescriptors, cfgMatch)
+	matches := MatchKeypoints(briefDescriptors, briefDescriptors, &cfgMatch)
 	for _, match := range matches.Indices {
 		test.That(t, match.Idx1, test.ShouldEqual, match.Idx2)
 	}
 	// test matches with bigger image
-	matches2 := MatchKeypoints(briefDescriptors, briefDescriptors2, cfgMatch)
+	matches2 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch)
 	test.That(t, len(matches2.Indices), test.ShouldEqual, len(matches2.Descriptors1))
 	// test matches with bigger image and cross-check; #matches <= #kps2
 	cfgMatch.DoCrossCheck = true
-	matches3 := MatchKeypoints(briefDescriptors, briefDescriptors2, cfgMatch)
+	matches3 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch)
 	test.That(t, len(matches3.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
 }
