@@ -97,12 +97,11 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*Hom
 	}
 
 	// Set matrices with data from slice
-	A := mat.NewDense(8, 8, a)
 	bSlice := []float64{X1, Y1, X2, Y2, X3, Y3, X4, Y4}
 	b := mat.NewDense(8, 1, bSlice)
 
 	// If matrix A is invertible, get the least square solution
-	if mat.Det(A) != 0 {
+	if A := mat.NewDense(8, 8, a); mat.Det(A) != 0 {
 		// x := mat.NewDense(8, 1, nil)
 		// Perform an SVD retaining all singular vectors.
 		var svd mat.SVD
