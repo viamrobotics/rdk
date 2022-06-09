@@ -154,6 +154,7 @@ func TestHasMetadata(t *testing.T) {
 
 	tfliteStruct.Close()
 }
+
 func TestNoMetadata(t *testing.T) {
 	tfliteModelPath := basePath + "/testing_files/fizzbuzz_model.tflite"
 	loader, err := NewDefaultTFLiteModelLoader()
