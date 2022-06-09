@@ -2,9 +2,9 @@ import sys
 import json
 import itertools
 import numpy as np
-import matplotlib.widgets
 import mpl_toolkits.axes_grid1
 import matplotlib.pyplot as plt
+import matplotlib.widgets as widgets
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -88,17 +88,17 @@ class Player(FuncAnimation):
         back_ax = divider.append_axes("right", size="80%", pad=0.05)
         stop_ax = divider.append_axes("right", size="80%", pad=0.05)
         forward_ax = divider.append_axes("right", size="80%", pad=0.05)
-        one_forward_ax = divider.append_axes("right", size="100%", pad=0.05)
-        sliderax = divider.append_axes("right", size="500%", pad=0.07)
+        one_forward_ax = divider.append_axes("right", size="80%", pad=0.05)
+        sliderax = divider.append_axes("right", size="500%", pad=0.1)
 
         # add widgets
-        self.button_replay = matplotlib.widgets.Button(replay_ax, label='$\u27F2$')
-        self.button_one_back = matplotlib.widgets.Button(one_back_ax, label='$\u29CF$')
-        self.button_back = matplotlib.widgets.Button(back_ax, label='$\u25C0$')
-        self.button_stop = matplotlib.widgets.Button(stop_ax, label='$\u25A0$')
-        self.button_forward = matplotlib.widgets.Button(forward_ax, label='$\u25B6$')
-        self.button_one_forward = matplotlib.widgets.Button(one_forward_ax, label='$\u29D0$')
-        self.slider = matplotlib.widgets.Slider(sliderax, '', self.min, self.max, valinit=self.current_frame)
+        self.button_replay = widgets.Button(replay_ax, label='$\u27F2$')
+        self.button_one_back = widgets.Button(one_back_ax, label='$\u29CF$')
+        self.button_back = widgets.Button(back_ax, label='$\u25C0$')
+        self.button_stop = widgets.Button(stop_ax, label='$\u25A0$')
+        self.button_forward = widgets.Button(forward_ax, label='$\u25B6$')
+        self.button_one_forward = widgets.Button(one_forward_ax, label='$\u29D0$')
+        self.slider = widgets.Slider(sliderax, '', self.min, self.max, valinit=self.current_frame, valfmt="%i")
 
         # assign functions to widgets
         self.button_replay.on_clicked(self.replay)
@@ -151,22 +151,24 @@ class Player(FuncAnimation):
 
     def one_step(self):
         if self.current_frame > self.min and self.current_frame < self.max:
-            self.draw_frame(self.current_frame + self.forwards - (not self.forwards))
+            self.draw_frame(self.current_frame+self.forwards - (not self.forwards))
         elif self.current_frame == self.min and self.forwards:
             self.draw_frame(self.current_frame + 1)
         elif self.current_frame == self.max and not self.forwards:
             self.draw_frame(self.current_frame - 1)
 
     def set_pos(self, val):
-        self.draw_frame(int(self.slider.val))
+        self.slider.val = round(val)
+        self.current_frame = self.slider.val
+        self.func(self.current_frame)
 
-    def update(self, val):
-        self.slider.set_val(val)
+    def update(self, i):
+        self.slider.set_val(i)
 
     def draw_frame(self, frame):
         self.current_frame = frame
-        self.func(frame)
-        self.slider.set_val(frame)
+        self.func(self.current_frame)
+        self.slider.set_val(self.current_frame)
         self.fig.canvas.draw_idle()
 
 
@@ -174,14 +176,16 @@ class Video():
     def __init__(self, path, fps=4):
         # load scene from file
         fig = plt.figure()
-        fig.canvas.manager.set_window_title('Viam Visualizer')
         ax = Axes3D(fig, auto_add_to_figure=False)
         fig.add_axes(ax)
         with open(path) as file:
             self.frames = json.load(file)
         self.scene = Scene(ax, self.frames[0])
 
-        # set plot defaults
+        # plot display ssettings
+        fig.canvas.manager.set_window_title('Viam Visualizer')
+        plt.grid(False)
+        plt.axis('off')
         ax.dist=10
         ax.azim=30
         ax.elev=10
@@ -191,6 +195,7 @@ class Video():
         ax.set_zlim(-200, 1800)
         ax.set_box_aspect(np.ptp([ax.get_xlim(), ax.get_ylim(), ax.get_zlim()], axis=1))
 
+        
         # start video
         Player(fig, self.play, num_frames=len(self.frames), interval=1000/fps)
         plt.show()
@@ -205,4 +210,3 @@ if __name__ == "__main__":
     #     sys.exit(1)
     # video = Video(ax, sys.argv[1])
     video = Video("visualization/temp.json")
-
