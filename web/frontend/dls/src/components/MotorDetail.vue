@@ -148,7 +148,7 @@
                   id="power"
                   :min="0"
                   :max="100"
-                  :step="25"
+                  :step="1"
                   v-model="power"
                   unit="%"
                   name="Power %"
