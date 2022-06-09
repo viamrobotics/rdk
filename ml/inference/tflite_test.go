@@ -12,41 +12,38 @@ import (
 const badPath string = "bad path"
 
 var (
+	// used to get the path from the root to current directory.
 	_, b, _, _ = runtime.Caller(0)
 	basePath   = filepath.Dir(b)
 )
 
 type fakeInterpreter struct{}
 
-func goodInterpreterLoader(model *tflite.Model, options *tflite.InterpreterOptions) (Interpreter, error) {
-	return &fakeInterpreter{}, nil
-}
-
-func (fI fakeInterpreter) AllocateTensors() tflite.Status {
+func (fI *fakeInterpreter) AllocateTensors() tflite.Status {
 	return tflite.OK
 }
 
-func (fI fakeInterpreter) Invoke() tflite.Status {
+func (fI *fakeInterpreter) Invoke() tflite.Status {
 	return tflite.OK
 }
 
-func (fI fakeInterpreter) GetOutputTensorCount() int {
+func (fI *fakeInterpreter) GetOutputTensorCount() int {
 	return 1
 }
 
-func (fI fakeInterpreter) GetInputTensorCount() int {
+func (fI *fakeInterpreter) GetInputTensorCount() int {
 	return 1
 }
 
-func (fI fakeInterpreter) GetOutputTensor(i int) *tflite.Tensor {
+func (fI *fakeInterpreter) GetOutputTensor(i int) *tflite.Tensor {
 	return &tflite.Tensor{}
 }
 
-func (fI fakeInterpreter) GetInputTensor(i int) *tflite.Tensor {
+func (fI *fakeInterpreter) GetInputTensor(i int) *tflite.Tensor {
 	return &tflite.Tensor{}
 }
 
-func (fI fakeInterpreter) Delete() {}
+func (fI *fakeInterpreter) Delete() {}
 
 var goodOptions *tflite.InterpreterOptions = &tflite.InterpreterOptions{}
 
@@ -100,6 +97,10 @@ func TestLoadRealBadPath(t *testing.T) {
 }
 
 func TestLoadTFLiteStruct(t *testing.T) {
+	goodInterpreterLoader := func(model *tflite.Model, options *tflite.InterpreterOptions) (Interpreter, error) {
+		return &fakeInterpreter{}, nil
+	}
+
 	loader := &TFLiteModelLoader{
 		newModelFromFile:   modelLoader,
 		newInterpreter:     goodInterpreterLoader,
@@ -123,6 +124,36 @@ func TestMetadataReader(t *testing.T) {
 	val, err := getTFLiteMetadataBytes(badPath)
 	test.That(t, err, test.ShouldBeError)
 	test.That(t, val, test.ShouldBeNil)
+}
+
+func TestBadInterpreter(t *testing.T) {
+	badInterpreter := func(model *tflite.Model, options *tflite.InterpreterOptions) (Interpreter, error) {
+		return nil, FailedToLoadError("interpreter")
+	}
+
+	loader := &TFLiteModelLoader{
+		newModelFromFile:   modelLoader,
+		newInterpreter:     badInterpreter,
+		interpreterOptions: goodOptions,
+		getInfo:            goodGetInfo,
+	}
+
+	tfStruct, err := loader.Load("ok path")
+	test.That(t, err, test.ShouldBeError, FailedToLoadError("interpreter"))
+	test.That(t, tfStruct, test.ShouldBeNil)
+}
+
+func TestNoMetadata(t *testing.T) {
+	tfliteModelPath := basePath + "/testing_files/fizzbuzz_model.tflite"
+	loader, err := NewDefaultTFLiteModelLoader()
+	test.That(t, err, test.ShouldBeNil)
+	tfliteStruct, err := loader.Load(tfliteModelPath)
+	test.That(t, tfliteStruct, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	fizzMeta, err := tfliteStruct.GetMetadata()
+	test.That(t, err, test.ShouldBeError, DoesNotExistError("metadata"))
+	test.That(t, fizzMeta, test.ShouldBeNil)
 }
 
 func modelLoader(path string) *tflite.Model {
