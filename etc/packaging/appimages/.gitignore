@@ -1,5 +1,5 @@
 AppDir/
-appimage-builder-cache/
+appimage-build/
 deploy/
 
 viam-server*.yml
