@@ -3,6 +3,7 @@ package odometry
 import (
 	"image"
 	"image/draw"
+
 	"github.com/golang/geo/r2"
 	"gonum.org/v1/gonum/mat"
 
