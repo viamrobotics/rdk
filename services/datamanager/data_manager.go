@@ -129,13 +129,14 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 // Close releases all resources managed by data_manager.
 func (svc *Service) Close(ctx context.Context) error {
 	svc.lock.Lock()
-	defer svc.lock.Unlock()
 	svc.closeCollectors()
 	if svc.syncer != nil {
 		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
 	}
 	svc.storageCheckCancelFn()
+	svc.lock.Unlock()
+
 	svc.backgroundWorkers.Wait()
 	return nil
 }
