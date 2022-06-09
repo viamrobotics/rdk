@@ -25,7 +25,7 @@ func NewWatcher(ctx context.Context, config *Config, logger golog.Logger) (Watch
 		return nil, err
 	}
 	if config.Cloud != nil {
-		return newCloudWatcher(ctx, config.Cloud, logger), nil
+		return newCloudWatcher(ctx, config, logger), nil
 	}
 	if config.ConfigFilePath != "" {
 		return newFSWatcher(ctx, config.ConfigFilePath, logger)
@@ -44,7 +44,7 @@ const checkForNewCertInterval = time.Hour
 
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
-func newCloudWatcher(ctx context.Context, config *Cloud, logger golog.Logger) *cloudWatcher {
+func newCloudWatcher(ctx context.Context, config *Config, logger golog.Logger) *cloudWatcher {
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(ctx)
@@ -54,10 +54,10 @@ func newCloudWatcher(ctx context.Context, config *Cloud, logger golog.Logger) *c
 	// TODO(RDK-88): in the future when the web app
 	// supports gRPC streams, use that instead for pushed config updates;
 	// for now just do a small interval.
-	ticker := time.NewTicker(config.RefreshInterval)
+	ticker := time.NewTicker(config.Cloud.RefreshInterval)
 	utils.ManagedGo(func() {
 		for {
-			if !utils.SelectContextOrWait(cancelCtx, config.RefreshInterval) {
+			if !utils.SelectContextOrWait(cancelCtx, config.Cloud.RefreshInterval) {
 				return
 			}
 			var checkForNewCert bool
