@@ -260,7 +260,7 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, error) {
 	dialOptions := rpc.WithInsecure()
 
-	connLib, err := grpc.Dial(ctx, port, logger, dialOptions)
+	connLib, err := grpc.DialWithTimout(ctx, port, logger, 100, dialOptions)
 	if err != nil {
 		return nil, err
 	}
