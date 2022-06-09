@@ -43,6 +43,13 @@ type resourceManagerOptions struct {
 	tlsConfig          *tls.Config
 }
 
+func (w *resourceUpdateWrapper) Close(ctx context.Context) error {
+	if w.real != nil {
+		return utils.TryClose(ctx, w.real)
+	}
+	return nil
+}
+
 // newResourceManager returns a properly initialized set of parts.
 func newResourceManager(
 	opts resourceManagerOptions,
@@ -502,7 +509,7 @@ func (manager *resourceManager) updateComponent(ctx context.Context,
 			}
 			manager.resources.Nodes[x] = wrapper
 		}
-		if err := utils.TryClose(ctx, manager.resources.Nodes[rName]); err != nil {
+		if err := utils.TryClose(ctx, old); err != nil {
 			return err
 		}
 		nr, err := r.newResource(ctx, conf)
