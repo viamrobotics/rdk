@@ -43,6 +43,49 @@
         "encoder_b": "encoder-b",
         "ticks_per_rotation" : 1
       }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock1",
+      "type": "mock",
+      "attributes":
+      {
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock2",
+      "type": "mock",
+      "attributes":
+      {
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock3",
+      "type": "mock",
+      "depends_on" : ["mock2"],
+      "attributes":
+      {
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock4",
+      "type": "mock",
+      "depends_on" : ["mock3"],
+      "attributes":
+      {
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock5",
+      "type": "mock",
+      "depends_on" : ["mock2"],
+      "attributes":
+      {
+      }
     }
   ],
   "processes":
@@ -52,7 +95,7 @@
       "name": "echo",
       "args":
       [
-        "hello",
+         "hello",
         "world"
       ],
       "one_shot": true

@@ -166,33 +166,7 @@ func newDraftRobot(r *localRobot, diff *config.Diff) *draftRobot {
 
 // Rollback rolls back any intermediate changes made.
 func (draft *draftRobot) Rollback(ctx context.Context) error {
-	var allErrs error
-	order := draft.manager.resources.TopologicalSort()
-	for _, k := range order {
-		if _, ok := draft.original.manager.resources.Nodes[k]; !ok {
-			if err := utils.TryClose(ctx, draft.manager.resources.Nodes[k]); err != nil {
-				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
-			}
-		}
-		draft.manager.resources.Remove(k)
-	}
-	for _, k := range draft.manager.processManager.ProcessIDs() {
-		if _, ok := draft.original.ProcessManager().ProcessByID(k); !ok {
-			if proc, ok := draft.manager.processManager.RemoveProcessByID(k); ok {
-				if err := proc.Stop(); err != nil {
-					allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing process"))
-				}
-			}
-		}
-	}
-	for k, x := range draft.manager.remotes {
-		if _, ok := draft.original.manager.remotes[k]; !ok {
-			if err := utils.TryClose(ctx, x); err != nil {
-				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
-			}
-		}
-	}
-	return nil
+	return draft.manager.Close(ctx)
 }
 
 // ProcessAndCommit processes all changes in an all-or-nothing fashion
