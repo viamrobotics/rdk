@@ -72,7 +72,7 @@ func closeOutSLAMService(t *testing.T, name string) {
 }
 
 func setupTestGRPCServer(port string) *grpc.Server {
-	listener2, _ := net.Listen("tcp", "localhost:"+port)
+	listener2, _ := net.Listen("tcp", port)
 	gServer2 := grpc.NewServer()
 	go gServer2.Serve(listener2)
 
@@ -173,7 +173,7 @@ func TestGeneralNew(t *testing.T) {
 			Sensors:       []string{},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			Port:          "4445",
+			Port:          "localhost:4445",
 		}
 
 		// Create slam service
@@ -209,6 +209,7 @@ func TestGeneralNew(t *testing.T) {
 		}
 	})
 
+	//////
 	t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "test",
@@ -244,7 +245,7 @@ func TestGeneralNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4445",
+			Port:          "localhost:4445",
 		}
 
 		// Create slam service
@@ -256,6 +257,7 @@ func TestGeneralNew(t *testing.T) {
 			svc.Close()
 		}
 	})
+	////////
 
 	closeOutSLAMService(t, name)
 }
@@ -273,7 +275,7 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4445",
+			Port:          "localhost:4445",
 		}
 
 		// Create slam service
@@ -295,7 +297,7 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4445",
+			Port:          "localhost:4445",
 		}
 
 		// Create slam service
@@ -316,7 +318,7 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4445",
+			Port:          "localhost:4445",
 		}
 
 		// Create slam service
@@ -346,7 +348,7 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4445",
+			Port:          "localhost:4445",
 		}
 
 		// Create slam service
@@ -368,7 +370,7 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    100,
-			Port:          "4445",
+			Port:          "localhost:4445",
 		}
 
 		// Create slam service
@@ -439,7 +441,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		ConfigParams:  map[string]string{"mode": "2d"},
 		DataDirectory: name,
 		DataRateMs:    dataRateMs,
-		Port:          "4445",
+		Port:          "localhost:4445",
 	}
 
 	// Create slam service
@@ -506,7 +508,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		ConfigParams:  map[string]string{"mode": "mono"},
 		DataDirectory: name,
 		DataRateMs:    dataRateMs,
-		Port:          "4445",
+		Port:          "localhost:4445",
 	}
 
 	// Create slam service
@@ -578,7 +580,7 @@ func TestGetMapAndPosition(t *testing.T) {
 		MapRateSec:       200,
 		DataRateMs:       100,
 		InputFilePattern: "10:200:1",
-		Port:             "4445",
+		Port:             "localhost:4445",
 	}
 
 	// Create slam service
@@ -622,7 +624,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		MapRateSec:       200,
 		DataRateMs:       100,
 		InputFilePattern: "10:200:1",
-		Port:             "4445",
+		Port:             "localhost:4445",
 	}
 
 	// Create slam service
@@ -647,6 +649,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-map_rate_sec=200"},
 			{"-data_dir=" + name},
 			{"-input_file_pattern=10:200:1"},
+			{"-port=localhost:4445"},
 		}
 
 		for i, s := range cmd {
@@ -682,7 +685,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		MapRateSec:       200,
 		DataRateMs:       100,
 		InputFilePattern: "10:200:1",
-		Port:             "4445",
+		Port:             "localhost:4445",
 	}
 
 	// Create slam service
@@ -741,7 +744,7 @@ func TestGRPCConnection(t *testing.T) {
 		MapRateSec:       200,
 		DataRateMs:       100,
 		InputFilePattern: "10:200:1",
-		Port:             "-1",
+		Port:             "localhost:-1",
 	}
 
 	// Create slam service
