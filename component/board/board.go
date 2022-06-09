@@ -398,14 +398,14 @@ func (r *reconfigurableBoard) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, r.actual)
 }
 
-// ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
-// See config.ShouldUpdateAction for more information.
-func (r *reconfigurableBoard) ShouldUpdate(c *config.Component) config.ShouldUpdateAction {
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (r *reconfigurableBoard) UpdateAction(c *config.Component) config.UpdateActionType {
 	obj, canUpdate := r.actual.(interface {
-		ShouldUpdate(config *config.Component) config.ShouldUpdateAction
+		UpdateAction(config *config.Component) config.UpdateActionType
 	})
 	if canUpdate {
-		return obj.ShouldUpdate(c)
+		return obj.UpdateAction(c)
 	}
 	return config.Reconfigure
 }

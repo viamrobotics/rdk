@@ -2732,7 +2732,7 @@ func (m *mockFake) Reconfigure(ctx context.Context, newResource resource.Reconfi
 	return nil
 }
 
-func (m *mockFake) ShouldUpdate(cfg *config.Component) config.ShouldUpdateAction {
+func (m *mockFake) UpdateAction(cfg *config.Component) config.UpdateActionType {
 	return config.Reconfigure
 }
 

@@ -11,12 +11,12 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// ShouldUpdateAction help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
-type ShouldUpdateAction int
+// UpdateActionType help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
+type UpdateActionType int
 
 const (
 	// None is returned when the new configuration doesn't change the the resource.
-	None ShouldUpdateAction = iota
+	None UpdateActionType = iota
 	// Reconfigure is returned when the resource should be updated without recreating its proxies.
 	// Note that two instances (old&new) will coexist, all dependencies will be destroyed and recreated.
 	Reconfigure
@@ -28,7 +28,7 @@ const (
 // CompononentUpdate interface that a component can optionally implement.
 // This interface helps the reconfiguration process.
 type CompononentUpdate interface {
-	ShouldUpdate(config *Component) ShouldUpdateAction
+	UpdateAction(config *Component) UpdateActionType
 }
 
 type validator interface {

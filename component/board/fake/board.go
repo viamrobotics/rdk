@@ -79,9 +79,9 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 	return b, nil
 }
 
-// ShouldUpdate helps hinting the reconfiguration process on what strategy to use given a modified config.
-// See config.ShouldUpdateAction for more information.
-func (b *Board) ShouldUpdate(c *config.Component) config.ShouldUpdateAction {
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (b *Board) UpdateAction(c *config.Component) config.UpdateActionType {
 	_, ok := c.ConvertedAttributes.(*board.Config)
 	if !ok {
 		return config.Rebuild

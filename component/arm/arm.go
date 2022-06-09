@@ -223,12 +223,12 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	return nil
 }
 
-// ShouldUpdate helps hint the reconfiguration process on what strategy to use given a modified config.
+// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
 // See config.ShouldUpdateAction for more information.
-func (r *reconfigurableArm) ShouldUpdate(c *config.Component) config.ShouldUpdateAction {
+func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActionType {
 	obj, canUpdate := r.actual.(config.CompononentUpdate)
 	if canUpdate {
-		return obj.ShouldUpdate(c)
+		return obj.UpdateAction(c)
 	}
 	return config.Reconfigure
 }
