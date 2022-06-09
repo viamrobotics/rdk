@@ -2054,8 +2054,10 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 		motorNames := []resource.Name{motor.Named("m1")}
-		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2"),
-			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5")}
+		mockNames := []resource.Name{
+			mockNamed("mock1"), mockNamed("mock2"),
+			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
+		}
 		test.That(t, robot.Reconfigure(context.Background(), conf7), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -2173,8 +2175,10 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 		motorNames := []resource.Name{motor.Named("m1")}
-		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2"),
-			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5")}
+		mockNames := []resource.Name{
+			mockNamed("mock1"), mockNamed("mock2"),
+			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
+		}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -2413,191 +2417,6 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 	})
-	t.Run("incremental deps config", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
-		conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
-		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
-		robot, err := New(context.Background(), conf4, logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
-		}()
-		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
-		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(
-			t,
-			utils.NewStringSet(arm.NamesFromRobot(robot)...),
-			test.ShouldBeEmpty,
-		)
-		test.That(
-			t,
-			utils.NewStringSet(motor.NamesFromRobot(robot)...),
-			test.ShouldBeEmpty,
-		)
-		test.That(
-			t,
-			utils.NewStringSet(base.NamesFromRobot(robot)...),
-			test.ShouldBeEmpty,
-		)
-		test.That(
-			t,
-			utils.NewStringSet(board.NamesFromRobot(robot)...),
-			test.ShouldResemble,
-			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
-		)
-		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
-			rdktestutils.ConcatResourceNames(
-				boardNames,
-				serviceNames,
-			)...))
-		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
-
-		_, err = arm.FromRobot(robot, "arm1")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = arm.FromRobot(robot, "arm2")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = motor.FromRobot(robot, "m1")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = motor.FromRobot(robot, "m2")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = motor.FromRobot(robot, "m3")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = motor.FromRobot(robot, "m4")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = base.FromRobot(robot, "base1")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = base.FromRobot(robot, "base2")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = board.FromRobot(robot, "board1")
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = board.FromRobot(robot, "board2")
-		test.That(t, err, test.ShouldBeNil)
-
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
-		motorNames := []resource.Name{motor.Named("m1")}
-		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2"),
-			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5")}
-		test.That(t, robot.Reconfigure(context.Background(), conf7), test.ShouldBeNil)
-		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(
-			t,
-			utils.NewStringSet(arm.NamesFromRobot(robot)...),
-			test.ShouldBeEmpty,
-		)
-		test.That(
-			t,
-			utils.NewStringSet(motor.NamesFromRobot(robot)...),
-			test.ShouldResemble,
-			utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
-		)
-		test.That(
-			t,
-			utils.NewStringSet(base.NamesFromRobot(robot)...),
-			test.ShouldBeEmpty,
-		)
-		test.That(
-			t,
-			utils.NewStringSet(board.NamesFromRobot(robot)...),
-			test.ShouldResemble,
-			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
-		)
-		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
-			rdktestutils.ConcatResourceNames(
-				boardNames,
-				serviceNames,
-				motorNames,
-				mockNames,
-			)...))
-		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
-
-		_, err = arm.FromRobot(robot, "arm1")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = arm.FromRobot(robot, "arm2")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = motor.FromRobot(robot, "m1")
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = motor.FromRobot(robot, "m2")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = motor.FromRobot(robot, "m3")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = motor.FromRobot(robot, "m4")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = base.FromRobot(robot, "base1")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = base.FromRobot(robot, "base2")
-		test.That(t, err, test.ShouldNotBeNil)
-
-		_, err = board.FromRobot(robot, "board1")
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = board.FromRobot(robot, "board2")
-		test.That(t, err, test.ShouldBeNil)
-
-		mock1, err := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).x, test.ShouldEqual, 5)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
-
-		mock2, err := robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake).x, test.ShouldEqual, 5)
-		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 0)
-
-		mock3, err := robot.ResourceByName(mockNamed("mock3"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).x, test.ShouldEqual, 5)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 0)
-
-		mock4, err := robot.ResourceByName(mockNamed("mock4"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock4.(*mockFake).x, test.ShouldEqual, 5)
-		test.That(t, mock4.(*mockFake).reconfCount, test.ShouldEqual, 0)
-
-		mock5, err := robot.ResourceByName(mockNamed("mock5"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock5.(*mockFake).x, test.ShouldEqual, 5)
-		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
-
-		_, ok = robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
-		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
-			rdktestutils.ConcatResourceNames(
-				motorNames,
-				serviceNames,
-				boardNames,
-				mockNames,
-			)...))
-	})
 
 	t.Run("child component fails dep", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
@@ -2610,8 +2429,10 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 		motorNames := []resource.Name{motor.Named("m1")}
-		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2"),
-			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5")}
+		mockNames := []resource.Name{
+			mockNamed("mock1"), mockNamed("mock2"),
+			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
+		}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -2828,8 +2649,8 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 	resourceNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
 	expected := map[resource.Name]interface{}{
-		gps.Named("gps1"): struct{}{},
-		gps.Named("gps2"): struct{}{},
+		gps.Named("gps1"): map[string]interface{}{},
+		gps.Named("gps2"): map[string]interface{}{},
 	}
 
 	t.Run("empty to not empty", func(t *testing.T) {
