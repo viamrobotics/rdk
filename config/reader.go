@@ -19,10 +19,10 @@ import (
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
-	"go.uber.org/multierr"
 	"go.viam.com/rdk/resource"
 )
 
@@ -361,9 +361,8 @@ func readFromCloud(
 			if errors.As(err, &parsingErr) {
 				if deleteErr := deleteCachedConfig(cloudCfg.ID); deleteErr != nil {
 					return nil, nil, multierr.Combine(deleteErr, err)
-				} else {
-					logger.Info("deleted unparseable cached config")
 				}
+				logger.Info("deleted unparseable cached config")
 			} else if err != nil {
 				return nil, nil, err
 			}
