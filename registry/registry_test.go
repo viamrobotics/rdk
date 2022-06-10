@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
@@ -49,7 +50,9 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	}
 	test.That(t, func() { RegisterResourceSubtype(acme.Subtype, ResourceSubtype{}) }, test.ShouldPanic)
 
-	RegisterResourceSubtype(acme.Subtype, ResourceSubtype{Reconfigurable: rf, Status: statf, RegisterRPCService: sf})
+	RegisterResourceSubtype(acme.Subtype, ResourceSubtype{
+		Reconfigurable: rf, Status: statf, RegisterRPCService: sf, RPCServiceDesc: &pb.RobotService_ServiceDesc,
+	})
 	creator := ResourceSubtypeLookup(acme.Subtype)
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
@@ -60,7 +63,9 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, button)
 	test.That(t, ResourceSubtypeLookup(subtype2), test.ShouldBeNil)
 
-	RegisterResourceSubtype(subtype2, ResourceSubtype{RegisterRPCService: sf, RPCClient: rcf})
+	RegisterResourceSubtype(subtype2, ResourceSubtype{
+		RegisterRPCService: sf, RPCClient: rcf, RPCServiceDesc: &pb.RobotService_ServiceDesc,
+	})
 	creator = ResourceSubtypeLookup(subtype2)
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, creator.Status, test.ShouldBeNil)

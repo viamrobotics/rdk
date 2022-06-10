@@ -221,6 +221,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 	injectRobot := &inject.RemoteRobot{}
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return armNames }
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) { return struct{}{}, nil }
 	injectRobot.LoggerFunc = func() golog.Logger { return logger }
 
@@ -231,6 +232,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	injectRemote := &inject.RemoteRobot{}
 	injectRemote.ResourceNamesFunc = func() []resource.Name { return rdktestutils.AddSuffixes(armNames, "_r1") }
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRemote.ResourceByNameFunc = func(name resource.Name) (interface{}, error) { return struct{}{}, nil }
 	injectRemote.LoggerFunc = func() golog.Logger { return logger }
 	manager.addRemote(context.Background(),
@@ -619,7 +621,11 @@ func TestManagerAdd(t *testing.T) {
 		return &board.BasicDigitalInterrupt{}, true
 	}
 
-	cfg = &config.Component{Type: board.SubtypeName, Name: "board1"}
+	cfg = &config.Component{
+		Type:      board.SubtypeName,
+		Namespace: resource.ResourceNamespaceRDK,
+		Name:      "board1",
+	}
 	rName = cfg.ResourceName()
 	manager.addResource(rName, injectBoard)
 	board1, err := manager.ResourceByName(board.Named("board1"))
@@ -665,42 +671,49 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:      "arm1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "arm2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "arm3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "base1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      base.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "base2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      base.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "base3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      base.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:                "board1",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
@@ -708,6 +721,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "board2",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
@@ -715,6 +729,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "board3",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
@@ -722,42 +737,49 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:      "camera1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      camera.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "camera2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      camera.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "camera3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      camera.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "gripper1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm1", "camera1"},
 			},
 			{
 				Name:      "gripper2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm2", "camera2"},
 			},
 			{
 				Name:      "gripper3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm3", "camera3"},
 			},
 			{
 				Name:                "inputController1",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board1"},
@@ -765,6 +787,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "inputController2",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board2"},
@@ -772,6 +795,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "inputController3",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board3"},
@@ -779,6 +803,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "motor1",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board1"},
@@ -786,6 +811,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "motor2",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board2"},
@@ -793,6 +819,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "motor3",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board3"},
@@ -800,36 +827,42 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:      "sensor1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "sensor2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "sensor3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "servo1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      servo.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "servo2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      servo.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "servo3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      servo.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
@@ -895,36 +928,44 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		},
 		Components: []config.Component{
 			{
-				Name: "what1",
-				Type: arm.SubtypeName,
+				Name:      "what1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "what5",
-				Type: base.SubtypeName,
+				Name:      "what5",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "what3",
-				Type: board.SubtypeName,
+				Name:      "what3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "what4",
-				Type: camera.SubtypeName,
+				Name:      "what4",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "what5",
-				Type: gripper.SubtypeName,
+				Name:      "what5",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "what6",
-				Type: motor.SubtypeName,
+				Name:      "what6",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "what7",
-				Type: sensor.SubtypeName,
+				Name:      "what7",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "what8",
-				Type: servo.SubtypeName,
+				Name:      "what8",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -940,8 +981,9 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	filtered, err = manager.FilterFromConfig(ctx, &config.Config{
 		Components: []config.Component{
 			{
-				Name: "what1",
-				Type: "something",
+				Name:      "what1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "something",
 			},
 		},
 	}, logger)
@@ -952,41 +994,50 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	filtered, err = manager.FilterFromConfig(ctx, &config.Config{
 		Components: []config.Component{
 			{
-				Name: "arm2",
-				Type: arm.SubtypeName,
+				Name:      "arm2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "base2",
-				Type: base.SubtypeName,
+				Name:      "base2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "board2",
-				Type: board.SubtypeName,
+				Name:      "board2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "camera2",
-				Type: camera.SubtypeName,
+				Name:      "camera2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "gripper2",
-				Type: gripper.SubtypeName,
+				Name:      "gripper2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "inputController2",
-				Type: input.SubtypeName,
+				Name:      "inputController2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "motor2",
-				Type: motor.SubtypeName,
+				Name:      "motor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "sensor2",
-				Type: sensor.SubtypeName,
+				Name:      "sensor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 
 			{
-				Name: "servo2",
-				Type: servo.SubtypeName,
+				Name:      "servo2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1040,40 +1091,49 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		},
 		Components: []config.Component{
 			{
-				Name: "arm2",
-				Type: arm.SubtypeName,
+				Name:      "arm2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "base2",
-				Type: base.SubtypeName,
+				Name:      "base2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "board2",
-				Type: board.SubtypeName,
+				Name:      "board2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "camera2",
-				Type: camera.SubtypeName,
+				Name:      "camera2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "gripper2",
-				Type: gripper.SubtypeName,
+				Name:      "gripper2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "inputController2",
-				Type: input.SubtypeName,
+				Name:      "inputController2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "motor2",
-				Type: motor.SubtypeName,
+				Name:      "motor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "sensor2",
-				Type: sensor.SubtypeName,
+				Name:      "sensor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "servo2",
-				Type: servo.SubtypeName,
+				Name:      "servo2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1166,112 +1226,139 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		},
 		Components: []config.Component{
 			{
-				Name: "arm1",
-				Type: arm.SubtypeName,
+				Name:      "arm1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "arm2",
-				Type: arm.SubtypeName,
+				Name:      "arm2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "arm3",
-				Type: arm.SubtypeName,
+				Name:      "arm3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "base1",
-				Type: base.SubtypeName,
+				Name:      "base1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "base2",
-				Type: base.SubtypeName,
+				Name:      "base2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "base3",
-				Type: base.SubtypeName,
+				Name:      "base3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "board1",
-				Type: board.SubtypeName,
+				Name:      "board1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "board2",
-				Type: board.SubtypeName,
+				Name:      "board2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "board3",
-				Type: board.SubtypeName,
+				Name:      "board3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "camera1",
-				Type: camera.SubtypeName,
+				Name:      "camera1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "camera2",
-				Type: camera.SubtypeName,
+				Name:      "camera2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "camera3",
-				Type: camera.SubtypeName,
+				Name:      "camera3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "gripper1",
-				Type: gripper.SubtypeName,
+				Name:      "gripper1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "gripper2",
-				Type: gripper.SubtypeName,
+				Name:      "gripper2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "gripper3",
-				Type: gripper.SubtypeName,
+				Name:      "gripper3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "inputController1",
-				Type: input.SubtypeName,
+				Name:      "inputController1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "inputController2",
-				Type: input.SubtypeName,
+				Name:      "inputController2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "inputController3",
-				Type: input.SubtypeName,
+				Name:      "inputController3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "motor1",
-				Type: motor.SubtypeName,
+				Name:      "motor1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "motor2",
-				Type: motor.SubtypeName,
+				Name:      "motor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "motor3",
-				Type: motor.SubtypeName,
+				Name:      "motor3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "sensor1",
-				Type: sensor.SubtypeName,
+				Name:      "sensor1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "sensor2",
-				Type: sensor.SubtypeName,
+				Name:      "sensor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "sensor3",
-				Type: sensor.SubtypeName,
+				Name:      "sensor3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "servo1",
-				Type: servo.SubtypeName,
+				Name:      "servo1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 			{
-				Name: "servo2",
-				Type: servo.SubtypeName,
+				Name:      "servo2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 			{
-				Name: "servo3",
-				Type: servo.SubtypeName,
+				Name:      "servo3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{

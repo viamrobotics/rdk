@@ -25,8 +25,9 @@ func TestComponentValidate(t *testing.T) {
 
 	t.Run("config valid", func(t *testing.T) {
 		validConfig := config.Component{
-			Name: "foo",
-			Type: "arm",
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "foo",
+			Type:      "arm",
 		}
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 	})
@@ -34,6 +35,7 @@ func TestComponentValidate(t *testing.T) {
 	t.Run("ConvertedAttributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Component{
+				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "foo",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
@@ -44,7 +46,8 @@ func TestComponentValidate(t *testing.T) {
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Component{
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{
 					Thing: "i am a thing!",
 				},
@@ -65,8 +68,9 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"all fields included",
 			config.Component{
-				Type: "arm",
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "arm",
+				Name:      "foo",
 			},
 			arm.Subtype,
 			arm.Named("foo"),
@@ -74,7 +78,8 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"missing subtype",
 			config.Component{
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
@@ -91,8 +96,9 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor with no subtype",
 			config.Component{
-				Type: "sensor",
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "sensor",
+				Name:      "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
@@ -109,8 +115,9 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor with subtype",
 			config.Component{
-				Type: "gps",
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "gps",
+				Name:      "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
@@ -127,8 +134,9 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor missing name",
 			config.Component{
-				Type: "gps",
-				Name: "",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "gps",
+				Name:      "",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
@@ -289,7 +297,8 @@ func TestServiceResourceName(t *testing.T) {
 		{
 			"all fields included",
 			config.Service{
-				Type: "motion",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "motion",
 			},
 			motion.Subtype,
 			resource.NameFromSubtype(motion.Subtype, ""),
