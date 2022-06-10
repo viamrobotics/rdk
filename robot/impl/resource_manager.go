@@ -132,9 +132,12 @@ func (manager *resourceManager) updateResourceRemoteNames() {
 			continue
 		}
 		for remoteName, remote := range manager.remotes {
-			if _, err := remote.ResourceByName(n); err == nil {
-				manager.resourceRemoteNames[n] = remoteName
-				break
+			// only check for part if remote has prefix and the prefix matches the name of remote OR if remote doesn't have a prefix
+			if (remote.conf.Prefix && strings.HasPrefix(n.Name, remote.conf.Name)) || !remote.conf.Prefix {
+				if _, err := remote.ResourceByName(n); err == nil {
+					manager.resourceRemoteNames[n] = remoteName
+					break
+				}
 			}
 		}
 	}
