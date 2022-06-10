@@ -3,7 +3,6 @@ package datamanager
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -289,24 +288,24 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 	}
 
 	// Then stream SensorData's one by one.
-	for {
-		next, err := readNextSensorData(f)
-		if err != nil {
-			// If EOF, we're done reading the file.
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return errors.Wrap(err, "error while reading sensorData")
-		}
-		toSend := v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_SensorContents{
-				SensorContents: next,
-			},
-		}
-		if err := client.SendMsg(&toSend); err != nil {
-			return errors.Wrap(err, "error while sending sensorData")
-		}
+	// for {
+	next, err := readNextSensorData(f)
+	if err != nil {
+		// If EOF, we're done reading the file.
+		// if errors.Is(err, io.EOF) {
+		// 	break
+		// }
+		return errors.Wrap(err, "error while reading sensorData")
 	}
+	toSend := &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_SensorContents{
+			SensorContents: next,
+		},
+	}
+	if err := client.Send(toSend); err != nil {
+		return errors.Wrap(err, "error while sending sensorData")
+	}
+	// }
 
 	// Close stream and receive response.
 	if _, err := client.CloseAndRecv(); err != nil {
@@ -316,6 +315,10 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 	return nil
 }
 
+// TODO:
+// When we add chunking for arbitrary data type file uploads we need to
+// process the data as a stream, this would include a buffer and a loop
+// that iterates and keeps reading and recording more data from the file
 func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 	// Open file
 	f, err := os.Open(path)
@@ -327,23 +330,17 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	}
 
 	// Then stream SensorData's one by one.
-	for {
-		next, err := readNextFileData(f)
-		if err != nil {
-			// If EOF, we're done reading the file.
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return errors.Wrap(err, "error while reading sensorData")
-		}
-		toSend := v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_FileContents{
-				FileContents: next,
-			},
-		}
-		if err := client.SendMsg(&toSend); err != nil {
-			return errors.Wrap(err, "error while sending sensorData")
-		}
+	next, err := readNextFileData(f)
+	if err != nil {
+		return errors.Wrap(err, "error while reading sensorData")
+	}
+	toSend := &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_FileContents{
+			FileContents: next,
+		},
+	}
+	if err := client.Send(toSend); err != nil {
+		return errors.Wrap(err, "error while sending sensorData")
 	}
 
 	// Close stream and receive response.
@@ -355,7 +352,7 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 }
 
 func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncService_UploadClient, path string) (v1.DataType, error) {
-	// Open file
+	// Open file, set file read/write offset
 	f, err := os.Open(path)
 	if err != nil {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
@@ -363,15 +360,26 @@ func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncServic
 	if _, err = f.Seek(0, 0); err != nil {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
-	_, isBinaryData, err := readNextSensorDataInitial(f)
+
+	// Read the file as if it is SensorData, if err is not nil
+	// we assume it is FileData
+	sensorData, err := readNextSensorData(f)
 	if err != nil {
 		return v1.DataType_DATA_TYPE_FILE, nil
 	}
-	// THIS LOGIC NEEDS TO BE RE-THOUGHT THROUGH
-	if isBinaryData {
+
+	// After narrowing down the file is SensorData, we need to
+	// determine if its BinaryData or TabularData. To do this we
+	// see if SensorData contains an arbitrary struct or a byte
+	// slice. If it is neither, return unspecified data type and
+	// an error that sensordata is not specified.
+	if s := sensorData.GetStruct(); s != nil {
+		return v1.DataType_DATA_TYPE_TABULAR_SENSOR, nil
+	}
+	if b := sensorData.GetBinary(); b != nil {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR, nil
 	}
-	return v1.DataType_DATA_TYPE_TABULAR_SENSOR, nil
+	return v1.DataType_DATA_TYPE_UNSPECIFIED, errors.New("sensordata data type not specified")
 }
 
 func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
@@ -420,7 +428,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 			},
 		},
 	}
-	if err := client.SendMsg(&md); err != nil {
+	if err := client.Send(md); err != nil {
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
@@ -445,26 +453,13 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 	return r, nil
 }
 
-func readNextSensorDataInitial(f *os.File) (*v1.SensorData, bool, error) {
-	isBinary := true
-	r := &v1.SensorData{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, isBinary, err
-	}
-	value := r.GetStruct()
-	if value != nil {
-		return r, !isBinary, nil
-	}
-	return r, isBinary, nil
-}
-
 func readNextFileData(f *os.File) (*v1.FileData, error) {
-	data, err := ioutil.ReadAll(f)
+	d, err := ioutil.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
 	r := &v1.FileData{
-		Data: data,
+		Data: d,
 	}
 	return r, nil
 }
