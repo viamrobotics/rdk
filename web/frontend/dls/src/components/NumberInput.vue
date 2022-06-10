@@ -4,7 +4,7 @@
     <div class="flex h-8">
       <input
         ref="input"
-        class="viam-number-input border-black outline-none h-full w-full"
+        class="viam-number-input border-black outline-none h-full w-8"
         type="tel"
         :id="inputId"
         :value="innerValue"

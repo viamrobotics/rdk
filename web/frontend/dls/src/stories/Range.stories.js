@@ -4,7 +4,7 @@ storiesOf("Range", module)
   .add("Default Range", () => ({
     data() {
       return {
-        percentage: 50,
+        percentage: 100,
         name: "Test Range:",
       };
     },

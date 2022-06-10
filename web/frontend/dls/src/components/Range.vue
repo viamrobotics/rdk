@@ -11,7 +11,6 @@
             :icon-width="16"
             paddingless
             :data="possibleValues"
-            :range="rangeLabels"
             :labelStyles="{ color: '#9d9d9d', backgroundColor: '#9d9d9d' }"
             :processStyle="processStyle"
           >
@@ -25,11 +24,10 @@
         <div class="px-2 text-xs text-center">{{ max }}{{ unit }}</div>
         <number-input
           class="w-12"
-          :hideControls="true"
           v-model="innerValue"
           :small="true"
           :id="id"
-          :readonly="true"
+          :readonly="false"
         ></number-input>
       </div>
     </div>
