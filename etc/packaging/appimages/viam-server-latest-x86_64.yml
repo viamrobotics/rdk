@@ -37,6 +37,7 @@ AppDir:
     - bash
     - libnlopt0
     - libx264-160
+    - libtensorflowlite2
   files:
     include: []
     exclude:
