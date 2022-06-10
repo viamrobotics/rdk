@@ -1,0 +1,437 @@
+Package: libcubeeye-dev
+Source: libcubeeye
+Version: 2021.07.16-3
+Installed-Size: 41
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libcubeeye1 (= 2021.07.16-3)
+Description: CubeEye Library
+ CubeEye Library
+Multi-Arch: same
+Homepage: <insert the upstream URL, if relevant>
+Filename: pool/bullseye/libcubeeye-dev_2021.07.16-3_arm64_70708ffb85c52b0064e51b3dc56770e1.deb
+MD5sum: 70708ffb85c52b0064e51b3dc56770e1
+Priority: optional
+SHA256: a5eceb64208e892df20b431fd118c6ed1a870e2b20465cb64ee359eb06468dff
+Section: libdevel
+
+Package: libcubeeye1
+Source: libcubeeye
+Version: 2021.07.16-3
+Installed-Size: 5836
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libgcc1 (>= 1:4.2), libstdc++6 (>= 5.2), zlib1g (>= 1:1.1.4)
+Description: CubeEye Library
+ CubeEye Library
+Multi-Arch: same
+Homepage: <insert the upstream URL, if relevant>
+Filename: pool/bullseye/libcubeeye1_2021.07.16-3_arm64_748a3dbf3260b09082319657a0e94cab.deb
+MD5sum: 748a3dbf3260b09082319657a0e94cab
+Priority: optional
+SHA256: 9168c3760345433a2309142f7e3f34de0645fe50937ac504bf3c19ce842ad39c
+Section: libs
+
+Package: libhttpserver-dev
+Source: libhttpserver
+Version: 0.18.2+20210512-3
+Installed-Size: 104
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libmicrohttpd-dev, libhttpserver1 (= 0.18.2+20210512-3)
+Description: C++ library for RESTful web servers.
+ libhttpserver is a C++ library for building high performance
+ RESTful web servers. libhttpserver is built upon
+ libmicrohttpd to provide a simple API for developers to
+ create HTTP services in C++.
+Multi-Arch: same
+Homepage: https://github.com/etr/libhttpserver
+Filename: pool/bullseye/libhttpserver-dev_0.18.2+20210512-3_arm64_2cd9ce0f19e9d5f00846c2e0d57e7586.deb
+MD5sum: 2cd9ce0f19e9d5f00846c2e0d57e7586
+Priority: optional
+SHA256: 025ccae4aaf10e63573189c9a19172afda051dac95d8ba051ad59d3636ee8302
+Section: libdevel
+
+Package: libhttpserver1
+Source: libhttpserver
+Version: 0.18.2+20210512-3
+Installed-Size: 285
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libmicrohttpd12 (>= 0.9.50), libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2)
+Description: C++ library for RESTful web servers.
+ libhttpserver is a C++ library for building high performance
+ RESTful web servers. libhttpserver is built upon
+ libmicrohttpd to provide a simple API for developers to
+ create HTTP services in C++.
+Multi-Arch: same
+Homepage: https://github.com/etr/libhttpserver
+Filename: pool/bullseye/libhttpserver1_0.18.2+20210512-3_arm64_daefcda24d36e5d033fdf68ea3638e30.deb
+MD5sum: daefcda24d36e5d033fdf68ea3638e30
+Priority: optional
+SHA256: 3dbd713c7714047d809ae08a65c39be02fb7e109d3bdc345701e2bc3654cd54d
+Section: libs
+
+Package: libprotobuf-dev
+Source: protobuf
+Version: 3.19.1-2
+Installed-Size: 11800
+Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Architecture: arm64
+Provides: protobuf-api-30-0
+Depends: zlib1g-dev, libprotobuf30 (= 3.19.1-2), libprotobuf-lite30 (= 3.19.1-2)
+Breaks: protobuf-compiler (>> 3.19.1-2), protobuf-compiler (<< 3.19.1-2)
+Description: protocol buffers C++ library (development files) and proto files
+ Protocol buffers are a flexible, efficient, automated mechanism for
+ serializing structured data - similar to XML, but smaller, faster, and
+ simpler. You define how you want your data to be structured once, then you can
+ use special generated source code to easily write and read your structured
+ data to and from a variety of data streams and using a variety of languages.
+ You can even update your data structure without breaking deployed programs
+ that are compiled against the "old" format.
+ .
+ Google uses Protocol Buffers for almost all of its internal RPC protocols and
+ file formats.
+ .
+ This package contains the development headers and static libraries needed for
+ writing C++ applications. Includes well known proto type files.
+Multi-Arch: same
+Homepage: https://github.com/google/protobuf/
+Filename: pool/bullseye/libprotobuf-dev_3.19.1-2_arm64_2445429e8164c4bd8d5f84ed29f0e603.deb
+MD5sum: 2445429e8164c4bd8d5f84ed29f0e603
+Priority: optional
+SHA256: 07d15b2a33aaafdce534fb0e9808c2533cd52e9a746cd1be6d7f0a29c636b6fb
+Section: libdevel
+
+Package: libprotobuf-lite30
+Source: protobuf
+Version: 3.19.1-2
+Installed-Size: 870
+Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2)
+Description: protocol buffers C++ library (lite version)
+ Protocol buffers are a flexible, efficient, automated mechanism for
+ serializing structured data - similar to XML, but smaller, faster, and
+ simpler. You define how you want your data to be structured once, then you can
+ use special generated source code to easily write and read your structured
+ data to and from a variety of data streams and using a variety of languages.
+ You can even update your data structure without breaking deployed programs
+ that are compiled against the "old" format.
+ .
+ Google uses Protocol Buffers for almost all of its internal RPC protocols and
+ file formats.
+ .
+ This package contains the runtime library needed for C++ applications whose
+ message definitions have the "lite runtime" optimization setting.
+Multi-Arch: same
+Homepage: https://github.com/google/protobuf/
+Filename: pool/bullseye/libprotobuf-lite30_3.19.1-2_arm64_4db970526b424069b3de7491c48d08e9.deb
+MD5sum: 4db970526b424069b3de7491c48d08e9
+Priority: optional
+SHA256: e014c3e61b1faa9618d07333733f144f08f9d37d9825434719adc8051467cb54
+Section: libs
+
+Package: libprotobuf30
+Source: protobuf
+Version: 3.19.1-2
+Installed-Size: 3170
+Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2), zlib1g (>= 1:1.1.4)
+Breaks: cura-engine (<< 1:3.3.0-2.1+b1), libarcus3 (<< 3.3.0-2)
+Description: protocol buffers C++ library
+ Protocol buffers are a flexible, efficient, automated mechanism for
+ serializing structured data - similar to XML, but smaller, faster, and
+ simpler. You define how you want your data to be structured once, then you can
+ use special generated source code to easily write and read your structured
+ data to and from a variety of data streams and using a variety of languages.
+ You can even update your data structure without breaking deployed programs
+ that are compiled against the "old" format.
+ .
+ Google uses Protocol Buffers for almost all of its internal RPC protocols and
+ file formats.
+ .
+ This package contains the runtime library needed for C++ applications.
+Multi-Arch: same
+Homepage: https://github.com/google/protobuf/
+Filename: pool/bullseye/libprotobuf30_3.19.1-2_arm64_c31c7fde994e15d3eba616d5a3bc34cc.deb
+MD5sum: c31c7fde994e15d3eba616d5a3bc34cc
+Priority: optional
+SHA256: 5b568845f5b7cfffe273c8fc7aefe53b803a119a0bd8c8f5752fbcb11628cb57
+Section: libs
+
+Package: libprotoc-dev
+Source: protobuf
+Version: 3.19.1-2
+Installed-Size: 6745
+Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Architecture: arm64
+Replaces: libprotobuf-dev (<< 2.1.0)
+Depends: libprotoc30 (= 3.19.1-2), libprotobuf-dev (= 3.19.1-2)
+Breaks: libprotobuf-dev (<< 2.1.0)
+Description: protocol buffers compiler library (development files)
+ Protocol buffers are a flexible, efficient, automated mechanism for
+ serializing structured data - similar to XML, but smaller, faster, and
+ simpler. You define how you want your data to be structured once, then you can
+ use special generated source code to easily write and read your structured
+ data to and from a variety of data streams and using a variety of languages.
+ You can even update your data structure without breaking deployed programs
+ that are compiled against the "old" format.
+ .
+ Google uses Protocol Buffers for almost all of its internal RPC protocols and
+ file formats.
+ .
+ This package contains the development headers and static library needed for
+ writing protobuf compilers.
+Multi-Arch: same
+Homepage: https://github.com/google/protobuf/
+Filename: pool/bullseye/libprotoc-dev_3.19.1-2_arm64_3526b3105fae59f1c4b1fcd176da7ece.deb
+MD5sum: 3526b3105fae59f1c4b1fcd176da7ece
+Priority: optional
+SHA256: 641e9589ccc0e2d2d5c15ad41309600df9aae4508ed9e2eb46b62155e860078b
+Section: libdevel
+
+Package: libprotoc30
+Source: protobuf
+Version: 3.19.1-2
+Installed-Size: 2807
+Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libgcc-s1 (>= 3.0), libprotobuf30 (>= 3.19.1), libstdc++6 (>= 5.2)
+Description: protocol buffers compiler library
+ Protocol buffers are a flexible, efficient, automated mechanism for
+ serializing structured data - similar to XML, but smaller, faster, and
+ simpler. You define how you want your data to be structured once, then you can
+ use special generated source code to easily write and read your structured
+ data to and from a variety of data streams and using a variety of languages.
+ You can even update your data structure without breaking deployed programs
+ that are compiled against the "old" format.
+ .
+ Google uses Protocol Buffers for almost all of its internal RPC protocols and
+ file formats.
+ .
+ This package contains the runtime library needed for the protocol buffer
+ compiler.
+Multi-Arch: same
+Homepage: https://github.com/google/protobuf/
+Filename: pool/bullseye/libprotoc30_3.19.1-2_arm64_aca228e3494f7edc088c927c949d42f0.deb
+MD5sum: aca228e3494f7edc088c927c949d42f0
+Priority: optional
+SHA256: 6fceb77b825e389478d0fa87474d979b181870de26a84fcdb35a57c821900e65
+Section: libs
+
+Package: librealsense2
+Source: librealsense
+Version: 2.50.0-2
+Installed-Size: 35988
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libc6 (>= 2.30), libgcc-s1 (>= 3.0), libstdc++6 (>= 9), libusb-1.0-0 (>= 2:1.0.16)
+Description: Library for Intel RealSense depth cameras
+Multi-Arch: same
+Homepage: https://github.com/IntelRealSense/librealsense
+Filename: pool/bullseye/librealsense2_2.50.0-2_arm64_f243b47ef41ad4fa710e16a6688109f3.deb
+MD5sum: f243b47ef41ad4fa710e16a6688109f3
+Priority: optional
+SHA256: 2d0ab44b21161d8ef71dfbfe49890a5d5ae27b3b513d8e46d0dceebef8d53ceb
+Section: libs
+
+Package: librealsense2-dev
+Source: librealsense
+Version: 2.50.0-2
+Installed-Size: 544
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: librealsense2 (= 2.50.0-2)
+Description: Library for Intel RealSense depth cameras
+Multi-Arch: same
+Homepage: https://github.com/IntelRealSense/librealsense
+Filename: pool/bullseye/librealsense2-dev_2.50.0-2_arm64_1e856fdb714d856b72252b459bf2c209.deb
+MD5sum: 1e856fdb714d856b72252b459bf2c209
+Priority: optional
+SHA256: 338602b492cffc9b6b29facadbd50624959952b1dccfbd41c8cf50b77d1cb394
+Section: libdevel
+
+Package: libroyale-dev
+Source: libroyale
+Version: 3.39.0.143-2
+Installed-Size: 533
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libroyale3 (= 3.39.0.143-2)
+Description: Royale Library
+ Royale Library
+Multi-Arch: same
+Homepage: <insert the upstream URL, if relevant>
+Filename: pool/bullseye/libroyale-dev_3.39.0.143-2_arm64_3b2715754986a9febf6c12014130b02e.deb
+MD5sum: 3b2715754986a9febf6c12014130b02e
+Priority: optional
+SHA256: 19b379d22708494ae97b70c730f61c87c0ebd8f394b86e9b175dcdde81e2a334
+Section: libdevel
+
+Package: libroyale3
+Source: libroyale
+Version: 3.39.0.143-2
+Installed-Size: 6148
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libgcc1 (>= 1:3.0), libstdc++6 (>= 5.2), libusb-1.0-0 (>= 2:1.0.16)
+Description: Royale Library
+ Royale Library
+Multi-Arch: same
+Homepage: <insert the upstream URL, if relevant>
+Filename: pool/bullseye/libroyale3_3.39.0.143-2_arm64_6910843ffafca3a53d869667544d0d0f.deb
+MD5sum: 6910843ffafca3a53d869667544d0d0f
+Priority: optional
+SHA256: d55e0c3c8998a84d55b0d99c647486df99185dbdd68faafdc21ea2de30a5a18c
+Section: libs
+
+Package: libtensorflowlite-dev
+Source: tensorflow
+Version: 2.9.1
+Installed-Size: 99
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libtensorflowlite2 (= 2.9.1)
+Description: C++ library for TensorFlow Lite
+ C++ library for TensorFlow Lite.
+Multi-Arch: same
+Homepage: https://tensorflow.org
+Filename: pool/bullseye/libtensorflowlite-dev_2.9.1_arm64_1f10d70630bc291f2921a77523d07f17.deb
+MD5sum: 1f10d70630bc291f2921a77523d07f17
+Priority: optional
+SHA256: 77cb8cce8f95ec81c2f7ddc171473e8f5098155e90dad6a6043916f2c149872d
+Section: libdevel
+Size: 20628
+
+Package: libtensorflowlite2
+Source: tensorflow
+Version: 2.9.1
+Installed-Size: 4424
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libc6 (>= 2.29), libgcc-s1 (>= 3.0), libstdc++6 (>= 6)
+Description: C++ library for TensorFlow Lite.
+ C++ library for TensorFlow Lite.
+Multi-Arch: same
+Homepage: https://tensorflow.org
+Filename: pool/bullseye/libtensorflowlite2_2.9.1_arm64_e01a72ebda507629ba3bb546cc47f50a.deb
+MD5sum: e01a72ebda507629ba3bb546cc47f50a
+Priority: optional
+SHA256: 8d2e305e881d8626dfaa75c479c839711312a4e3afc8cf1d1e7880a74ac2708a
+Section: libs
+Size: 1262844
+
+Package: libwasmer2
+Source: wasmer
+Version: 2.0.0-3
+Installed-Size: 7133
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libc6 (>= 2.18), libgcc-s1 (>= 4.2)
+Description: WebAssembly Runtime
+ WebAssembly Runtime
+Multi-Arch: same
+Homepage: <insert the upstream URL, if relevant>
+Filename: pool/bullseye/libwasmer2_2.0.0-3_arm64_9801270f8a2b2be07e7129498191271b.deb
+MD5sum: 9801270f8a2b2be07e7129498191271b
+Priority: optional
+SHA256: 0621e1af83a62145f93867cd58ec2b9161357fcb4bada081312958598c9f3aae
+Section: libs
+
+Package: protobuf-compiler
+Source: protobuf
+Version: 3.19.1-2
+Installed-Size: 155
+Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libgcc-s1 (>= 3.0), libprotoc30 (= 3.19.1-2), libstdc++6 (>= 5.2)
+Recommends: libprotobuf-dev
+Suggests: protobuf-mode-el
+Description: compiler for protocol buffer definition files
+ Protocol buffers are a flexible, efficient, automated mechanism for
+ serializing structured data - similar to XML, but smaller, faster, and
+ simpler. You define how you want your data to be structured once, then you can
+ use special generated source code to easily write and read your structured
+ data to and from a variety of data streams and using a variety of languages.
+ You can even update your data structure without breaking deployed programs
+ that are compiled against the "old" format.
+ .
+ Google uses Protocol Buffers for almost all of its internal RPC protocols and
+ file formats.
+ .
+ This package contains the protocol buffer compiler that is used for
+ translating from .proto files (containing the definitions) to the language
+ binding for the supported languages.
+Multi-Arch: foreign
+Homepage: https://github.com/google/protobuf/
+Filename: pool/bullseye/protobuf-compiler_3.19.1-2_arm64_c5087387573f1064a6c50972fa5e9e73.deb
+MD5sum: c5087387573f1064a6c50972fa5e9e73
+Priority: optional
+SHA256: 9c60a5a04bf8ee5a8afad8e0638e63788e868a8609b05b0430991a7abd08960b
+Section: devel
+
+Package: protoc-gen-grpc-web
+Source: grpc-web
+Version: 1.3.0-1
+Installed-Size: 108
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libgcc-s1 (>= 3.0), libprotobuf30 (>= 3.19.1), libprotoc30 (>= 3.19.1), libstdc++6 (>= 5.2)
+Description: Protoc plugin for grpc-web
+Homepage: https://github.com/grpc/grpc-web
+Filename: pool/bullseye/protoc-gen-grpc-web_1.3.0-1_arm64_a2f62c03eb7139638e8a2cb1f72c99aa.deb
+MD5sum: a2f62c03eb7139638e8a2cb1f72c99aa
+Priority: optional
+SHA256: e5bcc30cad862c1831a0ba721544d5636a239815b2f3c7e1a610b9f66a679779
+Section: development
+
+Package: wasmer
+Version: 2.0.0-3
+Installed-Size: 12572
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libc6 (>= 2.29), libgcc-s1 (>= 4.2)
+Description: WebAssembly Runtime
+ WebAssembly Runtime
+Multi-Arch: same
+Homepage: <insert the upstream URL, if relevant>
+Filename: pool/bullseye/wasmer_2.0.0-3_arm64_7951c7003733b051cd2d54f06e7f8033.deb
+MD5sum: 7951c7003733b051cd2d54f06e7f8033
+Priority: optional
+SHA256: d2699ca092c3115b5d9c6529e173d1230aa11cdaaf213255c95a693b8e7f14e8
+Section: libs
+
+Package: wasmer-dev
+Source: wasmer
+Version: 2.0.0-3
+Installed-Size: 58862
+Maintainer: James Otting <james@viam.com>
+Architecture: arm64
+Depends: libwasmer2 (= 2.0.0-3)
+Description: WebAssembly Runtime
+ WebAssembly Runtime
+Multi-Arch: same
+Homepage: <insert the upstream URL, if relevant>
+Filename: pool/bullseye/wasmer-dev_2.0.0-3_arm64_0aa02ef7413c3f5ab998bfd18b160d7a.deb
+MD5sum: 0aa02ef7413c3f5ab998bfd18b160d7a
+Priority: optional
+SHA256: 738feecb41e87e1b3f0e7843f7f8e549968bfea0e21a7bcc3ab8e5a9f0bc7547
+Section: libdevel
+
+Package: wiringpi
+Version: 2.60+20200416-4
+Installed-Size: 252
+Maintainer: Gordon Henderson <projects@drogon.net>
+Architecture: arm64
+Depends: libc6
+Description: The wiringPi libraries, headers and gpio command
+  Libraries to allow GPIO access on a Raspberry Pi from C and C++
+  and BASIC programs as well as from the command-line
+Homepage: https://github.com/WiringPi/WiringPi
+Filename: pool/bullseye/wiringpi_2.60+20200416-4_arm64_c0c45fed3d385c208cee80a38989a79b.deb
+MD5sum: c0c45fed3d385c208cee80a38989a79b
+Priority: optional
+SHA256: 1fd6188ece3547e138d7fe3d7bb7e07f6bcd342aa494be35b817ef52d7cec2eb
+Section: libraries

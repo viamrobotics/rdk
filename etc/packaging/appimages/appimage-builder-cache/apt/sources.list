@@ -1,0 +1,5 @@
+deb [trusted=yes] http://deb.debian.org/debian bullseye main
+deb [trusted=yes] http://deb.debian.org/debian-security bullseye-security main
+deb [trusted=yes] http://deb.debian.org/debian bullseye-updates main
+deb [trusted=yes] https://us-apt.pkg.dev/projects/static-file-server-310021 bullseye main
+deb [trusted=yes] http://archive.raspberrypi.org/debian/ bullseye main
