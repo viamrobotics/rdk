@@ -282,33 +282,6 @@ func storeToCache(id string, cfg *Config) error {
 	return artifact.AtomicStore(path, reader, id)
 }
 
-// getOrDeleteCachedConfig attempts to pull a config from a locally cached file. If the
-// cache file cannot be parsed for any reason, then it assumes the file is corrupt and
-// deletes it.
-func getOrDeleteCachedConfig(ctx context.Context, cloudID string, logger golog.Logger) (*Config, error) {
-	// get cached certificate data
-	cachedConfigReader, err := openFromCache(cloudID)
-	if err != nil {
-		return nil, err
-	}
-	cachedConfig, _, err := fromReader(ctx, "", cachedConfigReader, true, logger)
-
-	var parsingErr *parsingError
-	if errors.As(err, &parsingErr) {
-		if deleteErr := deleteCachedConfig(cloudID); deleteErr != nil {
-			return nil, multierr.Combine(deleteErr, err)
-		} else {
-			logger.Infow("deleted unparseable cached config", "error", err)
-			return nil, err
-		}
-	} else if err != nil {
-		return nil, err
-	}
-
-	return cachedConfig, nil
-
-}
-
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
 func readFromCloud(
@@ -368,10 +341,19 @@ func readFromCloud(
 	// read the actual config and do not make a cloud request again to avoid
 	// infinite recursion.
 	cfg, unprocessedConfig, err := fromReader(ctx, "", configReader, true, logger)
-	if err != nil {
+
+	var parsingErr *parsingError
+	switch {
+	case cached && errors.As(err, &parsingErr):
+		if deleteErr := deleteCachedConfig(cloudCfg.ID); deleteErr != nil {
+			return nil, nil, multierr.Combine(deleteErr, err)
+		} else {
+			logger.Warnw("deleted unparseable cached config", "error", err)
+			return nil, nil, err
+		}
+	case err != nil:
 		return nil, nil, err
-	}
-	if cfg.Cloud == nil {
+	case cfg.Cloud == nil:
 		return nil, nil, errors.New("expected config to have cloud section")
 	}
 
@@ -379,17 +361,29 @@ func readFromCloud(
 	tlsCertificate := cfg.Cloud.TLSCertificate
 	tlsPrivateKey := cfg.Cloud.TLSPrivateKey
 	if !cached {
-		cachedConfig, err := getOrDeleteCachedConfig(ctx, cfg.Cloud.ID, logger)
-		switch {
-		case os.IsNotExist(err):
-			logger.Warn(err)
-		case err != nil:
+		// get cached certificate data
+		cachedConfigReader, err := openFromCache(cloudCfg.ID)
+		if err == nil {
+			cachedConfig, _, err := fromReader(ctx, "", cachedConfigReader, true, logger)
+
+			switch {
+			case errors.As(err, &parsingErr):
+				if deleteErr := deleteCachedConfig(cloudCfg.ID); deleteErr != nil {
+					return nil, nil, multierr.Combine(deleteErr, err)
+				} else {
+					logger.Warnw("deleted unparseable cached config", "error", err)
+					return nil, nil, err
+				}
+			case err != nil:
+				return nil, nil, err
+			case cachedConfig.Cloud == nil:
+				logger.Warn("expected cached config to have cloud section; need to get a new certificate")
+			default:
+				tlsCertificate = cachedConfig.Cloud.TLSCertificate
+				tlsPrivateKey = cachedConfig.Cloud.TLSPrivateKey
+			}
+		} else if !os.IsNotExist(err) {
 			return nil, nil, err
-		case cachedConfig.Cloud == nil:
-			logger.Warn("cached config does not have cloud section")
-		default:
-			tlsCertificate = cachedConfig.Cloud.TLSCertificate
-			tlsPrivateKey = cachedConfig.Cloud.TLSPrivateKey
 		}
 	}
 
