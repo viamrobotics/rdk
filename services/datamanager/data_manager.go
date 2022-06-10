@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -71,7 +72,7 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
-// Attributes to initialize the collector for a component.
+// Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
 	Type               resource.SubtypeName `json:"type"`
@@ -94,8 +95,6 @@ type Config struct {
 	SyncIntervalMins    int      `json:"sync_interval_mins"`
 	Disabled            bool     `json:"disabled"`
 }
-
-// TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
@@ -314,6 +313,19 @@ func getServiceConfig(cfg *config.Config) (config.Service, bool) {
 	return config.Service{}, false
 }
 
+func getAttrsFromServiceConfig(componentSvcConfig config.ResourceLevelServiceConfig) (dataCaptureConfigs, error) {
+	var attrs dataCaptureConfigs
+	configs, err := config.TransformAttributeMapToStruct(&attrs, componentSvcConfig.Attributes)
+	if err != nil {
+		return dataCaptureConfigs{}, err
+	}
+	convertedConfigs, ok := configs.(*dataCaptureConfigs)
+	if !ok {
+		return dataCaptureConfigs{}, utils.NewUnexpectedTypeError(convertedConfigs, configs)
+	}
+	return *convertedConfigs, nil
+}
+
 // Get the component configs associated with the data manager service.
 func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	componentDataCaptureConfigs := []dataCaptureConfig{}
@@ -321,20 +333,31 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
 			if componentSvcConfig.ResourceName() == Name {
-				var attrs dataCaptureConfigs
-				configs, err := config.TransformAttributeMapToStruct(&attrs, componentSvcConfig.Attributes)
+				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
 				}
-				convertedConfigs, ok := configs.(*dataCaptureConfigs)
-				if !ok {
-					return componentDataCaptureConfigs, utils.NewUnexpectedTypeError(convertedConfigs, configs)
-				}
 
-				// Add the method configuration to the result.
-				for _, attrs := range convertedConfigs.Attributes {
+				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
 					attrs.Type = c.Type
+					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
+				}
+			}
+		}
+	}
+
+	for _, r := range cfg.Remotes {
+		// Iterate over all remote-level service configs of type data_manager.
+		for _, resourceSvcConfig := range r.ServiceConfig {
+			if resourceSvcConfig.ResourceName() == Name {
+				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
+				if err != nil {
+					return componentDataCaptureConfigs, err
+				}
+
+				for _, attrs := range attrs.Attributes {
+					attrs.Name = attrs.Name[strings.LastIndex(attrs.Name, ":")+1:]
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}
