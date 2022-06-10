@@ -152,8 +152,8 @@ type Updateable interface {
 	Update(context.Context, map[Name]interface{}) error
 }
 
-// IsMoving is implemented when a resource of a robot returns whether it is moving or not.
-type IsMoving interface {
+// MovingCheckable is implemented when a resource of a robot returns whether it is moving or not.
+type MovingCheckable interface {
 	// IsMoving returns whether the resource is moving or not
-	IsMoving(ctx context.Context) (bool, error)
+	IsMoving() bool
 }
