@@ -51,7 +51,7 @@ const (
 	pathAttrName      = "path"
 )
 
-func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
+func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.NMEAGPS, error) {
 	serialPath := config.Attributes.String(pathAttrName)
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialNMEAGPS expected non-empty string for %q", pathAttrName)
@@ -65,12 +65,12 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 
 	g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
-	g.Start()
+	g.Start(ctx)
 
 	return g, nil
 }
 
-func (g *serialNMEAGPS) Start() {
+func (g *serialNMEAGPS) Start(ctx context.Context) {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
