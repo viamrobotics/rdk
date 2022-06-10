@@ -66,3 +66,33 @@ const (
 func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
 
 }
+
+func (g *RTKGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
+	return g.ReadLocation(ctx)
+}
+
+func (g *RTKGPS) ReadAltitude(ctx context.Context) (float64, error) {
+	g.ReadAltitude(ctx)
+}
+
+func (g *RTKGPS) ReadSpeed(ctx context.Context) (float64, error) {
+	return g.ReadSpeed(ctx)
+}
+
+func (g *RTKGPS) ReadSatellites(ctx context.Context) (int, int, error) {
+	return g.ReadSatellites(ctx)
+}
+
+func (g *RTKGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+	return g.ReadAccuracy(ctx)
+}
+
+func (g *RTKGPS) ReadValid(ctx context.Context) (bool, error) {
+	return g.ReadValid(ctx)
+}
+
+func (g *RTKGPS) Close() error {
+	return g.Close()
+
+	// TODO: close any ntrip connections if neccessary
+}
