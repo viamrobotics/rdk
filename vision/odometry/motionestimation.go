@@ -1,10 +1,14 @@
 package odometry
 
 import (
+	"encoding/json"
 	"image"
 	"image/draw"
+	"os"
+	"path/filepath"
 
 	"github.com/golang/geo/r2"
+	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/rimage"
@@ -14,11 +18,28 @@ import (
 
 // MotionEstimationConfig contains the parameters needed for motion estimation between two video frames.
 type MotionEstimationConfig struct {
-	KeyPointCfg       *keypoints.ORBConfig
-	MatchingCfg       *keypoints.MatchingConfig
-	CamIntrinsics     *transform.PinholeCameraIntrinsics
-	ScaleEstimatorCfg *ScaleEstimatorConfig
-	CamHeightGround   float64
+	KeyPointCfg       *keypoints.ORBConfig               `json:"kps"`
+	MatchingCfg       *keypoints.MatchingConfig          `json:"matching"`
+	CamIntrinsics     *transform.PinholeCameraIntrinsics `json:"cam_intrinsics"`
+	ScaleEstimatorCfg *ScaleEstimatorConfig              `json:"scale_estimator"`
+	CamHeightGround   float64                            `json:"cam_height_ground"`
+}
+
+// LoadMotionEstimationConfig loads a motion estimation configuration from a json file.
+func LoadMotionEstimationConfig(path string) *MotionEstimationConfig {
+	var config MotionEstimationConfig
+	filePath := filepath.Clean(path)
+	configFile, err := os.Open(filePath)
+	defer utils.UncheckedErrorFunc(configFile.Close)
+	if err != nil {
+		return nil
+	}
+	jsonParser := json.NewDecoder(configFile)
+	err = jsonParser.Decode(&config)
+	if err != nil {
+		return nil
+	}
+	return &config
 }
 
 // Motion3D contains the estimated 3D rotation and translation from 2 frames.
@@ -73,7 +94,7 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 		return nil, err
 	}
 	scale := cfg.CamHeightGround / estimatedCamHeight
-	pose.Translation.Scale(scale, pose.Translation)
+
 	var rescaledTranslation mat.Dense
 	rescaledTranslation.Scale(scale, pose.Translation)
 
