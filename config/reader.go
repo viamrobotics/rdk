@@ -347,10 +347,9 @@ func readFromCloud(
 	case cached && errors.As(err, &parsingErr):
 		if deleteErr := deleteCachedConfig(cloudCfg.ID); deleteErr != nil {
 			return nil, nil, multierr.Combine(deleteErr, err)
-		} else {
-			logger.Warnw("deleted unparseable cached config", "error", err)
-			return nil, nil, err
 		}
+		logger.Warnw("deleted unparseable cached config", "error", err)
+		return nil, nil, err
 	case err != nil:
 		return nil, nil, err
 	case cfg.Cloud == nil:
@@ -370,10 +369,9 @@ func readFromCloud(
 			case errors.As(err, &parsingErr):
 				if deleteErr := deleteCachedConfig(cloudCfg.ID); deleteErr != nil {
 					return nil, nil, multierr.Combine(deleteErr, err)
-				} else {
-					logger.Warnw("deleted unparseable cached config", "error", err)
-					return nil, nil, err
 				}
+				logger.Warnw("deleted unparseable cached config", "error", err)
+				return nil, nil, err
 			case err != nil:
 				return nil, nil, err
 			case cachedConfig.Cloud == nil:
