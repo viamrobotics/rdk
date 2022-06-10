@@ -15,8 +15,8 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-func newServer(omMap map[resource.Name]interface{}) (pb.DataManagerServiceServer, error) {
-	omSvc, err := subtype.New(omMap)
+func newServer(resourceMap map[resource.Name]interface{}) (pb.DataManagerServiceServer, error) {
+	omSvc, err := subtype.New(resourceMap)
 	if err != nil {
 		return nil, err
 	}
@@ -24,44 +24,55 @@ func newServer(omMap map[resource.Name]interface{}) (pb.DataManagerServiceServer
 }
 
 func TestServerSync(t *testing.T) {
+	tests := map[string]struct {
+		resourceMap   map[resource.Name]interface{}
+		expectedError error
+	}{
+		"missing datamanager": {
+			resourceMap:   map[resource.Name]interface{}{},
+			expectedError: errors.New("resource \"rdk:service:data_manager\" not found")},
+		"not datamanager": {
+			resourceMap: map[resource.Name]interface{}{
+				datamanager.Name: "not datamanager",
+			},
+			expectedError: rutils.NewUnimplementedInterfaceError("datamanager.Service", "string")},
+		"returns error": {
+			resourceMap: map[resource.Name]interface{}{
+				datamanager.Name: &inject.DataManagerService{
+					SyncFunc: func(
+						ctx context.Context,
+					) error {
+						return errors.New("fake sync error")
+					},
+				},
+			},
+			expectedError: errors.New("fake sync error")},
+		"returns response": {
+			resourceMap: map[resource.Name]interface{}{
+				datamanager.Name: &inject.DataManagerService{
+					SyncFunc: func(
+						ctx context.Context,
+					) error {
+						return nil
+					},
+				},
+			},
+			expectedError: nil},
+	}
+
 	syncRequest := &pb.SyncRequest{}
-
-	omMap := map[resource.Name]interface{}{}
-	server, err := newServer(omMap)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = server.Sync(context.Background(), syncRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:data_manager\" not found"))
-
-	// set up the robot with something that is not an datamanager service
-	omMap = map[resource.Name]interface{}{datamanager.Name: "not datamanager"}
-	server, err = newServer(omMap)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = server.Sync(context.Background(), syncRequest)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("datamanager.Service", "string"))
-
-	// error
-	injectMS := &inject.DataManagerService{}
-	omMap = map[resource.Name]interface{}{
-		datamanager.Name: injectMS,
+	// put resource
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			resourceMap := tc.resourceMap
+			server, err := newServer(resourceMap)
+			test.That(t, err, test.ShouldBeNil)
+			_, err = server.Sync(context.Background(), syncRequest)
+			if tc.expectedError != nil {
+				test.That(t, err, test.ShouldBeError, tc.expectedError)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+		})
 	}
-	server, err = newServer(omMap)
-	test.That(t, err, test.ShouldBeNil)
-	passedErr := errors.New("fake sync error")
-	injectMS.SyncFunc = func(
-		ctx context.Context,
-	) error {
-		return passedErr
-	}
-
-	_, err = server.Sync(context.Background(), syncRequest)
-	test.That(t, err, test.ShouldBeError, passedErr)
-
-	// returns response
-	injectMS.SyncFunc = func(
-		ctx context.Context,
-	) error {
-		return nil
-	}
-	_, err = server.Sync(context.Background(), syncRequest)
-	test.That(t, err, test.ShouldBeNil)
 }

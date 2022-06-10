@@ -326,21 +326,10 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 // Perform a non-scheduled sync of the data in the capture directory.
 func (svc *dataManagerService) Sync(ctx context.Context) error {
 	if svc.syncer == nil {
-		panic("no syncer found! called before syncer initialization?")
+		panic("called Sync on data manager service with nil syncer")
 	}
-	oldFiles := make([]string, 0, len(svc.collectors))
-	svc.lock.Lock()
-	for _, collector := range svc.collectors {
-		// Create new target and set it.
-		nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
-		if err != nil {
-			svc.logger.Errorw("failed to create new data capture file", "error", err)
-		}
-		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
-		collector.Collector.SetTarget(nextTarget)
-	}
-	svc.lock.Unlock()
-	if err := svc.syncer.Enqueue(oldFiles); err != nil {
+	filesToQueue := svc.queueFiles()
+	if err := svc.syncer.Enqueue(filesToQueue); err != nil {
 		return err
 	}
 	svc.syncer.Upload()
@@ -474,22 +463,27 @@ func (svc *dataManagerService) queueCapturedData(cancelCtx context.Context, inte
 				}
 				return
 			case <-ticker.C:
-				oldFiles := make([]string, 0, len(svc.collectors))
-				svc.lock.Lock()
-				for _, collector := range svc.collectors {
-					// Create new target and set it.
-					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
-					if err != nil {
-						svc.logger.Errorw("failed to create new data capture file", "error", err)
-					}
-					oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
-					collector.Collector.SetTarget(nextTarget)
-				}
-				svc.lock.Unlock()
-				if err := svc.syncer.Enqueue(oldFiles); err != nil {
+				filesToQueue := svc.queueFiles()
+				if err := svc.syncer.Enqueue(filesToQueue); err != nil {
 					svc.logger.Errorw("failed to move files to sync queue", "error", err)
 				}
 			}
 		}
 	})
+}
+
+func (svc *dataManagerService) queueFiles() []string {
+	filesToQueue := make([]string, 0, len(svc.collectors))
+	svc.lock.Lock()
+	for _, collector := range svc.collectors {
+		// Create new target and set it.
+		nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
+		if err != nil {
+			svc.logger.Errorw("failed to create new data capture file", "error", err)
+		}
+		filesToQueue = append(filesToQueue, collector.Collector.GetTarget().Name())
+		collector.Collector.SetTarget(nextTarget)
+	}
+	svc.lock.Unlock()
+	return filesToQueue
 }

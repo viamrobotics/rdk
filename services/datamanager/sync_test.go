@@ -24,7 +24,6 @@ func newTestSyncer(t *testing.T, uploadFn func(ctx context.Context, path string)
 	return syncer{
 		captureDir:    captureDir,
 		syncQueue:     syncQueue,
-		queueLock:     &sync.Mutex{},
 		logger:        l,
 		queueWaitTime: time.Nanosecond,
 		progressTracker: progressTracker{
