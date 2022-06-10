@@ -27,6 +27,6 @@ describe("Range", () => {
       components: { Range },
     });
     const ticksCount = wrapper.findAll(".vue-slide-bar-separate").length;
-    expect(ticksCount).toBe(5);
+    expect(ticksCount).toBe(1);
   });
 });
