@@ -471,21 +471,21 @@
               req.setAngleDeg(angle);
               servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            motorCommand: function (motor, cmd) {
-              let req = cmd.request;
-              req.setName(motor);
-
-              switch (cmd.type) {
+            motorCommand: function (name, inputs) {
+              switch (inputs.type) {
                 case "go":
-                  motorService.setPower(req, {}, (err, resp) => grpcCallback(err, resp));
+                  MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, (err, resp) => grpcCallback(err, resp));
                   break;
                 case "goFor":
-                  motorService.goFor(req, {}, (err, resp) => grpcCallback(err, resp));
+                  MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, (err, resp) => grpcCallback(err, resp));
                   break;
                 case "goTo":
-                  motorService.goTo(req, {}, (err, resp) => grpcCallback(err, resp));
+                  MotorControlHelper.goTo(name, inputs.rpm, inputs.position, (err, resp) => grpcCallback(err, resp));
                   break;
               }
+            },
+            motorStop: function(name) {
+              MotorControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
             },
             hasWebGamepad: function () {
               // TODO (RDK-127): replace these with constants
@@ -1728,16 +1728,16 @@
           </div>
 
           <!-- ******* MOTOR *******  -->
-          <motor-detail
+          <motor-detail 
             class="pb-4"
             v-for="motor in filterResources('rdk', 'component', 'motor')"
             :key="'new-' + motor.name"
-            v-if="resourceStatusByName(motor)"
-            v-bind:motor-name="motor.name"
-            v-bind:motor-status="resourceStatusByName(motor)"
-            v-on:execute="motorCommand(motor.name, $event)"
-            style="max-width: 1080px;"
-          >
+            v-if="resourceStatusByName(motor)"  
+            :motor-name="motor.name" 
+            :crumbs="['motor', motor.name]" 
+            :motor-status="resourceStatusByName(motor)"
+            v-on:motor-run="motorCommand(motor.name, $event)"
+            v-on:motor-stop="motorStop(motor.name)">
           </motor-detail>
 
           <!-- ******* INPUT VIEW *******  -->
