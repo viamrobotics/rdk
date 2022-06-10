@@ -108,3 +108,9 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 func (a *Arm) Close() {
 	a.CloseCount++
 }
+
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (a *Arm) UpdateAction(cfg *config.Component) config.UpdateActionType {
+	return config.Reconfigure
+}
