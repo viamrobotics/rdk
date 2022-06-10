@@ -2,17 +2,11 @@
   "components": [
     {
       "attributes": {
-        "ntrip_addr": "http://rtn.dot.ny.gov:8082/NJI2",
-        "ntrip_baud": 38400,
-        "ntrip_password": "checkmate",
-        "ntrip_path": "",
-        "ntrip_send_nmea": true,
-        "ntrip_username": "evelyn",
         "path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
       },
       "depends_on": [],
       "model": "nmea-serial",
-      "name": "gps",
+      "name": "gps1",
       "type": "gps"
     },
     {
@@ -21,6 +15,19 @@
       "model": "fake",
       "attributes": {},
       "depends_on": []
+    }
+  ],
+  "services": [
+    {
+      "attributes": {
+        "base": "base1",
+        "gps": "gps1",
+        "store": {
+          "type": "memory"
+        }
+      },
+      "name": "navigation",
+      "type": "navigation"
     }
   ]
 }
