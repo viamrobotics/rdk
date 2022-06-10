@@ -301,6 +301,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 }
 
 func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
+	println("im being updated")
 	// if user updates config while manual sync is occurring, manual sync will be cancelled (TODO fix)
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
@@ -314,7 +315,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 	// Init a new syncer.
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.updateCollectorsCancelFn = fn
-	svc.queueCapturedData(cancelCtx, intervalMins)
+	svc.QueueCapturedData(cancelCtx, intervalMins)
 	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
 
 	// Kick off syncer if we're running it.
@@ -411,6 +412,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	// nolint:contextcheck
+	println(svcConfig.SyncIntervalMins)
 	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 
 	// Initialize or add a collector based on changes to the component configurations.
@@ -438,7 +440,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	return nil
 }
 
-func (svc *dataManagerService) queueCapturedData(cancelCtx context.Context, intervalMins int) {
+func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, intervalMins int) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
