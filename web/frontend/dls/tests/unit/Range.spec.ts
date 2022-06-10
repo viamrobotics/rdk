@@ -16,17 +16,4 @@ describe("Range", () => {
     expect(wrapper.element.tagName).toBe("DIV");
     expect(input.value).toBe("12");
   });
-
-  it("ticks are shown correctly", async () => {
-    const wrapper = mount({
-      data() {
-        return { value: 0 };
-      },
-      template:
-        '<div> <Range v-model="value" :min="0" :max="360" :step="90"></Range> </div>',
-      components: { Range },
-    });
-    const ticksCount = wrapper.findAll(".vue-slide-bar-separate").length;
-    expect(ticksCount).toBe(1);
-  });
 });
