@@ -240,12 +240,13 @@ func cleanAppImageEnv() error {
 		// Reset original values where available
 		for _, eVarStr := range os.Environ() {
 			eVar := strings.Split(eVarStr, "=")
-			origV, present := os.LookupEnv("APPRUN_ORIGINAL_" + eVar[0])
+			key := eVar[0]
+			origV, present := os.LookupEnv("APPRUN_ORIGINAL_" + key)
 			if present {
 				if origV != "" {
-					err = os.Setenv(eVar[0], origV)
+					err = os.Setenv(key, origV)
 				} else {
-					err = os.Unsetenv(eVar[0])
+					err = os.Unsetenv(key)
 				}
 				if err != nil {
 					return err
@@ -257,11 +258,12 @@ func cleanAppImageEnv() error {
 		err = multierr.Combine(os.Unsetenv("ARGV0"), os.Unsetenv("ORIGIN"))
 		for _, eVarStr := range os.Environ() {
 			eVar := strings.Split(eVarStr, "=")
-			if strings.HasPrefix(eVar[0], "APPRUN") ||
-				strings.HasPrefix(eVar[0], "APPDIR") ||
-				strings.HasPrefix(eVar[0], "APPIMAGE") ||
-				strings.HasPrefix(eVar[0], "AIX_") {
-				err = multierr.Combine(err, os.Unsetenv(eVar[0]))
+			key := eVar[0]
+			if strings.HasPrefix(key, "APPRUN") ||
+				strings.HasPrefix(key, "APPDIR") ||
+				strings.HasPrefix(key, "APPIMAGE") ||
+				strings.HasPrefix(key, "AIX_") {
+				err = multierr.Combine(err, os.Unsetenv(key))
 			}
 		}
 		if err != nil {
@@ -272,16 +274,18 @@ func cleanAppImageEnv() error {
 		for _, eVarStr := range os.Environ() {
 			eVar := strings.Split(eVarStr, "=")
 			var newPaths []string
-			if len(eVar) >= 2 && strings.Contains(eVar[1], "/tmp/.mount_") {
+			const mountPrefix = "/tmp/.mount_"
+			key := eVar[0]
+			if len(eVar) >= 2 && strings.Contains(eVar[1], mountPrefix) {
 				for _, path := range strings.Split(eVar[1], ":") {
-					if !strings.HasPrefix(path, "/tmp/.mount_") && path != "" {
+					if !strings.HasPrefix(path, mountPrefix) && path != "" {
 						newPaths = append(newPaths, path)
 					}
 				}
 				if len(newPaths) > 0 {
-					err = os.Setenv(eVar[0], strings.Join(newPaths, ":"))
+					err = os.Setenv(key, strings.Join(newPaths, ":"))
 				} else {
-					err = os.Unsetenv(eVar[0])
+					err = os.Unsetenv(key)
 				}
 				if err != nil {
 					return err
