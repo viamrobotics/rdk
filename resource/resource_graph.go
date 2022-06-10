@@ -44,6 +44,19 @@ func (g *Graph) getAllChildrenOf(node Name) resourceNode {
 	return out
 }
 
+func (g *Graph) getAllParentOf(node Name) resourceNode {
+	if _, ok := g.Nodes[node]; !ok {
+		return nil
+	}
+	out := resourceNode{}
+	for k, children := range g.children {
+		if _, ok := children[node]; ok {
+			out[k] = struct{}{}
+		}
+	}
+	return out
+}
+
 func copyNodes(s resourceNode) resourceNode {
 	out := make(resourceNode, len(s))
 	for k, v := range s {
@@ -113,11 +126,49 @@ func addResToSet(rd resourceDependencies, key, node Name) {
 	nodes[node] = struct{}{}
 }
 
+func removeResFromSet(rd resourceDependencies, key, node Name) {
+	// check if a resourceNode exists for a key, otherwise create one
+	if nodes, ok := rd[key]; ok {
+		delete(nodes, node)
+	}
+}
+
+// IsNodeDependingOn returns true if child is depending on node.
+func (g *Graph) IsNodeDependingOn(node, child Name) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.isNodeDependingOn(node, child)
+}
+
 // AddNode adds a node to the graph.
 func (g *Graph) AddNode(node Name, iface interface{}) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.addNode(node, iface)
+}
+
+// GetAllChildrenOf returns all direct childrend of a node.
+func (g *Graph) GetAllChildrenOf(node Name) []Name {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	names := []Name{}
+	children := g.getAllChildrenOf(node)
+	for child := range children {
+		names = append(names, child)
+	}
+	return names
+}
+
+// GetAllParentsOf returns all parents of a given node.
+func (g *Graph) GetAllParentsOf(node Name) []Name {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	names := []Name{}
+	children := g.getAllParentOf(node)
+	for child := range children {
+		names = append(names, child)
+	}
+	return names
 }
 
 func (g *Graph) addNode(node Name, iface interface{}) {
@@ -143,6 +194,13 @@ func (g *Graph) AddChildren(child, parent Name) error {
 	return g.addChildren(child, parent)
 }
 
+// RemoveChildren unlink a child from its parent.
+func (g *Graph) RemoveChildren(child, parent Name) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.removeChildren(child, parent)
+}
+
 func (g *Graph) addChildren(child, parent Name) error {
 	if child == parent {
 		return errors.Errorf("%q cannot depend on itself", child.Name)
@@ -157,6 +215,14 @@ func (g *Graph) addChildren(child, parent Name) error {
 	addResToSet(g.children, parent, child)
 	addResToSet(g.parents, child, parent)
 	g.addTransitiveClosure(child, parent)
+	return nil
+}
+
+func (g *Graph) removeChildren(child, parent Name) error {
+	// Link nodes
+	removeResFromSet(g.children, parent, child)
+	removeResFromSet(g.parents, child, parent)
+	g.removeTransitiveClosure(child, parent)
 	return nil
 }
 
@@ -321,4 +387,29 @@ func (g *Graph) FindNodeByName(name string) (*Name, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (g *Graph) isNodeDependingOn(node, child Name) bool {
+	if _, ok := g.Nodes[node]; !ok {
+		return false
+	}
+	if _, ok := g.Nodes[child]; !ok {
+		return false
+	}
+	return g.transitiveClosureMatrix[child][node] != 0
+}
+
+// SubGraphFrom returns a Sub-Graph containing all linked dependencies starting with node Name.
+func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
+	if _, ok := g.Nodes[node]; !ok {
+		return nil, errors.Errorf("cannot create sub-graph from non existing node %q ", node.Name)
+	}
+	subGraph := g.Clone()
+	sorted := subGraph.ReverseTopologicalSort()
+	for _, n := range sorted {
+		if !subGraph.isNodeDependingOn(node, n) {
+			subGraph.remove(n)
+		}
+	}
+	return subGraph, nil
 }

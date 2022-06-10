@@ -2,7 +2,6 @@ package segmentation
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"os"
 	"testing"
@@ -24,7 +23,7 @@ func TestPlaneSegmentImageWithDepth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	planeSegTest := os.Getenv(debugPlaneSeg)
 	if planeSegTest == "" {
-		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugPlaneSeg))
+		t.Skipf("set environmental variable %q to run this test", debugPlaneSeg)
 	}
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -135,7 +134,7 @@ func (h *segmentTestHelper) Process(
 func TestGripperPlaneSegmentation(t *testing.T) {
 	planeSegTest := os.Getenv(debugPlaneSeg)
 	if planeSegTest == "" {
-		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugPlaneSeg))
+		t.Skipf("set environmental variable %q to run this test", debugPlaneSeg)
 	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper", "*.both.gz", true)
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"))
