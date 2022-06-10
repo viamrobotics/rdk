@@ -98,7 +98,7 @@ type Arm interface {
 type LocalArm interface {
 	Arm
 
-	resource.IsMoving
+	resource.MovingCheckable
 }
 
 var (
@@ -141,11 +141,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	isMoving, err := arm.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: arm.IsMoving()}, nil
 }
 
 type reconfigurableArm struct {
@@ -213,10 +209,10 @@ func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referencefram
 	return r.actual.GoToInputs(ctx, goal)
 }
 
-func (r *reconfigurableArm) IsMoving(ctx context.Context) (bool, error) {
+func (r *reconfigurableArm) IsMoving() bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.IsMoving(ctx)
+	return r.actual.IsMoving()
 }
 
 func (r *reconfigurableArm) Close(ctx context.Context) error {

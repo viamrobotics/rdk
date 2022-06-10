@@ -19,7 +19,7 @@ type Arm struct {
 	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions) error
 	GetJointPositionsFunc    func(ctx context.Context) (*pb.JointPositions, error)
 	StopFunc                 func(ctx context.Context) error
-	IsMovingFunc             func(ctx context.Context) (bool, error)
+	IsMovingFunc             func() bool
 	CloseFunc                func(ctx context.Context) error
 }
 
@@ -64,11 +64,11 @@ func (a *Arm) Stop(ctx context.Context) error {
 }
 
 // IsMoving calls the injected IsMoving or the real version.
-func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
+func (a *Arm) IsMoving() bool {
 	if a.IsMovingFunc == nil {
-		return a.LocalArm.IsMoving(ctx)
+		return a.LocalArm.IsMoving()
 	}
-	return a.IsMovingFunc(ctx)
+	return a.IsMovingFunc()
 }
 
 // Close calls the injected Close or the real version.
