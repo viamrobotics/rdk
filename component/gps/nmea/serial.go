@@ -71,7 +71,6 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 }
 
 func (g *serialNMEAGPS) Start() {
-	g.logger.Debug("test")
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
