@@ -92,8 +92,14 @@ func TestStatusClient(t *testing.T) {
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
 	resourcesFunc := func() []resource.Name { return []resource.Name{} }
-	injectRobot1 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
-	injectRobot2 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	injectRobot1 := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+	injectRobot2 := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
@@ -437,6 +443,7 @@ func TestClientRefresh(t *testing.T) {
 	var callCount int
 	calledEnough := make(chan struct{})
 
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		if callCount == 5 {
 			close(calledEnough)
@@ -529,6 +536,7 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
 	client, err = New(
 		context.Background(),
@@ -589,6 +597,7 @@ func TestClientRefresh(t *testing.T) {
 			gripperNames,
 		)...))
 
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
@@ -660,6 +669,7 @@ func TestClientDisconnect(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("arm1")}
 	}
@@ -710,6 +720,7 @@ func TestClientReconnect(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("arm1")}
 	}
@@ -777,6 +788,7 @@ func TestClientDialerOption(t *testing.T) {
 
 func TestClientResources(t *testing.T) {
 	injectRobot := &inject.Robot{}
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
 
 	gServer := grpc.NewServer()
@@ -791,7 +803,7 @@ func TestClientResources(t *testing.T) {
 	client, err := New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resources, err := client.resources(context.Background())
+	resources, _, err := client.resources(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resources, test.ShouldResemble, finalResources)
 
@@ -801,6 +813,7 @@ func TestClientResources(t *testing.T) {
 
 func TestClientDiscovery(t *testing.T) {
 	injectRobot := &inject.Robot{}
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return finalResources
 	}
@@ -879,8 +892,14 @@ func TestClientConfig(t *testing.T) {
 	failingServer := grpc.NewServer()
 
 	resourcesFunc := func() []resource.Name { return []resource.Name{} }
-	workingRobot := &inject.Robot{ResourceNamesFunc: resourcesFunc}
-	failingRobot := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	workingRobot := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+	failingRobot := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
 
 	fsConfigs := []*config.FrameSystemPart{
 		{
@@ -994,8 +1013,14 @@ func TestClientStatus(t *testing.T) {
 	gServer := grpc.NewServer()
 	gServer2 := grpc.NewServer()
 
-	injectRobot := &inject.Robot{ResourceNamesFunc: func() []resource.Name { return []resource.Name{} }}
-	injectRobot2 := &inject.Robot{ResourceNamesFunc: func() []resource.Name { return []resource.Name{} }}
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return []resource.Name{} },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+	injectRobot2 := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return []resource.Name{} },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 

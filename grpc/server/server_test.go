@@ -53,6 +53,7 @@ var serverOneResourceResponse = []*commonpb.ResourceName{
 func TestServer(t *testing.T) {
 	t.Run("Metadata", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 
@@ -60,6 +61,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp, test.ShouldResemble, emptyResources)
 
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{serverNewResource} }
 
 		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
@@ -69,6 +71,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("Discovery", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 		q := discovery.Query{arm.Named("arm").ResourceSubtype, "some arm"}
