@@ -6,23 +6,23 @@
       'relative leading-tight font-button transition-colors duration-150 focus:outline-none shadow-sm',
       {
         'animate-pulse': props.busy,
-        'text-black border border-black bg-primary hover:border-black hover:bg-gray-200 focus:bg-gray-400 active:bg-gray-400':
+        'text-black border border-black bg-primary hover:border-black hover:bg-gray-200 active:bg-gray-400':
           props.variant === 'primary' &&
           props.color === 'primary' &&
           !props.disabled,
-        'text-white border-danger-500 bg-danger-500 hover:border-danger-600 hover:bg-danger-600 focus:bg-danger-600 active:bg-danger-700':
+        'text-white border-danger-500 bg-danger-500 hover:border-danger-600 hover:bg-danger-600 active:bg-danger-700':
           props.variant === 'primary' &&
           props.color === 'danger' &&
           !props.disabled,
-        'text-white border-warning-500 bg-warning-500 hover:border-warning-600 hover:bg-warning-600 focus:bg-warning-600 active:bg-warning-700':
+        'text-white border-warning-500 bg-warning-500 hover:border-warning-600 hover:bg-warning-600 active:bg-warning-700':
           props.variant === 'primary' &&
           props.color === 'warning' &&
           !props.disabled,
-        'text-white border-success-500 bg-success-500 hover:border-success-600 hover:bg-success-600 focus:bg-success-600 active:bg-success-700':
+        'text-white border-success-500 bg-success-500 hover:border-success-600 hover:bg-success-600 active:bg-success-700':
           props.variant === 'primary' &&
           props.color === 'success' &&
           !props.disabled,
-        'text-white border-black-500 bg-black hover:border-black-600 hover:bg-black-600 focus:bg-black-600 active:bg-black-700':
+        'text-white border-black-500 bg-black hover:border-black-600 hover:bg-black-600 active:bg-black-700':
           props.variant === 'primary' &&
           props.color === 'black' &&
           !props.disabled,
