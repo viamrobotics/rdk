@@ -30,12 +30,14 @@ func TestServerSync(t *testing.T) {
 	}{
 		"missing datamanager": {
 			resourceMap:   map[resource.Name]interface{}{},
-			expectedError: errors.New("resource \"rdk:service:data_manager\" not found")},
+			expectedError: errors.New("resource \"rdk:service:data_manager\" not found"),
+		},
 		"not datamanager": {
 			resourceMap: map[resource.Name]interface{}{
 				datamanager.Name: "not datamanager",
 			},
-			expectedError: rutils.NewUnimplementedInterfaceError("datamanager.Service", "string")},
+			expectedError: rutils.NewUnimplementedInterfaceError("datamanager.Service", "string"),
+		},
 		"returns error": {
 			resourceMap: map[resource.Name]interface{}{
 				datamanager.Name: &inject.DataManagerService{
@@ -46,7 +48,8 @@ func TestServerSync(t *testing.T) {
 					},
 				},
 			},
-			expectedError: errors.New("fake sync error")},
+			expectedError: errors.New("fake sync error"),
+		},
 		"returns response": {
 			resourceMap: map[resource.Name]interface{}{
 				datamanager.Name: &inject.DataManagerService{
@@ -57,7 +60,8 @@ func TestServerSync(t *testing.T) {
 					},
 				},
 			},
-			expectedError: nil},
+			expectedError: nil,
+		},
 	}
 
 	syncRequest := &pb.SyncRequest{}
