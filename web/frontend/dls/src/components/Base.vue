@@ -163,7 +163,6 @@
                 color="success"
                 group
                 variant="primary"
-                :disabled="baseStatus"
                 @click="baseRun()"
               >
                 <template v-slot:icon>
@@ -216,7 +215,6 @@ export default class Base extends Vue {
   @Prop({ default: null }) baseName!: string;
   @Prop({ default: null }) crumbs!: [string];
   @Prop({ default: true }) connectedCamera!: boolean;
-  @Prop({ default: false }) baseStatus!: boolean;
 
   mdiRestore = mdiRestore;
   mdiPlayCircleOutline = mdiPlayCircleOutline;
