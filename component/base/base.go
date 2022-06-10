@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -124,7 +125,8 @@ func (r *reconfigurableBase) Do(ctx context.Context, cmd map[string]interface{})
 }
 
 func (r *reconfigurableBase) MoveStraight(
-	ctx context.Context, distanceMm int, mmPerSec float64) error {
+	ctx context.Context, distanceMm int, mmPerSec float64,
+) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveStraight(ctx, distanceMm, mmPerSec)
@@ -178,6 +180,14 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 	}
 	r.actual = actual.actual
 	return nil
+}
+
+func (r *reconfigurableBase) UpdateAction(c *config.Component) config.UpdateActionType {
+	obj, canUpdate := r.actual.(config.CompononentUpdate)
+	if canUpdate {
+		return obj.UpdateAction(c)
+	}
+	return config.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.

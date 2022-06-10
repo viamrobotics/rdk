@@ -2,7 +2,6 @@ package segmentation
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"os"
 	"testing"
@@ -144,7 +143,7 @@ func (cid *chunkImageDebug) Process(
 func TestChunk1(t *testing.T) {
 	chunkTest := os.Getenv(debugChunks)
 	if chunkTest == "" {
-		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugChunks))
+		t.Skipf("set environmental variable %q to run this test", debugChunks)
 	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*", true)
 	err := d.Process(t, &chunkImageDebug{})

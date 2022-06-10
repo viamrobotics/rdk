@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -220,6 +221,16 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	}
 	r.actual = actual.actual
 	return nil
+}
+
+// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
+// See config.ShouldUpdateAction for more information.
+func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActionType {
+	obj, canUpdate := r.actual.(config.CompononentUpdate)
+	if canUpdate {
+		return obj.UpdateAction(c)
+	}
+	return config.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
