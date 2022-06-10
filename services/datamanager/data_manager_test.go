@@ -43,7 +43,106 @@ func getConfig(t *testing.T, relativePath string) *config.Config {
 }
 
 // Validates that manual syncing works for a datamanager.
-func TestScheduledAndManualSync(t *testing.T) {
+func TestManualSync(t *testing.T) {
+	captureDir := t.TempDir()
+	queueDir := t.TempDir()
+	configPath := "robot/impl/data/fake.json"
+	dmsvc := newTestDataManager(t, captureDir).(internal.Service)
+	fakeCfg := getConfig(t, configPath)
+	dmsvc.Update(nil, fakeCfg)
+
+	// Put a couple files in captureDir.
+	file1, _ := ioutil.TempFile(captureDir, "whatever")
+	defer os.Remove(file1.Name())
+	file2, _ := ioutil.TempFile(captureDir, "whatever2")
+	defer os.Remove(file2.Name())
+
+	// Give it a second to run and upload files.
+	dmsvc.Sync(context.Background())
+	time.Sleep(time.Second)
+
+	//Verify files were enqueued and uploaded.
+	filesInCaptureDir, err := ioutil.ReadDir(captureDir)
+	if err != nil {
+		t.Fatalf("failed to list files in captureDir")
+	}
+	filesInQueue, err := ioutil.ReadDir(queueDir)
+	if err != nil {
+		t.Fatalf("failed to list files in queueDir")
+	}
+	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
+	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
+
+}
+
+// Validates that scheduled syncing works for a datamanager.
+func TestScheduledSync(t *testing.T) {
+	captureDir := t.TempDir()
+	queueDir := t.TempDir()
+	configPath := "robot/impl/data/fake.json"
+	dmsvc := newTestDataManager(t, captureDir).(internal.Service)
+	fakeCfg := getConfig(t, configPath)
+	dmsvc.Update(nil, fakeCfg)
+
+	// Put a couple files in captureDir.
+	file1, _ := ioutil.TempFile(captureDir, "whatever")
+	defer os.Remove(file1.Name())
+	file2, _ := ioutil.TempFile(captureDir, "whatever2")
+	defer os.Remove(file2.Name())
+
+	// Give it a second to run and upload files.
+	dmsvc.Sync(context.Background())
+	time.Sleep(time.Second)
+
+	//Verify files were enqueued and uploaded.
+	filesInCaptureDir, err := ioutil.ReadDir(captureDir)
+	if err != nil {
+		t.Fatalf("failed to list files in captureDir")
+	}
+	filesInQueue, err := ioutil.ReadDir(queueDir)
+	if err != nil {
+		t.Fatalf("failed to list files in queueDir")
+	}
+	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
+	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
+
+}
+
+// Validates that we can attempt a scheduled and manual sync at the same time without .
+func TestManualAndScheduledSync(t *testing.T) {
+	captureDir := t.TempDir()
+	queueDir := t.TempDir()
+	configPath := "robot/impl/data/fake.json"
+	dmsvc := newTestDataManager(t, captureDir).(internal.Service)
+	fakeCfg := getConfig(t, configPath)
+	dmsvc.Update(nil, fakeCfg)
+
+	// Put a couple files in captureDir.
+	file1, _ := ioutil.TempFile(captureDir, "whatever")
+	defer os.Remove(file1.Name())
+	file2, _ := ioutil.TempFile(captureDir, "whatever2")
+	defer os.Remove(file2.Name())
+
+	// Give it a second to run and upload files.
+	dmsvc.Sync(context.Background())
+	time.Sleep(time.Second)
+
+	//Verify files were enqueued and uploaded.
+	filesInCaptureDir, err := ioutil.ReadDir(captureDir)
+	if err != nil {
+		t.Fatalf("failed to list files in captureDir")
+	}
+	filesInQueue, err := ioutil.ReadDir(queueDir)
+	if err != nil {
+		t.Fatalf("failed to list files in queueDir")
+	}
+	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
+	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
+
+}
+
+// Validates that trying to queue the same files twice leads to
+func TestQueuingLock(t *testing.T) {
 	captureDir := t.TempDir()
 	queueDir := t.TempDir()
 	configPath := "robot/impl/data/fake.json"
