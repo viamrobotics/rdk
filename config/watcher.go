@@ -51,9 +51,6 @@ func newCloudWatcher(ctx context.Context, config *Cloud, logger golog.Logger) *c
 
 	nextCheckForNewCert := time.Now().Add(checkForNewCertInterval)
 
-	// TODO(RDK-88): in the future when the web app
-	// supports gRPC streams, use that instead for pushed config updates;
-	// for now just do a small interval.
 	ticker := time.NewTicker(config.RefreshInterval)
 	utils.ManagedGo(func() {
 		for {
