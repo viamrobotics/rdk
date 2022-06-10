@@ -57,3 +57,44 @@ window.computeKeyboardBaseControls = function(keysPressed) {
     return {linear, angular};
 };
 
+/*
+Simple base control helpers. Should be replaced by a proper SDK once available.
+*/
+window.MotorControlHelper = {
+  setPower: function(name, powerPct, cb) {
+    const req = new motorApi.SetPowerRequest();
+    req.setName(name);
+    req.setPowerPct(powerPct);
+
+    rcLogConditionally(req);
+    motorService.setPower(req, {}, cb);
+  },
+  
+  goFor: function(name, rpm, revolutions, cb) {
+    const req = new motorApi.GoForRequest();
+    req.setName(name);
+    req.setRpm(rpm);
+    req.setRevolutions(revolutions);
+
+    rcLogConditionally(req);
+    motorService.goFor(req, {}, cb);
+  },
+
+  goTo: function(name, rpm, positionRevolutions, cb) {
+    const req = new motorApi.GoToRequest();
+    req.setName(name);
+    req.setRpm(rpm);
+    req.setPositionRevolutions(positionRevolutions);
+
+    rcLogConditionally(req);
+    motorService.goTo(req, {}, cb);
+  },
+
+  stop: function(name, cb) {
+    const req = new motorApi.StopRequest();
+    req.setName(name);
+
+    rcLogConditionally(req);
+    motorService.stop(req, {}, cb);
+  },
+};

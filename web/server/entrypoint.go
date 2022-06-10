@@ -403,7 +403,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 					continue
 				}
 				if err := myRobot.Reconfigure(ctx, processedConfig); err != nil {
-					logger.Errorw("error reconfiguring robot", "error", err)
+					logger.Fatalw("error reconfiguring robot", "error", err)
 					continue
 				}
 
