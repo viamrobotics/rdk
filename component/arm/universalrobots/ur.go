@@ -116,7 +116,7 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	speed := cfg.ConvertedAttributes.(*AttrConfig).Speed
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	if speed > 1 || speed < .1 {
@@ -274,8 +274,8 @@ func (ua *URArm) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the arm is moving.
-func (ua *URArm) IsMoving(ctx context.Context) (bool, error) {
-	return ua.opMgr.OpRunning(), nil
+func (ua *URArm) IsMoving() bool {
+	return ua.opMgr.OpRunning()
 }
 
 // MoveToJointPositionRadians TODO.

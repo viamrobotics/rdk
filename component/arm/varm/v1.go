@@ -50,12 +50,7 @@ var v1modeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "varm1", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			raw, err := newArmV1(ctx, r, logger)
-			if err != nil {
-				return nil, err
-			}
-
-			return raw, nil
+			return newArmV1(ctx, r, logger)
 		},
 	})
 }
@@ -160,7 +155,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 	return math.NaN(), motorOffError(ctx, m, errors.New("testing joint limit timed out"))
 }
 
-func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm, error) {
+func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 	newArm := &armV1{}
 
@@ -333,6 +328,10 @@ func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.JointPositi
 func (a *armV1) Stop(ctx context.Context) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
+}
+
+func (a *armV1) IsMoving() bool {
+	return a.opMgr.OpRunning()
 }
 
 func (a *armV1) ModelFrame() referenceframe.Model {
