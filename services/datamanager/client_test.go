@@ -30,10 +30,10 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMS := &inject.DataManagerService{}
-	omMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]interface{}{
 		datamanager.Name: injectMS,
 	}
-	svc, err := subtype.New(omMap)
+	svc, err := subtype.New(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(datamanager.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
@@ -93,10 +93,10 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	injectMS := &inject.DataManagerService{}
-	omMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]interface{}{
 		datamanager.Name: injectMS,
 	}
-	server, err := newServer(omMap)
+	server, err := newServer(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	servicepb.RegisterDataManagerServiceServer(gServer, server)
 
