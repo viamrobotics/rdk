@@ -10,53 +10,389 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // implements DataSyncService_UploadClient
 type mockClient struct {
-	toSend []byte
+	sent []v1.UploadRequest
 	grpc.ClientStream
 }
 
-func (m mockClient) Send(req *v1.UploadRequest) error {
+func (m *mockClient) Send(req *v1.UploadRequest) error {
+	m.sent = append(m.sent, *req)
 	return nil
 }
 
-func (m mockClient) CloseAndRecv(res *v1.UploadResponse) (*v1.UploadResponse, error) {
+func (m *mockClient) CloseAndRecv() (*v1.UploadResponse, error) {
 	return &v1.UploadResponse{}, nil
 }
 
-func (m mockClient) Context() context.Context {
+func (m *mockClient) Context() context.Context {
 	return context.TODO()
 }
 
+// test will see if the things that need to be written to file,
+// after being put thry the upload (using the client that I made), are
+// added to an uploadrequest slice
+
+// test will have expectedMesssages, then validate that 'sent []byte'
+// and expectedMessages are the same
 func TestFileUpload(t *testing.T) {
 	msg_empty := []byte("")
-	// msg_contents := []byte("This is a message.")
+	msg_contents := []byte("This is a message.")
 
 	tests := []struct {
 		name    string
 		toSend  []byte
-		expSend v1.UploadRequest
+		expMsgs []v1.UploadRequest
 	}{
 		{
+			name:   "not empty",
+			toSend: msg_contents,
+			expMsgs: []v1.UploadRequest{
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_contents,
+						},
+					},
+				},
+			},
+		},
+		{
 			name:   "empty",
-			toSend: []byte{},
-			expSend: v1.UploadRequest{
-				UploadPacket: &v1.UploadRequest_FileContents{
-					FileContents: &v1.FileData{
-						Data: msg_empty,
+			toSend: msg_empty,
+			expMsgs: []v1.UploadRequest{
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_empty,
+						},
 					},
 				},
 			},
 		},
 	}
 
-	test.That(t, len(tests), test.ShouldEqual, 1)
+	for _, tc := range tests {
+
+		// Create mockClient that will be sending requests,
+		// this mock will have an UploadRequest slice that
+		// will contain the UploadRequests that are created
+		// by the data contained in files.
+		mc := &mockClient{
+			sent: []v1.UploadRequest{},
+		}
+
+		// Create temp dir and file in that dir to be used
+		// as examples of reading data from the files into
+		// buffers (and finally to have that data be uploaded)
+		// to the cloud
+		td, err := ioutil.TempDir("", "temp-dir")
+		if err != nil {
+			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
+		}
+		tf, err := ioutil.TempFile(td, tc.name)
+		if err != nil {
+			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
+		}
+		defer os.Remove(tf.Name())
+		defer os.Remove(td)
+
+		// Write the data from the test cases into the files
+		// to prepare them for reading by the fileUpload function
+		if _, err := tf.Write(tc.toSend); err != nil {
+			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
+		}
+		// THIS IS NOT WORKING
+		if err := fileUpload(context.TODO(), mc, tf.Name()); err != nil {
+			t.Errorf("%v cannot upload file", tc.name)
+		}
+
+		// The mc.sent value should be the same as the tc.expMsg value
+		test.That(t, mc.sent, test.ShouldResemble, tc.expMsgs)
+	}
+}
+
+type empty struct{}
+
+type allLiterals struct {
+	Bool   bool
+	Float  float64
+	Int    int
+	Int64  int64
+	String string
+}
+
+type allArrays struct {
+	BoolArray   []bool
+	FloatArray  []float64
+	IntArray    []int
+	Int64Array  []int64
+	StringArray []string
+}
+
+type metaStruct struct {
+	AllArrays   allArrays
+	AllLiterals allLiterals
+}
+
+func toProto(r interface{}) *structpb.Struct {
+	msg, err := protoutils.StructToStructPb(r)
+	if err != nil {
+		return nil
+	}
+	return msg
+}
+
+func notworkingTestSensorUploadTabular(t *testing.T) {
+	// msg_binary := []byte("This message is encoded in bytes.")
+	// figure out how to create dummy tabular data
+	proto_msg_tabular_empty := toProto(empty{})
+	proto_msg_tabular_all_literals := toProto(allLiterals{
+		Bool:   false,
+		Float:  12.4,
+		Int:    7,
+		Int64:  3,
+		String: "Viam is cool.",
+	})
+	proto_msg_tabular_arrays_of_literals := toProto(allArrays{
+		BoolArray:   []bool{false, true},
+		FloatArray:  []float64{12.4, 0.9},
+		IntArray:    []int{7, 9},
+		Int64Array:  []int64{3, 2},
+		StringArray: []string{"Viam is cool.", "The interns are great!"},
+	})
+	proto_msg_tabular_nested_structs := toProto(metaStruct{
+		AllArrays: allArrays{
+			BoolArray:   []bool{false, true},
+			FloatArray:  []float64{12.4, 0.9},
+			IntArray:    []int{7, 9},
+			Int64Array:  []int64{3, 2},
+			StringArray: []string{"Viam is cool.", "The interns are great!"},
+		},
+		AllLiterals: allLiterals{
+			Bool:   false,
+			Float:  12.4,
+			Int:    7,
+			Int64:  3,
+			String: "Viam is cool.",
+		},
+	})
+
+	tests := []struct {
+		name    string
+		toSend  *v1.SensorData
+		expMsgs []v1.UploadRequest
+	}{
+		{
+			name: "empty struct",
+			toSend: &v1.SensorData{
+				Metadata: &v1.SensorMetadata{},
+				Data: &v1.SensorData_Struct{
+					Struct: proto_msg_tabular_empty,
+				},
+			},
+			expMsgs: []v1.UploadRequest{
+				// {
+				// 	UploadPacket: &v1.UploadRequest_SensorContents{
+				// 		SensorContents: &v1.SensorData{
+				// 			Data: &v1.SensorData_Struct{
+				// 				Struct: proto_msg_tabular_empty,
+				// 			},
+				// 		},
+				// 	},
+				// },
+			},
+		},
+		{
+			name: "struct with each literal type",
+			toSend: &v1.SensorData{
+				Metadata: &v1.SensorMetadata{},
+				Data: &v1.SensorData_Struct{
+					Struct: proto_msg_tabular_all_literals,
+				},
+			},
+			expMsgs: []v1.UploadRequest{
+				{
+					UploadPacket: &v1.UploadRequest_SensorContents{
+						SensorContents: &v1.SensorData{
+							Data: &v1.SensorData_Struct{
+								Struct: proto_msg_tabular_all_literals,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "struct with arrays of each literal type",
+			toSend: &v1.SensorData{
+				Metadata: &v1.SensorMetadata{},
+				Data: &v1.SensorData_Struct{
+					Struct: proto_msg_tabular_arrays_of_literals,
+				},
+			},
+			expMsgs: []v1.UploadRequest{
+				{
+					UploadPacket: &v1.UploadRequest_SensorContents{
+						SensorContents: &v1.SensorData{
+							Data: &v1.SensorData_Struct{
+								Struct: proto_msg_tabular_arrays_of_literals,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "struct of structs",
+			toSend: &v1.SensorData{
+				Metadata: &v1.SensorMetadata{},
+				Data: &v1.SensorData_Struct{
+					Struct: proto_msg_tabular_nested_structs,
+				},
+			},
+			expMsgs: []v1.UploadRequest{
+				{
+					UploadPacket: &v1.UploadRequest_SensorContents{
+						SensorContents: &v1.SensorData{
+							Data: &v1.SensorData_Struct{
+								Struct: proto_msg_tabular_nested_structs,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+
+		// Create mockClient that will be sending requests,
+		// this mock will have an UploadRequest slice that
+		// will contain the UploadRequests that are created
+		// by the data contained in files.
+		mc := &mockClient{
+			sent: []v1.UploadRequest{},
+		}
+
+		// Create temp dir and file in that dir to be used
+		// as examples of reading data from the files into
+		// buffers (and finally to have that data be uploaded)
+		// to the cloud
+		td, err := ioutil.TempDir("", "temp-dir")
+		if err != nil {
+			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
+		}
+		tf, err := ioutil.TempFile(td, tc.name)
+		if err != nil {
+			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
+		}
+		defer os.Remove(tf.Name())
+		defer os.Remove(td)
+
+		// Write the data from the test cases into the files
+		// to prepare them for reading by the fileUpload function
+		if _, err := pbutil.WriteDelimited(tf, tc.toSend); err != nil {
+			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
+		}
+		// THIS IS NOT WORKING
+		if err := sensorUpload(context.TODO(), mc, tf.Name()); err != nil {
+			t.Errorf("%v cannot upload file", tc.name)
+		}
+
+		// The mc.sent value should be the same as the tc.expMsg value
+		test.That(t, mc.sent, test.ShouldResemble, tc.expMsgs)
+	}
+}
+
+func notworkingTestSensorUploadBinary(t *testing.T) {
+	msg_empty := []byte("")
+	msg_contents := []byte("This is a message.")
+
+	tests := []struct {
+		name    string
+		toSend  []byte
+		expMsgs []v1.UploadRequest
+	}{
+		{
+			name:   "not empty",
+			toSend: msg_contents,
+			expMsgs: []v1.UploadRequest{
+				{
+					UploadPacket: &v1.UploadRequest_SensorContents{
+						SensorContents: &v1.SensorData{
+							Data: &v1.SensorData_Binary{
+								Binary: msg_contents,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "empty",
+			toSend: msg_empty,
+			expMsgs: []v1.UploadRequest{
+				{
+					UploadPacket: &v1.UploadRequest_SensorContents{
+						SensorContents: &v1.SensorData{
+							Data: &v1.SensorData_Binary{
+								Binary: msg_empty,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+
+		// Create mockClient that will be sending requests,
+		// this mock will have an UploadRequest slice that
+		// will contain the UploadRequests that are created
+		// by the data contained in files.
+		mc := &mockClient{
+			sent: []v1.UploadRequest{},
+		}
+
+		// Create temp dir and file in that dir to be used
+		// as examples of reading data from the files into
+		// buffers (and finally to have that data be uploaded)
+		// to the cloud
+		td, err := ioutil.TempDir("", "temp-dir")
+		if err != nil {
+			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
+		}
+		tf, err := ioutil.TempFile(td, tc.name)
+		if err != nil {
+			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
+		}
+		defer os.Remove(tf.Name())
+		defer os.Remove(td)
+
+		// Write the data from the test cases into the files
+		// to prepare them for reading by the fileUpload function
+		if _, err := tf.Write(tc.toSend); err != nil {
+			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
+		}
+		// THIS IS NOT WORKING
+		if err := fileUpload(context.TODO(), mc, tf.Name()); err != nil {
+			t.Errorf("%v cannot upload file", tc.name)
+		}
+
+		// The mc.sent value should be the same as the tc.expMsg value
+		test.That(t, mc.sent, test.ShouldResemble, tc.expMsgs)
+	}
 }
 
 func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
