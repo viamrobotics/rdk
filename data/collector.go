@@ -59,12 +59,14 @@ type collector struct {
 	cancel            context.CancelFunc
 	capturer          Capturer
 	isCollecting      bool
+
+	fileLock *sync.Mutex
 }
 
 // SetTarget updates the file being written to by the collector.
 func (c *collector) SetTarget(file *os.File) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.fileLock.Lock()
+	defer c.fileLock.Unlock()
 	c.target = file
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
@@ -74,8 +76,8 @@ func (c *collector) SetTarget(file *os.File) {
 
 // GetTarget returns the file being written to by the collector.
 func (c *collector) GetTarget() *os.File {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.fileLock.Lock()
+	defer c.fileLock.Unlock()
 	return c.target
 }
 
@@ -105,7 +107,9 @@ func (c *collector) Collect() error {
 
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(c.capture)
-	return c.write()
+	c.backgroundWorkers.Add(1)
+	utils.PanicCapturingGo(c.write)
+	return nil
 }
 
 // Stop pauses the Collector.
@@ -113,10 +117,12 @@ func (c *collector) Stop() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	c.isCollecting = false
+	c.cancel()
+	c.backgroundWorkers.Wait()
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
-	c.isCollecting = false
 }
 
 // Start restarts a paused Collector.
@@ -125,6 +131,21 @@ func (c *collector) Start() {
 	defer c.lock.Unlock()
 
 	c.isCollecting = true
+	c.queue = make(chan *v1.SensorData, 10000)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	c.cancelCtx = cancelCtx
+	c.cancel = cancelFunc
+	c.backgroundWorkers = sync.WaitGroup{}
+	c.backgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer c.backgroundWorkers.Done()
+		c.capture()
+	})
+	c.backgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer c.backgroundWorkers.Done()
+		c.write()
+	})
 }
 
 // Checks whether the collector is actively capturing data.
@@ -140,8 +161,6 @@ func (c *collector) IsCollecting() bool {
 // avoid wasting CPU on a thread that's idling for the vast majority of the time.
 // [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
 func (c *collector) capture() {
-	defer c.backgroundWorkers.Done()
-
 	if c.interval < time.Millisecond*2 {
 		c.sleepBasedCapture()
 	} else {
@@ -163,16 +182,17 @@ func (c *collector) sleepBasedCapture() {
 			close(c.queue)
 			return
 		}
+		//c.lock.Unlock()
 
-		c.lock.Lock()
-		if !c.isCollecting {
-			captureWorkers.Wait()
-			close(c.queue)
-			c.lock.Unlock()
-			return
-		}
-		c.lock.Unlock()
-
+		////c.lock.Lock()
+		////if !c.isCollecting {
+		////	captureWorkers.Wait()
+		////	close(c.queue)
+		////	c.lock.Unlock()
+		////	return
+		////}
+		////c.lock.Unlock()
+		//
 		select {
 		case <-c.cancelCtx.Done():
 			captureWorkers.Wait()
@@ -204,14 +224,14 @@ func (c *collector) tickerBasedCapture() {
 			return
 		}
 
-		c.lock.Lock()
-		if !c.isCollecting {
-			captureWorkers.Wait()
-			close(c.queue)
-			c.lock.Unlock()
-			return
-		}
-		c.lock.Unlock()
+		//c.lock.Lock()
+		//if !c.isCollecting {
+		//	captureWorkers.Wait()
+		//	close(c.queue)
+		//	c.lock.Unlock()
+		//	return
+		//}
+		//c.lock.Unlock()
 
 		select {
 		case <-c.cancelCtx.Done():
@@ -289,35 +309,32 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
-		queue:             make(chan *v1.SensorData, params.QueueSize),
-		interval:          params.Interval,
-		params:            params.MethodParams,
-		lock:              &sync.Mutex{},
-		logger:            params.Logger,
-		target:            params.Target,
-		writer:            bufio.NewWriterSize(params.Target, params.BufferSize),
-		cancelCtx:         cancelCtx,
-		cancel:            cancelFunc,
-		backgroundWorkers: sync.WaitGroup{},
-		capturer:          capturer,
-		isCollecting:      false,
+		//queue:        make(chan *v1.SensorData, params.QueueSize),
+		interval:     params.Interval,
+		params:       params.MethodParams,
+		lock:         &sync.Mutex{},
+		logger:       params.Logger,
+		target:       params.Target,
+		writer:       bufio.NewWriterSize(params.Target, params.BufferSize),
+		capturer:     capturer,
+		isCollecting: false,
+		fileLock:     &sync.Mutex{},
 	}, nil
 }
 
-func (c *collector) write() error {
+func (c *collector) write() {
 	for msg := range c.queue {
 		if err := c.appendMessage(msg); err != nil {
-			return err
+			// TODO: log
 		}
 	}
-	return nil
+	return
 }
 
 func (c *collector) appendMessage(msg *v1.SensorData) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.fileLock.Lock()
+	defer c.fileLock.Unlock()
 	_, err := pbutil.WriteDelimited(c.writer, msg)
 	if err != nil {
 		return err

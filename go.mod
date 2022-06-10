@@ -47,7 +47,6 @@ require (
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
-	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.3.4-0.20220328105715-70261260cb6f
 	github.com/pion/webrtc/v3 v3.1.41
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
