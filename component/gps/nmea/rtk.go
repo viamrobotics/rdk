@@ -1,23 +1,11 @@
 package nmea
 
 import (
-	"bufio"
 	"context"
-	"fmt"
 	"io"
-	"net/http"
-	"strconv"
-	"sync"
 
-	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
-	"github.com/go-gnss/ntrip"
-	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-	"go.viam.com/utils"
-	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
@@ -41,6 +29,7 @@ func init() {
 }
 
 type RTKGPS struct {
+	generic.Unimplemented
 	lg	gps.LocalGPS
 	correctionInputProtocol	string
 	n	ntripInfo
@@ -63,8 +52,10 @@ const (
 	i2CName	= "I2C"
 )
 
-func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
-
+func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
+	// TODO
+	g := &RTKGPS{}
+	return g, nil
 }
 
 func (g *RTKGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
@@ -72,7 +63,7 @@ func (g *RTKGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 }
 
 func (g *RTKGPS) ReadAltitude(ctx context.Context) (float64, error) {
-	g.lg.ReadAltitude(ctx)
+	return g.lg.ReadAltitude(ctx)
 }
 
 func (g *RTKGPS) ReadSpeed(ctx context.Context) (float64, error) {
@@ -92,7 +83,9 @@ func (g *RTKGPS) ReadValid(ctx context.Context) (bool, error) {
 }
 
 func (g *RTKGPS) Close() error {
-	g.lg.Close()
+	// TODO: close localGPS (may have to make a new interface to include their individual Close funcs)
 
 	// TODO: close any ntrip connections if neccessary
+
+	return nil
 }
