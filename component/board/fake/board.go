@@ -79,6 +79,16 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 	return b, nil
 }
 
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (b *Board) UpdateAction(c *config.Component) config.UpdateActionType {
+	_, ok := c.ConvertedAttributes.(*board.Config)
+	if !ok {
+		return config.Rebuild
+	}
+	return config.Reconfigure
+}
+
 // A Board provides dummy data from fake parts in order to implement a Board.
 type Board struct {
 	generic.Echo

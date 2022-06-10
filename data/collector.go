@@ -22,6 +22,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
+var sleepCaptureCutoff = 2 * time.Millisecond
+
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
 	Capture(ctx context.Context, params map[string]string) (interface{}, error)
@@ -161,7 +164,9 @@ func (c *collector) IsCollecting() bool {
 // avoid wasting CPU on a thread that's idling for the vast majority of the time.
 // [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
 func (c *collector) capture() {
-	if c.interval < time.Millisecond*2 {
+	defer c.backgroundWorkers.Done()
+
+	if c.interval < sleepCaptureCutoff {
 		c.sleepBasedCapture()
 	} else {
 		c.tickerBasedCapture()
