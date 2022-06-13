@@ -4,8 +4,6 @@
   >
     <div class="flex pb-4">
       <div class="pr-4 w-16">
-        <!-- <ViamBadge v-if="isActive" color="green">On</ViamBadge>
-        <ViamBadge v-if="!isActive" color="gray">Off</ViamBadge> -->
         <ViamSwitch
         class="pr-4"
         centered
