@@ -27,14 +27,14 @@ var SLAMLibraries = map[string]LibraryMetadata{
 var cartographerMetadata = LibraryMetadata{
 	AlgoName:       "cartographer",
 	AlgoType:       dense,
-	SlamMode:       map[string]mode{"2d": dim2d},
+	SlamMode:       map[string]mode{"": dim2d, "2d": dim2d},
 	BinaryLocation: "",
 }
 
 var orbslamv3Metadata = LibraryMetadata{
 	AlgoName:       "orbslamv3",
 	AlgoType:       sparse,
-	SlamMode:       map[string]mode{"mono": mono, "rgbd": rgbd},
+	SlamMode:       map[string]mode{"": rgbd, "mono": mono, "rgbd": rgbd},
 	BinaryLocation: "",
 }
 
