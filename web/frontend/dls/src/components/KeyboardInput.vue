@@ -49,7 +49,6 @@ import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
 import ViamButton from "./Button.vue";
 import ViamSwitch from "./Switch.vue";
-import Badge from "./Badge.vue";
 
 const PressedKeysMap: { [index: string]: string } = {
   "87": "forward",
@@ -67,7 +66,6 @@ const eventsDelay = 0;
     ViamIcon,
     ViamButton,
     ViamSwitch,
-    Badge,
   },
 })
 export default class KeyboardInput extends Vue {
