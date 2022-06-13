@@ -3,16 +3,18 @@
       {
         "attributes": {
           "ntrip_addr": "http://rtn.dot.ny.gov:8082",
-          "ntrip_mountpoint": "NJI2",
-          "ntrip_baud": 38400,
-          "ntrip_password": "checkmate",
-          "ntrip_path": "",
-          "ntrip_send_nmea": true,
           "ntrip_username": "evelyn",
+          "ntrip_password": "checkmate",
+          "ntrip_mountpoint": "NJI2",
+          "ntrip_path": "",
+          "ntrip_baud": 38400,
+          "ntrip_send_nmea": true,
+          "ntrip_connect_attempts": 10,
+          "ntrip_input_protocol": "serial",
           "path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
         },
         "depends_on": [],
-        "model": "nmea-serial",
+        "model": "rtk",
         "name": "gps",
         "type": "gps"
       }
