@@ -3,14 +3,12 @@
     class="flex flex-col h-23"
   >
     <div class="flex pb-4">
-      <div class="pr-4 w-16">
-        <ViamSwitch
+      <ViamSwitch
         class="pr-4"
         centered
         :option="isActive"
         @change="toggleKeyboard()"
       ></ViamSwitch>
-      </div>
       <h3 v-if="isActive">Keyboard active</h3>
       <h3 v-else>Keyboard disabled</h3>
     </div>
