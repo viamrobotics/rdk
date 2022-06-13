@@ -1,7 +1,7 @@
 package nmea
 
 import (
-	// "fmt"
+	"fmt"
 	"context"
 	"io"
 	"bufio"
@@ -77,7 +77,7 @@ const (
 )
 
 func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.NMEAGPS, error) {
-	g := &RTKGPS{}
+	g := &RTKGPS{logger: logger}
 
 	g.ntripInputProtocol = config.Attributes.String(ntripInputProtocolAttrName)
 
