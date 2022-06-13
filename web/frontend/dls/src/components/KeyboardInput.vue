@@ -131,7 +131,6 @@ export default class KeyboardInput extends Vue {
   }
 
   toggleKeyboard(): void {
-    console.log(this.isActive);
     if (this.isActive === true) {
       this.removeKeyboardListeners();
     } else {
@@ -140,17 +139,13 @@ export default class KeyboardInput extends Vue {
   }
 
   addKeyboardListeners(): void {
-    console.log('addKeyboardListeners', this.isActive);
     this.isActive = true;
-    console.log('addKeyboardListeners', this.isActive);
     window.addEventListener("keydown", this.onUseKeyboardNav, false);
     window.addEventListener("keyup", this.onUseKeyboardNav, false);
   }
 
   removeKeyboardListeners(): void {
-    console.log('removeKeyboardListeners', this.isActive);
     this.isActive = false;
-    console.log('removeKeyboardListeners', this.isActive);
     window.removeEventListener("keydown", this.onUseKeyboardNav);
     window.removeEventListener("keyup", this.onUseKeyboardNav);
   }
