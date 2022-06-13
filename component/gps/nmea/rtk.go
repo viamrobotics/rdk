@@ -1,7 +1,7 @@
 package nmea
 
 import (
-	"fmt"
+	// "fmt"
 	"context"
 	"io"
 	"bufio"
@@ -35,7 +35,7 @@ func init() {
 
 type RTKGPS struct {
 	generic.Unimplemented
-	lg						gps.NMEAGPS
+	nmeagps					gps.NMEAGPS
 	ntripInputProtocol		string
 	ntripClient				ntripInfo
 	logger 					golog.Logger
@@ -76,16 +76,16 @@ const (
 	ntripConnectAttemptsName = "ntrip_connect_attempts"
 )
 
-func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
+func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.NMEAGPS, error) {
 	g := &RTKGPS{}
 
 	g.ntripInputProtocol = config.Attributes.String(ntripInputProtocolAttrName)
 
-	// Init localGPS
+	// Init NMEAGPS
 	switch g.ntripInputProtocol {
 	case "serial":
 		var err error
-		g.lg, err = newSerialNMEAGPS(ctx, config, logger)
+		g.nmeagps, err = newSerialNMEAGPS(ctx, config, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -129,14 +129,18 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 		g.logger.Info("ntrip_connect_attempts using default 10")
 	}
 
+	g.Start(ctx)
+
+	return g, nil
+}
+
+func (g *RTKGPS) Start(ctx context.Context) {
 	switch g.ntripInputProtocol {
 	case "serial":
 		go g.ReceiveAndWriteSerial()
 	}
 
-	g.lg.Start(ctx)
-
-	return g, nil
+	g.nmeagps.Start(ctx)
 }
 
 // attempts to connect to ntrip client until successful connection or timeout
@@ -263,32 +267,32 @@ func (g *RTKGPS) NtripStatus() (bool, error) {
 }
 
 func (g *RTKGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
-	return g.lg.ReadLocation(ctx)
+	return g.nmeagps.ReadLocation(ctx)
 }
 
 func (g *RTKGPS) ReadAltitude(ctx context.Context) (float64, error) {
-	return g.lg.ReadAltitude(ctx)
+	return g.nmeagps.ReadAltitude(ctx)
 }
 
 func (g *RTKGPS) ReadSpeed(ctx context.Context) (float64, error) {
-	return g.lg.ReadSpeed(ctx)
+	return g.nmeagps.ReadSpeed(ctx)
 }
 
 func (g *RTKGPS) ReadSatellites(ctx context.Context) (int, int, error) {
-	return g.lg.ReadSatellites(ctx)
+	return g.nmeagps.ReadSatellites(ctx)
 }
 
 func (g *RTKGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
-	return g.lg.ReadAccuracy(ctx)
+	return g.nmeagps.ReadAccuracy(ctx)
 }
 
 func (g *RTKGPS) ReadValid(ctx context.Context) (bool, error) {
-	return g.lg.ReadValid(ctx)
+	return g.nmeagps.ReadValid(ctx)
 }
 
 func (g *RTKGPS) Close() error {
-	// close localGPS
-	g.lg.Close()
+	// close NMEAGPS
+	g.nmeagps.Close()
 
 	// TODO: close any ntrip connections
 
