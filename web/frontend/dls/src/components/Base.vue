@@ -18,7 +18,7 @@
       <template v-slot:content>
         <div
           class="border border-t-0 border-black pt-2 pb-4 h-80"
-          :style="{ maxHeight: maxHeight + 'px' }"
+          :style="{ height: height }"
         >
           <div>
             <Tabs>
@@ -39,7 +39,7 @@
           <div
             v-if="selectedItem === 'keyboard'"
             class="p-4"
-            :style="{ maxHeight: maxHeight + 'px' }"
+            :style="{ height: height }"
           >
             <div>
               <div>
@@ -78,7 +78,7 @@
           <div
             v-if="selectedItem === 'discrete'"
             class="pr-4 pl-4 pt-4 flex"
-            :style="{ maxHeight: maxHeight + 'px' }"
+            :style="{ height: height }"
           >
             <div class="flex-grow">
               <div>
@@ -163,7 +163,6 @@
                 color="success"
                 group
                 variant="primary"
-                :disabled="baseStatus"
                 @click="baseRun()"
               >
                 <template v-slot:icon>
@@ -216,14 +215,13 @@ export default class Base extends Vue {
   @Prop({ default: null }) baseName!: string;
   @Prop({ default: null }) crumbs!: [string];
   @Prop({ default: true }) connectedCamera!: boolean;
-  @Prop({ default: false }) baseStatus!: boolean;
 
   mdiRestore = mdiRestore;
   mdiPlayCircleOutline = mdiPlayCircleOutline;
   mdiCloseOctagonOutline = mdiCloseOctagonOutline;
 
   camera = this.connectedCamera;
-  maxHeight = 1100;
+  height = "auto";
   selectedValue = "NoCamera";
   isContinuous = true;
   streamId = "stream-preview-" + this.streamName;
@@ -243,18 +241,6 @@ export default class Base extends Vue {
     { value: "NoCamera", label: "No Camera" },
     { value: "Camera1", label: "Camera1" },
   ];
-
-  beforeMount(): void {
-    window.addEventListener("resize", this.resizeContent);
-  }
-
-  beforeDestroy(): void {
-    window.removeEventListener("resize", this.resizeContent);
-  }
-
-  mounted(): void {
-    this.resizeContent();
-  }
 
   resetDiscreteState(): void {
     this.movementMode = "Straight";
@@ -298,13 +284,6 @@ export default class Base extends Vue {
       this.spinType,
       this.direction
     );
-  }
-  resizeContent(): void {
-    if (this.camera) {
-      this.maxHeight = 1500;
-    } else {
-      this.maxHeight = 1100;
-    }
   }
   keyboardCtl(keysPressed: Record<string, unknown>): void {
     let toEmit = {
