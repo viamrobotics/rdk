@@ -495,7 +495,6 @@ func TestRemoteRobotReconnected(t *testing.T) {
 	test.That(t, len(robot.ResourceNames()), test.ShouldEqual, 0)
 	_, err := robot.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeError, robot.checkConnected())
-
 	wrapped.updateConnection(true)
 	test.That(t, len(robot.ResourceNames()), test.ShouldEqual, 16)
 	_, err = robot.ResourceByName(arm.Named("arm1"))
@@ -551,7 +550,7 @@ func (w *dummyRemoteRobotWrapper) Connected() bool {
 
 func (w *dummyRemoteRobotWrapper) Changed() <-chan bool {
 	if w.changeChan == nil {
-		w.changeChan = make(chan bool)
+		w.changeChan = make(chan bool, 1)
 	}
 	return w.changeChan
 }
@@ -560,8 +559,8 @@ func (w *dummyRemoteRobotWrapper) updateConnection(connected bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.connected = connected
 	if w.changeChan != nil {
 		w.changeChan <- true
 	}
+	w.connected = connected
 }
