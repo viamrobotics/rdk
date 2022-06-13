@@ -96,7 +96,7 @@ func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.M
 	return model, mp, nil
 }
 
-func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 
 	a := dofBot{}
@@ -283,6 +283,11 @@ func (a *dofBot) Stop(ctx context.Context) error {
 	// RSDK-388: Implement Stop for gripper, might need to split the structs up if we
 	// want the Stop to arm/gripper specific.
 	return arm.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the arm is moving.
+func (a *dofBot) IsMoving() bool {
+	return a.opMgr.OpRunning()
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.

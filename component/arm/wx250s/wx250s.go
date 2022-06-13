@@ -101,7 +101,7 @@ func getPortMutex(port string) *sync.Mutex {
 }
 
 // NewArm TODO.
-func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.LocalArm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
@@ -186,6 +186,11 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 func (a *Arm) Stop(ctx context.Context) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the arm is moving.
+func (a *Arm) IsMoving() bool {
+	return a.opMgr.OpRunning()
 }
 
 // Close will get the arm ready to be turned off.
