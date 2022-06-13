@@ -72,8 +72,8 @@ type LocalGPS interface {
 
 type NMEAGPS interface {
 	LocalGPS
-	Start(ctx context.Context)							  // Initialize and run GPS
-	Close() (error)												  // Close GPS
+	Start(ctx context.Context)	// Initialize and run GPS
+	Close() (error)				// Close GPS
 }
 
 var (
