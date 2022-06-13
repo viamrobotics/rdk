@@ -356,6 +356,7 @@ func managerForRemoteRobot(robot robot.Robot) *resourceManager {
 
 	for _, name := range robot.ResourceNames() {
 		// skip datamanager since we know it doesn't have a client
+		// TODO: remove after we add corresponding datamanager client
 		if name == datamanager.Name {
 			continue
 		}
