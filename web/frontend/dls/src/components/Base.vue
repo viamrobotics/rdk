@@ -296,11 +296,6 @@ export default class Base extends Vue {
     };
     this.$emit("keyboard-ctl", toEmit);
   }
-  addKeyboardListeners(): void {
-    // eslint-disable-next-line
-    const keyboardRef: any = this.$refs.keyboardRef;
-    keyboardRef.addKeyboardListeners();
-  }
   removeKeyboardListeners(): void {
     // eslint-disable-next-line
     const keyboardRef: any = this.$refs.keyboardRef;
