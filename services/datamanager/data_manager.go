@@ -305,14 +305,19 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 }
 
 // Get the config associated with the data manager service.
-func getServiceConfig(cfg *config.Config) (config.Service, bool) {
+func getServiceConfig(cfg *config.Config) (*Config, bool) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
 		if c.ResourceName() == Name {
-			return c, true
+			svcConfig, ok := c.ConvertedAttributes.(*Config)
+			if !ok {
+				return &Config{}, false
+			}
+			return svcConfig, true
 		}
 	}
-	return config.Service{}, false
+
+	return &Config{}, false
 }
 
 // Get the component configs associated with the data manager service.
@@ -346,14 +351,12 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
-	c, ok := getServiceConfig(cfg)
+	svcConfig, ok := getServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
 	if !ok {
 		svc.closeCollectors()
 		return nil
 	}
-
-	svcConfig, ok := c.ConvertedAttributes.(*Config)
 
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svcConfig.Disabled {
@@ -362,9 +365,6 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 		return nil
 	}
 
-	if !ok {
-		return utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
-	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 
