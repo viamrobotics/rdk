@@ -128,9 +128,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status1, test.ShouldResemble, status)
 
 		resourceSubtype := registry.ResourceSubtypeLookup(gripper.Subtype)
-		resourceSubtype.Status(context.Background(), injectGripper)
+		status2, err := resourceSubtype.Status(context.Background(), injectGripper)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status1, test.ShouldResemble, status)
+		test.That(t, status2, test.ShouldResemble, status)
 	})
 
 	t.Run("is not moving", func(t *testing.T) {

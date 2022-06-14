@@ -145,9 +145,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status1, test.ShouldResemble, status)
 
 		resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
-		resourceSubtype.Status(context.Background(), injectArm)
+		status2, err := resourceSubtype.Status(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status1, test.ShouldResemble, status)
+		test.That(t, status2, test.ShouldResemble, status)
 	})
 
 	t.Run("fail on GetJointPositions", func(t *testing.T) {
