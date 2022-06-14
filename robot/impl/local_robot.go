@@ -356,6 +356,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	if f == nil {
 		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
 	}
+
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
@@ -365,10 +366,11 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
+
+	// TODO: use resource manager?
 	deps := make(registry.Dependencies)
 	for _, dep := range config.DependsOn {
 		if c := r.config.FindComponent(dep); c != nil {
-			// Does this component exist yet?
 			res, err := r.ResourceByName(c.ResourceName())
 			if err != nil {
 				return nil, err
@@ -376,6 +378,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 			deps[c.ResourceName()] = res
 		}
 	}
+
 	newResource, err := f.Constructor(ctx, deps, config, r.logger)
 	if err != nil {
 		return nil, err
