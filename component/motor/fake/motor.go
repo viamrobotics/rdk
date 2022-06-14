@@ -23,7 +23,7 @@ func init() {
 			if mcfg, ok := config.ConvertedAttributes.(*motor.Config); ok {
 				if mcfg.BoardName != "" {
 					m.Board = mcfg.BoardName
-					b, err := board.FromRobot(r, m.Board)
+					b, err := board.FromDependencies(deps, m.Board)
 					if err != nil {
 						return nil, err
 					}
