@@ -23,7 +23,6 @@ func TestNewDataManager(t *testing.T) {
 		Type:                "data_manager",
 		ConvertedAttributes: &Config{},
 	}
-
 	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
 	const arm1Key = "arm1"
@@ -34,32 +33,30 @@ func TestNewDataManager(t *testing.T) {
 	rs := map[resource.Name]interface{}{arm.Named(arm1Key): arm1}
 	r.MockResourcesFromMap(rs)
 
+	// Check that the service has started.
 	dataManager, err := New(context.Background(), r, cfgService, logger)
 	svc := dataManager.(*Service)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Set data manager parameters in Update.
+	// Set capture parameters in Update.
 	conf, err := config.Read(
 		context.Background(), utils.ResolveFile("robots/configs/fake_robot_with_data_manager.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	svc.Update(context.Background(), conf)
-
 	sleepTime := time.Millisecond * 5
 	time.Sleep(sleepTime)
 
-	// Check that a collector is running.
+	// Check that the expected collector is running.
 	test.That(t, len(svc.collectors), test.ShouldEqual, 1)
-
 	expectedComponentMethodMetadata := componentMethodMetadata{
 		"arm1", data.MethodMetadata{Subtype: resource.SubtypeName("arm"), MethodName: "GetEndPosition"},
 	}
 	_, present := svc.collectors[expectedComponentMethodMetadata]
 	test.That(t, present, test.ShouldBeTrue)
 
+	// Check that collector is closed.
 	err = svc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-
-	// Check that collector is closed.
 	time.Sleep(sleepTime)
 	test.That(t, svc.collectors, test.ShouldBeEmpty)
 }
