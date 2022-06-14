@@ -13,13 +13,14 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/protoutils"
 )
 
-// implements DataSyncService_UploadClient
+// implements DataSyncService_UploadClient.
 type mockClient struct {
 	sent []v1.UploadRequest
 	grpc.ClientStream
@@ -38,15 +39,104 @@ func (m *mockClient) Context() context.Context {
 	return context.TODO()
 }
 
-// test will see if the things that need to be written to file,
-// after being put thry the upload (using the client that I made), are
-// added to an uploadrequest slice
+type empty struct{}
 
-// test will have expectedMesssages, then validate that 'sent []byte'
-// and expectedMessages are the same
+type allLiterals struct {
+	Bool   bool
+	Float  float64
+	Int    int
+	Int64  int64
+	String string
+}
+
+type allArrays struct {
+	BoolArray   []bool
+	FloatArray  []float64
+	IntArray    []int
+	Int64Array  []int64
+	StringArray []string
+}
+
+type metaStruct struct {
+	AllArrays   allArrays
+	AllLiterals allLiterals
+}
+
+func toProto(r interface{}) *structpb.Struct {
+	msg, err := protoutils.StructToStructPb(r)
+	if err != nil {
+		return nil
+	}
+	return msg
+}
+
+// Writes the protobuf message to the file passed into method.
+// Returns the number of bytes written and any errors that are
+// raised.
+func writeProtoHelper(f *os.File, toSend [][]byte) (int, error) {
+	countBytesWritten := 0
+	for _, bytes := range toSend {
+		msg := &v1.SensorData{
+			Data: &v1.SensorData_Binary{
+				Binary: bytes,
+			},
+		}
+		bytesWritten, err := pbutil.WriteDelimited(f, msg)
+		// fmt.Printf("num bytes written: %d\n", bytesWritten)
+		if err != nil {
+			return countBytesWritten, err
+		}
+		countBytesWritten += bytesWritten
+	}
+	return countBytesWritten, nil
+}
+
+// Compares UploadRequests (which hold either binary or tabular
+// data) in form of test.
+func helpCompareUploadRequests(t *testing.T, isTabular bool, a []v1.UploadRequest, b []v1.UploadRequest) {
+	t.Helper()
+	test.That(t, len(a), test.ShouldEqual, len(b))
+	if !isTabular {
+		for i, ur := range a {
+			up := ur.GetSensorContents().GetBinary()
+			other := b[i].GetSensorContents().GetBinary()
+			test.That(t, up, test.ShouldResemble, other)
+		}
+	} else {
+		for i, ur := range a {
+			up := ur.GetSensorContents().GetStruct()
+			other := b[i].GetSensorContents().GetStruct()
+			test.That(t, up, test.ShouldResemble, other)
+		}
+	}
+}
+
+// Builds syncer used in tests.
+func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
+	t.Helper()
+	cancelCtx, cancelFn := context.WithCancel(context.Background())
+	captureDir := t.TempDir()
+	syncQueue := t.TempDir()
+	l := golog.NewTestLogger(t)
+
+	return syncer{
+		captureDir:    captureDir,
+		syncQueue:     syncQueue,
+		logger:        l,
+		queueWaitTime: time.Nanosecond,
+		progressTracker: progressTracker{
+			lock: &sync.Mutex{},
+			m:    make(map[string]struct{}),
+		},
+		uploadFn:   uploadFn,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFn,
+	}
+}
+
 func TestFileUpload(t *testing.T) {
-	msg_empty := []byte("")
-	msg_contents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
+	msgEmpty := []byte("")
+	msgContents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
 
 	tests := []struct {
 		name    string
@@ -55,68 +145,68 @@ func TestFileUpload(t *testing.T) {
 	}{
 		{
 			name:   "not empty",
-			toSend: msg_contents,
+			toSend: msgContents,
 			expMsgs: []v1.UploadRequest{
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents[0:bufferSize],
+							Data: msgContents[0:bufferSize],
 						},
 					},
 				},
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents[bufferSize:(bufferSize * 2)],
+							Data: msgContents[bufferSize:(bufferSize * 2)],
 						},
 					},
 				},
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents[(bufferSize * 2):(bufferSize * 3)],
+							Data: msgContents[(bufferSize * 2):(bufferSize * 3)],
 						},
 					},
 				},
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents[(bufferSize * 3):(bufferSize * 4)],
+							Data: msgContents[(bufferSize * 3):(bufferSize * 4)],
 						},
 					},
 				},
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents[(bufferSize * 4):(bufferSize * 5)],
+							Data: msgContents[(bufferSize * 4):(bufferSize * 5)],
 						},
 					},
 				},
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents[(bufferSize * 5):(bufferSize * 6)],
+							Data: msgContents[(bufferSize * 5):(bufferSize * 6)],
 						},
 					},
 				},
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents[(bufferSize * 6):(bufferSize * 7)],
+							Data: msgContents[(bufferSize * 6):(bufferSize * 7)],
 						},
 					},
 				},
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents[(bufferSize * 7):(bufferSize * 8)],
+							Data: msgContents[(bufferSize * 7):(bufferSize * 8)],
 						},
 					},
 				},
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents[(bufferSize * 8):],
+							Data: msgContents[(bufferSize * 8):],
 						},
 					},
 				},
@@ -124,13 +214,12 @@ func TestFileUpload(t *testing.T) {
 		},
 		{
 			name:    "empty",
-			toSend:  msg_empty,
+			toSend:  msgEmpty,
 			expMsgs: []v1.UploadRequest{},
 		},
 	}
 
 	for _, tc := range tests {
-
 		// Create mockClient that will be sending requests,
 		// this mock will have an UploadRequest slice that
 		// will contain the UploadRequests that are created
@@ -169,56 +258,25 @@ func TestFileUpload(t *testing.T) {
 	}
 }
 
-type empty struct{}
-
-type allLiterals struct {
-	Bool   bool
-	Float  float64
-	Int    int
-	Int64  int64
-	String string
-}
-
-type allArrays struct {
-	BoolArray   []bool
-	FloatArray  []float64
-	IntArray    []int
-	Int64Array  []int64
-	StringArray []string
-}
-
-type metaStruct struct {
-	AllArrays   allArrays
-	AllLiterals allLiterals
-}
-
-func toProto(r interface{}) *structpb.Struct {
-	msg, err := protoutils.StructToStructPb(r)
-	if err != nil {
-		return nil
-	}
-	return msg
-}
-
-func notworkingTestSensorUploadTabular(t *testing.T) {
-	// msg_binary := []byte("This message is encoded in bytes.")
+func TestSensorUploadTabular(t *testing.T) {
+	// msgBinary := []byte("This message is encoded in bytes.")
 	// figure out how to create dummy tabular data
-	proto_msg_tabular_empty := toProto(empty{})
-	proto_msg_tabular_all_literals := toProto(allLiterals{
+	protoMsgTabularEmpty := toProto(empty{})
+	protoMsgTabularAllLiterals := toProto(allLiterals{
 		Bool:   false,
 		Float:  12.4,
 		Int:    7,
 		Int64:  3,
 		String: "Viam is cool.",
 	})
-	proto_msg_tabular_arrays_of_literals := toProto(allArrays{
+	protoMsgTabularArraysOfLiterals := toProto(allArrays{
 		BoolArray:   []bool{false, true},
 		FloatArray:  []float64{12.4, 0.9},
 		IntArray:    []int{7, 9},
 		Int64Array:  []int64{3, 2},
 		StringArray: []string{"Viam is cool.", "The interns are great!"},
 	})
-	proto_msg_tabular_nested_structs := toProto(metaStruct{
+	protoMsgTabularNestedStructs := toProto(metaStruct{
 		AllArrays: allArrays{
 			BoolArray:   []bool{false, true},
 			FloatArray:  []float64{12.4, 0.9},
@@ -245,7 +303,7 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 			toSend: &v1.SensorData{
 				Metadata: &v1.SensorMetadata{},
 				Data: &v1.SensorData_Struct{
-					Struct: proto_msg_tabular_empty,
+					Struct: protoMsgTabularEmpty,
 				},
 			},
 			expMsgs: []v1.UploadRequest{},
@@ -255,7 +313,7 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 			toSend: &v1.SensorData{
 				Metadata: &v1.SensorMetadata{},
 				Data: &v1.SensorData_Struct{
-					Struct: proto_msg_tabular_all_literals,
+					Struct: protoMsgTabularAllLiterals,
 				},
 			},
 			expMsgs: []v1.UploadRequest{
@@ -263,7 +321,7 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 					UploadPacket: &v1.UploadRequest_SensorContents{
 						SensorContents: &v1.SensorData{
 							Data: &v1.SensorData_Struct{
-								Struct: proto_msg_tabular_all_literals,
+								Struct: protoMsgTabularAllLiterals,
 							},
 						},
 					},
@@ -275,7 +333,7 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 			toSend: &v1.SensorData{
 				Metadata: &v1.SensorMetadata{},
 				Data: &v1.SensorData_Struct{
-					Struct: proto_msg_tabular_arrays_of_literals,
+					Struct: protoMsgTabularArraysOfLiterals,
 				},
 			},
 			expMsgs: []v1.UploadRequest{
@@ -283,7 +341,7 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 					UploadPacket: &v1.UploadRequest_SensorContents{
 						SensorContents: &v1.SensorData{
 							Data: &v1.SensorData_Struct{
-								Struct: proto_msg_tabular_arrays_of_literals,
+								Struct: protoMsgTabularArraysOfLiterals,
 							},
 						},
 					},
@@ -295,7 +353,7 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 			toSend: &v1.SensorData{
 				Metadata: &v1.SensorMetadata{},
 				Data: &v1.SensorData_Struct{
-					Struct: proto_msg_tabular_nested_structs,
+					Struct: protoMsgTabularNestedStructs,
 				},
 			},
 			expMsgs: []v1.UploadRequest{
@@ -303,7 +361,7 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 					UploadPacket: &v1.UploadRequest_SensorContents{
 						SensorContents: &v1.SensorData{
 							Data: &v1.SensorData_Struct{
-								Struct: proto_msg_tabular_nested_structs,
+								Struct: protoMsgTabularNestedStructs,
 							},
 						},
 					},
@@ -313,7 +371,6 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-
 		// Create mockClient that will be sending requests,
 		// this mock will have an UploadRequest slice that
 		// will contain the UploadRequests that are created
@@ -342,31 +399,22 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 		if _, err := pbutil.WriteDelimited(tf, tc.toSend); err != nil {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
-		// THIS IS NOT WORKING
+
 		if err := sensorUpload(context.TODO(), mc, tf.Name()); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
 		// The mc.sent value should be the same as the tc.expMsg value
-		test.That(t, mc.sent, test.ShouldResemble, tc.expMsgs)
-	}
-}
-
-func helpCompareUploadRequests(t *testing.T, a []v1.UploadRequest, b []v1.UploadRequest) {
-	t.Helper()
-	for i, ur := range a {
-		up := ur.GetSensorContents().GetBinary()
-		other := b[i].GetSensorContents().GetBinary()
-		test.That(t, up, test.ShouldResemble, other)
+		helpCompareUploadRequests(t, true, mc.sent, tc.expMsgs)
 	}
 }
 
 func TestSensorUploadBinary(t *testing.T) {
-	msg_empty := []byte("")
-	msg_contents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
-	msg_bin1 := []byte("Robots are really cool.")
-	msg_bin2 := []byte("This work is helping develop the robotics space.")
-	msg_bin3 := []byte("This message is used for testing.")
+	msgEmpty := []byte("")
+	msgContents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
+	msgBin1 := []byte("Robots are really cool.")
+	msgBin2 := []byte("This work is helping develop the robotics space.")
+	msgBin3 := []byte("This message is used for testing.")
 
 	tests := []struct {
 		name    string
@@ -375,13 +423,13 @@ func TestSensorUploadBinary(t *testing.T) {
 	}{
 		{
 			name:   "not empty",
-			toSend: [][]byte{msg_contents},
+			toSend: [][]byte{msgContents},
 			expMsgs: []v1.UploadRequest{
 				{
 					UploadPacket: &v1.UploadRequest_SensorContents{
 						SensorContents: &v1.SensorData{
 							Data: &v1.SensorData_Binary{
-								Binary: msg_contents,
+								Binary: msgContents,
 							},
 						},
 					},
@@ -390,13 +438,13 @@ func TestSensorUploadBinary(t *testing.T) {
 		},
 		{
 			name:   "empty",
-			toSend: [][]byte{msg_empty},
+			toSend: [][]byte{msgEmpty},
 			expMsgs: []v1.UploadRequest{
 				{
 					UploadPacket: &v1.UploadRequest_SensorContents{
 						SensorContents: &v1.SensorData{
 							Data: &v1.SensorData_Binary{
-								Binary: msg_empty,
+								Binary: msgEmpty,
 							},
 						},
 					},
@@ -405,13 +453,13 @@ func TestSensorUploadBinary(t *testing.T) {
 		},
 		{
 			name:   "multiple sensor data readings",
-			toSend: [][]byte{msg_bin1, msg_bin2, msg_bin3},
+			toSend: [][]byte{msgBin1, msgBin2, msgBin3},
 			expMsgs: []v1.UploadRequest{
 				{
 					UploadPacket: &v1.UploadRequest_SensorContents{
 						SensorContents: &v1.SensorData{
 							Data: &v1.SensorData_Binary{
-								Binary: msg_bin1,
+								Binary: msgBin1,
 							},
 						},
 					},
@@ -420,7 +468,7 @@ func TestSensorUploadBinary(t *testing.T) {
 					UploadPacket: &v1.UploadRequest_SensorContents{
 						SensorContents: &v1.SensorData{
 							Data: &v1.SensorData_Binary{
-								Binary: msg_bin2,
+								Binary: msgBin2,
 							},
 						},
 					},
@@ -429,7 +477,7 @@ func TestSensorUploadBinary(t *testing.T) {
 					UploadPacket: &v1.UploadRequest_SensorContents{
 						SensorContents: &v1.SensorData{
 							Data: &v1.SensorData_Binary{
-								Binary: msg_bin3,
+								Binary: msgBin3,
 							},
 						},
 					},
@@ -439,7 +487,6 @@ func TestSensorUploadBinary(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-
 		// Create mockClient that will be sending requests,
 		// this mock will have an UploadRequest slice that
 		// will contain the UploadRequests that are created
@@ -476,54 +523,12 @@ func TestSensorUploadBinary(t *testing.T) {
 		}
 
 		// The mc.sent value should be the same as the tc.expMsg value
-		helpCompareUploadRequests(t, mc.sent, tc.expMsgs)
+		helpCompareUploadRequests(t, false, mc.sent, tc.expMsgs)
 	}
 }
 
-// Writes the protobuf message to the file passed into method.
-// Returns the number of bytes written and any errors that are
-// raised.
-func writeProtoHelper(f *os.File, toSend [][]byte) (int, error) {
-	countBytesWritten := 0
-	for _, bytes := range toSend {
-		msg := &v1.SensorData{
-			Data: &v1.SensorData_Binary{
-				Binary: bytes,
-			},
-		}
-		bytesWritten, err := pbutil.WriteDelimited(f, msg)
-		// fmt.Printf("num bytes written: %d\n", bytesWritten)
-		if err != nil {
-			return countBytesWritten, err
-		}
-		countBytesWritten += bytesWritten
-	}
-	return countBytesWritten, nil
-}
-
-func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
-	t.Helper()
-	cancelCtx, cancelFn := context.WithCancel(context.Background())
-	captureDir := t.TempDir()
-	syncQueue := t.TempDir()
-	l := golog.NewTestLogger(t)
-
-	return syncer{
-		captureDir:    captureDir,
-		syncQueue:     syncQueue,
-		logger:        l,
-		queueWaitTime: time.Nanosecond,
-		progressTracker: progressTracker{
-			lock: &sync.Mutex{},
-			m:    make(map[string]struct{}),
-		},
-		uploadFn:   uploadFn,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFn,
-	}
-}
-
-// Validates that for some captureDir, files are enqueued and uploaded exactly once.
+// Validates that for some captureDir, files are enqueued and
+// uploaded exactly once.
 func TestQueuesAndUploadsOnce(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
@@ -561,9 +566,10 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	sut.Close()
 }
 
-// Validates that if a syncer is killed after enqueing a file, a new syncer will still pick it up and upload it.
-// This is to simulate the case where a robot is killed mid-sync; we still want that sync to resume and finish when it
-// turns back on.
+// Validates that if a syncer is killed after enqueing a file,
+// a new syncer will still pick it up and upload it. This is to
+// simulate the case where a robot is killed mid-sync; we still
+// want that sync to resume and finish when it turns back on.
 func TestRecoversAfterKilled(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
