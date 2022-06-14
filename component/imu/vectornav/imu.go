@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -26,8 +25,8 @@ const model = "vectornav"
 
 func init() {
 	registry.RegisterComponent(imu.Subtype, model, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewVectorNav(ctx, r, config, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewVectorNav(ctx, deps, config, logger)
 		},
 	})
 }
@@ -82,16 +81,19 @@ const (
 )
 
 // NewVectorNav connect and set up a vectornav IMU over SPI.
-// Will also compensate for acceleration and delta velocity bias over one second so be sure the IMU is still when calling this function.
-func NewVectorNav(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
-	b, err := board.FromRobot(r, config.Attributes.String("board"))
-	if err != nil {
-		return nil, errors.Errorf("vectornav init failed couldn't find board %q", config.Attributes.String("board"))
+// Will also compensate for acceleration and delta velocity bias over one second so be
+// sure the IMU is still when calling this function.
+func NewVectorNav(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (imu.IMU, error) {
+	boardName := config.Attributes.String("board")
+	b, ok := deps[board.Named(boardName)]
+	if !ok {
+		return nil, errors.Errorf("vectornav init failed couldn't find board %q", boardName)
 	}
+
 	spiName := config.Attributes.String("spi")
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, errors.Errorf("vectornav: board %q is not local", config.Attributes.String("board"))
+		return nil, errors.Errorf("vectornav: board %q is not local", boardName)
 	}
 	spiBus, ok := localB.SPIByName(spiName)
 	if !ok {
