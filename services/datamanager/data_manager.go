@@ -305,6 +305,8 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 }
 
 // Get the config associated with the data manager service.
+// Returns a boolean for whether a config is returned and an error if the
+// config was incorrectly formatted.
 func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
