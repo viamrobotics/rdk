@@ -189,10 +189,10 @@ func (g *reconfigurableGantry) Stop(ctx context.Context) error {
 	return g.actual.Stop(ctx)
 }
 
-func (r *reconfigurableGantry) IsMoving() bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.IsMoving()
+func (g *reconfigurableGantry) IsMoving() bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.IsMoving()
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {
