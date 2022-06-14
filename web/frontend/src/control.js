@@ -106,7 +106,7 @@ const connect = async (authEntity, creds) => {
 
 	window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
 
-	// TODO: these should be created as needed for #272
+	// TODO(RSDK-144): these should be created as needed
 	window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
