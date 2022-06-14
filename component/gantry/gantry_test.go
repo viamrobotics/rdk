@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -140,6 +141,11 @@ func TestCreateStatus(t *testing.T) {
 		status1, err := gantry.CreateStatus(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
+
+		resourceSubtype := registry.ResourceSubtypeLookup(gantry.Subtype)
+		status2, err := resourceSubtype.Status(context.Background(), injectGantry)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status2, test.ShouldResemble, status)
 	})
 
 	t.Run("fail on GetLengths", func(t *testing.T) {
