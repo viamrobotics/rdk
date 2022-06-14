@@ -85,11 +85,10 @@ const (
 // sure the IMU is still when calling this function.
 func NewVectorNav(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	boardName := config.Attributes.String("board")
-	b, ok := deps[board.Named(boardName)]
-	if !ok {
-		return nil, errors.Errorf("vectornav init failed couldn't find board %q", boardName)
+	b, err := board.FromDependencies(deps, boardName)
+	if err != nil {
+		return nil, errors.Wrap(err, "vectornav init failed")
 	}
-
 	spiName := config.Attributes.String("spi")
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
@@ -125,7 +124,15 @@ func NewVectorNav(ctx context.Context, deps registry.Dependencies, config config
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("model detected %s sn %d %d.%d.%d.%d", string(mdl), binary.LittleEndian.Uint32(sn), fwver[0], fwver[1], fwver[2], fwver[3])
+	logger.Debugf(
+		"model detected %s sn %d %d.%d.%d.%d",
+		string(mdl),
+		binary.LittleEndian.Uint32(sn),
+		fwver[0],
+		fwver[1],
+		fwver[2],
+		fwver[3],
+	)
 
 	// set imu location to New York for the WGM model
 	refvec := []byte{1, 1, 0, 0}
