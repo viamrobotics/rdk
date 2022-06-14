@@ -26,9 +26,9 @@ func TestArduinoMotorInit(t *testing.T) {
 			SubType:             motor.Subtype.String(),
 			ConvertedAttributes: &motor.Config{},
 		}
-		_robot := &inject.Robot{}
+		deps := make(registry.Dependencies)
 		_motor, err := motorReg.Constructor(
-			context.Background(), _robot, emptyConfig, logger)
+			context.Background(), deps, emptyConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, _motor, test.ShouldBeNil)
 	})
