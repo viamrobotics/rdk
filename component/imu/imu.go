@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -84,6 +85,20 @@ var (
 	_ = sensor.Sensor(&reconfigurableIMU{})
 	_ = resource.Reconfigurable(&reconfigurableIMU{})
 )
+
+// FromDependencies is a helper for getting the named imu from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (IMU, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, errors.Errorf("imu %q missing from dependencies", name)
+	}
+	b, ok := res.(IMU)
+	if !ok {
+		return nil, errors.Errorf("%q is not a imu", name)
+	}
+	return b, nil
+}
 
 // FromRobot is a helper for getting the named IMU from the given Robot.
 func FromRobot(r robot.Robot, name string) (IMU, error) {

@@ -20,16 +20,15 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
 	boatComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
+			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return createBoat(r, config.ConvertedAttributes.(*boatConfig), logger)
+			return createBoat(deps, config.ConvertedAttributes.(*boatConfig), logger)
 		},
 	}
 	registry.RegisterComponent(base.Subtype, "boat", boatComp)
@@ -44,7 +43,7 @@ func init() {
 		&boatConfig{})
 }
 
-func createBoat(r robot.Robot, config *boatConfig, logger golog.Logger) (base.LocalBase, error) {
+func createBoat(deps registry.Dependencies, config *boatConfig, logger golog.Logger) (base.LocalBase, error) {
 	if config.WidthMM <= 0 {
 		return nil, errors.New("width has to be > 0")
 	}
@@ -56,7 +55,7 @@ func createBoat(r robot.Robot, config *boatConfig, logger golog.Logger) (base.Lo
 	theBoat := &boat{cfg: config, logger: logger}
 
 	for _, mc := range config.Motors {
-		m, err := motor.FromRobot(r, mc.Name)
+		m, err := motor.FromDependencies(deps, mc.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +64,7 @@ func createBoat(r robot.Robot, config *boatConfig, logger golog.Logger) (base.Lo
 
 	if config.IMU != "" {
 		var err error
-		theBoat.imu, err = imu.FromRobot(r, config.IMU)
+		theBoat.imu, err = imu.FromDependencies(deps, config.IMU)
 		if err != nil {
 			return nil, err
 		}

@@ -8,8 +8,10 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
@@ -18,13 +20,9 @@ import (
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
 
-	fakeRobot := &inject.Robot{}
+	deps := registry.Dependencies(map[resource.Name]interface{}{motor.Named("fake"): &fake.Motor{}})
 
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return &fake.Motor{}, nil
-	}
-
-	_, err := CreateFourWheelBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
+	_, err := CreateFourWheelBase(context.Background(), deps, config.Component{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := config.Component{
@@ -37,7 +35,7 @@ func TestFourWheelBase1(t *testing.T) {
 			"back_left":              "bl-m",
 		},
 	}
-	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
+	baseBase, err := CreateFourWheelBase(context.Background(), deps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
