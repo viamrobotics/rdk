@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -123,6 +124,11 @@ func TestCreateStatus(t *testing.T) {
 			return true
 		}
 		status1, err := gripper.CreateStatus(context.Background(), injectGripper)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status)
+
+		resourceSubtype := registry.ResourceSubtypeLookup(gripper.Subtype)
+		resourceSubtype.Status(context.Background(), injectGripper)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
 	})

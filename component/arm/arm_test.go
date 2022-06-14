@@ -16,6 +16,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -140,6 +141,11 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("working", func(t *testing.T) {
 		status1, err := arm.CreateStatus(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status)
+
+		resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
+		resourceSubtype.Status(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
 	})
