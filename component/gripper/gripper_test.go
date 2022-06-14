@@ -4,10 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gripper"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -65,7 +69,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, grabbed)
 
 	res, err = gripper.FromRobot(r, fakeGripperName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", "string"))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGripper", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gripper.FromRobot(r, missingGripperName)
@@ -78,6 +82,64 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names := gripper.NamesFromRobot(r)
 	test.That(t, names, test.ShouldResemble, []string{testGripperName})
+}
+
+func TestStatusValid(t *testing.T) {
+	status := &commonpb.ActuatorStatus{
+		IsMoving: true,
+	}
+	map1, err := protoutils.InterfaceToMap(status)
+	test.That(t, err, test.ShouldBeNil)
+	newStruct, err := structpb.NewStruct(map1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(
+		t,
+		newStruct.AsMap(),
+		test.ShouldResemble,
+		map[string]interface{}{
+			"is_moving": true,
+		},
+	)
+
+	convMap := &commonpb.ActuatorStatus{}
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(newStruct.AsMap())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, status)
+}
+
+func TestCreateStatus(t *testing.T) {
+	_, err := gripper.CreateStatus(context.Background(), "not a gripper")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGripper", "string"))
+
+	t.Run("is moving", func(t *testing.T) {
+		status := &commonpb.ActuatorStatus{
+			IsMoving: true,
+		}
+
+		injectGripper := &inject.Gripper{}
+		injectGripper.IsMovingFunc = func() bool {
+			return true
+		}
+		status1, err := gripper.CreateStatus(context.Background(), injectGripper)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status)
+	})
+
+	t.Run("is not moving", func(t *testing.T) {
+		status := &commonpb.ActuatorStatus{
+			IsMoving: false,
+		}
+
+		injectGripper := &inject.Gripper{}
+		injectGripper.IsMovingFunc = func() bool {
+			return false
+		}
+		status1, err := gripper.CreateStatus(context.Background(), injectGripper)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status)
+	})
 }
 
 func TestGripperName(t *testing.T) {
@@ -122,7 +184,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gripper.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGripper", nil))
 
 	reconfGripper2, err := gripper.WrapWithReconfigurable(reconfGripper1)
 	test.That(t, err, test.ShouldBeNil)
@@ -170,7 +232,7 @@ func TestStop(t *testing.T) {
 const grabbed = true
 
 type mock struct {
-	gripper.Gripper
+	gripper.LocalGripper
 	Name        string
 	grabCount   int
 	stopCount   int
