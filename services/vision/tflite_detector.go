@@ -2,6 +2,7 @@ package vision
 
 import (
 	"bufio"
+	"fmt"
 	"image"
 	"os"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
+	"go.viam.com/rdk/ml/inference/tflite_metadata"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -43,14 +45,19 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 
 	model, err := addTfliteModel(params.ModelPath, params.NumThreads)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "something wrong with adding the model")
 	}
 	defer model.Close()
 
-	inHeight, inWidth := model.Info.InputHeight, model.Info.InputWidth
+	inHeight, inWidth := uint(model.Info.InputHeight), uint(model.Info.InputWidth)
 
 	//This function has to be the detector
 	return func(img image.Image) ([]objectdetection.Detection, error) {
+		model, err := addTfliteModel(params.ModelPath, params.NumThreads)
+		if err != nil {
+			return nil, errors.Wrap(err, "something wrong with adding the model")
+		}
+		defer model.Close()
 		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear) //resize image
 		labelMap, err := loadLabels(*params.LabelPath)                       //check for labelmap
 		if err != nil {
@@ -66,20 +73,20 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 }
 
 // addTfliteModel uses the AddModel function in the inference package to register a tflite model
-func addTfliteModel(filepath string, numThreads *int) (inf.TFLiteStruct, error) {
-	var model inf.TFLiteStruct
+func addTfliteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
+	var model *inf.TFLiteStruct
 
 	if numThreads == nil {
 		loader, err := inf.NewDefaultTFLiteModelLoader()
 		if err != nil {
-			return nil, errors.Wrap(err, "could not get loader")
+			return model, errors.Wrap(err, "could not get loader")
 		}
 		model, err = loader.Load(filepath)
 		if err != nil {
 			return nil, errors.Wrap(err, "loader could not load model")
 		}
 	} else {
-		loader, err := inf.NewTFLiteModelLoader(&numThreads)
+		loader, err := inf.NewTFLiteModelLoader(*numThreads)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get loader")
 		}
@@ -133,9 +140,19 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 		tensorOrder = []int{0, 1, 2}
 	}
 
-	bboxes = tensors[getIndex(tensorOrder, 0)].([]float64)
-	labels = tensors[getIndex(tensorOrder, 1)].([]int)
-	scores = tensors[getIndex(tensorOrder, 2)].([]float64)
+	bb := tensors[getIndex(tensorOrder, 0)]
+	ll := tensors[getIndex(tensorOrder, 1)]
+	ss := tensors[getIndex(tensorOrder, 2)]
+
+	for _, b := range bb.([]float32) {
+		bboxes = append(bboxes, float64(b))
+	}
+	for _, l := range ll.([]float32) {
+		labels = append(labels, int(l))
+	}
+	for _, s := range ss.([]float32) {
+		scores = append(scores, float64(s))
+	}
 
 	/*
 		//Break in case of tensors is actually a config.AttributeMap
@@ -186,7 +203,7 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 
 		//Gather score and package it
 		d := objectdetection.NewDetection(rect, scores[i], label)
-		detections = append(detections, d)
+		detections[i] = d
 	}
 	return detections
 }
@@ -194,6 +211,9 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 // loadLabels reads a labelmap.txt file from filename and returns a slice of the labels
 // (stolen from https://github.com/mattn/go-tflite)
 func loadLabels(filename string) ([]string, error) {
+	if filename == "" {
+		return nil, errors.New("no labelpath")
+	}
 	labels := []string{}
 	f, err := os.Open(filename)
 	if err != nil {
@@ -238,19 +258,18 @@ func getBboxOrder(model *inf.TFLiteStruct) ([]int, error) {
 		return nil, errors.Wrap(err, "could not get metadata")
 	}
 	//tensorData should be a []TensorMetadataT from the metadata telling me about each tensor in order
-	tensorData, ok := m.(ModelMetadataT).SubgraphMetadata[0].OutputTensorMetadata
-	if !ok {
-		return nil, errors.New("could not find bounding box order from the metadata")
-	}
+	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
 
 	//Go thru them... if name == location, check content and get to work
 	for _, t := range tensorData {
 		if strings.ToLower(t.Name) == "location" {
-			order := t.Content.ContentProperties.Value
-			bboxOrder = order.([]int)
+			order := t.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT).Index
+			for i, o := range order {
+				bboxOrder[i] = int(o)
+			}
 		}
 	}
-
+	
 	return bboxOrder, nil
 }
 
@@ -262,41 +281,37 @@ func getTensorOrder(model *inf.TFLiteStruct) ([]int, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get metadata")
 	}
-	tensorNames, ok := m.(ModelMetadataT).SubgraphMetadata[0].OutputTensorGroups.TensorNames
-	if !ok {
-		return nil, errors.New("could not get tensor order from metadata")
-	}
 
-	l, c, s := getStringIndex(tensorNames, "location"), getStringIndex(tensorNames, "category"), getStringIndex(tensorNames, "score")
-	if l == -1 {
-		return nil, errors.New("tried to find 'location' in the metadata and could not")
+	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
+	for i, t := range tensorData {
+		switch name := strings.ToLower(t.Name); name {
+		case "location":
+			tensorOrder[i] = 0
+		case "category":
+			tensorOrder[i] = 1
+		case "score":
+			tensorOrder[i] = 2
+		default:
+			continue
+		}
 	}
-	if c == -1 {
-		return nil, errors.New("tried to find 'category' in the metadata and could not")
-	}
-	if s == -1 {
-		return nil, errors.New("tried to find 'score' in the metadata and could not")
-	}
-	tensorOrder[0] = l
-	tensorOrder[1] = c
-	tensorOrder[2] = s
 
 	/*
-		This is another way to do it via each specific input. Less robust maybe
-		tensorData := m.(ModelMetadataT).SubgraphMetadata[0].OutputTensorMetadata
-		//tensorData should be a []TensorMetadataT from the metadata telling me about each tensor in order
-		for _, t := range(tensorData){
-			switch name := strings.ToLower(t.Name); name {
-			case "location":
-				tensorOrder = append(tensorOrder, 0)
-			case "category":
-				tensorOrder = append(tensorOrder, 1)
-			case "score":
-				tensorOrder = append(tensorOrder, 2)
-			default:
-				continue
-			}
+		tensorNames := m.SubgraphMetadata[0].OutputTensorGroups[0].TensorNames
+
+		l, c, s := getStringIndex(tensorNames, "location"), getStringIndex(tensorNames, "category"), getStringIndex(tensorNames, "score")
+		if l == -1 {
+			return nil, errors.New("tried to find 'location' in the metadata and could not")
 		}
+		if c == -1 {
+			return nil, errors.New("tried to find 'category' in the metadata and could not")
+		}
+		if s == -1 {
+			return nil, errors.New("tried to find 'score' in the metadata and could not")
+		}
+		tensorOrder[0] = l
+		tensorOrder[1] = c
+		tensorOrder[2] = s
 	*/
 
 	return tensorOrder, nil
