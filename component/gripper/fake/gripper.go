@@ -27,7 +27,7 @@ func init() {
 				return nil, err
 			}
 
-			var g gripper.Gripper = &Gripper{Name: config.Name, model: model}
+			var g gripper.LocalGripper = &Gripper{Name: config.Name, model: model}
 
 			return g, nil
 		},
@@ -59,4 +59,9 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 // Stop doesn't do anything for a fake gripper.
 func (g *Gripper) Stop(ctx context.Context) error {
 	return nil
+}
+
+// IsMoving is always false for a fake gripper.
+func (g *Gripper) IsMoving() bool {
+	return false
 }
