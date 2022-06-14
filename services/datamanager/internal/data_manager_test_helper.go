@@ -15,4 +15,5 @@ type Service interface {
 	Sync(ctx context.Context) error
 	Update(ctx context.Context, cfg *config.Config) error
 	QueueCapturedData(cancelCtx context.Context, intervalMins int)
+	Close(ctx context.Context) error
 }
