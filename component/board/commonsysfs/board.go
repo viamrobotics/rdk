@@ -306,9 +306,7 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 				b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
 				return true
 			}
-			onPeriod := time.Duration(
-				int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())),
-			)
+			onPeriod := time.Duration(int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())))
 			if !goutils.SelectContextOrWait(ctx, onPeriod) {
 				return false
 			}
