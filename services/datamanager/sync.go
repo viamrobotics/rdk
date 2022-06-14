@@ -326,6 +326,9 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 				return errors.Wrap(err, "error while sending sensorData")
 			}
 		}
+		// THE NOT PASSING TEST CASE IN FOR TABULAR UPLOAD
+		// COULD HAVE TO DO WITH CHANGED ORDER OF STATEMENTS
+		// IN UPLOAD FUNCTION.
 	}
 
 	if err = f.Close(); err != nil {
