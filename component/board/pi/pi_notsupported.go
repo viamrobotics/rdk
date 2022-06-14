@@ -9,11 +9,10 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/board/pi/common"
+	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // init registers a failing pi board since this can only be compiled on non-pi systems.
@@ -23,7 +22,7 @@ func init() {
 		picommon.ModelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -33,7 +32,7 @@ func init() {
 		servo.Subtype,
 		picommon.ModelName,
 		registry.Component{
-			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 				return nil, errors.New("not running on a pi")
 			},
 		},
