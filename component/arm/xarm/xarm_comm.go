@@ -441,12 +441,18 @@ func (x *xArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error
 
 // Stop stops the xArm but also reinitializes the arm so it can take commands again.
 func (x *xArm) Stop(ctx context.Context) error {
-	x.opMgr.CancelRunning(ctx)
+	ctx, done := x.opMgr.New(ctx)
+	defer done()
 	x.started = false
 	if err := x.setMotionState(ctx, 3); err != nil {
 		return err
 	}
 	return x.start(ctx)
+}
+
+// IsMoving returns whether the arm is moving.
+func (x *xArm) IsMoving() bool {
+	return x.opMgr.OpRunning()
 }
 
 func getMaxDiff(from, to []referenceframe.Input) float64 {
