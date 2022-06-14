@@ -1,7 +1,5 @@
 <template>
-  <div
-    class="flex flex-col h-23"
-  >
+  <div class="flex flex-col h-23">
     <div class="flex pb-4">
       <ViamSwitch
         class="pr-4"
