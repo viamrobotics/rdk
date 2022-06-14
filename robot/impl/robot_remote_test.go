@@ -156,7 +156,7 @@ func TestRemoteRobot(t *testing.T) {
 
 	injectRobot := setupInjectRobot(logger)
 
-	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false, &sync.Mutex{}, true, make(chan bool, 1)}
+	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false, &sync.Mutex{}, true, make(chan bool)}
 	robot := newRemoteRobot(
 		context.Background(),
 		wrapped,
@@ -459,7 +459,7 @@ func TestRemoteRobotDisconnected(t *testing.T) {
 
 	injectRobot := setupInjectRobot(logger)
 
-	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false, &sync.Mutex{}, true, make(chan bool, 1)}
+	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false, &sync.Mutex{}, true, make(chan bool)}
 	robot := newRemoteRobot(context.Background(), wrapped, config.Remote{Name: "one"})
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
@@ -480,7 +480,7 @@ func TestRemoteRobotReconnected(t *testing.T) {
 
 	injectRobot := setupInjectRobot(logger)
 
-	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false, &sync.Mutex{}, true, make(chan bool, 1)}
+	wrapped := &dummyRemoteRobotWrapper{injectRobot, logger, false, &sync.Mutex{}, true, make(chan bool)}
 	robot := newRemoteRobot(
 		context.Background(),
 		wrapped,
@@ -551,16 +551,16 @@ func (w *dummyRemoteRobotWrapper) Connected() bool {
 
 func (w *dummyRemoteRobotWrapper) Changed() <-chan bool {
 	if w.changeChan == nil {
-		w.changeChan = make(chan bool, 1)
+		w.changeChan = make(chan bool)
 	}
 	return w.changeChan
 }
 
 func (w *dummyRemoteRobotWrapper) updateConnection(connected bool) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	w.connected = connected
+	w.mu.Unlock()
+
 	if w.changeChan != nil {
 		w.changeChan <- true
 	}
