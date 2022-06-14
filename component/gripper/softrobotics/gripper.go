@@ -17,13 +17,12 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "softrobotics", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			b, err := board.FromRobot(r, "local")
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			b, err := board.FromDependencies(deps, "local")
 			if err != nil {
 				return nil, err
 			}

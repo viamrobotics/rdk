@@ -14,18 +14,17 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "yahboom-dofbot", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			armName := config.Attributes.String("arm")
 			if armName == "" {
 				return nil, errors.New("yahboom-dofbot gripper needs an arm")
 			}
-			myArm, err := arm.FromRobot(r, armName)
+			myArm, err := arm.FromDependencies(deps, armName)
 			if err != nil {
 				return nil, err
 			}

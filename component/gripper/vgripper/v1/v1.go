@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 //go:embed vgripper_model.json
@@ -32,13 +31,13 @@ const modelName = "viam-v1"
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			const boardName = "local"
-			b, err := board.FromRobot(r, boardName)
+			b, err := board.FromDependencies(deps, boardName)
 			if err != nil {
 				return nil, err
 			}
-			return newGripperV1(ctx, r, b, config, logger)
+			return newGripperV1(ctx, deps, b, config, logger)
 		},
 	})
 }
@@ -77,13 +76,13 @@ type gripperV1 struct {
 // newGripperV1 Returns a gripperV1.
 func newGripperV1(
 	ctx context.Context,
-	r robot.Robot,
+	deps registry.Dependencies,
 	theBoard board.Board,
 	cfg config.Component,
 	logger golog.Logger,
 ) (gripper.Gripper, error) {
 	pressureLimit := cfg.Attributes.Int("pressure_limit", 800)
-	_motor, err := motor.FromRobot(r, "g")
+	_motor, err := motor.FromDependencies(deps, "g")
 	if err != nil {
 		return nil, err
 	}

@@ -109,6 +109,20 @@ var (
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
 
+// FromDependencies is a helper for getting the named arm from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, errors.Errorf("arm %q missing from dependencies", name)
+	}
+	b, ok := res.(Arm)
+	if !ok {
+		return nil, errors.Errorf("%q is not an arm", name)
+	}
+	return b, nil
+}
+
 // FromRobot is a helper for getting the named Arm from the given Robot.
 func FromRobot(r robot.Robot, name string) (Arm, error) {
 	res, err := r.ResourceByName(Named(name))
