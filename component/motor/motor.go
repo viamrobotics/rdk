@@ -112,7 +112,7 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
 )
 
-// FromDependencies is a helper for getting the named board from a collection of
+// FromDependencies is a helper for getting the named motor from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Motor, error) {
 	res, ok := deps[Named(name)]

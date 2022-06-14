@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -85,8 +84,13 @@ func createController(ctx context.Context, logger golog.Logger, devFile string, 
 }
 
 // NewController creates a new gamepad.
-func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect), nil
+func NewController(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+	return createController(
+		ctx,
+		logger,
+		config.ConvertedAttributes.(*Config).DevFile,
+		config.ConvertedAttributes.(*Config).AutoReconnect,
+	), nil
 }
 
 // gamepad is an input.Controller.
@@ -132,7 +136,8 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 			}
 			return
 		case eventIn := <-evChan:
-			if eventIn == nil || eventIn.Event.Type == evdev.EventMisc || (eventIn.Event.Type == evdev.EventSync && eventIn.Event.Code == 0) {
+			if eventIn == nil || eventIn.Event.Type == evdev.EventMisc ||
+				(eventIn.Event.Type == evdev.EventSync && eventIn.Event.Code == 0) {
 				continue
 			}
 			// Use debug line below when developing new controller mappings
