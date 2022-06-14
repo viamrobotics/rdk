@@ -14,12 +14,11 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			m := &Motor{Name: config.Name}
 			if mcfg, ok := config.ConvertedAttributes.(*motor.Config); ok {
 				if mcfg.BoardName != "" {
