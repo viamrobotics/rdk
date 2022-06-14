@@ -481,8 +481,7 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 }
 
 func readNextFileDataChunking(f *os.File) (*v1.FileData, error) {
-	_, err := f.Seek(0, 1)
-	if err != nil {
+	if _, err := f.Seek(0, 1); err != nil {
 		return nil, err
 	}
 	byteArr := make([]byte, bufferSize)
