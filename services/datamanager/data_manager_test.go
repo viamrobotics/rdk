@@ -2,6 +2,7 @@ package datamanager
 
 import (
 	"context"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -59,4 +60,9 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(sleepTime)
 	test.That(t, svc.collectors, test.ShouldBeEmpty)
+
+	// Check that the collector wrote to a single file.
+	files, err := ioutil.ReadDir("/tmp/capture")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(files), test.ShouldEqual, 1)
 }
