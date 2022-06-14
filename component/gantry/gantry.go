@@ -85,6 +85,13 @@ type Gantry interface {
 	referenceframe.InputEnabled
 }
 
+// A LocalGantry represents a Gantry that can report whether it is moving or not.
+type LocalGantry interface {
+	Gantry
+
+	resource.MovingCheckable
+}
+
 // FromRobot is a helper for getting the named gantry from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -93,7 +100,7 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	}
 	part, ok := res.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
+		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", res)
 	}
 	return part, nil
 }
@@ -105,9 +112,9 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the gantry.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	gantry, ok := resource.(Gantry)
+	gantry, ok := resource.(LocalGantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", resource)
+		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", resource)
 	}
 	positions, err := gantry.GetPosition(ctx)
 	if err != nil {
@@ -119,14 +126,14 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 		return nil, err
 	}
 
-	return &pb.Status{PositionsMm: positions, LengthsMm: lengths}, nil
+	return &pb.Status{PositionsMm: positions, LengthsMm: lengths, IsMoving: gantry.IsMoving()}, nil
 }
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	g, ok := r.(Gantry)
+	g, ok := r.(LocalGantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
 		return reconfigurable, nil
@@ -136,7 +143,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 type reconfigurableGantry struct {
 	mu     sync.RWMutex
-	actual Gantry
+	actual LocalGantry
 }
 
 func (g *reconfigurableGantry) ProxyFor() interface{} {
@@ -180,6 +187,12 @@ func (g *reconfigurableGantry) Stop(ctx context.Context) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual.Stop(ctx)
+}
+
+func (r *reconfigurableGantry) IsMoving() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving()
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {
