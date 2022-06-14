@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -37,7 +36,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 		modelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			_ registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -307,7 +306,9 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 				b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
 				return true
 			}
-			onPeriod := time.Duration(int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())))
+			onPeriod := time.Duration(
+				int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())),
+			)
 			if !goutils.SelectContextOrWait(ctx, onPeriod) {
 				return false
 			}
