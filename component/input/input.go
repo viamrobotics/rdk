@@ -164,6 +164,20 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableInputController{})
 )
 
+// FromDependencies is a helper for getting the named input controller from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Controller, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, errors.Errorf("input controller %q missing from dependencies", name)
+	}
+	b, ok := res.(Controller)
+	if !ok {
+		return nil, errors.Errorf("%q is not an input controller", name)
+	}
+	return b, nil
+}
+
 // FromRobot is a helper for getting the named input controller from the given Robot.
 func FromRobot(r robot.Robot, name string) (Controller, error) {
 	res, err := r.ResourceByName(Named(name))
