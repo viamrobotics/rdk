@@ -46,7 +46,7 @@ func (m *mockClient) Context() context.Context {
 // and expectedMessages are the same
 func TestFileUpload(t *testing.T) {
 	msg_empty := []byte("")
-	msg_contents := []byte("This is a message.")
+	msg_contents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
 
 	tests := []struct {
 		name    string
@@ -60,24 +60,72 @@ func TestFileUpload(t *testing.T) {
 				{
 					UploadPacket: &v1.UploadRequest_FileContents{
 						FileContents: &v1.FileData{
-							Data: msg_contents,
+							Data: msg_contents[0:bufferSize],
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_contents[bufferSize:(bufferSize * 2)],
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_contents[(bufferSize * 2):(bufferSize * 3)],
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_contents[(bufferSize * 3):(bufferSize * 4)],
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_contents[(bufferSize * 4):(bufferSize * 5)],
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_contents[(bufferSize * 5):(bufferSize * 6)],
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_contents[(bufferSize * 6):(bufferSize * 7)],
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_contents[(bufferSize * 7):(bufferSize * 8)],
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_FileContents{
+						FileContents: &v1.FileData{
+							Data: msg_contents[(bufferSize * 8):],
 						},
 					},
 				},
 			},
 		},
 		{
-			name:   "empty",
-			toSend: msg_empty,
-			expMsgs: []v1.UploadRequest{
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msg_empty,
-						},
-					},
-				},
-			},
+			name:    "empty",
+			toSend:  msg_empty,
+			expMsgs: []v1.UploadRequest{},
 		},
 	}
 
@@ -111,7 +159,7 @@ func TestFileUpload(t *testing.T) {
 		if _, err := tf.Write(tc.toSend); err != nil {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
-		// THIS IS NOT WORKING
+
 		if err := fileUpload(context.TODO(), mc, tf.Name()); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
@@ -200,17 +248,7 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 					Struct: proto_msg_tabular_empty,
 				},
 			},
-			expMsgs: []v1.UploadRequest{
-				// {
-				// 	UploadPacket: &v1.UploadRequest_SensorContents{
-				// 		SensorContents: &v1.SensorData{
-				// 			Data: &v1.SensorData_Struct{
-				// 				Struct: proto_msg_tabular_empty,
-				// 			},
-				// 		},
-				// 	},
-				// },
-			},
+			expMsgs: []v1.UploadRequest{},
 		},
 		{
 			name: "struct with each literal type",
@@ -314,18 +352,30 @@ func notworkingTestSensorUploadTabular(t *testing.T) {
 	}
 }
 
-func notworkingTestSensorUploadBinary(t *testing.T) {
+func helpCompareUploadRequests(t *testing.T, a []v1.UploadRequest, b []v1.UploadRequest) {
+	t.Helper()
+	for i, ur := range a {
+		up := ur.GetSensorContents().GetBinary()
+		other := b[i].GetSensorContents().GetBinary()
+		test.That(t, up, test.ShouldResemble, other)
+	}
+}
+
+func TestSensorUploadBinary(t *testing.T) {
 	msg_empty := []byte("")
-	msg_contents := []byte("This is a message.")
+	msg_contents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
+	msg_bin1 := []byte("Robots are really cool.")
+	msg_bin2 := []byte("This work is helping develop the robotics space.")
+	msg_bin3 := []byte("This message is used for testing.")
 
 	tests := []struct {
 		name    string
-		toSend  []byte
+		toSend  [][]byte
 		expMsgs []v1.UploadRequest
 	}{
 		{
 			name:   "not empty",
-			toSend: msg_contents,
+			toSend: [][]byte{msg_contents},
 			expMsgs: []v1.UploadRequest{
 				{
 					UploadPacket: &v1.UploadRequest_SensorContents{
@@ -340,13 +390,46 @@ func notworkingTestSensorUploadBinary(t *testing.T) {
 		},
 		{
 			name:   "empty",
-			toSend: msg_empty,
+			toSend: [][]byte{msg_empty},
 			expMsgs: []v1.UploadRequest{
 				{
 					UploadPacket: &v1.UploadRequest_SensorContents{
 						SensorContents: &v1.SensorData{
 							Data: &v1.SensorData_Binary{
 								Binary: msg_empty,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "multiple sensor data readings",
+			toSend: [][]byte{msg_bin1, msg_bin2, msg_bin3},
+			expMsgs: []v1.UploadRequest{
+				{
+					UploadPacket: &v1.UploadRequest_SensorContents{
+						SensorContents: &v1.SensorData{
+							Data: &v1.SensorData_Binary{
+								Binary: msg_bin1,
+							},
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_SensorContents{
+						SensorContents: &v1.SensorData{
+							Data: &v1.SensorData_Binary{
+								Binary: msg_bin2,
+							},
+						},
+					},
+				},
+				{
+					UploadPacket: &v1.UploadRequest_SensorContents{
+						SensorContents: &v1.SensorData{
+							Data: &v1.SensorData_Binary{
+								Binary: msg_bin3,
 							},
 						},
 					},
@@ -381,18 +464,41 @@ func notworkingTestSensorUploadBinary(t *testing.T) {
 		defer os.Remove(td)
 
 		// Write the data from the test cases into the files
-		// to prepare them for reading by the fileUpload function
-		if _, err := tf.Write(tc.toSend); err != nil {
+		// to prepare them for reading by the sensorUpload function
+
+		// NOT SURE IF THIS WORKS
+		if _, err := writeProtoHelper(tf, tc.toSend); err != nil {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
 		// THIS IS NOT WORKING
-		if err := fileUpload(context.TODO(), mc, tf.Name()); err != nil {
+		if err := sensorUpload(context.TODO(), mc, tf.Name()); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
 		// The mc.sent value should be the same as the tc.expMsg value
-		test.That(t, mc.sent, test.ShouldResemble, tc.expMsgs)
+		helpCompareUploadRequests(t, mc.sent, tc.expMsgs)
 	}
+}
+
+// Writes the protobuf message to the file passed into method.
+// Returns the number of bytes written and any errors that are
+// raised.
+func writeProtoHelper(f *os.File, toSend [][]byte) (int, error) {
+	countBytesWritten := 0
+	for _, bytes := range toSend {
+		msg := &v1.SensorData{
+			Data: &v1.SensorData_Binary{
+				Binary: bytes,
+			},
+		}
+		bytesWritten, err := pbutil.WriteDelimited(f, msg)
+		// fmt.Printf("num bytes written: %d\n", bytesWritten)
+		if err != nil {
+			return countBytesWritten, err
+		}
+		countBytesWritten += bytesWritten
+	}
+	return countBytesWritten, nil
 }
 
 func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {

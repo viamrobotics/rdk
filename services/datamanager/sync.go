@@ -3,8 +3,8 @@ package datamanager
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -23,6 +23,7 @@ var (
 	initialWaitTime        = time.Second
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
+	bufferSize             = 10
 )
 
 // syncManager is responsible for uploading files to the cloud every syncInterval.
@@ -286,26 +287,28 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 	if _, err = f.Seek(0, 0); err != nil {
 		return nil
 	}
+	defer f.Close()
 
 	// Then stream SensorData's one by one.
-	// for {
-	next, err := readNextSensorData(f)
-	if err != nil {
+	for {
+		next, err := readNextSensorData(f)
+
 		// If EOF, we're done reading the file.
-		// if errors.Is(err, io.EOF) {
-		// 	break
-		// }
-		return errors.Wrap(err, "error while reading sensorData")
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return errors.Wrap(err, "error while reading sensorData")
+		}
+		toSend := &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_SensorContents{
+				SensorContents: next,
+			},
+		}
+		if err := client.Send(toSend); err != nil {
+			return errors.Wrap(err, "error while sending sensorData")
+		}
 	}
-	toSend := &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_SensorContents{
-			SensorContents: next,
-		},
-	}
-	if err := client.Send(toSend); err != nil {
-		return errors.Wrap(err, "error while sending sensorData")
-	}
-	// }
 
 	// Close stream and receive response.
 	if _, err := client.CloseAndRecv(); err != nil {
@@ -328,19 +331,26 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	if _, err = f.Seek(0, 0); err != nil {
 		return err
 	}
+	defer f.Close()
 
-	// Then stream SensorData's one by one.
-	next, err := readNextFileData(f)
-	if err != nil {
-		return errors.Wrap(err, "error while reading sensorData")
-	}
-	toSend := &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_FileContents{
-			FileContents: next,
-		},
-	}
-	if err := client.Send(toSend); err != nil {
-		return errors.Wrap(err, "error while sending sensorData")
+	for {
+
+		next, err := readNextFileDataChunking(f)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		toSend := &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_FileContents{
+				FileContents: next,
+			},
+		}
+
+		if err := client.Send(toSend); err != nil {
+			return errors.Wrap(err, "error while sending sensorData")
+		}
 	}
 
 	// Close stream and receive response.
@@ -446,20 +456,29 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 }
 
 func readNextSensorData(f *os.File) (*v1.SensorData, error) {
+	if _, err := f.Seek(0, 1); err != nil {
+		return nil, err
+	}
 	r := &v1.SensorData{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
+	_, err := pbutil.ReadDelimited(f, r)
+	if err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
-func readNextFileData(f *os.File) (*v1.FileData, error) {
-	d, err := ioutil.ReadAll(f)
+func readNextFileDataChunking(f *os.File) (*v1.FileData, error) {
+	_, err := f.Seek(0, 1)
 	if err != nil {
 		return nil, err
 	}
-	r := &v1.FileData{
-		Data: d,
+	byteArr := make([]byte, bufferSize)
+	numBytesRead, err := f.Read(byteArr)
+	if numBytesRead < bufferSize {
+		byteArr = byteArr[:numBytesRead]
 	}
-	return r, nil
+	if err != nil {
+		return nil, err
+	}
+	return &v1.FileData{Data: byteArr}, nil
 }
