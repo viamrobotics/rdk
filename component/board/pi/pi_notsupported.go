@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
-	picommon "go.viam.com/rdk/component/board/pi/common"
+	"go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
