@@ -27,3 +27,4 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+      REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
