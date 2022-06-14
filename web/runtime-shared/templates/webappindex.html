@@ -980,10 +980,7 @@
             },
             getGPIO: function (boardName) {
               var pin = document.getElementById("get_pin_" + boardName).value;
-              var req = new boardApi.GetGPIORequest();
-              req.setName(boardName);
-              req.setPin(pin);
-              boardService.getGPIO(req, {}, (err, resp) => {
+              BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
                 if (err) {
                   console.log(err);
                   return;
@@ -995,11 +992,7 @@
             setGPIO: function (boardName) {
               var pin = document.getElementById("set_pin_" + boardName).value;
               var v = document.getElementById("set_pin_v_" + boardName).value;
-              var req = new boardApi.SetGPIORequest();
-              req.setName(boardName);
-              req.setPin(pin);
-              req.setHigh(v === "high");
-              boardService.setGPIO(req, {}, grpcCallback);
+              BoardControlHelper.setGPIO(boardName, pin, v === "high", grpcCallback);
             },
           },
           directives: {
@@ -1755,7 +1748,7 @@
           <!-- ******* WEB CONTROLS *******  -->
           <web-gamepad class="pb-4" v-if="hasWebGamepad()" v-on:execute="inputInject($event)" style="max-width: 1080px;"> </web-gamepad>
 
-                    <!-- ******* BOARD *******  -->
+          <!-- ******* BOARD *******  -->
           <div class="board pb-4" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
             <h3>Board ${board.name}</h3>
             <table  class="table-auto border-collapse border border-slate-400">
@@ -1776,7 +1769,7 @@
               <tr>
                  <th class="border border-slate-300">Get</th>
                  <td class="border border-slate-300">
-                  Pin: <number-input  v-model="getPin" :id="'get_pin_' + board.name"></number-input>
+                  Pin: <number-input  v-model="getPin" :input-id="'get_pin_' + board.name"></number-input>
                   <viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
                   <span :id="'get_pin_value_' + board.name"/>
                 </td>
@@ -1784,7 +1777,7 @@
               <tr>
                  <th class="border border-slate-300">Set</th>
                  <td class="border border-slate-300">
-                  Pin: <number-input v-model="setPin" :id="'set_pin_' + board.name"></number-input><br>
+                  Pin: <number-input v-model="setPin" :input-id="'set_pin_' + board.name"></number-input><br>
                   <select :id="'set_pin_v_' + board.name">
                     <option>low</option>
                     <option>high</option>
