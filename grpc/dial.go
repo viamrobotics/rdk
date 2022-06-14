@@ -34,7 +34,7 @@ func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.
 
 // InferSignalingServerAddress returns the appropriate WebRTC signaling server address
 // if it can be detected.
-// TODO(GOUT-4):
+// TODO(RSDK-235):
 // remove hard coding of signaling server address and
 // prefer SRV lookup instead.
 func InferSignalingServerAddress(address string) (string, bool, bool) {
