@@ -1,6 +1,7 @@
 package resource_test
 
 import (
+	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -187,19 +188,19 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"malformed name",
 			"rdk/component/arm/arm1",
 			resource.Name{},
-			"there is more than one backslash",
+			"string is not a valid resource name",
 		},
 		{
 			"too many colons",
 			"rdk::component::arm/arm1",
 			resource.Name{},
-			"there are more than 2 colons",
+			"string is not a valid resource name",
 		},
 		{
 			"too few colons",
 			"rdk.component.arm/arm1",
 			resource.Name{},
-			"there are less than 2 colons",
+			"string is not a valid resource name",
 		},
 		{
 			"missing name",
@@ -246,12 +247,49 @@ func TestResourceNameNewFromString(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"with remotes",
+			"remote1:rdk:component:gps/gps1",
+			resource.Name{
+				Remote: resource.Remote{
+					Remote: "remote1",
+				},
+				Subtype: resource.Subtype{
+					Type: resource.Type{
+						Namespace:    resource.ResourceNamespaceRDK,
+						ResourceType: resource.ResourceTypeComponent,
+					},
+					ResourceSubtype: gps.SubtypeName,
+				},
+				Name: "gps1",
+			},
+			"",
+		},
+		{
+			"with remotes 2",
+			"remote1:remote2:rdk:component:gps/gps1",
+			resource.Name{
+				Remote: resource.Remote{
+					Remote: "remote1:remote2",
+				},
+				Subtype: resource.Subtype{
+					Type: resource.Type{
+						Namespace:    resource.ResourceNamespaceRDK,
+						ResourceType: resource.ResourceTypeComponent,
+					},
+					ResourceSubtype: gps.SubtypeName,
+				},
+				Name: "gps1",
+			},
+			"",
+		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			observed, err := resource.NewFromString(tc.Name)
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, observed, test.ShouldResemble, tc.Expected)
+				test.That(t, fmt.Sprintf("%s", observed), test.ShouldResemble, tc.Name)
 			} else {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)

@@ -4,6 +4,7 @@ package resource
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -19,6 +20,8 @@ type (
 
 	// SubtypeName identifies the resources subtypes that robot resources can be.
 	SubtypeName string
+
+	RemoteName string
 )
 
 // Placeholder definitions for a few known constants.
@@ -26,7 +29,17 @@ const (
 	ResourceNamespaceRDK  = Namespace("rdk")
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
+	ResourceTypeRobot     = TypeName("robot")
 )
+
+// Remote is set when the resource sits behind (a) Remote(s)
+type Remote struct {
+	Remote RemoteName
+}
+
+func (r Remote) String() string {
+	return fmt.Sprintf("%s", r.Remote)
+}
 
 // Type represents a known component/service type of a robot.
 type Type struct {
@@ -86,6 +99,7 @@ func (s Subtype) String() string {
 // Name represents a known component/service representation of a robot.
 type Name struct {
 	Subtype
+	Remote
 	Name string
 }
 
@@ -103,6 +117,12 @@ func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name stri
 	}
 }
 
+func NewRemoteName(remote RemoteName, namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
+	n := NewName(namespace, rType, subtype, name)
+	n.Remote.Remote = remote
+	return n
+}
+
 // NameFromSubtype creates a new Name based on a Subtype and name string passed in.
 func NameFromSubtype(subtype Subtype, name string) Name {
 	return NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, name)
@@ -110,21 +130,19 @@ func NameFromSubtype(subtype Subtype, name string) Name {
 
 // NewFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewFromString(resourceName string) (Name, error) {
-	var name string
-	nameParts := strings.Split(resourceName, "/")
-	if len(nameParts) == 2 {
-		name = nameParts[1]
-	} else if len(nameParts) > 2 {
-		return Name{}, errors.New("invalid resource name string: there is more than one backslash")
+	r := regexp.MustCompile("^(\\w+:(?:\\w+:)*)?(rdk:\\w+:(?:\\w+))\\/?(.+)?$")
+	if !r.MatchString(resourceName) {
+		return Name{}, errors.New("string is not a valid resource name")
 	}
-	rSubtypeParts := strings.Split(nameParts[0], ":")
-	if len(rSubtypeParts) > 3 {
-		return Name{}, errors.New("invalid resource name string: there are more than 2 colons")
+	matches := r.FindStringSubmatch(resourceName)
+	rSubtypeParts := strings.Split(matches[2], ":")
+	remote := matches[1]
+	if len(remote) > 1 {
+		remote = remote[:len(remote)-1]
 	}
-	if len(rSubtypeParts) < 3 {
-		return Name{}, errors.New("invalid resource name string: there are less than 2 colons")
-	}
-	return NewName(Namespace(rSubtypeParts[0]), TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]), name), nil
+	return NewRemoteName(RemoteName(remote),
+		Namespace(rSubtypeParts[0]), TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]),
+		matches[3]), nil
 }
 
 // Validate ensures that important fields exist and are valid.
@@ -136,6 +154,9 @@ func (n Name) Validate() error {
 func (n Name) String() string {
 	if n.Name == "" || (n.ResourceType == ResourceTypeService) {
 		return n.Subtype.String()
+	}
+	if n.Remote.Remote != "" {
+		return fmt.Sprintf("%s:%s/%s", n.Remote, n.Subtype, n.Name)
 	}
 	return fmt.Sprintf("%s/%s", n.Subtype, n.Name)
 }
