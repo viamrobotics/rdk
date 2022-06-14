@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -110,6 +111,20 @@ var (
 	_ = LocalMotor(&reconfigurableMotor{})
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
 )
+
+// FromDependencies is a helper for getting the named board from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Motor, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, errors.Errorf("motor %q missing from dependencies", name)
+	}
+	b, ok := res.(Motor)
+	if !ok {
+		return nil, errors.Errorf("%q is not a motor", name)
+	}
+	return b, nil
+}
 
 // FromRobot is a helper for getting the named motor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Motor, error) {
