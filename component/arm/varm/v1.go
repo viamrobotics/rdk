@@ -24,7 +24,6 @@ import (
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 /**
@@ -49,8 +48,8 @@ var v1modeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "varm1", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newArmV1(ctx, r, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return newArmV1(ctx, deps, logger)
 		},
 	})
 }
@@ -85,8 +84,8 @@ func (j joint) validate() error {
 	return nil
 }
 
-func getMotor(ctx context.Context, r robot.Robot, name string) (motor.Motor, error) {
-	m, err := motor.FromRobot(r, name)
+func getMotor(ctx context.Context, deps registry.Dependencies, name string) (motor.Motor, error) {
+	m, err := motor.FromDependencies(deps, name)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +154,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 	return math.NaN(), motorOffError(ctx, m, errors.New("testing joint limit timed out"))
 }
 
-func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
+func newArmV1(ctx context.Context, deps registry.Dependencies, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 	newArm := &armV1{}
 
@@ -174,12 +173,12 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Loca
 	newArm.j1.degMin = -142.0
 	newArm.j1.degMax = 0.0
 
-	newArm.j0Motor, err = getMotor(ctx, r, "m-j0")
+	newArm.j0Motor, err = getMotor(ctx, deps, "m-j0")
 	if err != nil {
 		return nil, err
 	}
 
-	newArm.j1Motor, err = getMotor(ctx, r, "m-j1")
+	newArm.j1Motor, err = getMotor(ctx, deps, "m-j1")
 	if err != nil {
 		return nil, err
 	}
