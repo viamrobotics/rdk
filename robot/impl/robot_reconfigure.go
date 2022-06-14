@@ -131,7 +131,21 @@ func (draft *draftRobot) newResource(ctx context.Context, config config.Componen
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %q and/or model: %q", rName.Subtype, config.Model)
 	}
-	newResource, err := f.Constructor(ctx, draft, config, draft.original.logger)
+
+	// TODO: use resource manager?
+	deps := make(registry.Dependencies)
+	for _, dep := range config.DependsOn {
+		if c := draft.original.config.FindComponent(dep); c != nil {
+			res, err := draft.original.ResourceByName(c.ResourceName())
+			if err != nil {
+				return nil, err
+			}
+			deps[c.ResourceName()] = res
+		}
+	}
+
+	newResource, err := f.Constructor(ctx, deps, config, draft.original.logger)
+
 	if err != nil {
 		return nil, err
 	}
