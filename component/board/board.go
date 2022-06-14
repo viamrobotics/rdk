@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -160,6 +161,20 @@ var (
 	_ = LocalBoard(&reconfigurableBoard{})
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
 )
+
+// FromDependencies is a helper for getting the named board from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Board, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, errors.Errorf("board %q missing from dependencies", name)
+	}
+	b, ok := res.(Board)
+	if !ok {
+		return nil, errors.Errorf("%q is not a board", name)
+	}
+	return b, nil
+}
 
 // FromRobot is a helper for getting the named board from the given Robot.
 func FromRobot(r robot.Robot, name string) (Board, error) {
