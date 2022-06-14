@@ -43,6 +43,9 @@ func TestNewDataManager(t *testing.T) {
 	conf, err := config.Read(
 		context.Background(), utils.ResolveFile("robots/configs/fake_robot_with_data_manager.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
+	svcConfig, ok := getServiceConfig(conf)
+	test.That(t, ok, test.ShouldBeTrue)
+
 	svc.Update(context.Background(), conf)
 	sleepTime := time.Millisecond * 5
 	time.Sleep(sleepTime)
@@ -62,7 +65,7 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, svc.collectors, test.ShouldBeEmpty)
 
 	// Check that the collector wrote to a single file.
-	files, err := ioutil.ReadDir("/tmp/capture")
+	files, err := ioutil.ReadDir(svcConfig.CaptureDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 1)
 }
