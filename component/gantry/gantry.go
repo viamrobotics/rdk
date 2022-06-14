@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -83,6 +84,20 @@ type Gantry interface {
 	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
+}
+
+// FromDependencies is a helper for getting the named gantry from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, errors.Errorf("gantry %q missing from dependencies", name)
+	}
+	b, ok := res.(Gantry)
+	if !ok {
+		return nil, errors.Errorf("%q is not a gantry", name)
+	}
+	return b, nil
 }
 
 // FromRobot is a helper for getting the named gantry from the given Robot.

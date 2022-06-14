@@ -13,9 +13,9 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 )
 
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
@@ -43,19 +43,18 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 	return fakeoneaxis
 }
 
-func createFakeRobot() *inject.Robot {
-	fakerobot := &inject.Robot{}
-
-	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		switch name.Subtype {
-		case gantry.Subtype:
-			return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1}, nil }}, nil
-		case motor.Subtype:
-			return &fm.Motor{}, nil
-		}
-		return nil, utils.NewResourceNotFoundError(name)
+func createFakeDeps() registry.Dependencies {
+	fakeGantry := &inject.Gantry{
+		GetLengthsFunc: func(ctx context.Context) ([]float64, error) {
+			return []float64{1}, nil
+		},
 	}
-	return fakerobot
+	fakeMotor := &fm.Motor{}
+
+	return registry.Dependencies(map[resource.Name]interface{}{
+		gantry.Named("gantry"):      fakeGantry,
+		motor.Named(fakeMotor.Name): fakeMotor,
+	})
 }
 
 var threeAxes = []gantry.Gantry{
@@ -82,7 +81,8 @@ func TestValidate(t *testing.T) {
 func TestNewMultiAxis(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	fakeRobot := createFakeRobot()
+
+	deps := createFakeDeps()
 
 	fakeMultAxcfg := config.Component{
 		Name: "gantry",
@@ -90,7 +90,7 @@ func TestNewMultiAxis(t *testing.T) {
 			SubAxes: []string{"1", "2", "3"},
 		},
 	}
-	fmag, err := newMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
+	fmag, err := newMultiAxis(ctx, deps, fakeMultAxcfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fmag, test.ShouldNotBeNil)
 	fakemulax, ok := fmag.(*multiAxis)
@@ -104,7 +104,7 @@ func TestNewMultiAxis(t *testing.T) {
 			"subaxes_list": []string{},
 		},
 	}
-	_, err = newMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
+	_, err = newMultiAxis(ctx, deps, fakeMultAxcfg, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
