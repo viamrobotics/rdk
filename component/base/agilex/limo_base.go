@@ -4,6 +4,7 @@ package limo
 import (
 	"context"
 	"io"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -71,13 +72,16 @@ type limoState struct {
 }
 type limoBase struct {
 	generic.Unimplemented
-	driveMode  string
-	controller *controller
-	state      limoState
-	stateMutex sync.Mutex
-	opMgr      operation.SingleOperationManager
-	cancel     context.CancelFunc
-	waitGroup  sync.WaitGroup
+	driveMode   string
+	controller  *controller
+	state       limoState
+	stateMutex  sync.Mutex
+	opMgr       operation.SingleOperationManager
+	cancel      context.CancelFunc
+	waitGroup   sync.WaitGroup
+	width       int
+	wheelbase   int
+	maxVelocity int
 }
 
 // Config is how you configure a limo base.
@@ -93,22 +97,24 @@ func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger g
 
 	logger.Debugf("creating limo base with config %+v", config)
 
-	if config.SerialDevice == "" {
-		config.SerialDevice = "/dev/ttyTHS1"
-	}
 	if config.DriveMode == "" {
 		return nil, errors.Errorf("drive mode must be defined and one of differential, ackermann, or omni")
 	}
 
 	globalMu.Lock()
-	ctrl, controllerExists := controllers[config.SerialDevice]
+	sDevice := config.SerialDevice
+	if sDevice == "" {
+		sDevice = "/dev/ttyTHS1"
+	}
+	ctrl, controllerExists := controllers[sDevice]
 	if !controllerExists {
 		logger.Debug("creating controller")
-		newCtrl, err := newController(config, logger)
+		newCtrl, err := newController(sDevice, config.TestChan, logger)
 		if err != nil {
 			return nil, err
 		}
-		controllers[config.SerialDevice] = newCtrl
+
+		controllers[sDevice] = newCtrl
 		ctrl = newCtrl
 
 		// enable commanded mode
@@ -133,8 +139,11 @@ func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger g
 	globalMu.Unlock()
 
 	base := &limoBase{
-		driveMode:  config.DriveMode,
-		controller: ctrl,
+		driveMode:   config.DriveMode,
+		controller:  ctrl,
+		width:       172,
+		wheelbase:   200,
+		maxVelocity: 1200,
 	}
 
 	base.stateMutex.Lock()
@@ -153,15 +162,15 @@ func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger g
 	return base, nil
 }
 
-func newController(c *Config, logger golog.Logger) (*controller, error) {
+func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (*controller, error) {
 	ctrl := new(controller)
-	ctrl.serialDevice = c.SerialDevice
+	ctrl.serialDevice = sDevice
 	ctrl.logger = logger
 
-	if c.TestChan == nil {
+	if testChan == nil {
 		logger.Debug("opening serial connection")
 		serialOptions := serial.OpenOptions{
-			PortName:          c.SerialDevice,
+			PortName:          sDevice,
 			BaudRate:          460800,
 			DataBits:          8,
 			StopBits:          1,
@@ -176,7 +185,7 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 		}
 		ctrl.port = port
 	} else {
-		ctrl.testChan = c.TestChan
+		ctrl.testChan = testChan
 	}
 
 	return ctrl, nil
@@ -192,7 +201,7 @@ func (b *limoBase) startVelocityThread() error {
 		defer b.waitGroup.Done()
 
 		for {
-			utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*100))
+			utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*10))
 			err := b.velocityThreadLoop(ctx)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
@@ -233,11 +242,10 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 		c.logger.Debug("writing to test chan")
 		c.testChan <- data
 	} else {
-		n, err := c.port.Write(data)
+		_, err := c.port.Write(data)
 		if err != nil {
 			return err
 		}
-		c.logger.Debugf("Sent %d bytes %v", n, data)
 	}
 
 	return nil
@@ -273,12 +281,19 @@ func (base *limoBase) setMotionCommand(ctx context.Context, linear_vel float64, 
 
 func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	base.controller.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
-	millis := 1000 * (angleDeg / degsPerSec)
-	err := base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: -1 * degsPerSec})
+	// TODO: verify math, not sure why had to multiply by 8 here
+	secsToRun := math.Abs(angleDeg/degsPerSec) * 8
+	mmCirc := (math.Pi * math.Sqrt(math.Pow(float64(base.width), 2)+math.Pow(float64(base.wheelbase), 2)))
+	angularVelZ := mmCirc / 360 * degsPerSec
+	err := base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: -1 * angularVelZ})
 	if err != nil {
 		return err
 	}
-	utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*millis))
+
+	// stop base after calculated time
+	timeToRun := time.Millisecond * time.Duration(secsToRun*1000)
+	base.controller.logger.Debugf("Will run for duration %f", timeToRun)
+	utils.SelectContextOrWait(ctx, timeToRun)
 	return base.Stop(ctx)
 }
 
@@ -286,9 +301,10 @@ func (base *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec
 	base.controller.logger.Debugf("MoveStraight(%d, %f)", distanceMm, mmPerSec)
 	base.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{})
 
-	// stop base after calculated distance
-	timeInSecs := time.Second * time.Duration(float64(distanceMm)/mmPerSec)
-	utils.SelectContextOrWait(ctx, timeInSecs)
+	// stop base after calculated time
+	timeToRun := time.Millisecond * time.Duration(math.Abs(float64(distanceMm)/float64(mmPerSec))*1000)
+	base.controller.logger.Debugf("Will run for duration %f", timeToRun)
+	utils.SelectContextOrWait(ctx, timeToRun)
 	return base.Stop(ctx)
 }
 
@@ -308,12 +324,22 @@ func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector
 }
 
 func (base *limoBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	base.controller.logger.Debugf("Will set power linear %f angular %f", linear, angular)
+	linY := linear.Y * float64(base.maxVelocity)
+	angZ := angular.Z * float64(base.maxVelocity)
+	err := base.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: angZ})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (base *limoBase) Stop(ctx context.Context) error {
 	base.controller.logger.Debug("Stop()")
-	base.SetVelocity(ctx, r3.Vector{}, r3.Vector{})
+	err := base.SetVelocity(ctx, r3.Vector{}, r3.Vector{})
+	if err != nil {
+		return err
+	}
 	base.opMgr.CancelRunning(ctx)
 	return nil
 }
@@ -332,5 +358,5 @@ func (base *limoBase) Close(ctx context.Context) error {
 }
 
 func (base *limoBase) GetWidth(ctx context.Context) (int, error) {
-	return 172, nil
+	return base.width, nil
 }
