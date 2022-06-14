@@ -166,6 +166,7 @@ type dataManagerService struct {
 
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
+	SyncIntervalMilliseconds int
 	updateCollectorsCancelFn func()
 }
 
@@ -300,8 +301,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
-	println("im being updated")
+func (svc *dataManagerService) initOrUpdateSyncer(intervalMilliseconds int) {
 	// if user updates config while manual sync is occurring, manual sync will be cancelled (TODO fix)
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
@@ -311,15 +311,14 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins int) {
 		svc.syncer = nil
 		svc.updateCollectorsCancelFn = nil
 	}
-
 	// Init a new syncer.
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.updateCollectorsCancelFn = fn
-	svc.QueueCapturedData(cancelCtx, intervalMins)
 	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
 
 	// Kick off syncer if we're running it.
-	if intervalMins > 0 {
+	if intervalMilliseconds > 0 {
+		svc.QueueCapturedData(cancelCtx, intervalMilliseconds)
 		svc.syncer.Start()
 	}
 }
@@ -387,6 +386,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	svcConfig, ok := c.ConvertedAttributes.(*Config)
+	svc.SyncIntervalMilliseconds = svcConfig.SyncIntervalMins * 60000
 
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svcConfig.Disabled {
@@ -412,8 +412,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	// nolint:contextcheck
-	println(svcConfig.SyncIntervalMins)
-	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+	svc.initOrUpdateSyncer(svc.SyncIntervalMilliseconds)
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -440,11 +439,11 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	return nil
 }
 
-func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, intervalMins int) {
+func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, intervalMilliseconds int) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		ticker := time.NewTicker(time.Minute * time.Duration(intervalMins))
+		ticker := time.NewTicker(time.Millisecond * time.Duration(intervalMilliseconds))
 		defer ticker.Stop()
 
 		for {
