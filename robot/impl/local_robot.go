@@ -365,7 +365,18 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
-	newResource, err := f.Constructor(ctx, r, config, r.logger)
+	deps := make(registry.Dependencies)
+	for _, dep := range config.DependsOn {
+		if c := r.config.FindComponent(dep); c != nil {
+			// Does this component exist yet?
+			res, err := r.ResourceByName(c.ResourceName())
+			if err != nil {
+				return nil, err
+			}
+			deps[c.ResourceName()] = res
+		}
+	}
+	newResource, err := f.Constructor(ctx, deps, config, r.logger)
 	if err != nil {
 		return nil, err
 	}

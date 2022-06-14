@@ -69,8 +69,11 @@ func ServiceLookup(subtype resource.Subtype) *Service {
 }
 
 type (
+	// Dependencies is a map of resources that a component requires for creation.
+	Dependencies map[resource.Name]interface{}
+
 	// A CreateComponent creates a resource from a given config.
-	CreateComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error)
+	CreateComponent func(ctx context.Context, deps Dependencies, config config.Component, logger golog.Logger) (interface{}, error)
 
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
