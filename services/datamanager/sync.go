@@ -368,7 +368,7 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	return nil
 }
 
-func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncService_UploadClient, path string) (v1.DataType, error) {
+func getDataTypeFromLeadingMessage(ctx context.Context, path string) (v1.DataType, error) {
 	// Open file
 	//nolint
 	f, err := os.Open(path)
@@ -433,7 +433,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	// FileName: Above
 
 	componentName := fileNameIncludingTimeStamp[btSubtypeNameAndComponentName+1 : btComponentNameAndFileStampName]
-	dataType, err := getDataTypeFromLeadingMessage(ctx, client, path)
+	dataType, err := getDataTypeFromLeadingMessage(ctx, path)
 	if err != nil {
 		return errors.Wrap(err, "error while getting metadata data type")
 	}
