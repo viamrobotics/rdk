@@ -464,7 +464,9 @@ func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, inte
 				}
 				return
 			case <-ticker.C:
+				println("i am before the problem")
 				filesToQueue := svc.queueFiles()
+				println("i am after the problem")
 				if err := svc.syncer.Enqueue(filesToQueue); err != nil {
 					svc.logger.Errorw("failed to move files to sync queue", "error", err)
 				}
@@ -476,6 +478,7 @@ func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, inte
 func (svc *dataManagerService) queueFiles() []string {
 	filesToQueue := make([]string, 0, len(svc.collectors))
 	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
 		nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
@@ -485,6 +488,5 @@ func (svc *dataManagerService) queueFiles() []string {
 		filesToQueue = append(filesToQueue, collector.Collector.GetTarget().Name())
 		collector.Collector.SetTarget(nextTarget)
 	}
-	svc.lock.Unlock()
 	return filesToQueue
 }
