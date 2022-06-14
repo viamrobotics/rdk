@@ -128,13 +128,14 @@ func (svc *Service) Close(ctx context.Context) error {
 
 func (svc *Service) closeCollectors() {
 	wg := sync.WaitGroup{}
-	for _, collector := range svc.collectors {
+	for md, collector := range svc.collectors {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
 			currCollector.Collector.Close()
 			wg.Done()
 		}()
+		delete(svc.collectors, md)
 	}
 	wg.Wait()
 }
