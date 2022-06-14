@@ -43,8 +43,9 @@ func TestNewDataManager(t *testing.T) {
 	conf, err := config.Read(
 		context.Background(), utils.ResolveFile("robots/configs/fake_robot_with_data_manager.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	svcConfig, ok := getServiceConfig(conf)
+	svcConfig, ok, err := getServiceConfig(conf)
 	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeNil)
 
 	svc.Update(context.Background(), conf)
 	sleepTime := time.Millisecond * 5

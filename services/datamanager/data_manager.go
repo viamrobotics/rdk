@@ -305,19 +305,21 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 }
 
 // Get the config associated with the data manager service.
-func getServiceConfig(cfg *config.Config) (*Config, bool) {
+func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
 		if c.ResourceName() == Name {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
+			// Incorrect configuration is an error.
 			if !ok {
-				return &Config{}, false
+				return &Config{}, false, utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
 			}
-			return svcConfig, true
+			return svcConfig, true, nil
 		}
 	}
 
-	return &Config{}, false
+	// Data Manager Service is not in the config, which is not an error.
+	return &Config{}, false, nil
 }
 
 // Get the component configs associated with the data manager service.
@@ -351,11 +353,12 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
-	svcConfig, ok := getServiceConfig(cfg)
-	// Service is not in the config or has been removed from it. Close any collectors.
+	svcConfig, ok, err := getServiceConfig(cfg)
+	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
+	// Close any collectors.
 	if !ok {
 		svc.closeCollectors()
-		return nil
+		return err
 	}
 
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
