@@ -4,7 +4,6 @@ on:
   schedule:
     - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
   workflow_dispatch:
-  workflow_call:
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
