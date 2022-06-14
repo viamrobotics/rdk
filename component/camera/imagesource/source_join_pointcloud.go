@@ -33,7 +33,7 @@ func init() {
 		"join_pointclouds",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -41,7 +41,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newJoinPointCloudSource(r, attrs)
+			return newJoinPointCloudSource(deps, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_pointclouds",
@@ -79,14 +79,14 @@ type joinPointCloudSource struct {
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
 // reference frame of targetName.
-func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
+func newJoinPointCloudSource(deps registry.Dependencies, attrs *JoinAttrs) (camera.Camera, error) {
 	joinSource := &joinPointCloudSource{}
 	// frame to merge from
 	joinSource.sourceCameras = make([]camera.Camera, len(attrs.SourceCameras))
 	joinSource.sourceNames = make([]string, len(attrs.SourceCameras))
 	for i, source := range attrs.SourceCameras {
 		joinSource.sourceNames[i] = source
-		camSource, err := camera.FromRobot(r, source)
+		camSource, err := camera.FromDependencies(deps, source)
 		if err != nil {
 			return nil, fmt.Errorf("no camera source called (%s): %w", source, err)
 		}
@@ -94,6 +94,7 @@ func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, er
 	}
 	// frame to merge to
 	joinSource.targetName = attrs.TargetFrame
+	// TODO: refactor so that we do not need to pass in a robot here!
 	joinSource.robot = r
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
 		return camera.New(joinSource, nil, joinSource.sourceCameras[idx])

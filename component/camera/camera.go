@@ -192,6 +192,20 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableCamera{})
 )
 
+// FromDependencies is a helper for getting the named camera from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Camera, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, errors.Errorf("camera %q missing from dependencies", name)
+	}
+	b, ok := res.(Camera)
+	if !ok {
+		return nil, errors.Errorf("%q is not a camera", name)
+	}
+	return b, nil
+}
+
 // FromRobot is a helper for getting the named Camera from the given Robot.
 func FromRobot(r robot.Robot, name string) (Camera, error) {
 	res, err := r.ResourceByName(Named(name))
