@@ -125,7 +125,7 @@
       }
 
       function fixGantryStatus(old) {
-        var newStatus = { parts: [] };
+        var newStatus = { parts: [], is_moving: old["is_moving"] || false};
         if (old["lengths_mm"].length != old["positions_mm"].length) {
           throw "gantry lists different lengths";
         }
