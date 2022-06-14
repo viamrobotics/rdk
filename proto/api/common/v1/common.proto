@@ -129,5 +129,5 @@ message WorldState {
 
 // ActuatorStatus is a generic status for resources that only need to return actuator status.
 message ActuatorStatus {
-  bool is_moving = 3;
+  bool is_moving = 1;
 }
