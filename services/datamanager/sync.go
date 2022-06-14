@@ -280,14 +280,14 @@ func getNextWait(lastWait time.Duration) time.Duration {
 
 func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 	// Open file
+	//nolint
 	f, err := os.Open(path)
 	if err != nil {
 		return errors.Wrapf(err, "error while opening file %s", path)
 	}
 	if _, err = f.Seek(0, 0); err != nil {
-		return nil
+		return err
 	}
-	defer f.Close()
 
 	// Then stream SensorData's one by one.
 	for {
@@ -310,6 +310,10 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 		}
 	}
 
+	if err = f.Close(); err != nil {
+		return err
+	}
+
 	// Close stream and receive response.
 	if _, err := client.CloseAndRecv(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
@@ -321,9 +325,10 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 // TODO:
 // When we add chunking for arbitrary data type file uploads we need to
 // process the data as a stream, this would include a buffer and a loop
-// that iterates and keeps reading and recording more data from the file
+// that iterates and keeps reading and recording more data from the file.
 func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 	// Open file
+	//nolint
 	f, err := os.Open(path)
 	if err != nil {
 		return errors.Wrapf(err, "error while opening file %s", path)
@@ -331,10 +336,8 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	if _, err = f.Seek(0, 0); err != nil {
 		return err
 	}
-	defer f.Close()
 
 	for {
-
 		next, err := readNextFileDataChunking(f)
 		if errors.Is(err, io.EOF) {
 			break
@@ -353,6 +356,10 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		}
 	}
 
+	if err = f.Close(); err != nil {
+		return err
+	}
+
 	// Close stream and receive response.
 	if _, err := client.CloseAndRecv(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
@@ -362,7 +369,8 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 }
 
 func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncService_UploadClient, path string) (v1.DataType, error) {
-	// Open file, set file read/write offset
+	// Open file
+	//nolint
 	f, err := os.Open(path)
 	if err != nil {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
@@ -374,6 +382,9 @@ func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncServic
 	// Read the file as if it is SensorData, if err is not nil
 	// we assume it is FileData
 	sensorData, err := readNextSensorData(f)
+	// TODO(DATA-166) - figure out what error is returned by above
+	// so we aren't ignoring errors
+	//nolint
 	if err != nil {
 		return v1.DataType_DATA_TYPE_FILE, nil
 	}
@@ -393,6 +404,8 @@ func getDataTypeFromLeadingMessage(ctx context.Context, client v1.DataSyncServic
 }
 
 func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	// Open file
+	//nolint
 	f, err := os.Open(path)
 	if err != nil {
 		return errors.Wrapf(err, "error while opening file %s", path)
