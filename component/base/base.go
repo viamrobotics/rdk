@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -88,6 +89,20 @@ var (
 	_ = LocalBase(&reconfigurableBase{})
 	_ = resource.Reconfigurable(&reconfigurableBase{})
 )
+
+// FromDependencies is a helper for getting the named base from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Base, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, errors.Errorf("base %q missing from dependencies", name)
+	}
+	b, ok := res.(Base)
+	if !ok {
+		return nil, errors.Errorf("%q is not a base", name)
+	}
+	return b, nil
+}
 
 // FromRobot is a helper for getting the named base from the given Robot.
 func FromRobot(r robot.Robot, name string) (Base, error) {
