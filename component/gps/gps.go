@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -75,6 +76,20 @@ var (
 	_ = sensor.Sensor(&reconfigurableGPS{})
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
 )
+
+// FromDependencies is a helper for getting the named gps from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (GPS, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, errors.Errorf("gps %q missing from dependencies", name)
+	}
+	b, ok := res.(GPS)
+	if !ok {
+		return nil, errors.Errorf("%q is not a gps", name)
+	}
+	return b, nil
+}
 
 // FromRobot is a helper for getting the named GPS from the given Robot.
 func FromRobot(r robot.Robot, name string) (GPS, error) {
