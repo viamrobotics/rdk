@@ -5,7 +5,7 @@
           "ntrip_addr": "http://rtn.dot.ny.gov:8082",
           "ntrip_username": "evelyn",
           "ntrip_password": "checkmate",
-          "ntrip_mountpoint": "NJI2",
+          "ntrip_mountpoint": "",
           "ntrip_path": "",
           "ntrip_baud": 38400,
           "ntrip_send_nmea": true,

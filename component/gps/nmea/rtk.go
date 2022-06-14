@@ -192,7 +192,7 @@ func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) (io.ReadCloser, e
 	g.logger.Info("\n")
 
 	if err != nil {
-		g.logger.Fatalf("Can't connect to NTRIP stream: %s", err)
+		g.logger.Info("Can't connect to NTRIP stream: %s", err)
 	}
 
 	g.ntripClient.stream = rc
