@@ -10,9 +10,6 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 )
 
 func TestArduinoMotorInit(t *testing.T) {
@@ -41,12 +38,9 @@ func TestArduinoMotorInit(t *testing.T) {
 				BoardName: "oops no board",
 			},
 		}
-		_robot := &inject.Robot{}
-		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return nil, utils.NewResourceNotFoundError(name)
-		}
+		deps := make(registry.Dependencies)
 		_motor, err := motorReg.Constructor(
-			context.Background(), _robot, badBoardConfig, logger)
+			context.Background(), deps, badBoardConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, _motor, test.ShouldBeNil)
 	})
@@ -59,12 +53,9 @@ func TestArduinoMotorInit(t *testing.T) {
 				BoardName: "non-arduino",
 			},
 		}
-		_robot := &inject.Robot{}
-		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return &inject.Board{}, nil
-		}
+		deps := make(registry.Dependencies)
 		_motor, err := motorReg.Constructor(
-			context.Background(), _robot, badBoardConfig, logger)
+			context.Background(), deps, badBoardConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, _motor, test.ShouldBeNil)
 	})
