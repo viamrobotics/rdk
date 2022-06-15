@@ -473,11 +473,19 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 		return nil, err
 	}
 	r := &v1.SensorData{}
-	_, err := pbutil.ReadDelimited(f, r)
-	if err != nil {
+	if _, err := pbutil.ReadDelimited(f, r); err != nil {
 		return nil, err
 	}
-	return r, nil
+
+	switch r.GetBinary() {
+	case nil:
+		if r.GetStruct().Fields != nil {
+			return r, nil
+		}
+		return nil, io.EOF
+	default:
+		return r, nil
+	}
 }
 
 func readNextFileDataChunking(f *os.File) (*v1.FileData, error) {
