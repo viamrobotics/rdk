@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/component/input/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
 )
 
 func TestGPIOInput(t *testing.T) {
@@ -40,7 +39,8 @@ func TestGPIOInput(t *testing.T) {
 	b.Digitals["interrupt2"], err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{})
 	test.That(t, err, test.ShouldBeNil)
 
-	deps := registry.Dependencies(map[resource.Name]interface{}{board.Named(b.Name): b})
+	deps := make(registry.Dependencies)
+	deps[board.Named("main")] = b
 
 	ic := gpio.Config{
 		Board: "main",
