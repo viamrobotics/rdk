@@ -6,6 +6,8 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
+      REPO_READ_TOKEN:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"

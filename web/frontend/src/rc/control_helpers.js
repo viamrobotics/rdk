@@ -1,6 +1,10 @@
 /*
-Simple base control helpers. Should be replaced by a proper SDK once available.
+* This file contains gRPC helper functions for the Remote Control page.
+* These helpers will be deprecated by a future node SDK.
+* Feel free to add any missing gRPC method wrappers.
 */
+
+// Base control helpers
 window.BaseControlHelper = {
   moveStraight: function(name, distance_mm, speed_mm_s, cb) {
     const req = new baseApi.MoveStraightRequest();
@@ -35,8 +39,9 @@ window.BaseControlHelper = {
 };
 
 /*
-  Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
-  Output: linearY and angularZ throttle
+* Base keyboard control calculations.
+* Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
+* Output: linearY and angularZ throttle
 */
 window.computeKeyboardBaseControls = function(keysPressed) {
     let linear = 0;
@@ -57,9 +62,7 @@ window.computeKeyboardBaseControls = function(keysPressed) {
     return {linear, angular};
 };
 
-/*
-Simple base control helpers. Should be replaced by a proper SDK once available.
-*/
+// Simple motor control helpers
 window.MotorControlHelper = {
   setPower: function(name, powerPct, cb) {
     const req = new motorApi.SetPowerRequest();
@@ -97,4 +100,28 @@ window.MotorControlHelper = {
     rcLogConditionally(req);
     motorService.stop(req, {}, cb);
   },
+};
+
+// Simple motor control helpers
+window.BoardControlHelper = {
+  getGPIO: function (name, pin, cb) {
+    const req = new boardApi.GetGPIORequest();
+    req.setName(name);
+    req.setPin(pin);
+
+    rcLogConditionally(req);
+    boardService.getGPIO(req, {}, cb);
+  },
+
+  setGPIO: function (name, pin, value, cb) {
+    const req = new boardApi.SetGPIORequest();
+    req.setName(name);
+    req.setPin(pin);
+    req.setHigh(value);
+
+    rcLogConditionally(req);
+    boardService.setGPIO(req, {}, cb);
+  },
+
+  // TODO: Add PWM
 };
