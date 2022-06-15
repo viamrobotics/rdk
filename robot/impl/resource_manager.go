@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/alessio/shellescape"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -228,18 +227,84 @@ func (manager *resourceManager) processConfig(
 
 // processModifiedConfig ingests a given config and constructs all constituent parts.
 
-// newProcesses constructs all processes defined.
-func (manager *resourceManager) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) error {
-	for _, procConf := range processes {
-		// In an AppImage execve() is meant to be hooked to swap out the AppImage's libraries and the system ones.
-		// Go doesn't use libc's execve() though, so the hooks fail and trying to exec binaries outside the AppImage can fail.
-		// We work around this by execing through a bash shell (included in the AppImage) which then gets hooked properly.
-		_, isAppImage := os.LookupEnv("APPIMAGE")
-		if isAppImage {
-			procConf.Args = []string{"-c", shellescape.QuoteCommand(append([]string{procConf.Name}, procConf.Args...))}
-			procConf.Name = "bash"
+// cleanAppImageEnv attempts to revert environent variable changes so
+// normal, non-AppImage processes can be executed correctly.
+func cleanAppImageEnv() error {
+	_, isAppImage := os.LookupEnv("APPIMAGE")
+	if isAppImage {
+		err := os.Chdir(os.Getenv("APPRUN_CWD"))
+		if err != nil {
+			return err
 		}
 
+		// Reset original values where available
+		for _, eVarStr := range os.Environ() {
+			eVar := strings.Split(eVarStr, "=")
+			key := eVar[0]
+			origV, present := os.LookupEnv("APPRUN_ORIGINAL_" + key)
+			if present {
+				if origV != "" {
+					err = os.Setenv(key, origV)
+				} else {
+					err = os.Unsetenv(key)
+				}
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// Remove all explicit appimage vars
+		err = multierr.Combine(os.Unsetenv("ARGV0"), os.Unsetenv("ORIGIN"))
+		for _, eVarStr := range os.Environ() {
+			eVar := strings.Split(eVarStr, "=")
+			key := eVar[0]
+			if strings.HasPrefix(key, "APPRUN") ||
+				strings.HasPrefix(key, "APPDIR") ||
+				strings.HasPrefix(key, "APPIMAGE") ||
+				strings.HasPrefix(key, "AIX_") {
+				err = multierr.Combine(err, os.Unsetenv(key))
+			}
+		}
+		if err != nil {
+			return err
+		}
+
+		// Remove AppImage paths from path-like env vars
+		for _, eVarStr := range os.Environ() {
+			eVar := strings.Split(eVarStr, "=")
+			var newPaths []string
+			const mountPrefix = "/tmp/.mount_"
+			key := eVar[0]
+			if len(eVar) >= 2 && strings.Contains(eVar[1], mountPrefix) {
+				for _, path := range strings.Split(eVar[1], ":") {
+					if !strings.HasPrefix(path, mountPrefix) && path != "" {
+						newPaths = append(newPaths, path)
+					}
+				}
+				if len(newPaths) > 0 {
+					err = os.Setenv(key, strings.Join(newPaths, ":"))
+				} else {
+					err = os.Unsetenv(key)
+				}
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// newProcesses constructs all processes defined.
+func (manager *resourceManager) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) error {
+	// If we're in an AppImage, clean the environment before external execution.
+	err := cleanAppImageEnv()
+	if err != nil {
+		return err
+	}
+
+	for _, procConf := range processes {
 		if _, err := manager.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
 			return err
 		}
