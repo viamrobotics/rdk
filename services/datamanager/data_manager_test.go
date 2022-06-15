@@ -9,15 +9,12 @@ import (
 	"testing"
 	"time"
 
-	//"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 
-	//"go.viam.com/rdk/resource"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/internal"
@@ -49,7 +46,8 @@ func newTestDataManager(t *testing.T, testCfg *config.Config, captureDir string)
 	r := &inject.Robot{}
 	const arm1Key = "arm1"
 	arm1 := &inject.Arm{}
-	arm1.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) { // give some dummy GetEndPositionFunc so inject doesn't throw error
+	// Set a dummy GetEndPositionFunc so inject doesn't throw error
+	arm1.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
 	}
 	rs := map[resource.Name]interface{}{arm.Named(arm1Key): arm1}
@@ -91,7 +89,8 @@ func deleteFilesInDirectory(t *testing.T, dir string) {
 func TestManualSync(t *testing.T) {
 	configPath := "robots/configs/datamanager_fake.json"
 	testCfg := setupConfig(t, configPath)
-	captureDir := "/tmp/capture/arm/arm1/" // Make the captureDir where we're logging data for our arm.
+	// Make the captureDir where we're logging data for our arm.
+	captureDir := "/tmp/capture/arm/arm1/"
 	queueDir := datamanager.SyncQueuePath + "/arm/arm1/"
 
 	// Clear the capture and queue dirs.
@@ -141,7 +140,8 @@ func TestManualSync(t *testing.T) {
 func TestScheduledSync(t *testing.T) {
 	configPath := "robots/configs/datamanager_fake.json"
 	testCfg := setupConfig(t, configPath)
-	captureDir := "/tmp/capture/arm/arm1/" // Make the captureDir where we're logging data for our arm.
+	// Make the captureDir where we're logging data for our arm.
+	captureDir := "/tmp/capture/arm/arm1/"
 	queueDir := datamanager.SyncQueuePath + "/arm/arm1/"
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	// Clear the capture and queue dirs.
@@ -197,7 +197,8 @@ func TestScheduledSync(t *testing.T) {
 func TestManualAndScheduledSync(t *testing.T) {
 	configPath := "robots/configs/datamanager_fake.json"
 	testCfg := setupConfig(t, configPath)
-	captureDir := "/tmp/capture/arm/arm1/" // Make the captureDir where we're logging data for our arm.
+	// Make the captureDir where we're logging data for our arm.
+	captureDir := "/tmp/capture/arm/arm1/"
 	queueDir := datamanager.SyncQueuePath + "/arm/arm1/"
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 
@@ -250,4 +251,6 @@ func TestManualAndScheduledSync(t *testing.T) {
 	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 1)
 	secondFileInCaptureDir := filesInCaptureDir[0].Name()
 	test.That(t, firstFileInCaptureDir, test.ShouldNotEqual, secondFileInCaptureDir)
+
+	// TODO: Refactor once uploading is working properly.
 }
