@@ -72,7 +72,7 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 }
 
 // addTfliteModel uses the loader (default or otherwise) from the inference package
-// to register a tflite model. Default is chosen if there's no numThreads given
+// to register a tflite model. Default is chosen if there's no numThreads given.
 func addTfliteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
 	var model *inf.TFLiteStruct
 
@@ -112,7 +112,7 @@ func tfliteInfer(model *inf.TFLiteStruct, image image.Image) ([]interface{}, err
 
 // imageToBuffer reads an image into a byte slice (buffer) the most common sense way.
 // Left to right like a book; R, then G, then B. No funny stuff.
-// This works!! (can be copied DIRECTLY onto the input tensor)
+// This works!! (can be copied DIRECTLY onto the input tensor).
 func imageToBuffer(img image.Image) []byte {
 	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
 	for y := 0; y < img.Bounds().Dy(); y++ {
@@ -176,7 +176,6 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 	// Detection gathering
 	detections := make([]objectdetection.Detection, len(scores))
 	for i := 0; i < len(scores); i++ {
-
 		// Gather box
 		xmin, ymin, xmax, ymax := bboxes[4*i+getIndex(boxOrder, 0)]*float64(w), bboxes[4*i+getIndex(boxOrder, 1)]*float64(w),
 			bboxes[4*i+getIndex(boxOrder, 2)]*float64(h), bboxes[4*i+getIndex(boxOrder, 3)]*float64(h)

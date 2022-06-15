@@ -25,20 +25,20 @@ func main() {
 	cfg := vision.DetectorConfig{Name: "testdetector", Type: "tflite", Parameters: attrs}
 	detector, err := vision.NewTfliteDetector(&cfg, logger)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 	}
 
 	img, err := rimage.NewImageFromFile(picLoc)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 	}
 
 	detections, err := detector(img)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 	}
 
 	for i := 0; i < 5; i++ {
-		fmt.Println(detections[i])
+		fmt.Println(detections[i]) // nolint: forbidigo
 	}
 }
