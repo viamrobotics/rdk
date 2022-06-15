@@ -72,7 +72,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
 	res, err = gantry.FromRobot(r, fakeGantryName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGantry", "string"))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gantry.FromRobot(r, missingGantryName)
