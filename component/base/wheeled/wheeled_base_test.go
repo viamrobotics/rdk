@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestFourWheelBase1(t *testing.T) {
@@ -233,12 +232,12 @@ func TestFourWheelBase1(t *testing.T) {
 func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
 
-	fakeRobot := &inject.Robot{}
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return &fake.Motor{}, nil
-	}
+	fakeMotor := &fake.Motor{}
+	deps := registry.Dependencies(map[resource.Name]interface{}{
+		motor.Named(fakeMotor.Name): fakeMotor,
+	})
 
-	_, err := CreateWheeledBase(context.Background(), fakeRobot, &Config{}, rlog.Logger)
+	_, err := CreateWheeledBase(context.Background(), deps, &Config{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := &Config{
@@ -247,7 +246,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m"},
 	}
-	_, err = CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
+	_, err = CreateWheeledBase(ctx, deps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg = &Config{
@@ -256,7 +255,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m", "br-m"},
 	}
-	baseBase, err := CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
+	baseBase, err := CreateWheeledBase(ctx, deps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
