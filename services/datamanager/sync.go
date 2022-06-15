@@ -290,24 +290,45 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 	}
 
 	// Then stream SensorData's one by one.
-	for {
+	loop := true
+	for loop {
+
+		// Check ctx for any errors, if yes return them.
+		if err := ctx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				return errors.Wrap(err, "data manager context closed unexpectedly")
+			}
+			return err
+		}
+
+		// Get the next sensor data reading from file.
 		next, err := readNextSensorData(f)
 
-		// If EOF, we're done reading the file.
-		if errors.Is(err, io.EOF) {
-			break
+		// Do default as long as ctx.Done() is not the case.
+		select {
+		case <-ctx.Done():
+			return errors.Errorf("sync context closed unexpectedly")
+		default:
+			// If EOF, we're done reading the file.
+			if errors.Is(err, io.EOF) {
+				loop = false
+				break
+			}
+			if err != nil {
+				return errors.Wrap(err, "error while reading sensorData")
+			}
+			toSend := &v1.UploadRequest{
+				UploadPacket: &v1.UploadRequest_SensorContents{
+					SensorContents: next,
+				},
+			}
+			if err := client.Send(toSend); err != nil {
+				return errors.Wrap(err, "error while sending sensorData")
+			}
 		}
-		if err != nil {
-			return errors.Wrap(err, "error while reading sensorData")
-		}
-		toSend := &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_SensorContents{
-				SensorContents: next,
-			},
-		}
-		if err := client.Send(toSend); err != nil {
-			return errors.Wrap(err, "error while sending sensorData")
-		}
+		// THE NOT PASSING TEST CASE IN FOR TABULAR UPLOAD
+		// COULD HAVE TO DO WITH CHANGED ORDER OF STATEMENTS
+		// IN UPLOAD FUNCTION.
 	}
 
 	if err = f.Close(); err != nil {
@@ -337,22 +358,41 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return err
 	}
 
-	for {
-		next, err := readNextFileDataChunking(f)
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
+	loop := true
+	for loop {
+
+		// Check ctx for any errors, if yes return them.
+		if err := ctx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				return errors.Wrap(err, "data manager context closed unexpectedly")
+			}
 			return err
 		}
-		toSend := &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_FileContents{
-				FileContents: next,
-			},
-		}
 
-		if err := client.Send(toSend); err != nil {
-			return errors.Wrap(err, "error while sending sensorData")
+		// Get the next sensor data reading from file.
+		next, err := readNextFileDataChunking(f)
+
+		// Do default as long as ctx.Done() is not the case.
+		select {
+		case <-ctx.Done():
+			return errors.Errorf("sync context closed unexpectedly")
+		default:
+			// If EOF, we're done reading the file.
+			if errors.Is(err, io.EOF) {
+				loop = false
+				break
+			}
+			if err != nil {
+				return errors.Wrap(err, "error while reading sensorData")
+			}
+			toSend := &v1.UploadRequest{
+				UploadPacket: &v1.UploadRequest_FileContents{
+					FileContents: next,
+				},
+			}
+			if err := client.Send(toSend); err != nil {
+				return errors.Wrap(err, "error while sending sensorData")
+			}
 		}
 	}
 
