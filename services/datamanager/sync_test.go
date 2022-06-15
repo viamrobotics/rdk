@@ -70,12 +70,11 @@ func toProto(r interface{}) *structpb.Struct {
 	return msg
 }
 
-// Writes the protobuf message to the file passed into method.
-// Returns the number of bytes written and any errors that are
-// raised.
-func writeProtoHelper(f *os.File, toSend [][]byte) (int, error) {
+// Writes the protobuf message to the file passed into method. Returns the number of bytes written and any errors that
+// are raised.
+func writeBinarySensorData(f *os.File, toWrite [][]byte) (int, error) {
 	countBytesWritten := 0
-	for _, bytes := range toSend {
+	for _, bytes := range toWrite {
 		msg := &v1.SensorData{
 			Data: &v1.SensorData_Binary{
 				Binary: bytes,
@@ -91,20 +90,19 @@ func writeProtoHelper(f *os.File, toSend [][]byte) (int, error) {
 	return countBytesWritten, nil
 }
 
-// Compares UploadRequests (which hold either binary or tabular
-// data) in form of test.
-func helpCompareUploadRequests(t *testing.T, isTabular bool, actual []v1.UploadRequest, expected []v1.UploadRequest) {
+// Compares UploadRequests (which hold either binary or tabular data).
+func compareUploadRequests(t *testing.T, isTabular bool, actual []v1.UploadRequest, expected []v1.UploadRequest) {
 	t.Helper()
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 	if !isTabular {
-		for i, ur := range actual {
-			a := ur.GetSensorContents().GetBinary()
+		for i, uploadRequest := range actual {
+			a := uploadRequest.GetSensorContents().GetBinary()
 			e := expected[i].GetSensorContents().GetBinary()
 			test.That(t, a, test.ShouldResemble, e)
 		}
 	} else {
-		for i, ur := range actual {
-			a := ur.GetSensorContents().GetStruct()
+		for i, uploadRequest := range actual {
+			a := uploadRequest.GetSensorContents().GetStruct()
 			e := actual[i].GetSensorContents().GetStruct()
 			test.That(t, a, test.ShouldResemble, e)
 		}
@@ -156,18 +154,14 @@ func TestFileUpload(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		// Create mockClient that will be sending requests,
-		// this mock will have an UploadRequest slice that
-		// will contain the UploadRequests that are created
-		// by the data contained in files.
+		// Create mockClient that will be sending requests, this mock will have an UploadRequest slice that will
+		// contain the UploadRequests that are created by the data contained in files.
 		mc := &mockClient{
 			sent: []v1.UploadRequest{},
 		}
 
-		// Create temp dir and file in that dir to be used
-		// as examples of reading data from the files into
-		// buffers (and finally to have that data be uploaded)
-		// to the cloud
+		// Create temp dir and file in that dir to be used as examples of reading data from the files into buffers
+		// (and finally to have that data be uploaded) to the cloud.
 		td, err := ioutil.TempDir("", "temp-dir")
 		if err != nil {
 			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
@@ -179,8 +173,7 @@ func TestFileUpload(t *testing.T) {
 		defer os.Remove(tf.Name())
 		defer os.Remove(td)
 
-		// Write the data from the test cases into the files
-		// to prepare them for reading by the fileUpload function
+		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function.
 		if _, err := tf.Write(tc.toSend); err != nil {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
@@ -189,8 +182,7 @@ func TestFileUpload(t *testing.T) {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
-		// var expdata [][]byte
-		// creating []v1.UploadRequest object from test case input 'expData [][]byte'
+		// Create []v1.UploadRequest object from test case input 'expData [][]byte'.
 		expectedMsgs := []v1.UploadRequest{}
 		for _, expMsg := range tc.expData {
 			expectedMsgs = append(expectedMsgs, v1.UploadRequest{
@@ -203,7 +195,7 @@ func TestFileUpload(t *testing.T) {
 
 		}
 
-		// The mc.sent value should be the same as the tc.expMsg value
+		// The mc.sent value should be the same as the tc.expMsg value.
 		test.That(t, mc.sent, test.ShouldResemble, expectedMsgs)
 	}
 }
@@ -319,18 +311,14 @@ func TestSensorUploadTabular(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		// Create mockClient that will be sending requests,
-		// this mock will have an UploadRequest slice that
-		// will contain the UploadRequests that are created
-		// by the data contained in files.
+		// Create mockClient that will be sending requests, this mock will have an UploadRequest slice that will
+		// contain the UploadRequests that are created by the data contained in files.
 		mc := &mockClient{
 			sent: []v1.UploadRequest{},
 		}
 
-		// Create temp dir and file in that dir to be used
-		// as examples of reading data from the files into
-		// buffers (and finally to have that data be uploaded)
-		// to the cloud
+		// Create temp dir and file in that dir to be used as examples of reading data from the files into buffers
+		// (and finally to have that data be uploaded) to the cloud
 		td, err := ioutil.TempDir("", "temp-dir")
 		if err != nil {
 			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
@@ -342,8 +330,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		defer os.Remove(tf.Name())
 		defer os.Remove(td)
 
-		// Write the data from the test cases into the files
-		// to prepare them for reading by the fileUpload function
+		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
 		if _, err := pbutil.WriteDelimited(tf, tc.toSend); err != nil {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
@@ -353,7 +340,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		}
 
 		// The mc.sent value should be the same as the tc.expMsgs value
-		helpCompareUploadRequests(t, true, mc.sent, tc.expMsgs)
+		compareUploadRequests(t, true, mc.sent, tc.expMsgs)
 	}
 }
 
@@ -462,7 +449,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		// to prepare them for reading by the sensorUpload function
 
 		// NOT SURE IF THIS WORKS
-		if _, err := writeProtoHelper(tf, tc.toSend); err != nil {
+		if _, err := writeBinarySensorData(tf, tc.toSend); err != nil {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
 		// THIS IS NOT WORKING
@@ -471,12 +458,11 @@ func TestSensorUploadBinary(t *testing.T) {
 		}
 
 		// The mc.sent value should be the same as the tc.expMsg value
-		helpCompareUploadRequests(t, false, mc.sent, tc.expMsgs)
+		compareUploadRequests(t, false, mc.sent, tc.expMsgs)
 	}
 }
 
-// Validates that for some captureDir, files are enqueued and
-// uploaded exactly once.
+// Validates that for some captureDir, files are enqueued and uploaded exactly once.
 func TestQueuesAndUploadsOnce(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
@@ -514,10 +500,9 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	sut.Close()
 }
 
-// Validates that if a syncer is killed after enqueing a file,
-// a new syncer will still pick it up and upload it. This is to
-// simulate the case where a robot is killed mid-sync; we still
-// want that sync to resume and finish when it turns back on.
+// Validates that if a syncer is killed after enqueing a file, a new syncer will still pick it up and upload it. This
+// is to simulate the case where a robot is killed mid-sync; we still want that sync to resume and finish when it
+// turns back on.
 func TestRecoversAfterKilled(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {

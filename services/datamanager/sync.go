@@ -33,8 +33,7 @@ type syncManager interface {
 	Close()
 }
 
-// TODO: replace uploadFn with some Uploader interface with Upload/Close methods
-// syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
+// TODO: replace uploadFn with some Uploader interface with Upload/Close methods syncer is responsible for enqueuing    // files in captureDir and uploading them to the cloud.
 type syncer struct {
 	captureDir        string
 	syncQueue         string
@@ -388,7 +387,6 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 }
 
 func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
-	// Open file
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
@@ -398,8 +396,7 @@ func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
 
-	// Read the file as if it is SensorData, if err is not nil
-	// we assume it is FileData
+	// Read the file as if it is SensorData, if err is not nil we assume it is FileData
 	sensorData, err := readNextSensorData(f)
 	//nolint
 	if errors.Is(err, io.EOF) {
@@ -409,8 +406,8 @@ func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
 
-	// If sensorData contains a struct it's tabular data; if it contains binary
-	// it's binary data; if it contains neither it is invalid.
+	// If sensorData contains a struct it's tabular data; if it contains binary it's binary data; if it contains
+	// neither it is invalid.
 	if s := sensorData.GetStruct(); s != nil {
 		return v1.DataType_DATA_TYPE_TABULAR_SENSOR, nil
 	}
@@ -437,8 +434,8 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	btwnComponentNameAndFileStampName := strings.Index(f.Name()[btwnSubtypeNameAndComponentName+1:], "/")
 
 	// Potentially useful values in the future (come from filename):
-	// sCaptureDir := f.Name()[:btCaptureDirAndSubtypeName]
-	// sSubtypeName := f.Name()[btCaptureDirAndSubtypeName+1 : btSubtypeNameAndComponentName]
+	// sCaptureDir := f.Name()[:btwnCaptureDirAndSubtypeName]
+	// sSubtypeName := f.Name()[btwnCaptureDirAndSubtypeName+1 : btwnSubtypeNameAndComponentName]
 
 	// METADATA FIELDS FOR CONSTRUCTION BELOW:
 	// PartName: TODO [DATA-164]
