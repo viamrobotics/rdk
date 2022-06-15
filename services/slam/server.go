@@ -3,6 +3,7 @@ package slam
 import (
 	"bytes"
 	"context"
+	"image"
 	"image/jpeg"
 
 	"go.viam.com/rdk/pointcloud"
@@ -63,22 +64,25 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) (
 	*pb.GetMapResponse, error,
 ) {
-	svc, err := server.service()
-	if err != nil {
-		return nil, err
-	}
+	// svc, err := server.service()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	pInFrame := &commonpb.PoseInFrame{Pose: req.CameraPosition}
-	mimeType, imageData, pcData, err := svc.GetMap(ctx, req.Name, req.MimeType,
-		referenceframe.ProtobufToPoseInFrame(pInFrame), req.IncludeRobotMarker)
-	if err != nil {
-		return nil, err
-	}
+	// pInFrame := &commonpb.PoseInFrame{Pose: req.CameraPosition}
+	// mimeType, imageData, pcData, err := svc.GetMap(ctx, req.Name, req.MimeType,
+	// 	referenceframe.ProtobufToPoseInFrame(pInFrame), req.IncludeRobotMarker)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	mimeType := req.MimeType //
 
 	resp := &pb.GetMapResponse{}
 	switch mimeType {
 	case utils.MimeTypeJPEG:
 		var buf bytes.Buffer
+		imageData := image.NewNRGBA(image.Rect(0, 0, 4, 4)) //
 		if err := jpeg.Encode(&buf, imageData, nil); err != nil {
 			return nil, err
 		}
@@ -90,7 +94,9 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 		}
 	case utils.MimeTypePCD:
 		var buf bytes.Buffer
-		if err := pointcloud.ToPCD(pcData.PointCloud, &buf, pointcloud.PCDBinary); err != nil {
+		pcData := pointcloud.New()
+		//if err := pointcloud.ToPCD(pcData.PointCloud, &buf, pointcloud.PCDBinary); err != nil {
+		if err := pointcloud.ToPCD(pcData, &buf, pointcloud.PCDBinary); err != nil {
 			return nil, err
 		}
 
