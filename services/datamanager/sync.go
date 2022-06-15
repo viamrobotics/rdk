@@ -23,7 +23,7 @@ var (
 	initialWaitTime        = time.Second
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
-	bufferSize             = 10
+	bufferSize             = 1 << 20
 )
 
 // syncManager is responsible for uploading files to the cloud every syncInterval.
@@ -280,12 +280,12 @@ func getNextWait(lastWait time.Duration) time.Duration {
 
 //nolint
 func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
-	// Open file
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
 		return errors.Wrapf(err, "error while opening file %s", path)
 	}
+	// Reset file pointer to ensure we are reading from beginning of file.
 	if _, err = f.Seek(0, 0); err != nil {
 		return err
 	}
@@ -294,21 +294,13 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 	loop := true
 	for loop {
 
-		// Check ctx for any errors, if yes return them.
-		if err := ctx.Err(); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				return errors.Wrap(err, "data manager context closed unexpectedly")
-			}
-			return err
-		}
-
 		// Get the next sensor data reading from file.
 		next, err := readNextSensorData(f)
 
 		// Do default as long as ctx.Done() is not the case.
 		select {
 		case <-ctx.Done():
-			return errors.New("sync context closed unexpectedly")
+			return context.Canceled
 		default:
 			// If EOF, we're done reading the file.
 			if errors.Is(err, io.EOF) {
@@ -327,9 +319,6 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 				return errors.Wrap(err, "error while sending sensorData")
 			}
 		}
-		// THE NOT PASSING TEST CASE IN FOR TABULAR UPLOAD
-		// COULD HAVE TO DO WITH CHANGED ORDER OF STATEMENTS
-		// IN UPLOAD FUNCTION.
 	}
 
 	if err = f.Close(); err != nil {
@@ -346,12 +335,12 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 
 //nolint
 func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
-	// Open file
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
 		return errors.Wrapf(err, "error while opening file %s", path)
 	}
+	// Reset file pointer to ensure we are reading from beginning of file.
 	if _, err = f.Seek(0, 0); err != nil {
 		return err
 	}
@@ -359,21 +348,13 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	loop := true
 	for loop {
 
-		// Check ctx for any errors, if yes return them.
-		if err := ctx.Err(); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				return errors.Wrap(err, "data manager context closed unexpectedly")
-			}
-			return err
-		}
-
 		// Get the next sensor data reading from file.
-		next, err := readNextFileDataChunking(f)
+		next, err := readNextFileChunk(f)
 
 		// Do default as long as ctx.Done() is not the case.
 		select {
 		case <-ctx.Done():
-			return errors.New("sync context closed unexpectedly")
+			return context.Canceled
 		default:
 			// If EOF, we're done reading the file.
 			if errors.Is(err, io.EOF) {
@@ -381,7 +362,7 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 				break
 			}
 			if err != nil {
-				return errors.Wrap(err, "error while reading sensorData")
+				return errors.Wrap(err, "error while reading fileData")
 			}
 			toSend := &v1.UploadRequest{
 				UploadPacket: &v1.UploadRequest_FileContents{
@@ -389,7 +370,7 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 				},
 			}
 			if err := client.Send(toSend); err != nil {
-				return errors.Wrap(err, "error while sending sensorData")
+				return errors.Wrap(err, "error while sending fileData")
 			}
 		}
 	}
@@ -420,18 +401,16 @@ func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
 	// Read the file as if it is SensorData, if err is not nil
 	// we assume it is FileData
 	sensorData, err := readNextSensorData(f)
-	// TODO(DATA-166) - figure out what error is returned by above
-	// so we aren't ignoring errors
 	//nolint
-	if err != nil {
+	if errors.Is(err, io.EOF) {
 		return v1.DataType_DATA_TYPE_FILE, nil
 	}
+	if err != nil {
+		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
+	}
 
-	// After narrowing down the file is SensorData, we need to
-	// determine if its BinaryData or TabularData. To do this we
-	// see if SensorData contains an arbitrary struct or a byte
-	// slice. If it is neither, return unspecified data type and
-	// an error that sensordata is not specified.
+	// If sensorData contains a struct it's tabular data; if it contains binary
+	// it's binary data; if it contains neither it is invalid.
 	if s := sensorData.GetStruct(); s != nil {
 		return v1.DataType_DATA_TYPE_TABULAR_SENSOR, nil
 	}
@@ -442,7 +421,6 @@ func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
 }
 
 func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
-	// Open file
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
@@ -453,15 +431,14 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return err
 	}
 
-	// First get uploadMetadata fields that we have access to with simple logic.
-	fileNameIncludingTimeStamp := f.Name()
-	btCaptureDirAndSubtypeName := strings.Index(fileNameIncludingTimeStamp, "/")
-	btSubtypeNameAndComponentName := strings.Index(fileNameIncludingTimeStamp[btCaptureDirAndSubtypeName+1:], "/")
-	btComponentNameAndFileStampName := strings.Index(fileNameIncludingTimeStamp[btSubtypeNameAndComponentName+1:], "/")
+	// Parse filepath to get metadata about the file which we will be reading from.
+	btwnCaptureDirAndSubtypeName := strings.Index(f.Name(), "/")
+	btwnSubtypeNameAndComponentName := strings.Index(f.Name()[btwnCaptureDirAndSubtypeName+1:], "/")
+	btwnComponentNameAndFileStampName := strings.Index(f.Name()[btwnSubtypeNameAndComponentName+1:], "/")
 
 	// Potentially useful values in the future (come from filename):
-	// sCaptureDir := fileNameIncludingTimeStamp[:btCaptureDirAndSubtypeName]
-	// sSubtypeName := fileNameIncludingTimeStamp[btCaptureDirAndSubtypeName+1 : btSubtypeNameAndComponentName]
+	// sCaptureDir := f.Name()[:btCaptureDirAndSubtypeName]
+	// sSubtypeName := f.Name()[btCaptureDirAndSubtypeName+1 : btSubtypeNameAndComponentName]
 
 	// METADATA FIELDS FOR CONSTRUCTION BELOW:
 	// PartName: TODO [DATA-164]
@@ -470,7 +447,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	// Type: Below
 	// FileName: Above
 
-	componentName := fileNameIncludingTimeStamp[btSubtypeNameAndComponentName+1 : btComponentNameAndFileStampName]
+	componentName := f.Name()[btwnSubtypeNameAndComponentName+1 : btwnComponentNameAndFileStampName]
 	dataType, err := getDataTypeFromLeadingMessage(path)
 	if err != nil {
 		return errors.Wrap(err, "error while getting metadata data type")
@@ -485,7 +462,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 				ComponentName: componentName,
 				MethodName:    "TODO [DATA-164]",
 				Type:          dataType,
-				FileName:      fileNameIncludingTimeStamp,
+				FileName:      f.Name(),
 			},
 		},
 	}
@@ -493,8 +470,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
-	mdtype := md.GetMetadata().GetType()
-	switch mdtype {
+	switch md.GetMetadata().GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
 		return sensorUpload(ctx, client, path)
 	case v1.DataType_DATA_TYPE_FILE:
@@ -515,18 +491,16 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 		return nil, err
 	}
 
-	switch r.GetBinary() {
-	case nil:
+	if r.GetBinary() == nil {
 		if r.GetStruct().Fields != nil {
 			return r, nil
 		}
 		return nil, io.EOF
-	default:
-		return r, nil
 	}
+	return r, nil
 }
 
-func readNextFileDataChunking(f *os.File) (*v1.FileData, error) {
+func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 	if _, err := f.Seek(0, 1); err != nil {
 		return nil, err
 	}
