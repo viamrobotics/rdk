@@ -278,6 +278,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
+//nolint
 func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 	// Open file
 	//nolint
@@ -343,10 +344,7 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 	return nil
 }
 
-// TODO:
-// When we add chunking for arbitrary data type file uploads we need to
-// process the data as a stream, this would include a buffer and a loop
-// that iterates and keeps reading and recording more data from the file.
+//nolint
 func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 	// Open file
 	//nolint
