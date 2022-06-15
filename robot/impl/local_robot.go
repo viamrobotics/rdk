@@ -373,7 +373,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 		if c := r.config.FindComponent(dep); c != nil {
 			res, err := r.ResourceByName(c.ResourceName())
 			if err != nil {
-				return nil, err
+				return nil, &registry.DependencyNotReadyError{Name: dep}
 			}
 			deps[c.ResourceName()] = res
 		}

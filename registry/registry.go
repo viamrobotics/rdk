@@ -94,6 +94,14 @@ type (
 	CreateRPCClient func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
 
+type DependencyNotReadyError struct {
+	Name string
+}
+
+func (e *DependencyNotReadyError) Error() string {
+	return fmt.Sprintf("dependency %q has not been registered yet", e.Name)
+}
+
 // Component stores a resource constructor (mandatory) and a Frame building function (optional).
 type Component struct {
 	RegDebugInfo

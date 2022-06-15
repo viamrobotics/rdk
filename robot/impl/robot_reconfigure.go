@@ -138,7 +138,7 @@ func (draft *draftRobot) newResource(ctx context.Context, config config.Componen
 		if c := draft.original.config.FindComponent(dep); c != nil {
 			res, err := draft.original.ResourceByName(c.ResourceName())
 			if err != nil {
-				return nil, err
+				return nil, &registry.DependencyNotReadyError{Name: dep}
 			}
 			deps[c.ResourceName()] = res
 		}
