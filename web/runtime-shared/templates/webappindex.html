@@ -85,7 +85,7 @@
       }
 
       function fixArmStatus(old) {
-        var newStatus = { pos_pieces : [], joint_pieces : [] };
+        var newStatus = { pos_pieces : [], joint_pieces : [], is_moving: old["is_moving"] || false };
         var fieldSetters = [
           ["x", "X"],
           ["y", "Y"],
@@ -163,7 +163,7 @@
 
       function fixRawStatus(name, status) {
         switch (theApp.resourceNameToSubtypeString(name)) {
-          // TODO (RDK-127): generate these using constants
+          // TODO (APP-146): generate these using constants
           case "rdk:component:arm":
             status = fixArmStatus(status);
             break;
@@ -488,11 +488,11 @@
               MotorControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
             },
             hasWebGamepad: function () {
-              // TODO (RDK-127): replace these with constants
+              // TODO (APP-146): replace these with constants
               return theData.resources.some((elem) => elem.namespace == "rdk" && elem.type == "component" && elem.subtype == "input_controller" && elem.name == "WebGamepad");
             },
             filteredInputControllerList: function () {
-              // TODO (RDK-127): replace these with constants
+              // TODO (APP-146): replace these with constants
               // filters out WebGamepad
               return theData.resources.filter((elem) => {
                 return elem.namespace == "rdk" && elem.type == "component" && elem.subtype == "input_controller" && elem.name !== "WebGamepad";
@@ -1003,7 +1003,7 @@
             },
           },
           directives: {
-            // TODO(RDK-41): replace with vue component after naveed work done
+            // TODO(APP-82): replace with vue component after naveed work done
             mapMounted(el) {
               if (theData.mapOnce) {
                 return;
@@ -1884,7 +1884,7 @@
     </div>
     <!-- end vue app -->
 
-    <!-- TODO(RDK-70): remove api key once going into production -->
+    <!-- TODO(RSDK-51): remove api key once going into production -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly" async></script>
   </body>
 </html>
