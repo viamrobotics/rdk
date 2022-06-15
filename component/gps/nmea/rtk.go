@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"bufio"
+	"sync"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -39,8 +40,12 @@ type RTKGPS struct {
 	ntripInputProtocol		string
 	ntripClient				ntripInfo
 	logger 					golog.Logger
-	port 					*bufio.Writer
+	correctionWriter 		io.ReadWriteCloser
 	ntripStatus				bool
+
+	cancelCtx               context.Context
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 type ntripInfo struct {
@@ -77,7 +82,9 @@ const (
 )
 
 func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.NMEAGPS, error) {
-	g := &RTKGPS{logger: logger}
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+
+	g := &RTKGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	g.ntripInputProtocol = config.Attributes.String(ntripInputProtocolAttrName)
 
@@ -144,72 +151,73 @@ func (g *RTKGPS) Start(ctx context.Context) {
 }
 
 // attempts to connect to ntrip client until successful connection or timeout
-func (g *RTKGPS) Connect(casterAddr string, user string, pwd string, maxAttempts int) (*ntrip.Client, error) {
+func (g *RTKGPS) Connect(casterAddr string, user string, pwd string, maxAttempts int) (error) {
 	success := false
 	attempts := 0
 
 	var c *ntrip.Client
 	var err error
 
-	g.logger.Info("Connecting")
+	g.logger.Debug("Connecting to NTRIP caster")
 	for !success && attempts < maxAttempts {
-		g.logger.Info("...")
 		c, err = ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
 		if err == nil {
 			success = true
 		}
 		attempts++
 	}
-	g.logger.Info("\n")
 
 	if err != nil {
-		g.logger.Fatalf("Can't connect to NTRIP caster: %s", err)
+		g.logger.Errorf("Can't connect to NTRIP caster: %s", err)
+		return err
 	}
 
 	g.ntripClient.client = c
 
-	return c, err
+	g.logger.Debug("Connected to NTRIP caster")
+
+	return nil
 }
 
 // attempts to connect to ntrip streak until successful connection or timeout
-func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) (io.ReadCloser, error) {
+func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) (error) {
 	success := false
 	attempts := 0
 
 	var rc io.ReadCloser
 	var err error
 
-	g.logger.Info("Getting Stream")
+	g.logger.Debug("Getting NTRIP stream")
 
 	for !success && attempts < maxAttempts {
-		g.logger.Info(("..."))
 		rc, err = g.ntripClient.client.GetStream(mountPoint)
 		if err == nil {
 			success = true
 		}
 		attempts++
 	}
-	g.logger.Info("\n")
 
 	if err != nil {
-		g.logger.Info("Can't connect to NTRIP stream: %s", err)
+		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
+		return err
 	}
 
 	g.ntripClient.stream = rc
 
-	g.logger.Info("Connected to stream")
+	g.logger.Debug("Connected to stream")
 
-	return rc, err
+	return nil
 }
 
 func (g *RTKGPS) ReceiveAndWriteSerial() {
-	c, err := g.Connect(g.ntripClient.url, g.ntripClient.username, g.ntripClient.password, g.ntripClient.maxConnectAttempts)
+	g.activeBackgroundWorkers.Add(1)
+	defer g.activeBackgroundWorkers.Done()
+	err := g.Connect(g.ntripClient.url, g.ntripClient.username, g.ntripClient.password, g.ntripClient.maxConnectAttempts)
 	if err != nil {
-		g.logger.Debug(err)
+		return
 	}
-	defer c.CloseIdleConnections()
 
-    if !c.IsCasterAlive() {
+    if !g.ntripClient.client.IsCasterAlive() {
         g.logger.Infof("caster %s seems to be down", g.ntripClient.url)
     }
 
@@ -222,39 +230,44 @@ func (g *RTKGPS) ReceiveAndWriteSerial() {
 	}
 
 	// Open the port.
-	port, err := slib.Open(options)
+	g.correctionWriter, err = slib.Open(options)
 	if err != nil {
-		g.logger.Fatalf("serial.Open: %v", err)
+		g.logger.Errorf("serial.Open: %v", err)
+		return
 	}
-	defer port.Close()
 
-	g.port = bufio.NewWriter(port)
+	w := bufio.NewWriter(g.correctionWriter)
 	
-	rc, err := g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
+	err = g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
 	if err != nil {
-		g.logger.Debug(err)
-	}
-	if rc != nil {
-		defer rc.Close()
+		return
 	}
 	
-	r := io.TeeReader(rc, g.port)
+	r := io.TeeReader(g.ntripClient.stream, w)
 	scanner := rtcm3.NewScanner(r)
 
 	g.ntripStatus = true
 
 	//reads in messages while stream is connected 
 	for err == nil {
+		select {
+		case <-g.cancelCtx.Done():
+			return
+		default:
+		}
+		
 		msg, err := scanner.NextMessage()
 		if err != nil {
 			//checks to make sure valid rtcm message has been received
 			g.ntripStatus = false
 			if msg == nil {
-				g.logger.Info("No message... reconnecting to stream...")
-				rc, err = g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
-				defer rc.Close()
+				g.logger.Debug("No message... reconnecting to stream...")
+				err = g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
+				if err != nil {
+					return
+				}
 
-				r = io.TeeReader(rc, g.port)
+				r = io.TeeReader(g.ntripClient.stream, w)
 				scanner = rtcm3.NewScanner(r)
 				g.ntripStatus = true
 				continue
@@ -293,10 +306,31 @@ func (g *RTKGPS) ReadValid(ctx context.Context) (bool, error) {
 }
 
 func (g *RTKGPS) Close() error {
-	// close NMEAGPS
+	g.cancelFunc()
+	g.activeBackgroundWorkers.Wait()
+
 	g.nmeagps.Close()
 
-	// TODO: close any ntrip connections
+	// close ntrip writer
+	if g.correctionWriter != nil {
+		if err := g.correctionWriter.Close(); err != nil {
+			return err
+		}
+		g.correctionWriter = nil
+	}
+
+	// close ntrip client and stream
+	if g.ntripClient.client != nil {
+		g.ntripClient.client.CloseIdleConnections()
+		g.ntripClient.client = nil
+	}
+
+	if g.ntripClient.stream != nil {
+		if err := g.ntripClient.stream.Close(); err != nil {
+			return err
+		}
+		g.ntripClient.stream = nil
+	}
 
 	return nil
 }
