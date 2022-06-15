@@ -39,5 +39,4 @@ func TestEstimateMotionFrom2Frames(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -1.0)
 	test.That(t, motion.Translation.At(1, 0), test.ShouldBeLessThan, 0.2)
-	test.That(t, motion.Translation.At(0, 0), test.ShouldEqual, 0.7090256258955666)
 }
