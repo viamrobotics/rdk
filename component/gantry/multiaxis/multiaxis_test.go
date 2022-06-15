@@ -20,7 +20,7 @@ import (
 
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 	fakeoneaxis := &inject.Gantry{
-		Gantry: nil,
+		LocalGantry: nil,
 		GetPositionFunc: func(ctx context.Context) ([]float64, error) {
 			return positions, nil
 		},

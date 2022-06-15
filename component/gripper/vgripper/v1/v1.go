@@ -80,7 +80,7 @@ func newGripperV1(
 	theBoard board.Board,
 	cfg config.Component,
 	logger golog.Logger,
-) (gripper.Gripper, error) {
+) (gripper.LocalGripper, error) {
 	pressureLimit := cfg.Attributes.Int("pressure_limit", 800)
 	_motor, err := motor.FromDependencies(deps, "g")
 	if err != nil {
@@ -431,7 +431,14 @@ func (vg *gripperV1) stopAfterError(ctx context.Context, other error) error {
 
 // Stop stops the motors.
 func (vg *gripperV1) Stop(ctx context.Context) error {
+	ctx, done := vg.opMgr.New(ctx)
+	defer done()
 	return vg.motor.Stop(ctx)
+}
+
+// IsMoving returns whether the gripper is moving.
+func (vg *gripperV1) IsMoving() bool {
+	return vg.opMgr.OpRunning()
 }
 
 func (vg *gripperV1) readCurrent(ctx context.Context) (int, error) {
