@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -66,6 +67,18 @@ func init() {
 			return svc, nil
 		},
 	})
+	cType := config.ServiceType(SubtypeName)
+	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf AttrConfig
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	}, &AttrConfig{})
 }
 
 // SubtypeName is the name of the type of service.
@@ -373,12 +386,12 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		activeBackgroundWorkers: &sync.WaitGroup{},
 	}
 
-	if err := runtimeServiceValidation(cancelCtx, cam, slamSvc); err != nil {
-		if err := slamSvc.Close(); err != nil {
-			return nil, errors.Errorf("error closing out after slam service error: %v", err)
-		}
-		return nil, errors.Errorf("runtime slam service error: %v", err)
-	}
+	// if err := runtimeServiceValidation(cancelCtx, cam, slamSvc); err != nil {
+	// 	if err := slamSvc.Close(); err != nil {
+	// 		return nil, errors.Errorf("error closing out after slam service error: %v", err)
+	// 	}
+	// 	return nil, errors.Errorf("runtime slam service error: %v", err)
+	// }
 
 	slamSvc.StartDataProcess(cancelCtx, cam)
 
@@ -391,7 +404,10 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	client, err := setupGRPCConnection(ctx, port, logger)
 	if err != nil {
-		return nil, errors.Errorf("error with initial grpc client to slam algorithm: %v", err)
+		client, err = setupGRPCConnection(ctx, port, logger)
+		if err != nil {
+			return nil, errors.Errorf("error with initial grpc client to slam algorithm: %v", err)
+		}
 	}
 	slamSvc.clientAlgo = client
 
@@ -476,7 +492,7 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) ([]string, err
 		Name:    SLAMLibraries[slamSvc.slamLib.AlgoName].BinaryLocation,
 		Args:    args,
 		Log:     true,
-		OneShot: true,
+		OneShot: false,
 	}
 
 	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, processCfg)

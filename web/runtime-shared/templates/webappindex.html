@@ -705,6 +705,30 @@
                   });
               });
             },
+            viewSLAMMap: function () {
+              req = new slamApi.GetMapRequest();
+              req.setName("UI");
+              const mimeType = "image/jpeg";
+              req.setMimeType(mimeType);
+              // req.setCameraPosition(cameraName);
+              // req.setIncludeRobotMarker(true);
+              // const mimeType = "image/jpeg";
+              // req.setMimeType(mimeType);
+              slamService.renderFrame(req, {}, (err, resp) => {
+                grpcCallback(err, resp, false);
+                const streamContainer = document.getElementById(`stream-${cameraName}`);
+                if (streamContainer && streamContainer.getElementsByTagName("video").length > 0) {
+                    streamContainer.getElementsByTagName("video")[0].remove();
+                }
+                if (streamContainer && streamContainer.getElementsByTagName("img").length > 0) {
+                    streamContainer.getElementsByTagName("img")[0].remove();
+                }
+                const image = new Image();
+                let blob = new Blob([resp.getData_asU8()], { type: mimeType });
+                image.src = URL.createObjectURL(blob);
+                streamContainer.appendChild(image);
+              });
+            },
             getReadings: function (sensorNames) {
               var req = new sensorsApi.GetReadingsRequest();
               let names = sensorNames.map((name) => {
@@ -1880,6 +1904,18 @@
                       @select-object="doSelectObject"
               ></camera>
           </div>
+          <!-- ******* SLAM *******  -->
+          <div class="slam pb-4" v-for="streamName in streamNames" :key="streamName">
+            <camera
+                    :stream-name="streamName"
+                    :crumbs="[streamName]"
+                    :x="pcdClick.x"
+                    :y="pcdClick.y"
+                    :z="pcdClick.z"
+                    :pcd-click="pcdClick"
+                    @refresh-camera="viewSLAMMap"
+            ></camera>
+        </div>
         </div>
     </div>
     <!-- end vue app -->
