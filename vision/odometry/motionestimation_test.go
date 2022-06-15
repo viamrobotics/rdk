@@ -2,8 +2,6 @@ package odometry
 
 import (
 	"testing"
-
-
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
