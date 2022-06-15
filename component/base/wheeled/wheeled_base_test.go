@@ -12,14 +12,24 @@ import (
 	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 )
+
+func fakeDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[motor.Named("fl-m")] = &fake.Motor{}
+	deps[motor.Named("fr-m")] = &fake.Motor{}
+	deps[motor.Named("bl-m")] = &fake.Motor{}
+	deps[motor.Named("br-m")] = &fake.Motor{}
+	return deps
+}
 
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
 
-	deps := registry.Dependencies(map[resource.Name]interface{}{motor.Named("fake"): &fake.Motor{}})
+	deps := fakeDependencies(t)
 
 	_, err := CreateFourWheelBase(context.Background(), deps, config.Component{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -231,11 +241,7 @@ func TestFourWheelBase1(t *testing.T) {
 
 func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
-
-	fakeMotor := &fake.Motor{}
-	deps := registry.Dependencies(map[resource.Name]interface{}{
-		motor.Named(fakeMotor.Name): fakeMotor,
-	})
+	deps := fakeDependencies(t)
 
 	_, err := CreateWheeledBase(context.Background(), deps, &Config{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
