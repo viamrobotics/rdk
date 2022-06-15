@@ -136,86 +136,22 @@ func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
 
 func TestFileUpload(t *testing.T) {
 	msgEmpty := []byte("")
-	msgContents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
+	msgContents := []byte("This is part of testing in datamanager service in RDK.")
 
 	tests := []struct {
 		name    string
 		toSend  []byte
-		expMsgs []v1.UploadRequest
+		expData [][]byte
 	}{
 		{
-			name:   "not empty",
-			toSend: msgContents,
-			expMsgs: []v1.UploadRequest{
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msgContents[0:bufferSize],
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msgContents[bufferSize:(bufferSize * 2)],
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msgContents[(bufferSize * 2):(bufferSize * 3)],
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msgContents[(bufferSize * 3):(bufferSize * 4)],
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msgContents[(bufferSize * 4):(bufferSize * 5)],
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msgContents[(bufferSize * 5):(bufferSize * 6)],
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msgContents[(bufferSize * 6):(bufferSize * 7)],
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msgContents[(bufferSize * 7):(bufferSize * 8)],
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_FileContents{
-						FileContents: &v1.FileData{
-							Data: msgContents[(bufferSize * 8):],
-						},
-					},
-				},
-			},
+			name:    "not empty",
+			toSend:  msgContents,
+			expData: [][]byte{msgContents},
 		},
 		{
 			name:    "empty",
 			toSend:  msgEmpty,
-			expMsgs: []v1.UploadRequest{},
+			expData: [][]byte{},
 		},
 	}
 
@@ -253,8 +189,22 @@ func TestFileUpload(t *testing.T) {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
+		// var expdata [][]byte
+		// creating []v1.UploadRequest object from test case input 'expData [][]byte'
+		expectedMsgs := []v1.UploadRequest{}
+		for _, expMsg := range tc.expData {
+			expectedMsgs = append(expectedMsgs, v1.UploadRequest{
+				UploadPacket: &v1.UploadRequest_FileContents{
+					FileContents: &v1.FileData{
+						Data: expMsg,
+					},
+				},
+			})
+
+		}
+
 		// The mc.sent value should be the same as the tc.expMsg value
-		test.That(t, mc.sent, test.ShouldResemble, tc.expMsgs)
+		test.That(t, mc.sent, test.ShouldResemble, expectedMsgs)
 	}
 }
 
