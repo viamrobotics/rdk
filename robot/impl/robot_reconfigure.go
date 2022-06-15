@@ -144,7 +144,14 @@ func (draft *draftRobot) newResource(ctx context.Context, config config.Componen
 		}
 	}
 
-	newResource, err := f.Constructor(ctx, deps, config, draft.original.logger)
+	var newResource interface{}
+	var err error
+	if f.Constructor != nil {
+		newResource, err = f.Constructor(ctx, deps, config, draft.original.logger)
+	} else {
+		draft.original.logger.Warnw("using legacy constructor", "subtype", rName.Subtype, "model", config.Model)
+		newResource, err = f.RobotConstructor(ctx, draft, config, draft.original.logger)
+	}
 
 	if err != nil {
 		return nil, err
