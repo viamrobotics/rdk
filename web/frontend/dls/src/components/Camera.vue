@@ -8,7 +8,7 @@
       <template v-slot:content>
         <div
           class="border-l border-r border-b border-black p-2"
-          :style="{ height: maxHeight + 'px' }"
+          :style="{ height: height }"
         >
           <Container>
             <div class="pt-4">
@@ -149,7 +149,7 @@
                   </ViamButton>
                 </div>
                 <div class="table relative pb-6" id="pcd" @click="pcdClick">
-                  <div class="absolute r-0 bottom-0 right-0">
+                  <div class="absolute r-0 bottom-0 right-0 whitespace-nowrap">
                     <span class="text-xs">Controls</span>
                     <ViamInfoButton
                       :iconPath="mdiInformationOutline"
@@ -388,7 +388,7 @@ export default class Base extends Vue {
   mdiRestore = mdiRestore;
   camera = !this.connectedCamera;
   pcd = !this.connectedPCD;
-  maxHeight = 150;
+  height = "auto";
   selectedValue = "live";
   selectedSegmenterValue = "";
   streamId = "stream-" + this.streamName;
@@ -404,16 +404,6 @@ export default class Base extends Vue {
   ];
   selectedObject = "";
 
-  beforeMount(): void {
-    window.addEventListener("resize", this.resizeContent);
-  }
-
-  beforeDestroy(): void {
-    window.removeEventListener("resize", this.resizeContent);
-  }
-  mounted(): void {
-    this.resizeContent();
-  }
   toggleExpand(): void {
     this.camera = !this.camera;
     this.$emit("toggle-camera", this.camera);
@@ -494,17 +484,9 @@ export default class Base extends Vue {
     this.$emit("toggle-pcd", this.pcd);
     this.resizeContent();
   }
+
   resizeContent(): void {
-    // TODO: revisit resize logic, remove static numbers
-    if (this.camera && this.pcd) {
-      this.maxHeight = 2250;
-    } else if (this.camera && !this.pcd) {
-      this.maxHeight = 1250;
-    } else if (this.pcd && !this.camera) {
-      this.maxHeight = 1100;
-    } else {
-      this.maxHeight = 150;
-    }
+    this.height = "auto";
   }
 }
 </script>

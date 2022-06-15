@@ -79,7 +79,7 @@ func (s *Server) GetOperations(ctx context.Context, req *pb.GetOperationsRequest
 
 func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 	if i == nil {
-		return &structpb.Struct{}, nil // TODO(cheuk): should InterfaceToMap handle nil?
+		return &structpb.Struct{}, nil
 	}
 	m, err := protoutils.InterfaceToMap(i)
 	if err != nil {

@@ -30,6 +30,7 @@ require (
 	github.com/golangci/golangci-lint v1.46.3-0.20220606112104-c531fc2ad559
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b
+	github.com/google/flatbuffers v1.11.0
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.5.0
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
@@ -39,12 +40,14 @@ require (
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/maorshutman/lm v0.0.0-20190501150544-7c8d1397ebf3
+	github.com/mattn/go-tflite v1.0.2
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.3.4-0.20220328105715-70261260cb6f
 	github.com/pion/webrtc/v3 v3.1.41
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
@@ -208,6 +211,7 @@ require (
 	github.com/matoous/godox v0.0.0-20210227103229-6504466cf951 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/revive v1.2.1 // indirect
