@@ -6,6 +6,7 @@ import (
 	"io"
 	"bufio"
 	"sync"
+	"errors"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -160,6 +161,12 @@ func (g *RTKGPS) Connect(casterAddr string, user string, pwd string, maxAttempts
 
 	g.logger.Debug("Connecting to NTRIP caster")
 	for !success && attempts < maxAttempts {
+		select {
+		case <-g.cancelCtx.Done():
+			return errors.New("Canceled")
+		default:
+		}
+
 		c, err = ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
 		if err == nil {
 			success = true
@@ -190,6 +197,12 @@ func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) (error) {
 	g.logger.Debug("Getting NTRIP stream")
 
 	for !success && attempts < maxAttempts {
+		select {
+		case <-g.cancelCtx.Done():
+			return errors.New("Canceled")
+		default:
+		}
+
 		rc, err = g.ntripClient.client.GetStream(mountPoint)
 		if err == nil {
 			success = true
