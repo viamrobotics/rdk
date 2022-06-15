@@ -2,7 +2,6 @@ package vision
 
 import (
 	"bufio"
-	"fmt"
 	"image"
 	"os"
 	"strconv"
@@ -35,7 +34,7 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 	var t TfliteDetectorConfig
 	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
 	if err != nil {
-		return nil, errors.Errorf("error getting parameters from config")
+		return nil, errors.New("error getting parameters from config")
 	}
 	params, ok := tfParams.(*TfliteDetectorConfig)
 	if !ok {
@@ -114,10 +113,26 @@ func tfliteInfer(model *inf.TFLiteStruct, image image.Image) ([]interface{}, err
 func imageToBuffer(img image.Image) []byte {
 	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
 
-	for x := 0; x < img.Bounds().Dx(); x++ {
-		for y := 0; y < img.Bounds().Dy(); y++ {
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()
 			rr, gg, bb := uint8(float64(r)*255/float64(a)), uint8(float64(g)*255/float64(a)), uint8(float64(b)*255/float64(a))
+			output[(y*img.Bounds().Dx()+x)*3+0] = rr
+			output[(y*img.Bounds().Dx()+x)*3+1] = gg
+			output[(y*img.Bounds().Dx()+x)*3+2] = bb
+		}
+	}
+	return output
+}
+
+/*
+func imageToBuffer2(img image.Image) []byte {
+	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
+
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			r, g, b, _ := img.At(x, y).RGBA()
+			rr, gg, bb := uint8(r), uint8(g), uint8(b)
 			output[(y*img.Bounds().Dx())+x+0] = rr
 			output[(y*img.Bounds().Dx())+x+1] = gg
 			output[(y*img.Bounds().Dx())+x+2] = bb
@@ -125,6 +140,7 @@ func imageToBuffer(img image.Image) []byte {
 	}
 	return output
 }
+*/
 
 // unpackTensors takes the model's output tensors as input and forms them into objdet.Detections
 func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []string, logger golog.Logger) []objectdetection.Detection {
@@ -269,7 +285,7 @@ func getBboxOrder(model *inf.TFLiteStruct) ([]int, error) {
 			}
 		}
 	}
-	
+
 	return bboxOrder, nil
 }
 

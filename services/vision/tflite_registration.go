@@ -15,5 +15,4 @@ func registerTfliteDetector(dm detectorMap, conf *DetectorConfig, logger golog.L
 	}
 
 	return dm.registerDetector(conf.Name, detector, logger)
-
 }
