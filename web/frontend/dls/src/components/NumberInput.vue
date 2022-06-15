@@ -44,16 +44,16 @@
   </div>
 </template>
 <script lang="ts">
-import { Component, Vue, Prop } from "vue-property-decorator";
-import { mdiChevronDown, mdiChevronUp } from "@mdi/js";
-import ViamIcon from "./ViamIcon.vue";
+import { Component, Vue, Prop } from 'vue-property-decorator';
+import { mdiChevronDown, mdiChevronUp } from '@mdi/js';
+import ViamIcon from './ViamIcon.vue';
 const REGEXP_NUMBER = /^-?(?:[0-9]+|[0-9]+\.[0-9]*|\.[0-9]+)$/;
 
 @Component({
-  name: "NumberInput",
+  name: 'NumberInput',
   model: {
-    prop: "value",
-    event: "input",
+    prop: 'value',
+    event: 'input',
   },
   components: {
     ViamIcon,
@@ -78,11 +78,11 @@ export default class NumberInput extends Vue {
   public disabled!: boolean;
   @Prop({ required: true })
   public value!: number;
-  @Prop({ default: "" })
+  @Prop({ default: '' })
   public placeholder!: string;
   @Prop({ default: false })
   public small!: boolean;
-  @Prop({ default: "DefaultId" })
+  @Prop({ default: 'DefaultId' })
   id!: string;
 
   mdiChevronDown = mdiChevronDown;
@@ -96,7 +96,7 @@ export default class NumberInput extends Vue {
     if (this.isNumber(`${value}`)) {
       result = this.calcValueWithRestrictions(Number(value));
     }
-    this.$emit("input", result);
+    this.$emit('input', result);
   }
 
   get canBeEditted(): boolean {
@@ -104,7 +104,7 @@ export default class NumberInput extends Vue {
   }
 
   get iconColor(): string {
-    return this.disabled ? "#9d9d9d" : "black";
+    return this.disabled ? '#9d9d9d' : 'black';
   }
 
   arrowClicked(handler: () => void): void {
@@ -115,8 +115,8 @@ export default class NumberInput extends Vue {
   }
   handleKeyboardArrowKeys(event: KeyboardEvent): void {
     if (!this.canBeEditted) return;
-    if (event.key === "ArrowUp") this.increase();
-    else if (event.key === "ArrowDown") this.decrease();
+    if (event.key === 'ArrowUp') this.increase();
+    else if (event.key === 'ArrowDown') this.decrease();
   }
 
   calcValueWithRestrictions(possibleValue: number): number {
@@ -125,8 +125,8 @@ export default class NumberInput extends Vue {
 
   inputEventHandler(event: InputEvent): void {
     const input = event.target as HTMLInputElement;
-    let value = input.value.replace(/,/g, ".");
-    if (!this.float) value = input.value.replace(/\./g, "");
+    let value = input.value.replace(/,/g, '.');
+    if (!this.float) value = input.value.replace(/\./g, '');
     if (!this.isNumber(value)) input.value = `${this.innerValue}`;
     else {
       const newValue = this.calcValueWithRestrictions(Number(value));
@@ -138,7 +138,7 @@ export default class NumberInput extends Vue {
   pasteEventHandler(event: ClipboardEvent): void {
     if (
       event.clipboardData &&
-      !this.isNumber(event.clipboardData.getData("text"))
+      !this.isNumber(event.clipboardData.getData('text'))
     )
       event.preventDefault();
   }

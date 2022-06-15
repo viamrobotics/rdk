@@ -19,10 +19,10 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from "vue-property-decorator";
-import InputController from "@/components/InputController.vue";
-import MotorDetail from "@/components/MotorDetail.vue";
-import WebGamepad from "@/components/WebGamepad.vue"; // @ is an alias to /src
+import { Component, Vue } from 'vue-property-decorator';
+import InputController from '@/components/InputController.vue';
+import MotorDetail from '@/components/MotorDetail.vue';
+import WebGamepad from '@/components/WebGamepad.vue'; // @ is an alias to /src
 
 @Component({
   components: {

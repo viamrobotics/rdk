@@ -186,22 +186,22 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import "vue-class-component/hooks";
-import Collapse from "./Collapse.vue";
-import NumberInput from "./NumberInput.vue";
-import Breadcrumbs from "./Breadcrumbs.vue";
-import ViamIcon from "./ViamIcon.vue";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import 'vue-class-component/hooks';
+import Collapse from './Collapse.vue';
+import NumberInput from './NumberInput.vue';
+import Breadcrumbs from './Breadcrumbs.vue';
+import ViamIcon from './ViamIcon.vue';
 import {
   mdiRestore,
   mdiPlayCircleOutline,
   mdiCloseOctagonOutline,
-} from "@mdi/js";
-import Tabs from "./Tabs.vue";
-import Tab from "./Tab.vue";
-import RadioButtons from "./RadioButtons.vue";
-import "vue-popperjs/dist/vue-popper.css";
-import ViamButton from "./Button.vue";
+} from '@mdi/js';
+import Tabs from './Tabs.vue';
+import Tab from './Tab.vue';
+import RadioButtons from './RadioButtons.vue';
+import 'vue-popperjs/dist/vue-popper.css';
+import ViamButton from './Button.vue';
 
 @Component({
   components: {
@@ -226,16 +226,16 @@ export default class Base extends Vue {
   mdiCloseOctagonOutline = mdiCloseOctagonOutline;
 
   camera = this.connectedCamera;
-  height = "auto";
-  selectedValue = "NoCamera";
+  height = 'auto';
+  selectedValue = 'NoCamera';
   isContinuous = true;
-  streamId = "stream-preview-" + this.streamName;
-  selectedItem = "keyboard";
+  streamId = 'stream-preview-' + this.streamName;
+  selectedItem = 'keyboard';
   pressedKey = 0;
-  movementMode = "Straight";
-  movementType = "Continous";
-  direction = "Forwards";
-  spinType = "Clockwise";
+  movementMode = 'Straight';
+  movementType = 'Continous';
+  direction = 'Forwards';
+  spinType = 'Clockwise';
   increment = 1000;
   maxClusteringRadius = 90;
   maxDistance = Math.pow(2, 32);
@@ -243,15 +243,15 @@ export default class Base extends Vue {
   speed = 200;
   angle = 0;
   cameraOptions = [
-    { value: "NoCamera", label: "No Camera" },
-    { value: "Camera1", label: "Camera1" },
+    { value: 'NoCamera', label: 'No Camera' },
+    { value: 'Camera1', label: 'Camera1' },
   ];
 
   resetDiscreteState(): void {
-    this.movementMode = "Straight";
-    this.movementType = "Continous";
-    this.direction = "Forwards";
-    this.spinType = "Clockwise";
+    this.movementMode = 'Straight';
+    this.movementType = 'Continous';
+    this.direction = 'Forwards';
+    this.spinType = 'Clockwise';
   }
 
   setMovementMode(e: string): void {
@@ -272,7 +272,7 @@ export default class Base extends Vue {
   }
   baseRun(): void {
     this.$emit(
-      "base-run",
+      'base-run',
       this.movementMode,
       this.movementType,
       this.spinType,
@@ -283,7 +283,7 @@ export default class Base extends Vue {
     e.preventDefault();
     e.stopPropagation();
     this.$emit(
-      "base-stop",
+      'base-stop',
       this.movementMode,
       this.movementType,
       this.spinType,
@@ -298,7 +298,7 @@ export default class Base extends Vue {
       right: keysPressed.right,
       left: keysPressed.left,
     };
-    this.$emit("keyboard-ctl", toEmit);
+    this.$emit('keyboard-ctl', toEmit);
   }
   removeKeyboardListeners(): void {
     // eslint-disable-next-line

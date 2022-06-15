@@ -20,9 +20,9 @@
   </collapse>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import Collapse from "./Collapse.vue";
-import { find } from "lodash";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import Collapse from './Collapse.vue';
+import { find } from 'lodash';
 
 @Component({
   components: {
@@ -30,10 +30,10 @@ import { find } from "lodash";
   },
 })
 export default class ViamRange extends Vue {
-  @Prop({ default: "" }) name!: string;
-  @Prop({ default: "DefaultId" }) id!: string;
-  @Prop({ default: "value" }) valueKey!: string;
-  @Prop({ default: "label" }) labelKey!: string;
+  @Prop({ default: '' }) name!: string;
+  @Prop({ default: 'DefaultId' }) id!: string;
+  @Prop({ default: 'value' }) valueKey!: string;
+  @Prop({ default: 'label' }) labelKey!: string;
 
   @Prop({ required: true }) value!: number | string;
   @Prop({ required: true, type: Array }) options!: Record<string, unknown>[];
@@ -42,7 +42,7 @@ export default class ViamRange extends Vue {
     return this.value;
   }
   set innerValue(value: number | string) {
-    this.$emit("input", value);
+    this.$emit('input', value);
   }
 
   get selectedLabel(): string | null {
@@ -59,7 +59,7 @@ export default class ViamRange extends Vue {
     // eslint-disable-next-line
     const collapse: any = this.$refs.collapse;
     collapse.toggleExpand();
-    this.$emit("selected", key);
+    this.$emit('selected', key);
   }
 }
 </script>

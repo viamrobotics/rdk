@@ -1,10 +1,10 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("Base", module).add("Default Base", () => ({
+storiesOf('Base', module).add('Default Base', () => ({
   data() {
     return {
-      streamName: "minirover",
-      crumbs: ["Base", "4 Wheel"],
+      streamName: 'minirover',
+      crumbs: ['Base', '4 Wheel'],
     };
   },
   template:

@@ -33,7 +33,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component({
   components: {},
@@ -41,7 +41,7 @@ import { Component, Prop, Vue } from "vue-property-decorator";
 export default class ViamTabs extends Vue {
   @Prop({ default: false }) disabled?: boolean;
   @Prop({ default: false }) selected?: boolean;
-  @Prop({ default: "button" }) tag?: string;
+  @Prop({ default: 'button' }) tag?: string;
 }
 </script>
 <style>

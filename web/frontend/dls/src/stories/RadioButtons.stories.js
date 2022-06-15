@@ -1,9 +1,9 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("RadioButtons", module).add("Default RadioButtons", () => ({
+storiesOf('RadioButtons', module).add('Default RadioButtons', () => ({
   data() {
     return {
-      streamNames: ["test1", "test2"],
+      streamNames: ['test1', 'test2'],
     };
   },
   template: `

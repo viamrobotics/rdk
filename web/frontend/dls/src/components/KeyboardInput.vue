@@ -39,18 +39,18 @@
   </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from "vue-property-decorator";
-import { throttle, debounce } from "lodash";
-import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
-import ViamIcon from "./ViamIcon.vue";
-import ViamButton from "./Button.vue";
-import ViamSwitch from "./Switch.vue";
+import { Component, Vue } from 'vue-property-decorator';
+import { throttle, debounce } from 'lodash';
+import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from '@mdi/js';
+import ViamIcon from './ViamIcon.vue';
+import ViamButton from './Button.vue';
+import ViamSwitch from './Switch.vue';
 
 const PressedKeysMap: { [index: string]: string } = {
-  "87": "forward",
-  "83": "backward",
-  "65": "left",
-  "68": "right",
+  '87': 'forward',
+  '83': 'backward',
+  '65': 'left',
+  '68': 'right',
 };
 
 // TODO: remove debounce if not needed
@@ -79,10 +79,10 @@ export default class KeyboardInput extends Vue {
   isActive = false;
 
   keyLetters = {
-    forward: "W",
-    left: "A",
-    backward: "S",
-    right: "D",
+    forward: 'W',
+    left: 'A',
+    backward: 'S',
+    right: 'D',
   };
 
   keyIcons = {
@@ -93,14 +93,14 @@ export default class KeyboardInput extends Vue {
   };
 
   //for template section
-  keysLayout = [["forward"], ["left", "backward", "right"]];
+  keysLayout = [['forward'], ['left', 'backward', 'right']];
 
   sendKeysState = debounce(() => {
     this.handleKeysStateInstantly();
   }, inputDelay);
 
   handleKeysStateInstantly(): void {
-    this.emitEvent("keyboard-ctl");
+    this.emitEvent('keyboard-ctl');
   }
 
   emitEvent = throttle((eventName: string) => {
@@ -118,7 +118,7 @@ export default class KeyboardInput extends Vue {
   onUseKeyboardNav(event: KeyboardEvent): void {
     const key = PressedKeysMap[event.keyCode];
     if (!key) return;
-    this.setKeyPressed(key, event.type === "keydown");
+    this.setKeyPressed(key, event.type === 'keydown');
     event.preventDefault();
   }
 
@@ -132,14 +132,14 @@ export default class KeyboardInput extends Vue {
 
   addKeyboardListeners(): void {
     this.isActive = true;
-    window.addEventListener("keydown", this.onUseKeyboardNav, false);
-    window.addEventListener("keyup", this.onUseKeyboardNav, false);
+    window.addEventListener('keydown', this.onUseKeyboardNav, false);
+    window.addEventListener('keyup', this.onUseKeyboardNav, false);
   }
 
   removeKeyboardListeners(): void {
     this.isActive = false;
-    window.removeEventListener("keydown", this.onUseKeyboardNav);
-    window.removeEventListener("keyup", this.onUseKeyboardNav);
+    window.removeEventListener('keydown', this.onUseKeyboardNav);
+    window.removeEventListener('keyup', this.onUseKeyboardNav);
   }
 }
 </script>

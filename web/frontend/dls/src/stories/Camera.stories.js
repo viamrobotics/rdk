@@ -1,17 +1,17 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("Camera", module).add("Default Camera", () => ({
+storiesOf('Camera', module).add('Default Camera', () => ({
   data() {
     return {
       first: {
-        streamName: "Camera1",
-        crumbs: ["Camera", "Intel"],
-        segmentAlgo: ["Camera", "Intel"],
+        streamName: 'Camera1',
+        crumbs: ['Camera', 'Intel'],
+        segmentAlgo: ['Camera', 'Intel'],
       },
       second: {
-        streamName: "Camera2",
-        crumbs: ["Camera2", "Intel2"],
-        segmentAlgo: ["Camera3", "Intel3"],
+        streamName: 'Camera2',
+        crumbs: ['Camera2', 'Intel2'],
+        segmentAlgo: ['Camera3', 'Intel3'],
       },
     };
   },

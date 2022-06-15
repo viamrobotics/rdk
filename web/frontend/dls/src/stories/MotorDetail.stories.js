@@ -1,10 +1,10 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("MotorDetail", module).add("Default MotorDetail", () => ({
+storiesOf('MotorDetail', module).add('Default MotorDetail', () => ({
   data() {
     return {
-      streamName: "Left Motor",
-      crumbs: ["Motor"],
+      streamName: 'Left Motor',
+      crumbs: ['Motor'],
       motorStatus: {
         isOn: true,
         positionReporting: true,

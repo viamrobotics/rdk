@@ -1,12 +1,12 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("ViamSelect", module).add("Default ViamSelect", () => ({
+storiesOf('ViamSelect', module).add('Default ViamSelect', () => ({
   data() {
     return {
       value: 1,
       options: [
-        { label: "no camera", value: 1 },
-        { label: "camera", value: 2 },
+        { label: 'no camera', value: 1 },
+        { label: 'camera', value: 2 },
       ],
     };
   },

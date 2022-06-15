@@ -11,13 +11,13 @@
 
 <script>
 export default {
-  name: "app",
+  name: 'app',
   components: {},
 };
 </script>
 
 <style>
-@import "./assets/css/styles.css";
+@import './assets/css/styles.css';
 #app {
   width: 1080px;
 }

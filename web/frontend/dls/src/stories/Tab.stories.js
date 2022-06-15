@@ -1,11 +1,11 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("Tab", module).add("Default Tab", () => ({
+storiesOf('Tab', module).add('Default Tab', () => ({
   data() {
     return {
-      streamName: "minirover",
-      crumbs: ["Base", "4 Wheel"],
-      selectedItem: "keyboard",
+      streamName: 'minirover',
+      crumbs: ['Base', '4 Wheel'],
+      selectedItem: 'keyboard',
     };
   },
   template: `

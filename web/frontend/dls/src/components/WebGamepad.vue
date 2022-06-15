@@ -40,15 +40,15 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from "vue-property-decorator";
-import { Timestamp } from "google-protobuf/google/protobuf/timestamp_pb";
+import { Component, Vue } from 'vue-property-decorator';
+import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 
 import {
   TriggerEventRequest,
   Event,
-} from "proto/api/component/inputcontroller/v1/input_controller_pb";
+} from 'proto/api/component/inputcontroller/v1/input_controller_pb';
 
-import RadioButtons from "./RadioButtons.vue";
+import RadioButtons from './RadioButtons.vue';
 
 @Component({
   components: {
@@ -58,7 +58,7 @@ import RadioButtons from "./RadioButtons.vue";
 export default class WebGamepad extends Vue {
   gamepad = navigator.getGamepads()[0];
   gamepadState = null;
-  gamepadName = "Waiting for gamepad...";
+  gamepadName = 'Waiting for gamepad...';
   gamepadConnected = false;
   gamepadConnectedPrev = false;
   enabledBool = false;
@@ -132,17 +132,17 @@ export default class WebGamepad extends Vue {
       let newEvent = new Event();
       newEvent.setTime(Timestamp.fromDate(new Date()));
       if (ctrl.match(/X|Y|Z$/)) {
-        newEvent.setControl("Absolute" + ctrl);
-        newEvent.setEvent("PositionChangeAbs");
+        newEvent.setControl('Absolute' + ctrl);
+        newEvent.setEvent('PositionChangeAbs');
       } else {
-        newEvent.setControl("Button" + ctrl);
+        newEvent.setControl('Button' + ctrl);
         newEvent.setEvent(
-          this.curStates[ctrl] ? "ButtonPress" : "ButtonRelease"
+          this.curStates[ctrl] ? 'ButtonPress' : 'ButtonRelease'
         );
       }
 
       if (Number.isNaN(this.curStates[ctrl])) {
-        newEvent.setEvent("Disconnect");
+        newEvent.setEvent('Disconnect');
         newEvent.setValue(0);
       } else {
         newEvent.setValue(this.curStates[ctrl]);
@@ -162,12 +162,12 @@ export default class WebGamepad extends Vue {
     for (const ctrl in this.curStates) {
       let newEvent = new Event();
       newEvent.setTime(Timestamp.fromDate(new Date()));
-      newEvent.setEvent(con ? "Connect" : "Disconnect");
+      newEvent.setEvent(con ? 'Connect' : 'Disconnect');
       newEvent.setValue(0);
       if (ctrl.match(/X|Y|Z$/)) {
-        newEvent.setControl("Absolute" + ctrl);
+        newEvent.setControl('Absolute' + ctrl);
       } else {
-        newEvent.setControl("Button" + ctrl);
+        newEvent.setControl('Button' + ctrl);
       }
       this.sendEvent(newEvent);
     }
@@ -176,9 +176,9 @@ export default class WebGamepad extends Vue {
   sendEvent(newEvent: Event): void {
     if (this.enabled) {
       let req = new TriggerEventRequest();
-      req.setController("WebGamepad");
+      req.setController('WebGamepad');
       req.setEvent(newEvent);
-      this.$emit("execute", req);
+      this.$emit('execute', req);
     }
   }
 
@@ -199,14 +199,14 @@ export default class WebGamepad extends Vue {
       }
     }
     if (gamepadFound === false) {
-      this.gamepadName = "Waiting for gamepad...";
+      this.gamepadName = 'Waiting for gamepad...';
       this.gamepadConnected = false;
       this.gamepad = null;
     }
 
     if (this.gamepad != null) {
-      if (this.gamepad.mapping === "standard") {
-        this.gamepadName = this.gamepad.id.replace(/ \(STANDARD .*\)/i, "");
+      if (this.gamepad.mapping === 'standard') {
+        this.gamepadName = this.gamepad.id.replace(/ \(STANDARD .*\)/i, '');
       } else {
         this.gamepadName = this.gamepad.id;
       }
@@ -214,27 +214,27 @@ export default class WebGamepad extends Vue {
       this.prevStates = Object.assign(this.prevStates, this.curStates);
       this.gamepadConnected = this.gamepad.connected;
 
-      this.curStates["X"] = this.gamepad.axes[0];
-      this.curStates["Y"] = this.gamepad.axes[1];
-      this.curStates["RX"] = this.gamepad.axes[2];
-      this.curStates["RY"] = this.gamepad.axes[3];
-      this.curStates["Z"] = this.gamepad.buttons[6].value;
-      this.curStates["RZ"] = this.gamepad.buttons[7].value;
-      this.curStates["Hat0X"] =
+      this.curStates['X'] = this.gamepad.axes[0];
+      this.curStates['Y'] = this.gamepad.axes[1];
+      this.curStates['RX'] = this.gamepad.axes[2];
+      this.curStates['RY'] = this.gamepad.axes[3];
+      this.curStates['Z'] = this.gamepad.buttons[6].value;
+      this.curStates['RZ'] = this.gamepad.buttons[7].value;
+      this.curStates['Hat0X'] =
         this.gamepad.buttons[14].value * -1 + this.gamepad.buttons[15].value;
-      this.curStates["Hat0Y"] =
+      this.curStates['Hat0Y'] =
         this.gamepad.buttons[12].value * -1 + this.gamepad.buttons[13].value;
-      this.curStates["South"] = this.gamepad.buttons[0].value;
-      this.curStates["East"] = this.gamepad.buttons[1].value;
-      this.curStates["West"] = this.gamepad.buttons[2].value;
-      this.curStates["North"] = this.gamepad.buttons[3].value;
-      this.curStates["LT"] = this.gamepad.buttons[4].value;
-      this.curStates["RT"] = this.gamepad.buttons[5].value;
-      this.curStates["Select"] = this.gamepad.buttons[8].value;
-      this.curStates["Start"] = this.gamepad.buttons[9].value;
-      this.curStates["LThumb"] = this.gamepad.buttons[10].value;
-      this.curStates["RThumb"] = this.gamepad.buttons[11].value;
-      this.curStates["Menu"] = this.gamepad.buttons[16].value;
+      this.curStates['South'] = this.gamepad.buttons[0].value;
+      this.curStates['East'] = this.gamepad.buttons[1].value;
+      this.curStates['West'] = this.gamepad.buttons[2].value;
+      this.curStates['North'] = this.gamepad.buttons[3].value;
+      this.curStates['LT'] = this.gamepad.buttons[4].value;
+      this.curStates['RT'] = this.gamepad.buttons[5].value;
+      this.curStates['Select'] = this.gamepad.buttons[8].value;
+      this.curStates['Start'] = this.gamepad.buttons[9].value;
+      this.curStates['LThumb'] = this.gamepad.buttons[10].value;
+      this.curStates['RThumb'] = this.gamepad.buttons[11].value;
+      this.curStates['Menu'] = this.gamepad.buttons[16].value;
     }
 
     this.processEvents();

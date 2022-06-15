@@ -20,13 +20,13 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import "vue-class-component/hooks";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import 'vue-class-component/hooks';
 
 @Component
 export default class Grid extends Vue {
   @Prop({ default: null }) cols?: string;
   @Prop({ default: null }) gap?: string;
-  @Prop({ default: "div" }) tag?: string;
+  @Prop({ default: 'div' }) tag?: string;
 }
 </script>

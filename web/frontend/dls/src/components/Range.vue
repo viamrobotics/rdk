@@ -34,9 +34,9 @@
   </div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import NumberInput from "./NumberInput.vue";
-import VueSlideBar from "vue-slide-bar";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import NumberInput from './NumberInput.vue';
+import VueSlideBar from 'vue-slide-bar';
 
 @Component({
   components: {
@@ -48,9 +48,9 @@ export default class ViamRange extends Vue {
   @Prop({ default: 100, type: Number }) max!: number;
   @Prop({ default: 0, type: Number }) min!: number;
   @Prop({ default: 10, type: Number }) step!: number;
-  @Prop({ default: "" }) name!: string;
-  @Prop({ default: "DefaultId" }) id!: string;
-  @Prop({ default: "" }) unit!: string;
+  @Prop({ default: '' }) name!: string;
+  @Prop({ default: 'DefaultId' }) id!: string;
+  @Prop({ default: '' }) unit!: string;
   @Prop({ required: true, type: Number }) value!: number;
   @Prop({ default: false, type: Boolean }) hideTickLabels!: boolean;
 
@@ -58,7 +58,7 @@ export default class ViamRange extends Vue {
     return this.value;
   }
   set innerValue(value: number) {
-    this.$emit("input", value);
+    this.$emit('input', value);
   }
 
   get rangeLabels(): { label: number; isHide: boolean }[] | null {
@@ -80,10 +80,10 @@ export default class ViamRange extends Vue {
   }
   get processStyle(): { [key: string]: string } {
     return {
-      backgroundColor: "#000000",
-      height: "4px",
-      "border-radius": "0",
-      top: "-2px",
+      backgroundColor: '#000000',
+      height: '4px',
+      'border-radius': '0',
+      top: '-2px',
     };
   }
 }

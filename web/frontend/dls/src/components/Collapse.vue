@@ -64,7 +64,7 @@
 </template>
 
 <script>
-import Vue from "vue";
+import Vue from 'vue';
 const collapseDurationMs = 300;
 
 // TODO: convert to the class type component
@@ -84,7 +84,7 @@ export default Vue.extend({
       type: Boolean,
     },
     tag: {
-      default: "div",
+      default: 'div',
       type: String,
     },
   },
@@ -96,10 +96,10 @@ export default Vue.extend({
     };
   },
   beforeMount() {
-    window.addEventListener("resize", this.resizeContent);
+    window.addEventListener('resize', this.resizeContent);
   },
   beforeDestroy() {
-    window.removeEventListener("resize", this.resizeContent);
+    window.removeEventListener('resize', this.resizeContent);
   },
   mounted() {
     this.resizeContent();
@@ -114,14 +114,14 @@ export default Vue.extend({
         }, collapseDurationMs);
       }
       this.collapsed = !this.collapsed;
-      this.$emit("toggle", this.collapsed);
+      this.$emit('toggle', this.collapsed);
       this.resizeContent();
     },
     resizeContent() {
       if (this.collapsed) {
         this.height = 0;
       } else {
-        this.height = "auto";
+        this.height = 'auto';
       }
     },
   },

@@ -31,9 +31,9 @@
   </Popper>
 </template>
 <script lang="ts">
-import Popper from "vue-popperjs";
-import { Component, Prop, Vue } from "vue-property-decorator";
-import ViamIcon from "./ViamIcon.vue";
+import Popper from 'vue-popperjs';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import ViamIcon from './ViamIcon.vue';
 
 @Component({
   components: {

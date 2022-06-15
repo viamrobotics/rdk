@@ -1,9 +1,9 @@
-import { storiesOf } from "@storybook/vue";
+import { storiesOf } from '@storybook/vue';
 
-storiesOf("Collapse", module).add("Default Collapse", () => ({
+storiesOf('Collapse', module).add('Default Collapse', () => ({
   data() {
     return {
-      streamNames: ["test1", "test2"],
+      streamNames: ['test1', 'test2'],
     };
   },
   template:

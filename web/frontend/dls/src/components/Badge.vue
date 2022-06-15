@@ -51,19 +51,19 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component({
   components: {},
 })
 export default class ViamBadge extends Vue {
-  @Prop({ default: "primary" })
+  @Prop({ default: 'primary' })
   color!: string;
-  @Prop({ default: "base" })
+  @Prop({ default: 'base' })
   size!: string;
-  @Prop({ default: "span" })
+  @Prop({ default: 'span' })
   tag!: string;
-  @Prop({ default: "fill" })
+  @Prop({ default: 'fill' })
   variant!: string;
 }
 </script>

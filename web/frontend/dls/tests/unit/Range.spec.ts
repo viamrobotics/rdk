@@ -1,10 +1,10 @@
-import { enableAutoDestroy, mount } from "@vue/test-utils";
-import Range from "@/components/Range.vue";
+import { enableAutoDestroy, mount } from '@vue/test-utils';
+import Range from '@/components/Range.vue';
 
-describe("Range", () => {
+describe('Range', () => {
   enableAutoDestroy(afterEach);
 
-  it("has html structure", async () => {
+  it('has html structure', async () => {
     const wrapper = mount({
       data() {
         return { value: 12 };
@@ -12,8 +12,8 @@ describe("Range", () => {
       template: '<div> <Range v-model="value"></Range></div>',
       components: { Range },
     });
-    const input = wrapper.find("input").element as HTMLInputElement;
-    expect(wrapper.element.tagName).toBe("DIV");
-    expect(input.value).toBe("12");
+    const input = wrapper.find('input').element as HTMLInputElement;
+    expect(wrapper.element.tagName).toBe('DIV');
+    expect(input.value).toBe('12');
   });
 });

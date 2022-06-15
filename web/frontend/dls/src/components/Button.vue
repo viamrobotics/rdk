@@ -90,13 +90,13 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component
 export default class ViamButton extends Vue {
   @Prop({ default: false })
   busy!: boolean;
-  @Prop({ default: "primary" })
+  @Prop({ default: 'primary' })
   color!: string;
   @Prop({ default: false })
   disabled!: boolean;
@@ -108,13 +108,13 @@ export default class ViamButton extends Vue {
   iconRight!: boolean;
   @Prop({ default: false })
   loading!: boolean;
-  @Prop({ default: "base" })
+  @Prop({ default: 'base' })
   size!: string;
-  @Prop({ default: "button" })
+  @Prop({ default: 'button' })
   tag!: string;
-  @Prop({ default: "button" })
+  @Prop({ default: 'button' })
   type!: string;
-  @Prop({ default: "primary" })
+  @Prop({ default: 'primary' })
   variant!: string;
 }
 </script>

@@ -1,34 +1,34 @@
-import { enableAutoDestroy, shallowMount } from "@vue/test-utils";
-import Container from "@/components/Container.vue";
+import { enableAutoDestroy, shallowMount } from '@vue/test-utils';
+import Container from '@/components/Container.vue';
 
-describe("Container", () => {
+describe('Container', () => {
   enableAutoDestroy(afterEach);
 
-  it("has html structure", async () => {
+  it('has html structure', async () => {
     const wrapper = shallowMount(Container);
 
-    expect(wrapper.element.tagName).toBe("DIV");
-    expect(wrapper.classes("container")).toBe(true);
+    expect(wrapper.element.tagName).toBe('DIV');
+    expect(wrapper.classes('container')).toBe(true);
   });
 
-  it("render content inside a slot", async () => {
+  it('render content inside a slot', async () => {
     const wrapper = shallowMount(Container, {
       slots: {
-        default: "<span>content</span>",
+        default: '<span>content</span>',
       },
     });
 
-    expect(wrapper.find("span").exists()).toBe(true);
-    expect(wrapper.text()).toBe("content");
+    expect(wrapper.find('span').exists()).toBe(true);
+    expect(wrapper.text()).toBe('content');
   });
 
-  it("render root element", async () => {
+  it('render root element', async () => {
     const wrapper = shallowMount(Container, {
       propsData: {
-        tag: "section",
+        tag: 'section',
       },
     });
 
-    expect(wrapper.element.tagName).toBe("SECTION");
+    expect(wrapper.element.tagName).toBe('SECTION');
   });
 });

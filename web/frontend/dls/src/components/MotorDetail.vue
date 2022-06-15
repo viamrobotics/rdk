@@ -180,25 +180,25 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import "vue-class-component/hooks";
-import Collapse from "./Collapse.vue";
-import Breadcrumbs from "./Breadcrumbs.vue";
-import ViamIcon from "./ViamIcon.vue";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import 'vue-class-component/hooks';
+import Collapse from './Collapse.vue';
+import Breadcrumbs from './Breadcrumbs.vue';
+import ViamIcon from './ViamIcon.vue';
 import {
   mdiRestore,
   mdiPlayCircleOutline,
   mdiCloseOctagonOutline,
   mdiAlertOctagonOutline,
-} from "@mdi/js";
-import Tabs from "./Tabs.vue";
-import Tab from "./Tab.vue";
-import RadioButtons from "./RadioButtons.vue";
-import ViamBadge from "./Badge.vue";
-import Popper from "vue-popperjs";
-import "vue-popperjs/dist/vue-popper.css";
-import ViamButton from "./Button.vue";
-import { Status } from "proto/api/component/motor/v1/motor_pb";
+} from '@mdi/js';
+import Tabs from './Tabs.vue';
+import Tab from './Tab.vue';
+import RadioButtons from './RadioButtons.vue';
+import ViamBadge from './Badge.vue';
+import Popper from 'vue-popperjs';
+import 'vue-popperjs/dist/vue-popper.css';
+import ViamButton from './Button.vue';
+import { Status } from 'proto/api/component/motor/v1/motor_pb';
 
 @Component({
   components: {
@@ -223,21 +223,21 @@ export default class MotorDetail extends Vue {
   mdiCloseOctagonOutline = mdiCloseOctagonOutline;
   mdiInformation = mdiAlertOctagonOutline;
   maxHeight = 500;
-  movementType = "Go";
+  movementType = 'Go';
   direction: -1 | 1 = 1;
   position = 0;
   rpm = 0;
   power = 0;
-  type = "go";
+  type = 'go';
   speed = 0;
   revolutions = 0;
 
   beforeMount(): void {
-    window.addEventListener("resize", this.resizeContent);
+    window.addEventListener('resize', this.resizeContent);
   }
 
   beforeDestroy(): void {
-    window.removeEventListener("resize", this.resizeContent);
+    window.removeEventListener('resize', this.resizeContent);
   }
 
   mounted(): void {
@@ -247,24 +247,24 @@ export default class MotorDetail extends Vue {
   setMovementType(e: string): void {
     this.movementType = e;
     switch (this.movementType) {
-      case "Go":
-        this.type = "go";
+      case 'Go':
+        this.type = 'go';
         break;
-      case "Go For":
-        this.type = "goFor";
+      case 'Go For':
+        this.type = 'goFor';
         break;
-      case "Go To":
-        this.type = "goTo";
+      case 'Go To':
+        this.type = 'goTo';
         break;
     }
   }
 
   setDirection(e: string): void {
     switch (e) {
-      case "Forwards":
+      case 'Forwards':
         this.direction = 1;
         break;
-      case "Backwards":
+      case 'Backwards':
         this.direction = -1;
         break;
       default:
@@ -282,13 +282,13 @@ export default class MotorDetail extends Vue {
       speed: this.speed,
       revolutions: this.revolutions,
     };
-    this.$emit("motor-run", command);
+    this.$emit('motor-run', command);
   }
 
   motorStop(e: Event): void {
     e.preventDefault();
     e.stopPropagation();
-    this.$emit("motor-stop");
+    this.$emit('motor-stop');
   }
 
   resizeContent(): void {

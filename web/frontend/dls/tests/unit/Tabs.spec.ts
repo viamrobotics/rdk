@@ -1,38 +1,38 @@
-import { enableAutoDestroy, shallowMount } from "@vue/test-utils";
-import Tabs from "@/components/Tabs.vue";
+import { enableAutoDestroy, shallowMount } from '@vue/test-utils';
+import Tabs from '@/components/Tabs.vue';
 
-describe("Tabs", () => {
+describe('Tabs', () => {
   enableAutoDestroy(afterEach);
 
-  it("has html structure", async () => {
+  it('has html structure', async () => {
     const wrapper = shallowMount(Tabs);
 
-    expect(wrapper.element.tagName).toBe("NAV");
-    expect(wrapper.classes("bg-gray-100")).toBe(true);
+    expect(wrapper.element.tagName).toBe('NAV');
+    expect(wrapper.classes('bg-gray-100')).toBe(true);
   });
 
-  it("renders content inside the slot", async () => {
+  it('renders content inside the slot', async () => {
     const wrapper = shallowMount(Tabs, {
       slots: {
-        default: "<span>content</span>",
+        default: '<span>content</span>',
       },
     });
 
-    expect(wrapper.find("span").exists()).toBe(true);
-    expect(wrapper.text()).toBe("content");
+    expect(wrapper.find('span').exists()).toBe(true);
+    expect(wrapper.text()).toBe('content');
   });
 
-  it("renders root element", async () => {
+  it('renders root element', async () => {
     const wrapper = shallowMount(Tabs, {
       propsData: {
-        tag: "section",
+        tag: 'section',
       },
     });
 
-    expect(wrapper.element.tagName).toBe("SECTION");
+    expect(wrapper.element.tagName).toBe('SECTION');
   });
 
-  it("should emit events", async () => {
+  it('should emit events', async () => {
     let called = 0;
     let event = null;
     const wrapper = shallowMount(Tabs, {
@@ -55,15 +55,15 @@ describe("Tabs", () => {
     expect(called).toBe(0);
     expect(event).toEqual(null);
 
-    await wrapper.trigger("click");
+    await wrapper.trigger('click');
     expect(called).toBe(1);
     expect(event).toBeInstanceOf(MouseEvent);
 
-    wrapper.element.dispatchEvent(new Event("focus"));
+    wrapper.element.dispatchEvent(new Event('focus'));
     expect(called).toBe(2);
     expect(event).toBeInstanceOf(Event);
 
-    wrapper.element.dispatchEvent(new Event("blur"));
+    wrapper.element.dispatchEvent(new Event('blur'));
     expect(called).toBe(3);
     expect(event).toBeInstanceOf(Event);
   });

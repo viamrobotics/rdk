@@ -320,7 +320,7 @@
                         <div class="grid grid-cols-1">
                           <span class="text-xs">Object Points</span>
                           <span class="pt-2">{{
-                            segmentObjects ? segmentObjects.length : "null"
+                            segmentObjects ? segmentObjects.length : 'null'
                           }}</span>
                         </div>
                       </div>
@@ -337,22 +337,22 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import "vue-class-component/hooks";
-import Collapse from "./Collapse.vue";
-import Breadcrumbs from "./Breadcrumbs.vue";
-import ViamSwitch from "./Switch.vue";
-import ViamIcon from "./ViamIcon.vue";
-import ViamInfoButton from "./ViamInfoButton.vue";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import 'vue-class-component/hooks';
+import Collapse from './Collapse.vue';
+import Breadcrumbs from './Breadcrumbs.vue';
+import ViamSwitch from './Switch.vue';
+import ViamIcon from './ViamIcon.vue';
+import ViamInfoButton from './ViamInfoButton.vue';
 
-import RadioButtons from "./RadioButtons.vue";
+import RadioButtons from './RadioButtons.vue';
 import {
   mdiRestore,
   mdiImageFilterCenterFocus,
   mdiCameraIris,
   mdiDownloadOutline,
   mdiInformationOutline,
-} from "@mdi/js";
+} from '@mdi/js';
 
 @Component({
   components: {
@@ -388,25 +388,25 @@ export default class Base extends Vue {
   mdiRestore = mdiRestore;
   camera = !this.connectedCamera;
   pcd = !this.connectedPCD;
-  height = "auto";
-  selectedValue = "live";
-  selectedSegmenterValue = "";
-  streamId = "stream-" + this.streamName;
-  pcdId = "pcd-" + this.streamName;
-  selected = "";
+  height = 'auto';
+  selectedValue = 'live';
+  selectedSegmenterValue = '';
+  streamId = 'stream-' + this.streamName;
+  pcdId = 'pcd-' + this.streamName;
+  selected = '';
   speed = 0;
   min = 0;
   max = 500;
   infoControls = [
-    "Rotate - Left/Click + Drag",
-    "Pan - Right/Two Finger Click + Drag",
-    "Zoom - Wheel/Two Finger Scroll",
+    'Rotate - Left/Click + Drag',
+    'Pan - Right/Two Finger Click + Drag',
+    'Zoom - Wheel/Two Finger Scroll',
   ];
-  selectedObject = "";
+  selectedObject = '';
 
   toggleExpand(): void {
     this.camera = !this.camera;
-    this.$emit("toggle-camera", this.camera);
+    this.$emit('toggle-camera', this.camera);
     this.resizeContent();
   }
 
@@ -421,23 +421,23 @@ export default class Base extends Vue {
   }
 
   selectCameraView(): void {
-    this.$emit("selected-camera-view", this.selectedValue);
+    this.$emit('selected-camera-view', this.selectedValue);
   }
 
   refreshCamera(): void {
-    this.$emit("refresh-camera", this.selectedValue);
+    this.$emit('refresh-camera', this.selectedValue);
   }
 
   pcdClick(e: Event): void {
-    this.$emit("pcd-click", e);
+    this.$emit('pcd-click', e);
   }
 
   pcdMove(e: Event): void {
-    this.$emit("pcd-move", e);
+    this.$emit('pcd-move', e);
   }
 
   changeSegmenter(): void {
-    this.$emit("change-segmenter", this.selectedSegmenterValue);
+    this.$emit('change-segmenter', this.selectedSegmenterValue);
   }
 
   findSegments(): void {
@@ -445,48 +445,48 @@ export default class Base extends Vue {
       this.pcdObject.calculatingSegments = true;
     }
     this.$emit(
-      "find-segments",
+      'find-segments',
       this.selectedSegmenterValue,
       this.segmenterParameters
     );
   }
 
   fullImage(e: Event): void {
-    this.$emit("full-image", e);
+    this.$emit('full-image', e);
   }
 
   centerPCD(e: Event): void {
-    this.$emit("center-pcd", e);
+    this.$emit('center-pcd', e);
   }
 
   selectObject(e: string): void {
-    this.$emit("select-object", e, this.selectedObject);
+    this.$emit('select-object', e, this.selectedObject);
   }
 
   changeObject(e: string): void {
-    this.$emit("select-object", e, "Center Point");
+    this.$emit('select-object', e, 'Center Point');
   }
 
   pointLoad(i: number): void {
-    this.$emit("point-load", i);
+    this.$emit('point-load', i);
   }
 
   segmentLoad(i: number): void {
-    this.$emit("segment-load", i);
+    this.$emit('segment-load', i);
   }
 
   boundingBoxLoad(i: number): void {
-    this.$emit("bounding-box-load", i);
+    this.$emit('bounding-box-load', i);
   }
 
   togglePCDExpand(): void {
     this.pcd = !this.pcd;
-    this.$emit("toggle-pcd", this.pcd);
+    this.$emit('toggle-pcd', this.pcd);
     this.resizeContent();
   }
 
   resizeContent(): void {
-    this.height = "auto";
+    this.height = 'auto';
   }
 }
 </script>

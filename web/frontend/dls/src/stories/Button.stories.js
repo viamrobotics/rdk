@@ -1,10 +1,10 @@
-import { storiesOf } from "@storybook/vue";
-import { mdiRestore, mdiReload } from "@mdi/js";
+import { storiesOf } from '@storybook/vue';
+import { mdiRestore, mdiReload } from '@mdi/js';
 
-storiesOf("Button", module).add("Default Button", () => ({
+storiesOf('Button', module).add('Default Button', () => ({
   data() {
     return {
-      streamNames: ["test1", "test2"],
+      streamNames: ['test1', 'test2'],
       mdiRestore,
       mdiReload,
     };

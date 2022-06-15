@@ -1,7 +1,7 @@
-import { storiesOf } from "@storybook/vue";
-import { mdiRotateLeft } from "@mdi/js";
+import { storiesOf } from '@storybook/vue';
+import { mdiRotateLeft } from '@mdi/js';
 
-storiesOf("ViamIcon", module).add("Default ViamIcon", () => ({
+storiesOf('ViamIcon', module).add('Default ViamIcon', () => ({
   data() {
     return {
       mdiRotateLeft,

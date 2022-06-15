@@ -123,10 +123,10 @@
 </template>
 
 <script>
-import Vue from "vue";
+import Vue from 'vue';
 const validator = {
-  size: ["sm", "base"],
-  status: [null, "error", "success"],
+  size: ['sm', 'base'],
+  status: [null, 'error', 'success'],
 };
 
 // TODO: change to a class type component
@@ -171,7 +171,7 @@ export default Vue.extend({
       default: null,
     },
     size: {
-      default: "base",
+      default: 'base',
       type: String,
       validator: (value) => validator.size.includes(value),
     },
@@ -182,7 +182,7 @@ export default Vue.extend({
     },
     type: {
       type: String,
-      default: "text",
+      default: 'text',
     },
     value: {
       type: [String, Number],
@@ -200,16 +200,16 @@ export default Vue.extend({
         // Add listeners from parent
         ...this.$listeners,
         // Ensure that the component works with v-model
-        blur: (event) => this.$emit("blur", event),
-        focus: (event) => this.$emit("focus", event),
-        input: (event) => this.$emit("input", event.target.value),
+        blur: (event) => this.$emit('blur', event),
+        focus: (event) => this.$emit('focus', event),
+        input: (event) => this.$emit('input', event.target.value),
       };
     },
   },
   methods: {
     togglePasswordVisibility() {
-      this.currentType = this.currentType === "password" ? "text" : "password";
-      this.$refs.input.setAttribute("type", this.currentType);
+      this.currentType = this.currentType === 'password' ? 'text' : 'password';
+      this.$refs.input.setAttribute('type', this.currentType);
     },
   },
 });
