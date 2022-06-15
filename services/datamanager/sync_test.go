@@ -93,20 +93,20 @@ func writeProtoHelper(f *os.File, toSend [][]byte) (int, error) {
 
 // Compares UploadRequests (which hold either binary or tabular
 // data) in form of test.
-func helpCompareUploadRequests(t *testing.T, isTabular bool, a []v1.UploadRequest, b []v1.UploadRequest) {
+func helpCompareUploadRequests(t *testing.T, isTabular bool, actual []v1.UploadRequest, expected []v1.UploadRequest) {
 	t.Helper()
-	test.That(t, len(a), test.ShouldEqual, len(b))
+	test.That(t, len(actual), test.ShouldEqual, len(expected))
 	if !isTabular {
-		for i, ur := range a {
-			up := ur.GetSensorContents().GetBinary()
-			other := b[i].GetSensorContents().GetBinary()
-			test.That(t, up, test.ShouldResemble, other)
+		for i, ur := range actual {
+			a := ur.GetSensorContents().GetBinary()
+			e := expected[i].GetSensorContents().GetBinary()
+			test.That(t, a, test.ShouldResemble, e)
 		}
 	} else {
-		for i, ur := range a {
-			up := ur.GetSensorContents().GetStruct()
-			other := b[i].GetSensorContents().GetStruct()
-			test.That(t, up, test.ShouldResemble, other)
+		for i, ur := range actual {
+			a := ur.GetSensorContents().GetStruct()
+			e := actual[i].GetSensorContents().GetStruct()
+			test.That(t, a, test.ShouldResemble, e)
 		}
 	}
 }
@@ -259,8 +259,6 @@ func TestFileUpload(t *testing.T) {
 }
 
 func TestSensorUploadTabular(t *testing.T) {
-	// msgBinary := []byte("This message is encoded in bytes.")
-	// figure out how to create dummy tabular data
 	protoMsgTabularEmpty := toProto(empty{})
 	protoMsgTabularAllLiterals := toProto(allLiterals{
 		Bool:   false,
@@ -404,7 +402,7 @@ func TestSensorUploadTabular(t *testing.T) {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
-		// The mc.sent value should be the same as the tc.expMsg value
+		// The mc.sent value should be the same as the tc.expMsgs value
 		helpCompareUploadRequests(t, true, mc.sent, tc.expMsgs)
 	}
 }
