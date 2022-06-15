@@ -277,3 +277,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	}
 	return nextWait
 }
+
+func (s *syncer) SetUploadFn(fn func(ctx context.Context, path string) error) {
+	s.uploadFn = fn
+}
