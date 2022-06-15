@@ -85,7 +85,6 @@ type (
 	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error
 
 	// A CreateRPCClient will create the client for the resource.
-	// TODO: Remove as part of #227.
 	CreateRPCClient func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
 

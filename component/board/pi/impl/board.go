@@ -24,8 +24,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/generic"
 	picommon "go.viam.com/rdk/component/board/pi/common"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
@@ -553,7 +553,6 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		// TODO(RDK-37): use new cgo Value to pass a context?
 		err := i.Tick(context.TODO(), high, tick*1000)
 		if err != nil {
 			instance.logger.Error(err)
