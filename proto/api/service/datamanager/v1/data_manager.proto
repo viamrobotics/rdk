@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package proto.api.service.datamanager.v1;
 
-//import "google/api/annotations.proto";
+import "google/api/annotations.proto";
+
 option go_package = "go.viam.com/rdk/proto/api/service/datamanager/v1";
 option java_package = "com.viam.rdk.proto.api.service.datamanager.v1";
 
@@ -10,9 +11,9 @@ option java_package = "com.viam.rdk.proto.api.service.datamanager.v1";
 service DataManagerService {
   // Sync performs a sync of the non-synced files for the specified service name,
   rpc Sync(SyncRequest) returns (SyncResponse) {
-    //option (google.api.http) = {
-    //  post: "/viam/api/v1/service/datamanager/sync"
-    //};
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/datamanager/sync"
+    };
   }
 }
 

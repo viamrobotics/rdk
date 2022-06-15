@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -166,7 +167,7 @@ type dataManagerService struct {
 
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
-	SyncIntervalMilliseconds int
+	syncIntervalMilliseconds int
 	updateCollectorsCancelFn func()
 }
 
@@ -386,7 +387,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	svcConfig, ok := c.ConvertedAttributes.(*Config)
-	svc.SyncIntervalMilliseconds = svcConfig.SyncIntervalMins * 60000
+	svc.syncIntervalMilliseconds = svcConfig.SyncIntervalMins * 60000
 
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svcConfig.Disabled {
@@ -412,7 +413,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	// nolint:contextcheck
-	svc.initOrUpdateSyncer(svc.SyncIntervalMilliseconds)
+	svc.initOrUpdateSyncer(svc.syncIntervalMilliseconds)
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -464,9 +465,7 @@ func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, inte
 				}
 				return
 			case <-ticker.C:
-				println("i am before the problem")
 				filesToQueue := svc.queueFiles()
-				println("i am after the problem")
 				if err := svc.syncer.Enqueue(filesToQueue); err != nil {
 					svc.logger.Errorw("failed to move files to sync queue", "error", err)
 				}
@@ -489,4 +488,18 @@ func (svc *dataManagerService) queueFiles() []string {
 		collector.Collector.SetTarget(nextTarget)
 	}
 	return filesToQueue
+}
+
+func (svc *dataManagerService) SetUploadFn(fn func(ctx context.Context, path string) error) {
+	if svc.syncer == nil {
+		panic("SetUploadFn called on nil syncer in data_manager.go")
+	}
+	svc.syncer.(internal.SyncService).SetUploadFn(fn)
+}
+
+func (svc *dataManagerService) StartSyncer() {
+	if svc.syncer == nil {
+		panic("StartSyncer called on nil syncer in data_manager.go")
+	}
+	svc.syncer.(internal.SyncService).Start()
 }
