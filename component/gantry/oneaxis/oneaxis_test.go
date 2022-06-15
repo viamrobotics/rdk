@@ -75,7 +75,6 @@ func createFakeDeps() registry.Dependencies {
 		board.Named("board"):        fakeBoard,
 		motor.Named(fakeMotor.Name): fakeMotor,
 	})
-
 }
 
 var setTrue = true

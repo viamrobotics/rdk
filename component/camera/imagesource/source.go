@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-
 	// for embedding camera parameters.
 	_ "embed"
 	"fmt"
