@@ -72,16 +72,19 @@ type limoState struct {
 }
 type limoBase struct {
 	generic.Unimplemented
-	driveMode   string
-	controller  *controller
-	state       limoState
-	stateMutex  sync.Mutex
-	opMgr       operation.SingleOperationManager
-	cancel      context.CancelFunc
-	waitGroup   sync.WaitGroup
-	width       int
-	wheelbase   int
-	maxVelocity int
+	driveMode          string
+	controller         *controller
+	state              limoState
+	stateMutex         sync.Mutex
+	opMgr              operation.SingleOperationManager
+	cancel             context.CancelFunc
+	waitGroup          sync.WaitGroup
+	width              int
+	wheelbase          int
+	maxInnerAngle      float64
+	rightAngleScale    float64
+	maxLinearVelocity  int
+	maxAngularVelocity int
 }
 
 // Config is how you configure a limo base.
@@ -139,11 +142,14 @@ func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger g
 	globalMu.Unlock()
 
 	base := &limoBase{
-		driveMode:   config.DriveMode,
-		controller:  ctrl,
-		width:       172,
-		wheelbase:   200,
-		maxVelocity: 1200,
+		driveMode:          config.DriveMode,
+		controller:         ctrl,
+		width:              172,
+		wheelbase:          200,
+		maxLinearVelocity:  1200,
+		maxAngularVelocity: 180,
+		maxInnerAngle:      .48869, // 28 degrees in radians
+		rightAngleScale:    1.64,
 	}
 
 	base.stateMutex.Lock()
@@ -216,7 +222,31 @@ func (b *limoBase) startVelocityThread() error {
 }
 
 func (base *limoBase) velocityThreadLoop(ctx context.Context) error {
-	err := base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, base.state.velocityAngularGoal.Z, 0, 0)
+	var err error
+	if base.driveMode == "differential" {
+		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
+	} else if base.driveMode == "ackermann" {
+		r := base.state.velocityLinearGoal.Y / base.state.velocityAngularGoal.Z
+		if math.Abs(r) < float64(base.width)/2.0 {
+			if r == 0 {
+				r = base.state.velocityAngularGoal.Z / math.Abs(base.state.velocityAngularGoal.Z) * (float64(base.width)/2.0 + 10)
+			} else {
+				r = r / math.Abs(r) * (float64(base.width)/2.0 + 10)
+			}
+		}
+		central_angle := math.Atan(float64(base.wheelbase) / r)
+		inner_angle := math.Atan((2 * float64(base.wheelbase) * math.Sin(central_angle) / (2*float64(base.wheelbase)*math.Cos(math.Abs(central_angle)) - float64(base.width)*math.Sin(math.Abs(central_angle)))))
+
+		if inner_angle > base.maxInnerAngle {
+			inner_angle = base.maxInnerAngle
+		}
+		if inner_angle < -base.maxInnerAngle {
+			inner_angle = -base.maxInnerAngle
+		}
+
+		steering_angle := inner_angle / base.rightAngleScale
+		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, 0, 0, -steering_angle*1000)
+	}
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -281,15 +311,26 @@ func (base *limoBase) setMotionCommand(ctx context.Context, linear_vel float64, 
 
 func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
 	base.controller.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
-	// TODO: verify math, not sure why had to multiply by 8 here
-	secsToRun := math.Abs(angleDeg/degsPerSec) * 8
-	mmCirc := (math.Pi * math.Sqrt(math.Pow(float64(base.width), 2)+math.Pow(float64(base.wheelbase), 2)))
-	angularVelZ := mmCirc / 360 * degsPerSec
-	err := base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: -1 * angularVelZ})
+	secsToRun := math.Abs(angleDeg / degsPerSec)
+	var err error
+	if base.driveMode == "differential" {
+		//mmCirc := (math.Pi * math.Sqrt(math.Pow(float64(base.width), 2)+math.Pow(float64(base.wheelbase), 2)))
+		// angular velocity is expressed in units of .001 radians/sec
+		err = base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: degsPerSec})
+	} else if base.driveMode == "ackermann" {
+		// TODO: this is not the correct math
+		linear := float64(base.maxLinearVelocity) * (degsPerSec / 360) * math.Pi
+		angular := float64(base.maxAngularVelocity)
+		if angleDeg < 0 {
+			angular = -angular
+		}
+		// max angular translates to max steering angle for ackermann+
+		err = base.SetVelocity(ctx, r3.Vector{Y: linear}, r3.Vector{Z: angular})
+	}
+
 	if err != nil {
 		return err
 	}
-
 	// stop base after calculated time
 	timeToRun := time.Millisecond * time.Duration(secsToRun*1000)
 	base.controller.logger.Debugf("Will run for duration %f", timeToRun)
@@ -308,14 +349,17 @@ func (base *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec
 	return base.Stop(ctx)
 }
 
+// linear is in mm/sec, angular in degrees/sec
 func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
 	base.controller.logger.Debugf("Will set linear velocity %f angular velocity %f", linear, angular)
 
 	_, done := base.opMgr.New(ctx)
 	defer done()
 
-	base.stateMutex.Lock()
+	// this base expects angular velocity to be expressed in .001 radians/sec, convert
+	angular.Z = (angular.Z / 57.2958) * 1000
 
+	base.stateMutex.Lock()
 	base.state.velocityLinearGoal = linear
 	base.state.velocityAngularGoal = angular
 	base.stateMutex.Unlock()
@@ -325,9 +369,9 @@ func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector
 
 func (base *limoBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 	base.controller.logger.Debugf("Will set power linear %f angular %f", linear, angular)
-	linY := linear.Y * float64(base.maxVelocity)
-	angZ := angular.Z * float64(base.maxVelocity)
-	err := base.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: angZ})
+	linY := linear.Y * float64(base.maxLinearVelocity)
+	angZ := angular.Z * float64(base.maxAngularVelocity)
+	err := base.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: -angZ})
 	if err != nil {
 		return err
 	}
