@@ -87,7 +87,7 @@ func registerNewDetectors(ctx context.Context, dm detectorMap, attrs *Attributes
 		logger.Debugf("adding detector %q of type %s", attr.Name, attr.Type)
 		switch DetectorType(attr.Type) {
 		case TFLiteType:
-			return newDetectorTypeNotImplemented(attr.Type)
+			return registerTfliteDetector(dm, &attr, logger)
 		case TensorFlowType:
 			return newDetectorTypeNotImplemented(attr.Type)
 		case ColorType:

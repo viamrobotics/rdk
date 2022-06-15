@@ -13,7 +13,6 @@ import (
 func main() {
 	logger := golog.NewLogger("test")
 
-
 	modelLoc := "data/effdet0.tflite"
 	picLoc := "data/dogscute.jpeg"
 
@@ -32,7 +31,7 @@ func main() {
 	img, err := rimage.NewImageFromFile(picLoc)
 	if err != nil {
 		fmt.Println(err)
-	} 
+	}
 
 	detections, err := detector(img)
 	if err != nil {

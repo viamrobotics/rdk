@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
@@ -19,7 +20,7 @@ import (
 
 // TfliteDetectorConfig specifies the fields necessary for creating a TFLite detector.
 type TfliteDetectorConfig struct {
-	//this should come from the attributes part of the detector config
+	// this should come from the attributes part of the detector config
 	ModelPath  string  `json:"model_path"`
 	NumThreads *int    `json:"num_threads"`
 	LabelPath  *string `json:"label_path"`
@@ -28,7 +29,7 @@ type TfliteDetectorConfig struct {
 
 // NewTfliteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->objdet.Detections. It does this by making calls to
-// an inference package and wrapping the result
+// an inference package and wrapping the result.
 func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, error) {
 	// Read those parameters into a TFLiteDetectorConfig
 	var t TfliteDetectorConfig
@@ -40,27 +41,26 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 	if !ok {
 		err := utils.NewUnexpectedTypeError(params, tfParams)
 		return nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
-	} //params is now the TfliteDetectorConfig
+	}
 
 	model, err := addTfliteModel(params.ModelPath, params.NumThreads)
 	if err != nil {
 		return nil, errors.Wrap(err, "something wrong with adding the model")
 	}
 	defer model.Close()
-
 	inHeight, inWidth := uint(model.Info.InputHeight), uint(model.Info.InputWidth)
 
-	//This function has to be the detector
+	// This function to be returned is the detector.
 	return func(img image.Image) ([]objectdetection.Detection, error) {
 		model, err := addTfliteModel(params.ModelPath, params.NumThreads)
 		if err != nil {
 			return nil, errors.Wrap(err, "something wrong with adding the model")
 		}
 		defer model.Close()
-		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear) //resize image
-		labelMap, err := loadLabels(*params.LabelPath)                       //check for labelmap
+		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
+		labelMap, err := loadLabels(*params.LabelPath)
 		if err != nil {
-			logger.Info("did not retrieve class labels")
+			logger.Warn("did not retrieve class labels")
 		}
 		outTensors, err := tfliteInfer(model, resizedImg)
 		if err != nil {
@@ -71,7 +71,8 @@ func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 	}, nil
 }
 
-// addTfliteModel uses the AddModel function in the inference package to register a tflite model
+// addTfliteModel uses the loader (default or otherwise) from the inference package
+// to register a tflite model. Default is chosen if there's no numThreads given
 func addTfliteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
 	var model *inf.TFLiteStruct
 
@@ -97,11 +98,12 @@ func addTfliteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error)
 	return model, nil
 }
 
-// tfliteInfer uses the Infer function in the inf package to return the output tensors from the model
+// tfliteInfer first converts an input image to a buffer using the imageToBuffer func
+// and then uses the Infer function form the inference package to return the output tensors from the model.
 func tfliteInfer(model *inf.TFLiteStruct, image image.Image) ([]interface{}, error) {
-	//Converts the image to bytes before sending it off
+	// Converts the image to bytes before sending it off
 	imgBuff := imageToBuffer(image)
-	out, err := model.Infer(imgBuff) //out is gonna be a []interface{}
+	out, err := model.Infer(imgBuff) // out is gonna be a []interface{}
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't infer from model")
 	}
@@ -110,9 +112,9 @@ func tfliteInfer(model *inf.TFLiteStruct, image image.Image) ([]interface{}, err
 
 // imageToBuffer reads an image into a byte slice (buffer) the most common sense way.
 // Left to right like a book; R, then G, then B. No funny stuff.
+// This works!! (can be copied DIRECTLY onto the input tensor)
 func imageToBuffer(img image.Image) []byte {
 	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
-
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()
@@ -125,41 +127,21 @@ func imageToBuffer(img image.Image) []byte {
 	return output
 }
 
-/*
-func imageToBuffer2(img image.Image) []byte {
-	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
-
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			r, g, b, _ := img.At(x, y).RGBA()
-			rr, gg, bb := uint8(r), uint8(g), uint8(b)
-			output[(y*img.Bounds().Dx())+x+0] = rr
-			output[(y*img.Bounds().Dx())+x+1] = gg
-			output[(y*img.Bounds().Dx())+x+2] = bb
-		}
-	}
-	return output
-}
-*/
-
-// unpackTensors takes the model's output tensors as input and forms them into objdet.Detections
+// unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
 func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []string, logger golog.Logger) []objectdetection.Detection {
-
-	//Gather slices for the bboxes, scores, and labels, using TensorOrder
+	// Gather slices for the bboxes, scores, and labels, using TensorOrder
 	var labels []int
 	var bboxes []float64
 	var scores []float64
-	tensorOrder, err := getTensorOrder(model) //location = 0 , category = 1, score = 2 for tensor order
+	tensorOrder, err := getTensorOrder(model) // location = 0 , category = 1, score = 2 for tensor order
 	if err != nil {
-		//CAN THIS BE LOUDER SOMEHOW?
-		logger.Info("could not find tensor order. Using default order: location, category, score")
+		logger.Warn("could not find tensor order. Using default order: location, category, score")
 		tensorOrder = []int{0, 1, 2}
 	}
 
 	bb := tensors[getIndex(tensorOrder, 0)]
 	ll := tensors[getIndex(tensorOrder, 1)]
 	ss := tensors[getIndex(tensorOrder, 2)]
-
 	for _, b := range bb.([]float32) {
 		bboxes = append(bboxes, float64(b))
 	}
@@ -170,28 +152,18 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 		scores = append(scores, float64(s))
 	}
 
-	/*
-		//Break in case of tensors is actually a config.AttributeMap
-		bboxes = tensors[fmt.Sprint("out", getIndex(tensorOrder, 0))].([]float64)
-		labels = tensors[fmt.Sprint("out", getIndex(tensorOrder, 1))].([]int)
-		scores = tensors[fmt.Sprint("out", getIndex(tensorOrder, 2))].([]float64)
-	*/
-
-	//Get the bounding box order (try from the metadata. If not, smart-default: xx,yy )
-	//xmin=0, xmax=1, ymin=2, ymax=3 for bounding box order
 	boxOrder, err := getBboxOrder(model)
 	if err != nil {
-		//WISH THIS WAS LOUDER TOO
-		logger.Info("assuming bounding box tensor is in the default order: [x x y y]")
+		logger.Warn("assuming bounding box tensor is in the default order: [x x y y]")
 		boxOrder = []int{1, 0, 3, 2}
-		if bboxes[0] > bboxes[1] { //the first val is bigger than the second
+		if bboxes[0] > bboxes[1] {
 			boxOrder[0] = 1
 			boxOrder[1] = 0
 		} else {
 			boxOrder[1] = 1
 			boxOrder[0] = 0
 		}
-		if bboxes[2] > bboxes[3] { //the first val is bigger than the second
+		if bboxes[2] > bboxes[3] {
 			boxOrder[2] = 3
 			boxOrder[3] = 2
 		} else {
@@ -201,15 +173,16 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 	}
 	w, h := model.Info.InputWidth, model.Info.InputHeight
 
-	//Detection gathering
+	// Detection gathering
 	detections := make([]objectdetection.Detection, len(scores))
 	for i := 0; i < len(scores); i++ {
-		//Gather box
+
+		// Gather box
 		xmin, ymin, xmax, ymax := bboxes[4*i+getIndex(boxOrder, 0)]*float64(w), bboxes[4*i+getIndex(boxOrder, 1)]*float64(w),
 			bboxes[4*i+getIndex(boxOrder, 2)]*float64(h), bboxes[4*i+getIndex(boxOrder, 3)]*float64(h)
 		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 
-		//Gather label
+		// Gather label
 		var label string
 		if labelMap == nil {
 			label = strconv.Itoa(labels[i])
@@ -217,7 +190,7 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 			label = labelMap[labels[i]]
 		}
 
-		//Gather score and package it
+		// Gather score and package it
 		d := objectdetection.NewDetection(rect, scores[i], label)
 		detections[i] = d
 	}
@@ -225,17 +198,21 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 }
 
 // loadLabels reads a labelmap.txt file from filename and returns a slice of the labels
-// (stolen from https://github.com/mattn/go-tflite)
+// (stolen from https:// github.com/mattn/go-tflite).
 func loadLabels(filename string) ([]string, error) {
 	if filename == "" {
 		return nil, errors.New("no labelpath")
 	}
 	labels := []string{}
-	f, err := os.Open(filename)
+	f, err := os.Open(filename) // nolint:gosec
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		labels = append(labels, scanner.Text())
@@ -244,7 +221,7 @@ func loadLabels(filename string) ([]string, error) {
 }
 
 // getIndex just returns the index of an int in an array of ints
-// Will return -1 if it's not there
+// Will return -1 if it's not there.
 func getIndex(s []int, num int) int {
 	for i, v := range s {
 		if v == num {
@@ -254,29 +231,17 @@ func getIndex(s []int, num int) int {
 	return -1
 }
 
-// getStringIndex just returns the index of a string in an array of strings
-// Will return -1 if it's not there
-func getStringIndex(s []string, word string) int {
-	for i, v := range s {
-		if v == word || strings.ToLower(v) == word {
-			return i
-		}
-	}
-	return -1
-}
-
 // getBboxOrder checks the metadata and looks for the bounding box order
-// returned as []int, where 0=xmin, 1=xmax, 2=ymin, 3=ymax
+// returned as []int, where 0=xmin, 1=xmax, 2=ymin, 3=ymax.
 func getBboxOrder(model *inf.TFLiteStruct) ([]int, error) {
 	bboxOrder := make([]int, 4)
 	m, err := model.GetMetadata()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get metadata")
 	}
-	//tensorData should be a []TensorMetadataT from the metadata telling me about each tensor in order
+	// tensorData should be a []TensorMetadataT from the metadata telling me about each tensor in order
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
 
-	//Go thru them... if name == location, check content and get to work
 	for _, t := range tensorData {
 		if strings.ToLower(t.Name) == "location" {
 			order := t.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT).Index
@@ -285,19 +250,17 @@ func getBboxOrder(model *inf.TFLiteStruct) ([]int, error) {
 			}
 		}
 	}
-
 	return bboxOrder, nil
 }
 
 // getTensorOrder checks the metadata for the order of the output tensors
-// returned as []int where 0=bounding box location, 1=class/category/label, 2= confidence score
+// returned as []int where 0=bounding box location, 1=class/category/label, 2= confidence score.
 func getTensorOrder(model *inf.TFLiteStruct) ([]int, error) {
-	tensorOrder := make([]int, 4) //location = 0 , category = 1, score = 2
+	tensorOrder := make([]int, 4) // location = 0 , category = 1, score = 2
 	m, err := model.GetMetadata()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get metadata")
 	}
-
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
 	for i, t := range tensorData {
 		switch name := strings.ToLower(t.Name); name {
@@ -311,24 +274,5 @@ func getTensorOrder(model *inf.TFLiteStruct) ([]int, error) {
 			continue
 		}
 	}
-
-	/*
-		tensorNames := m.SubgraphMetadata[0].OutputTensorGroups[0].TensorNames
-
-		l, c, s := getStringIndex(tensorNames, "location"), getStringIndex(tensorNames, "category"), getStringIndex(tensorNames, "score")
-		if l == -1 {
-			return nil, errors.New("tried to find 'location' in the metadata and could not")
-		}
-		if c == -1 {
-			return nil, errors.New("tried to find 'category' in the metadata and could not")
-		}
-		if s == -1 {
-			return nil, errors.New("tried to find 'score' in the metadata and could not")
-		}
-		tensorOrder[0] = l
-		tensorOrder[1] = c
-		tensorOrder[2] = s
-	*/
-
 	return tensorOrder, nil
 }
