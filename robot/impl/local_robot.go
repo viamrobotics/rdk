@@ -379,7 +379,15 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 		}
 	}
 
-	newResource, err := f.Constructor(ctx, deps, config, r.logger)
+	var newResource interface{}
+	var err error
+	if f.Constructor != nil {
+		newResource, err = f.Constructor(ctx, deps, config, r.logger)
+	} else {
+		r.logger.Warnw("using legacy constructor", "subtype", rName.Subtype, "model", config.Model)
+		newResource, err = f.RobotConstructor(ctx, r, config, r.logger)
+	}
+
 	if err != nil {
 		return nil, err
 	}

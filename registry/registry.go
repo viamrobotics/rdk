@@ -72,7 +72,10 @@ type (
 	// Dependencies is a map of resources that a component requires for creation.
 	Dependencies map[resource.Name]interface{}
 
-	// A CreateComponent creates a resource from a given config.
+	// A CreateComponent creates a resource from a robot and a given config.
+	CreateRobotComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error)
+
+	// A CreateComponent creates a resource from a collection of dependencies and a given config.
 	CreateComponent func(ctx context.Context, deps Dependencies, config config.Component, logger golog.Logger) (interface{}, error)
 
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
@@ -95,6 +98,9 @@ type (
 type Component struct {
 	RegDebugInfo
 	Constructor CreateComponent
+	// TODO: remove this once the `join_pointcloud` component or the frame system no
+	// longer needs the entire robot
+	RobotConstructor CreateRobotComponent
 }
 
 // ResourceSubtype stores subtype-specific functions and clients.
@@ -123,7 +129,7 @@ func RegisterComponent(subtype resource.Subtype, model string, creator Component
 	if old {
 		panic(errors.Errorf("trying to register two resources with same subtype:%s, model:%s", subtype, model))
 	}
-	if creator.Constructor == nil {
+	if creator.Constructor == nil && creator.RobotConstructor == nil  {
 		panic(errors.Errorf("cannot register a nil constructor for subtype:%s, model:%s", subtype, model))
 	}
 	componentRegistry[qName] = creator
