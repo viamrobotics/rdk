@@ -307,7 +307,7 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 		// Do default as long as ctx.Done() is not the case.
 		select {
 		case <-ctx.Done():
-			return errors.Errorf("sync context closed unexpectedly")
+			return errors.New("sync context closed unexpectedly")
 		default:
 			// If EOF, we're done reading the file.
 			if errors.Is(err, io.EOF) {
@@ -375,7 +375,7 @@ func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		// Do default as long as ctx.Done() is not the case.
 		select {
 		case <-ctx.Done():
-			return errors.Errorf("sync context closed unexpectedly")
+			return errors.New("sync context closed unexpectedly")
 		default:
 			// If EOF, we're done reading the file.
 			if errors.Is(err, io.EOF) {
