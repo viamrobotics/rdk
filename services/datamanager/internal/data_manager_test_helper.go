@@ -14,7 +14,6 @@ import (
 type DMService interface {
 	Sync(ctx context.Context) error
 	Update(ctx context.Context, cfg *config.Config) error
-	QueueCapturedData(cancelCtx context.Context, intervalMins float64)
 	Close(ctx context.Context) error
 	SetUploadFn(fn func(ctx context.Context, path string) error)
 }

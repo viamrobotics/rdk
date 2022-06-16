@@ -443,8 +443,8 @@ func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, inte
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
 		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
-		intervalMilliseconds := time.Duration(60000.0 * intervalMins)
-		ticker := time.NewTicker(time.Millisecond * intervalMilliseconds)
+		intervalMillis := 60000.0 * intervalMins
+		ticker := time.NewTicker(time.Millisecond * time.Duration(intervalMillis))
 		defer ticker.Stop()
 
 		for {
