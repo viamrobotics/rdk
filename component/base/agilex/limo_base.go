@@ -248,7 +248,10 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 		steering_angle := inner_angle / base.rightAngleScale
 		// steering angle is in unit of .001 radians
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, 0, 0, -steering_angle*1000)
+	} else if base.driveMode == "omni" {
+		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, base.state.velocityLinearGoal.X, 0)
 	}
+
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -283,12 +286,12 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 	return nil
 }
 
-func (base *limoBase) setMotionCommand(ctx context.Context, linear_vel float64, angular_vel float64, lateral_velocity float64, steering_angle float64) error {
+func (base *limoBase) setMotionCommand(ctx context.Context, linear_vel float64, angular_vel float64, lateral_vel float64, steering_angle float64) error {
 	frame := new(limoFrame)
 	frame.id = 0x111
 	linear_cmd := int16(linear_vel)
 	angular_cmd := int16(angular_vel)
-	lateral_cmd := int16(lateral_velocity)
+	lateral_cmd := int16(lateral_vel)
 	steering_cmd := int16(steering_angle)
 
 	frame.data = make([]uint8, 8)
@@ -315,7 +318,7 @@ func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec flo
 	base.controller.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error
-	if base.driveMode == "differential" {
+	if base.driveMode == "differential" || base.driveMode == "omni" {
 		// angular velocity is expressed in units of .001 radians/sec
 		err = base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: degsPerSec})
 	} else if base.driveMode == "ackermann" {
