@@ -23,7 +23,8 @@ var (
 	initialWaitTime        = time.Second
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
-	bufferSize             = 1 << 20
+	// Buffer size set at 32 kiB, this is 32768 Bytes.
+	bufferSize = 32768
 )
 
 // syncManager is responsible for uploading files to the cloud every syncInterval.

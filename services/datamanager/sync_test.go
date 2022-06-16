@@ -202,20 +202,6 @@ func TestFileUpload(t *testing.T) {
 
 func TestSensorUploadTabular(t *testing.T) {
 	protoMsgTabularEmpty := toProto(empty{})
-	protoMsgTabularAllLiterals := toProto(allLiterals{
-		Bool:   false,
-		Float:  12.4,
-		Int:    7,
-		Int64:  3,
-		String: "Viam is cool.",
-	})
-	protoMsgTabularArraysOfLiterals := toProto(allArrays{
-		BoolArray:   []bool{false, true},
-		FloatArray:  []float64{12.4, 0.9},
-		IntArray:    []int{7, 9},
-		Int64Array:  []int64{3, 2},
-		StringArray: []string{"Viam is cool.", "The interns are great!"},
-	})
 	protoMsgTabularNestedStructs := toProto(metaStruct{
 		AllArrays: allArrays{
 			BoolArray:   []bool{false, true},
@@ -236,7 +222,7 @@ func TestSensorUploadTabular(t *testing.T) {
 	tests := []struct {
 		name    string
 		toSend  *v1.SensorData
-		expMsgs []v1.UploadRequest
+		expData []*structpb.Struct
 	}{
 		{
 			name: "empty struct",
@@ -246,67 +232,17 @@ func TestSensorUploadTabular(t *testing.T) {
 					Struct: protoMsgTabularEmpty,
 				},
 			},
-			expMsgs: []v1.UploadRequest{},
+			expData: []*structpb.Struct{},
 		},
 		{
-			name: "struct with each literal type",
-			toSend: &v1.SensorData{
-				Metadata: &v1.SensorMetadata{},
-				Data: &v1.SensorData_Struct{
-					Struct: protoMsgTabularAllLiterals,
-				},
-			},
-			expMsgs: []v1.UploadRequest{
-				{
-					UploadPacket: &v1.UploadRequest_SensorContents{
-						SensorContents: &v1.SensorData{
-							Data: &v1.SensorData_Struct{
-								Struct: protoMsgTabularAllLiterals,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "struct with arrays of each literal type",
-			toSend: &v1.SensorData{
-				Metadata: &v1.SensorMetadata{},
-				Data: &v1.SensorData_Struct{
-					Struct: protoMsgTabularArraysOfLiterals,
-				},
-			},
-			expMsgs: []v1.UploadRequest{
-				{
-					UploadPacket: &v1.UploadRequest_SensorContents{
-						SensorContents: &v1.SensorData{
-							Data: &v1.SensorData_Struct{
-								Struct: protoMsgTabularArraysOfLiterals,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "struct of structs",
+			name: "structs with each literal, arrays, and nested structs",
 			toSend: &v1.SensorData{
 				Metadata: &v1.SensorMetadata{},
 				Data: &v1.SensorData_Struct{
 					Struct: protoMsgTabularNestedStructs,
 				},
 			},
-			expMsgs: []v1.UploadRequest{
-				{
-					UploadPacket: &v1.UploadRequest_SensorContents{
-						SensorContents: &v1.SensorData{
-							Data: &v1.SensorData_Struct{
-								Struct: protoMsgTabularNestedStructs,
-							},
-						},
-					},
-				},
-			},
+			expData: []*structpb.Struct{protoMsgTabularNestedStructs},
 		},
 	}
 
@@ -339,8 +275,22 @@ func TestSensorUploadTabular(t *testing.T) {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
-		// The mc.sent value should be the same as the tc.expMsgs value
-		compareUploadRequests(t, true, mc.sent, tc.expMsgs)
+		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
+		expectedMsgs := []v1.UploadRequest{}
+		for _, expMsg := range tc.expData {
+			expectedMsgs = append(expectedMsgs, v1.UploadRequest{
+				UploadPacket: &v1.UploadRequest_SensorContents{
+					SensorContents: &v1.SensorData{
+						Data: &v1.SensorData_Struct{
+							Struct: expMsg,
+						},
+					},
+				},
+			})
+		}
+
+		// The mc.sent value should be the same as the expectedMsgs value
+		compareUploadRequests(t, true, mc.sent, expectedMsgs)
 	}
 }
 
@@ -354,70 +304,22 @@ func TestSensorUploadBinary(t *testing.T) {
 	tests := []struct {
 		name    string
 		toSend  [][]byte
-		expMsgs []v1.UploadRequest
+		expData [][]byte
 	}{
 		{
-			name:   "not empty",
-			toSend: [][]byte{msgContents},
-			expMsgs: []v1.UploadRequest{
-				{
-					UploadPacket: &v1.UploadRequest_SensorContents{
-						SensorContents: &v1.SensorData{
-							Data: &v1.SensorData_Binary{
-								Binary: msgContents,
-							},
-						},
-					},
-				},
-			},
+			name:    "not empty",
+			toSend:  [][]byte{msgContents},
+			expData: [][]byte{msgContents},
 		},
 		{
-			name:   "empty",
-			toSend: [][]byte{msgEmpty},
-			expMsgs: []v1.UploadRequest{
-				{
-					UploadPacket: &v1.UploadRequest_SensorContents{
-						SensorContents: &v1.SensorData{
-							Data: &v1.SensorData_Binary{
-								Binary: msgEmpty,
-							},
-						},
-					},
-				},
-			},
+			name:    "empty",
+			toSend:  [][]byte{msgEmpty},
+			expData: [][]byte{msgEmpty},
 		},
 		{
-			name:   "multiple sensor data readings",
-			toSend: [][]byte{msgBin1, msgBin2, msgBin3},
-			expMsgs: []v1.UploadRequest{
-				{
-					UploadPacket: &v1.UploadRequest_SensorContents{
-						SensorContents: &v1.SensorData{
-							Data: &v1.SensorData_Binary{
-								Binary: msgBin1,
-							},
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_SensorContents{
-						SensorContents: &v1.SensorData{
-							Data: &v1.SensorData_Binary{
-								Binary: msgBin2,
-							},
-						},
-					},
-				},
-				{
-					UploadPacket: &v1.UploadRequest_SensorContents{
-						SensorContents: &v1.SensorData{
-							Data: &v1.SensorData_Binary{
-								Binary: msgBin3,
-							},
-						},
-					},
-				},
-			},
+			name:    "multiple sensor data readings",
+			toSend:  [][]byte{msgBin1, msgBin2, msgBin3},
+			expData: [][]byte{msgBin1, msgBin2, msgBin3},
 		},
 	}
 
@@ -457,8 +359,22 @@ func TestSensorUploadBinary(t *testing.T) {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
-		// The mc.sent value should be the same as the tc.expMsg value
-		compareUploadRequests(t, false, mc.sent, tc.expMsgs)
+		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
+		expectedMsgs := []v1.UploadRequest{}
+		for _, expMsg := range tc.expData {
+			expectedMsgs = append(expectedMsgs, v1.UploadRequest{
+				UploadPacket: &v1.UploadRequest_SensorContents{
+					SensorContents: &v1.SensorData{
+						Data: &v1.SensorData_Binary{
+							Binary: expMsg,
+						},
+					},
+				},
+			})
+		}
+
+		// The mc.sent value should be the same as the expectedMsgs value
+		compareUploadRequests(t, true, mc.sent, expectedMsgs)
 	}
 }
 
