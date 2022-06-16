@@ -44,9 +44,12 @@ type syncer struct {
 }
 
 // newSyncer returns a new syncer.
-func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer {
+func newSyncer(queuePath string, logger golog.Logger, captureDir string, uploadFunc func(ctx context.Context, path string) error) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
+	// TODO: Change to uploadFunc = viamUpload when PR #915 (DATA-166) is merged.
+	if uploadFunc == nil {
+		uploadFunc = nil
+	}
 	ret := syncer{
 		syncQueue:     queuePath,
 		logger:        logger,
@@ -57,11 +60,9 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 			m:    make(map[string]struct{}),
 		},
 		backgroundWorkers: sync.WaitGroup{},
-		uploadFn: func(ctx context.Context, path string) error {
-			return nil
-		},
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		uploadFn:          uploadFunc,
+		cancelCtx:         cancelCtx,
+		cancelFunc:        cancelFunc,
 	}
 
 	return &ret
@@ -276,8 +277,4 @@ func getNextWait(lastWait time.Duration) time.Duration {
 		return maxRetryInterval
 	}
 	return nextWait
-}
-
-func (s *syncer) SetUploadFn(fn func(ctx context.Context, path string) error) {
-	s.uploadFn = fn
 }
