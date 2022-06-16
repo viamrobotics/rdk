@@ -94,6 +94,8 @@ type (
 	CreateRPCClient func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
 
+// A DependencyNotReadyError is used whenever we reference a dependency that has not been
+// constructed and registered yet.
 type DependencyNotReadyError struct {
 	Name string
 }
