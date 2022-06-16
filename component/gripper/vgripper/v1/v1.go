@@ -5,6 +5,7 @@ import (
 	"context"
 	// used to import model referenceframe.
 	_ "embed"
+	"fmt"
 	"math"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -72,7 +72,6 @@ type gripperV1 struct {
 
 	model                 referenceframe.Model
 	numBadCurrentReadings int
-	generic.Unimplemented
 }
 
 // newGripperV1 Returns a gripperV1.
@@ -132,6 +131,14 @@ func newGripperV1(
 		return nil, errors.New("gripper needs a current and a pressure reader")
 	}
 
+	err = vg.Home(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return vg, nil
+}
+
+func (vg *gripperV1) Home(ctx context.Context) error {
 	// Variables for the overall init process
 	var posA, posB float64
 	var hasPressureA, hasPressureB bool
@@ -148,20 +155,20 @@ func newGripperV1(
 	stopFunc := func(ctx context.Context) bool {
 		current, err := vg.readCurrent(ctx)
 		if err != nil {
-			logger.Error(err)
+			vg.logger.Error(err)
 			return true
 		}
 		err = vg.processCurrentReading(current, "init")
 		if err != nil {
-			logger.Error(err)
+			vg.logger.Error(err)
 			return true
 		}
 		pressure, err := vg.readPressure(ctx)
 		if err != nil {
-			logger.Error(err)
+			vg.logger.Error(err)
 			return true
 		}
-		if pressure < pressureLimit {
+		if pressure < vg.pressureLimit {
 			if localTest.nonPressureSeen {
 				localTest.pressureCount++
 			}
@@ -170,16 +177,16 @@ func newGripperV1(
 			// Capture the last position BEFORE pressure is detected
 			localTest.pressurePos, err = vg.motor.GetPosition(ctx)
 			if err != nil {
-				logger.Error(err)
+				vg.logger.Error(err)
 				return true
 			}
 		}
 		if localTest.nonPressureCount == 15 {
 			localTest.nonPressureSeen = true
-			logger.Debug("init: non-pressure range found")
+			vg.logger.Debug("init: non-pressure range found")
 		}
 		if localTest.pressureCount >= 5 {
-			logger.Debug("init: pressure sensing (closed) direction found")
+			vg.logger.Debug("init: pressure sensing (closed) direction found")
 			localTest.pressureSeen = true
 			return true
 		}
@@ -187,10 +194,10 @@ func newGripperV1(
 	}
 
 	// Test forward motion for pressure/endpoint
-	logger.Debug("init: moving forward")
-	err = vg.motor.GoTillStop(ctx, TargetRPM/2, stopFunc)
+	vg.logger.Debug("init: moving forward")
+	err := vg.motor.GoTillStop(ctx, TargetRPM/2, stopFunc)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if localTest.pressureSeen {
 		hasPressureA = true
@@ -198,15 +205,15 @@ func newGripperV1(
 	} else {
 		posA, err = vg.motor.GetPosition(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	// Test backward motion for pressure/endpoint
 	localTest = &movementTest{}
-	logger.Debug("init: moving backward")
+	vg.logger.Debug("init: moving backward")
 	err = vg.motor.GoTillStop(ctx, -1*TargetRPM/2, stopFunc)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if localTest.pressureSeen {
 		hasPressureB = true
@@ -214,17 +221,17 @@ func newGripperV1(
 	} else {
 		posB, err = vg.motor.GetPosition(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	// One final movement, in the case that we start closed AND the first movement was also toward closed (no non-pressure range seen)
 	if !hasPressureA && !hasPressureB {
 		localTest = &movementTest{}
-		logger.Debug("init: moving forward (2nd try)")
+		vg.logger.Debug("init: moving forward (2nd try)")
 		err = vg.motor.GoTillStop(ctx, TargetRPM/2, stopFunc)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if localTest.pressureSeen {
 			hasPressureA = true
@@ -232,20 +239,19 @@ func newGripperV1(
 		} else {
 			posA, err = vg.motor.GetPosition(ctx)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil,
-			errors.Errorf(
-				"init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t",
-				posA,
-				posB,
-				hasPressureA,
-				hasPressureB,
-			)
+		return errors.Errorf(
+			"init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t",
+			posA,
+			posB,
+			hasPressureA,
+			hasPressureB,
+		)
 	}
 
 	if hasPressureA {
@@ -268,23 +274,23 @@ func newGripperV1(
 		vg.closePos += ClosePosOffset
 	}
 
-	logger.Debugf("init: orig openPos: %f, closePos: %f", vg.openPos, vg.closePos)
+	vg.logger.Debugf("init: orig openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	// Zero to closed position
 	curPos, err := vg.motor.GetPosition(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = vg.motor.ResetZeroPosition(ctx, curPos-vg.closePos)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	vg.openPos -= vg.closePos
 	vg.closePos = 0
 
-	logger.Debugf("init: final openPos: %f, closePos: %f", vg.openPos, vg.closePos)
+	vg.logger.Debugf("init: final openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
 	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
-		return nil, errors.Errorf(
+		return errors.Errorf(
 			"init: rotationGap not in expected range got: %v range %v -> %v",
 			rotationGap,
 			MinRotationGap,
@@ -292,7 +298,7 @@ func newGripperV1(
 		)
 	}
 
-	return vg, vg.Open(ctx)
+	return vg.Open(ctx)
 }
 
 // ModelFrame returns the dynamic frame of the model.
@@ -493,4 +499,23 @@ func (vg *gripperV1) analogs(ctx context.Context) (hasPressure bool, pressure, c
 	}
 
 	return
+}
+
+func (vg *gripperV1) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	name, ok := cmd["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' value")
+	}
+	switch name {
+	case "get_pressure":
+		hasPressure, pressure, err := vg.hasPressure(ctx)
+		return map[string]interface{}{"has_pressure": hasPressure, "pressure": pressure}, err
+	case "get_current":
+		current, err := vg.readCurrent(ctx)
+		return map[string]interface{}{"current": current}, err
+	case "home":
+		return nil, vg.Home(ctx)
+	default:
+		return nil, fmt.Errorf("no such command: %s", name)
+	}
 }

@@ -25,9 +25,9 @@ import (
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Host         string `json:"host"`
-	Speed        float32 `json:"speed"` // deg/s
-	Acceleration float32 `json:"speed"` // deg/s/s
+	Host         string  `json:"host"`
+	Speed        float32 `json:"speed"`        // deg/s
+	Acceleration float32 `json:"acceleration"` // deg/s/s
 }
 
 type xArm struct {
@@ -89,7 +89,7 @@ func xArmModel(dof int) (referenceframe.Model, error) {
 }
 
 // NewxArm returns a new xArm with the specified dof.
-func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
+func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
 	armCfg := cfg.ConvertedAttributes.(*AttrConfig)
 
 	if armCfg.Host == "" {
@@ -121,15 +121,15 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	}
 
 	xA := xArm{
-		dof:      dof,
-		tid:      0,
-		conn:     conn,
-		speed:    speed * math.Pi/180,
-		accel:    acceleration * math.Pi/180,
-		moveHZ:   100.,
-		mp:       mp,
-		model:    model,
-		started:  false,
+		dof:     dof,
+		tid:     0,
+		conn:    conn,
+		speed:   speed * math.Pi / 180,
+		accel:   acceleration * math.Pi / 180,
+		moveHZ:  100.,
+		mp:      mp,
+		model:   model,
+		started: false,
 	}
 
 	err = xA.start(ctx)
