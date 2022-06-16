@@ -18,7 +18,8 @@
       <template v-slot:content>
         <div
           class="border border-t-0 border-black pt-2 pb-4 h-80"
-          :style="{ maxHeight: maxHeight + 'px' }"
+          v-click-outside="removeKeyboardListeners"
+          :style="{ height: height }"
         >
           <div>
             <Tabs>
@@ -39,13 +40,17 @@
           <div
             v-if="selectedItem === 'keyboard'"
             class="p-4"
-            :style="{ maxHeight: maxHeight + 'px' }"
+            :style="{ height: height }"
           >
             <div>
               <div>
                 <div class="grid grid-cols-2">
                   <div class="flex pt-6">
-                    <KeyboardInput @keyboard-ctl="keyboardCtl"> </KeyboardInput>
+                    <KeyboardInput
+                      @keyboard-ctl="keyboardCtl"
+                      ref="keyboardRef"
+                    >
+                    </KeyboardInput>
                   </div>
                   <div class="flex" v-if="camera">
                     <div class="pr-4">
@@ -78,14 +83,14 @@
           <div
             v-if="selectedItem === 'discrete'"
             class="pr-4 pl-4 pt-4 flex"
-            :style="{ maxHeight: maxHeight + 'px' }"
+            :style="{ height: height }"
           >
             <div class="flex-grow">
               <div>
                 <div class="column">
                   <p class="text-xs">Movement Mode</p>
                   <RadioButtons
-                    :options="['Straight', 'Arc', 'Spin']"
+                    :options="['Straight', 'Spin']"
                     defaultOption="Straight"
                     :disabledOptions="[]"
                     v-on:selectOption="setMovementMode($event)"
@@ -105,10 +110,7 @@
                     v-on:selectOption="setMovementType($event)"
                   />
                 </div>
-                <div
-                  v-if="movementMode === 'Straight' || movementMode === 'Arc'"
-                  class="column pr-2"
-                >
+                <div v-if="movementMode === 'Straight'" class="column pr-2">
                   <p class="text-xs">Direction</p>
                   <RadioButtons
                     :options="['Forwards', 'Backwards']"
@@ -129,13 +131,13 @@
                   inputId="distance"
                   :disabled="movementType === 'Continous'"
                   label="Distance (mm)"
-                  v-if="movementMode === 'Straight' || movementMode === 'Arc'"
+                  v-if="movementMode === 'Straight'"
                 ></NumberInput>
               </div>
               <div
                 :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
                 class="pt-4"
-                v-if="movementMode === 'Spin' || movementMode === 'Arc'"
+                v-if="movementMode === 'Spin'"
               >
                 <div class="column pr-2">
                   <p class="text-xs">Movement Type</p>
@@ -156,7 +158,7 @@
                     :step="90"
                     v-model="maxClusteringRadius"
                     unit="°"
-                    :name="rangeLabel"
+                    name="Angle"
                   ></Range>
                 </div>
               </div>
@@ -166,7 +168,6 @@
                 color="success"
                 group
                 variant="primary"
-                :disabled="baseStatus"
                 @click="baseRun()"
               >
                 <template v-slot:icon>
@@ -219,14 +220,13 @@ export default class Base extends Vue {
   @Prop({ default: null }) baseName!: string;
   @Prop({ default: null }) crumbs!: [string];
   @Prop({ default: true }) connectedCamera!: boolean;
-  @Prop({ default: false }) baseStatus!: boolean;
 
   mdiRestore = mdiRestore;
   mdiPlayCircleOutline = mdiPlayCircleOutline;
   mdiCloseOctagonOutline = mdiCloseOctagonOutline;
 
   camera = this.connectedCamera;
-  maxHeight = 1100;
+  height = "auto";
   selectedValue = "NoCamera";
   isContinuous = true;
   streamId = "stream-preview-" + this.streamName;
@@ -246,26 +246,6 @@ export default class Base extends Vue {
     { value: "NoCamera", label: "No Camera" },
     { value: "Camera1", label: "Camera1" },
   ];
-
-  get rangeLabel(): string {
-    if (this.movementMode === "Arc") return "Steering Angle Degree";
-
-    if (this.movementMode === "Spin") return "Angle";
-
-    return "unknown";
-  }
-
-  beforeMount(): void {
-    window.addEventListener("resize", this.resizeContent);
-  }
-
-  beforeDestroy(): void {
-    window.removeEventListener("resize", this.resizeContent);
-  }
-
-  mounted(): void {
-    this.resizeContent();
-  }
 
   resetDiscreteState(): void {
     this.movementMode = "Straight";
@@ -310,13 +290,6 @@ export default class Base extends Vue {
       this.direction
     );
   }
-  resizeContent(): void {
-    if (this.camera) {
-      this.maxHeight = 1500;
-    } else {
-      this.maxHeight = 1100;
-    }
-  }
   keyboardCtl(keysPressed: Record<string, unknown>): void {
     let toEmit = {
       baseName: this.baseName,
@@ -326,6 +299,11 @@ export default class Base extends Vue {
       left: keysPressed.left,
     };
     this.$emit("keyboard-ctl", toEmit);
+  }
+  removeKeyboardListeners(): void {
+    // eslint-disable-next-line
+    const keyboardRef: any = this.$refs.keyboardRef;
+    keyboardRef.removeKeyboardListeners();
   }
 }
 </script>

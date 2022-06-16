@@ -26,7 +26,7 @@ func init() {
 }
 
 // NewGantry returns a new fake gantry.
-func NewGantry(name string) gantry.Gantry {
+func NewGantry(name string) gantry.LocalGantry {
 	return &Gantry{name, []float64{1.2}, []float64{5}, r3.Vector{1, 0, 0}, 2, generic.Echo{}}
 }
 
@@ -54,6 +54,16 @@ func (g *Gantry) GetLengths(ctx context.Context) ([]float64, error) {
 func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState) error {
 	g.positionsMm = positionsMm
 	return nil
+}
+
+// Stop doesn't do anything for a fake gantry.
+func (g *Gantry) Stop(ctx context.Context) error {
+	return nil
+}
+
+// IsMoving is always false for a fake gantry.
+func (g *Gantry) IsMoving() bool {
+	return false
 }
 
 // ModelFrame returns a Gantry frame.

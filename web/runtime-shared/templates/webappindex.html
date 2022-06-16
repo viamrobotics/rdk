@@ -85,7 +85,7 @@
       }
 
       function fixArmStatus(old) {
-        var newStatus = { pos_pieces : [], joint_pieces : [] };
+        var newStatus = { pos_pieces : [], joint_pieces : [], is_moving: old["is_moving"] || false };
         var fieldSetters = [
           ["x", "X"],
           ["y", "Y"],
@@ -125,7 +125,7 @@
       }
 
       function fixGantryStatus(old) {
-        var newStatus = { parts: [] };
+        var newStatus = { parts: [], is_moving: old["is_moving"] || false};
         if (old["lengths_mm"].length != old["positions_mm"].length) {
           throw "gantry lists different lengths";
         }
@@ -163,7 +163,7 @@
 
       function fixRawStatus(name, status) {
         switch (theApp.resourceNameToSubtypeString(name)) {
-          // TODO (RDK-127): generate these using constants
+          // TODO (APP-146): generate these using constants
           case "rdk:component:arm":
             status = fixArmStatus(status);
             break;
@@ -471,28 +471,28 @@
               req.setAngleDeg(angle);
               servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            motorCommand: function (motor, cmd) {
-              let req = cmd.request;
-              req.setName(motor);
-
-              switch (cmd.type) {
+            motorCommand: function (name, inputs) {
+              switch (inputs.type) {
                 case "go":
-                  motorService.setPower(req, {}, (err, resp) => grpcCallback(err, resp));
+                  MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, (err, resp) => grpcCallback(err, resp));
                   break;
                 case "goFor":
-                  motorService.goFor(req, {}, (err, resp) => grpcCallback(err, resp));
+                  MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, (err, resp) => grpcCallback(err, resp));
                   break;
                 case "goTo":
-                  motorService.goTo(req, {}, (err, resp) => grpcCallback(err, resp));
+                  MotorControlHelper.goTo(name, inputs.rpm, inputs.position, (err, resp) => grpcCallback(err, resp));
                   break;
               }
             },
+            motorStop: function(name) {
+              MotorControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
+            },
             hasWebGamepad: function () {
-              // TODO (RDK-127): replace these with constants
+              // TODO (APP-146): replace these with constants
               return theData.resources.some((elem) => elem.namespace == "rdk" && elem.type == "component" && elem.subtype == "input_controller" && elem.name == "WebGamepad");
             },
             filteredInputControllerList: function () {
-              // TODO (RDK-127): replace these with constants
+              // TODO (APP-146): replace these with constants
               // filters out WebGamepad
               return theData.resources.filter((elem) => {
                 return elem.namespace == "rdk" && elem.type == "component" && elem.subtype == "input_controller" && elem.name !== "WebGamepad";
@@ -516,14 +516,17 @@
                 return;
               } 
 
-              const arcInputs = window.computeKeyboardBaseControls(controls);
-              console.log("Arc inputs: %o", arcInputs);
-              BaseControlHelper.moveArc(baseName,
-                    arcInputs.distance,
-                    arcInputs.speed,
-                    arcInputs.angle,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
+              const inputs = window.computeKeyboardBaseControls(controls);
+              console.log("Inputs: %o", inputs);
+              var linear = new commonApi.Vector3();
+              var angular = new commonApi.Vector3();
+              linear.setY(inputs.linear)
+              angular.setZ(inputs.angular)
+              BaseControlHelper.setPower(baseName,
+                                         linear,
+                                         angular,
+                                         (err, resp) => {
+                                           return grpcCallback(err, resp)
                     });
             },
             handleBaseActionStop : function(name) {
@@ -582,54 +585,6 @@
                   BaseControlHelper.moveStraight(name, 
                     document.getElementById("distance").value * -1, 
                     document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Clockwise" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * 1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Counterclockwise" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * 1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Clockwise" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * -1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                  });
-              } else if (
-                  movementMode === "Arc" &&
-                  spinType === "Counterclockwise" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveArc(name,
-                    document.getElementById("distance").value * -1,
-                    document.getElementById("speed").value,
-                    document.getElementById("angle").value,
                     (err, resp) => {
                       return grpcCallback(err, resp)
                   });
@@ -918,8 +873,33 @@
               const mimeType = "pointcloud/pcd";
               pcdLoad(`data:${mimeType};base64,${data}`);
             },
-            doSelectObject: function (selection) {
+            doCenterPCDLoad: function (data) {
+              const mimeType = "pointcloud/pcd";
+              pcdLoad(`data:${mimeType};base64,${data}`);
+              var p = { x: 0 / 1000, y: 0 / 1000, z: 0 / 1000 };
+              console.log(p);
+              setPoint(p);
+            },
+            doPCDDownload: function(data) {
+              const mimeType = "pointcloud/pcd";
+              window.open(`data:${mimeType};base64,${data}`);
+            },
+            doSelectObject: function (selection, index) {
                 console.log(selection);
+                console.log(index);
+                switch (selection) {
+                  case "Center Point":
+                    this.doSegmentLoad(index);
+                    break;
+                  case "Bounding Box":
+                    this.doBoundingBoxLoad(index);
+                    break;
+                  case "Cropped":
+                    this.doPointLoad(index);
+                    break;
+                  default:
+                    break;
+                }
             },
             setNavigationMode: function (mode) {
               let pbMode = navigationApi.Mode.MODE_UNSPECIFIED;
@@ -1000,10 +980,7 @@
             },
             getGPIO: function (boardName) {
               var pin = document.getElementById("get_pin_" + boardName).value;
-              var req = new boardApi.GetGPIORequest();
-              req.setName(boardName);
-              req.setPin(pin);
-              boardService.getGPIO(req, {}, (err, resp) => {
+              BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
                 if (err) {
                   console.log(err);
                   return;
@@ -1015,15 +992,11 @@
             setGPIO: function (boardName) {
               var pin = document.getElementById("set_pin_" + boardName).value;
               var v = document.getElementById("set_pin_v_" + boardName).value;
-              var req = new boardApi.SetGPIORequest();
-              req.setName(boardName);
-              req.setPin(pin);
-              req.setHigh(v === "high");
-              boardService.setGPIO(req, {}, grpcCallback);
+              BoardControlHelper.setGPIO(boardName, pin, v === "high", grpcCallback);
             },
           },
           directives: {
-            // TODO(RDK-41): replace with vue component after naveed work done
+            // TODO(APP-82): replace with vue component after naveed work done
             mapMounted(el) {
               if (theData.mapOnce) {
                 return;
@@ -1182,10 +1155,10 @@
             resourceName.setName(name.name);
             return resourceName;
           });
-          const streamReq = new statusApi.StreamStatusRequest();
+          const streamReq = new robotApi.StreamStatusRequest();
           streamReq.setResourceNamesList(names);
           streamReq.setEvery(new proto.google.protobuf.Duration().setNanos(500000000)); // 500ms
-          statusStream = statusService.streamStatus(streamReq);
+          statusStream = robotService.streamStatus(streamReq);
           let firstData = true;
           statusStream.on("data", function (response) {
             lastStatusTS = Date.now();
@@ -1748,16 +1721,16 @@
           </div>
 
           <!-- ******* MOTOR *******  -->
-          <motor-detail
+          <motor-detail 
             class="pb-4"
             v-for="motor in filterResources('rdk', 'component', 'motor')"
             :key="'new-' + motor.name"
-            v-if="resourceStatusByName(motor)"
-            v-bind:motor-name="motor.name"
-            v-bind:motor-status="resourceStatusByName(motor)"
-            v-on:execute="motorCommand(motor.name, $event)"
-            style="max-width: 1080px;"
-          >
+            v-if="resourceStatusByName(motor)"  
+            :motor-name="motor.name" 
+            :crumbs="['motor', motor.name]" 
+            :motor-status="resourceStatusByName(motor)"
+            v-on:motor-run="motorCommand(motor.name, $event)"
+            v-on:motor-stop="motorStop(motor.name)">
           </motor-detail>
 
           <!-- ******* INPUT VIEW *******  -->
@@ -1775,7 +1748,7 @@
           <!-- ******* WEB CONTROLS *******  -->
           <web-gamepad class="pb-4" v-if="hasWebGamepad()" v-on:execute="inputInject($event)" style="max-width: 1080px;"> </web-gamepad>
 
-                    <!-- ******* BOARD *******  -->
+          <!-- ******* BOARD *******  -->
           <div class="board pb-4" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
             <h3>Board ${board.name}</h3>
             <table  class="table-auto border-collapse border border-slate-400">
@@ -1796,7 +1769,7 @@
               <tr>
                  <th class="border border-slate-300">Get</th>
                  <td class="border border-slate-300">
-                  Pin: <number-input  v-model="getPin" :id="'get_pin_' + board.name"></number-input>
+                  Pin: <number-input  v-model="getPin" :input-id="'get_pin_' + board.name"></number-input>
                   <viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
                   <span :id="'get_pin_value_' + board.name"/>
                 </td>
@@ -1804,7 +1777,7 @@
               <tr>
                  <th class="border border-slate-300">Set</th>
                  <td class="border border-slate-300">
-                  Pin: <number-input v-model="setPin" :id="'set_pin_' + board.name"></number-input><br>
+                  Pin: <number-input v-model="setPin" :input-id="'set_pin_' + board.name"></number-input><br>
                   <select :id="'set_pin_v_' + board.name">
                     <option>low</option>
                     <option>high</option>
@@ -1881,7 +1854,9 @@
                       :parameter-type="parameterType"
                       :segment-algo="segmentAlgo"
                       :segment-objects="objects"
+                      :find-status="pcdClick.calculatingSegments"
                       @full-image="doPCDLoad(fullcloud)"
+                      @center-pcd="doCenterPCDLoad(fullcloud)"
                       @find-segments="findSegments(segmentAlgo, segmenterParameters)"
                       @change-segmenter="getSegmenterParameters"
                       @toggle-camera="viewCamera(streamName)"
@@ -1894,7 +1869,7 @@
                       @segment-load="doSegmentLoad"
                       @bounding-box-load="doBoundingBoxLoad"
                       @download-screenshot="renderFrame(streamName)"
-                      @download-raw-data="doPCDLoad(fullcloud)"
+                      @download-raw-data="doPCDDownload(fullcloud)"
                       @select-object="doSelectObject"
               ></camera>
           </div>
@@ -1902,7 +1877,7 @@
     </div>
     <!-- end vue app -->
 
-    <!-- TODO(RDK-70): remove api key once going into production -->
+    <!-- TODO(RSDK-51): remove api key once going into production -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly" async></script>
   </body>
 </html>

@@ -4,7 +4,6 @@ package eva
 import (
 	"bytes"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -287,6 +286,15 @@ func (e *eva) resetErrors(ctx context.Context) error {
 	return ctx.Err()
 }
 
+func (e *eva) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
+	return arm.ErrStopUnimplemented
+}
+
+func (e *eva) IsMoving() bool {
+	return e.opMgr.OpRunning()
+}
+
 func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
 	type Temp struct {
 		Snapshot evaData
@@ -361,7 +369,7 @@ func evaModel() (referenceframe.Model, error) {
 }
 
 // NewEva TODO.
-func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	model, err := evaModel()
 	if err != nil {
 		return nil, err

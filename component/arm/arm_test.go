@@ -16,6 +16,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -92,6 +93,7 @@ func TestStatusValid(t *testing.T) {
 	status := &pb.Status{
 		EndPosition:    pose,
 		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		IsMoving:       true,
 	}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
@@ -104,6 +106,7 @@ func TestStatusValid(t *testing.T) {
 		map[string]interface{}{
 			"end_position":    map[string]interface{}{"x": 1.0, "y": 2.0, "z": 3.0},
 			"joint_positions": map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
+			"is_moving":       true,
 		},
 	)
 
@@ -117,11 +120,12 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := arm.CreateStatus(context.Background(), "not an arm")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", "string"))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalArm", "string"))
 
 	status := &pb.Status{
 		EndPosition:    pose,
 		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		IsMoving:       true,
 	}
 
 	injectArm := &inject.Arm{}
@@ -131,11 +135,19 @@ func TestCreateStatus(t *testing.T) {
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
 		return &pb.JointPositions{Degrees: status.JointPositions.Degrees}, nil
 	}
+	injectArm.IsMovingFunc = func() bool {
+		return true
+	}
 
 	t.Run("working", func(t *testing.T) {
 		status1, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
+
+		resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
+		status2, err := resourceSubtype.Status(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status2, test.ShouldResemble, status)
 	})
 
 	t.Run("fail on GetJointPositions", func(t *testing.T) {
@@ -199,7 +211,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = arm.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalArm", nil))
 
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)
@@ -232,6 +244,16 @@ func TestReconfigurableArm(t *testing.T) {
 	err = reconfArm1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableArm")
+}
+
+func TestStop(t *testing.T) {
+	actualArm1 := &mock{Name: testArmName}
+	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualArm1.stopCount, test.ShouldEqual, 0)
+	test.That(t, reconfArm1.(arm.Arm).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, actualArm1.stopCount, test.ShouldEqual, 1)
 }
 
 func TestClose(t *testing.T) {
@@ -271,15 +293,21 @@ func TestArmPositionDiff(t *testing.T) {
 var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
 type mock struct {
-	arm.Arm
+	arm.LocalArm
 	Name        string
 	endPosCount int
 	reconfCount int
+	stopCount   int
 }
 
 func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	m.endPosCount++
 	return pose, nil
+}
+
+func (m *mock) Stop(ctx context.Context) error {
+	m.stopCount++
+	return nil
 }
 
 func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }

@@ -3,7 +3,6 @@ package wx250s
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -102,7 +101,7 @@ func getPortMutex(port string) *sync.Mutex {
 }
 
 // NewArm TODO.
-func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.LocalArm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
@@ -181,6 +180,17 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 // GetJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
 func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	return &pb.JointPositions{}, nil
+}
+
+// Stop is unimplemented for wx250s.
+func (a *Arm) Stop(ctx context.Context) error {
+	// RSDK-374: Implement Stop
+	return arm.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the arm is moving.
+func (a *Arm) IsMoving() bool {
+	return a.opMgr.OpRunning()
 }
 
 // Close will get the arm ready to be turned off.

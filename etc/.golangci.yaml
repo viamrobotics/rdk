@@ -1,5 +1,5 @@
 service:
-  golangci-lint-version: 1.43.x
+  golangci-lint-version: 1.46.x
 run:
   deadline: 600s
   skip-dirs:
@@ -11,8 +11,11 @@ run:
 linters:
   enable-all: true
   disable:
+    - containedctx
     - cyclop
     - exhaustivestruct
+    - exhaustruct
+    - forcetypeassert
     - funlen
     - gocognit
     - godox
@@ -26,10 +29,13 @@ linters:
     - gomnd
     - interfacer
     - ireturn
+    - maintidx
     - maligned
     - makezero
     - nestif
     - nlreturn
+    - nonamedreturns
+    - nosprintfhostport
     - paralleltest
     - prealloc
     - scopelint
@@ -39,19 +45,19 @@ linters:
     - wrapcheck
     - wsl
 linters-settings:
+  gocritic:
+    disabled-checks:
+      - commentFormatting
   errcheck:
     check-blank: true
   gosec:
     excludes:
       - G601
   gci:
-    local-prefixes: go.viam.com/rdk
-  gomoddirectives:
-    replace-allow-list:
-      - github.com/jblindsay/lidario
-      - github.com/starship-technologies/gobag
-      - github.com/grandcat/zeroconf
-      - github.com/pion/ice/v2
+    sections:
+      - standard
+      - default
+      - prefix(go.viam.com/rdk)
   govet:
     enable-all: true
     disable:
