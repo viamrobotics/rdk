@@ -142,14 +142,14 @@ func TestFileUpload(t *testing.T) {
 		expData [][]byte
 	}{
 		{
-			name:    "not empty",
-			toSend:  msgContents,
-			expData: [][]byte{msgContents},
-		},
-		{
 			name:    "empty",
 			toSend:  msgEmpty,
 			expData: [][]byte{},
+		},
+		{
+			name:    "not empty",
+			toSend:  msgContents,
+			expData: [][]byte{msgContents},
 		},
 	}
 
