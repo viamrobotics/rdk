@@ -2,5 +2,5 @@
 
 package pi
 
-// for easily importing implementation
+//nolint:revive
 import _ "go.viam.com/rdk/component/board/pi/impl"

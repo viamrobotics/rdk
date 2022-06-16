@@ -48,7 +48,7 @@ type serialNMEAGPS struct {
 }
 
 const (
-	pathAttrName      = "path"
+	pathAttrName = "path"
 )
 
 func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.NMEAGPS, error) {
