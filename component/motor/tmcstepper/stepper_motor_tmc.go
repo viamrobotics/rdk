@@ -143,7 +143,6 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, 
 	}
 
 	m := &Motor{
-		// TODO: should this be a local board?
 		board:       b,
 		bus:         bus,
 		csPin:       c.ChipSelect,
