@@ -67,7 +67,7 @@ type limoFrame struct {
 }
 
 type limoState struct {
-	velocityThreadStarted                   bool
+	controlThreadStarted                    bool
 	velocityLinearGoal, velocityAngularGoal r3.Vector
 }
 type limoBase struct {
@@ -153,13 +153,13 @@ func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger g
 	}
 
 	base.stateMutex.Lock()
-	if !base.state.velocityThreadStarted {
+	if !base.state.controlThreadStarted {
 		// nolint:contextcheck
-		err := base.startVelocityThread()
+		err := base.startControlThread()
 		if err != nil {
 			return base, err
 		}
-		base.state.velocityThreadStarted = true
+		base.state.controlThreadStarted = true
 	}
 	base.stateMutex.Unlock()
 
@@ -197,10 +197,11 @@ func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (
 	return ctrl, nil
 }
 
-func (b *limoBase) startVelocityThread() error {
+// this rover requires messages to be sent continously or the motors will shut down
+func (b *limoBase) startControlThread() error {
 	var ctx context.Context
 	ctx, b.cancel = context.WithCancel(context.Background())
-	b.controller.logger.Debug("Starting velocity thread")
+	b.controller.logger.Debug("Starting control thread")
 
 	b.waitGroup.Add(1)
 	go func() {
@@ -208,7 +209,7 @@ func (b *limoBase) startVelocityThread() error {
 
 		for {
 			utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*10))
-			err := b.velocityThreadLoop(ctx)
+			err := b.controlThreadLoop(ctx)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
 					return
@@ -221,7 +222,7 @@ func (b *limoBase) startVelocityThread() error {
 	return nil
 }
 
-func (base *limoBase) velocityThreadLoop(ctx context.Context) error {
+func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 	var err error
 	if base.driveMode == "differential" {
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
@@ -245,6 +246,7 @@ func (base *limoBase) velocityThreadLoop(ctx context.Context) error {
 		}
 
 		steering_angle := inner_angle / base.rightAngleScale
+		// steering angle is in unit of .001 radians
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, 0, 0, -steering_angle*1000)
 	}
 	if ctx.Err() != nil {
@@ -314,7 +316,6 @@ func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec flo
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error
 	if base.driveMode == "differential" {
-		//mmCirc := (math.Pi * math.Sqrt(math.Pow(float64(base.width), 2)+math.Pow(float64(base.wheelbase), 2)))
 		// angular velocity is expressed in units of .001 radians/sec
 		err = base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: degsPerSec})
 	} else if base.driveMode == "ackermann" {
