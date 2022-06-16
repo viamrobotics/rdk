@@ -852,6 +852,11 @@ func TestManagerNewComponent(t *testing.T) {
 	_, err = config.SortComponents(robotForRemote.config.Components)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldEqual, "circular dependency detected in component list between arm3, board3")
+
+	err = robotForRemote.manager.newComponents(context.Background(), robotForRemote.config.Components, robotForRemote)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, "circular dependency - \"arm3\" already depends on \"board3\"")
+
 }
 
 func TestManagerFilterFromConfig(t *testing.T) {
