@@ -28,6 +28,7 @@ type resourceManager struct {
 	processManager      pexec.ProcessManager
 	opts                resourceManagerOptions
 	resourceRemoteNames map[resource.Name]string
+	logger              golog.Logger
 }
 
 type resourceUpdateWrapper struct {
@@ -62,6 +63,7 @@ func newResourceManager(
 		processManager:      pexec.NewProcessManager(logger),
 		opts:                opts,
 		resourceRemoteNames: make(map[resource.Name]string),
+		logger:              logger,
 	}
 }
 
@@ -205,112 +207,145 @@ func (manager *resourceManager) processConfig(
 	ctx context.Context,
 	config *config.Config,
 	robot *localRobot,
-	logger golog.Logger,
-) error {
-	if err := manager.newProcesses(ctx, config.Processes); err != nil {
-		return err
-	}
+) {
+	// we want to read out and try to load all of these without failing on the first try
+	manager.newProcesses(ctx, config.Processes)
 
-	if err := manager.newRemotes(ctx, config.Remotes, logger); err != nil {
-		return err
-	}
+	manager.newRemotes(ctx, config.Remotes)
 
-	if err := manager.newComponents(ctx, config.Components, robot); err != nil {
-		return err
-	}
+	manager.newComponents(ctx, config.Components, robot)
 
-	if err := manager.newServices(ctx, config.Services, robot); err != nil {
-		return err
-	}
-
-	return nil
+	manager.newServices(ctx, config.Services, robot)
 }
 
 // processModifiedConfig ingests a given config and constructs all constituent parts.
 
 // newProcesses constructs all processes defined.
-func (manager *resourceManager) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) error {
+func (manager *resourceManager) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) {
+	// fmt.Println("goes into new processes")
+	// fmt.Printf("length of processes: %v \n", len(processes))
 	for _, procConf := range processes {
-		// In an AppImage execve() is meant to be hooked to swap out the AppImage's libraries and the system ones.
-		// Go doesn't use libc's execve() though, so the hooks fail and trying to exec binaries outside the AppImage can fail.
-		// We work around this by execing through a bash shell (included in the AppImage) which then gets hooked properly.
-		_, isAppImage := os.LookupEnv("APPIMAGE")
-		if isAppImage {
-			procConf.Args = []string{"-c", shellescape.QuoteCommand(append([]string{procConf.Name}, procConf.Args...))}
-			procConf.Name = "bash"
-		}
-
-		if _, err := manager.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
-			return err
+		if err := manager.newProcess(ctx, procConf); err != nil {
+			manager.logger.Errorw("failed to create new process", "error", err)
 		}
 	}
-	return manager.processManager.Start(ctx)
+
+	err := manager.processManager.Start(ctx)
+	if err != nil {
+		manager.logger.Errorw("there are process(es) that failed the start", "error", err)
+	}
+}
+
+func (manager *resourceManager) newProcess(ctx context.Context, procConf pexec.ProcessConfig) error {
+	// In an AppImage execve() is meant to be hooked to swap out the AppImage's libraries and the system ones.
+	// Go doesn't use libc's execve() though, so the hooks fail and trying to exec binaries outside the AppImage can fail.
+	// We work around this by execing through a bash shell (included in the AppImage) which then gets hooked properly.
+	// fmt.Println("goes into new process")
+	_, isAppImage := os.LookupEnv("APPIMAGE")
+	if isAppImage {
+		procConf.Args = []string{"-c", shellescape.QuoteCommand(append([]string{procConf.Name}, procConf.Args...))}
+		procConf.Name = "bash"
+	}
+
+	if _, err := manager.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
+		return err
+	}
+	return nil
 }
 
 // newRemotes constructs all remotes defined and integrates their parts in.
-func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
+func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config.Remote) {
 	for _, config := range remotes {
-		dialOpts := remoteDialOptions(config, manager.opts)
-		robotClient, err := dialRemote(ctx, config, logger, dialOpts...)
-		if err != nil {
-			if errors.Is(err, rpc.ErrInsecureWithCredentials) {
-				if manager.opts.fromCommand {
-					err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
-				} else {
-					err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
-				}
-			}
-			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
+		if err := manager.newRemote(ctx, config); err != nil {
+			manager.logger.Errorw("new remote was not created", "error", err)
 		}
-		configCopy := config
-		manager.addRemote(ctx, newRemoteRobot(ctx, robotClient, configCopy), configCopy)
 	}
+}
+
+func (manager *resourceManager) newRemote(ctx context.Context, config config.Remote) error {
+	// fmt.Println("goes into new remote")
+	dialOpts := remoteDialOptions(config, manager.opts)
+	robotClient, err := dialRemote(ctx, config, manager.logger, dialOpts...)
+	if err != nil {
+		// fmt.Println("new remote here wth non-nil error")
+		// fmt.Println(err)
+		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
+			if manager.opts.fromCommand {
+				err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
+			} else {
+				err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
+			}
+		}
+		return errors.Errorf("couldn't connect to robot remote %v with error: %v", config.Address, err)
+	}
+	configCopy := config
+	manager.addRemote(ctx, newRemoteRobot(ctx, robotClient, configCopy), configCopy)
 	return nil
 }
 
 // newComponents constructs all components defined.
-func (manager *resourceManager) newComponents(ctx context.Context, components []config.Component, robot *localRobot) error {
+func (manager *resourceManager) newComponents(ctx context.Context, components []config.Component, robot *localRobot) {
 	for _, c := range components {
-		r, err := robot.newResource(ctx, c)
+		err := manager.newComponent(ctx, c, robot)
+		manager.logger.Errorw("failed to add new component", "error", err)
+	}
+}
+
+func (manager *resourceManager) newComponent(ctx context.Context, c config.Component, robot *localRobot) error {
+	// fmt.Println("goes into new component")
+	r, err := robot.newResource(ctx, c)
+	if err != nil {
+		return errors.Errorf("cannot not find resource %v", err)
+	}
+	rName := c.ResourceName()
+	manager.addResource(rName, r)
+	for _, dep := range c.DependsOn {
+		err := manager.newComponentDependency(dep, robot, rName)
 		if err != nil {
 			return err
 		}
-		rName := c.ResourceName()
-		manager.addResource(rName, r)
-		for _, dep := range c.DependsOn {
-			if comp := robot.config.FindComponent(dep); comp != nil {
-				if err := manager.resources.AddChildren(rName, comp.ResourceName()); err != nil {
-					return err
-				}
-			} else if name, ok := manager.resources.FindNodeByName(dep); ok {
-				if err := manager.resources.AddChildren(rName, *name); err != nil {
-					return err
-				}
-			} else {
-				return errors.Errorf("componenent %s depends on non-existent component %s",
-					rName.Name, dep)
-			}
-		}
 	}
+	return nil
+}
 
+func (manager *resourceManager) newComponentDependency(dep string, robot *localRobot, rName resource.Name) error {
+	// fmt.Println("goes into new component dependency")
+	if comp := robot.config.FindComponent(dep); comp != nil {
+		if err := manager.resources.AddChildren(rName, comp.ResourceName()); err != nil {
+			return err
+		}
+	} else if name, ok := manager.resources.FindNodeByName(dep); ok {
+		if err := manager.resources.AddChildren(rName, *name); err != nil {
+			return err
+		}
+	} else {
+		return errors.Errorf("component %s depends on non-existent component", rName.Name)
+	}
 	return nil
 }
 
 // newServices constructs all services defined.
-func (manager *resourceManager) newServices(ctx context.Context, services []config.Service, r *localRobot) error {
-	for _, c := range services {
-		// DataManagerService has to be specifically excluded since it's defined in the config but is a default
-		// service that we only want to reconfigure rather than reinstantiate with New().
-		if c.ResourceName() == datamanager.Name {
-			continue
-		}
-		svc, err := r.newService(ctx, c)
+func (manager *resourceManager) newServices(ctx context.Context, services []config.Service, r *localRobot) {
+	for _, cs := range services {
+		err := manager.newService(ctx, cs, r)
 		if err != nil {
-			return err
+			manager.logger.Errorw("failed to add new service", "error", err)
 		}
-		manager.addResource(c.ResourceName(), svc)
 	}
+}
 
+func (manager *resourceManager) newService(ctx context.Context, cs config.Service, r *localRobot) error {
+	// DataManagerService has to be specifically excluded since it's defined in the config but is a default
+	// service that we only want to reconfigure rather than reinstantiate with New().
+	// fmt.Println("goes into new service")
+	if cs.ResourceName() == datamanager.Name {
+		return nil
+	}
+	svc, err := r.newService(ctx, cs)
+	if err != nil {
+		return err
+	}
+	manager.addResource(cs.ResourceName(), svc)
 	return nil
 }
 
@@ -337,7 +372,7 @@ func (manager *resourceManager) UpdateConfig(ctx context.Context,
 	robot *draftRobot,
 ) (PartsMergeResult, error) {
 	var leftovers PartsMergeResult
-	replacedRemotes, err := manager.updateRemotes(ctx, added.Remotes, modified.Remotes, logger)
+	replacedRemotes, err := manager.updateRemotes(ctx, added.Remotes, modified.Remotes)
 	leftovers.ReplacedRemotes = replacedRemotes
 	if err != nil {
 		return leftovers, err
@@ -363,18 +398,15 @@ func (manager *resourceManager) updateProcesses(ctx context.Context,
 	addProcesses []pexec.ProcessConfig,
 	modifiedProcesses []pexec.ProcessConfig,
 ) ([]pexec.ManagedProcess, error) {
+	// fmt.Println("goes into update processes")
 	var replacedProcess []pexec.ManagedProcess
-	if err := manager.newProcesses(ctx, addProcesses); err != nil {
-		return nil, err
-	}
+	manager.newProcesses(ctx, addProcesses)
 	for _, p := range modifiedProcesses {
 		old, ok := manager.processManager.ProcessByID(p.ID)
 		if !ok {
 			return replacedProcess, errors.Errorf("cannot replace non-existing process %q", p.ID)
 		}
-		if err := manager.newProcesses(ctx, []pexec.ProcessConfig{p}); err != nil {
-			return replacedProcess, err
-		}
+		manager.newProcesses(ctx, []pexec.ProcessConfig{p})
 		replacedProcess = append(replacedProcess, old)
 	}
 	return replacedProcess, nil
@@ -383,16 +415,11 @@ func (manager *resourceManager) updateProcesses(ctx context.Context,
 func (manager *resourceManager) updateRemotes(ctx context.Context,
 	addedRemotes []config.Remote,
 	modifiedRemotes []config.Remote,
-	logger golog.Logger,
 ) ([]*remoteRobot, error) {
 	var replacedRemotes []*remoteRobot
-	if err := manager.newRemotes(ctx, addedRemotes, logger); err != nil {
-		return nil, err
-	}
+	manager.newRemotes(ctx, addedRemotes)
 	for _, r := range modifiedRemotes {
-		if err := manager.newRemotes(ctx, []config.Remote{r}, logger); err != nil {
-			return replacedRemotes, err
-		}
+		manager.newRemotes(ctx, []config.Remote{r})
 	}
 	return replacedRemotes, nil
 }

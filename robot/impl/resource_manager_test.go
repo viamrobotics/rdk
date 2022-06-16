@@ -841,15 +841,39 @@ func TestManagerNewComponent(t *testing.T) {
 		logger:  logger,
 		config:  cfg,
 	}
-	test.That(t, robotForRemote.manager.newComponents(context.Background(),
-		cfg.Components, robotForRemote), test.ShouldBeNil)
+	robotForRemote.manager.newComponents(context.Background(), cfg.Components, robotForRemote)
 	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
 	robotForRemote.manager = newResourceManager(resourceManagerOptions{}, logger)
-	err := robotForRemote.manager.newComponents(context.Background(),
-		robotForRemote.config.Components, robotForRemote)
+
+	c := robotForRemote.config.Components[0]
+	err := robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	test.That(t, err, test.ShouldBeNil)
+
+	c = robotForRemote.config.Components[2]
+	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	test.That(t, err, test.ShouldBeNil)
+
+	c = robotForRemote.config.Components[3]
+	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	test.That(t, err, test.ShouldBeNil)
+
+	c = robotForRemote.config.Components[6]
+	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	test.That(t, err, test.ShouldBeNil)
+
+	c = robotForRemote.config.Components[8]
+	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldEqual,
 		"circular dependency - \"arm3\" already depends on \"board3\"")
+
+	c = robotForRemote.config.Components[9]
+	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	test.That(t, err, test.ShouldBeNil)
+
+	c = robotForRemote.config.Components[12]
+	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestManagerFilterFromConfig(t *testing.T) {
@@ -1336,6 +1360,27 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		utils.NewStringSet("1", "2"),
 	)
 }
+
+// // make sure the newRemote returns an error that shows Config.AllowInsecure
+// func TestConfigAllowInsecureCreds(t *testing.T) {
+
+// }
+
+// func TestRemoteAuthetnicationRequired(t *testing.T) {
+// 	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
+// 	test.That(t, err, test.ShouldNotBeNil)
+// 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+// 	remoteConfig.Remotes[0].Auth.Entity = "wrong"
+// 	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
+// 	test.That(t, err, test.ShouldNotBeNil)
+// 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+// 	remoteConfig.Remotes[0].Auth.Entity = options.FQDN
+// 	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
+// 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+// }
 
 type fakeProcess struct {
 	id string

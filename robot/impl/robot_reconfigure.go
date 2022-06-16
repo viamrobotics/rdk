@@ -39,9 +39,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// update default services
-	if err := r.updateDefaultServices(ctx); err != nil {
-		return err
-	}
+	r.updateDefaultServices(ctx)
+
 	r.manager.updateResourceRemoteNames()
 	return nil
 }
