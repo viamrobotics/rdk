@@ -38,7 +38,7 @@ var vx300smodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "vx300s", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newArm(config.Attributes, logger)
+			return newArm(r, config.Attributes, logger)
 		},
 	})
 }
@@ -68,7 +68,7 @@ type myArm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
-	mp       motionplan.MotionPlanner
+	robot    robot.Robot
 	model    referenceframe.Model
 	opMgr    operation.SingleOperationManager
 }
@@ -100,7 +100,7 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
-func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func newArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
@@ -108,10 +108,6 @@ func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 	}
 
 	model, err := referenceframe.UnmarshalModelJSON(vx300smodeljson, "")
-	if err != nil {
-		return nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +123,7 @@ func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
-		mp:       mp,
+		robot:    r,
 		model:    model,
 	}, nil
 }
@@ -138,22 +134,14 @@ func (a *myArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	joints, err := a.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.

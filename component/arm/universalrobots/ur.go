@@ -50,7 +50,7 @@ var ur5DHmodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return URArmConnect(ctx, config, logger)
+			return URArmConnect(ctx, r, config, logger)
 		},
 	})
 
@@ -82,9 +82,9 @@ type URArm struct {
 	logger                  golog.Logger
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
-	mp                      motionplan.MotionPlanner
 	model                   referenceframe.Model
 	opMgr                   operation.SingleOperationManager
+	robot                   robot.Robot
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -117,7 +117,7 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
 	speed := cfg.ConvertedAttributes.(*AttrConfig).Speed
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	if speed > 1 || speed < .1 {
@@ -125,10 +125,6 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	}
 
 	model, err := ur5eModel()
-	if err != nil {
-		return nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +145,8 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 		haveData:                false,
 		logger:                  logger,
 		cancel:                  cancel,
-		mp:                      mp,
 		model:                   model,
+		robot:                   r,
 	}
 
 	onData := make(chan struct{})
@@ -234,29 +230,14 @@ func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(ua.mp.Frame(), joints)
+	return motionplan.ComputePosition(ua.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
-
-	joints, err := ua.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	start := time.Now()
-	solution, err := ua.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
-	if err != nil {
-		return err
-	}
-	timeToSolve := time.Since(start)
-	if timeToSolve > time.Second {
-		ua.logger.Debugf("ur took too long to solve position %v", timeToSolve)
-		return fmt.Errorf("ur took too long to solve position %v", timeToSolve)
-	}
-	return arm.GoToWaypoints(ctx, ua, solution)
+	return arm.Move(ctx, ua.robot, ua, pos, worldState)
 }
 
 // MoveToJointPositions TODO.

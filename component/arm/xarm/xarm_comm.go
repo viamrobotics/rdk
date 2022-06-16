@@ -403,16 +403,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldStat
 			return err
 		}
 	}
-	joints, err := x.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	solution, err := x.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
-	if err != nil {
-		return err
-	}
-	err = arm.GoToWaypoints(ctx, x, solution)
-	if err != nil {
+	if err := arm.Move(ctx, x.robot, x, pos, worldState); err != nil {
 		return err
 	}
 	return x.opMgr.WaitForSuccess(
