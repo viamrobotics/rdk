@@ -84,12 +84,16 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		return nil, multierr.Combine(err, rc.conn.Close())
 	}
 
-	if rOpts.refreshEvery != 0 {
-		rc.activeBackgroundWorkers.Add(1)
-		utils.ManagedGo(func() {
-			rc.RefreshEvery(closeCtx, rOpts.refreshEvery)
-		}, rc.activeBackgroundWorkers.Done)
+	refreshTime := rOpts.refreshEvery
+	if refreshTime == 0 {
+		// default at 10s if none exist
+		refreshTime = 10 * time.Second
 	}
+
+	rc.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(func() {
+		rc.RefreshEvery(closeCtx, refreshTime)
+	}, rc.activeBackgroundWorkers.Done)
 
 	if rOpts.checkConnectedEvery != 0 {
 		rc.activeBackgroundWorkers.Add(1)
