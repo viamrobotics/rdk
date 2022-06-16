@@ -96,7 +96,8 @@
         "sg_thresh": 5,
         "spi_bus": "main",
         "ticks_per_rotation": 200,
-        "home_rpm": 200
+        "home_rpm": 200,
+        "hold_current": 16
       },
       "model": "TMC5072",
       "name": "elevator",

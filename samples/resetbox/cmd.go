@@ -37,7 +37,7 @@ const (
 	squeezeOpen     = 80
 
 	elevatorBottom = 27
-	elevatorTop    = 850
+	elevatorTop    = 855
 	elevatorSpeed  = 800
 
 	hammerSpeed  = 20 // May be capped by underlying motor MaxRPM
@@ -756,6 +756,10 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	if errs != nil {
 		return errs
 	}
+	errs = b.waitForGripperRecovery(ctx)
+	if errs != nil {
+		return errs
+	}
 	errs = b.pickCube2(ctx)
 	if errs != nil {
 		return errs
@@ -864,6 +868,28 @@ func (b *ResetBox) armHome(ctx context.Context) error {
 	)
 }
 
+// Aged gripper's pressure sensor takes several seconds to recover after releasing an object.
+// This gets run in open air, and waits for the sensor to properly report empty.
+func (b *ResetBox) waitForGripperRecovery(ctx context.Context) error {
+	startTime := time.Now()
+	for {
+		ret, err := b.gripper.Do(ctx, map[string]interface{}{"command": "get_pressure"})
+		if err != nil {
+			return err
+		}
+		pressure, ok := ret["has_pressure"]
+		if ok && !pressure.(bool) {
+			return nil
+		}
+		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+			return ctx.Err()
+		}
+		if time.Since(startTime) >= 30*time.Second {
+			return errors.New("timed out waiting for gripper's pressure sensor to recover")
+		}
+	}
+}
+
 func (b *ResetBox) pickCube1(ctx context.Context) error {
 	// Grab cube 1 and reset it on the field
 	errs := multierr.Combine(
@@ -882,10 +908,8 @@ func (b *ResetBox) pickCube1(ctx context.Context) error {
 
 	if !grabbed {
 		return errors.New("missed first cube")
-	} else {
-		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
-			return ctx.Err()
-		}
+	} else if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+		return ctx.Err()
 	}
 
 	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
@@ -914,10 +938,8 @@ func (b *ResetBox) pickCube2(ctx context.Context) error {
 	}
 	if !grabbed {
 		return errors.New("missed second cube")
-	} else {
-		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
-			return ctx.Err()
-		}
+	} else if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+		return ctx.Err()
 	}
 	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
 }
@@ -971,10 +993,8 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 		}
 		if !grabbed {
 			return errors.New("missed the duck twice")
-		} else {
-			if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
-				return ctx.Err()
-			}
+		} else if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+			return ctx.Err()
 		}
 		multierr.Combine(
 			b.arm.MoveToJointPositions(ctx, duckReadyPos),

@@ -333,13 +333,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 )
-
-replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
-
-replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0.0-20210528190924-d8b19286f98e
-
-replace github.com/grandcat/zeroconf => github.com/edaniels/zeroconf v1.0.1
-
-replace github.com/pion/ice/v2 => github.com/edaniels/ice/v2 v2.0.0-20220204035239-204e270e6801
-
-replace go.viam.com/utils => ../goutils
