@@ -203,7 +203,7 @@ func TestScheduledSync(t *testing.T) {
 func TestManualAndScheduledSync(t *testing.T) {
 	var uploadCount uint64
 	var uploadedFiles []string
-	var lock *sync.Mutex
+	var lock sync.Mutex
 	uploadFn := func(ctx context.Context, path string) error {
 		lock.Lock()
 		atomic.AddUint64(&uploadCount, 1)
