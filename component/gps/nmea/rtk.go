@@ -1,18 +1,18 @@
 package nmea
 
 import (
-	"fmt"
-	"context"
-	"io"
 	"bufio"
-	"sync"
+	"context"
 	"errors"
+	"fmt"
+	"io"
+	"sync"
 
-	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/de-bkg/gognss/pkg/ntrip"
+	"github.com/edaniels/golog"
 	"github.com/go-gnss/rtcm/rtcm3"
 	slib "github.com/jacobsa/go-serial/serial"
+	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
@@ -35,14 +35,15 @@ func init() {
 		}})
 }
 
+// A RTKGPS is an NMEA GPS model that can intake RTK correction data.
 type RTKGPS struct {
 	generic.Unimplemented
-	nmeagps					gps.NMEAGPS
-	ntripInputProtocol		string
-	ntripClient				ntripInfo
-	logger 					golog.Logger
-	correctionWriter 		io.ReadWriteCloser
-	ntripStatus				bool
+	nmeagps            gps.NMEAGPS
+	ntripInputProtocol string
+	ntripClient        ntripInfo
+	logger             golog.Logger
+	correctionWriter   io.ReadWriteCloser
+	ntripStatus        bool
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -50,36 +51,28 @@ type RTKGPS struct {
 }
 
 type ntripInfo struct {
-	url       			string
-	username  			string
-	password  			string
-	mountPoint			string
-	writepath 			string
-	wbaud     			int
-	sendNMEA  			bool
-	nmeaR     			*io.PipeReader
-	nmeaW     			*io.PipeWriter
-	client	  			*ntrip.Client
-	stream				io.ReadCloser
-	maxConnectAttempts	int
-}
-
-// Communication protocols that may be used to send NTRIP correction data
-var inputProtocols = map[string]bool{
-	"serial": true,
-	// "I2C": true, // uncomment this one we implement I2C
+	url                string
+	username           string
+	password           string
+	mountPoint         string
+	writepath          string
+	wbaud              int
+	sendNMEA           bool
+	client             *ntrip.Client
+	stream             io.ReadCloser
+	maxConnectAttempts int
 }
 
 const (
-	ntripAddrAttrName = "ntrip_addr"
-	ntripUserAttrName = "ntrip_username"
-	ntripPassAttrName = "ntrip_password"
-	ntripMountPointAttrName = "ntrip_mountpoint"
-	ntripPathAttrName = "ntrip_path"
-	ntripBaudAttrName = "ntrip_baud"
-	ntripSendNmeaName = "ntrip_send_nmea"
+	ntripAddrAttrName          = "ntrip_addr"
+	ntripUserAttrName          = "ntrip_username"
+	ntripPassAttrName          = "ntrip_password"
+	ntripMountPointAttrName    = "ntrip_mountpoint"
+	ntripPathAttrName          = "ntrip_path"
+	ntripBaudAttrName          = "ntrip_baud"
+	ntripSendNmeaName          = "ntrip_send_nmea"
 	ntripInputProtocolAttrName = "ntrip_input_protocol"
-	ntripConnectAttemptsName = "ntrip_connect_attempts"
+	ntripConnectAttemptsName   = "ntrip_connect_attempts"
 )
 
 func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.NMEAGPS, error) {
@@ -97,11 +90,13 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 		if err != nil {
 			return nil, err
 		}
+	case "I2C":
+		return nil, errors.New("I2C not implemented")
 	default:
 		// Invalid protocol
 		return nil, fmt.Errorf("%s is not a valid protocol", g.ntripInputProtocol)
 	}
-	
+
 	// Init ntripInfo from attributes
 	g.ntripClient.url = config.Attributes.String(ntripAddrAttrName)
 	if g.ntripClient.url == "" {
@@ -142,17 +137,20 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 	return g, nil
 }
 
+// Start begins NTRIP receiver with specified protocol and begins reading/updating GPS measurements.
 func (g *RTKGPS) Start(ctx context.Context) {
 	switch g.ntripInputProtocol {
 	case "serial":
 		go g.ReceiveAndWriteSerial()
+	case "I2C":
+		g.logger.Error("I2C not implemented")
 	}
 
 	g.nmeagps.Start(ctx)
 }
 
-// attempts to connect to ntrip client until successful connection or timeout
-func (g *RTKGPS) Connect(casterAddr string, user string, pwd string, maxAttempts int) (error) {
+// Connect attempts to connect to ntrip client until successful connection or timeout.
+func (g *RTKGPS) Connect(casterAddr string, user string, pwd string, maxAttempts int) error {
 	success := false
 	attempts := 0
 
@@ -186,8 +184,8 @@ func (g *RTKGPS) Connect(casterAddr string, user string, pwd string, maxAttempts
 	return nil
 }
 
-// attempts to connect to ntrip streak until successful connection or timeout
-func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) (error) {
+// GetStream attempts to connect to ntrip streak until successful connection or timeout.
+func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) error {
 	success := false
 	attempts := 0
 
@@ -222,6 +220,7 @@ func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) (error) {
 	return nil
 }
 
+// ReceiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the GPS through serial.
 func (g *RTKGPS) ReceiveAndWriteSerial() {
 	g.activeBackgroundWorkers.Add(1)
 	defer g.activeBackgroundWorkers.Done()
@@ -230,15 +229,15 @@ func (g *RTKGPS) ReceiveAndWriteSerial() {
 		return
 	}
 
-    if !g.ntripClient.client.IsCasterAlive() {
-        g.logger.Infof("caster %s seems to be down", g.ntripClient.url)
-    }
+	if !g.ntripClient.client.IsCasterAlive() {
+		g.logger.Infof("caster %s seems to be down", g.ntripClient.url)
+	}
 
 	options := slib.OpenOptions{
-		PortName: g.ntripClient.writepath,
-		BaudRate: uint(g.ntripClient.wbaud),
-		DataBits: 8,
-		StopBits: 1,
+		PortName:        g.ntripClient.writepath,
+		BaudRate:        uint(g.ntripClient.wbaud),
+		DataBits:        8,
+		StopBits:        1,
 		MinimumReadSize: 1,
 	}
 
@@ -250,28 +249,26 @@ func (g *RTKGPS) ReceiveAndWriteSerial() {
 	}
 
 	w := bufio.NewWriter(g.correctionWriter)
-	
+
 	err = g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
 	if err != nil {
 		return
 	}
-	
+
 	r := io.TeeReader(g.ntripClient.stream, w)
 	scanner := rtcm3.NewScanner(r)
 
 	g.ntripStatus = true
 
-	//reads in messages while stream is connected 
-	for err == nil {
+	for g.ntripStatus {
 		select {
 		case <-g.cancelCtx.Done():
 			return
 		default:
 		}
-		
+
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			//checks to make sure valid rtcm message has been received
 			g.ntripStatus = false
 			if msg == nil {
 				g.logger.Debug("No message... reconnecting to stream...")
@@ -284,45 +281,55 @@ func (g *RTKGPS) ReceiveAndWriteSerial() {
 				scanner = rtcm3.NewScanner(r)
 				g.ntripStatus = true
 				continue
-			} 
+			}
 		}
 	}
 }
 
+// NtripStatus returns true if connection to NTRIP stream is OK, false if not.
 func (g *RTKGPS) NtripStatus() (bool, error) {
-	// returns true if connection to NTRIP stream is OK, false if not
 	return g.ntripStatus, nil
 }
 
+// ReadLocation returns the current geographic location of the GPS.
 func (g *RTKGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	return g.nmeagps.ReadLocation(ctx)
 }
 
+// ReadAltitude returns the current altitude of the GPS.
 func (g *RTKGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	return g.nmeagps.ReadAltitude(ctx)
 }
 
+// ReadSpeed returns the current speed of the GPS.
 func (g *RTKGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	return g.nmeagps.ReadSpeed(ctx)
 }
 
+// ReadSatellites returns the number of satellites that are currently visible to the GPS.
 func (g *RTKGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	return g.nmeagps.ReadSatellites(ctx)
 }
 
+// ReadAccuracy returns how accurate the lat/long readings are.
 func (g *RTKGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	return g.nmeagps.ReadAccuracy(ctx)
 }
 
+// ReadValid returns whether or not the GPS is currently reading valid measurements.
 func (g *RTKGPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.nmeagps.ReadValid(ctx)
 }
 
+// Close shuts down the RTKGPS.
 func (g *RTKGPS) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 
-	g.nmeagps.Close()
+	err := g.nmeagps.Close()
+	if err != nil {
+		return err
+	}
 
 	// close ntrip writer
 	if g.correctionWriter != nil {
