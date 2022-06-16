@@ -289,7 +289,9 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	if err != nil {
 		return nil, err
 	}
+	svc.lock.Lock()
 	svc.collectors[componentMetadata] = collectorAndConfig{collector, attributes}
+	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
 	go func() {
@@ -476,6 +478,7 @@ func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, inte
 
 func (svc *dataManagerService) queueFiles() []string {
 	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	filesToQueue := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
@@ -486,6 +489,5 @@ func (svc *dataManagerService) queueFiles() []string {
 		filesToQueue = append(filesToQueue, collector.Collector.GetTarget().Name())
 		collector.Collector.SetTarget(nextTarget)
 	}
-	svc.lock.Unlock()
 	return filesToQueue
 }
