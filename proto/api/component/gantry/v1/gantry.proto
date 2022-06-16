@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/gantry/v1";
-option java_package = "com.viam.rdk.proto.api.component.gantry.v1";
 
 package proto.api.component.gantry.v1;
 
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/gantry/v1";
+option java_package = "com.viam.rdk.proto.api.component.gantry.v1";
 
 // An GantryService services all gantries associated with a robot
 service GantryService {
@@ -30,11 +31,11 @@ service GantryService {
     };
   }
 
-  // Stop stops a robot's gantry 
+  // Stop stops a robot's gantry
   rpc Stop(StopRequest) returns (StopResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/gantry/{name}/stop"
-    };  
+    };
   }
 }
 
@@ -72,4 +73,5 @@ message StopResponse {}
 message Status {
   repeated double positions_mm = 1;
   repeated double lengths_mm = 2;
+  bool is_moving = 3;
 }

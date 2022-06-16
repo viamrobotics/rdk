@@ -1,21 +1,22 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/robot/v1";
-option java_package = "com.viam.rdk.proto.api.robot.v1";
 
 package proto.api.robot.v1;
 
-import "google/protobuf/struct.proto";
-import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/robot/v1";
+option java_package = "com.viam.rdk.proto.api.robot.v1";
 
 // A RobotService encompasses all functionality of some robot comprised of parts, local and remote.
 service RobotService {
   rpc GetOperations(GetOperationsRequest) returns (GetOperationsResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/operations/list"
-    };    
+    };
   }
 
   // ResourceNames returns the list of all resources.
@@ -28,13 +29,20 @@ service RobotService {
   rpc CancelOperation(CancelOperationRequest) returns (CancelOperationResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/operations/cancel"
-    };    
+    };
   }
-  
+
   rpc BlockForOperation(BlockForOperationRequest) returns (BlockForOperationResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/operations/block"
-    };    
+    };
+  }
+
+  // DiscoverComponents returns the list of discovered component configurations.
+  rpc DiscoverComponents(DiscoverComponentsRequest) returns (DiscoverComponentsResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/discovery/components"
+    };
   }
 
   rpc FrameSystemConfig(FrameSystemConfigRequest) returns (FrameSystemConfigResponse) {
@@ -67,7 +75,7 @@ service RobotService {
 message FrameSystemConfig {
   string name = 1;
   common.v1.PoseInFrame pose_in_parent_frame = 2;
-  bytes model_json = 3; 
+  bytes model_json = 3;
 }
 
 message FrameSystemConfigRequest {
@@ -107,9 +115,9 @@ message Operation {
   string method = 2;
   google.protobuf.Struct arguments = 3;
   google.protobuf.Timestamp started = 4;
-};
+}
 
-message GetOperationsRequest { }
+message GetOperationsRequest {}
 
 message GetOperationsResponse {
   repeated Operation operations = 1;
@@ -122,10 +130,30 @@ message CancelOperationRequest {
 message CancelOperationResponse {}
 
 message BlockForOperationRequest {
-    string id = 1;
+  string id = 1;
 }
 
 message BlockForOperationResponse {}
+
+// Discovery
+
+message DiscoveryQuery {
+  string subtype = 1;
+  string model = 2;
+}
+
+message Discovery {
+  DiscoveryQuery query = 1;
+  google.protobuf.Struct results = 2;
+}
+
+message DiscoverComponentsRequest {
+  repeated DiscoveryQuery queries = 1;
+}
+
+message DiscoverComponentsResponse {
+  repeated Discovery discovery = 1;
+}
 
 message Status {
   common.v1.ResourceName name = 1;

@@ -1,3 +1,0 @@
-src/*
-!src/gen
-third_party/arduino-grpc

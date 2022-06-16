@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -96,6 +97,13 @@ type Arm interface {
 	referenceframe.InputEnabled
 }
 
+// A LocalArm represents an Arm that can report whether it is moving or not.
+type LocalArm interface {
+	Arm
+
+	resource.MovingCheckable
+}
+
 var (
 	_ = Arm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
@@ -124,9 +132,9 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the arm.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	arm, ok := resource.(Arm)
+	arm, ok := resource.(LocalArm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", resource)
+		return nil, utils.NewUnimplementedInterfaceError("LocalArm", resource)
 	}
 	endPosition, err := arm.GetEndPosition(ctx)
 	if err != nil {
@@ -136,13 +144,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions}, nil
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: arm.IsMoving()}, nil
 }
 
 type reconfigurableArm struct {
 	mu     sync.RWMutex
-	actual Arm
+	actual LocalArm
 }
 
 func (r *reconfigurableArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -205,6 +212,12 @@ func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referencefram
 	return r.actual.GoToInputs(ctx, goal)
 }
 
+func (r *reconfigurableArm) IsMoving() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving()
+}
+
 func (r *reconfigurableArm) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -225,12 +238,22 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	return nil
 }
 
+// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
+// See config.ShouldUpdateAction for more information.
+func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActionType {
+	obj, canUpdate := r.actual.(config.CompononentUpdate)
+	if canUpdate {
+		return obj.UpdateAction(c)
+	}
+	return config.Reconfigure
+}
+
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
 // If arm is already a reconfigurableArm, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	arm, ok := r.(Arm)
+	arm, ok := r.(LocalArm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalArm", r)
 	}
 	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
 		return reconfigurable, nil

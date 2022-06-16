@@ -55,7 +55,7 @@ type Arm struct {
 }
 
 // NewWrapperArm returns a wrapper component for another arm.
-func NewWrapperArm(cfg config.Component, actual arm.Arm, r robot.Robot, logger golog.Logger) (arm.Arm, error) {
+func NewWrapperArm(cfg config.Component, actual arm.Arm, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
 	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
 	if err != nil {
 		return nil, err
@@ -109,8 +109,15 @@ func (wrapper *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, 
 
 // Stop stops the actual arm.
 func (wrapper *Arm) Stop(ctx context.Context) error {
-	wrapper.opMgr.CancelRunning(ctx)
+	ctx, done := wrapper.opMgr.New(ctx)
+	defer done()
+
 	return wrapper.actual.Stop(ctx)
+}
+
+// IsMoving returns whether the arm is moving.
+func (wrapper *Arm) IsMoving() bool {
+	return wrapper.opMgr.OpRunning()
 }
 
 // CurrentInputs returns the current inputs of the arm.

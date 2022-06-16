@@ -11,6 +11,26 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// UpdateActionType help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
+type UpdateActionType int
+
+const (
+	// None is returned when the new configuration doesn't change the the resource.
+	None UpdateActionType = iota
+	// Reconfigure is returned when the resource should be updated without recreating its proxies.
+	// Note that two instances (old&new) will coexist, all dependencies will be destroyed and recreated.
+	Reconfigure
+	// Rebuild is returned when the resource and it's proxies should be destroyed and recreated,
+	// all dependencies will be destroyed and recreated.
+	Rebuild
+)
+
+// CompononentUpdate interface that a component can optionally implement.
+// This interface helps the reconfiguration process.
+type CompononentUpdate interface {
+	UpdateAction(config *Component) UpdateActionType
+}
+
 type validator interface {
 	Validate(path string) error
 }

@@ -3,7 +3,6 @@ package xarm
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"errors"
@@ -88,7 +87,7 @@ func xArmModel(dof int) (referenceframe.Model, error) {
 }
 
 // NewxArm returns a new xArm with the specified dof.
-func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
+func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {

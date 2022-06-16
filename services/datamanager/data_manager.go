@@ -80,6 +80,7 @@ type dataCaptureConfig struct {
 	CaptureQueueSize   int                  `json:"capture_queue_size"`
 	CaptureBufferSize  int                  `json:"capture_buffer_size"`
 	AdditionalParams   map[string]string    `json:"additional_params"`
+	Disabled           bool                 `json:"disabled"`
 }
 
 type dataCaptureConfigs struct {
@@ -91,6 +92,7 @@ type Config struct {
 	CaptureDir          string   `json:"capture_dir"`
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
 	SyncIntervalMins    int      `json:"sync_interval_mins"`
+	Disabled            bool     `json:"disabled"`
 }
 
 // TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
@@ -180,6 +182,7 @@ func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, 
 		return nil, err
 	}
 	fileName := filepath.Join(fileDir, getFileTimestampName())
+	//nolint:gosec
 	return os.Create(fileName)
 }
 
@@ -350,6 +353,14 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	}
 
 	svcConfig, ok := c.ConvertedAttributes.(*Config)
+
+	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
+	if svcConfig.Disabled {
+		svc.closeCollectors()
+		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
+		return nil
+	}
+
 	if !ok {
 		return utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
 	}
@@ -372,7 +383,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
 	for _, attributes := range allComponentAttributes {
-		if attributes.CaptureFrequencyHz > 0 {
+		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
 			componentMetadata, err := svc.initializeOrUpdateCollector(
 				attributes, updateCaptureDir)
 			if err != nil {
