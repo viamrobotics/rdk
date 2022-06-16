@@ -78,23 +78,11 @@ type dofBot struct {
 	generic.Unimplemented
 	handle board.I2CHandle
 	model  referenceframe.Model
-	mp     motionplan.MotionPlanner
+	robot  robot.Robot
 	mu     sync.Mutex
 	muMove sync.Mutex
 	logger golog.Logger
 	opMgr  operation.SingleOperationManager
-}
-
-func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.MotionPlanner, error) {
-	model, err := dofbotModel()
-	if err != nil {
-		return nil, nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
-	if err != nil {
-		return nil, nil, err
-	}
-	return model, mp, nil
 }
 
 func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
@@ -120,10 +108,11 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	a.model, a.mp, err = createDofBotSolver(logger)
+	a.model, err = dofbotModel()
 	if err != nil {
 		return nil, err
 	}
+
 	_, err = a.GetEndPosition(ctx)
 	if err != nil {
 		return nil, errors.New("issue pinging yahboom motors, check connection to motors")
@@ -140,26 +129,14 @@ func (a *dofBot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the given absolute position.
 func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-
-	joints, err := a.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	// dofbot las limited dof
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), opt)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.

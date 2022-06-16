@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -122,8 +123,8 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	return true, score
 }
 
-// NewCollisionConstraint takes a frame and geometries representing obstacles and interaction spaces and will construct a collision
-// avoidance constraint from them.
+// NewCollisionConstraint is a helper function for creating a collision Constraint that takes a frame and geometries
+// representing obstacles and interaction spaces and will construct a collision avoidance constraint from them.
 func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSpaces map[string]spatial.Geometry) Constraint {
 	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
 	zeroVols, err := frame.Geometries(make([]referenceframe.Input, len(frame.DoF())))
@@ -171,6 +172,45 @@ func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSp
 		return true, sum
 	}
 	return constraint
+}
+
+func NewCollisionConstraintFromWorldState(
+	model referenceframe.Frame,
+	fs referenceframe.FrameSystem,
+	worldState *commonpb.WorldState,
+	observationInput map[string][]referenceframe.Input,
+) Constraint {
+	transformGeometriesToWorldFrame := func(gfs []*commonpb.GeometriesInFrame) (*referenceframe.GeometriesInFrame, error) {
+		allGeometries := make(map[string]spatial.Geometry)
+		for _, gf := range gfs {
+			obstacles, err := referenceframe.ProtobufToGeometriesInFrame(gf)
+			if err != nil {
+				return nil, err
+			}
+			// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+			// the state that observed the worldState should ultimately be included as part of the worldState message
+			tf, err := fs.Transform(observationInput, obstacles, referenceframe.World)
+			if err != nil {
+				return nil, err
+			}
+			for name, g := range tf.(*referenceframe.GeometriesInFrame).Geometries() {
+				if _, present := allGeometries[name]; present {
+					return nil, errors.New("multiple geometries with the same name")
+				}
+				allGeometries[name] = g
+			}
+		}
+		return referenceframe.NewGeometriesInFrame(referenceframe.World, allGeometries), nil
+	}
+	obstacles, err := transformGeometriesToWorldFrame(worldState.GetObstacles())
+	if err != nil {
+		return nil
+	}
+	interactionSpaces, err := transformGeometriesToWorldFrame(worldState.GetInteractionSpaces())
+	if err != nil {
+		return nil
+	}
+	return NewCollisionConstraint(model, obstacles.Geometries(), interactionSpaces.Geometries())
 }
 
 // NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
