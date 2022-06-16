@@ -167,7 +167,7 @@ var GamepadMappings = map[string]Mapping{
 	},
 
 	// https://www.amazon.com/SQDeal-Joystick-Controller-Vibration-Feedback/dp/B01GR9ZZTS
-	"USB Gamepad" : {
+	"USB Gamepad": {
 		Axes: map[evdev.AbsoluteType]input.Control{
 			0:  input.AbsoluteX,
 			1:  input.AbsoluteY,
