@@ -40,7 +40,7 @@ type pmtkI2CNMEAGPS struct {
 	addr   byte
 	logger golog.Logger
 
-	data        gpsData
+	data gpsData
 
 	cancelCtx               context.Context
 	cancelFunc              func()
