@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config"
 	objdet "go.viam.com/rdk/vision/objectdetection"
@@ -43,18 +44,23 @@ func TestDetectorMap(t *testing.T) {
 }
 
 func TestRegisterTFLiteDetector(t *testing.T) {
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	conf := &Attributes{
 		DetectorRegistry: []DetectorConfig{
 			{
-				Name:       "my_tflite_det",
-				Type:       "tflite",
-				Parameters: config.AttributeMap{},
+				Name: "my_tflite_det",
+				Type: "tflite",
+				Parameters: config.AttributeMap{
+					"model_path":  modelLoc,
+					"label_path":  "",
+					"num_threads": 1,
+				},
 			},
 		},
 	}
 	reg := make(detectorMap)
 	err := registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
-	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("tflite"))
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestRegisterTensorFlowDetector(t *testing.T) {
