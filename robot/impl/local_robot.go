@@ -360,14 +360,10 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
-	rName := config.ResourceName()
-	f := registry.ComponentLookup(rName.Subtype, config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
-	}
-
-	// TODO: use resource manager?
+// getDependencies derives a collection of dependencies from a robot for a given
+// component configuration. We do use the resource manager for this information since it
+// is not be constructed at this point.
+func (r *localRobot) getDependencies(config config.Component) (registry.Dependencies, error) {
 	deps := make(registry.Dependencies)
 	for _, dep := range config.DependsOn {
 		if c := r.config.FindComponent(dep); c != nil {
@@ -379,8 +375,22 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 		}
 	}
 
+	return deps, nil
+}
+
+func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
+	rName := config.ResourceName()
+	f := registry.ComponentLookup(rName.Subtype, config.Model)
+	if f == nil {
+		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
+	}
+
+	deps, err := r.getDependencies(config)
+	if err != nil {
+		return nil, err
+	}
+
 	var newResource interface{}
-	var err error
 	if f.Constructor != nil {
 		newResource, err = f.Constructor(ctx, deps, config, r.logger)
 	} else {
