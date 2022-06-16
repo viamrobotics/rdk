@@ -283,6 +283,10 @@ func (e *eva) Stop(ctx context.Context) error {
 	return arm.ErrStopUnimplemented
 }
 
+func (e *eva) IsMoving() bool {
+	return e.opMgr.OpRunning()
+}
+
 func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
 	type Temp struct {
 		Snapshot evaData
@@ -357,7 +361,7 @@ func evaModel() (referenceframe.Model, error) {
 }
 
 // NewEva TODO.
-func NewEva(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func NewEva(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	model, err := evaModel()
 	if err != nil {
 		return nil, err

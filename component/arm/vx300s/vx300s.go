@@ -3,7 +3,6 @@ package vx300s
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -100,7 +99,7 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
-func newArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func newArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger) (arm.LocalArm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
@@ -183,6 +182,10 @@ func (a *myArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, erro
 func (a *myArm) Stop(ctx context.Context) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
+}
+
+func (a *myArm) IsMoving() bool {
+	return a.opMgr.OpRunning()
 }
 
 // Close will get the arm ready to be turned off.
