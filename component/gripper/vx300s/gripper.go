@@ -56,7 +56,7 @@ type vx300s struct {
 }
 
 // newGripper TODO.
-func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.Gripper, error) {
+func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.LocalGripper, error) {
 	usbPort := attributes.String("usb_port")
 	jServo := findServo(usbPort, attributes.String("baud_rate"), logger)
 	err := jServo.SetTorqueEnable(true)
@@ -134,6 +134,11 @@ func (g *vx300s) Grab(ctx context.Context) (bool, error) {
 func (g *vx300s) Stop(ctx context.Context) error {
 	// RSDK-388: Implement Stop
 	return gripper.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the gripper is moving.
+func (g *vx300s) IsMoving() bool {
+	return g.opMgr.OpRunning()
 }
 
 // Close closes the connection, not the gripper.
