@@ -161,10 +161,14 @@
   "remotes": [
     {
       "name": "vg2105m04",
-      "address": "vg2105m04.local",
+      "address": "vg2105m04.local:8080",
+      "insecure": true,
       "frame": {
         "parent": "xArm6"
       }
     }
-  ]
+  ],
+  "network": {
+    "bind_address": ":8080"
+  }
 }

@@ -1,4 +1,4 @@
-// Package main is a reset box for a robot play area.
+// Package main is a remote client to coordinate a resetbox (robot play area.)
 package main
 
 import (
@@ -52,26 +52,16 @@ const (
 var (
 	vibeLevel = float64(0.7)
 
-	safeDumpPos = &componentpb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
-
+	safeDumpPos  = &componentpb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
 	cubeReadyPos = &componentpb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
-
-	cube1grab = &componentpb.JointPositions{Degrees: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
-
-	cube2grab = &componentpb.JointPositions{Degrees: []float64{-182.6, 7.3, -36.9, 0, 17.6, 0}}
-
-	cube1place = &componentpb.JointPositions{Degrees: []float64{50, 20, -35, -0.5, 3.0, 0}}
-
-	cube2place = &componentpb.JointPositions{Degrees: []float64{-130, 30.5, -28.7, -0.5, -32.2, 0}}
-
-	duckgrabFW = &componentpb.JointPositions{Degrees: []float64{-180.5, 27.7, -79.7, -2.8, 76.20, 180}}
-
-	duckgrabREV = &componentpb.JointPositions{Degrees: []float64{-180.5, 28.3, -76.8, -2.8, 65.45, 180}}
-
+	cube1grab    = &componentpb.JointPositions{Degrees: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
+	cube2grab    = &componentpb.JointPositions{Degrees: []float64{-182.6, 7.3, -36.9, 0, 17.6, 0}}
+	cube1place   = &componentpb.JointPositions{Degrees: []float64{50, 20, -35, -0.5, 3.0, 0}}
+	cube2place   = &componentpb.JointPositions{Degrees: []float64{-130, 30.5, -28.7, -0.5, -32.2, 0}}
+	duckgrabFW   = &componentpb.JointPositions{Degrees: []float64{-180.5, 27.7, -79.7, -2.8, 76.20, 180}}
+	duckgrabREV  = &componentpb.JointPositions{Degrees: []float64{-180.5, 28.3, -76.8, -2.8, 65.45, 180}}
 	duckReadyPos = &componentpb.JointPositions{Degrees: []float64{-180.5, 0.0, -60.0, -2.8, 65.45, 180}}
-
-	duckplaceFW = &componentpb.JointPositions{Degrees: []float64{-21.3, 14.9, -39.0, 6.8, 22.0, 49.6}}
-
+	duckplaceFW  = &componentpb.JointPositions{Degrees: []float64{-21.3, 14.9, -39.0, 6.8, 22.0, 49.6}}
 	duckplaceREV = &componentpb.JointPositions{Degrees: []float64{-19.2, 18, -41.0, 6.3, 22.7, 230}}
 )
 
@@ -198,9 +188,7 @@ type ResetBox struct {
 	cancelCtx context.Context
 
 	vibeState bool
-
-	tableUp bool
-
+	tableUp   bool
 	haveHomed bool
 }
 
@@ -278,21 +266,38 @@ func (b *ResetBox) Stop(ctx context.Context) error {
 	)
 }
 
+type arguments struct {
+	Address string `flag:"0,required,usage=Address of Resetbox (RDK server) to connect to"`
+	Secret  string `flag:"secret,usage=Location secret if connecting securely"`
+}
+
 func main() {
-	logger := golog.NewDevelopmentLogger("client")
-	robot, err := client.New(
-		context.Background(),
-		"resetbox.6099bd9d94.viam.cloud",
-		logger,
-		client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
+	logger := golog.NewDevelopmentLogger("resetbox")
+	ctx := context.Background()
+	var argsParsed arguments
+	if err := utils.ParseFlags(os.Args, &argsParsed); err != nil {
+		return
+	}
+
+	dialOpts := rpc.WithInsecure()
+	if argsParsed.Secret != "" {
+		dialOpts = rpc.WithCredentials(rpc.Credentials{
 			Type:    rdkutils.CredentialsTypeRobotLocationSecret,
-			Payload: "huwbahasm4zt3un5hfag7oy1d0lseie5uzr9camkolxh81g4",
-		})),
+			Payload: argsParsed.Secret,
+		})
+	}
+
+	robot, err := client.New(
+		ctx,
+		argsParsed.Address,
+		logger,
+		client.WithDialOptions(dialOpts),
 	)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Error(err)
+		return
 	}
-	box, err := NewResetBox(context.Background(), robot, logger)
+	box, err := NewResetBox(ctx, robot, logger)
 	if err != nil {
 		logger.Error(err)
 		return
@@ -300,7 +305,7 @@ func main() {
 	defer box.Close()
 
 	// logger.Warn("About to Home")
-	// err = box.home(context.Background())
+	// err = box.home(ctx)
 	// if err != nil {
 	// 	logger.Error(err)
 	// }
@@ -308,15 +313,12 @@ func main() {
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
-		if err != nil {
-			logger.Error(err)
-		}
 		switch key := scanner.Text(); key {
 		case "s":
-			box.Stop(context.Background())
+			box.Stop(ctx)
 		case "h":
 			go func() {
-				err := box.home(context.Background())
+				err := box.home(ctx)
 				if err != nil {
 					logger.Error(err)
 				}
@@ -324,7 +326,7 @@ func main() {
 		case "r":
 			go func() {
 				logger.Info("Running reset cycle")
-				err := box.runReset(context.Background())
+				err := box.runReset(ctx)
 				if err != nil {
 					logger.Error(err)
 				}
@@ -334,175 +336,12 @@ func main() {
 		default:
 			logger.Infof("Key press: %s", key)
 		}
-	}
-	if err = scanner.Err(); err != nil {
-		logger.Error(err)
+
+		if err = scanner.Err(); err != nil {
+			logger.Error(err)
+		}
 	}
 }
-
-// //nolint:unused
-// func (b *ResetBox) move1(ctx context.Context) {
-// 	if err := multierr.Combine(
-// 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
-// 		b.arm.MoveToJointPositions(ctx, duckgrabFW),
-// 	); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) move2(ctx context.Context) {
-// 	if err := multierr.Combine(
-// 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
-// 		b.arm.MoveToJointPositions(ctx, duckgrabREV),
-// 	); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) moveC1(ctx context.Context) {
-// 	if err := multierr.Combine(
-// 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-// 		b.arm.MoveToJointPositions(ctx, cube1grab),
-// 	); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) moveC2(ctx context.Context) {
-// 	if err := multierr.Combine(
-// 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-// 		b.arm.MoveToJointPositions(ctx, cube2grab),
-// 	); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doDropC1(ctx context.Context) {
-// 	if err := multierr.Combine(
-// 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-// 		b.arm.MoveToJointPositions(ctx, cube1place),
-// 	); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doDropC2(ctx context.Context) {
-// 	if err := multierr.Combine(
-// 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-// 		b.arm.MoveToJointPositions(ctx, cube2place),
-// 	); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doDrop1(ctx context.Context) {
-// 	if err := multierr.Combine(
-// 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
-// 		b.arm.MoveToJointPositions(ctx, duckplaceFW),
-// 	); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doDrop2(ctx context.Context) {
-// 	if err := multierr.Combine(
-// 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
-// 		b.arm.MoveToJointPositions(ctx, duckplaceREV),
-// 	); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doPlaceDuck(ctx context.Context) {
-// 	if err := b.placeDuck(ctx); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doDuckWhack(ctx context.Context) {
-// 	if err := b.hammerTime(ctx, duckWhacks); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doHome(ctx context.Context) {
-// 	if err := b.home(ctx); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doArmHome(ctx context.Context) {
-// 	if err := b.armHome(ctx); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doRunReset(ctx context.Context) {
-// 	if err := b.runReset(ctx); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doVibrateToggle(ctx context.Context) {
-// 	if b.vibeState {
-// 		b.vibrate(ctx, 0)
-// 	} else {
-// 		b.vibrate(ctx, vibeLevel)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doVibrateLevel(ctx context.Context) {
-// 	vibeLevel += 0.1
-// 	if vibeLevel >= 1.1 {
-// 		vibeLevel = 0.2
-// 	}
-// 	b.logger.Debugf("Vibe Level: %f", vibeLevel)
-// 	b.vibrate(ctx, vibeLevel)
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doTipTableUp(ctx context.Context) {
-// 	if err := b.tipTableUp(ctx); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doTipTableDown(ctx context.Context) {
-// 	if err := b.tipTableDown(ctx); err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doElevatorUp(ctx context.Context) {
-// 	err := b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
-// 	if err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
-
-// //nolint:unused
-// func (b *ResetBox) doElevatorDown(ctx context.Context) {
-// 	err := b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
-// 	if err != nil {
-// 		b.logger.Error(err)
-// 	}
-// }
 
 func (b *ResetBox) home(ctx context.Context) error {
 	b.logger.Info("homing")
