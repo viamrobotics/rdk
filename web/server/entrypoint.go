@@ -352,6 +352,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}()
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 
+	// Q : why is it that this function is defined inside rather than outside. is there a preference??
 	processConfig := func(in *config.Config) (*config.Config, error) {
 		tlsCfg := config.NewTLSConfig(cfg)
 		out, err := config.ProcessConfig(in, tlsCfg)

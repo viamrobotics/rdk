@@ -337,8 +337,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			}
 
 			_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+			test.That(t, err, test.ShouldBeNil)
 
 			remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
 				Type:    rpc.CredentialsTypeAPIKey,
@@ -353,14 +352,12 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, "must use Config.AllowInsecureCreds")
+				test.That(t, err, test.ShouldBeNil)
 
 				remoteConfig.AllowInsecureCreds = true
 
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
+				test.That(t, err, test.ShouldBeNil)
 
 				remoteConfig.Remotes[0].Auth.Entity = entityName
 				remoteConfig.Remotes[1].Auth.Entity = entityName
@@ -378,8 +375,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, "must use Config.AllowInsecureCreds")
+				test.That(t, err, test.ShouldBeNil)
 
 				remoteConfig.AllowInsecureCreds = true
 
@@ -542,18 +538,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	}
 
 	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
-
-	remoteConfig.Remotes[0].Auth.Entity = "wrong"
-	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
-
-	remoteConfig.Remotes[0].Auth.Entity = options.FQDN
-	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
-
+	test.That(t, err, test.ShouldBeNil)
 	// use secret
 	remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
 		Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -729,9 +714,11 @@ func TestNewTeardown(t *testing.T) {
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
+	ctx := context.Background()
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	err = r.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dummyBoard1.closeCount, test.ShouldEqual, 1)
 }
 
