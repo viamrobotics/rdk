@@ -397,7 +397,10 @@ func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
 
-	// Read the file as if it is SensorData, if err is not nil we assume it is FileData
+	// Read the file as if it is SensorData, and if the error is io.EOF (end of file) that means the filetype is
+	// arbitrary because no protobuf-generated structs (for SensorData) were able to be read (and thus the file has no
+	// readable data). If the error is anything other than io.EOF, return the data type as UNSPECIFIED with the
+	// corresponding error.
 	sensorData, err := readNextSensorData(f)
 	//nolint
 	if errors.Is(err, io.EOF) {
@@ -430,26 +433,26 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	}
 
 	// Parse filepath to get metadata about the file which we will be reading from.
-	btwnCaptureDirAndSubtypeName := strings.Index(f.Name(), "/")
-	btwnSubtypeNameAndComponentName := strings.Index(f.Name()[btwnCaptureDirAndSubtypeName+1:], "/")
-	btwnComponentNameAndFileStampName := strings.Index(f.Name()[btwnSubtypeNameAndComponentName+1:], "/")
 
-	// Potentially useful values in the future (come from filename):
-	// sCaptureDir := f.Name()[:btwnCaptureDirAndSubtypeName]
-	// sSubtypeName := f.Name()[btwnCaptureDirAndSubtypeName+1 : btwnSubtypeNameAndComponentName]
+	// (UNCOMMENT BELOW) syncQueuePath is directory where files are queued while waiting to be synced to cloud.
+	// syncQueuePath := filepath.Clean(f.Name()[:(strings.Index(f.Name(), ".viam") + 5)])
 
-	// METADATA FIELDS FOR CONSTRUCTION BELOW:
-	// PartName: TODO [DATA-164]
-	// ComponentName: Below
-	// MethodName: TODO [DATA-164]
-	// Type: Below
-	// FileName: Above
+	// remainingPathContent is a slice of strings that includes subtypeName & componentName (in that order).
+	remainingPathContent := strings.Split(f.Name()[(strings.Index(f.Name(), ".viam")+5):], "/")
+	componentName := remainingPathContent[1]
 
-	componentName := f.Name()[btwnSubtypeNameAndComponentName+1 : btwnComponentNameAndFileStampName]
+	// dataType represents the protobuf DataType value describing the file to be uploaded.
 	dataType, err := getDataTypeFromLeadingMessage(path)
 	if err != nil {
 		return errors.Wrap(err, "error while getting metadata data type")
 	}
+
+	// METADATA FIELDS FOR CONSTRUCTION BELOW:
+	// PartName: TODO [DATA-164]
+	// ComponentName: Above
+	// MethodName: TODO [DATA-164]
+	// Type: Above
+	// FileName: Above
 
 	// Actually construct the Metadata
 	md := &v1.UploadRequest{
@@ -460,7 +463,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 				ComponentName: componentName,
 				MethodName:    "TODO [DATA-164]",
 				Type:          dataType,
-				FileName:      f.Name(),
+				FileName:      filepath.Base(f.Name()),
 			},
 		},
 	}
@@ -489,6 +492,8 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 		return nil, err
 	}
 
+	// Ensure we construct and return a SensorData value for tabular data when the tabular data's fields and
+	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
 	if r.GetBinary() == nil {
 		if r.GetStruct().Fields != nil {
 			return r, nil
