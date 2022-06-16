@@ -372,11 +372,8 @@ func (manager *resourceManager) UpdateConfig(ctx context.Context,
 	robot *draftRobot,
 ) (PartsMergeResult, error) {
 	var leftovers PartsMergeResult
-	replacedRemotes, err := manager.updateRemotes(ctx, added.Remotes, modified.Remotes)
+	replacedRemotes := manager.updateRemotes(ctx, added.Remotes, modified.Remotes)
 	leftovers.ReplacedRemotes = replacedRemotes
-	if err != nil {
-		return leftovers, err
-	}
 	replacedProcesses, err := manager.updateProcesses(ctx, added.Processes, modified.Processes)
 	leftovers.ReplacedProcesses = replacedProcesses
 	if err != nil {
@@ -415,13 +412,13 @@ func (manager *resourceManager) updateProcesses(ctx context.Context,
 func (manager *resourceManager) updateRemotes(ctx context.Context,
 	addedRemotes []config.Remote,
 	modifiedRemotes []config.Remote,
-) ([]*remoteRobot, error) {
+) []*remoteRobot {
 	var replacedRemotes []*remoteRobot
 	manager.newRemotes(ctx, addedRemotes)
 	for _, r := range modifiedRemotes {
 		manager.newRemotes(ctx, []config.Remote{r})
 	}
-	return replacedRemotes, nil
+	return replacedRemotes
 }
 
 func (manager *resourceManager) reconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
@@ -629,7 +626,7 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 					return err
 				}
 			} else {
-				return errors.Errorf("componenent %s depends on non-existent component %s",
+				return errors.Errorf("component %s depends on non-existent component %s",
 					rName.Name, dep)
 			}
 		}
