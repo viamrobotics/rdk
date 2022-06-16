@@ -66,8 +66,15 @@
         theData.error = err;
       }
 
+      function setPCDError(err) {
+        theData.pcdError = err;
+      }
+
       function grpcCallback(err, resp, stringify) {
         if (err) {
+          if (err.indexOf('image with depth has no depth channel') >=0) {
+            setPCDError(err);
+          }
           setError(err);
           return;
         }
@@ -208,6 +215,7 @@
       async function startup() {
         theData = {
           error: "",
+          pcdError: "",
           res: {},
           rawStatus: {},
           status: {},
@@ -1842,35 +1850,36 @@
           <!-- ******* CAMERAS *******  -->
           <div class="camera pb-4" v-for="streamName in streamNames" :key="streamName">
               <camera
-                      :stream-name="streamName"
-                      :crumbs="[streamName]"
-                      :x="pcdClick.x"
-                      :y="pcdClick.y"
-                      :z="pcdClick.z"
-                      :pcd-click="pcdClick"
-                      :segmenter-names="segmenterNames"
-                      :segmenter-parameters="segmenterParameters"
-                      :segmenter-parameter-names="segmenterParameterNames"
-                      :parameter-type="parameterType"
-                      :segment-algo="segmentAlgo"
-                      :segment-objects="objects"
-                      :find-status="pcdClick.calculatingSegments"
-                      @full-image="doPCDLoad(fullcloud)"
-                      @center-pcd="doCenterPCDLoad(fullcloud)"
-                      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
-                      @change-segmenter="getSegmenterParameters"
-                      @toggle-camera="viewCamera(streamName)"
-                      @refresh-camera="viewCameraFrame"
-                      @selected-camera-view="viewCameraFrame"
-                      @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
-                      @pcd-click="grabClick"
-                      @pcd-move="doPCDMove"
-                      @point-load="doPointLoad"
-                      @segment-load="doSegmentLoad"
-                      @bounding-box-load="doBoundingBoxLoad"
-                      @download-screenshot="renderFrame(streamName)"
-                      @download-raw-data="doPCDDownload(fullcloud)"
-                      @select-object="doSelectObject"
+                :pcd-error="pcdError"      
+                :stream-name="streamName"
+                :crumbs="[streamName]"
+                :x="pcdClick.x"
+                :y="pcdClick.y"
+                :z="pcdClick.z"
+                :pcd-click="pcdClick"
+                :segmenter-names="segmenterNames"
+                :segmenter-parameters="segmenterParameters"
+                :segmenter-parameter-names="segmenterParameterNames"
+                :parameter-type="parameterType"
+                :segment-algo="segmentAlgo"
+                :segment-objects="objects"
+                :find-status="pcdClick.calculatingSegments"
+                @full-image="doPCDLoad(fullcloud)"
+                @center-pcd="doCenterPCDLoad(fullcloud)"
+                @find-segments="findSegments(segmentAlgo, segmenterParameters)"
+                @change-segmenter="getSegmenterParameters"
+                @toggle-camera="viewCamera(streamName)"
+                @refresh-camera="viewCameraFrame"
+                @selected-camera-view="viewCameraFrame"
+                @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
+                @pcd-click="grabClick"
+                @pcd-move="doPCDMove"
+                @point-load="doPointLoad"
+                @segment-load="doSegmentLoad"
+                @bounding-box-load="doBoundingBoxLoad"
+                @download-screenshot="renderFrame(streamName)"
+                @download-raw-data="doPCDDownload(fullcloud)"
+                @select-object="doSelectObject"
               ></camera>
           </div>
         </div>
