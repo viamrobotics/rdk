@@ -1,174 +1,174 @@
 {
   "components": [
     {
+      "name": "resetboard",
+      "model": "pi",
+      "type": "board",
       "attributes": {
         "spis": [
           {
-            "bus_select": "0",
-            "name": "main"
+            "name": "main",
+            "bus_select": "0"
           },
           {
-            "bus_select": "1",
-            "name": "aux"
+            "name": "aux",
+            "bus_select": "1"
           }
         ]
-      },
-      "model": "pi",
-      "name": "resetboard",
-      "type": "board"
+      }
     },
     {
-      "attributes": {
-        "board": "resetboard",
-        "cal_factor": 1.058333,
-        "chip_select": "36",
-        "index": 0,
-        "max_acceleration": 400,
-        "max_rpm": 450,
-        "sg_thresh": 10,
-        "spi_bus": "main",
-        "ticks_per_rotation": 200,
-        "home_rpm": 150
-      },
-      "model": "TMC5072",
       "name": "gateL",
-      "type": "motor"
-    },
-    {
+      "type": "motor",
+      "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "cal_factor": 1.058333,
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "home_rpm": 150,
+        "spi_bus": "main",
+        "chip_select": "36",
+        "index": 0,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
+      }
+    },
+    {
+      "name": "gateR",
+      "type": "motor",
+      "model": "TMC5072",
+      "attributes": {
+        "board": "resetboard",
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "home_rpm": 150,
+        "spi_bus": "main",
         "chip_select": "36",
         "index": 1,
-        "max_acceleration": 400,
-        "max_rpm": 450,
         "sg_thresh": 10,
-        "spi_bus": "main",
-        "ticks_per_rotation": 200,
-        "home_rpm": 150
-      },
-      "model": "TMC5072",
-      "name": "gateR",
-      "type": "motor"
+        "cal_factor": 1.058333
+      }
     },
     {
-      "attributes": {
-        "board": "resetboard",
-        "cal_factor": 1.058333,
-        "chip_select": "38",
-        "index": 0,
-        "max_acceleration": 400,
-        "max_rpm": 450,
-        "sg_thresh": 10,
-        "spi_bus": "main",
-        "ticks_per_rotation": 200,
-        "home_rpm": 150
-      },
-      "model": "TMC5072",
       "name": "squeezeL",
-      "type": "motor"
-    },
-    {
+      "type": "motor",
+      "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "cal_factor": 1.058333,
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "home_rpm": 150,
+        "spi_bus": "main",
+        "chip_select": "38",
+        "index": 0,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
+      }
+    },
+    {
+      "name": "squeezeR",
+      "type": "motor",
+      "model": "TMC5072",
+      "attributes": {
+        "board": "resetboard",
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "home_rpm": 150,
+        "spi_bus": "main",
         "chip_select": "38",
         "index": 1,
-        "max_acceleration": 400,
-        "max_rpm": 450,
         "sg_thresh": 10,
-        "spi_bus": "main",
-        "ticks_per_rotation": 200,
-        "home_rpm": 150
-      },
-      "model": "TMC5072",
-      "name": "squeezeR",
-      "type": "motor"
+        "cal_factor": 1.058333
+      }
     },
     {
+      "name": "elevator",
+      "type": "motor",
+      "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "cal_factor": 1.058333,
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "home_rpm": 150,
+        "hold_current": 16,
+        "spi_bus": "main",
         "chip_select": "40",
         "index": 0,
-        "max_acceleration": 400,
-        "max_rpm": 450,
         "sg_thresh": 5,
-        "spi_bus": "main",
-        "ticks_per_rotation": 200,
-        "home_rpm": 200,
-        "hold_current": 16
-      },
-      "model": "TMC5072",
-      "name": "elevator",
-      "type": "motor"
+        "cal_factor": 1.058333
+      }
     },
     {
+      "name": "hammer",
+      "type": "motor",
+      "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "cal_factor": 1.058333,
+        "ticks_per_rotation": 5370,
+        "max_rpm": 18.5,
+        "max_acceleration": 30,
+        "home_rpm": 200,
+        "spi_bus": "main",
         "chip_select": "40",
         "index": 1,
-        "max_acceleration": 30,
-        "max_rpm": 18.5,
         "sg_thresh": 0,
-        "spi_bus": "main",
-        "ticks_per_rotation": 5370,
-        "home_rpm": 200
-      },
-      "model": "TMC5072",
-      "name": "hammer",
-      "type": "motor"
+        "cal_factor": 1.058333
+      }
     },
     {
-      "attributes": {
-        "board": "resetboard",
-        "pins": {
-          "dir": "37",
-          "pwm": "35"
-        },
-        "pwm_freq": 8000
-      },
-      "model": "pi",
       "name": "tipper",
-      "type": "motor"
-    },
-    {
+      "type": "motor",
+      "model": "pi",
       "attributes": {
         "board": "resetboard",
+        "pwm_freq": 8000,
         "pins": {
-          "dir": "18",
-          "pwm": "16"
-        },
-        "pwm_freq": 8000
-      },
-      "model": "pi",
-      "name": "vibrator",
-      "type": "motor"
+          "pwm": "35",
+          "dir": "37"
+        }
+      }
     },
     {
+      "name": "vibrator",
+      "type": "motor",
+      "model": "pi",
+      "attributes": {
+        "board": "resetboard",
+        "pwm_freq": 8000,
+        "pins": {
+          "pwm": "16",
+          "dir": "18"
+        }
+      }
+    },
+    {
+      "model": "xArm6",
+      "name": "xArm6",
+      "type": "arm",
       "attributes": {
         "host": "10.0.0.99"
       },
-      "frame": {
-        "parent": "world"
-      },
-      "model": "xArm6",
-      "name": "xArm6",
-      "type": "arm"
+      "frame" : {
+          "parent" : "world"
+      }
     }
   ],
   "remotes": [
     {
-      "name": "vg2105m04",
       "address": "vg2105m04.local:8080",
+      "name": "gripper",
       "insecure": true,
-      "frame": {
-        "parent": "xArm6"
+      "frame" : {
+          "parent" : "xArm6"
       }
     }
   ],
   "network": {
-    "bind_address": ":8080"
+      "bind_address": ":8080"
   }
 }
