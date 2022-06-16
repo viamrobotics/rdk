@@ -140,7 +140,6 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func allSourcesToDisplay(theRobot robot.Robot) map[string]gostream.ImageSource {
 	sources := make(map[string]gostream.ImageSource)
 
-	// TODO (RDK-133): allow users to determine what to stream.
 	for _, name := range camera.NamesFromRobot(theRobot) {
 		cam, err := camera.FromRobot(theRobot, name)
 		if err != nil {
@@ -266,7 +265,7 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 
 	for s, v := range groupedResources {
 		subtypeSvc, ok := svc.services[s]
-		// TODO: as part of #272, register new service if it doesn't currently exist
+		// TODO(RSDK-144): register new service if it doesn't currently exist
 		if !ok {
 			subtypeSvc, err := subtype.New(v)
 			if err != nil {
@@ -313,7 +312,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		stream, err := svc.streamServer.Server.NewStream(config)
 
 		// Skip if stream is already registered, otherwise raise any other errors
-		var registeredError *gostream.ErrStreamAlreadyRegistered
+		var registeredError *gostream.StreamAlreadyRegisteredError
 		if errors.As(err, &registeredError) {
 			svc.logger.Warn(registeredError.Error())
 			continue

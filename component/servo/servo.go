@@ -57,6 +57,9 @@ type Servo interface {
 	// GetPosition returns the current set angle (degrees) of the servo.
 	GetPosition(ctx context.Context) (uint8, error)
 
+	// Stop stops the servo. It is assumed the servo stops immediately.
+	Stop(ctx context.Context) error
+
 	generic.Generic
 }
 
@@ -130,6 +133,12 @@ func (r *reconfigurableServo) GetPosition(ctx context.Context) (uint8, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetPosition(ctx)
+}
+
+func (r *reconfigurableServo) Stop(ctx context.Context) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Stop(ctx)
 }
 
 func (r *reconfigurableServo) Close(ctx context.Context) error {

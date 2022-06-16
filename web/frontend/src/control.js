@@ -31,8 +31,6 @@ window.sensorsApi = require('./gen/proto/api/service/sensors/v1/sensors_pb');
 const { SensorsServiceClient } = require('./gen/proto/api/service/sensors/v1/sensors_pb_service');
 window.servoApi = require('./gen/proto/api/component/servo/v1/servo_pb');
 const { ServoServiceClient } = require('./gen/proto/api/component/servo/v1/servo_pb_service');
-window.statusApi = require('./gen/proto/api/service/status/v1/status_pb');
-const { StatusServiceClient } = require('./gen/proto/api/service/status/v1/status_pb_service');
 window.streamApi = require('./gen/proto/stream/v1/stream_pb');
 const { StreamServiceClient } = require('./gen/proto/stream/v1/stream_pb_service');
 const { dialDirect, dialWebRTC } = require('@viamrobotics/rpc');
@@ -108,7 +106,7 @@ const connect = async (authEntity, creds) => {
 
 	window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
 
-	// TODO: these should be created as needed for #272
+	// TODO(RSDK-144): these should be created as needed
 	window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
@@ -123,7 +121,6 @@ const connect = async (authEntity, creds) => {
 	window.visionService = new VisionServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
-	window.statusService = new StatusServiceClient(window.webrtcHost, { transport: transportFactory });
 };
 window.connect = connect;
 

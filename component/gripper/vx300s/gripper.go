@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -55,7 +56,7 @@ type vx300s struct {
 }
 
 // newGripper TODO.
-func newGripper(attributes config.AttributeMap, logger golog.Logger) (*vx300s, error) {
+func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.LocalGripper, error) {
 	usbPort := attributes.String("usb_port")
 	jServo := findServo(usbPort, attributes.String("baud_rate"), logger)
 	err := jServo.SetTorqueEnable(true)
@@ -129,9 +130,25 @@ func (g *vx300s) Grab(ctx context.Context) (bool, error) {
 	return didGrab, nil
 }
 
+// Stop is unimplemented for vx300s.
+func (g *vx300s) Stop(ctx context.Context) error {
+	// RSDK-388: Implement Stop
+	return gripper.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the gripper is moving.
+func (g *vx300s) IsMoving() bool {
+	return g.opMgr.OpRunning()
+}
+
 // Close closes the connection, not the gripper.
 func (g *vx300s) Close() error {
 	return g.jServo.SetTorqueEnable(false)
+}
+
+// ModelFrame is unimplemented for vx300s.
+func (g *vx300s) ModelFrame() referenceframe.Model {
+	return nil
 }
 
 // findServo finds the gripper numbered Dynamixel servo on the specified USB port

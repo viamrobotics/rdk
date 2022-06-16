@@ -3,7 +3,6 @@ package xarm
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"errors"
@@ -39,6 +38,7 @@ type xArm struct {
 	moveLock *sync.Mutex
 	mp       motionplan.MotionPlanner
 	model    referenceframe.Model
+	started  bool
 	opMgr    operation.SingleOperationManager
 }
 
@@ -86,7 +86,7 @@ func xArmModel(dof int) (referenceframe.Model, error) {
 }
 
 // NewxArm returns a new xArm with the specified dof.
-func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
+func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
@@ -115,6 +115,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		moveLock: mutex,
 		mp:       mp,
 		model:    model,
+		started:  false,
 	}
 
 	err = xA.start(ctx)

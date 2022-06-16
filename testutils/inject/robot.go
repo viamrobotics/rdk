@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -21,22 +22,24 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	RemoteByNameFunc      func(name string) (robot.Robot, bool)
-	ResourceByNameFunc    func(name resource.Name) (interface{}, error)
-	RemoteNamesFunc       func() []string
-	ResourceNamesFunc     func() []resource.Name
-	ProcessManagerFunc    func() pexec.ProcessManager
-	ConfigFunc            func(ctx context.Context) (*config.Config, error)
-	LoggerFunc            func() golog.Logger
-	CloseFunc             func(ctx context.Context) error
-	RefreshFunc           func(ctx context.Context) error
-	FrameSystemConfigFunc func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
-	TransformPoseFunc     func(
+	DiscoverComponentsFunc func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
+	RemoteByNameFunc       func(name string) (robot.Robot, bool)
+	ResourceByNameFunc     func(name resource.Name) (interface{}, error)
+	RemoteNamesFunc        func() []string
+	ResourceNamesFunc      func() []resource.Name
+	ProcessManagerFunc     func() pexec.ProcessManager
+	ConfigFunc             func(ctx context.Context) (*config.Config, error)
+	LoggerFunc             func() golog.Logger
+	CloseFunc              func(ctx context.Context) error
+	RefreshFunc            func(ctx context.Context) error
+	FrameSystemConfigFunc  func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
+	TransformPoseFunc      func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
 		additionalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
+	GetStatusFunc func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 
 	ops     *operation.Manager
 	opsLock sync.Mutex
@@ -146,6 +149,14 @@ func (r *Robot) Refresh(ctx context.Context) error {
 	return r.RefreshFunc(ctx)
 }
 
+// DiscoverComponents call the injected DiscoverComponents or the real one.
+func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+	if r.DiscoverComponentsFunc == nil {
+		return r.LocalRobot.DiscoverComponents(ctx, keys)
+	}
+	return r.DiscoverComponentsFunc(ctx, keys)
+}
+
 // RemoteRobot is an injected remote robot.
 type RemoteRobot struct {
 	Robot
@@ -187,4 +198,12 @@ func (r *Robot) TransformPose(
 		return r.LocalRobot.TransformPose(ctx, pose, dst, additionalTransforms)
 	}
 	return r.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
+}
+
+// GetStatus call the injected GetStatus or the real one.
+func (r *Robot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	if r.GetStatusFunc == nil {
+		return r.LocalRobot.GetStatus(ctx, resourceNames)
+	}
+	return r.GetStatusFunc(ctx, resourceNames)
 }

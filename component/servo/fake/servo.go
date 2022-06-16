@@ -38,3 +38,8 @@ func (s *Servo) Move(ctx context.Context, angleDeg uint8) error {
 func (s *Servo) GetPosition(ctx context.Context) (uint8, error) {
 	return s.angle, nil
 }
+
+// Stop doesn't do anything for a fake servo.
+func (s *Servo) Stop(ctx context.Context) error {
+	return nil
+}

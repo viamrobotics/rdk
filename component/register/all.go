@@ -2,7 +2,6 @@
 package register
 
 import (
-
 	// register components.
 	_ "go.viam.com/rdk/component/arm/register"
 	_ "go.viam.com/rdk/component/base/register"
@@ -15,7 +14,6 @@ import (
 	_ "go.viam.com/rdk/component/imu/register"
 	_ "go.viam.com/rdk/component/input/register"
 	_ "go.viam.com/rdk/component/motor/register"
-
 	// register subtypes without implementations directly.
 	_ "go.viam.com/rdk/component/posetracker"
 	_ "go.viam.com/rdk/component/sensor/register"

@@ -104,7 +104,8 @@ func RenameRemoteParts(
 	remoteParts Parts,
 	remoteName string,
 	remotePrefix bool,
-	connectionName string) Parts {
+	connectionName string,
+) Parts {
 	for _, p := range remoteParts {
 		if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
 			p.FrameConfig.Parent = connectionName

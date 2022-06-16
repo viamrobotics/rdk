@@ -2,7 +2,6 @@
 package register
 
 import (
-
 	// for grippers.
 	_ "go.viam.com/rdk/component/gripper/fake"
 	_ "go.viam.com/rdk/component/gripper/robotiq"

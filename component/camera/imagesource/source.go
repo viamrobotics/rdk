@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-
 	// for embedding camera parameters.
 	_ "embed"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"net/http"
 
 	"github.com/edaniels/golog"
-
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
