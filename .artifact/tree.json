@@ -50220,6 +50220,16 @@
         }
       }
     },
+    "tflite": {
+      "dogscute.jpeg": {
+        "hash": "a9d844a1ac8a1133906e32fb2c44cd7b",
+        "size": 5765
+      },
+      "effdet0.tflite": {
+        "hash": "3a047d6fd440b36cbba72e5532ff3548",
+        "size": 4563519
+      }
+    },
     "white1.png": {
       "hash": "ae363a34e2a707cfbc2b6b20a2879210",
       "size": 4179
