@@ -85,7 +85,7 @@
       }
 
       function fixArmStatus(old) {
-        var newStatus = { pos_pieces : [], joint_pieces : [] };
+        var newStatus = { pos_pieces : [], joint_pieces : [], is_moving: old["is_moving"] || false };
         var fieldSetters = [
           ["x", "X"],
           ["y", "Y"],
@@ -125,7 +125,7 @@
       }
 
       function fixGantryStatus(old) {
-        var newStatus = { parts: [] };
+        var newStatus = { parts: [], is_moving: old["is_moving"] || false};
         if (old["lengths_mm"].length != old["positions_mm"].length) {
           throw "gantry lists different lengths";
         }
@@ -163,7 +163,7 @@
 
       function fixRawStatus(name, status) {
         switch (theApp.resourceNameToSubtypeString(name)) {
-          // TODO (RDK-127): generate these using constants
+          // TODO (APP-146): generate these using constants
           case "rdk:component:arm":
             status = fixArmStatus(status);
             break;
@@ -488,11 +488,11 @@
               MotorControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
             },
             hasWebGamepad: function () {
-              // TODO (RDK-127): replace these with constants
+              // TODO (APP-146): replace these with constants
               return theData.resources.some((elem) => elem.namespace == "rdk" && elem.type == "component" && elem.subtype == "input_controller" && elem.name == "WebGamepad");
             },
             filteredInputControllerList: function () {
-              // TODO (RDK-127): replace these with constants
+              // TODO (APP-146): replace these with constants
               // filters out WebGamepad
               return theData.resources.filter((elem) => {
                 return elem.namespace == "rdk" && elem.type == "component" && elem.subtype == "input_controller" && elem.name !== "WebGamepad";
@@ -980,10 +980,7 @@
             },
             getGPIO: function (boardName) {
               var pin = document.getElementById("get_pin_" + boardName).value;
-              var req = new boardApi.GetGPIORequest();
-              req.setName(boardName);
-              req.setPin(pin);
-              boardService.getGPIO(req, {}, (err, resp) => {
+              BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
                 if (err) {
                   console.log(err);
                   return;
@@ -995,15 +992,11 @@
             setGPIO: function (boardName) {
               var pin = document.getElementById("set_pin_" + boardName).value;
               var v = document.getElementById("set_pin_v_" + boardName).value;
-              var req = new boardApi.SetGPIORequest();
-              req.setName(boardName);
-              req.setPin(pin);
-              req.setHigh(v === "high");
-              boardService.setGPIO(req, {}, grpcCallback);
+              BoardControlHelper.setGPIO(boardName, pin, v === "high", grpcCallback);
             },
           },
           directives: {
-            // TODO(RDK-41): replace with vue component after naveed work done
+            // TODO(APP-82): replace with vue component after naveed work done
             mapMounted(el) {
               if (theData.mapOnce) {
                 return;
@@ -1755,7 +1748,7 @@
           <!-- ******* WEB CONTROLS *******  -->
           <web-gamepad class="pb-4" v-if="hasWebGamepad()" v-on:execute="inputInject($event)" style="max-width: 1080px;"> </web-gamepad>
 
-                    <!-- ******* BOARD *******  -->
+          <!-- ******* BOARD *******  -->
           <div class="board pb-4" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
             <h3>Board ${board.name}</h3>
             <table  class="table-auto border-collapse border border-slate-400">
@@ -1776,7 +1769,7 @@
               <tr>
                  <th class="border border-slate-300">Get</th>
                  <td class="border border-slate-300">
-                  Pin: <number-input  v-model="getPin" :id="'get_pin_' + board.name"></number-input>
+                  Pin: <number-input  v-model="getPin" :input-id="'get_pin_' + board.name"></number-input>
                   <viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
                   <span :id="'get_pin_value_' + board.name"/>
                 </td>
@@ -1784,7 +1777,7 @@
               <tr>
                  <th class="border border-slate-300">Set</th>
                  <td class="border border-slate-300">
-                  Pin: <number-input v-model="setPin" :id="'set_pin_' + board.name"></number-input><br>
+                  Pin: <number-input v-model="setPin" :input-id="'set_pin_' + board.name"></number-input><br>
                   <select :id="'set_pin_v_' + board.name">
                     <option>low</option>
                     <option>high</option>
@@ -1884,7 +1877,7 @@
     </div>
     <!-- end vue app -->
 
-    <!-- TODO(RDK-70): remove api key once going into production -->
+    <!-- TODO(RSDK-51): remove api key once going into production -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly" async></script>
   </body>
 </html>
