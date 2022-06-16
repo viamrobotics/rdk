@@ -247,8 +247,10 @@ func TestManualAndScheduledSync(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Verify two files were uploaded, and that they're different.
+	lock.Lock()
 	test.That(t, len(uploadedFiles), test.ShouldEqual, 2)
 	test.That(t, uploadedFiles[0], test.ShouldNotEqual, uploadedFiles[1])
+	lock.Unlock()
 
 	// We've uploaded the first two files and should now be collecting a single new one.
 	filesInCaptureDir, err = readDir(t, captureDir)
