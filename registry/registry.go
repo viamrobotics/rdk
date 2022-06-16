@@ -108,8 +108,7 @@ func (e *DependencyNotReadyError) Error() string {
 type Component struct {
 	RegDebugInfo
 	Constructor CreateComponent
-	// TODO: remove this once the `join_pointcloud` component or the frame system no
-	// longer needs the entire robot
+	// TODO(RSDK-418): remove this legacy constructor once all components that use it no longer need to receive the entire robot.
 	RobotConstructor CreateRobotComponent
 }
 
