@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -109,7 +108,7 @@ type dataCaptureConfigs struct {
 type Config struct {
 	CaptureDir          string   `json:"capture_dir"`
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
-	SyncIntervalMins    int      `json:"sync_interval_mins"`
+	SyncIntervalMins    float64  `json:"sync_interval_mins"`
 	Disabled            bool     `json:"disabled"`
 }
 
@@ -167,8 +166,8 @@ type dataManagerService struct {
 
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
-	syncIntervalMilliseconds int
 	updateCollectorsCancelFn func()
+	uploadFn                 func(ctx context.Context, path string) error
 }
 
 // Parameters stored for each collector.
@@ -302,7 +301,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(intervalMilliseconds int) {
+func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 	// if user updates config while manual sync is occurring, manual sync will be cancelled (TODO fix)
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
@@ -315,11 +314,11 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMilliseconds int) {
 	// Init a new syncer.
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.updateCollectorsCancelFn = fn
-	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
+	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir, svc.uploadFn)
 
 	// Kick off syncer if we're running it.
-	if intervalMilliseconds > 0 {
-		svc.QueueCapturedData(cancelCtx, intervalMilliseconds)
+	if intervalMins > 0 {
+		svc.QueueCapturedData(cancelCtx, intervalMins)
 		svc.syncer.Start()
 	}
 }
@@ -387,7 +386,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	svcConfig, ok := c.ConvertedAttributes.(*Config)
-	svc.syncIntervalMilliseconds = svcConfig.SyncIntervalMins * 60000
 
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svcConfig.Disabled {
@@ -413,7 +411,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	// nolint:contextcheck
-	svc.initOrUpdateSyncer(svc.syncIntervalMilliseconds)
+	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -440,11 +438,13 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	return nil
 }
 
-func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, intervalMilliseconds int) {
+func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, intervalMins float64) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		ticker := time.NewTicker(time.Millisecond * time.Duration(intervalMilliseconds))
+		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
+		intervalMilliseconds := time.Duration(60000.0 * intervalMins)
+		ticker := time.NewTicker(time.Millisecond * intervalMilliseconds)
 		defer ticker.Stop()
 
 		for {
@@ -488,18 +488,4 @@ func (svc *dataManagerService) queueFiles() []string {
 		collector.Collector.SetTarget(nextTarget)
 	}
 	return filesToQueue
-}
-
-func (svc *dataManagerService) SetUploadFn(fn func(ctx context.Context, path string) error) {
-	if svc.syncer == nil {
-		panic("SetUploadFn called on nil syncer in data_manager.go")
-	}
-	svc.syncer.(internal.SyncService).SetUploadFn(fn)
-}
-
-func (svc *dataManagerService) StartSyncer() {
-	if svc.syncer == nil {
-		panic("StartSyncer called on nil syncer in data_manager.go")
-	}
-	svc.syncer.(internal.SyncService).Start()
 }
