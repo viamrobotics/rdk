@@ -14,7 +14,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -51,10 +50,12 @@ func createFakeDeps() registry.Dependencies {
 	}
 	fakeMotor := &fm.Motor{}
 
-	return registry.Dependencies(map[resource.Name]interface{}{
-		gantry.Named("gantry"):      fakeGantry,
-		motor.Named(fakeMotor.Name): fakeMotor,
-	})
+	deps := make(registry.Dependencies)
+	deps[gantry.Named("1")] = fakeGantry
+	deps[gantry.Named("2")] = fakeGantry
+	deps[gantry.Named("3")] = fakeGantry
+	deps[motor.Named(fakeMotor.Name)] = fakeMotor
+	return deps
 }
 
 var threeAxes = []gantry.Gantry{
