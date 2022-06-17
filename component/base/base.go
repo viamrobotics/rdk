@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -95,13 +94,13 @@ var (
 func FromDependencies(deps registry.Dependencies, name string) (Base, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
-		return nil, errors.Errorf("base %q missing from dependencies", name)
+		return nil, utils.DependencyNotFoundError(name)
 	}
-	b, ok := res.(Base)
+	part, ok := res.(Base)
 	if !ok {
-		return nil, errors.Errorf("%q is not a base", name)
+		return nil, utils.DependencyTypeError(name, "Base", res)
 	}
-	return b, nil
+	return part, nil
 }
 
 // FromRobot is a helper for getting the named base from the given Robot.

@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -167,13 +166,13 @@ var (
 func FromDependencies(deps registry.Dependencies, name string) (Board, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
-		return nil, errors.Errorf("board %q missing from dependencies", name)
+		return nil, utils.DependencyNotFoundError(name)
 	}
-	b, ok := res.(Board)
+	part, ok := res.(Board)
 	if !ok {
-		return nil, errors.Errorf("%q is not a board", name)
+		return nil, utils.DependencyTypeError(name, "Board", res)
 	}
-	return b, nil
+	return part, nil
 }
 
 // FromRobot is a helper for getting the named board from the given Robot.

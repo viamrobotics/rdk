@@ -2,8 +2,9 @@ package motor_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
@@ -14,6 +15,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -26,6 +28,15 @@ const (
 	fakeMotorName    = "motor4"
 	missingMotorName = "motor5"
 )
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[motor.Named(testMotorName)] = &mock{Name: testMotorName}
+	deps[motor.Named(fakeMotorName)] = "not a motor"
+	return deps
+}
 
 func setupInjectRobot() *inject.Robot {
 	motor1 := &mock{Name: testMotorName}
@@ -57,6 +68,26 @@ func TestGenericDo(t *testing.T) {
 	ret, err := m.Do(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := motor.FromDependencies(deps, testMotorName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	result, err := res.GetPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, position)
+
+	res, err = motor.FromDependencies(deps, fakeMotorName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeMotorName, "Motor", "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = motor.FromDependencies(deps, missingMotorName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingMotorName))
+	test.That(t, res, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {

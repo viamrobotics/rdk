@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -117,13 +116,13 @@ var (
 func FromDependencies(deps registry.Dependencies, name string) (Motor, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
-		return nil, errors.Errorf("motor %q missing from dependencies", name)
+		return nil, utils.DependencyNotFoundError(name)
 	}
-	b, ok := res.(Motor)
+	part, ok := res.(Motor)
 	if !ok {
-		return nil, errors.Errorf("%q is not a motor", name)
+		return nil, utils.DependencyTypeError(name, "Motor", res)
 	}
-	return b, nil
+	return part, nil
 }
 
 // FromRobot is a helper for getting the named motor from the given Robot.

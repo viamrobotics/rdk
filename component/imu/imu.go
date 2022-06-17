@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -91,13 +90,13 @@ var (
 func FromDependencies(deps registry.Dependencies, name string) (IMU, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
-		return nil, errors.Errorf("imu %q missing from dependencies", name)
+		return nil, utils.DependencyNotFoundError(name)
 	}
-	b, ok := res.(IMU)
+	part, ok := res.(IMU)
 	if !ok {
-		return nil, errors.Errorf("%q is not a imu", name)
+		return nil, utils.DependencyTypeError(name, "IMU", res)
 	}
-	return b, nil
+	return part, nil
 }
 
 // FromRobot is a helper for getting the named IMU from the given Robot.

@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -91,13 +90,13 @@ type Gantry interface {
 func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
-		return nil, errors.Errorf("gantry %q missing from dependencies", name)
+		return nil, utils.DependencyNotFoundError(name)
 	}
-	b, ok := res.(Gantry)
+	part, ok := res.(Gantry)
 	if !ok {
-		return nil, errors.Errorf("%q is not a gantry", name)
+		return nil, utils.DependencyTypeError(name, "Gantry", res)
 	}
-	return b, nil
+	return part, nil
 }
 
 // A LocalGantry represents a Gantry that can report whether it is moving or not.

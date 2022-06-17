@@ -114,13 +114,13 @@ var (
 func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
-		return nil, errors.Errorf("arm %q missing from dependencies", name)
+		return nil, utils.DependencyNotFoundError(name)
 	}
-	b, ok := res.(Arm)
+	part, ok := res.(Arm)
 	if !ok {
-		return nil, errors.Errorf("%q is not an arm", name)
+		return nil, utils.DependencyTypeError(name, "Arm", res)
 	}
-	return b, nil
+	return part, nil
 }
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
