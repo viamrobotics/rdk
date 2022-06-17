@@ -1,3 +1,4 @@
+DOCKER_MIN_DATE=2022-06-08T00:00:00Z
 DOCKER_CMD = docker run $(DOCKER_NETRC_RUN) -v$(HOME)/.ssh:/home/testbot/.ssh:ro -v$(shell pwd):/host --workdir /host --rm -ti $(DOCKER_PLATFORM) ghcr.io/viamrobotics/canon:$(DOCKER_TAG) --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
 
 ifeq ("aarch64", "$(shell uname -m)")
@@ -26,6 +27,8 @@ ifeq ($(shell grep -qs github.com ~/.netrc && echo -n yes), yes)
 	DOCKER_NETRC_RUN = -v$(HOME)/.netrc:/home/testbot/.netrc:ro
 endif
 
+canon-update:
+	etc/canon-update.sh $(DOCKER_MIN_DATE)
 
 # This sets up multi-arch emulation under linux. Run before using multi-arch targets.
 canon-emulation:
@@ -33,30 +36,30 @@ canon-emulation:
 
 # Canon versions of targets run in the canonical viam docker image
 canon-build: DOCKER_TAG = $(DOCKER_NATIVE_TAG_CACHE)
-canon-build:
+canon-build: canon-update
 	$(DOCKER_CMD) make build lint
 
 canon-test: DOCKER_TAG = $(DOCKER_NATIVE_TAG_CACHE)
-canon-test:
+canon-test: canon-update
 	$(DOCKER_CMD) make build lint test
 
 # Canon shells use the raw (non-cached) canon docker image
-canon-shell:
+canon-shell: canon-update
 	$(DOCKER_CMD) bash
 
 canon-shell-amd64: DOCKER_PLATFORM = --platform linux/amd64
 canon-shell-amd64: DOCKER_TAG = amd64
-canon-shell-amd64:
+canon-shell-amd64: canon-update
 	$(DOCKER_CMD) bash
 
 canon-shell-arm64: DOCKER_PLATFORM = --platform linux/arm64
 canon-shell-arm64: DOCKER_TAG = arm64
-canon-shell-arm64:
+canon-shell-arm64: canon-update
 	$(DOCKER_CMD) bash
 
 
 # Docker targets that pre-cache go module downloads (intended to be rebuilt weekly/nightly)
-canon-cache: canon-cache-build canon-cache-upload
+canon-cache: canon-update canon-cache-build canon-cache-upload
 
 canon-cache-build:
 	docker buildx build $(DOCKER_NETRC_BUILD) --load --no-cache --platform linux/amd64 -f etc/Dockerfile.amd64-cache -t 'ghcr.io/viamrobotics/canon:amd64-cache' .
