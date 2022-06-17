@@ -71,13 +71,6 @@ type LocalGPS interface {
 	ReadValid(ctx context.Context) (bool, error)                // Whether or not the GPS chip had a valid fix for the most recent dataset
 }
 
-// A NMEAGPS represents a GPS that can read and parse NMEA messages.
-type NMEAGPS interface {
-	LocalGPS
-	Start(ctx context.Context) // Initialize and run GPS
-	Close() error              // Close GPS
-}
-
 var (
 	_ = LocalGPS(&reconfigurableGPS{})
 	_ = sensor.Sensor(&reconfigurableGPS{})

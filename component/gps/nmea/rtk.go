@@ -35,10 +35,17 @@ func init() {
 		}})
 }
 
+// A NMEAGPS represents a GPS that can read and parse NMEA messages.
+type nmeaGPS interface {
+	gps.LocalGPS
+	Start(ctx context.Context) // Initialize and run GPS
+	Close() error              // Close GPS
+}
+
 // A RTKGPS is an NMEA GPS model that can intake RTK correction data.
 type RTKGPS struct {
 	generic.Unimplemented
-	nmeagps            gps.NMEAGPS
+	nmeagps            nmeaGPS
 	ntripInputProtocol string
 	ntripClient        ntripInfo
 	logger             golog.Logger
@@ -75,7 +82,7 @@ const (
 	ntripConnectAttemptsName   = "ntrip_connect_attempts"
 )
 
-func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.NMEAGPS, error) {
+func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (nmeaGPS, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	g := &RTKGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
