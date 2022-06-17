@@ -5,13 +5,19 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/google/go-cmp/cmp"
+	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"go.viam.com/rdk/component/arm"
+	fakearm "go.viam.com/rdk/component/arm/fake"
 	"go.viam.com/rdk/component/base"
+	fakebase "go.viam.com/rdk/component/base/fake"
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
@@ -22,13 +28,20 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
+	basepb "go.viam.com/rdk/proto/api/component/base/v1"
+	boardpb "go.viam.com/rdk/proto/api/component/board/v1"
+	camerapb "go.viam.com/rdk/proto/api/component/camera/v1"
+	gripperpb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/vision"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 )
 
@@ -221,6 +234,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 	injectRobot := &inject.RemoteRobot{}
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return armNames }
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) { return struct{}{}, nil }
 	injectRobot.LoggerFunc = func() golog.Logger { return logger }
 
@@ -231,6 +245,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	injectRemote := &inject.RemoteRobot{}
 	injectRemote.ResourceNamesFunc = func() []resource.Name { return rdktestutils.AddSuffixes(armNames, "_r1") }
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRemote.ResourceByNameFunc = func(name resource.Name) (interface{}, error) { return struct{}{}, nil }
 	injectRemote.LoggerFunc = func() golog.Logger { return logger }
 	manager.addRemote(context.Background(),
@@ -619,7 +634,11 @@ func TestManagerAdd(t *testing.T) {
 		return &board.BasicDigitalInterrupt{}, true
 	}
 
-	cfg = &config.Component{Type: board.SubtypeName, Name: "board1"}
+	cfg = &config.Component{
+		Type:      board.SubtypeName,
+		Namespace: resource.ResourceNamespaceRDK,
+		Name:      "board1",
+	}
 	rName = cfg.ResourceName()
 	manager.addResource(rName, injectBoard)
 	board1, err := manager.ResourceByName(board.Named("board1"))
@@ -665,42 +684,49 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:      "arm1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "arm2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "arm3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "base1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      base.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "base2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      base.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "base3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      base.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:                "board1",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
@@ -708,6 +734,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "board2",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
@@ -715,6 +742,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "board3",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
 				ConvertedAttributes: &board.Config{},
 				DependsOn:           []string{},
@@ -722,42 +750,49 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:      "camera1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      camera.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "camera2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      camera.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "camera3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      camera.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "gripper1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm1", "camera1"},
 			},
 			{
 				Name:      "gripper2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm2", "camera2"},
 			},
 			{
 				Name:      "gripper3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      gripper.SubtypeName,
 				DependsOn: []string{"arm3", "camera3"},
 			},
 			{
 				Name:                "inputController1",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board1"},
@@ -765,6 +800,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "inputController2",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board2"},
@@ -772,6 +808,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "inputController3",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                input.SubtypeName,
 				ConvertedAttributes: &fake.Config{},
 				DependsOn:           []string{"board3"},
@@ -779,6 +816,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "motor1",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board1"},
@@ -786,6 +824,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "motor2",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board2"},
@@ -793,6 +832,7 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:                "motor3",
 				Model:               "fake",
+				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{},
 				DependsOn:           []string{"board3"},
@@ -800,36 +840,42 @@ func TestManagerNewComponent(t *testing.T) {
 			{
 				Name:      "sensor1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "sensor2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "sensor3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      sensor.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "servo1",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      servo.SubtypeName,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "servo2",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      servo.SubtypeName,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "servo3",
 				Model:     "fake",
+				Namespace: resource.ResourceNamespaceRDK,
 				Type:      servo.SubtypeName,
 				DependsOn: []string{"board3"},
 			},
@@ -895,36 +941,44 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		},
 		Components: []config.Component{
 			{
-				Name: "what1",
-				Type: arm.SubtypeName,
+				Name:      "what1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "what5",
-				Type: base.SubtypeName,
+				Name:      "what5",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "what3",
-				Type: board.SubtypeName,
+				Name:      "what3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "what4",
-				Type: camera.SubtypeName,
+				Name:      "what4",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "what5",
-				Type: gripper.SubtypeName,
+				Name:      "what5",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "what6",
-				Type: motor.SubtypeName,
+				Name:      "what6",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "what7",
-				Type: sensor.SubtypeName,
+				Name:      "what7",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "what8",
-				Type: servo.SubtypeName,
+				Name:      "what8",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -940,8 +994,9 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	filtered, err = manager.FilterFromConfig(ctx, &config.Config{
 		Components: []config.Component{
 			{
-				Name: "what1",
-				Type: "something",
+				Name:      "what1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "something",
 			},
 		},
 	}, logger)
@@ -952,41 +1007,50 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	filtered, err = manager.FilterFromConfig(ctx, &config.Config{
 		Components: []config.Component{
 			{
-				Name: "arm2",
-				Type: arm.SubtypeName,
+				Name:      "arm2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "base2",
-				Type: base.SubtypeName,
+				Name:      "base2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "board2",
-				Type: board.SubtypeName,
+				Name:      "board2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "camera2",
-				Type: camera.SubtypeName,
+				Name:      "camera2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "gripper2",
-				Type: gripper.SubtypeName,
+				Name:      "gripper2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "inputController2",
-				Type: input.SubtypeName,
+				Name:      "inputController2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "motor2",
-				Type: motor.SubtypeName,
+				Name:      "motor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "sensor2",
-				Type: sensor.SubtypeName,
+				Name:      "sensor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 
 			{
-				Name: "servo2",
-				Type: servo.SubtypeName,
+				Name:      "servo2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1040,40 +1104,49 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		},
 		Components: []config.Component{
 			{
-				Name: "arm2",
-				Type: arm.SubtypeName,
+				Name:      "arm2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "base2",
-				Type: base.SubtypeName,
+				Name:      "base2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "board2",
-				Type: board.SubtypeName,
+				Name:      "board2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "camera2",
-				Type: camera.SubtypeName,
+				Name:      "camera2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "gripper2",
-				Type: gripper.SubtypeName,
+				Name:      "gripper2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "inputController2",
-				Type: input.SubtypeName,
+				Name:      "inputController2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "motor2",
-				Type: motor.SubtypeName,
+				Name:      "motor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "sensor2",
-				Type: sensor.SubtypeName,
+				Name:      "sensor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "servo2",
-				Type: servo.SubtypeName,
+				Name:      "servo2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1166,112 +1239,139 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		},
 		Components: []config.Component{
 			{
-				Name: "arm1",
-				Type: arm.SubtypeName,
+				Name:      "arm1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "arm2",
-				Type: arm.SubtypeName,
+				Name:      "arm2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "arm3",
-				Type: arm.SubtypeName,
+				Name:      "arm3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
 			},
 			{
-				Name: "base1",
-				Type: base.SubtypeName,
+				Name:      "base1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "base2",
-				Type: base.SubtypeName,
+				Name:      "base2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "base3",
-				Type: base.SubtypeName,
+				Name:      "base3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      base.SubtypeName,
 			},
 			{
-				Name: "board1",
-				Type: board.SubtypeName,
+				Name:      "board1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "board2",
-				Type: board.SubtypeName,
+				Name:      "board2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "board3",
-				Type: board.SubtypeName,
+				Name:      "board3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      board.SubtypeName,
 			},
 			{
-				Name: "camera1",
-				Type: camera.SubtypeName,
+				Name:      "camera1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "camera2",
-				Type: camera.SubtypeName,
+				Name:      "camera2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "camera3",
-				Type: camera.SubtypeName,
+				Name:      "camera3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      camera.SubtypeName,
 			},
 			{
-				Name: "gripper1",
-				Type: gripper.SubtypeName,
+				Name:      "gripper1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "gripper2",
-				Type: gripper.SubtypeName,
+				Name:      "gripper2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "gripper3",
-				Type: gripper.SubtypeName,
+				Name:      "gripper3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      gripper.SubtypeName,
 			},
 			{
-				Name: "inputController1",
-				Type: input.SubtypeName,
+				Name:      "inputController1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "inputController2",
-				Type: input.SubtypeName,
+				Name:      "inputController2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "inputController3",
-				Type: input.SubtypeName,
+				Name:      "inputController3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      input.SubtypeName,
 			},
 			{
-				Name: "motor1",
-				Type: motor.SubtypeName,
+				Name:      "motor1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "motor2",
-				Type: motor.SubtypeName,
+				Name:      "motor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "motor3",
-				Type: motor.SubtypeName,
+				Name:      "motor3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      motor.SubtypeName,
 			},
 			{
-				Name: "sensor1",
-				Type: sensor.SubtypeName,
+				Name:      "sensor1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "sensor2",
-				Type: sensor.SubtypeName,
+				Name:      "sensor2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "sensor3",
-				Type: sensor.SubtypeName,
+				Name:      "sensor3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      sensor.SubtypeName,
 			},
 			{
-				Name: "servo1",
-				Type: servo.SubtypeName,
+				Name:      "servo1",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 			{
-				Name: "servo2",
-				Type: servo.SubtypeName,
+				Name:      "servo2",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 			{
-				Name: "servo3",
-				Type: servo.SubtypeName,
+				Name:      "servo3",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      servo.SubtypeName,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1351,4 +1451,160 @@ func (fp *fakeProcess) Start(ctx context.Context) error {
 
 func (fp *fakeProcess) Stop() error {
 	return nil
+}
+
+func TestManagerResourceRPCSubtypes(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := &inject.Robot{}
+	injectRobot.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{
+			arm.Named("arm1"),
+			arm.Named("arm2"),
+			base.Named("base1"),
+			base.Named("base2"),
+		}
+	}
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		for _, rName := range injectRobot.ResourceNames() {
+			if rName == name {
+				switch name.Subtype {
+				case arm.Subtype:
+					return &fakearm.Arm{Name: name.Name}, nil
+				case base.Subtype:
+					return &fakebase.Base{Name: name.Name}, nil
+				}
+			}
+		}
+		return nil, rutils.NewResourceNotFoundError(name)
+	}
+
+	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
+
+	subtype1 := resource.NewSubtype("acme", resource.ResourceTypeComponent, "huwat")
+	subtype2 := resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat")
+
+	resName1 := resource.NameFromSubtype(subtype1, "thing1")
+	resName2 := resource.NameFromSubtype(subtype2, "thing2")
+	// resName3 := resource.NameFromSubtype(subtype1, "thing3")
+	// resName4 := resource.NameFromSubtype(subtype2, "thing4")
+
+	injectRobotRemote1 := &inject.RemoteRobot{}
+	injectRobotRemote1.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	injectRobotRemote1.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{
+			resName1,
+			resName2,
+		}
+	}
+	injectRobotRemote1.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		for _, rName := range injectRobotRemote1.ResourceNames() {
+			if rName == name {
+				return grpc.NewForeignResource(rName, nil), nil
+			}
+		}
+		return nil, rutils.NewResourceNotFoundError(name)
+	}
+
+	armDesc, err := grpcreflect.LoadServiceDescriptor(&armpb.ArmService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	baseDesc, err := grpcreflect.LoadServiceDescriptor(&basepb.BaseService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	boardDesc, err := grpcreflect.LoadServiceDescriptor(&boardpb.BoardService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	cameraDesc, err := grpcreflect.LoadServiceDescriptor(&camerapb.CameraService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobotRemote1.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+		return []resource.RPCSubtype{
+			{
+				Subtype: subtype1,
+				Desc:    boardDesc,
+			},
+			{
+				Subtype: subtype2,
+				Desc:    cameraDesc,
+			},
+		}
+	}
+
+	manager.addRemote(context.Background(),
+		newRemoteRobot(context.Background(), injectRobotRemote1, config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+
+	injectRobotRemote2 := &inject.RemoteRobot{}
+	injectRobotRemote2.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	injectRobotRemote2.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{
+			resName1,
+			resName2,
+		}
+	}
+	injectRobotRemote2.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		for _, rName := range injectRobotRemote2.ResourceNames() {
+			if rName == name {
+				return grpc.NewForeignResource(rName, nil), nil
+			}
+		}
+		return nil, rutils.NewResourceNotFoundError(name)
+	}
+
+	gripperDesc, err := grpcreflect.LoadServiceDescriptor(&gripperpb.GripperService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobotRemote2.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+		return []resource.RPCSubtype{
+			{
+				Subtype: subtype1,
+				Desc:    boardDesc,
+			},
+			{
+				Subtype: subtype2,
+				Desc:    gripperDesc,
+			},
+		}
+	}
+
+	manager.addRemote(context.Background(),
+		newRemoteRobot(context.Background(), injectRobotRemote2, config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
+
+	subtypes := manager.ResourceRPCSubtypes()
+	test.That(t, subtypes, test.ShouldHaveLength, 4)
+
+	subtypesM := make(map[resource.Subtype]*desc.ServiceDescriptor, len(subtypes))
+	for _, subtype := range subtypes {
+		subtypesM[subtype.Subtype] = subtype.Desc
+	}
+
+	test.That(t, subtypesM, test.ShouldContainKey, arm.Subtype)
+	test.That(t, cmp.Equal(subtypesM[arm.Subtype].AsProto(), armDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+
+	test.That(t, subtypesM, test.ShouldContainKey, base.Subtype)
+	test.That(t, cmp.Equal(subtypesM[base.Subtype].AsProto(), baseDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+
+	test.That(t, subtypesM, test.ShouldContainKey, subtype1)
+	test.That(t, cmp.Equal(subtypesM[subtype1].AsProto(), boardDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+
+	test.That(t, subtypesM, test.ShouldContainKey, subtype2)
+	// one of these will be true due to a clash
+	test.That(t,
+		cmp.Equal(
+			subtypesM[subtype2].AsProto(), cameraDesc.AsProto(), protocmp.Transform()) ||
+			cmp.Equal(subtypesM[subtype2].AsProto(), gripperDesc.AsProto(), protocmp.Transform()),
+		test.ShouldBeTrue)
 }
