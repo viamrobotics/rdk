@@ -278,8 +278,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-//nolint
-func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+func upload(ctx context.Context, client v1.DataSyncService_UploadClient, path string, getNextRequest func(ctx context.Context, f *os.File) (*v1.UploadRequest, error)) error {
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
@@ -289,101 +288,34 @@ func sensorUpload(ctx context.Context, client v1.DataSyncService_UploadClient, p
 	if _, err = f.Seek(0, 0); err != nil {
 		return err
 	}
-
-	// Then stream SensorData's one by one.
-	loop := true
-	for loop {
-
-		// Get the next sensor data reading from file.
-		next, err := readNextSensorData(f)
-
-		// Do default as long as ctx.Done() is not the case.
-		select {
-		case <-ctx.Done():
+	// Loop until there is no more content to be read from file.
+	for {
+		// Get the next UploadRequest from the file.
+		uploadReq, err := getNextRequest(ctx, f)
+		// First check if the context is cancelled, if yes return that error.
+		if errors.Is(err, context.Canceled) {
 			return context.Canceled
-		default:
-			// If EOF, we're done reading the file.
-			if errors.Is(err, io.EOF) {
-				loop = false
-				break
-			}
-			if err != nil {
-				return errors.Wrap(err, "error while reading sensorData")
-			}
-			toSend := &v1.UploadRequest{
-				UploadPacket: &v1.UploadRequest_SensorContents{
-					SensorContents: next,
-				},
-			}
-			if err := client.Send(toSend); err != nil {
-				return errors.Wrap(err, "error while sending sensorData")
-			}
+		}
+		// If the context is not cancelled and the error is EOF, break from loop.
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		// If there is any other error, return it.
+		if err != nil {
+			return err
+		}
+		// Finally, send the UploadRequest to the client.
+		if err := client.Send(uploadReq); err != nil {
+			return errors.Wrap(err, "error while sending fileData")
 		}
 	}
-
 	if err = f.Close(); err != nil {
 		return err
 	}
-
 	// Close stream and receive response.
 	if _, err := client.CloseAndRecv(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
 	}
-
-	return nil
-}
-
-//nolint
-func fileUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
-	//nolint
-	f, err := os.Open(path)
-	if err != nil {
-		return errors.Wrapf(err, "error while opening file %s", path)
-	}
-	// Reset file pointer to ensure we are reading from beginning of file.
-	if _, err = f.Seek(0, 0); err != nil {
-		return err
-	}
-
-	loop := true
-	for loop {
-
-		// Get the next sensor data reading from file.
-		next, err := readNextFileChunk(f)
-
-		// Do default as long as ctx.Done() is not the case.
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		default:
-			// If EOF, we're done reading the file.
-			if errors.Is(err, io.EOF) {
-				loop = false
-				break
-			}
-			if err != nil {
-				return errors.Wrap(err, "error while reading fileData")
-			}
-			toSend := &v1.UploadRequest{
-				UploadPacket: &v1.UploadRequest_FileContents{
-					FileContents: next,
-				},
-			}
-			if err := client.Send(toSend); err != nil {
-				return errors.Wrap(err, "error while sending fileData")
-			}
-		}
-	}
-
-	if err = f.Close(); err != nil {
-		return err
-	}
-
-	// Close stream and receive response.
-	if _, err := client.CloseAndRecv(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
-	}
-
 	return nil
 }
 
@@ -473,13 +405,53 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 
 	switch md.GetMetadata().GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return sensorUpload(ctx, client, path)
+		return upload(ctx, client, path, getNextSensorUploadRequest)
 	case v1.DataType_DATA_TYPE_FILE:
-		return fileUpload(ctx, client, path)
+		return upload(ctx, client, path, getNextFileUploadRequest)
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return errors.New("no data type specified in upload metadata")
 	default:
 		return errors.New("no data type specified in upload metadata")
+	}
+}
+
+func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
+	select {
+	case <-ctx.Done():
+		return nil, context.Canceled
+	default:
+
+		// Get the next file data reading from file, check for an error.
+		next, err := readNextFileChunk(f)
+		if err != nil {
+			return nil, err
+		}
+		// Otherwise, return an UploadRequest and no error.
+		return &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_FileContents{
+				FileContents: next,
+			},
+		}, nil
+	}
+}
+
+func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
+	select {
+	case <-ctx.Done():
+		return nil, context.Canceled
+	default:
+
+		// Get the next sensor data reading from file, check for an error.
+		next, err := readNextSensorData(f)
+		if err != nil {
+			return nil, err
+		}
+		// Otherwise, return an UploadRequest and no error.
+		return &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_SensorContents{
+				SensorContents: next,
+			},
+		}, nil
 	}
 }
 

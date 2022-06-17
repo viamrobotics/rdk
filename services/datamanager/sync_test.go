@@ -178,7 +178,7 @@ func TestFileUpload(t *testing.T) {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
 
-		if err := fileUpload(context.TODO(), mc, tf.Name()); err != nil {
+		if err := upload(context.TODO(), mc, tf.Name(), getNextFileUploadRequest); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
@@ -271,7 +271,7 @@ func TestSensorUploadTabular(t *testing.T) {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
 
-		if err := sensorUpload(context.TODO(), mc, tf.Name()); err != nil {
+		if err := upload(context.TODO(), mc, tf.Name(), getNextSensorUploadRequest); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
@@ -355,7 +355,7 @@ func TestSensorUploadBinary(t *testing.T) {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
 		// THIS IS NOT WORKING
-		if err := sensorUpload(context.TODO(), mc, tf.Name()); err != nil {
+		if err := upload(context.TODO(), mc, tf.Name(), getNextSensorUploadRequest); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
