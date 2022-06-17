@@ -294,6 +294,7 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 			continue
 		}
 		name := dev.Name()
+		name = strings.TrimSpace(name)
 		mapping, ok := GamepadMappings[name]
 		if ok {
 			g.logger.Infof("found known gamepad: '%s' at %s", name, n)
