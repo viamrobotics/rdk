@@ -1067,6 +1067,7 @@ github.com/namsral/flag v1.7.4-pre/go.mod h1:OXldTctbM6SWH1K899kPZcf65KxJiD7Msce
 github.com/nbutton23/zxcvbn-go v0.0.0-20201221231540-e56b841a3c88/go.mod h1:KSVJerMDfblTH7p5MZaTt+8zaT2iEk3AkVb9PQdZuE8=
 github.com/nbutton23/zxcvbn-go v0.0.0-20210217022336-fa2cb2858354 h1:4kuARK6Y6FxaNu/BnU2OAaLF86eTVhP2hjTB6iMvItA=
 github.com/nbutton23/zxcvbn-go v0.0.0-20210217022336-fa2cb2858354/go.mod h1:KSVJerMDfblTH7p5MZaTt+8zaT2iEk3AkVb9PQdZuE8=
+github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 h1:zYyBkD/k9seD2A7fsi6Oo2LfFZAehjjQMERAvZLEDnQ=
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646/go.mod h1:jpp1/29i3P1S/RLdc7JQKbRpFeM1dOBd8T9ki5s+AY8=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nishanths/exhaustive v0.1.0/go.mod h1:S1j9110vxV1ECdCudXRkeMnFQ/DQk9ajLT0Uf2MYZQQ=
@@ -1634,6 +1635,7 @@ go.uber.org/zap v1.21.0 h1:WefMeulhovoZ2sYXz7st6K0sLj7bBhpiFaud4r4zST8=
 go.uber.org/zap v1.21.0/go.mod h1:wjWOCqI0f2ZZrJF/UufIOkiC8ii6tm1iqIsLo76RfJw=
 go.viam.com/api v0.0.0-20220531145217-71ea4391ae85 h1:8GOudHDJvjBsWOwwqpT6P2rjD1SYThb25cHeyy8Vj/A=
 go.viam.com/api v0.0.0-20220531145217-71ea4391ae85/go.mod h1:XuTWi1J8PKebhhGbvqZvIXFGj+NL1gMtONulO89CMMc=
+go.viam.com/api v0.0.0-20220614204753-0e056a1cae4d/go.mod h1:XuTWi1J8PKebhhGbvqZvIXFGj+NL1gMtONulO89CMMc=
 go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4 h1:YG1xrvr+VkEifpj4tmxp/KxFZP4kbJQNpG6ON9kppaE=
 go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
 go.viam.com/test v1.1.0 h1:KXf8crEwt0bHn5iMsjmXg0vPio/yzKGrfd20sWhe/t4=
