@@ -81,17 +81,6 @@ func resetFolder(t *testing.T, path string) {
 	}
 }
 
-// Get the config associated with the data manager service.
-func getServiceConfig(cfg *config.Config) *config.Service {
-	for _, c := range cfg.Services {
-		// Compare service type and name.
-		if c.ResourceName() == datamanager.Name {
-			return &c
-		}
-	}
-	return nil
-}
-
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
 	var uploadCount uint64
@@ -160,9 +149,15 @@ func TestScheduledSync(t *testing.T) {
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 
-	// Set the sync interval mins to 0.0085 for the scheduled sync.
-	unconvertedSvcConfig := getServiceConfig(testCfg)
-	svcConfig, _ := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
+	// Set the sync interval mins to 510ms for the scheduled sync.
+	unconvertedSvcConfig, ok := datamanager.GetDataManagerServiceConfig(testCfg)
+	if !ok {
+		t.Error("malformed/missing datamanager service in config")
+	}
+	svcConfig, ok := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
+	if !ok {
+		t.Error("malformed/missing datamanager service in config")
+	}
 	svcConfig.SyncIntervalMins = 0.0085
 
 	// Make the captureDir where we're logging data for our arm.
@@ -192,7 +187,7 @@ func TestScheduledSync(t *testing.T) {
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 	firstFileInArmDir := filesInArmDir[0].Name()
 
-	// We set sync_interval_mins to be about .5 seconds in the config, so wait 2 seconds for queueing to occur.
+	// We set sync_interval_mins to be about 510ms in the config, so wait 700ms for queueing to occur.
 	time.Sleep(time.Millisecond * 700)
 
 	// Verify files were enqueued.
@@ -234,9 +229,15 @@ func TestManualAndScheduledSync(t *testing.T) {
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 
-	// Set the sync interval mins to 0.0085 for the scheduled sync.
-	unconvertedSvcConfig := getServiceConfig(testCfg)
-	svcConfig, _ := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
+	// Set the sync interval mins to 510ms for the scheduled sync.
+	unconvertedSvcConfig, ok := datamanager.GetDataManagerServiceConfig(testCfg)
+	if !ok {
+		t.Error("malformed/missing datamanager service in config")
+	}
+	svcConfig, ok := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
+	if !ok {
+		t.Error("malformed/missing datamanager service in config")
+	}
 	svcConfig.SyncIntervalMins = 0.0085
 
 	// Make the captureDir where we're logging data for our arm.

@@ -8,3 +8,5 @@ import (
 func (svc *dataManagerService) SetUploadFn(fn func(ctx context.Context, path string) error) {
 	svc.uploadFn = fn
 }
+
+var GetDataManagerServiceConfig = getDataManagerServiceConfig

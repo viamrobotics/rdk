@@ -118,7 +118,8 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	// Set syncIntervalMins = -1 so we dont run into issues with Go default int64 value = 0.
+	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
+	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &dataManagerService{
 		r:                 r,
 		logger:            logger,
@@ -341,14 +342,14 @@ func (svc *dataManagerService) Sync(ctx context.Context) error {
 }
 
 // Get the config associated with the data manager service.
-func getServiceConfig(cfg *config.Config) (config.Service, bool) {
+func getDataManagerServiceConfig(cfg *config.Config) (*config.Service, bool) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
 		if c.ResourceName() == Name {
-			return c, true
+			return &c, true
 		}
 	}
-	return config.Service{}, false
+	return &config.Service{}, false
 }
 
 // Get the component configs associated with the data manager service.
@@ -382,7 +383,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
-	c, ok := getServiceConfig(cfg)
+	c, ok := getDataManagerServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
 	if !ok {
 		svc.closeCollectors()

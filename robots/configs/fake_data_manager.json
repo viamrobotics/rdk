@@ -1,9 +1,11 @@
 {
-    "network": {
+    "network": 
+    {
         "fqdn": "something-unique",
         "bind_address": ":8080"
     },
-    "components": [
+    "components":
+    [
         {
             "model": "fake",
             "name": "arm1",
@@ -27,7 +29,8 @@
     [
         {
             "type": "data_manager",
-            "attributes": {
+            "attributes": 
+            {
                 "sync_interval_mins": 0,
                 "capture_dir": "/tmp/capture"
             }
