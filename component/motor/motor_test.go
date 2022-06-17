@@ -4,9 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
