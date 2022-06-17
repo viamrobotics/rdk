@@ -5,13 +5,19 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/google/go-cmp/cmp"
+	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"go.viam.com/rdk/component/arm"
+	fakearm "go.viam.com/rdk/component/arm/fake"
 	"go.viam.com/rdk/component/base"
+	fakebase "go.viam.com/rdk/component/base/fake"
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
@@ -22,13 +28,20 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
+	basepb "go.viam.com/rdk/proto/api/component/base/v1"
+	boardpb "go.viam.com/rdk/proto/api/component/board/v1"
+	camerapb "go.viam.com/rdk/proto/api/component/camera/v1"
+	gripperpb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/vision"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 )
 
@@ -1438,4 +1451,160 @@ func (fp *fakeProcess) Start(ctx context.Context) error {
 
 func (fp *fakeProcess) Stop() error {
 	return nil
+}
+
+func TestManagerResourceRPCSubtypes(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := &inject.Robot{}
+	injectRobot.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{
+			arm.Named("arm1"),
+			arm.Named("arm2"),
+			base.Named("base1"),
+			base.Named("base2"),
+		}
+	}
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		for _, rName := range injectRobot.ResourceNames() {
+			if rName == name {
+				switch name.Subtype {
+				case arm.Subtype:
+					return &fakearm.Arm{Name: name.Name}, nil
+				case base.Subtype:
+					return &fakebase.Base{Name: name.Name}, nil
+				}
+			}
+		}
+		return nil, rutils.NewResourceNotFoundError(name)
+	}
+
+	manager := managerForRemoteRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
+
+	subtype1 := resource.NewSubtype("acme", resource.ResourceTypeComponent, "huwat")
+	subtype2 := resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat")
+
+	resName1 := resource.NameFromSubtype(subtype1, "thing1")
+	resName2 := resource.NameFromSubtype(subtype2, "thing2")
+	// resName3 := resource.NameFromSubtype(subtype1, "thing3")
+	// resName4 := resource.NameFromSubtype(subtype2, "thing4")
+
+	injectRobotRemote1 := &inject.RemoteRobot{}
+	injectRobotRemote1.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	injectRobotRemote1.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{
+			resName1,
+			resName2,
+		}
+	}
+	injectRobotRemote1.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		for _, rName := range injectRobotRemote1.ResourceNames() {
+			if rName == name {
+				return grpc.NewForeignResource(rName, nil), nil
+			}
+		}
+		return nil, rutils.NewResourceNotFoundError(name)
+	}
+
+	armDesc, err := grpcreflect.LoadServiceDescriptor(&armpb.ArmService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	baseDesc, err := grpcreflect.LoadServiceDescriptor(&basepb.BaseService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	boardDesc, err := grpcreflect.LoadServiceDescriptor(&boardpb.BoardService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	cameraDesc, err := grpcreflect.LoadServiceDescriptor(&camerapb.CameraService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobotRemote1.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+		return []resource.RPCSubtype{
+			{
+				Subtype: subtype1,
+				Desc:    boardDesc,
+			},
+			{
+				Subtype: subtype2,
+				Desc:    cameraDesc,
+			},
+		}
+	}
+
+	manager.addRemote(context.Background(),
+		newRemoteRobot(context.Background(), injectRobotRemote1, config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+
+	injectRobotRemote2 := &inject.RemoteRobot{}
+	injectRobotRemote2.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	injectRobotRemote2.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{
+			resName1,
+			resName2,
+		}
+	}
+	injectRobotRemote2.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		for _, rName := range injectRobotRemote2.ResourceNames() {
+			if rName == name {
+				return grpc.NewForeignResource(rName, nil), nil
+			}
+		}
+		return nil, rutils.NewResourceNotFoundError(name)
+	}
+
+	gripperDesc, err := grpcreflect.LoadServiceDescriptor(&gripperpb.GripperService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobotRemote1.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+		return []resource.RPCSubtype{
+			{
+				Subtype: subtype1,
+				Desc:    boardDesc,
+			},
+			{
+				Subtype: subtype2,
+				Desc:    gripperDesc,
+			},
+		}
+	}
+
+	manager.addRemote(context.Background(),
+		newRemoteRobot(context.Background(), injectRobotRemote1, config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
+
+	subtypes := manager.ResourceRPCSubtypes()
+	test.That(t, subtypes, test.ShouldHaveLength, 4)
+
+	subtypesM := make(map[resource.Subtype]*desc.ServiceDescriptor, len(subtypes))
+	for _, subtype := range subtypes {
+		subtypesM[subtype.Subtype] = subtype.Desc
+	}
+
+	test.That(t, subtypesM, test.ShouldContainKey, arm.Subtype)
+	test.That(t, cmp.Equal(subtypesM[arm.Subtype].AsProto(), armDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+
+	test.That(t, subtypesM, test.ShouldContainKey, base.Subtype)
+	test.That(t, cmp.Equal(subtypesM[base.Subtype].AsProto(), baseDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+
+	test.That(t, subtypesM, test.ShouldContainKey, subtype1)
+	test.That(t, cmp.Equal(subtypesM[subtype1].AsProto(), boardDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+
+	test.That(t, subtypesM, test.ShouldContainKey, subtype2)
+	// one of these will be true due to a clash
+	test.That(t,
+		cmp.Equal(
+			subtypesM[subtype2].AsProto(), cameraDesc.AsProto(), protocmp.Transform()) ||
+			cmp.Equal(subtypesM[subtype2].AsProto(), gripperDesc.AsProto(), protocmp.Transform()),
+		test.ShouldBeTrue)
 }

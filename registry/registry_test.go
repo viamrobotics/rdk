@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/jhump/protoreflect/grpcreflect"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -71,6 +72,11 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	test.That(t, creator.Status, test.ShouldBeNil)
 	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
 	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
+	test.That(t, creator.RPCServiceDesc, test.ShouldEqual, &pb.RobotService_ServiceDesc)
+
+	reflectSvcDesc, err := grpcreflect.LoadServiceDescriptor(creator.RPCServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, creator.ReflectRPCServiceDesc, test.ShouldResemble, reflectSvcDesc)
 
 	subtype3 := resource.NewSubtype(resource.Namespace("acme3"), resource.ResourceTypeComponent, button)
 	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
@@ -79,6 +85,14 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	creator = ResourceSubtypeLookup(subtype3)
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
+
+	subtype4 := resource.NewSubtype(resource.Namespace("acme4"), resource.ResourceTypeComponent, button)
+	test.That(t, ResourceSubtypeLookup(subtype4), test.ShouldBeNil)
+	test.That(t, func() {
+		RegisterResourceSubtype(subtype4, ResourceSubtype{
+			RegisterRPCService: sf, RPCClient: rcf,
+		})
+	}, test.ShouldPanic)
 }
 
 func TestDiscoveryFunctionRegistry(t *testing.T) {
