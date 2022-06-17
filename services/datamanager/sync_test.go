@@ -192,7 +192,6 @@ func TestFileUpload(t *testing.T) {
 					},
 				},
 			})
-
 		}
 
 		// The mc.sent value should be the same as the tc.expMsg value.

@@ -34,7 +34,8 @@ type syncManager interface {
 	Close()
 }
 
-// TODO: replace uploadFn with some Uploader interface with Upload/Close methods syncer is responsible for enqueuing    // files in captureDir and uploading them to the cloud.
+// TODO: replace uploadFn with some Uploader interface with Upload/Close methods syncer is responsible for
+// enqueuing files in captureDir and uploading them to the cloud.
 type syncer struct {
 	captureDir        string
 	syncQueue         string
@@ -278,7 +279,8 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func upload(ctx context.Context, client v1.DataSyncService_UploadClient, path string, getNextRequest func(ctx context.Context, f *os.File) (*v1.UploadRequest, error)) error {
+func upload(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
+	getNextRequest func(ctx context.Context, f *os.File) (*v1.UploadRequest, error)) error {
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
@@ -334,7 +336,7 @@ func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
 	// readable data). If the error is anything other than io.EOF, return the data type as UNSPECIFIED with the
 	// corresponding error.
 	sensorData, err := readNextSensorData(f)
-	//nolint
+
 	if errors.Is(err, io.EOF) {
 		return v1.DataType_DATA_TYPE_FILE, nil
 	}
