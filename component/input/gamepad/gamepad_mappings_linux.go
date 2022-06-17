@@ -10,7 +10,7 @@ import (
 )
 
 // GamepadMappings contains all the axes/button translations for each model.
-// use evtest on linux figure out what maps to what
+// use evtest on linux figure out what maps to what.
 var GamepadMappings = map[string]Mapping{
 	// 8BitDo Pro 2 Wireless, S-input mode
 	// Also the Nintendo Switch Pro Controller
