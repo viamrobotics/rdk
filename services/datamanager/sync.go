@@ -4,7 +4,6 @@ import (
 	"context"
 	"io/fs"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -69,13 +68,6 @@ func (s *syncer) Start() {
 			s.logger.Errorf("failed to upload queued file: %v", err)
 		}
 	})
-}
-
-func (s *syncer) getPathUnderCaptureDir(filePath string) (string, error) {
-	if idx := strings.Index(filePath, s.captureDir); idx != -1 {
-		return filePath[idx+len(s.captureDir):], nil
-	}
-	return "", errors.Errorf("file path %s is not under capture directory %s", filePath, s.captureDir)
 }
 
 // Close closes all resources (goroutines) associated with s.
