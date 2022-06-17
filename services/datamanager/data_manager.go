@@ -342,14 +342,14 @@ func (svc *dataManagerService) Sync(ctx context.Context) error {
 }
 
 // Get the config associated with the data manager service.
-func getDataManagerServiceConfig(cfg *config.Config) (*config.Service, bool) {
+func getServiceConfig(cfg *config.Config) (config.Service, bool) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
 		if c.ResourceName() == Name {
-			return &c, true
+			return c, true
 		}
 	}
-	return &config.Service{}, false
+	return config.Service{}, false
 }
 
 // Get the component configs associated with the data manager service.
@@ -383,7 +383,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
-	c, ok := getDataManagerServiceConfig(cfg)
+	c, ok := getServiceConfig(cfg)
 	// Service is not in the config or has been removed from it. Close any collectors.
 	if !ok {
 		svc.closeCollectors()
