@@ -18,8 +18,8 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-// TfliteDetectorConfig specifies the fields necessary for creating a TFLite detector.
-type TfliteDetectorConfig struct {
+// TFLiteDetectorConfig specifies the fields necessary for creating a TFLite detector.
+type TFLiteDetectorConfig struct {
 	// this should come from the attributes part of the detector config
 	ModelPath  string  `json:"model_path"`
 	NumThreads *int    `json:"num_threads"`
@@ -27,53 +27,49 @@ type TfliteDetectorConfig struct {
 	ServiceURL *string `json:"service_url"`
 }
 
-// NewTfliteDetector creates an RDK detector given a DetectorConfig. In other words, this
-// function returns a function from image-->objdet.Detections. It does this by making calls to
+// NewTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
+// function returns a function from image-->[]objectdetection.Detection. It does this by making calls to
 // an inference package and wrapping the result.
-func NewTfliteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, error) {
+func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
 	// Read those parameters into a TFLiteDetectorConfig
-	var t TfliteDetectorConfig
+	var t TFLiteDetectorConfig
 	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
 	if err != nil {
-		return nil, errors.New("error getting parameters from config")
+		return nil, nil, errors.New("error getting parameters from config")
 	}
-	params, ok := tfParams.(*TfliteDetectorConfig)
+	params, ok := tfParams.(*TFLiteDetectorConfig)
 	if !ok {
 		err := utils.NewUnexpectedTypeError(params, tfParams)
-		return nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
+		return nil, nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
 	}
 
-	model, err := addTfliteModel(params.ModelPath, params.NumThreads)
+	// Add the model
+	model, err := addTFLiteModel(params.ModelPath, params.NumThreads)
 	if err != nil {
-		return nil, errors.Wrap(err, "something wrong with adding the model")
+		return nil, nil, errors.Wrap(err, "something wrong with adding the model")
 	}
-	defer model.Close()
+
 	inHeight, inWidth := uint(model.Info.InputHeight), uint(model.Info.InputWidth)
+	labelMap, err := loadLabels(*params.LabelPath)
+	if err != nil {
+		logger.Warn("did not retrieve class labels")
+	}
 
 	// This function to be returned is the detector.
 	return func(img image.Image) ([]objectdetection.Detection, error) {
-		model, err := addTfliteModel(params.ModelPath, params.NumThreads)
-		if err != nil {
-			return nil, errors.Wrap(err, "something wrong with adding the model")
-		}
-		defer model.Close()
 		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
-		labelMap, err := loadLabels(*params.LabelPath)
-		if err != nil {
-			logger.Warn("did not retrieve class labels")
-		}
 		outTensors, err := tfliteInfer(model, resizedImg)
 		if err != nil {
 			return nil, err
 		}
 		detections := unpackTensors(outTensors, model, labelMap, logger)
 		return detections, nil
-	}, nil
+	}, model, nil
 }
 
-// addTfliteModel uses the loader (default or otherwise) from the inference package
+// addTFLiteModel uses the loader (default or otherwise) from the inference package
 // to register a tflite model. Default is chosen if there's no numThreads given.
-func addTfliteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
+func addTFLiteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
 	var model *inf.TFLiteStruct
 
 	if numThreads == nil {
@@ -133,12 +129,26 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 	var labels []int
 	var bboxes []float64
 	var scores []float64
-	tensorOrder, err := getTensorOrder(model) // location = 0 , category = 1, score = 2 for tensor order
+
+	var hasMetadata bool
+	var tensorOrder []int
+	var boxOrder []int
+	w, h := model.Info.InputWidth, model.Info.InputHeight
+
+	m, err := model.GetMetadata()
 	if err != nil {
+		hasMetadata = false
+		// If you could not access the metadata
 		logger.Warn("could not find tensor order. Using default order: location, category, score")
 		tensorOrder = []int{0, 1, 2}
+	} else {
+		hasMetadata = true
+		// But if you can
+		tensorOrder = getTensorOrder(m) // location = 0 , category = 1, score = 2 for tensor order
+		boxOrder = getBboxOrder(m)
 	}
 
+	// Populate bboxes, labels, and scores from tensorOrder
 	bb := tensors[getIndex(tensorOrder, 0)]
 	ll := tensors[getIndex(tensorOrder, 1)]
 	ss := tensors[getIndex(tensorOrder, 2)]
@@ -152,8 +162,8 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 		scores = append(scores, float64(s))
 	}
 
-	boxOrder, err := getBboxOrder(model)
-	if err != nil {
+	if !hasMetadata {
+		// If you could not access the metadata
 		logger.Warn("assuming bounding box tensor is in the default order: [x x y y]")
 		boxOrder = []int{1, 0, 3, 2}
 		if bboxes[0] > bboxes[1] {
@@ -171,7 +181,6 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 			boxOrder[3] = 3
 		}
 	}
-	w, h := model.Info.InputWidth, model.Info.InputHeight
 
 	// Detection gathering
 	detections := make([]objectdetection.Detection, len(scores))
@@ -232,15 +241,11 @@ func getIndex(s []int, num int) int {
 
 // getBboxOrder checks the metadata and looks for the bounding box order
 // returned as []int, where 0=xmin, 1=xmax, 2=ymin, 3=ymax.
-func getBboxOrder(model *inf.TFLiteStruct) ([]int, error) {
+func getBboxOrder(m *tflite_metadata.ModelMetadataT) []int {
 	bboxOrder := make([]int, 4)
-	m, err := model.GetMetadata()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get metadata")
-	}
+
 	// tensorData should be a []TensorMetadataT from the metadata telling me about each tensor in order
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
-
 	for _, t := range tensorData {
 		if strings.ToLower(t.Name) == "location" {
 			order := t.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT).Index
@@ -249,17 +254,14 @@ func getBboxOrder(model *inf.TFLiteStruct) ([]int, error) {
 			}
 		}
 	}
-	return bboxOrder, nil
+	return bboxOrder
 }
 
 // getTensorOrder checks the metadata for the order of the output tensors
 // returned as []int where 0=bounding box location, 1=class/category/label, 2= confidence score.
-func getTensorOrder(model *inf.TFLiteStruct) ([]int, error) {
+func getTensorOrder(m *tflite_metadata.ModelMetadataT) []int {
 	tensorOrder := make([]int, 4) // location = 0 , category = 1, score = 2
-	m, err := model.GetMetadata()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get metadata")
-	}
+
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
 	for i, t := range tensorData {
 		switch name := strings.ToLower(t.Name); name {
@@ -273,5 +275,5 @@ func getTensorOrder(model *inf.TFLiteStruct) ([]int, error) {
 			continue
 		}
 	}
-	return tensorOrder, nil
+	return tensorOrder
 }

@@ -9,10 +9,11 @@ func registerTfliteDetector(dm detectorMap, conf *DetectorConfig, logger golog.L
 	if conf == nil {
 		return errors.New("object detection config for tflite detector cannot be nil")
 	}
-	detector, err := NewTfliteDetector(conf, logger)
+	detector, model, err := NewTFLiteDetector(conf, logger)
 	if err != nil {
 		return errors.Wrapf(err, "could not register tflite detector %s", conf.Name)
 	}
+	regDetector := registeredDetector{detector: detector, model: model}
 
-	return dm.registerDetector(conf.Name, detector, logger)
+	return dm.registerDetector(conf.Name, &regDetector, logger)
 }

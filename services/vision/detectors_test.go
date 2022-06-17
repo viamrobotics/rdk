@@ -17,14 +17,16 @@ func TestDetectorMap(t *testing.T) {
 	fn := func(image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
+	registeredFn := registeredDetector{detector: fn, model: nil}
+	emptyFn := registeredDetector{detector: nil, model: nil}
 	fnName := "x"
 	reg := make(detectorMap)
 	testlog := golog.NewLogger("testlog")
 	// no detector
-	err := reg.registerDetector(fnName, nil, testlog)
+	err := reg.registerDetector(fnName, &emptyFn, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot register a nil detector")
 	// success
-	reg.registerDetector(fnName, fn, testlog)
+	reg.registerDetector(fnName, &registeredFn, testlog)
 	// detector names
 	names := reg.detectorNames()
 	test.That(t, names, test.ShouldNotBeNil)
@@ -37,10 +39,13 @@ func TestDetectorMap(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Detector with name")
 	test.That(t, det, test.ShouldBeNil)
 	// duplicate
-	err = reg.registerDetector(fnName, fn, testlog)
+	err = reg.registerDetector(fnName, &registeredFn, testlog)
 	test.That(t, err, test.ShouldBeNil)
 	names = reg.detectorNames()
 	test.That(t, names, test.ShouldContain, fnName)
+	// remove
+	reg.removeDetector(fnName)
+	test.That(t, reg.detectorNames(), test.ShouldNotContain, fnName)
 }
 
 func TestRegisterTFLiteDetector(t *testing.T) {

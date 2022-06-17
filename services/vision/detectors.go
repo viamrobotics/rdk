@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
+	inf "go.viam.com/rdk/ml/inference"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -36,37 +36,37 @@ type DetectorConfig struct {
 }
 
 // detectorMap stores the registered detectors of the service.
-type detectorMap map[string]objdet.Detector
+type detectorMap map[string]*registeredDetector
+
+type registeredDetector struct {
+	detector objdet.Detector
+	model    *inf.TFLiteStruct
+}
 
 // registerDetector registers a Detector type to a registry.
-func (dm detectorMap) registerDetector(name string, det objdet.Detector, logger golog.Logger) error {
+func (dm detectorMap) registerDetector(name string, det *registeredDetector, logger golog.Logger) error {
+	if det == nil || det.detector == nil {
+		return errors.Errorf("cannot register a nil detector: %s", name)
+	}
 	if _, old := dm[name]; old {
 		logger.Infof("overwriting the detector with name: %s", name)
 	}
-	if det == nil {
-		return errors.Errorf("cannot register a nil detector: %s", name)
+
+	if det.model != nil {
+		dm[name] = &registeredDetector{detector: det.detector, model: det.model}
 	}
-	dm[name] = det
+	dm[name] = &registeredDetector{detector: det.detector, model: nil}
 	return nil
 }
 
 // detectorLookup looks up a detector by name. An error is returned if
 // there is no detector by that name.
 func (dm detectorMap) detectorLookup(name string) (objdet.Detector, error) {
-	det, ok := dm.registeredDetectors()[name]
+	det, ok := dm[name]
 	if ok {
-		return det, nil
+		return det.detector, nil
 	}
 	return nil, errors.Errorf("no Detector with name %q", name)
-}
-
-// registeredDetectors returns a copy of the registered detectors.
-func (dm detectorMap) registeredDetectors() detectorMap {
-	copied, err := copystructure.Copy(dm)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(detectorMap)
 }
 
 // detectorNames returns a slice of all the segmenter names in the registry.
@@ -76,6 +76,14 @@ func (dm detectorMap) detectorNames() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// removeDetector closes the model and removes the detector from the registry.
+func (dm detectorMap) removeDetector(name string) {
+	if dm[name].model != nil {
+		dm[name].model.Close()
+	}
+	delete(dm, name)
 }
 
 // registerNewDetectors take an attributes struct and parses each element by type to create an RDK Detector
