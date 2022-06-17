@@ -1565,7 +1565,7 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 	gripperDesc, err := grpcreflect.LoadServiceDescriptor(&gripperpb.GripperService_ServiceDesc)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectRobotRemote1.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+	injectRobotRemote2.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
 		return []resource.RPCSubtype{
 			{
 				Subtype: subtype1,
@@ -1579,7 +1579,7 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 	}
 
 	manager.addRemote(context.Background(),
-		newRemoteRobot(context.Background(), injectRobotRemote1, config.Remote{}),
+		newRemoteRobot(context.Background(), injectRobotRemote2, config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 
