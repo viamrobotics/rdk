@@ -7,7 +7,6 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/a8m/envsubst v1.3.0
 	github.com/adrianmo/go-nmea v1.3.0
-	github.com/alessio/shellescape v1.4.1
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/bep/debounce v1.2.0
 	github.com/bufbuild/buf v1.1.0
