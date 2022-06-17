@@ -27,7 +27,7 @@ var (
 	bufferSize = 32768
 )
 
-// syncManager is responsible for uploading files to the cloud every syncInterval.
+// Syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type syncManager interface {
 	Start()
 	Enqueue(filesToQueue []string) error
@@ -279,49 +279,6 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func upload(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
-	getNextRequest func(ctx context.Context, f *os.File) (*v1.UploadRequest, error),
-) error {
-	//nolint
-	f, err := os.Open(path)
-	if err != nil {
-		return errors.Wrapf(err, "error while opening file %s", path)
-	}
-	// Reset file pointer to ensure we are reading from beginning of file.
-	if _, err = f.Seek(0, 0); err != nil {
-		return err
-	}
-	// Loop until there is no more content to be read from file.
-	for {
-		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextRequest(ctx, f)
-		// First check if the context is cancelled, if yes return that error.
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-		// If the context is not cancelled and the error is EOF, break from loop.
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		// If there is any other error, return it.
-		if err != nil {
-			return err
-		}
-		// Finally, send the UploadRequest to the client.
-		if err := client.Send(uploadReq); err != nil {
-			return errors.Wrap(err, "error while sending fileData")
-		}
-	}
-	if err = f.Close(); err != nil {
-		return err
-	}
-	// Close stream and receive response.
-	if _, err := client.CloseAndRecv(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
-	}
-	return nil
-}
-
 func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
 	//nolint
 	f, err := os.Open(path)
@@ -373,7 +330,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	// syncQueuePath := filepath.Clean(f.Name()[:(strings.Index(f.Name(), ".viam") + 5)])
 
 	// remainingPathContent is a slice of strings that includes subtypeName & componentName (in that order).
-	remainingPathContent := strings.Split(f.Name()[(strings.Index(f.Name(), ".viam")+5):], "/")
+	remainingPathContent := strings.Split(f.Name()[len(viamCaptureDotDir):], "/")
 	componentName := remainingPathContent[1]
 
 	// dataType represents the protobuf DataType value describing the file to be uploaded.
@@ -406,16 +363,53 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
+	var getNextRequest func(context.Context, *os.File) (*v1.UploadRequest, error)
+
 	switch md.GetMetadata().GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return upload(ctx, client, path, getNextSensorUploadRequest)
+		getNextRequest = getNextSensorUploadRequest
 	case v1.DataType_DATA_TYPE_FILE:
-		return upload(ctx, client, path, getNextFileUploadRequest)
+		getNextRequest = getNextFileUploadRequest
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return errors.New("no data type specified in upload metadata")
 	default:
 		return errors.New("no data type specified in upload metadata")
 	}
+
+	//nolint
+	f, err = os.Open(path)
+	if err != nil {
+		return errors.Wrapf(err, "error while opening file %s", path)
+	}
+	// Reset file pointer to ensure we are reading from beginning of file.
+	if _, err = f.Seek(0, 0); err != nil {
+		return err
+	}
+	// Loop until there is no more content to be read from file.
+	for {
+		// Get the next UploadRequest from the file.
+		uploadReq, err := getNextRequest(ctx, f)
+		// If the error is EOF, break from loop.
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		// If there is any other error, return it.
+		if err != nil {
+			return err
+		}
+		// Finally, send the UploadRequest to the client.
+		if err := client.Send(uploadReq); err != nil {
+			return errors.Wrap(err, "error while sending fileData")
+		}
+	}
+	if err = f.Close(); err != nil {
+		return err
+	}
+	// Close stream and receive response.
+	if _, err := client.CloseAndRecv(); err != nil {
+		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
+	}
+	return nil
 }
 
 func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
