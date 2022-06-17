@@ -82,14 +82,14 @@ func resetFolder(t *testing.T, path string) {
 }
 
 // Get the config associated with the data manager service.
-func getServiceConfig(cfg *config.Config) (*config.Service, bool) {
+func getServiceConfig(cfg *config.Config) *config.Service {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
 		if c.ResourceName() == datamanager.Name {
-			return &c, true
+			return &c
 		}
 	}
-	return &config.Service{}, false
+	return nil
 }
 
 // Validates that manual syncing works for a datamanager.
@@ -161,7 +161,7 @@ func TestScheduledSync(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 
 	// Set the sync interval mins to 0.0085 for the scheduled sync.
-	unconvertedSvcConfig, _ := getServiceConfig(testCfg)
+	unconvertedSvcConfig := getServiceConfig(testCfg)
 	svcConfig, _ := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
 	svcConfig.SyncIntervalMins = 0.0085
 
@@ -235,7 +235,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 
 	// Set the sync interval mins to 0.0085 for the scheduled sync.
-	unconvertedSvcConfig, _ := getServiceConfig(testCfg)
+	unconvertedSvcConfig := getServiceConfig(testCfg)
 	svcConfig, _ := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
 	svcConfig.SyncIntervalMins = 0.0085
 

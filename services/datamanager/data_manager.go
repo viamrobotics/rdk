@@ -415,7 +415,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	// nolint:contextcheck
-	if svcConfig.SyncIntervalMins != float64(svc.syncIntervalMins) {
+	if svcConfig.SyncIntervalMins != svc.syncIntervalMins {
 		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	}
