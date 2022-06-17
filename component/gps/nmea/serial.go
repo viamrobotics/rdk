@@ -51,7 +51,7 @@ const (
 	pathAttrName = "path"
 )
 
-func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.NMEAGPS, error) {
+func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (nmeaGPS, error) {
 	serialPath := config.Attributes.String(pathAttrName)
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialNMEAGPS expected non-empty string for %q", pathAttrName)
