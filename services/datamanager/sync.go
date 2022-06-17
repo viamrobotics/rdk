@@ -48,7 +48,9 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string, uploadF
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	// TODO: Change to uploadFunc = viamUpload when PR #915 (DATA-166) is merged.
 	if uploadFunc == nil {
-		uploadFunc = nil
+		uploadFunc = func(ctx context.Context, path string) error {
+			return nil
+		}
 	}
 	ret := syncer{
 		syncQueue:     queuePath,
