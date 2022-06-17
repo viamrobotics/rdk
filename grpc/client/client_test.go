@@ -1089,20 +1089,8 @@ func TestNewRobotClientRefresh(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	client, err := New(
-		context.Background(),
-		listener.Addr().String(),
-		logger,
-		WithDefaultRefreshEvery(),
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client, test.ShouldNotBeNil)
-
-	err = client.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-
 	dur := -100 * time.Millisecond
-	client, err = New(
+	client, err := New(
 		context.Background(),
 		listener.Addr().String(),
 		logger,
