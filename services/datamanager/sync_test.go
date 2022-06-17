@@ -178,7 +178,7 @@ func TestFileUpload(t *testing.T) {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
 
-		if err := upload(context.TODO(), mc, tf.Name(), getNextFileUploadRequest); err != nil {
+		if err := viamUpload(context.TODO(), mc, tf.Name()); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
@@ -270,7 +270,7 @@ func TestSensorUploadTabular(t *testing.T) {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
 
-		if err := upload(context.TODO(), mc, tf.Name(), getNextSensorUploadRequest); err != nil {
+		if err := viamUpload(context.TODO(), mc, tf.Name()); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
@@ -323,18 +323,14 @@ func TestSensorUploadBinary(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		// Create mockClient that will be sending requests,
-		// this mock will have an UploadRequest slice that
-		// will contain the UploadRequests that are created
-		// by the data contained in files.
+		// Create mockClient that will be sending requests, this mock will have an UploadRequest slice that will
+		// contain the UploadRequests that are created by the data contained in files.
 		mc := &mockClient{
 			sent: []v1.UploadRequest{},
 		}
 
-		// Create temp dir and file in that dir to be used
-		// as examples of reading data from the files into
-		// buffers (and finally to have that data be uploaded)
-		// to the cloud
+		// Create temp dir and file in that dir to be used as examples of reading data from the files into
+		// buffers (and finally to have that data be uploaded) to the cloud
 		td, err := ioutil.TempDir("", "temp-dir")
 		if err != nil {
 			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
@@ -346,15 +342,13 @@ func TestSensorUploadBinary(t *testing.T) {
 		defer os.Remove(tf.Name())
 		defer os.Remove(td)
 
-		// Write the data from the test cases into the files
-		// to prepare them for reading by the sensorUpload function
-
-		// NOT SURE IF THIS WORKS
+		// Write the data from the test cases into the files to prepare them for reading by the sensorUpload function.
 		if _, err := writeBinarySensorData(tf, tc.toSend); err != nil {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
-		// THIS IS NOT WORKING
-		if err := upload(context.TODO(), mc, tf.Name(), getNextSensorUploadRequest); err != nil {
+
+		// Upload the contents from the created file.
+		if err := viamUpload(context.TODO(), mc, tf.Name()); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
@@ -372,7 +366,7 @@ func TestSensorUploadBinary(t *testing.T) {
 			})
 		}
 
-		// The mc.sent value should be the same as the expectedMsgs value
+		// The mc.sent value should be the same as the expectedMsgs value.
 		compareUploadRequests(t, true, mc.sent, expectedMsgs)
 	}
 }
