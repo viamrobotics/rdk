@@ -299,7 +299,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 				// has a remote. This can be solved by either integrating reflection into
 				// robot.proto or by overriding the gRPC reflection service to return
 				// reflection results from its remotes.
-				rc.Logger().Debugw("failed to find symbol for resource subtype", "error", err)
+				rc.Logger().Debugw("failed to find symbol for resource subtype", "subtype", resSubtype, "error", err)
 				continue
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)

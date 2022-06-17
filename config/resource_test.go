@@ -56,6 +56,25 @@ func TestComponentValidate(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 		})
 	})
+
+	t.Run("no namespace", func(t *testing.T) {
+		validConfig := config.Component{
+			Name: "foo",
+			Type: "arm",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		test.That(t, validConfig.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+	})
+
+	t.Run("with namespace", func(t *testing.T) {
+		validConfig := config.Component{
+			Namespace: "acme",
+			Name:      "foo",
+			Type:      "arm",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		test.That(t, validConfig.Namespace, test.ShouldEqual, "acme")
+	})
 }
 
 func TestComponentResourceName(t *testing.T) {
@@ -284,6 +303,25 @@ func TestServiceValidate(t *testing.T) {
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldBeNil)
 		})
+	})
+
+	t.Run("no namespace", func(t *testing.T) {
+		validConfig := config.Service{
+			Name: "foo",
+			Type: "thingy",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		test.That(t, validConfig.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+	})
+
+	t.Run("with namespace", func(t *testing.T) {
+		validConfig := config.Service{
+			Namespace: "acme",
+			Name:      "foo",
+			Type:      "thingy",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		test.That(t, validConfig.Namespace, test.ShouldEqual, "acme")
 	})
 }
 
