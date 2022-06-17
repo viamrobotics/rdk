@@ -34,8 +34,8 @@ func newTestSyncer(t *testing.T, uploadFn func(ctx context.Context, path string)
 	}
 }
 
-// Validates that for some captureDir, files are uploaded exactly once.
-func TestUploadsOnce(t *testing.T) {
+// Validates that Start uploads files currently in captureDir.
+func TestStart(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
@@ -51,9 +51,71 @@ func TestUploadsOnce(t *testing.T) {
 	defer os.Remove(file2.Name())
 	// Start syncer.
 	sut.Start()
-	// Give it a second to run and upload files.
-	time.Sleep(time.Second)
+	// Give it some time to run and upload files.
+	time.Sleep(time.Millisecond * 500)
 
+	// Verify files were  uploaded.
+	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
+	if err != nil {
+		t.Fatalf("failed to list files in captureDir")
+	}
+
+	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
+	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 4)
+	sut.Close()
+}
+
+func TestSync(t *testing.T) {
+	var uploadCount uint64
+	uploadFn := func(ctx context.Context, path string) error {
+		atomic.AddUint64(&uploadCount, 1)
+		_ = os.Remove(path)
+		return nil
+	}
+	sut := newTestSyncer(t, uploadFn)
+
+	// Put a couple files in captureDir.
+	file1, _ := ioutil.TempFile(sut.captureDir, "whatever")
+	defer os.Remove(file1.Name())
+	file2, _ := ioutil.TempFile(sut.captureDir, "whatever2")
+	defer os.Remove(file2.Name())
+	sut.Sync([]string{file1.Name(), file2.Name()})
+	time.Sleep(time.Millisecond * 500)
+
+	// Verify files were  uploaded.
+	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
+	if err != nil {
+		t.Fatalf("failed to list files in captureDir")
+	}
+	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
+	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 2)
+	sut.Close()
+}
+
+func TestOnlyUploadsOnce(t *testing.T) {
+	var uploadCount uint64
+	uploadFn := func(ctx context.Context, path string) error {
+		time.Sleep(time.Millisecond * 500)
+		atomic.AddUint64(&uploadCount, 1)
+		_ = os.Remove(path)
+		return nil
+	}
+	sut := newTestSyncer(t, uploadFn)
+
+	// Put a couple files in captureDir.
+	file1, _ := ioutil.TempFile(sut.captureDir, "whatever")
+	defer os.Remove(file1.Name())
+	file2, _ := ioutil.TempFile(sut.captureDir, "whatever2")
+	defer os.Remove(file2.Name())
+	// Start syncer, twice.
+	sut.Start()
+	sut.Start()
+	// Immediately try to Sync same files, twice.
+	sut.Sync([]string{file1.Name(), file2.Name()})
+	sut.Sync([]string{file1.Name(), file2.Name()})
+
+	// Verify upload was only called twice.
+	time.Sleep(time.Second * 1)
 	// Verify files were  uploaded.
 	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
 	if err != nil {
