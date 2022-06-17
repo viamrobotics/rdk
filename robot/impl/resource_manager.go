@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
+	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -14,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
@@ -27,6 +29,7 @@ type resourceManager struct {
 	processManager      pexec.ProcessManager
 	opts                resourceManagerOptions
 	resourceRemoteNames map[resource.Name]string
+	logger              golog.Logger
 }
 
 type resourceUpdateWrapper struct {
@@ -61,6 +64,7 @@ func newResourceManager(
 		processManager:      pexec.NewProcessManager(logger),
 		opts:                opts,
 		resourceRemoteNames: make(map[resource.Name]string),
+		logger:              logger,
 	}
 }
 
@@ -115,6 +119,55 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 		names = append(names, k)
 	}
 	return manager.mergeResourceNamesWithRemotes(names)
+}
+
+// ResourceRPCSubtypes returns the types of all resource RPC subtypes in use by the manager.
+func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
+	resourceSubtypes := registry.RegisteredResourceSubtypes()
+
+	types := map[resource.Subtype]*desc.ServiceDescriptor{}
+	for k := range manager.resources.Nodes {
+		if types[k.Subtype] != nil {
+			continue
+		}
+
+		st, ok := resourceSubtypes[k.Subtype]
+		if !ok {
+			continue
+		}
+
+		types[k.Subtype] = st.ReflectRPCServiceDesc
+	}
+
+	manager.mergeResourceRPCSubtypesWithRemotes(types)
+	typesList := make([]resource.RPCSubtype, 0, len(types))
+	for k, v := range types {
+		typesList = append(typesList, resource.RPCSubtype{
+			Subtype: k,
+			Desc:    v,
+		})
+	}
+	return typesList
+}
+
+// mergeResourceRPCSubtypesWithRemotes merges types from the manager itself as well as its
+// remotes.
+func (manager *resourceManager) mergeResourceRPCSubtypesWithRemotes(types map[resource.Subtype]*desc.ServiceDescriptor) {
+	for _, r := range manager.remotes {
+		remoteTypes := r.ResourceRPCSubtypes()
+		for _, remoteType := range remoteTypes {
+			if svcName, ok := types[remoteType.Subtype]; ok {
+				if svcName.GetFullyQualifiedName() != remoteType.Desc.GetFullyQualifiedName() {
+					manager.logger.Errorw(
+						"remote proto service name clashes with another of same subtype",
+						"existing", svcName.GetFullyQualifiedName(),
+						"remote", remoteType.Desc.GetFullyQualifiedName())
+				}
+				continue
+			}
+			types[remoteType.Subtype] = remoteType.Desc
+		}
+	}
 }
 
 // updateResourceRemoteNames populates the resourceRemoteNames map.
