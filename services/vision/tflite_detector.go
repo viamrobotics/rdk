@@ -202,6 +202,7 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 		d := objectdetection.NewDetection(rect, scores[i], label)
 		detections[i] = d
 	}
+
 	return detections
 }
 
