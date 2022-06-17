@@ -197,13 +197,13 @@ var (
 func FromDependencies(deps registry.Dependencies, name string) (Camera, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
-		return nil, errors.Errorf("camera %q missing from dependencies", name)
+		return nil, utils.DependencyNotFoundError(name)
 	}
-	b, ok := res.(Camera)
+	part, ok := res.(Camera)
 	if !ok {
-		return nil, errors.Errorf("%q is not a camera", name)
+		return nil, utils.DependencyTypeError(name, "Camera", res)
 	}
-	return b, nil
+	return part, nil
 }
 
 // FromRobot is a helper for getting the named Camera from the given Robot.

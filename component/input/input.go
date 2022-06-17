@@ -169,13 +169,13 @@ var (
 func FromDependencies(deps registry.Dependencies, name string) (Controller, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
-		return nil, errors.Errorf("input controller %q missing from dependencies", name)
+		return nil, utils.DependencyNotFoundError(name)
 	}
-	b, ok := res.(Controller)
+	part, ok := res.(Controller)
 	if !ok {
-		return nil, errors.Errorf("%q is not an input controller", name)
+		return nil, utils.DependencyTypeError(name, "input.Controller", res)
 	}
-	return b, nil
+	return part, nil
 }
 
 // FromRobot is a helper for getting the named input controller from the given Robot.

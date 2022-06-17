@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -82,13 +81,13 @@ var (
 func FromDependencies(deps registry.Dependencies, name string) (GPS, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
-		return nil, errors.Errorf("gps %q missing from dependencies", name)
+		return nil, utils.DependencyNotFoundError(name)
 	}
-	b, ok := res.(GPS)
+	part, ok := res.(GPS)
 	if !ok {
-		return nil, errors.Errorf("%q is not a gps", name)
+		return nil, utils.DependencyTypeError(name, "GPS", res)
 	}
-	return b, nil
+	return part, nil
 }
 
 // FromRobot is a helper for getting the named GPS from the given Robot.
