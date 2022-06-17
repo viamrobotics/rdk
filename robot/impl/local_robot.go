@@ -320,7 +320,7 @@ func newWithResources(
 		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
 		svc, err := r.newService(ctx, cfg)
 		if err != nil {
-			logger.Errorw("failed to add default service", "error", err)
+			logger.Errorw("failed to add default service", "error", err, "service name", name)
 			continue
 		}
 		r.manager.addResource(name, svc)
@@ -398,13 +398,13 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 		}
 		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
-				r.Logger().Errorw("resource not updatable", "error", err)
+				r.Logger().Errorw("failed to update resource", "resource", name, "error", err)
 				continue
 			}
 		}
 		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
 			if err := configUpdateable.Update(ctx, r.config); err != nil {
-				r.Logger().Errorw("config not updatable", "error", err)
+				r.Logger().Errorw("config for service failed to update", "resource", name, "error", err)
 				continue
 			}
 		}
@@ -413,7 +413,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	for _, svc := range r.internalServices {
 		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
-				r.Logger().Errorw("internal service not updatable", "error", err)
+				r.Logger().Errorw("failed to update internal service", "resource", svc, "error", err)
 				continue
 			}
 		}
