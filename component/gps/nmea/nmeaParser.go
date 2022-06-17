@@ -72,7 +72,6 @@ func (g *gpsData) parseAndUpdate(line string) error {
 			g.satsInUse = int(gga.NumSatellites)
 			g.hDOP = gga.HDOP
 			g.alt = gga.Altitude
-			// Send gga to ntrip server if using server
 		}
 	} else if gll, ok := s.(nmea.GLL); ok {
 		// GLL provides just lat/lon
