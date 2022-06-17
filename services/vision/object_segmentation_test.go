@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -225,7 +226,11 @@ func TestFullClientServerLoop(t *testing.T) {
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
-	client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+
 	test.That(t, err, test.ShouldBeNil)
 	paramNames, err := client.GetSegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
@@ -255,4 +260,5 @@ func TestFullClientServerLoop(t *testing.T) {
 	}
 
 	test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
