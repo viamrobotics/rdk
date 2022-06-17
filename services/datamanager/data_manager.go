@@ -429,8 +429,8 @@ func (svc *Service) uploadCapturedData(cancelCtx context.Context, intervalMins i
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
-				oldFiles := make([]string, 0, len(svc.collectors))
 				svc.lock.Lock()
+				oldFiles := make([]string, 0, len(svc.collectors))
 				for _, collector := range svc.collectors {
 					// Create new target and set it.
 					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
