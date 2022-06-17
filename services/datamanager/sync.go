@@ -2,7 +2,6 @@ package datamanager
 
 import (
 	"context"
-	"io/fs"
 	"sync"
 	"time"
 
@@ -58,22 +57,6 @@ func newSyncer(logger golog.Logger) *syncer {
 func (s *syncer) Close() {
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
-}
-
-// upload is an fs.WalkDirFunc that uploads files to Viam cloud storage.
-func (s *syncer) uploadWalkDirFunc(path string, di fs.DirEntry, err error) error {
-	if err != nil {
-		s.logger.Errorw("failed to upload queued file", "error", err)
-
-		return nil
-	}
-
-	if di.IsDir() {
-		return nil
-	}
-
-	s.upload(s.cancelCtx, path)
-	return nil
 }
 
 func (s *syncer) upload(ctx context.Context, path string) {

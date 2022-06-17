@@ -296,7 +296,7 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 		svc.updateCollectorsCancelFn = fn
 		svc.syncer = newSyncer(svc.logger)
 		var previouslyCaptured []string
-		filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
 			if info.IsDir() {
 				return nil
 			}
