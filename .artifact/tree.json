@@ -50228,6 +50228,10 @@
       "effdet0.tflite": {
         "hash": "3a047d6fd440b36cbba72e5532ff3548",
         "size": 4563519
+      },
+      "fakelabels.txt": {
+        "hash": "9b9d5e11ece4e6fe52246a2851636145",
+        "size": 50
       }
     },
     "white1.png": {
