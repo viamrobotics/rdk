@@ -67,19 +67,16 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = gripper.NewClient(cancelCtx, testGripperName, listener1.Addr().String(), logger)
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	// working
 	t.Run("gripper client 1", func(t *testing.T) {
-		gripper1Client, err := gripper.NewClient(
-			context.Background(),
-			testGripperName,
-			listener1.Addr().String(),
-			logger,
-		)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		gripper1Client := gripper.NewClientFromConn(context.Background(), conn, testGripperName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Do
@@ -99,6 +96,8 @@ func TestClient(t *testing.T) {
 		test.That(t, gripper1Client.Stop(context.Background()), test.ShouldBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), gripper1Client), test.ShouldBeNil)
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("gripper client 2", func(t *testing.T) {
@@ -123,6 +122,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, gripper.ErrStopUnimplemented.Error())
 
 		test.That(t, utils.TryClose(context.Background(), gripper2Client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -142,15 +142,20 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := gripper.NewClient(ctx, testGripperName, listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := gripper.NewClientFromConn(ctx, conn1, testGripperName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := gripper.NewClient(ctx, testGripperName, listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := gripper.NewClientFromConn(ctx, conn2, testGripperName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }
