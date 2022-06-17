@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -85,7 +84,12 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 	return dialOpts
 }
 
-func dialRemote(ctx context.Context, config config.Remote, logger golog.Logger, dialOpts ...rpc.DialOption) (robot.RemoteRobot, error) {
+func dialRemote(
+	ctx context.Context,
+	config config.Remote,
+	logger golog.Logger,
+	dialOpts ...rpc.DialOption,
+) (robot.RemoteRobot, error) {
 	var outerError error
 	connectionCheckInterval := config.ConnectionCheckInterval
 	if connectionCheckInterval == 0 {
@@ -280,18 +284,31 @@ func (rr *remoteRobot) ResourceNames() []resource.Name {
 
 	if err := rr.checkConnected(); err != nil {
 		rr.Logger().Errorw("failed to get remote resource names", "error", err)
-		return []resource.Name{}
+		return nil
 	}
-	newNames := make([]resource.Name, 0, len(rr.manager.ResourceNames()))
-	for _, name := range rr.manager.ResourceNames() {
+	names := rr.manager.ResourceNames()
+	newNames := make([]resource.Name, 0, len(names))
+	for _, name := range names {
 		name := rr.prefixResourceName(name)
 		newNames = append(newNames, name)
 	}
 	return newNames
 }
 
+func (rr *remoteRobot) ResourceRPCSubtypes() []resource.RPCSubtype {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+
+	if err := rr.checkConnected(); err != nil {
+		rr.Logger().Errorw("failed to get remote resource types", "error", err)
+		return nil
+	}
+	// the manager has no knowledge of the subtype registry in a remote context so we
+	// ask the underlying remote robot instead.
+	return rr.robot.ResourceRPCSubtypes()
+}
+
 func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
-	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
