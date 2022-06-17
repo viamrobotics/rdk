@@ -1078,3 +1078,40 @@ func TestClientStatus(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
 	})
 }
+
+func TestNewRobotClientRefresh(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	gServer := grpc.NewServer()
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithDefaultRefreshEvery(),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, client, test.ShouldNotBeNil)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	dur := -100 * time.Millisecond
+	client, err = New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithRefreshEvery(dur),
+	)
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, client, test.ShouldNotBeNil)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
