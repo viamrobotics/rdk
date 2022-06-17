@@ -24,7 +24,9 @@ var (
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
 	// Buffer size set at 32 kiB, this is 32768 Bytes.
-	bufferSize = 32768
+	bufferSize         = 32768
+	hardCodePartName   = "TODO [DATA-164]"
+	hardCodeMethodName = "TODO [DATA-164]"
 )
 
 // Syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
@@ -351,9 +353,9 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		UploadPacket: &v1.UploadRequest_Metadata{
 			// TODO: Figure out best way to pass these in.
 			Metadata: &v1.UploadMetadata{
-				PartName:      "TODO [DATA-164]",
+				PartName:      hardCodePartName,
 				ComponentName: componentName,
-				MethodName:    "TODO [DATA-164]",
+				MethodName:    hardCodeMethodName,
 				Type:          dataType,
 				FileName:      filepath.Base(f.Name()),
 			},
