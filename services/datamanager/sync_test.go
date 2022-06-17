@@ -60,7 +60,7 @@ func TestStart(t *testing.T) {
 	}
 
 	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
-	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 4)
+	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 2)
 	sut.Close()
 }
 
