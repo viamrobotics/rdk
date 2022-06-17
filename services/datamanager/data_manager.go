@@ -49,9 +49,6 @@ type DataManager interface { // TODO: Add synchronize.
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
 
-// SyncQueuePath is the directory under which files are queued while they are waiting to be synced to the cloud.
-var SyncQueuePath = filepath.Join(os.Getenv("HOME"), "sync_queue", ".viam")
-
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
@@ -297,9 +294,9 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 	if intervalMins > 0 {
 		cancelCtx, fn := context.WithCancel(context.Background())
 		svc.updateCollectorsCancelFn = fn
-		svc.queueCapturedData(cancelCtx, intervalMins)
-		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
+		svc.syncer = newSyncer(svc.logger, svc.captureDir)
 		svc.syncer.Start()
+		svc.uploadCapturedData(cancelCtx, intervalMins)
 	}
 }
 
@@ -405,7 +402,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins int) {
+func (svc *Service) uploadCapturedData(cancelCtx context.Context, intervalMins int) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -421,13 +418,6 @@ func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins in
 			}
 			select {
 			case <-cancelCtx.Done():
-				files := make([]string, 0, len(svc.collectors))
-				for _, collector := range svc.collectors {
-					files = append(files, collector.Collector.GetTarget().Name())
-				}
-				if err := svc.syncer.Enqueue(files); err != nil {
-					svc.logger.Errorw("failed to move files to sync queue", "error", err)
-				}
 				return
 			case <-ticker.C:
 				oldFiles := make([]string, 0, len(svc.collectors))
@@ -442,9 +432,7 @@ func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins in
 					collector.Collector.SetTarget(nextTarget)
 				}
 				svc.lock.Unlock()
-				if err := svc.syncer.Enqueue(oldFiles); err != nil {
-					svc.logger.Errorw("failed to move files to sync queue", "error", err)
-				}
+				svc.syncer.Sync(oldFiles)
 			}
 		}
 	})
