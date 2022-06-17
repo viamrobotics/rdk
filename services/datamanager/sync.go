@@ -280,7 +280,8 @@ func getNextWait(lastWait time.Duration) time.Duration {
 }
 
 func upload(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
-	getNextRequest func(ctx context.Context, f *os.File) (*v1.UploadRequest, error)) error {
+	getNextRequest func(ctx context.Context, f *os.File) (*v1.UploadRequest, error),
+) error {
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
