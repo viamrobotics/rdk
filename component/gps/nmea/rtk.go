@@ -93,7 +93,8 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 	switch g.ntripInputProtocol {
 	case "serial":
 		var err error
-		g.nmeagps, err = newSerialNMEAGPS(ctx, config, logger)
+		localgps, err := newSerialNMEAGPS(ctx, config, logger)
+		g.nmeagps = localgps.(nmeaGPS)
 		if err != nil {
 			return nil, err
 		}
