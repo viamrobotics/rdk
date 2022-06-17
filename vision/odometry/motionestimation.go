@@ -3,7 +3,6 @@ package odometry
 import (
 	"encoding/json"
 	"image"
-	"image/draw"
 	"os"
 	"path/filepath"
 
@@ -59,8 +58,8 @@ func NewMotion3DFromRotationTranslation(rotation, translation *mat.Dense) *Motio
 // EstimateMotionFrom2Frames estimates the 3D motion of the camera between frame img1 and frame img2.
 func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationConfig) (*Motion3D, error) {
 	// Convert both images to gray
-	im1 := convertImageToGray(img1)
-	im2 := convertImageToGray(img2)
+	im1 := rimage.MakeGray(img1)
+	im2 := rimage.MakeGray(img2)
 	// compute keypoints
 	orb1, kps1, err := keypoints.ComputeORBKeypoints(im1, cfg.KeyPointCfg)
 	if err != nil {
@@ -102,15 +101,6 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 		Rotation:    pose.Rotation,
 		Translation: &rescaledTranslation,
 	}, nil
-}
-
-// convertImageToGray is a small util to avoid writing duplicate code.
-func convertImageToGray(im *rimage.Image) *image.Gray {
-	bounds := im.Bounds()
-	w, h := bounds.Max.X, bounds.Max.Y
-	imGray := image.NewGray(image.Rect(0, 0, w, h))
-	draw.Draw(imGray, imGray.Bounds(), im, im.Bounds().Min, draw.Src)
-	return imGray
 }
 
 // convertImagePointSliceToFloatPointSlice is a helper to convert slice of image.Point to a slice of r2.Point.

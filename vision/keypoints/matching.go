@@ -126,11 +126,11 @@ func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig) *DescriptorMa
 func GetMatchingKeyPoints(matches *DescriptorMatches, kps1, kps2 KeyPoints) (KeyPoints, KeyPoints, error) {
 	if len(kps1) < len(matches.Indices) {
 		err := errors.New("there are more matches than keypoints in first set")
-		return KeyPoints{}, KeyPoints{}, err
+		return nil, nil, err
 	}
 	if len(kps2) < len(matches.Indices) {
 		err := errors.New("there are more matches than keypoints in second set")
-		return KeyPoints{}, KeyPoints{}, err
+		return nil, nil, err
 	}
 	matchedKps1 := make(KeyPoints, len(matches.Indices))
 	matchedKps2 := make(KeyPoints, len(matches.Indices))
