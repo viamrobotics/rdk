@@ -29,9 +29,7 @@ type syncManager interface {
 // syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type syncer struct {
 	captureDir        string
-	intervalMillis    time.Duration
 	logger            golog.Logger
-	queueWaitTime     time.Duration
 	progressTracker   progressTracker
 	uploadFn          func(ctx context.Context, path string) error
 	backgroundWorkers sync.WaitGroup
@@ -44,9 +42,8 @@ func newSyncer(logger golog.Logger, captureDir string) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	ret := syncer{
-		logger:        logger,
-		captureDir:    captureDir,
-		queueWaitTime: time.Minute,
+		logger:     logger,
+		captureDir: captureDir,
 		progressTracker: progressTracker{
 			lock: &sync.Mutex{},
 			m:    make(map[string]struct{}),
@@ -72,7 +69,6 @@ func (s *syncer) Start() {
 			s.logger.Errorf("failed to upload queued file: %v", err)
 		}
 	})
-	return
 }
 
 func (s *syncer) getPathUnderCaptureDir(filePath string) (string, error) {
@@ -120,15 +116,12 @@ func (s *syncer) upload(ctx context.Context, path string) {
 		)
 	})
 	// TODO: If upload completed successfully, unmark in-progress and delete file.
-	return
 }
 
 func (s *syncer) Sync(paths []string) {
 	for _, path := range paths {
 		s.upload(s.cancelCtx, path)
 	}
-
-	return
 }
 
 type progressTracker struct {
