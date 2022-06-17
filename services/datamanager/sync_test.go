@@ -44,12 +44,7 @@ func TestOnlyUploadsOnce(t *testing.T) {
 
 	// Put a couple files in captureDir.
 	file1, _ := ioutil.TempFile(dir, "whatever")
-	defer func(name string) {
-		err := os.Remove(name)
-		if err != nil {
-
-		}
-	}(file1.Name())
+	defer os.Remove(file1.Name())
 	file2, _ := ioutil.TempFile(dir, "whatever2")
 	defer os.Remove(file2.Name())
 	// Immediately try to Sync same files, twice.
