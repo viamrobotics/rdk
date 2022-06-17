@@ -19,20 +19,41 @@ type ORBConfig struct {
 }
 
 // LoadORBConfiguration loads a ORBConfig from a json file.
-func LoadORBConfiguration(file string) *ORBConfig {
+func LoadORBConfiguration(file string) (*ORBConfig, error) {
 	var config ORBConfig
 	filePath := filepath.Clean(file)
 	configFile, err := os.Open(filePath)
 	defer utils.UncheckedErrorFunc(configFile.Close)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	jsonParser := json.NewDecoder(configFile)
 	err = jsonParser.Decode(&config)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return &config
+	err = config.Validate(file)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// Validate ensures all parts of the ORBConfig are valid.
+func (config *ORBConfig) Validate(path string) error {
+	if config.Layers < 1 {
+		return utils.NewConfigValidationError(path, errors.New("n_layers should be >= 1"))
+	}
+	if config.DownscaleFactor <= 1 {
+		return utils.NewConfigValidationError(path, errors.New("downscale_factor should be greater than 1"))
+	}
+	if config.FastConf == nil {
+		return utils.NewConfigValidationFieldRequiredError(path, "fast")
+	}
+	if config.BRIEFConf == nil {
+		return utils.NewConfigValidationFieldRequiredError(path, "brief")
+	}
+	return nil
 }
 
 // ComputeORBKeypoints compute ORB keypoints on gray image.

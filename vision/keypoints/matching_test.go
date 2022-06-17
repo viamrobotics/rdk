@@ -3,6 +3,7 @@ package keypoints
 import (
 	"image"
 	"image/draw"
+	"math"
 	"testing"
 
 	"go.viam.com/test"
@@ -88,4 +89,40 @@ func TestMatchKeypoints(t *testing.T) {
 	cfgMatch.DoCrossCheck = true
 	matches3 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch)
 	test.That(t, len(matches3.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
+}
+
+func TestGetMatchingKeyPoints(t *testing.T) {
+	cfg, err := LoadORBConfiguration("orbconfig.json")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cfg, test.ShouldNotBeNil)
+	// load image from artifacts and convert to gray image
+	im, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess3.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	// Convert to grayscale image
+	bounds := im.Bounds()
+	w, h := bounds.Max.X, bounds.Max.Y
+	imGray := image.NewGray(image.Rect(0, 0, w, h))
+	draw.Draw(imGray, imGray.Bounds(), im, im.Bounds().Min, draw.Src)
+	descs, kps, err := ComputeORBKeypoints(imGray, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(descs), test.ShouldEqual, 137)
+	test.That(t, len(kps), test.ShouldEqual, 137)
+
+	// get matches
+	cfgMatch := MatchingConfig{
+		true,
+		1000,
+	}
+	// test matches with itself
+	matches := MatchKeypoints(descs, descs, &cfgMatch)
+
+	kps1, kps2, err := GetMatchingKeyPoints(matches, kps, kps)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(kps1), test.ShouldEqual, len(kps2))
+	for i, pt1 := range kps1 {
+		pt2 := kps2[i]
+		// test.That(t, pt1, test.ShouldResemble, pt2)
+		test.That(t, math.Abs(float64(pt1.X-pt2.X)), test.ShouldBeLessThan, 1)
+		test.That(t, math.Abs(float64(pt1.Y-pt2.Y)), test.ShouldBeLessThan, 1)
+	}
 }
