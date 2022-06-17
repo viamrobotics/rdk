@@ -56,15 +56,6 @@ func WithRefreshEvery(refreshEvery time.Duration) RobotClientOption {
 	})
 }
 
-// WithDefaultRefreshEvery returns a RobotClientOption that refreshes the status/parts of the
-// robot every 10 seconds.
-func WithDefaultRefreshEvery() RobotClientOption {
-	return newFuncRobotClientOption(func(o *robotClientOpts) {
-		defaultTime := 10 * time.Second
-		o.refreshEvery = &defaultTime
-	})
-}
-
 // WithCheckConnectedEvery returns a RobotClientOption for how often to check connection to the robot.
 func WithCheckConnectedEvery(checkConnectedEvery time.Duration) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
