@@ -294,8 +294,16 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 	if intervalMins > 0 {
 		cancelCtx, fn := context.WithCancel(context.Background())
 		svc.updateCollectorsCancelFn = fn
-		svc.syncer = newSyncer(svc.logger, svc.captureDir)
-		svc.syncer.Start()
+		svc.syncer = newSyncer(svc.logger)
+		var previouslyCaptured []string
+		filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				return nil
+			}
+			previouslyCaptured = append(previouslyCaptured, path)
+			return nil
+		})
+		svc.syncer.Sync(previouslyCaptured)
 		svc.uploadCapturedData(cancelCtx, intervalMins)
 	}
 }
