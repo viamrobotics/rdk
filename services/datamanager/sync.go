@@ -3,7 +3,6 @@ package datamanager
 import (
 	"context"
 	"io/fs"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -20,14 +19,12 @@ var (
 
 // syncManager is responsible for uploading files to the cloud every syncInterval.
 type syncManager interface {
-	Start()
 	Sync(paths []string)
 	Close()
 }
 
 // syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type syncer struct {
-	captureDir        string
 	logger            golog.Logger
 	progressTracker   progressTracker
 	uploadFn          func(ctx context.Context, path string) error
@@ -37,12 +34,11 @@ type syncer struct {
 }
 
 // newSyncer returns a new syncer.
-func newSyncer(logger golog.Logger, captureDir string) *syncer {
+func newSyncer(logger golog.Logger) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	ret := syncer{
-		logger:     logger,
-		captureDir: captureDir,
+		logger: logger,
 		progressTracker: progressTracker{
 			lock: &sync.Mutex{},
 			m:    make(map[string]struct{}),
@@ -56,18 +52,6 @@ func newSyncer(logger golog.Logger, captureDir string) *syncer {
 	}
 
 	return &ret
-}
-
-// Start queues any files already in captureDir that haven't been modified in s.queueWaitTime time, and kicks off a
-// goroutine to constantly upload files in the queue.
-func (s *syncer) Start() {
-	s.backgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer s.backgroundWorkers.Done()
-		if err := filepath.WalkDir(s.captureDir, s.uploadWalkDirFunc); err != nil {
-			s.logger.Errorf("failed to upload queued file: %v", err)
-		}
-	})
 }
 
 // Close closes all resources (goroutines) associated with s.
