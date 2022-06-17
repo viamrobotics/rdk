@@ -118,6 +118,7 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	// Set syncIntervalMins = -1 so we dont run into issues with Go default int64 value = 0.
 	dataManagerSvc := &dataManagerService{
 		r:                 r,
 		logger:            logger,
@@ -125,6 +126,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers: sync.WaitGroup{},
 		lock:              sync.Mutex{},
+		syncIntervalMins:  -1,
 	}
 
 	return dataManagerSvc, nil
@@ -158,12 +160,12 @@ func (svc *dataManagerService) closeCollectors() {
 
 // dataManagerService initializes and orchestrates data capture collectors for registered component/methods.
 type dataManagerService struct {
-	r          robot.Robot
-	logger     golog.Logger
-	captureDir string
-	collectors map[componentMethodMetadata]collectorAndConfig
-	syncer     syncManager
-
+	r                        robot.Robot
+	logger                   golog.Logger
+	captureDir               string
+	collectors               map[componentMethodMetadata]collectorAndConfig
+	syncer                   syncManager
+	syncIntervalMins         float64
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
 	updateCollectorsCancelFn func()
@@ -413,7 +415,10 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	// nolint:contextcheck
-	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+	if svcConfig.SyncIntervalMins != float64(svc.syncIntervalMins) {
+		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+	}
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)

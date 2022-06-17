@@ -28,7 +28,7 @@
         {
             "type": "data_manager",
             "attributes": {
-                "sync_interval_mins": 0.0,
+                "sync_interval_mins": 0,
                 "capture_dir": "/tmp/capture"
             }
         }

@@ -81,6 +81,17 @@ func resetFolder(t *testing.T, path string) {
 	}
 }
 
+// Get the config associated with the data manager service.
+func getServiceConfig(cfg *config.Config) (*config.Service, bool) {
+	for _, c := range cfg.Services {
+		// Compare service type and name.
+		if c.ResourceName() == datamanager.Name {
+			return &c, true
+		}
+	}
+	return &config.Service{}, false
+}
+
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
 	var uploadCount uint64
@@ -89,16 +100,17 @@ func TestManualSync(t *testing.T) {
 		_ = os.Remove(path)
 		return nil
 	}
-	configPath := "robots/configs/datamanager_manual_fake.json"
+	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 
 	// Make the captureDir where we're logging data for our arm.
-	captureDir := "/tmp/capture/arm/arm1/"
+	captureDir := "/tmp/capture"
+	armDir := captureDir + "/arm/arm1/"
 	queueDir := datamanager.SyncQueuePath + "/arm/arm1/"
 
 	// Clear the capture and queue dirs after we're done.
 	defer resetFolder(t, queueDir)
-	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, captureDir)
@@ -107,22 +119,22 @@ func TestManualSync(t *testing.T) {
 	dmsvc.Update(context.Background(), testCfg)
 
 	// Look at the files in captureDir.
-	filesInCaptureDir, err := readDir(t, captureDir)
+	filesInArmDir, err := readDir(t, armDir)
 	if err != nil {
-		t.Fatalf("failed to list files in captureDir")
+		t.Fatalf("failed to list files in armDir")
 	}
 
 	// Since we have 1 collector, we should be expecting 1 file.
-	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 1)
-	firstFileInCaptureDir := filesInCaptureDir[0].Name()
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+	firstFileInArmDir := filesInArmDir[0].Name()
 
 	// Give it a second to run and upload files.
 	dmsvc.Sync(context.Background())
 	time.Sleep(time.Second)
 
-	filesInCaptureDir, err = readDir(t, captureDir)
+	filesInArmDir, err = readDir(t, armDir)
 	if err != nil {
-		t.Fatalf("failed to list files in captureDir")
+		t.Fatalf("failed to list files in armDir")
 	}
 	filesInQueueDir, err := readDir(t, queueDir)
 	if err != nil {
@@ -130,9 +142,9 @@ func TestManualSync(t *testing.T) {
 	}
 
 	// We should have uploaded the first file and should now be collecting another one.
-	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 1)
-	secondFileInCaptureDir := filesInCaptureDir[0].Name()
-	test.That(t, firstFileInCaptureDir, test.ShouldNotEqual, secondFileInCaptureDir)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+	secondFileInArmDir := filesInArmDir[0].Name()
+	test.That(t, firstFileInArmDir, test.ShouldNotEqual, secondFileInArmDir)
 	test.That(t, len(filesInQueueDir), test.ShouldEqual, 0)
 	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 1)
 }
@@ -145,16 +157,23 @@ func TestScheduledSync(t *testing.T) {
 		_ = os.Remove(path)
 		return nil
 	}
-	configPath := "robots/configs/datamanager_scheduled_fake.json"
+	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
+
+	// Set the sync interval mins to 0.0085 for the scheduled sync.
+	unconvertedSvcConfig, _ := getServiceConfig(testCfg)
+	svcConfig, _ := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
+	svcConfig.SyncIntervalMins = 0.0085
+
 	// Make the captureDir where we're logging data for our arm.
-	captureDir := "/tmp/capture/arm/arm1/"
+	captureDir := "/tmp/capture"
+	armDir := captureDir + "/arm/arm1/"
 	queueDir := datamanager.SyncQueuePath + "/arm/arm1/"
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 
 	// Clear the capture and queue dirs after we're done.
 	defer resetFolder(t, queueDir)
-	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 
 	// Initialize the data manager, update it with our config, and tell it to close later.
 	dmsvc := newTestDataManager(t, captureDir)
@@ -164,17 +183,17 @@ func TestScheduledSync(t *testing.T) {
 	dmsvc.Update(cancelCtx, testCfg)
 
 	// Look at the files in captureDir.
-	filesInCaptureDir, err := readDir(t, captureDir)
+	filesInArmDir, err := readDir(t, armDir)
 	if err != nil {
-		t.Fatalf("failed to list files in captureDir")
+		t.Fatalf("failed to list files in armDir")
 	}
 
 	// Since we have 1 collector, we should be expecting 1 file.
-	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 1)
-	firstFileInCaptureDir := filesInCaptureDir[0].Name()
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+	firstFileInArmDir := filesInArmDir[0].Name()
 
-	// We set sync_interval_mins to be about 2 seconds in the config, so wait 2 seconds for queueing to occur.
-	time.Sleep(time.Millisecond * 2100)
+	// We set sync_interval_mins to be about .5 seconds in the config, so wait 2 seconds for queueing to occur.
+	time.Sleep(time.Millisecond * 700)
 
 	// Verify files were enqueued.
 	filesInQueueDir, err := readDir(t, queueDir)
@@ -186,17 +205,17 @@ func TestScheduledSync(t *testing.T) {
 	test.That(t, len(filesInQueueDir), test.ShouldEqual, 1)
 
 	// Wait a bit for the upload goroutine to trigger on the syncer, then ensure the file was uploaded.
-	time.Sleep(time.Millisecond * 600)
+	time.Sleep(time.Millisecond * 450)
 	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 1)
 
 	// We should have uploaded the first file and should now be collecting another one.
-	filesInCaptureDir, err = readDir(t, captureDir)
+	filesInArmDir, err = readDir(t, armDir)
 	if err != nil {
 		t.Fatalf("failed to list files in captureDir")
 	}
-	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 1)
-	secondFileInCaptureDir := filesInCaptureDir[0].Name()
-	test.That(t, firstFileInCaptureDir, test.ShouldNotEqual, secondFileInCaptureDir)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+	secondFileInArmDir := filesInArmDir[0].Name()
+	test.That(t, firstFileInArmDir, test.ShouldNotEqual, secondFileInArmDir)
 }
 
 // Validates that we can attempt a scheduled and manual sync at the same time without duplicating files or running into errors.
@@ -212,16 +231,23 @@ func TestManualAndScheduledSync(t *testing.T) {
 		lock.Unlock()
 		return nil
 	}
-	configPath := "robots/configs/datamanager_scheduled_fake.json"
+	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
+
+	// Set the sync interval mins to 0.0085 for the scheduled sync.
+	unconvertedSvcConfig, _ := getServiceConfig(testCfg)
+	svcConfig, _ := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
+	svcConfig.SyncIntervalMins = 0.0085
+
 	// Make the captureDir where we're logging data for our arm.
-	captureDir := "/tmp/capture/arm/arm1/"
+	captureDir := "/tmp/capture"
+	armDir := captureDir + "/arm/arm1"
 	queueDir := datamanager.SyncQueuePath + "/arm/arm1/"
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 
 	// Clear the capture and queue dirs after we're done.
 	defer resetFolder(t, queueDir)
-	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, captureDir)
@@ -233,18 +259,18 @@ func TestManualAndScheduledSync(t *testing.T) {
 	dmsvc.Update(cancelCtx, testCfg)
 
 	// Look at the files in captureDir.
-	filesInCaptureDir, err := readDir(t, captureDir)
+	filesInArmDir, err := readDir(t, armDir)
 	if err != nil {
-		t.Fatalf("failed to list files in captureDir")
+		t.Fatalf("failed to list files in armDir")
 	}
 
 	// Since we have 1 collector, we should be expecting 1 file.
-	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 1)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 
-	// Perform a manual and scheduled sync at approximately the same time, then wait a bit.
-	time.Sleep(time.Millisecond * 2000)
+	// Perform a manual and scheduled sync at approximately the same time, then wait for the upload routine to fire.
+	time.Sleep(time.Millisecond * 500)
 	dmsvc.Sync(cancelCtx)
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond * 500)
 
 	// Verify two files were uploaded, and that they're different.
 	lock.Lock()
@@ -253,9 +279,9 @@ func TestManualAndScheduledSync(t *testing.T) {
 	lock.Unlock()
 
 	// We've uploaded the first two files and should now be collecting a single new one.
-	filesInCaptureDir, err = readDir(t, captureDir)
+	filesInArmDir, err = readDir(t, armDir)
 	if err != nil {
-		t.Fatalf("failed to list files in captureDir")
+		t.Fatalf("failed to list files in armDir")
 	}
-	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 1)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 }
