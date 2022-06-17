@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 )
 
@@ -59,6 +60,12 @@ func (t Type) String() string {
 type Subtype struct {
 	Type
 	ResourceSubtype SubtypeName
+}
+
+// An RPCSubtype provides RPC information about a particular subtype.
+type RPCSubtype struct {
+	Subtype Subtype
+	Desc    *desc.ServiceDescriptor
 }
 
 // NewSubtype creates a new Subtype based on parameters passed in.
