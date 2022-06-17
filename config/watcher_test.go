@@ -18,6 +18,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestNewWatcherNoop(t *testing.T) {
@@ -64,7 +66,8 @@ func TestNewWatcherFile(t *testing.T) {
 		ConfigFilePath: temp.Name(),
 		Components: []Component{
 			{
-				Name: "hello",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "hello",
 				Attributes: AttributeMap{
 					"world": 1.0,
 				},
@@ -87,7 +90,8 @@ func TestNewWatcherFile(t *testing.T) {
 		ConfigFilePath: temp.Name(),
 		Components: []Component{
 			{
-				Name: "world",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "world",
 				Attributes: AttributeMap{
 					"hello": 1.0,
 				},
@@ -129,7 +133,8 @@ func TestNewWatcherFile(t *testing.T) {
 		ConfigFilePath: temp.Name(),
 		Components: []Component{
 			{
-				Name: "woo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "woo",
 				Attributes: AttributeMap{
 					"wah": 1.0,
 				},
@@ -236,7 +241,8 @@ func TestNewWatcherCloud(t *testing.T) {
 		Cloud: cloudConf,
 		Components: []Component{
 			{
-				Name: "hello",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "hello",
 				Attributes: AttributeMap{
 					"world": 1.0,
 				},
@@ -265,7 +271,8 @@ func TestNewWatcherCloud(t *testing.T) {
 		Cloud: cloudConf,
 		Components: []Component{
 			{
-				Name: "world",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "world",
 				Attributes: AttributeMap{
 					"hello": 1.0,
 				},
@@ -302,7 +309,8 @@ func TestNewWatcherCloud(t *testing.T) {
 		Cloud: cloudConf,
 		Components: []Component{
 			{
-				Name: "woo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "woo",
 				Attributes: AttributeMap{
 					"wah": 1.0,
 				},

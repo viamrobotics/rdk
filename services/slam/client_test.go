@@ -78,18 +78,16 @@ func TestClientWorkingService(t *testing.T) {
 	t.Run("test that context canceled stops client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = slam.NewClient(cancelCtx, slam.Name.String(), listener.Addr().String(), logger)
+		_, err = viamgrpc.Dial(cancelCtx, listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("client tests for using working SLAM client connection", func(t *testing.T) {
-		workingSLAMClient, err := slam.NewClient(
-			context.Background(), slam.Name.String(),
-			listener.Addr().String(), logger,
-		)
+		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
+		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Name.String(), logger)
 		// test get position
 		pInFrame, err := workingSLAMClient.GetPosition(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
@@ -111,6 +109,7 @@ func TestClientWorkingService(t *testing.T) {
 		// test close
 		err = workingSLAMClient.Close()
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("client tests using working GRPC dial connection", func(t *testing.T) {
@@ -193,10 +192,10 @@ func TestClientFailingService(t *testing.T) {
 	nameFail := "maiv"
 
 	t.Run("client test using bad SLAM client connection", func(t *testing.T) {
-		failingSLAMClient, err := slam.NewClient(
-			context.Background(), slam.Name.String(),
-			listener.Addr().String(), logger,
-		)
+		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Name.String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// test get position
@@ -214,5 +213,6 @@ func TestClientFailingService(t *testing.T) {
 		// test close
 		err = failingSLAMClient.Close()
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
