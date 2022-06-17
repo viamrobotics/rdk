@@ -178,6 +178,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		testWorkingClient(t, client)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
