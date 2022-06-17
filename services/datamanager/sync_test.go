@@ -65,6 +65,9 @@ func TestOnlyUploadsOnce(t *testing.T) {
 
 func TestUploadExponentialRetry(t *testing.T) {
 	dir := t.TempDir()
+	// Set retry related global vars to faster values for test.
+	initialWaitTime = time.Millisecond * 25
+	maxRetryInterval = time.Millisecond * 150
 	// Define an uploadFunc that fails 4 times then succeeds on its 5th attempt.
 	failureCount := 0
 	successCount := 0
@@ -83,8 +86,6 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Sync file.
 	file1, _ := ioutil.TempFile(dir, "whatever")
 	defer os.Remove(file1.Name())
-	initialWaitTime = time.Millisecond * 25
-	maxRetryInterval = time.Millisecond * 150
 	sut.Sync([]string{file1.Name()})
 
 	// Let it run.
