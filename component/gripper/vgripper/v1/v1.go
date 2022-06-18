@@ -325,12 +325,12 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 		return nil
 	}
 
-	go func() {
+	utils.PanicCapturingGo(func() {
 		err := vg.motor.GoTo(ctx, TargetRPM, vg.openPos)
 		if err != nil {
 			vg.logger.Error(err)
 		}
-	}()
+	})
 
 	msPer := 10
 	total := 0
@@ -382,12 +382,12 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	go func() {
+	utils.PanicCapturingGo(func() {
 		err := vg.motor.GoTo(ctx, TargetRPM, vg.closePos)
 		if err != nil {
 			vg.logger.Error(err)
 		}
-	}()
+	})
 
 	msPer := 10
 	total := 0
@@ -501,21 +501,33 @@ func (vg *gripperV1) analogs(ctx context.Context) (hasPressure bool, pressure, c
 	return
 }
 
+// Do() related constants.
+const (
+	Command           = "command"
+	GetPressure       = "get_pressure"
+	GetCurrent        = "get_current"
+	Home              = "home"
+	ReturnCurrent     = "current"
+	ReturnPressure    = "pressure"
+	ReturnHasPressure = "has_pressure"
+)
+
 func (vg *gripperV1) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	name, ok := cmd["command"]
+	name, ok := cmd[Command]
 	if !ok {
-		return nil, errors.New("missing 'command' value")
+		return nil, errors.New("missing " + Command + " value")
 	}
 	switch name {
-	case "get_pressure":
+	case GetPressure:
 		hasPressure, pressure, err := vg.hasPressure(ctx)
-		return map[string]interface{}{"has_pressure": hasPressure, "pressure": pressure}, err
-	case "get_current":
+		return map[string]interface{}{ReturnHasPressure: hasPressure, ReturnPressure: pressure}, err
+	case GetCurrent:
 		current, err := vg.readCurrent(ctx)
-		return map[string]interface{}{"current": current}, err
-	case "home":
+		return map[string]interface{}{ReturnCurrent: current}, err
+	case Home:
 		return nil, vg.Home(ctx)
 	default:
 		return nil, fmt.Errorf("no such command: %s", name)
 	}
 }
+

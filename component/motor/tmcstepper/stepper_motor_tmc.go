@@ -617,19 +617,27 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	)
 }
 
+// Do() related constants.
+const (
+	Command = "command"
+	Home    = "home"
+	Jog     = "jog"
+	RPMVal  = "rpm"
+)
+
 // Do executes additional commands beyond the Motor{} interface.
 func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
 	if !ok {
-		return nil, errors.New("missing 'command' value")
+		return nil, errors.New("missing " + Command + " value")
 	}
 	switch name {
-	case "home":
+	case Home:
 		return nil, m.Home(ctx)
-	case "jog":
-		rpmRaw, ok := cmd["rpm"]
+	case Jog:
+		rpmRaw, ok := cmd[RPMVal]
 		if !ok {
-			return nil, errors.New("need rpm value for jog")
+			return nil, errors.New("need " + RPMVal + " value for jog")
 		}
 		rpm, ok := rpmRaw.(float64)
 		if !ok {

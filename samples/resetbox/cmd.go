@@ -17,7 +17,9 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/gripper/vgripper/v1"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/motor/tmcstepper"
 	"go.viam.com/rdk/grpc/client"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/robot"
@@ -47,6 +49,8 @@ const (
 
 	armName     = "xArm6"
 	gripperName = "vg1"
+
+	moment = 500 * time.Millisecond
 )
 
 var (
@@ -120,7 +124,7 @@ func (a *LinearAxis) Home(ctx context.Context) error {
 	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
 		go func(m motor.Motor) {
-			_, err := m.Do(ctx, map[string]interface{}{"command": "home"})
+			_, err := m.Do(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
 			errPath <- err
 		}(m)
 	}
@@ -353,7 +357,7 @@ func (b *ResetBox) home(ctx context.Context) error {
 	}()
 	go func() {
 		errPath <- b.gate.Home(ctx)
-		_, err := b.hammer.Do(ctx, map[string]interface{}{"command": "home"})
+		_, err := b.hammer.Do(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
 		errPath <- err
 	}()
 	go func() {
@@ -434,7 +438,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 
 	// Go mostly up
 	b.tipper.SetPower(ctx, 1.0)
-	if !utils.SelectContextOrWait(ctx, 11000*time.Millisecond) {
+	if !utils.SelectContextOrWait(ctx, 11*time.Second) {
 		b.tipper.Stop(ctx)
 		return ctx.Err()
 	}
@@ -450,7 +454,7 @@ func (b *ResetBox) tipTableDown(ctx context.Context) error {
 	if err := b.tipper.SetPower(ctx, -1.0); err != nil {
 		return err
 	}
-	if !utils.SelectContextOrWait(ctx, 10000*time.Millisecond) {
+	if !utils.SelectContextOrWait(ctx, 10*time.Second) {
 		return ctx.Err()
 	}
 
@@ -458,7 +462,7 @@ func (b *ResetBox) tipTableDown(ctx context.Context) error {
 	b.tableUp = false
 
 	// Extra time for safety (actuator automatically stops on retract)
-	if !utils.SelectContextOrWait(ctx, 4000*time.Millisecond) {
+	if !utils.SelectContextOrWait(ctx, 4*time.Second) {
 		b.tipper.Stop(ctx)
 		return ctx.Err()
 	}
@@ -476,7 +480,7 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 		if err != nil {
 			return err
 		}
-		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, moment) {
 			return ctx.Err()
 		}
 	}
@@ -545,7 +549,6 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		)
 	}()
 
-	// utils.SelectContextOrWait(ctx, 2000*time.Millisecond)
 	// Three whacks for cubes-behinds-ducks
 	go func() {
 		errHammer <- b.hammerTime(ctx, cubeWhacks)
@@ -569,7 +572,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	if errs != nil {
 		return errs
 	}
-	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
+	if !utils.SelectContextOrWait(ctx, time.Second) {
 		return ctx.Err()
 	}
 	b.vibrate(ctx, 0)
@@ -631,7 +634,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		return errs
 	}
 
-	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
+	if !utils.SelectContextOrWait(ctx, time.Second) {
 		return ctx.Err()
 	}
 	// Open to load duck
@@ -640,7 +643,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		b.setSqueeze(ctx, squeezeOpen),
 		<-errArm,
 	)
-	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
+	if !utils.SelectContextOrWait(ctx, time.Second) {
 		return ctx.Err()
 	}
 	// Duck in, silence and up
@@ -682,7 +685,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		if errs != nil {
 			return errs
 		}
-		if !utils.SelectContextOrWait(ctx, 3000*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 3*time.Second) {
 			return ctx.Err()
 		}
 		b.vibrate(ctx, 0)
@@ -712,15 +715,15 @@ func (b *ResetBox) armHome(ctx context.Context) error {
 func (b *ResetBox) waitForGripperRecovery(ctx context.Context) error {
 	startTime := time.Now()
 	for {
-		ret, err := b.gripper.Do(ctx, map[string]interface{}{"command": "get_pressure"})
+		ret, err := b.gripper.Do(ctx, map[string]interface{}{vgripper.Command: vgripper.GetPressure})
 		if err != nil {
 			return err
 		}
-		pressure, ok := ret["has_pressure"]
-		if ok && !pressure.(bool) {
+		pressure, ok := ret[vgripper.ReturnHasPressure].(bool)
+		if ok && !pressure {
 			return nil
 		}
-		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, moment) {
 			return ctx.Err()
 		}
 		if time.Since(startTime) >= 30*time.Second {
@@ -747,7 +750,7 @@ func (b *ResetBox) pickCube1(ctx context.Context) error {
 
 	if !grabbed {
 		return errors.New("missed first cube")
-	} else if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+	} else if !utils.SelectContextOrWait(ctx, moment) {
 		return ctx.Err()
 	}
 
@@ -777,7 +780,7 @@ func (b *ResetBox) pickCube2(ctx context.Context) error {
 	}
 	if !grabbed {
 		return errors.New("missed second cube")
-	} else if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+	} else if !utils.SelectContextOrWait(ctx, moment) {
 		return ctx.Err()
 	}
 	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
@@ -803,7 +806,7 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 	// Try to grab- this should succeed if the duck is facing forwards, and fail if facing backwards
 	grabbed, errs := b.gripper.Grab(ctx)
 	if grabbed {
-		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, moment) {
 			return ctx.Err()
 		}
 		multierr.Combine(
@@ -832,7 +835,7 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 		}
 		if !grabbed {
 			return errors.New("missed the duck twice")
-		} else if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+		} else if !utils.SelectContextOrWait(ctx, moment) {
 			return ctx.Err()
 		}
 		multierr.Combine(
