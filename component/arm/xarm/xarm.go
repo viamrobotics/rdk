@@ -30,6 +30,11 @@ type AttrConfig struct {
 	Acceleration float32 `json:"acceleration"` // deg/s/s
 }
 
+const (
+	defaultSpeed        = 20
+	defaultAcceleration = 50
+)
+
 type xArm struct {
 	generic.Unimplemented
 	dof      int
@@ -98,12 +103,12 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 
 	speed := armCfg.Speed
 	if speed == 0 {
-		speed = 20
+		speed = defaultSpeed
 	}
 
 	acceleration := armCfg.Acceleration
 	if acceleration == 0 {
-		acceleration = 50
+		acceleration = defaultAcceleration
 	}
 
 	conn, err := net.Dial("tcp", armCfg.Host+":502")
