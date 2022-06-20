@@ -12,7 +12,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 )
 
@@ -21,16 +20,6 @@ type serviceClient struct {
 	conn   rpc.ClientConn
 	client pb.InputControllerServiceClient
 	logger golog.Logger
-}
-
-// newServiceClient constructs a new serviceClient that is served at the given address.
-func newServiceClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*serviceClient, error) {
-	conn, err := grpc.Dial(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	sc := newSvcClientFromConn(conn, logger)
-	return sc, nil
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
@@ -46,7 +35,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 
 // Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
-	return sc.conn.Close()
+	return nil
 }
 
 // client is an input controller client.
@@ -65,15 +54,6 @@ type client struct {
 	cancelBackgroundWorkers context.CancelFunc
 	callbackWait            sync.WaitGroup
 	callbacks               map[Control]map[EventType]ControlFunction
-}
-
-// NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Controller, error) {
-	sc, err := newServiceClient(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return clientFromSvcClient(ctx, sc, name), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
