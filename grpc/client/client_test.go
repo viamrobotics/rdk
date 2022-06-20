@@ -1156,7 +1156,6 @@ func TestClientStatus(t *testing.T) {
 	})
 }
 
-
 func TestForeignResource(t *testing.T) {
 	injectRobot := &inject.Robot{}
 
@@ -1194,7 +1193,11 @@ func TestForeignResource(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	logger := golog.NewTestLogger(t)
-  	client, err := New(context.Background(), listener.Addr().String(), logger)
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	res1, err := client.ResourceByName(respWithResources[0])
@@ -1210,18 +1213,20 @@ func TestForeignResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res3, test.ShouldHaveSameTypeAs, (*rgrpc.ForeignResource)(nil))
 	test.That(t, res3.(*rgrpc.ForeignResource).Name(), test.ShouldResemble, respWithResources[2])
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestNewRobotClientRefresh(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
-
 	var callCount int
 
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		callCount++
 		return emptyResources
@@ -1231,7 +1236,6 @@ func TestNewRobotClientRefresh(t *testing.T) {
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
-
 
 	dur := -100 * time.Millisecond
 	client, err := New(
@@ -1259,7 +1263,6 @@ func TestNewRobotClientRefresh(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client, test.ShouldNotBeNil)
 	test.That(t, callCount, test.ShouldEqual, 1)
-
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
