@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // Options are used for configuring the web server.
@@ -120,7 +120,7 @@ func FromConfig(cfg *config.Config) (Options, error) {
 		options.Auth.Handlers = make([]config.AuthHandlerConfig, len(cfg.Auth.Handlers))
 		copy(options.Auth.Handlers, cfg.Auth.Handlers)
 		options.Auth.Handlers = append(options.Auth.Handlers, config.AuthHandlerConfig{
-			Type: rutils.CredentialsTypeRobotLocationSecret,
+			Type: utils.CredentialsTypeRobotLocationSecret,
 			Config: config.AttributeMap{
 				"secret": cfg.Cloud.LocationSecret,
 			},
@@ -128,7 +128,7 @@ func FromConfig(cfg *config.Config) (Options, error) {
 
 		signalingDialOpts := []rpc.DialOption{rpc.WithEntityCredentials(
 			cfg.Cloud.ID,
-			rpc.Credentials{rutils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
+			rpc.Credentials{utils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
 		)}
 		if cfg.Cloud.SignalingInsecure {
 			signalingDialOpts = append(signalingDialOpts, rpc.WithInsecure())
@@ -136,7 +136,7 @@ func FromConfig(cfg *config.Config) (Options, error) {
 
 		options.BakedAuthEntity = options.FQDN
 		options.BakedAuthCreds = rpc.Credentials{
-			rutils.CredentialsTypeRobotLocationSecret,
+			utils.CredentialsTypeRobotLocationSecret,
 			cfg.Cloud.LocationSecret,
 		}
 		options.SignalingDialOpts = signalingDialOpts

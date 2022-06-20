@@ -4,7 +4,6 @@ package board
 import (
 	"context"
 	"math"
-	"runtime/debug"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -261,17 +260,14 @@ func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
 }
 
 func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos uint64) error {
-	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
 func (dic *digitalInterruptClient) AddCallback(c chan bool) {
-	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
 func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
-	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
