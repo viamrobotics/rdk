@@ -11,7 +11,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/board/v1"
 )
@@ -27,16 +26,6 @@ type serviceClient struct {
 	logger golog.Logger
 }
 
-// newServiceClient constructs a new serviceClient that is served at the given address.
-func newServiceClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*serviceClient, error) {
-	conn, err := grpc.Dial(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	sc := newSvcClientFromConn(conn, logger)
-	return sc, nil
-}
-
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
 	client := pb.NewBoardServiceClient(conn)
@@ -50,7 +39,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 
 // Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
-	return sc.conn.Close()
+	return nil
 }
 
 // client is an Board client.
@@ -69,15 +58,6 @@ type boardInfo struct {
 	analogReaderNames     []string
 	digitalInterruptNames []string
 	gpioPinNames          []string
-}
-
-// NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Board, error) {
-	sc, err := newServiceClient(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return clientFromSvcClient(ctx, sc, name), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.

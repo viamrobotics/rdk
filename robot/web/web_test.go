@@ -49,8 +49,9 @@ func TestWebStart(t *testing.T) {
 	err := svc.Start(ctx, weboptions.New())
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClient(context.Background(), arm1String, "localhost:8080", logger)
+	conn, err := rgrpc.Dial(context.Background(), "localhost:8080", logger)
 	test.That(t, err, test.ShouldBeNil)
+	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 	arm1Position, err := arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -62,6 +63,7 @@ func TestWebStart(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestWebStartOptions(t *testing.T) {
@@ -79,8 +81,9 @@ func TestWebStartOptions(t *testing.T) {
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
+	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 	arm1Position, err := arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -88,6 +91,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestWebWithAuth(t *testing.T) {
@@ -139,12 +143,12 @@ func TestWebWithAuth(t *testing.T) {
 			err = svc.Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
-			_, err = arm.NewClient(context.Background(), arm1String, addr, logger)
+			_, err = rgrpc.Dial(context.Background(), addr, logger)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
 			if tc.Managed {
-				_, err = arm.NewClient(context.Background(), arm1String, addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
+				_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
 						Payload: apiKey,
@@ -152,7 +156,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
-				_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+				_, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -166,7 +170,7 @@ func TestWebWithAuth(t *testing.T) {
 				if entityName == "" {
 					entityName = options.LocalFQDN
 				}
-				arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger,
+				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
@@ -174,14 +178,16 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
+				arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 				arm1Position, err := arm1.GetEndPosition(ctx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
 
-				arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+				conn, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -189,14 +195,16 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
+				arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 				arm1Position, err = arm1.GetEndPosition(ctx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
 			} else {
-				arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger,
+				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
@@ -205,13 +213,16 @@ func TestWebWithAuth(t *testing.T) {
 				)
 				test.That(t, err, test.ShouldBeNil)
 
+				arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 				arm1Position, err := arm1.GetEndPosition(ctx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
 
-				arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+				conn, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -220,11 +231,14 @@ func TestWebWithAuth(t *testing.T) {
 				)
 				test.That(t, err, test.ShouldBeNil)
 
+				arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 				arm1Position, err = arm1.GetEndPosition(ctx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
 			}
 
 			err = utils.TryClose(context.Background(), svc)
@@ -281,13 +295,13 @@ func TestWebWithTLSAuth(t *testing.T) {
 	clientTLSConfig.Certificates = nil
 	clientTLSConfig.ServerName = "somename"
 
-	_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+	_, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
-	_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+	_, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithEntityCredentials("wrong", rpc.Credentials{
 			Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -298,7 +312,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
 	// use secret
-	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger,
+	conn, err := rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithEntityCredentials(options.FQDN, rpc.Credentials{
 			Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -307,34 +321,43 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 	arm1Position, err := arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert
 	clientTLSConfig.Certificates = []tls.Certificate{cert}
-	arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+	conn, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS
-	arm1, err = arm.NewClient(context.Background(), arm1String, options.FQDN, logger,
+	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
 		rpc.WithDialDebug(),
 		rpc.WithTLSConfig(clientTLSConfig),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use signaling creds
-	arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+	conn, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithDialDebug(),
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
@@ -348,12 +371,14 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS while signaling present
-	arm1, err = arm.NewClient(context.Background(), arm1String, options.FQDN, logger,
+	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
 		rpc.WithDialDebug(),
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
@@ -370,12 +395,15 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestWebWithBadAuthHandlers(t *testing.T) {
@@ -435,12 +463,15 @@ func TestWebUpdate(t *testing.T) {
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 	arm1Position, err := arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// add arm to robot and then update
 	injectArm := &inject.Arm{}
@@ -454,7 +485,7 @@ func TestWebUpdate(t *testing.T) {
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	aClient := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 	position, err := aClient.GetEndPosition(context.Background())
@@ -477,8 +508,10 @@ func TestWebUpdate(t *testing.T) {
 	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger)
+	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
