@@ -1085,6 +1085,16 @@ func TestNewRobotClientRefresh(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+
+	var callCount int
+
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		callCount++
+		return emptyResources
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -1099,6 +1109,22 @@ func TestNewRobotClientRefresh(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client, test.ShouldNotBeNil)
+	test.That(t, callCount, test.ShouldEqual, 1)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	callCount = 0
+	dur = 0
+	client, err = New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithRefreshEvery(dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, client, test.ShouldNotBeNil)
+	test.That(t, callCount, test.ShouldEqual, 1)
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
