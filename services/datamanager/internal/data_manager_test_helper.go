@@ -6,6 +6,7 @@ import (
 	"context"
 
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 )

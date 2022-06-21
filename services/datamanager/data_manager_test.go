@@ -112,7 +112,6 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 1)
 	resetFolder(t, datamanager.SyncQueuePath)
-
 }
 
 // Validates that manual syncing works for a datamanager.
