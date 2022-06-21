@@ -10,8 +10,9 @@ import (
 // values passed to NewClient.
 type robotClientOpts struct {
 	// refreshEvery is how often to refresh the status/parts of the
-	// robot. If unset, it will not be refreshed automatically.
-	refreshEvery time.Duration
+	// robot. If <0, it will not be refreshed automatically, if unset,
+	// it will automatically refresh every 10s
+	refreshEvery *time.Duration
 
 	// checkConnectedEvery is how often to check connection to the
 	// robot. If unset, it will not be checked automatically.
@@ -51,7 +52,7 @@ func newFuncRobotClientOption(f func(*robotClientOpts)) *funcRobotClientOption {
 // robot.
 func WithRefreshEvery(refreshEvery time.Duration) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
-		o.refreshEvery = refreshEvery
+		o.refreshEvery = &refreshEvery
 	})
 }
 

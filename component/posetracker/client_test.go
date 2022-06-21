@@ -99,14 +99,14 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = posetracker.NewClient(cancelCtx, workingPTName, listener1.Addr().String(), logger)
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	workingPTClient, err := posetracker.NewClient(
-		context.Background(), workingPTName, listener1.Addr().String(), logger)
+	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	workingPTClient := posetracker.NewClientFromConn(context.Background(), conn, workingPTName, logger)
 
 	t.Run("client tests for working pose tracker", func(t *testing.T) {
 		bodyToPoseInFrame, err := workingPTClient.GetPoses(
@@ -136,6 +136,7 @@ func TestClient(t *testing.T) {
 		poseTester(t, bodyToPoseInFrame, nonZeroPoseBody2)
 		poseTester(t, bodyToPoseInFrame, nonZeroPoseBody)
 		poseTester(t, bodyToPoseInFrame, zeroPoseBody)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for failing pose tracker", func(t *testing.T) {
@@ -148,5 +149,7 @@ func TestClient(t *testing.T) {
 		bodyToPoseInFrame, err := failingPTDialedClient.GetPoses(context.Background(), []string{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, bodyToPoseInFrame, test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }

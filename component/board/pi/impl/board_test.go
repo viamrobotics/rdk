@@ -14,12 +14,14 @@ import (
 	"go.viam.com/rdk/component/board"
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/motor"
-	_ "go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+
+	// for gpio motor.
+	_ "go.viam.com/rdk/component/motor/gpio"
 )
 
 func TestPiPigpio(t *testing.T) {
