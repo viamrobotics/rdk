@@ -5,7 +5,6 @@ import (
 	"context"
 	// used to import model referenceframe.
 	_ "embed"
-	"fmt"
 	"math"
 	"time"
 
@@ -515,7 +514,7 @@ const (
 func (vg *gripperV1) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd[Command]
 	if !ok {
-		return nil, errors.New("missing " + Command + " value")
+		return nil, errors.Errorf("missing %s value", Command)
 	}
 	switch name {
 	case GetPressure:
@@ -527,7 +526,7 @@ func (vg *gripperV1) Do(ctx context.Context, cmd map[string]interface{}) (map[st
 	case Home:
 		return nil, vg.Home(ctx)
 	default:
-		return nil, fmt.Errorf("no such command: %s", name)
+		return nil, errors.Errorf("no such command: %s", name)
 	}
 }
 
