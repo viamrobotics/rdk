@@ -10,6 +10,7 @@ build:
     - node_modules
     - web
     - dist
+    - samples
 lint:
   use:
     - DEFAULT

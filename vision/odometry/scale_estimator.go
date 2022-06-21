@@ -13,6 +13,12 @@ import (
 	"go.viam.com/rdk/vision/delaunay"
 )
 
+// ScaleEstimatorConfig contains the parameters that are necessary for scale estimation.
+type ScaleEstimatorConfig struct {
+	ThresholdNormalAngle float64 `json:"th_normal_angle"`
+	ThresholdPlaneInlier float64 `json:"th_plane_inlier"`
+}
+
 // estimatePitchFromCameraPose gets a rough estimation of the camera pitch (angle of camera axis with ground plane
 // in radians).
 func estimatePitchFromCameraPose(pose *transform.CamPose) float64 {
@@ -183,9 +189,9 @@ func GetPointsOnGroundPlane(pts1, pts2 []r2.Point, pose *transform.CamPose,
 
 // EstimateCameraHeight estimates the camera height wrt to ground plane.
 func EstimateCameraHeight(pts1, pts2 []r2.Point, pose *transform.CamPose,
-	thresholdNormalAngle, thresholdPlaneInlier float64, intrinsics *transform.PinholeCameraIntrinsics,
+	cfg *ScaleEstimatorConfig, intrinsics *transform.PinholeCameraIntrinsics,
 ) (float64, error) {
-	_, pointsGround, err := GetPointsOnGroundPlane(pts1, pts2, pose, thresholdNormalAngle, thresholdPlaneInlier, intrinsics)
+	_, pointsGround, err := GetPointsOnGroundPlane(pts1, pts2, pose, cfg.ThresholdNormalAngle, cfg.ThresholdPlaneInlier, intrinsics)
 	if err != nil {
 		return 0, err
 	}

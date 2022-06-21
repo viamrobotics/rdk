@@ -106,17 +106,19 @@ func TestConfigRemote(t *testing.T) {
 	remoteConfig := &config.Config{
 		Components: []config.Component{
 			{
-				Name:  "foo",
-				Type:  base.SubtypeName,
-				Model: "fake",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      base.SubtypeName,
+				Model:     "fake",
 				Frame: &config.Frame{
 					Parent: referenceframe.World,
 				},
 			},
 			{
-				Name:  "myParentIsRemote",
-				Type:  base.SubtypeName,
-				Model: "fake",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "myParentIsRemote",
+				Type:      base.SubtypeName,
+				Model:     "fake",
 				Frame: &config.Frame{
 					Parent: "cameraOver",
 				},
@@ -973,7 +975,10 @@ func TestGetStatusRemote(t *testing.T) {
 	resourcesFunc := func() []resource.Name { return []resource.Name{arm.Named("arm1"), arm.Named("arm2")} }
 	statusCallCount := 0
 
-	injectRobot1 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	injectRobot1 := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
 		JointPositions: &armpb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
@@ -986,7 +991,10 @@ func TestGetStatusRemote(t *testing.T) {
 		}
 		return statuses, nil
 	}
-	injectRobot2 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	injectRobot2 := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
 	injectRobot2.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
 		statuses := make([]robot.Status, 0, len(resourceNames))
