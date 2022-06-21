@@ -152,6 +152,8 @@ do_brew(){
 	source ~/.viamdevrc
 
 	brew bundle --file=- <<-EOS
+	# viam tap
+	tap  "viamrobotics/brews"
 
 	# unpinned
 	brew "nlopt"
@@ -164,8 +166,6 @@ do_brew(){
 	brew "go@1.17"
 	brew "node@16"
 	brew "protobuf@3.19"
-	# viam tap
-	tap  "viamrobotics/brews"
 
 	EOS
 
