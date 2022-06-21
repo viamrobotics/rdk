@@ -94,10 +94,10 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 	case "serial":
 		var err error
 		localgps, err := newSerialNMEAGPS(ctx, config, logger)
-		g.nmeagps = localgps.(nmeaGPS)
 		if err != nil {
 			return nil, err
 		}
+		g.nmeagps = localgps.(nmeaGPS)
 	case "I2C":
 		return nil, errors.New("I2C not implemented")
 	default:
