@@ -37,6 +37,8 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+// TODO(npmenard) fix the nolint
+// nolint:unparam
 func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.RemoteRobot {
 	injectRobot := &inject.RemoteRobot{}
 	armNames := []resource.Name{

@@ -135,8 +135,6 @@ func NameFromSubtype(subtype Subtype, name string) Name {
 	return NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, name)
 }
 
-// ^(\w+:(?:\w+:)*(?=rdk))?(\w+:(?:\w+:\w+))\/?(.+)?$
-// ^(\w+:(?:\w+:)*)?(rdk:\w+:(?:\w+))\/?([\w]+)?$
 // NewFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewFromString(resourceName string) (Name, error) {
 	r := regexp.MustCompile(`^(\w+:(?:\w+:)*)?(rdk:\w+:(?:\w+))\/?(.+)?$`)
@@ -154,7 +152,7 @@ func NewFromString(resourceName string) (Name, error) {
 		matches[3]), nil
 }
 
-// PrependRemote prepend a remote to a name
+// PrependRemote prepend a remote to a name.
 func (n *Name) PrependRemote(remote RemoteName) {
 	if n.Remote.Remote == "" {
 		n.Remote.Remote = remote
@@ -163,26 +161,23 @@ func (n *Name) PrependRemote(remote RemoteName) {
 	}
 }
 
-// PopRemote pop the first remote from a Name and returns a copy fo the Name
+// PopRemote pop the first remote from a Name and returns a copy fo the Name.
 func (n Name) PopRemote() Name {
 	if n.Remote.Remote == "" {
 		return n
-	} else {
-		remotes := strings.Split(string(n.Remote.Remote), ":")
-		return NewRemoteName(
-			RemoteName(strings.Join(remotes[1:], ":")),
-			n.Namespace,
-			n.ResourceType,
-			n.ResourceSubtype,
-			n.Name)
 	}
+	remotes := strings.Split(string(n.Remote.Remote), ":")
+	return NewRemoteName(
+		RemoteName(strings.Join(remotes[1:], ":")),
+		n.Namespace,
+		n.ResourceType,
+		n.ResourceSubtype,
+		n.Name)
 }
 
+// IsRemoteResource return true if the resource is a remote resource.
 func (n Name) IsRemoteResource() bool {
-	if len(n.Remote.Remote) > 1 {
-		return true
-	}
-	return false
+	return len(n.Remote.Remote) > 1
 }
 
 // Validate ensures that important fields exist and are valid.

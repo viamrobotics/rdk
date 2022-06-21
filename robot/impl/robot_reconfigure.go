@@ -42,7 +42,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err := r.updateDefaultServices(ctx); err != nil {
 		return err
 	}
-	r.manager.updateRemotesResourceNames()
+	r.manager.updateRemotesResourceNames(ctx)
 	return nil
 }
 
