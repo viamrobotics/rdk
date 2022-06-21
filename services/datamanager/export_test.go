@@ -1,23 +1,29 @@
-// export_test.go adds functionality to dataManagerService that we only use during testing.
+// export_test.go adds functionality to the datamanager that we only want to use and expose during testing.
 package datamanager
 
 import (
 	"context"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/data"
 )
 
+// SetUploadFn sets the upload function for the syncer to use when initialized/changed in Service.Update.
 func (svc *dataManagerService) SetUploadFn(fn func(ctx context.Context, path string) error) {
 	svc.uploadFn = fn
 }
 
-// Get the config associated with the data manager service.
-func GetDataManagerServiceConfig(cfg *config.Config) (*config.Service, bool) {
-	for _, c := range cfg.Services {
-		// Compare service type and name.
-		if c.ResourceName() == Name {
-			return &c, true
-		}
-	}
-	return &config.Service{}, false
+// NumCollectors returns the number of collectors the data manager service currently has.
+func (svc *dataManagerService) NumCollectors() int {
+	return len(svc.collectors)
 }
+
+func (svc *dataManagerService) HasInCollector(componentName string, MethodMetadata data.MethodMetadata) bool {
+	compMethodMetadata := componentMethodMetadata{
+		componentName, MethodMetadata,
+	}
+	_, present := svc.collectors[compMethodMetadata]
+	return present
+}
+
+// Make getServiceConfig global for tests.
+var GetServiceConfig = getServiceConfig
