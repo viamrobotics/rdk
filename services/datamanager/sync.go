@@ -29,9 +29,9 @@ var (
 	hardCodeMethodName = "TODO [DATA-164]"
 )
 
-type EmptyFile struct{}
+type emptyFile struct{}
 
-func (m *EmptyFile) Error() string {
+func (m *emptyFile) Error() string {
 	return "this file is empty!"
 }
 

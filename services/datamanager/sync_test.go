@@ -229,18 +229,38 @@ func TestSensorUploadTabular(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		toSend  *v1.SensorData
+		toSend  []*v1.SensorData
 		expData []*structpb.Struct
 	}{
 		{
 			name: "any struct",
-			toSend: &v1.SensorData{
-				Metadata: &v1.SensorMetadata{},
-				Data: &v1.SensorData_Struct{
-					Struct: protoMsgTabularStruct,
+			toSend: []*v1.SensorData{
+				{
+					Metadata: &v1.SensorMetadata{},
+					Data: &v1.SensorData_Struct{
+						Struct: protoMsgTabularStruct,
+					},
 				},
 			},
 			expData: []*structpb.Struct{protoMsgTabularStruct},
+		},
+		{
+			name: "stream of tabular sensor data",
+			toSend: []*v1.SensorData{
+				{
+					Metadata: &v1.SensorMetadata{},
+					Data: &v1.SensorData_Struct{
+						Struct: protoMsgTabularStruct,
+					},
+				},
+				{
+					Metadata: &v1.SensorMetadata{},
+					Data: &v1.SensorData_Struct{
+						Struct: protoMsgTabularStruct,
+					},
+				},
+			},
+			expData: []*structpb.Struct{protoMsgTabularStruct, protoMsgTabularStruct},
 		},
 	}
 
@@ -265,8 +285,11 @@ func TestSensorUploadTabular(t *testing.T) {
 		defer os.Remove(td)
 
 		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
-		if _, err := pbutil.WriteDelimited(tf, tc.toSend); err != nil {
-			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
+		for i, _ := range tc.toSend {
+			if _, err := pbutil.WriteDelimited(tf, tc.toSend[i]); err != nil {
+				t.Errorf("%v cannot write protobuf struct to temporary file as part of setup for sensorUpload testing",
+					tc.name)
+			}
 		}
 
 		if err := viamUpload(context.TODO(), mc, tf.Name()); err != nil {
@@ -321,12 +344,12 @@ func TestSensorUploadBinary(t *testing.T) {
 			expData: [][]byte{msgEmpty},
 		},
 		{
-			name:    "one sensor data reading",
+			name:    "one binary sensor data reading",
 			toSend:  [][]byte{msgContents},
 			expData: [][]byte{msgContents},
 		},
 		{
-			name:    "multiple sensor data readings",
+			name:    "stream of binary sensor data readings",
 			toSend:  [][]byte{msgBin1, msgBin2, msgBin3},
 			expData: [][]byte{msgBin1, msgBin2, msgBin3},
 		},
