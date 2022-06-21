@@ -16,7 +16,7 @@ func DependencyNotFoundError(name string) error {
 	return errors.Errorf("%q missing from dependencies", name)
 }
 
-// DependencyTypeError is used when a resource is not found in a dependencies.
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
 func DependencyTypeError(name string, expected string, actual interface{}) error {
 	return errors.Errorf("dependency %q should an implementation of %s but it was a %T", name, expected, actual)
 }
