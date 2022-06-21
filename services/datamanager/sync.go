@@ -30,10 +30,8 @@ var (
 	hardCodeComponentName = "TODO [DATA-164]"
 )
 
-type emptyFileError struct{}
-
-func (m *emptyFileError) Error() string {
-	return "this file is empty!"
+func emptyFileError(fileName string) error {
+	return errors.Errorf("%s is empty", fileName)
 }
 
 // Syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
@@ -383,7 +381,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if errors.Is(err, &emptyFileError{}) {
+		if errors.Is(err, emptyFileError(filepath.Base(f.Name()))) {
 			continue
 		}
 		// If there is any other error, return it.
@@ -458,7 +456,7 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
 	if r.GetBinary() == nil {
 		if r.GetStruct() == nil {
-			return r, &emptyFileError{}
+			return r, emptyFileError(filepath.Base(f.Name()))
 		}
 		return r, nil
 	}
