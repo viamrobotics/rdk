@@ -3,7 +3,6 @@ package xarm
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"errors"
@@ -41,6 +40,7 @@ type xArm struct {
 	model    referenceframe.Model
 	started  bool
 	opMgr    operation.SingleOperationManager
+	robot    robot.Robot
 }
 
 //go:embed xarm6_kinematics.json
@@ -52,12 +52,12 @@ var xArm7modeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "xArm6", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config, logger, 6)
+			return NewxArm(ctx, r, config, logger, 6)
 		},
 	})
 	registry.RegisterComponent(arm.Subtype, "xArm7", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config, logger, 7)
+			return NewxArm(ctx, r, config, logger, 7)
 		},
 	})
 
@@ -87,7 +87,7 @@ func XArmModel(dof int) (referenceframe.Model, error) {
 }
 
 // NewxArm returns a new xArm with the specified dof.
-func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
+func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
@@ -117,6 +117,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		mp:       mp,
 		model:    model,
 		started:  false,
+		robot:    r,
 	}
 
 	err = xA.start(ctx)

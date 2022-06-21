@@ -329,7 +329,7 @@ func GetAndShowCorners(inloc, outloc string, n int) ([]Corner, error) {
 		return nil, err
 	}
 
-	defer func() { // nolint:gosec
+	defer func() {
 		if err := f.Close(); err != nil {
 			panic(err)
 		}

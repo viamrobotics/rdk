@@ -3,7 +3,6 @@ package wx250s
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -38,7 +37,7 @@ var wx250smodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(ctx, config.Attributes, logger)
+			return NewArm(ctx, config.Attributes, r, logger)
 		},
 	})
 }
@@ -69,7 +68,7 @@ type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
-	mp       motionplan.MotionPlanner
+	robot    robot.Robot
 	model    referenceframe.Model
 	opMgr    operation.SingleOperationManager
 }
@@ -102,7 +101,7 @@ func getPortMutex(port string) *sync.Mutex {
 }
 
 // NewArm TODO.
-func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func NewArm(ctx context.Context, attributes config.AttributeMap, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
@@ -110,10 +109,6 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 	}
 
 	model, err := referenceframe.UnmarshalModelJSON(wx250smodeljson, "")
-	if err != nil {
-		return nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +124,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
-		mp:       mp,
+		robot:    r,
 		model:    model,
 	}, nil
 }
@@ -140,22 +135,14 @@ func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	joints, err := a.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
@@ -187,6 +174,11 @@ func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 func (a *Arm) Stop(ctx context.Context) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the arm is moving.
+func (a *Arm) IsMoving() bool {
+	return a.opMgr.OpRunning()
 }
 
 // Close will get the arm ready to be turned off.

@@ -1,19 +1,19 @@
 # appimage-builder recipe see https://appimage-builder.readthedocs.io for details
 version: 1
 script:
- - rm -rf $APPDIR | true
- - mkdir -p "$APPDIR/usr/bin"
- - cp ../../../bin/Linux-x86_64/server "$APPDIR/usr/bin/viam-server"
- - mkdir -p "$APPDIR/usr/share/icons/viam/256x256/apps/"
- - cp ./viam-server.png "$APPDIR/usr/share/icons/viam/256x256/apps/viam-server.png"
- - mkdir -p "$APPDIR/aix.d/"
- - cp ./install ./postupdate "$APPDIR/aix.d/"
- - chmod 755 "$APPDIR/aix.d/install" "$APPDIR/aix.d/postupdate"
- - cp ./viam-server.service "$APPDIR/"
+ - rm -rf $TARGET_APPDIR | true
+ - mkdir -p "$TARGET_APPDIR/usr/bin"
+ - cp ../../../bin/Linux-x86_64/server "$TARGET_APPDIR/usr/bin/viam-server"
+ - mkdir -p "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/"
+ - cp ./viam-server.png "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/viam-server.png"
+ - mkdir -p "$TARGET_APPDIR/aix.d/"
+ - cp ./install ./postupdate "$TARGET_APPDIR/aix.d/"
+ - chmod 755 "$TARGET_APPDIR/aix.d/install" "$TARGET_APPDIR/aix.d/postupdate"
+ - cp ./viam-server.service "$TARGET_APPDIR/"
  - go install github.com/Otterverse/aix@latest
- - cp `go env GOPATH`/bin/aix "$APPDIR/usr/bin/"
- - cp `which env` "$APPDIR/usr/bin/"
- - chmod 755 "$APPDIR/usr/bin/"*
+ - cp `go env GOPATH`/bin/aix "$TARGET_APPDIR/usr/bin/"
+ - cp `which env` "$TARGET_APPDIR/usr/bin/"
+ - chmod 755 "$TARGET_APPDIR/usr/bin/"*
 
 AppDir:
   path: ./AppDir
@@ -37,6 +37,7 @@ AppDir:
     - bash
     - libnlopt0
     - libx264-160
+    - libtensorflowlite2
   files:
     include: []
     exclude:

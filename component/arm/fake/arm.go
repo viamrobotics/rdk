@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-
 	// used to import model referenceframe.
 	_ "embed"
 
@@ -33,7 +32,7 @@ func init() {
 }
 
 // NewArm returns a new fake arm.
-func NewArm(cfg config.Component) (arm.Arm, error) {
+func NewArm(cfg config.Component) (arm.LocalArm, error) {
 	name := cfg.Name
 	model, err := xarm.XArmModel(6)
 	if err != nil {
@@ -89,6 +88,11 @@ func (a *Arm) Stop(ctx context.Context) error {
 	return nil
 }
 
+// IsMoving is always false for a fake arm.
+func (a *Arm) IsMoving() bool {
+	return false
+}
+
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := a.GetJointPositions(ctx)
@@ -106,4 +110,10 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 // Close does nothing.
 func (a *Arm) Close() {
 	a.CloseCount++
+}
+
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (a *Arm) UpdateAction(cfg *config.Component) config.UpdateActionType {
+	return config.Reconfigure
 }

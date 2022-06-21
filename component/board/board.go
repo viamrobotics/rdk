@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/registry"
@@ -41,6 +42,7 @@ func init() {
 				pb.RegisterBoardServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.BoardService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -395,6 +397,18 @@ func (r *reconfigurableBoard) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return viamutils.TryClose(ctx, r.actual)
+}
+
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (r *reconfigurableBoard) UpdateAction(c *config.Component) config.UpdateActionType {
+	obj, canUpdate := r.actual.(interface {
+		UpdateAction(config *config.Component) config.UpdateActionType
+	})
+	if canUpdate {
+		return obj.UpdateAction(c)
+	}
+	return config.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.
