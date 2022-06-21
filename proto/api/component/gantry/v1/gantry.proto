@@ -73,4 +73,5 @@ message StopResponse {}
 message Status {
   repeated double positions_mm = 1;
   repeated double lengths_mm = 2;
+  bool is_moving = 3;
 }

@@ -18,6 +18,7 @@
       <template v-slot:content>
         <div
           class="border border-t-0 border-black pt-2 pb-4 h-80"
+          v-click-outside="removeKeyboardListeners"
           :style="{ height: height }"
         >
           <div>
@@ -45,7 +46,11 @@
               <div>
                 <div class="grid grid-cols-2">
                   <div class="flex pt-6">
-                    <KeyboardInput @keyboard-ctl="keyboardCtl"> </KeyboardInput>
+                    <KeyboardInput
+                      @keyboard-ctl="keyboardCtl"
+                      ref="keyboardRef"
+                    >
+                    </KeyboardInput>
                   </div>
                   <div class="flex" v-if="camera">
                     <div class="pr-4">
@@ -294,6 +299,11 @@ export default class Base extends Vue {
       left: keysPressed.left,
     };
     this.$emit("keyboard-ctl", toEmit);
+  }
+  removeKeyboardListeners(): void {
+    // eslint-disable-next-line
+    const keyboardRef: any = this.$refs.keyboardRef;
+    keyboardRef.removeKeyboardListeners();
   }
 }
 </script>

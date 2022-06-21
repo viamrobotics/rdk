@@ -21,6 +21,8 @@ type RobotServiceClient interface {
 	GetOperations(ctx context.Context, in *GetOperationsRequest, opts ...grpc.CallOption) (*GetOperationsResponse, error)
 	// ResourceNames returns the list of all resources.
 	ResourceNames(ctx context.Context, in *ResourceNamesRequest, opts ...grpc.CallOption) (*ResourceNamesResponse, error)
+	// ResourceRPCSubtypes returns the list of all resource types.
+	ResourceRPCSubtypes(ctx context.Context, in *ResourceRPCSubtypesRequest, opts ...grpc.CallOption) (*ResourceRPCSubtypesResponse, error)
 	CancelOperation(ctx context.Context, in *CancelOperationRequest, opts ...grpc.CallOption) (*CancelOperationResponse, error)
 	BlockForOperation(ctx context.Context, in *BlockForOperationRequest, opts ...grpc.CallOption) (*BlockForOperationResponse, error)
 	// DiscoverComponents returns the list of discovered component configurations.
@@ -53,6 +55,15 @@ func (c *robotServiceClient) GetOperations(ctx context.Context, in *GetOperation
 func (c *robotServiceClient) ResourceNames(ctx context.Context, in *ResourceNamesRequest, opts ...grpc.CallOption) (*ResourceNamesResponse, error) {
 	out := new(ResourceNamesResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/ResourceNames", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) ResourceRPCSubtypes(ctx context.Context, in *ResourceRPCSubtypesRequest, opts ...grpc.CallOption) (*ResourceRPCSubtypesResponse, error) {
+	out := new(ResourceRPCSubtypesResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/ResourceRPCSubtypes", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +163,8 @@ type RobotServiceServer interface {
 	GetOperations(context.Context, *GetOperationsRequest) (*GetOperationsResponse, error)
 	// ResourceNames returns the list of all resources.
 	ResourceNames(context.Context, *ResourceNamesRequest) (*ResourceNamesResponse, error)
+	// ResourceRPCSubtypes returns the list of all resource types.
+	ResourceRPCSubtypes(context.Context, *ResourceRPCSubtypesRequest) (*ResourceRPCSubtypesResponse, error)
 	CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error)
 	BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error)
 	// DiscoverComponents returns the list of discovered component configurations.
@@ -174,6 +187,9 @@ func (UnimplementedRobotServiceServer) GetOperations(context.Context, *GetOperat
 }
 func (UnimplementedRobotServiceServer) ResourceNames(context.Context, *ResourceNamesRequest) (*ResourceNamesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourceNames not implemented")
+}
+func (UnimplementedRobotServiceServer) ResourceRPCSubtypes(context.Context, *ResourceRPCSubtypesRequest) (*ResourceRPCSubtypesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResourceRPCSubtypes not implemented")
 }
 func (UnimplementedRobotServiceServer) CancelOperation(context.Context, *CancelOperationRequest) (*CancelOperationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelOperation not implemented")
@@ -241,6 +257,24 @@ func _RobotService_ResourceNames_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).ResourceNames(ctx, req.(*ResourceNamesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ResourceRPCSubtypes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResourceRPCSubtypesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ResourceRPCSubtypes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/ResourceRPCSubtypes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ResourceRPCSubtypes(ctx, req.(*ResourceRPCSubtypesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -388,6 +422,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResourceNames",
 			Handler:    _RobotService_ResourceNames_Handler,
+		},
+		{
+			MethodName: "ResourceRPCSubtypes",
+			Handler:    _RobotService_ResourceRPCSubtypes_Handler,
 		},
 		{
 			MethodName: "CancelOperation",

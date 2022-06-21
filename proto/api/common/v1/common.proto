@@ -126,3 +126,8 @@ message WorldState {
   // a list of Transforms needed to transform a pose from one reference frame to another; this field is optional
   repeated Transform transforms = 2;
 }
+
+// ActuatorStatus is a generic status for resources that only need to return actuator status.
+message ActuatorStatus {
+  bool is_moving = 1;
+}
