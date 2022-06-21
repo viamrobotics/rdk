@@ -134,9 +134,9 @@ func TestCreateStatus(t *testing.T) {
 		}
 
 		status2 := &pb.Status{PositionDeg: uint32(8), IsMoving: false}
-		status2, err := servo.CreateStatus(context.Background(), injectServo)
+		status1, err := servo.CreateStatus(context.Background(), injectServo)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status2, test.ShouldResemble, status2)
+		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
 	t.Run("fail on GetPosition", func(t *testing.T) {

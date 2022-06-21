@@ -160,9 +160,9 @@ func TestCreateStatus(t *testing.T) {
 			JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
 			IsMoving:       false,
 		}
-		status2, err := arm.CreateStatus(context.Background(), injectArm)
+		status1, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status2, test.ShouldResemble, status2)
+		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
 	t.Run("fail on GetJointPositions", func(t *testing.T) {

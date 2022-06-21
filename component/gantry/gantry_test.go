@@ -158,9 +158,9 @@ func TestCreateStatus(t *testing.T) {
 			LengthsMm:   []float64{4.4, 5.5, 6.6},
 			IsMoving:    false,
 		}
-		status2, err := gantry.CreateStatus(context.Background(), injectGantry)
+		status1, err := gantry.CreateStatus(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status2, test.ShouldResemble, status2)
+		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
 	t.Run("fail on GetLengths", func(t *testing.T) {
