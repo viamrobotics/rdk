@@ -581,7 +581,7 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	if err := m.GoFor(ctx, rpm, 0); err != nil {
+	if err := m.goForInternal(ctx, rpm, 0); err != nil {
 		return err
 	}
 	defer func() {
