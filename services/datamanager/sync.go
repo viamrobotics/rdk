@@ -29,9 +29,9 @@ var (
 	hardCodeMethodName = "TODO [DATA-164]"
 )
 
-type emptyFile struct{}
+type emptyFileError struct{}
 
-func (m *emptyFile) Error() string {
+func (m *emptyFileError) Error() string {
 	return "this file is empty!"
 }
 
@@ -393,7 +393,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if errors.Is(err, &emptyFile{}) {
+		if errors.Is(err, &emptyFileError{}) {
 			continue
 		}
 		// If there is any other error, return it.
@@ -468,7 +468,7 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
 	if r.GetBinary() == nil {
 		if r.GetStruct() == nil {
-			return r, &emptyFile{}
+			return r, &emptyFileError{}
 		}
 		return r, nil
 	}

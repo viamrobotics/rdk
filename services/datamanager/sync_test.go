@@ -285,7 +285,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		defer os.Remove(td)
 
 		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
-		for i, _ := range tc.toSend {
+		for i := range tc.toSend {
 			if _, err := pbutil.WriteDelimited(tf, tc.toSend[i]); err != nil {
 				t.Errorf("%v cannot write protobuf struct to temporary file as part of setup for sensorUpload testing",
 					tc.name)
