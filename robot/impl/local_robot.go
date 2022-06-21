@@ -368,7 +368,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
-// component configuration. We do use the resource manager for this information since it
+// component configuration. We don't use the resource manager for this information since it
 // is not be constructed at this point.
 func (r *localRobot) getDependencies(config config.Component) (registry.Dependencies, error) {
 	deps := make(registry.Dependencies)
