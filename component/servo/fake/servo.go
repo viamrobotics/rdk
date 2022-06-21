@@ -14,8 +14,9 @@ import (
 
 func init() {
 	registry.RegisterComponent(servo.Subtype, "fake", registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return &Servo{Name: config.Name}, nil
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			var s servo.LocalServo = &Servo{Name: config.Name}
+			return s, nil
 		},
 	})
 }
@@ -41,4 +42,9 @@ func (s *Servo) GetPosition(ctx context.Context) (uint8, error) {
 // Stop doesn't do anything for a fake servo.
 func (s *Servo) Stop(ctx context.Context) error {
 	return nil
+}
+
+// IsMoving is always false for a fake servo.
+func (s *Servo) IsMoving() bool {
+	return false
 }
