@@ -2,6 +2,7 @@ package nmea
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -17,34 +18,39 @@ func TestConnect(t *testing.T) {
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := RTKGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	url := "http://rtn.dot.ny.gov:8082"
-	username := "evelyn"
-	password := "checkmate"
-	mountPoint := "NJI2"
+	url := "http://fakeurl"
+	username := "user"
+	password := "pwd"
+	mountPoint := "mp"
 
 	// create new ntrip client and connect
-	err := g.Connect(url, username, password, 10)
+	err := g.Connect("invalidurl", username, password, 10)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	err = g.Connect(url, username, password, 10)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = g.GetStream("", 10)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	err = g.GetStream(mountPoint, 10)
-	test.That(t, err, test.ShouldBeNil)
+	if !strings.Contains(err.Error(), "no such host") {
+		t.Error()
+	}
 }
 
 func TestNewRTKGPS(t *testing.T) {
-	path := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
+	path := "somepath"
 
 	cfig := config.Component{
 		Name:  "gps1",
 		Model: "rtk",
 		Type:  gps.SubtypeName,
 		Attributes: config.AttributeMap{
-			"ntrip_addr":             "http://rtn.dot.ny.gov:8082",
-			"ntrip_username":         "evelyn",
-			"ntrip_password":         "checkmate",
-			"ntrip_mountpoint":       "NJI2",
+			"ntrip_addr":             "some_ntrip_address",
+			"ntrip_username":         "",
+			"ntrip_password":         "",
+			"ntrip_mountpoint":       "",
 			"ntrip_path":             "",
 			"ntrip_baud":             115200,
 			"ntrip_send_nmea":        true,
@@ -70,10 +76,10 @@ func TestNewRTKGPS(t *testing.T) {
 		Model: "rtk",
 		Type:  gps.SubtypeName,
 		Attributes: config.AttributeMap{
-			"ntrip_addr":             "http://rtn.dot.ny.gov:8082",
-			"ntrip_username":         "evelyn",
-			"ntrip_password":         "checkmate",
-			"ntrip_mountpoint":       "NJI2",
+			"ntrip_addr":             "some_ntrip_address",
+			"ntrip_username":         "",
+			"ntrip_password":         "",
+			"ntrip_mountpoint":       "",
 			"ntrip_path":             "",
 			"ntrip_baud":             115200,
 			"ntrip_send_nmea":        true,
@@ -95,10 +101,10 @@ func TestNewRTKGPS(t *testing.T) {
 		Model: "rtk",
 		Type:  gps.SubtypeName,
 		Attributes: config.AttributeMap{
-			"ntrip_addr":             "",
-			"ntrip_username":         "evelyn",
-			"ntrip_password":         "checkmate",
-			"ntrip_mountpoint":       "NJI2",
+			"ntrip_addr":             "some_ntrip_address",
+			"ntrip_username":         "",
+			"ntrip_password":         "",
+			"ntrip_mountpoint":       "",
 			"ntrip_path":             "",
 			"ntrip_baud":             115200,
 			"ntrip_send_nmea":        true,
