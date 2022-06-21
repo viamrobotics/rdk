@@ -26,6 +26,7 @@
         "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
+        "home_rpm": 150,
         "spi_bus": "main",
         "chip_select": "36",
         "index": 0,
@@ -42,6 +43,7 @@
         "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
+        "home_rpm": 150,
         "spi_bus": "main",
         "chip_select": "36",
         "index": 1,
@@ -58,6 +60,7 @@
         "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
+        "home_rpm": 150,
         "spi_bus": "main",
         "chip_select": "38",
         "index": 0,
@@ -74,6 +77,7 @@
         "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
+        "home_rpm": 150,
         "spi_bus": "main",
         "chip_select": "38",
         "index": 1,
@@ -90,6 +94,8 @@
         "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
+        "home_rpm": 150,
+        "hold_current": 16,
         "spi_bus": "main",
         "chip_select": "40",
         "index": 0,
@@ -106,6 +112,7 @@
         "ticks_per_rotation": 5370,
         "max_rpm": 18.5,
         "max_acceleration": 30,
+        "home_rpm": 200,
         "spi_bus": "main",
         "chip_select": "40",
         "index": 1,
@@ -140,10 +147,12 @@
       }
     },
     {
-      "host": "10.0.0.99",
       "model": "xArm6",
       "name": "xArm6",
-      "type": "arm"
+      "type": "arm",
+      "attributes": {
+        "host": "10.0.0.99"
+      },
       "frame" : {
           "parent" : "world"
       }
@@ -152,10 +161,14 @@
   "remotes": [
     {
       "address": "vg2105m04.local:8080",
-      "name": "gripper"
+      "name": "gripper",
+      "insecure": true,
       "frame" : {
           "parent" : "xArm6"
       }
     }
-  ]
+  ],
+  "network": {
+      "bind_address": ":8080"
+  }
 }
