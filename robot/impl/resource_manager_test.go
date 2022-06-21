@@ -845,35 +845,45 @@ func TestManagerNewComponent(t *testing.T) {
 	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
 	robotForRemote.manager = newResourceManager(resourceManagerOptions{}, logger)
 
-	c := robotForRemote.config.Components[0]
-	err := robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	test.That(t, err, test.ShouldBeNil)
+	for i, c := range robotForRemote.config.Components {
+		err := robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+		if i == 8 {
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldEqual,
+				"circular dependency - \"arm3\" already depends on \"board3\"")
+		} else {
+			test.That(t, err, test.ShouldBeNil)
+		}
+	}
+	// c := robotForRemote.config.Components[0]
+	// err := robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	// test.That(t, err, test.ShouldBeNil)
 
-	c = robotForRemote.config.Components[2]
-	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	test.That(t, err, test.ShouldBeNil)
+	// c = robotForRemote.config.Components[2]
+	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	// test.That(t, err, test.ShouldBeNil)
 
-	c = robotForRemote.config.Components[3]
-	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	test.That(t, err, test.ShouldBeNil)
+	// c = robotForRemote.config.Components[3]
+	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	// test.That(t, err, test.ShouldBeNil)
 
-	c = robotForRemote.config.Components[6]
-	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	test.That(t, err, test.ShouldBeNil)
+	// c = robotForRemote.config.Components[6]
+	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	// test.That(t, err, test.ShouldBeNil)
 
-	c = robotForRemote.config.Components[8]
-	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldEqual,
-		"circular dependency - \"arm3\" already depends on \"board3\"")
+	// c = robotForRemote.config.Components[8]
+	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	// test.That(t, err, test.ShouldNotBeNil)
+	// test.That(t, err.Error(), test.ShouldEqual,
+	// 	"circular dependency - \"arm3\" already depends on \"board3\"")
 
-	c = robotForRemote.config.Components[9]
-	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	test.That(t, err, test.ShouldBeNil)
+	// c = robotForRemote.config.Components[9]
+	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	// test.That(t, err, test.ShouldBeNil)
 
-	c = robotForRemote.config.Components[12]
-	err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	test.That(t, err, test.ShouldBeNil)
+	// c = robotForRemote.config.Components[12]
+	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+	// test.That(t, err, test.ShouldBeNil)
 }
 
 func TestManagerFilterFromConfig(t *testing.T) {
