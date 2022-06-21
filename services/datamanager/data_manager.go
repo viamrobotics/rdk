@@ -13,12 +13,15 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
+	servicepb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
@@ -26,6 +29,20 @@ func init() {
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
+		},
+	})
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&servicepb.DataManagerService_ServiceDesc,
+				NewServer(subtypeSvc),
+				servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
+			)
+		},
+		RPCServiceDesc: &servicepb.DataManagerService_ServiceDesc,
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 	cType := config.ServiceType(SubtypeName)
@@ -42,8 +59,9 @@ func init() {
 	}, &Config{})
 }
 
-// DataManager defines what a Data Manager Service should be able to do.
-type DataManager interface { // TODO: Add synchronize.
+// Service defines what a Data Manager Service should expose to the users.
+type Service interface {
+	Sync(ctx context.Context) error
 }
 
 // SubtypeName is the name of the type of service.
@@ -88,7 +106,7 @@ type dataCaptureConfigs struct {
 type Config struct {
 	CaptureDir          string   `json:"capture_dir"`
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
-	SyncIntervalMins    int      `json:"sync_interval_mins"`
+	SyncIntervalMins    float64  `json:"sync_interval_mins"`
 	Disabled            bool     `json:"disabled"`
 }
 
@@ -97,55 +115,59 @@ type Config struct {
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
-	dataManagerSvc := &Service{
+func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
+	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
+	dataManagerSvc := &dataManagerService{
 		r:                 r,
 		logger:            logger,
 		captureDir:        viamCaptureDotDir,
 		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers: sync.WaitGroup{},
 		lock:              sync.Mutex{},
+		syncIntervalMins:  -1,
 	}
 
 	return dataManagerSvc, nil
 }
 
 // Close releases all resources managed by data_manager.
-func (svc *Service) Close(ctx context.Context) error {
+func (svc *dataManagerService) Close(ctx context.Context) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.closeCollectors()
 	if svc.syncer != nil {
-		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
 	}
 	svc.backgroundWorkers.Wait()
 	return nil
 }
 
-func (svc *Service) closeCollectors() {
+func (svc *dataManagerService) closeCollectors() {
 	wg := sync.WaitGroup{}
-	for _, collector := range svc.collectors {
+	for md, collector := range svc.collectors {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
 			currCollector.Collector.Close()
 			wg.Done()
 		}()
+		delete(svc.collectors, md)
 	}
 	wg.Wait()
 }
 
-// Service initializes and orchestrates data capture collectors for registered component/methods.
-type Service struct {
-	r          robot.Robot
-	logger     golog.Logger
-	captureDir string
-	collectors map[componentMethodMetadata]collectorAndConfig
-	syncer     syncManager
-
+// dataManagerService initializes and orchestrates data capture collectors for registered component/methods.
+type dataManagerService struct {
+	r                        robot.Robot
+	logger                   golog.Logger
+	captureDir               string
+	collectors               map[componentMethodMetadata]collectorAndConfig
+	syncer                   syncManager
+	syncIntervalMins         float64
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
+	uploadFunc               uploadFn
 	updateCollectorsCancelFn func()
 }
 
@@ -185,7 +207,7 @@ func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, 
 
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
-func (svc *Service) initializeOrUpdateCollector(
+func (svc *dataManagerService) initializeOrUpdateCollector(
 	attributes dataCaptureConfig, updateCaptureDir bool) (
 	*componentMethodMetadata, error,
 ) {
@@ -268,7 +290,9 @@ func (svc *Service) initializeOrUpdateCollector(
 	if err != nil {
 		return nil, err
 	}
+	svc.lock.Lock()
 	svc.collectors[componentMetadata] = collectorAndConfig{collector, attributes}
+	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
 	go func() {
@@ -280,21 +304,18 @@ func (svc *Service) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *Service) initOrUpdateSyncer(intervalMins int) {
+func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
+	// if user updates config while manual syncDataCaptureFiles is occurring, manual syncDataCaptureFiles will be cancelled (TODO fix)
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
-		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
-		svc.backgroundWorkers.Wait()
 		svc.syncer = nil
-		svc.updateCollectorsCancelFn = nil
 	}
 
-	// Init a new syncer if we are still syncing.
+	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
-		cancelCtx, fn := context.WithCancel(context.Background())
-		svc.updateCollectorsCancelFn = fn
-		svc.syncer = newSyncer(svc.logger)
+		svc.syncer = newSyncer(svc.logger, svc.uploadFunc)
+		// Sync existing files in captureDir.
 		var previouslyCaptured []string
 		//nolint
 		_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
@@ -305,19 +326,58 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 			return nil
 		})
 		svc.syncer.Sync(previouslyCaptured)
+
+		// Kick off background routine to periodically syncDataCaptureFiles files.
+		cancelCtx, fn := context.WithCancel(context.Background())
+		svc.updateCollectorsCancelFn = fn
 		svc.uploadCapturedData(cancelCtx, intervalMins)
 	}
 }
 
+// Sync performs a non-scheduled syncDataCaptureFiles of the data in the capture directory.
+func (svc *dataManagerService) Sync(ctx context.Context) error {
+	if svc.syncer == nil {
+		panic("called Sync on data manager service with nil syncer")
+	}
+
+	svc.syncDataCaptureFiles()
+	return nil
+}
+
+func (svc *dataManagerService) syncDataCaptureFiles() {
+	svc.lock.Lock()
+	oldFiles := make([]string, 0, len(svc.collectors))
+	for _, collector := range svc.collectors {
+		// Create new target and set it.
+		nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
+		if err != nil {
+			svc.logger.Errorw("failed to create new data capture file", "error", err)
+		}
+		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
+		collector.Collector.SetTarget(nextTarget)
+	}
+	svc.lock.Unlock()
+	svc.syncer.Sync(oldFiles)
+}
+
 // Get the config associated with the data manager service.
-func getServiceConfig(cfg *config.Config) (config.Service, bool) {
+// Returns a boolean for whether a config is returned and an error if the
+// config was incorrectly formatted.
+func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
 		if c.ResourceName() == Name {
-			return c, true
+			svcConfig, ok := c.ConvertedAttributes.(*Config)
+			// Incorrect configuration is an error.
+			if !ok {
+				return &Config{}, false, utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
+			}
+			return svcConfig, true, nil
 		}
 	}
-	return config.Service{}, false
+
+	// Data Manager Service is not in the config, which is not an error.
+	return &Config{}, false, nil
 }
 
 // Get the component configs associated with the data manager service.
@@ -350,15 +410,14 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 }
 
 // Update updates the data manager service when the config has changed.
-func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
-	c, ok := getServiceConfig(cfg)
-	// Service is not in the config or has been removed from it. Close any collectors.
+func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
+	svcConfig, ok, err := getServiceConfig(cfg)
+	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
+	// Close any collectors.
 	if !ok {
 		svc.closeCollectors()
-		return nil
+		return err
 	}
-
-	svcConfig, ok := c.ConvertedAttributes.(*Config)
 
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svcConfig.Disabled {
@@ -367,9 +426,6 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 		return nil
 	}
 
-	if !ok {
-		return utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
-	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 
@@ -383,8 +439,11 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 		return nil
 	}
 
-	// nolint:contextcheck
-	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+	if svcConfig.SyncIntervalMins != svc.syncIntervalMins {
+		//nolint:contextcheck
+		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+	}
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -411,11 +470,13 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func (svc *Service) uploadCapturedData(cancelCtx context.Context, intervalMins int) {
+func (svc *dataManagerService) uploadCapturedData(cancelCtx context.Context, intervalMins float64) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		ticker := time.NewTicker(time.Minute * time.Duration(intervalMins))
+		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
+		intervalMillis := 60000.0 * intervalMins
+		ticker := time.NewTicker(time.Millisecond * time.Duration(intervalMillis))
 		defer ticker.Stop()
 
 		for {
@@ -429,19 +490,7 @@ func (svc *Service) uploadCapturedData(cancelCtx context.Context, intervalMins i
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
-				svc.lock.Lock()
-				oldFiles := make([]string, 0, len(svc.collectors))
-				for _, collector := range svc.collectors {
-					// Create new target and set it.
-					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
-					if err != nil {
-						svc.logger.Errorw("failed to create new data capture file", "error", err)
-					}
-					oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
-					collector.Collector.SetTarget(nextTarget)
-				}
-				svc.lock.Unlock()
-				svc.syncer.Sync(oldFiles)
+				svc.syncDataCaptureFiles()
 			}
 		}
 	})
