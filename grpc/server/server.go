@@ -125,6 +125,20 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
 }
 
+// ResourceRPCSubtypes returns the list of resource RPC subtypes.
+func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubtypesRequest) (*pb.ResourceRPCSubtypesResponse, error) {
+	resSubtypes := s.r.ResourceRPCSubtypes()
+	protoTypes := make([]*pb.ResourceRPCSubtype, 0, len(resSubtypes))
+	for _, rt := range resSubtypes {
+		protoTypes = append(protoTypes, &pb.ResourceRPCSubtype{
+			Subtype: protoutils.ResourceNameToProto(resource.Name{Subtype: rt.Subtype,
+				Remote: resource.Remote{Remote: ""}, Name: ""}),
+			ProtoService: rt.Desc.GetFullyQualifiedName(),
+		})
+	}
+	return &pb.ResourceRPCSubtypesResponse{ResourceRpcSubtypes: protoTypes}, nil
+}
+
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {

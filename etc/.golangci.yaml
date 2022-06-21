@@ -45,6 +45,9 @@ linters:
     - wrapcheck
     - wsl
 linters-settings:
+  gocritic:
+    disabled-checks:
+      - commentFormatting
   errcheck:
     check-blank: true
   gosec:

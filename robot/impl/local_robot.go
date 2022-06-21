@@ -116,6 +116,11 @@ func (r *localRobot) ResourceNames() []resource.Name {
 	return r.manager.ResourceNames()
 }
 
+// ResourceRPCSubtypes returns all known resource RPC subtypes in use.
+func (r *localRobot) ResourceRPCSubtypes() []resource.RPCSubtype {
+	return r.manager.ResourceRPCSubtypes()
+}
+
 // ProcessManager returns the process manager for the robot.
 func (r *localRobot) ProcessManager() pexec.ProcessManager {
 	return r.manager.processManager
@@ -305,7 +310,10 @@ func newWithResources(
 	r.config = cfg
 	// default services
 	for _, name := range defaultSvc {
-		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
+		cfg := config.Service{
+			Namespace: name.Namespace,
+			Type:      config.ServiceType(name.ResourceSubtype),
+		}
 		svc, err := r.newService(ctx, cfg)
 		if err != nil {
 			return nil, err
