@@ -61,7 +61,7 @@ func TestFailingClient(t *testing.T) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := board.NewClient(cancelCtx, testBoardName, listener.Addr().String(), logger)
+	_, err := viamgrpc.Dial(cancelCtx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 }
@@ -170,13 +170,6 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}
 
-	t.Run("New client", func(t *testing.T) {
-		client, err := board.NewClient(context.Background(), testBoardName, listener.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		testWorkingClient(t, client)
-	})
-
 	t.Run("New client from connection", func(t *testing.T) {
 		ctx := context.Background()
 		conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
@@ -185,6 +178,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		testWorkingClient(t, client)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -204,8 +198,9 @@ func TestClientWithStatus(t *testing.T) {
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
-	client, err := board.NewClient(context.Background(), testBoardName, listener.Addr().String(), logger)
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client := board.NewClientFromConn(context.Background(), conn, testBoardName, logger)
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
@@ -223,6 +218,7 @@ func TestClientWithStatus(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), client)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestClientWithoutStatus(t *testing.T) {
@@ -261,6 +257,7 @@ func TestClientWithoutStatus(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), client)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestClientDialerOption(t *testing.T) {
@@ -272,15 +269,19 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := board.NewClient(ctx, testBoardName, listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := board.NewClientFromConn(ctx, conn1, testBoardName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := board.NewClient(ctx, testBoardName, listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := board.NewClientFromConn(ctx, conn2, testBoardName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }
