@@ -539,6 +539,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
+
 	// use secret
 	remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
 		Type:    rutils.CredentialsTypeRobotLocationSecret,
