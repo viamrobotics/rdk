@@ -61,7 +61,7 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			svc, err := New(ctx, r, c, logger)
 			if err != nil {
-				logger.Warn(err)
+				return nil, err
 			}
 			return svc, nil
 		},
@@ -309,7 +309,7 @@ func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, c
 	return resp.MimeType, imData, vObj, nil
 }
 
-// New returns a new slam service for the given robot. Will not error out as to prevent server shutdown.
+// New returns a new slam service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {

@@ -290,7 +290,6 @@ func newWithResources(
 	resources map[resource.Name]interface{},
 	logger golog.Logger,
 ) (robot.LocalRobot, error) {
-	// fmt.Printf("len of resources0: %v", len(resources))
 	r := &localRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{

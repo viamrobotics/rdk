@@ -2,13 +2,19 @@ package robotimpl
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
@@ -25,10 +31,12 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/vision"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 )
 
@@ -855,35 +863,6 @@ func TestManagerNewComponent(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 		}
 	}
-	// c := robotForRemote.config.Components[0]
-	// err := robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	// test.That(t, err, test.ShouldBeNil)
-
-	// c = robotForRemote.config.Components[2]
-	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	// test.That(t, err, test.ShouldBeNil)
-
-	// c = robotForRemote.config.Components[3]
-	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	// test.That(t, err, test.ShouldBeNil)
-
-	// c = robotForRemote.config.Components[6]
-	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	// test.That(t, err, test.ShouldBeNil)
-
-	// c = robotForRemote.config.Components[8]
-	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	// test.That(t, err, test.ShouldNotBeNil)
-	// test.That(t, err.Error(), test.ShouldEqual,
-	// 	"circular dependency - \"arm3\" already depends on \"board3\"")
-
-	// c = robotForRemote.config.Components[9]
-	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	// test.That(t, err, test.ShouldBeNil)
-
-	// c = robotForRemote.config.Components[12]
-	// err = robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
-	// test.That(t, err, test.ShouldBeNil)
 }
 
 func TestManagerFilterFromConfig(t *testing.T) {
@@ -1371,26 +1350,86 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	)
 }
 
-// // make sure the newRemote returns an error that shows Config.AllowInsecure
-// func TestConfigAllowInsecureCreds(t *testing.T) {
+func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
 
-// }
+	ctx := context.Background()
 
-// func TestRemoteAuthetnicationRequired(t *testing.T) {
-// 	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-// 	test.That(t, err, test.ShouldNotBeNil)
-// 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+	r, err := New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
 
-// 	remoteConfig.Remotes[0].Auth.Entity = "wrong"
-// 	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-// 	test.That(t, err, test.ShouldNotBeNil)
-// 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+	altName := primitive.NewObjectID().Hex()
+	cert, _, _, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
+	test.That(t, err, test.ShouldBeNil)
 
-// 	remoteConfig.Remotes[0].Auth.Entity = options.FQDN
-// 	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-// 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+	leaf, err := x509.ParseCertificate(cert.Certificate[0])
+	test.That(t, err, test.ShouldBeNil)
 
-// }
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := weboptions.New()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	options.Network.TLSConfig = &tls.Config{
+		RootCAs:      certPool,
+		ClientCAs:    certPool,
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+	}
+	options.Auth.TLSAuthEntities = leaf.DNSNames
+	options.Managed = true
+	options.FQDN = altName
+	locationSecret := "locsosecret"
+
+	options.Auth.Handlers = []config.AuthHandlerConfig{
+		{
+			Type: rutils.CredentialsTypeRobotLocationSecret,
+			Config: config.AttributeMap{
+				"secret": locationSecret,
+			},
+		},
+	}
+
+	options.BakedAuthEntity = "blah"
+	options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
+
+	err = r.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteTLSConfig := options.Network.TLSConfig.Clone()
+	remoteTLSConfig.Certificates = nil
+	remoteTLSConfig.ServerName = "somename"
+	remote := config.Remote{
+		Name:    "foo",
+		Address: addr,
+		Auth: config.RemoteAuth{
+			Managed: true,
+		},
+	}
+	manager := newResourceManager(resourceManagerOptions{
+		tlsConfig: remoteTLSConfig,
+	}, logger)
+
+	err = manager.newRemote(context.Background(), remote)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+	remote.Auth.Entity = "wrong"
+	err = manager.newRemote(context.Background(), remote)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+	remote.Auth.Entity = options.FQDN
+	err = manager.newRemote(context.Background(), remote)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+}
 
 type fakeProcess struct {
 	id string

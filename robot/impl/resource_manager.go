@@ -208,7 +208,6 @@ func (manager *resourceManager) processConfig(
 	config *config.Config,
 	robot *localRobot,
 ) {
-	// we want to read out and try to load all of these without failing on the first try
 	manager.newProcesses(ctx, config.Processes)
 
 	manager.newRemotes(ctx, config.Remotes)
@@ -222,8 +221,6 @@ func (manager *resourceManager) processConfig(
 
 // newProcesses constructs all processes defined.
 func (manager *resourceManager) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) {
-	// fmt.Println("goes into new processes")
-	// fmt.Printf("length of processes: %v \n", len(processes))
 	for _, procConf := range processes {
 		if err := manager.newProcess(ctx, procConf); err != nil {
 			manager.logger.Errorw("failed to create new process", "error", err)
@@ -232,7 +229,7 @@ func (manager *resourceManager) newProcesses(ctx context.Context, processes []pe
 
 	err := manager.processManager.Start(ctx)
 	if err != nil {
-		manager.logger.Errorw("there are process(es) that failed the start", "error", err)
+		manager.logger.Errorw("there are process(es) that failed to start", "error", err)
 	}
 }
 
@@ -240,7 +237,6 @@ func (manager *resourceManager) newProcess(ctx context.Context, procConf pexec.P
 	// In an AppImage execve() is meant to be hooked to swap out the AppImage's libraries and the system ones.
 	// Go doesn't use libc's execve() though, so the hooks fail and trying to exec binaries outside the AppImage can fail.
 	// We work around this by execing through a bash shell (included in the AppImage) which then gets hooked properly.
-	// fmt.Println("goes into new process")
 	_, isAppImage := os.LookupEnv("APPIMAGE")
 	if isAppImage {
 		procConf.Args = []string{"-c", shellescape.QuoteCommand(append([]string{procConf.Name}, procConf.Args...))}
@@ -257,18 +253,15 @@ func (manager *resourceManager) newProcess(ctx context.Context, procConf pexec.P
 func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config.Remote) {
 	for _, config := range remotes {
 		if err := manager.newRemote(ctx, config); err != nil {
-			manager.logger.Errorw("new remote was not created", "error", err)
+			manager.logger.Errorw("failed to create new remote", "remote", config.Name, "error", err)
 		}
 	}
 }
 
 func (manager *resourceManager) newRemote(ctx context.Context, config config.Remote) error {
-	// fmt.Println("goes into new remote")
 	dialOpts := remoteDialOptions(config, manager.opts)
 	robotClient, err := dialRemote(ctx, config, manager.logger, dialOpts...)
 	if err != nil {
-		// fmt.Println("new remote here wth non-nil error")
-		// fmt.Println(err)
 		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
 			if manager.opts.fromCommand {
 				err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
@@ -276,6 +269,7 @@ func (manager *resourceManager) newRemote(ctx context.Context, config config.Rem
 				err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
 			}
 		}
+		// TODO: return a remote robot here that continues to retry
 		return errors.Errorf("couldn't connect to robot remote %v with error: %v", config.Address, err)
 	}
 	configCopy := config
@@ -292,7 +286,6 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 }
 
 func (manager *resourceManager) newComponent(ctx context.Context, c config.Component, robot *localRobot) error {
-	// fmt.Println("goes into new component")
 	r, err := robot.newResource(ctx, c)
 	if err != nil {
 		return errors.Errorf("cannot not find resource %v", err)
@@ -309,7 +302,6 @@ func (manager *resourceManager) newComponent(ctx context.Context, c config.Compo
 }
 
 func (manager *resourceManager) newComponentDependency(dep string, robot *localRobot, rName resource.Name) error {
-	// fmt.Println("goes into new component dependency")
 	if comp := robot.config.FindComponent(dep); comp != nil {
 		if err := manager.resources.AddChildren(rName, comp.ResourceName()); err != nil {
 			return err
@@ -337,7 +329,6 @@ func (manager *resourceManager) newServices(ctx context.Context, services []conf
 func (manager *resourceManager) newService(ctx context.Context, cs config.Service, r *localRobot) error {
 	// DataManagerService has to be specifically excluded since it's defined in the config but is a default
 	// service that we only want to reconfigure rather than reinstantiate with New().
-	// fmt.Println("goes into new service")
 	if cs.ResourceName() == datamanager.Name {
 		return nil
 	}
@@ -372,8 +363,7 @@ func (manager *resourceManager) UpdateConfig(ctx context.Context,
 	robot *draftRobot,
 ) (PartsMergeResult, error) {
 	var leftovers PartsMergeResult
-	replacedRemotes := manager.updateRemotes(ctx, added.Remotes, modified.Remotes)
-	leftovers.ReplacedRemotes = replacedRemotes
+	manager.updateRemotes(ctx, added.Remotes, modified.Remotes)
 	replacedProcesses, err := manager.updateProcesses(ctx, added.Processes, modified.Processes)
 	leftovers.ReplacedProcesses = replacedProcesses
 	if err != nil {
@@ -395,7 +385,6 @@ func (manager *resourceManager) updateProcesses(ctx context.Context,
 	addProcesses []pexec.ProcessConfig,
 	modifiedProcesses []pexec.ProcessConfig,
 ) ([]pexec.ManagedProcess, error) {
-	// fmt.Println("goes into update processes")
 	var replacedProcess []pexec.ManagedProcess
 	manager.newProcesses(ctx, addProcesses)
 	for _, p := range modifiedProcesses {
@@ -412,13 +401,11 @@ func (manager *resourceManager) updateProcesses(ctx context.Context,
 func (manager *resourceManager) updateRemotes(ctx context.Context,
 	addedRemotes []config.Remote,
 	modifiedRemotes []config.Remote,
-) []*remoteRobot {
-	var replacedRemotes []*remoteRobot
+) {
 	manager.newRemotes(ctx, addedRemotes)
 	for _, r := range modifiedRemotes {
 		manager.newRemotes(ctx, []config.Remote{r})
 	}
-	return replacedRemotes
 }
 
 func (manager *resourceManager) reconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
