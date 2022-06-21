@@ -296,6 +296,8 @@ func PositionRotationDiff(a, b *commonpb.Pose) float64 {
 		utils.Square(a.OZ-b.OZ)
 }
 
+// Move is a helper function to be called by arm implementations to abstract away the default procedure for using the
+// motion planning library with arms.
 func Move(
 	ctx context.Context,
 	r robot.Robot,
