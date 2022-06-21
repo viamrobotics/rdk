@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
-	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -21,16 +20,6 @@ type serviceClient struct {
 	conn   rpc.ClientConn
 	client pb.IMUServiceClient
 	logger golog.Logger
-}
-
-// newServiceClient constructs a new serviceClient that is served at the given address.
-func newServiceClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*serviceClient, error) {
-	conn, err := grpc.Dial(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	sc := newSvcClientFromConn(conn, logger)
-	return sc, nil
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
@@ -46,7 +35,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 
 // Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
-	return sc.conn.Close()
+	return nil
 }
 
 var _ = sensor.Sensor(&client{})
@@ -55,15 +44,6 @@ var _ = sensor.Sensor(&client{})
 type client struct {
 	*serviceClient
 	name string
-}
-
-// NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (IMU, error) {
-	sc, err := newServiceClient(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return clientFromSvcClient(sc, name), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
