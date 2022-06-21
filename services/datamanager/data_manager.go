@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -313,9 +312,9 @@ func getServiceConfig(cfg *config.Config) (config.Service, bool) {
 	return config.Service{}, false
 }
 
-func getAttrsFromServiceConfig(componentSvcConfig config.ResourceLevelServiceConfig) (dataCaptureConfigs, error) {
+func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConfig) (dataCaptureConfigs, error) {
 	var attrs dataCaptureConfigs
-	configs, err := config.TransformAttributeMapToStruct(&attrs, componentSvcConfig.Attributes)
+	configs, err := config.TransformAttributeMapToStruct(&attrs, resourceSvcConfig.Attributes)
 	if err != nil {
 		return dataCaptureConfigs{}, err
 	}
@@ -357,7 +356,11 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 				}
 
 				for _, attrs := range attrs.Attributes {
-					attrs.Name = attrs.Name[strings.LastIndex(attrs.Name, ":")+1:]
+					name, err := resource.NewFromString(attrs.Name)
+					if err != nil {
+						return componentDataCaptureConfigs, err
+					}
+					attrs.Name = name.Name
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}
