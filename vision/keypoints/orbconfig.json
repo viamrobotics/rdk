@@ -1,0 +1,17 @@
+{
+  "n_layers": 4,
+  "downscale_factor": 2,
+  "fast": {
+    "n_matches": 9,
+    "nms_win_size": 7,
+    "threshold": 0.15,
+    "oriented": true,
+    "radius": 16
+  },
+  "brief": {
+    "n": 256,
+    "sampling": 0,
+    "use_orientation": true,
+    "patch_size": 16
+  }
+}
