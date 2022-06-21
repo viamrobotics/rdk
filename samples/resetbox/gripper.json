@@ -1,0 +1,287 @@
+{
+  "components": [
+    {
+      "attributes": {
+        "analogs": [
+          {
+            "chip_select": "24",
+            "name": "current",
+            "pin": "1",
+            "spi_bus": "main"
+          },
+          {
+            "chip_select": "24",
+            "name": "pressure",
+            "pin": "0",
+            "spi_bus": "main"
+          }
+        ],
+        "digital_interrupts": [
+          {
+            "name": "encoder",
+            "pin": "15"
+          },
+          {
+            "name": "encoder-b",
+            "pin": "16"
+          }
+        ],
+        "spis": [
+          {
+            "bus_select": "0",
+            "name": "main"
+          }
+        ]
+      },
+      "depends_on": [],
+      "model": "pi",
+      "name": "local",
+      "type": "board"
+    },
+    {
+      "attributes": {
+        "pressure_limit": 750
+      },
+      "depends_on": [
+        "local",
+        "g"
+      ],
+      "frame": {
+        "orientation": {
+          "value": {}
+        },
+        "parent": "world",
+        "translation": {}
+      },
+      "model": "viam-v1",
+      "name": "vg1",
+      "type": "gripper"
+    },
+    {
+      "attributes": {
+        "board": "local",
+        "encoder": "encoder",
+        "encoderB": "encoder-b",
+        "max_power_pct": 0.7,
+        "pins": {
+          "a": "13",
+          "b": "11",
+          "en_high": "18"
+        },
+        "pwm_freq": 8000,
+        "ticks_per_rotation": 490
+      },
+      "depends_on": [
+        "local"
+      ],
+      "model": "pi",
+      "name": "g",
+      "type": "motor"
+    },
+    {
+      "attributes": {
+        "camera_parameters": {
+          "distortion": {
+            "rk1": 0.11297234,
+            "rk2": -0.21375332,
+            "rk3": -0.01584774,
+            "tp1": -0.00302002,
+            "tp2": 0.19969297
+          },
+          "fx": 821.32642889,
+          "fy": 821.68607359,
+          "height": 768,
+          "ppx": 494.95941428,
+          "ppy": 370.70529534,
+          "width": 1024
+        },
+        "path_pattern": "video0",
+        "stream": "color",
+        "width": 1024
+      },
+      "depends_on": [],
+      "model": "webcam",
+      "name": "color",
+      "type": "camera"
+    },
+    {
+      "attributes": {
+        "aligned": true,
+        "args": "both?num=0",
+        "camera_parameters": {
+          "distortion": {
+            "rk1": 0.10837,
+            "rk2": -3.06437,
+            "rk3": 5.76528,
+            "tp1": 2.67302e-16,
+            "tp2": 6.04658e-16
+          },
+          "fx": 216.583,
+          "fy": 216.583,
+          "height": 171,
+          "ppx": 116.385,
+          "ppy": 87.7112,
+          "width": 224
+        },
+        "hide": true,
+        "host": "127.0.0.1",
+        "port": 8181,
+        "stream": "both"
+      },
+      "depends_on": [],
+      "model": "single_stream",
+      "name": "depth",
+      "type": "camera"
+    },
+    {
+      "attributes": {
+        "color": "color",
+        "debug": false,
+        "depth": "depth",
+        "homography": {
+          "depth_to_color": false,
+          "rotate_depth": -90,
+          "transform": [
+            0.232700501,
+            -0.00833535395,
+            -36.1894025,
+            -0.00190671303,
+            0.235303232,
+            8.38582614,
+            -0.0000639101664,
+            -0.0000464582754,
+            1
+          ]
+        },
+        "warp": {
+          "ColorInputSize": {
+            "X": 1024,
+            "Y": 768
+          },
+          "ColorWarpPoints": [
+            {
+              "X": 604,
+              "Y": 575
+            },
+            {
+              "X": 695,
+              "Y": 115
+            }
+          ],
+          "DepthInputSize": {
+            "X": 224,
+            "Y": 171
+          },
+          "DepthWarpPoints": [
+            {
+              "X": 89,
+              "Y": 109
+            },
+            {
+              "X": 206,
+              "Y": 132
+            }
+          ],
+          "OutputOrigin": {
+            "X": 227,
+            "Y": 160
+          },
+          "OutputSize": {
+            "X": 448,
+            "Y": 342
+          },
+          "Smooth": false,
+          "WarpFromCommon": true
+        }
+      },
+      "depends_on": [],
+      "frame": {
+        "hide": true,
+        "orientation": {
+          "type": "ov_degrees",
+          "value": {
+            "th": 90,
+            "x": 0,
+            "y": 0,
+            "z": -1
+          }
+        },
+        "parent": "vg1",
+        "translation": {
+          "x": 20,
+          "y": 0,
+          "z": -85
+        }
+      },
+      "model": "align_color_depth",
+      "name": "combined",
+      "type": "camera"
+    },
+    {
+      "attributes": {
+        "hide": false,
+        "host": "127.0.0.1",
+        "source": "combined"
+      },
+      "depends_on": [],
+      "frame": {
+        "orientation": {
+          "type": "ov_degrees",
+          "value": {
+            "th": 90,
+            "x": 0,
+            "y": 0,
+            "z": -1
+          }
+        },
+        "parent": "vg1",
+        "translation": {
+          "x": 20,
+          "y": 0,
+          "z": -85
+        }
+      },
+      "model": "preprocess_depth",
+      "name": "combined-filled",
+      "type": "camera"
+    },
+    {
+      "attributes": {
+        "hide": false,
+        "host": "127.0.0.1",
+        "source": "combined-filled"
+      },
+      "depends_on": [],
+      "frame": {
+        "orientation": {
+          "type": "ov_degrees",
+          "value": {
+            "th": 90,
+            "x": 0,
+            "y": 0,
+            "z": -1
+          }
+        },
+        "parent": "vg1",
+        "translation": {
+          "x": 20,
+          "y": 0,
+          "z": -85
+        }
+      },
+      "model": "depth_to_pretty",
+      "name": "depth-pretty",
+      "type": "camera"
+    }
+  ],
+  "processes": [
+    {
+      "id": "tof1",
+      "log": true,
+      "name": "royaleserver"
+    }
+  ],
+  "network": {
+    "bind_address": ":8080"
+  }
+}
