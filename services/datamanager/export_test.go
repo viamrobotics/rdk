@@ -17,9 +17,9 @@ func (svc *dataManagerService) NumCollectors() int {
 	return len(svc.collectors)
 }
 
-func (svc *dataManagerService) HasInCollector(componentName string, MethodMetadata data.MethodMetadata) bool {
+func (svc *dataManagerService) HasInCollector(componentName string, methodMetadata data.MethodMetadata) bool {
 	compMethodMetadata := componentMethodMetadata{
-		componentName, MethodMetadata,
+		componentName, methodMetadata,
 	}
 	_, present := svc.collectors[compMethodMetadata]
 	return present
