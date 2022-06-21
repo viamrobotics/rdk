@@ -32,6 +32,7 @@ func init() {
 				pb.RegisterServoServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.ServoService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -63,13 +64,20 @@ type Servo interface {
 	generic.Generic
 }
 
+// A LocalServo represents a Servo that can report whether it is moving or not.
+type LocalServo interface {
+	Servo
+
+	resource.MovingCheckable
+}
+
 // Named is a helper for getting the named Servo's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
 var (
-	_ = Servo(&reconfigurableServo{})
+	_ = LocalServo(&reconfigurableServo{})
 	_ = resource.Reconfigurable(&reconfigurableServo{})
 )
 
@@ -93,21 +101,21 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the servo.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	servo, ok := resource.(Servo)
+	servo, ok := resource.(LocalServo)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Servo", resource)
+		return nil, utils.NewUnimplementedInterfaceError("LocalServo", resource)
 	}
 	position, err := servo.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.Status{PositionDeg: uint32(position)}, nil
+	return &pb.Status{PositionDeg: uint32(position), IsMoving: servo.IsMoving()}, nil
 }
 
 type reconfigurableServo struct {
 	mu     sync.RWMutex
-	actual Servo
+	actual LocalServo
 }
 
 func (r *reconfigurableServo) ProxyFor() interface{} {
@@ -141,6 +149,12 @@ func (r *reconfigurableServo) Stop(ctx context.Context) error {
 	return r.actual.Stop(ctx)
 }
 
+func (r *reconfigurableServo) IsMoving() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving()
+}
+
 func (r *reconfigurableServo) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -164,9 +178,9 @@ func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource
 // WrapWithReconfigurable converts a regular Servo implementation to a reconfigurableServo.
 // If servo is already a reconfigurableServo, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	servo, ok := r.(Servo)
+	servo, ok := r.(LocalServo)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Servo", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalServo", r)
 	}
 	if reconfigurable, ok := servo.(*reconfigurableServo); ok {
 		return reconfigurable, nil
