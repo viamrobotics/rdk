@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -110,12 +111,14 @@ func TestNewDataManager(t *testing.T) {
 	files, err := ioutil.ReadDir(svcConfig.CaptureDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 1)
+	resetFolder(t, datamanager.SyncQueuePath)
+
 }
 
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
 	var uploadCount uint64
-	uploadFn := func(ctx context.Context, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
 		_ = os.Remove(path)
 		return nil
@@ -165,7 +168,7 @@ func TestManualSync(t *testing.T) {
 // Validates that scheduled syncing works for a datamanager.
 func TestScheduledSync(t *testing.T) {
 	var uploadCount uint64
-	uploadFn := func(ctx context.Context, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
 		_ = os.Remove(path)
 		return nil
@@ -230,7 +233,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	var uploadCount uint64
 	var uploadedFiles []string
 	var lock sync.Mutex
-	uploadFn := func(ctx context.Context, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		lock.Lock()
 		atomic.AddUint64(&uploadCount, 1)
 		uploadedFiles = append(uploadedFiles, path)
