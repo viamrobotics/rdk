@@ -155,8 +155,10 @@ func TestFileUpload(t *testing.T) {
 		{
 			name:   "not empty",
 			toSend: msgContents,
-			expData: [][]byte{msgContents[:10], msgContents[10:20], msgContents[20:30], msgContents[30:40],
-				msgContents[40:50], msgContents[50:]},
+			expData: [][]byte{
+				msgContents[:10], msgContents[10:20], msgContents[20:30], msgContents[30:40],
+				msgContents[40:50], msgContents[50:],
+			},
 		},
 	}
 
