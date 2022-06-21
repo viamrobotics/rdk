@@ -31,6 +31,7 @@ func SortComponents(components []Component) ([]Component, error) {
 		dependencies[config.Name] = config.DependsOn
 	}
 
+	// TODO(RSDK-427): this check always fails if we depend on a remote.
 	for name, dps := range dependencies {
 		for _, depName := range dps {
 			if _, ok := componentToConfig[depName]; !ok {
