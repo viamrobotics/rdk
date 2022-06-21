@@ -60,4 +60,5 @@ message StopResponse {}
 
 message Status {
   uint32 position_deg = 1;
+  bool is_moving = 2;
 }
