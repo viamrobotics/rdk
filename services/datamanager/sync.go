@@ -24,17 +24,17 @@ var (
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
 	// Buffer size set at 32 kiB, this is 32768 Bytes.
-	bufferSize            = 32768
+	uploadChunkSize       = 32768
 	hardCodePartName      = "TODO [DATA-164]"
 	hardCodeMethodName    = "TODO [DATA-164]"
 	hardCodeComponentName = "TODO [DATA-164]"
 )
 
-func emptyFileError(fileName string) error {
+func emptyReadingErr(fileName string) error {
 	return errors.Errorf("%s is empty", fileName)
 }
 
-// Syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
+// syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type syncManager interface {
 	Start()
 	Enqueue(filesToQueue []string) error
@@ -381,7 +381,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if errors.Is(err, emptyFileError(filepath.Base(f.Name()))) {
+		if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
 			continue
 		}
 		// If there is any other error, return it.
@@ -390,7 +390,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		}
 		// Finally, send the UploadRequest to the client.
 		if err := client.Send(uploadReq); err != nil {
-			return errors.Wrap(err, "error while sending fileData")
+			return errors.Wrap(err, "error while sending uploadRequest")
 		}
 	}
 	if err = f.Close(); err != nil {
@@ -456,7 +456,7 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
 	if r.GetBinary() == nil {
 		if r.GetStruct() == nil {
-			return r, emptyFileError(filepath.Base(f.Name()))
+			return r, emptyReadingErr(filepath.Base(f.Name()))
 		}
 		return r, nil
 	}
@@ -467,9 +467,9 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 	if _, err := f.Seek(0, 1); err != nil {
 		return nil, err
 	}
-	byteArr := make([]byte, bufferSize)
+	byteArr := make([]byte, uploadChunkSize)
 	numBytesRead, err := f.Read(byteArr)
-	if numBytesRead < bufferSize {
+	if numBytesRead < uploadChunkSize {
 		byteArr = byteArr[:numBytesRead]
 	}
 	if err != nil {
