@@ -374,6 +374,7 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 	}
 }
 
+// newRemote constructs a single remote.
 func (manager *resourceManager) newRemote(ctx context.Context, config config.Remote) error {
 	dialOpts := remoteDialOptions(config, manager.opts)
 	robotClient, err := dialRemote(ctx, config, manager.logger, dialOpts...)
