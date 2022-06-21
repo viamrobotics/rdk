@@ -29,6 +29,12 @@ var (
 	hardCodeMethodName = "TODO [DATA-164]"
 )
 
+type EmptyFile struct{}
+
+func (m *EmptyFile) Error() string {
+	return "this file is empty!"
+}
+
 // Syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type syncManager interface {
 	Start()
@@ -291,17 +297,14 @@ func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
 
-	// Read the file as if it is SensorData, and if the error is io.EOF (end of file) that means the filetype is
+	// Read the file as if it is SensorData, and if the error is EOF (end of file) that means the filetype is
 	// arbitrary because no protobuf-generated structs (for SensorData) were able to be read (and thus the file has no
-	// readable data). If the error is anything other than io.EOF, return the data type as UNSPECIFIED with the
+	// readable data). If the error is anything other than EOF, return the data type as UNSPECIFIED with the
 	// corresponding error.
 	sensorData, err := readNextSensorData(f)
 
-	if errors.Is(err, io.EOF) {
+	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 		return v1.DataType_DATA_TYPE_FILE, nil
-	}
-	if err != nil {
-		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
 
 	// If sensorData contains a struct it's tabular data; if it contains binary it's binary data; if it contains
@@ -378,11 +381,6 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return errors.New("no data type specified in upload metadata")
 	}
 
-	//nolint
-	f, err = os.Open(path)
-	if err != nil {
-		return errors.Wrapf(err, "error while opening file %s", path)
-	}
 	// Reset file pointer to ensure we are reading from beginning of file.
 	if _, err = f.Seek(0, 0); err != nil {
 		return err
@@ -394,6 +392,9 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		// If the error is EOF, break from loop.
 		if errors.Is(err, io.EOF) {
 			break
+		}
+		if errors.Is(err, &EmptyFile{}) {
+			continue
 		}
 		// If there is any other error, return it.
 		if err != nil {
@@ -466,10 +467,10 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 	// Ensure we construct and return a SensorData value for tabular data when the tabular data's fields and
 	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
 	if r.GetBinary() == nil {
-		if r.GetStruct().Fields != nil {
-			return r, nil
+		if r.GetStruct() == nil {
+			return r, &EmptyFile{}
 		}
-		return nil, io.EOF
+		return r, nil
 	}
 	return r, nil
 }

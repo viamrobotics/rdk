@@ -189,22 +189,22 @@ func TestFileUpload(t *testing.T) {
 		// (and finally to have that data be uploaded) to the cloud.
 		td, err := ioutil.TempDir("", "temp-dir")
 		if err != nil {
-			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
+			t.Errorf("%v: cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
 		}
 		tf, err := ioutil.TempFile(td, tc.name)
 		if err != nil {
-			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
+			t.Errorf("%v: cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
 		defer os.Remove(tf.Name())
 		defer os.Remove(td)
 
-		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function.
+		// Write the data from test cases into the temp file to prepare for reading by the fileUpload function.
 		if _, err := tf.Write(tc.toSend); err != nil {
-			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
+			t.Errorf("%v: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
 
 		if err := viamUpload(context.TODO(), mc, tf.Name()); err != nil {
-			t.Errorf("%v cannot upload file", tc.name)
+			t.Errorf("%v: cannot upload file", tc.name)
 		}
 
 		// Create []v1.UploadRequest object from test case input 'expData [][]byte'.
@@ -230,7 +230,7 @@ func TestFileUpload(t *testing.T) {
 			})
 		}
 
-		// The mc.sent value should be the same as the tc.expMsg value.
+		// The mc.sent value should be the same as the expectedMsgs value.
 		compareMetadata(t, mc.sent[0].GetMetadata(), expectedMsgs[0].GetMetadata())
 		if len(mc.sent) > 1 {
 			test.That(t, mc.sent[1:], test.ShouldResemble, expectedMsgs[1:])
@@ -239,7 +239,6 @@ func TestFileUpload(t *testing.T) {
 }
 
 func TestSensorUploadTabular(t *testing.T) {
-	protoMsgTabularEmpty := toProto(empty{})
 	protoMsgTabularNestedStructs := toProto(metaStruct{
 		AllArrays: allArrays{
 			BoolArray:   []bool{false, true},
@@ -262,16 +261,6 @@ func TestSensorUploadTabular(t *testing.T) {
 		toSend  *v1.SensorData
 		expData []*structpb.Struct
 	}{
-		{
-			name: "empty struct",
-			toSend: &v1.SensorData{
-				Metadata: &v1.SensorMetadata{},
-				Data: &v1.SensorData_Struct{
-					Struct: protoMsgTabularEmpty,
-				},
-			},
-			expData: []*structpb.Struct{},
-		},
 		{
 			name: "structs with each literal, arrays, and nested structs",
 			toSend: &v1.SensorData{
@@ -322,7 +311,7 @@ func TestSensorUploadTabular(t *testing.T) {
 					ComponentName: strings.Split(tf.Name()[len(viamCaptureDotDir):], "/")[1],
 					MethodName:    hardCodeMethodName,
 					Type:          v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-					FileName:      tf.Name(),
+					FileName:      filepath.Base(tf.Name()),
 				},
 			},
 		})
@@ -338,7 +327,7 @@ func TestSensorUploadTabular(t *testing.T) {
 			})
 		}
 
-		// The mc.sent value should be the same as the expectedMsgs value
+		// The mc.sent value should be the same as the expectedMsgs value.
 		compareUploadRequests(t, true, mc.sent, expectedMsgs)
 	}
 }
