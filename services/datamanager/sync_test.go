@@ -428,7 +428,7 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 	}
 	sut := newTestSyncer(t, uploadFn)
 
-	// Start syncer.
+	// Start syncer, pass in its own cancel context as its the same as the test's.
 	sut.Start()
 
 	// Put a couple files in captureDir.

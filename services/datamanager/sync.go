@@ -38,6 +38,7 @@ func emptyReadingErr(fileName string) error {
 type syncManager interface {
 	Start()
 	Enqueue(filesToQueue []string) error
+	Upload()
 	Close()
 }
 
@@ -58,9 +59,12 @@ type syncer struct {
 type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error
 
 // newSyncer returns a new syncer.
-func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer {
+func newSyncer(queuePath string, logger golog.Logger, captureDir string, uploadFunc uploadFn) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
+	// TODO: Change to uploadFunc = viamUpload when PR #915 (DATA-166) is merged.
+	if uploadFunc == nil {
+		uploadFunc = viamUpload
+	}
 	ret := syncer{
 		syncQueue:     queuePath,
 		logger:        logger,
@@ -71,7 +75,7 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string) *syncer
 			m:    make(map[string]struct{}),
 		},
 		backgroundWorkers: sync.WaitGroup{},
-		uploadFn:          viamUpload,
+		uploadFn:          uploadFunc,
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 	}
@@ -98,6 +102,13 @@ func (s *syncer) Enqueue(filesToQueue []string) error {
 	return nil
 }
 
+// Upload uploads files that are in the SyncQueue directory to the cloud when called.
+func (s *syncer) Upload() {
+	if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
+		s.logger.Errorf("failed to upload file to sync queue: %v", err)
+	}
+}
+
 // Start queues any files already in captureDir that haven't been modified in s.queueWaitTime time, and kicks off a
 // goroutine to constantly upload files in the queue.
 func (s *syncer) Start() {
@@ -105,7 +116,6 @@ func (s *syncer) Start() {
 	if err := filepath.WalkDir(s.captureDir, s.queueFile); err != nil {
 		s.logger.Errorf("failed to move files to sync queue: %v", err)
 	}
-
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		ticker := time.NewTicker(time.Millisecond * 500)
@@ -179,10 +189,10 @@ func (s *syncer) Close() {
 }
 
 // upload is an fs.WalkDirFunc that uploads files to Viam cloud storage.
+
 func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	if err != nil {
 		s.logger.Errorw("failed to upload queued file", "error", err)
-
 		return nil
 	}
 
@@ -236,9 +246,9 @@ func (p *progressTracker) unmark(k string) {
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.
-func exponentialRetry(ctx context.Context, fn func(ctx context.Context) error, log golog.Logger) {
+func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
-	if err := fn(ctx); err == nil {
+	if err := fn(cancelCtx); err == nil {
 		return
 	}
 
@@ -246,21 +256,20 @@ func exponentialRetry(ctx context.Context, fn func(ctx context.Context) error, l
 	nextWait := initialWaitTime
 	ticker := time.NewTicker(nextWait)
 	for {
-		if err := ctx.Err(); err != nil {
+		if err := cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				log.Errorw("context closed unexpectedly", "error", err)
 			}
 			return
 		}
-
 		select {
 		// If cancelled, return nil.
-		case <-ctx.Done():
+		case <-cancelCtx.Done():
 			ticker.Stop()
 			return
 		// Otherwise, try again after nextWait.
 		case <-ticker.C:
-			if err := fn(ctx); err != nil {
+			if err := fn(cancelCtx); err != nil {
 				// If error, retry with a new nextWait.
 				log.Errorw("error while uploading file", "error", err)
 				ticker.Stop()
