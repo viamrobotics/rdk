@@ -18,5 +18,5 @@ type DMService interface {
 	Close(ctx context.Context) error
 	SetUploadFn(fn func(ctx context.Context, path string) error)
 	NumCollectors() int
-	HasInCollector(componentName string, componentMetadata data.MethodMetadata) bool
+	HasInCollector(componentName string, componentMethodMetadata data.MethodMetadata) bool
 }
