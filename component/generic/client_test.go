@@ -43,7 +43,6 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("do failed")
 	}
 
-
 	resourceMap := map[resource.Name]interface{}{
 		generic.Named(testGenericName): workingGeneric,
 		generic.Named(failGenericName): failingGeneric,
@@ -59,14 +58,15 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = generic.NewClient(cancelCtx, testGenericName, listener1.Addr().String(), logger)
+		_, err = viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("client tests for working generic", func(t *testing.T) {
-		workingGenericClient, err := generic.NewClient(context.Background(), testGenericName, listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+		workingGenericClient := generic.NewClientFromConn(context.Background(), conn, testGenericName, logger)
 
 		resp, err := workingGenericClient.Do(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
@@ -74,16 +74,20 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		test.That(t, utils.TryClose(context.Background(), workingGenericClient), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("client tests for failing generic", func(t *testing.T) {
-		failingGenericClient, err := generic.NewClient(context.Background(), failGenericName, listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		failingGenericClient := generic.NewClientFromConn(context.Background(), conn, failGenericName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = failingGenericClient.Do(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), failingGenericClient), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for working generic", func(t *testing.T) {
@@ -118,15 +122,20 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := generic.NewClient(ctx, testGenericName, listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := generic.NewClientFromConn(ctx, conn1, testGenericName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := generic.NewClient(ctx, testGenericName, listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := generic.NewClientFromConn(ctx, conn2, testGenericName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
+
 }

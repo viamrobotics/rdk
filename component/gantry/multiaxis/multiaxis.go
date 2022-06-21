@@ -66,7 +66,7 @@ func init() {
 }
 
 // NewMultiAxis creates a new-multi axis gantry.
-func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
+func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.LocalGantry, error) {
 	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
@@ -128,6 +128,8 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	if len(g.subAxes) == 0 {
 		return errors.New("no subaxes found for inputs")
 	}
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
 
 	idx := 0
 	for _, subAx := range g.subAxes {
@@ -173,6 +175,8 @@ func (g *multiAxis) GetLengths(ctx context.Context) ([]float64, error) {
 
 // Stop stops the subaxes of the gantry simultaneously.
 func (g *multiAxis) Stop(ctx context.Context) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
 	wg := sync.WaitGroup{}
 	for _, subAx := range g.subAxes {
 		currG := subAx
@@ -184,6 +188,11 @@ func (g *multiAxis) Stop(ctx context.Context) error {
 		}, wg.Done)
 	}
 	return nil
+}
+
+// IsMoving returns whether the gantry is moving.
+func (g *multiAxis) IsMoving() bool {
+	return g.opMgr.OpRunning()
 }
 
 // CurrentInputs returns the current inputs of the Gantry frame.

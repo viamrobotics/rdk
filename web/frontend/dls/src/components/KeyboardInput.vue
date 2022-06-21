@@ -1,9 +1,5 @@
 <template>
-  <div
-    class="flex flex-col h-23"
-    v-click-outside="removeKeyboardListeners"
-    @click="addKeyboardListeners"
-  >
+  <div class="flex flex-col h-23">
     <div class="flex pb-4">
       <ViamSwitch
         class="pr-4"
@@ -127,10 +123,10 @@ export default class KeyboardInput extends Vue {
   }
 
   toggleKeyboard(): void {
-    if (this.isActive) {
-      this.addKeyboardListeners();
-    } else {
+    if (this.isActive === true) {
       this.removeKeyboardListeners();
+    } else {
+      this.addKeyboardListeners();
     }
   }
 

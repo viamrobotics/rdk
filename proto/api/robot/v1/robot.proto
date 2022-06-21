@@ -26,6 +26,13 @@ service RobotService {
     };
   }
 
+  // ResourceRPCSubtypes returns the list of all resource types.
+  rpc ResourceRPCSubtypes(ResourceRPCSubtypesRequest) returns (ResourceRPCSubtypesResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/resource_rpc_subtypes/list"
+    };
+  }
+
   rpc CancelOperation(CancelOperationRequest) returns (CancelOperationResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/operations/cancel"
@@ -108,6 +115,17 @@ message ResourceNamesRequest {}
 
 message ResourceNamesResponse {
   repeated common.v1.ResourceName resources = 1;
+}
+
+message ResourceRPCSubtype {
+  common.v1.ResourceName subtype = 1;
+  string proto_service = 2;
+}
+
+message ResourceRPCSubtypesRequest {}
+
+message ResourceRPCSubtypesResponse {
+  repeated ResourceRPCSubtype resource_rpc_subtypes = 1;
 }
 
 message Operation {
