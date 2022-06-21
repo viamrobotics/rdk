@@ -80,6 +80,7 @@ type dataCaptureConfig struct {
 	CaptureQueueSize   int                  `json:"capture_queue_size"`
 	CaptureBufferSize  int                  `json:"capture_buffer_size"`
 	AdditionalParams   map[string]string    `json:"additional_params"`
+	Disabled           bool                 `json:"disabled"`
 }
 
 type dataCaptureConfigs struct {
@@ -91,6 +92,7 @@ type Config struct {
 	CaptureDir          string   `json:"capture_dir"`
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
 	SyncIntervalMins    int      `json:"sync_interval_mins"`
+	Disabled            bool     `json:"disabled"`
 }
 
 // TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
@@ -126,13 +128,14 @@ func (svc *Service) Close(ctx context.Context) error {
 
 func (svc *Service) closeCollectors() {
 	wg := sync.WaitGroup{}
-	for _, collector := range svc.collectors {
+	for md, collector := range svc.collectors {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
 			currCollector.Collector.Close()
 			wg.Done()
 		}()
+		delete(svc.collectors, md)
 	}
 	wg.Wait()
 }
@@ -180,6 +183,7 @@ func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, 
 		return nil, err
 	}
 	fileName := filepath.Join(fileDir, getFileTimestampName())
+	//nolint:gosec
 	return os.Create(fileName)
 }
 
@@ -301,14 +305,23 @@ func (svc *Service) initOrUpdateSyncer(intervalMins int) {
 }
 
 // Get the config associated with the data manager service.
-func getServiceConfig(cfg *config.Config) (config.Service, bool) {
+// Returns a boolean for whether a config is returned and an error if the
+// config was incorrectly formatted.
+func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
 		if c.ResourceName() == Name {
-			return c, true
+			svcConfig, ok := c.ConvertedAttributes.(*Config)
+			// Incorrect configuration is an error.
+			if !ok {
+				return &Config{}, false, utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
+			}
+			return svcConfig, true, nil
 		}
 	}
-	return config.Service{}, false
+
+	// Data Manager Service is not in the config, which is not an error.
+	return &Config{}, false, nil
 }
 
 // Get the component configs associated with the data manager service.
@@ -342,17 +355,21 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 // Update updates the data manager service when the config has changed.
 func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
-	c, ok := getServiceConfig(cfg)
-	// Service is not in the config or has been removed from it. Close any collectors.
+	svcConfig, ok, err := getServiceConfig(cfg)
+	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
+	// Close any collectors.
 	if !ok {
 		svc.closeCollectors()
+		return err
+	}
+
+	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
+	if svcConfig.Disabled {
+		svc.closeCollectors()
+		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
 		return nil
 	}
 
-	svcConfig, ok := c.ConvertedAttributes.(*Config)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
-	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 
@@ -372,7 +389,7 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
 	for _, attributes := range allComponentAttributes {
-		if attributes.CaptureFrequencyHz > 0 {
+		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
 			componentMetadata, err := svc.initializeOrUpdateCollector(
 				attributes, updateCaptureDir)
 			if err != nil {

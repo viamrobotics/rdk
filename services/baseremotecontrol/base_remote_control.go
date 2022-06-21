@@ -218,7 +218,6 @@ func triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64
 func buttonControlEvent(event input.Event, buttons map[input.Control]bool) (float64, float64, map[input.Control]bool) {
 	var speed float64
 	var angle float64
-
 	// nolint:exhaustive
 	switch event.Event {
 	case input.ButtonPress:

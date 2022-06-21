@@ -30,7 +30,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return NewWrapperArm(config, childArm, logger)
+			return NewWrapperArm(config, childArm, r, logger)
 		},
 	})
 
@@ -50,17 +50,13 @@ type Arm struct {
 	model  referenceframe.Model
 	actual arm.Arm
 	logger golog.Logger
-	mp     motionplan.MotionPlanner
+	robot  robot.Robot
 	opMgr  operation.SingleOperationManager
 }
 
 // NewWrapperArm returns a wrapper component for another arm.
-func NewWrapperArm(cfg config.Component, actual arm.Arm, logger golog.Logger) (arm.Arm, error) {
+func NewWrapperArm(cfg config.Component, actual arm.Arm, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
 	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
-	if err != nil {
-		return nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +65,7 @@ func NewWrapperArm(cfg config.Component, actual arm.Arm, logger golog.Logger) (a
 		model:  model,
 		actual: actual,
 		logger: logger,
-		mp:     mp,
+		robot:  r,
 	}, nil
 }
 
@@ -88,19 +84,10 @@ func (wrapper *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) 
 }
 
 // MoveToPosition sets the position.
-func (wrapper *Arm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (wrapper *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
-
-	joints, err := wrapper.actual.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	solution, err := wrapper.mp.Plan(ctx, pose, referenceframe.JointPosToInputs(joints), nil)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, wrapper, solution)
+	return arm.Move(ctx, wrapper.robot, wrapper, pos, worldState)
 }
 
 // MoveToJointPositions sets the joints.
@@ -122,8 +109,15 @@ func (wrapper *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, 
 
 // Stop stops the actual arm.
 func (wrapper *Arm) Stop(ctx context.Context) error {
-	wrapper.opMgr.CancelRunning(ctx)
+	ctx, done := wrapper.opMgr.New(ctx)
+	defer done()
+
 	return wrapper.actual.Stop(ctx)
+}
+
+// IsMoving returns whether the arm is moving.
+func (wrapper *Arm) IsMoving() bool {
+	return wrapper.opMgr.OpRunning()
 }
 
 // CurrentInputs returns the current inputs of the arm.

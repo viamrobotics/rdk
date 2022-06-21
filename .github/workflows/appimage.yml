@@ -6,6 +6,8 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
+      REPO_READ_TOKEN:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
@@ -26,7 +28,9 @@ jobs:
         fetch-depth: 2
 
     - name: Build and Package
-      run: make clean-all appimage
+      run: |
+        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
+        make clean-all appimage
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v0.4.3
@@ -59,6 +63,7 @@ jobs:
 
     - name: Build and Package
       run: |
+        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
         make clean-all appimage
 
     - name: Authorize GCP Upload

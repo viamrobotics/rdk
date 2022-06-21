@@ -2,7 +2,6 @@ package fake
 
 import (
 	"context"
-
 	// for arm model.
 	_ "embed"
 
@@ -40,7 +39,7 @@ func fakeModel() (referenceframe.Model, error) {
 }
 
 // NewArmIK returns a new fake arm.
-func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	name := cfg.Name
 	model, err := fakeModel()
 	if err != nil {
@@ -112,6 +111,11 @@ func (a *ArmIK) GetJointPositions(ctx context.Context) (*pb.JointPositions, erro
 // Stop doesn't do anything for a fake arm.
 func (a *ArmIK) Stop(ctx context.Context) error {
 	return nil
+}
+
+// IsMoving is always false for a fake arm.
+func (a *ArmIK) IsMoving() bool {
+	return false
 }
 
 // CurrentInputs TODO.

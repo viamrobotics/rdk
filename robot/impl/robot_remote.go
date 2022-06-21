@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/services/datamanager"
 )
 
 var errUnimplemented = errors.New("unimplemented")
@@ -83,7 +84,12 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 	return dialOpts
 }
 
-func dialRemote(ctx context.Context, config config.Remote, logger golog.Logger, dialOpts ...rpc.DialOption) (robot.RemoteRobot, error) {
+func dialRemote(
+	ctx context.Context,
+	config config.Remote,
+	logger golog.Logger,
+	dialOpts ...rpc.DialOption,
+) (robot.RemoteRobot, error) {
 	var outerError error
 	connectionCheckInterval := config.ConnectionCheckInterval
 	if connectionCheckInterval == 0 {
@@ -262,6 +268,12 @@ func (rr *remoteRobot) unprefixResourceName(name resource.Name) resource.Name {
 	)
 }
 
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (rr *remoteRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	return rr.robot.DiscoverComponents(ctx, qs)
+}
+
 func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }
@@ -272,18 +284,31 @@ func (rr *remoteRobot) ResourceNames() []resource.Name {
 
 	if err := rr.checkConnected(); err != nil {
 		rr.Logger().Errorw("failed to get remote resource names", "error", err)
-		return []resource.Name{}
+		return nil
 	}
-	newNames := make([]resource.Name, 0, len(rr.manager.ResourceNames()))
-	for _, name := range rr.manager.ResourceNames() {
+	names := rr.manager.ResourceNames()
+	newNames := make([]resource.Name, 0, len(names))
+	for _, name := range names {
 		name := rr.prefixResourceName(name)
 		newNames = append(newNames, name)
 	}
 	return newNames
 }
 
+func (rr *remoteRobot) ResourceRPCSubtypes() []resource.RPCSubtype {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+
+	if err := rr.checkConnected(); err != nil {
+		rr.Logger().Errorw("failed to get remote resource types", "error", err)
+		return nil
+	}
+	// the manager has no knowledge of the subtype registry in a remote context so we
+	// ask the underlying remote robot instead.
+	return rr.robot.ResourceRPCSubtypes()
+}
+
 func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
-	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
@@ -347,6 +372,11 @@ func managerForRemoteRobot(robot robot.Robot) *resourceManager {
 	manager := newResourceManager(resourceManagerOptions{}, robot.Logger().Named("manager"))
 
 	for _, name := range robot.ResourceNames() {
+		// skip datamanager since we know it doesn't have a client
+		// TODO: remove after we add corresponding datamanager client
+		if name == datamanager.Name {
+			continue
+		}
 		part, err := robot.ResourceByName(name)
 		if err != nil {
 			robot.Logger().Debugw("error getting resource", "resource", name, "error", err)

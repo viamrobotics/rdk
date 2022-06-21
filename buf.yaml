@@ -8,6 +8,9 @@ build:
     - rpc/examples/echo/frontend/node_modules
     - rpc/js/node_modules
     - node_modules
+    - web
+    - dist
+    - samples
 lint:
   use:
     - DEFAULT

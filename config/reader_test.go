@@ -33,7 +33,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read config from cloud, confirm consistency
-	cloudCfg, _, err := readFromCloud(ctx, cfg.Cloud, true, true, logger)
+	cloudCfg, _, err := readFromCloud(ctx, cfg, true, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
@@ -42,7 +42,7 @@ func TestStoreToCache(t *testing.T) {
 	cfg.Remotes = append(cfg.Remotes, newRemote)
 
 	// read config from cloud again, confirm that the cached config differs from cfg
-	cloudCfg2, _, err := readFromCloud(ctx, cfg.Cloud, true, true, logger)
+	cloudCfg2, _, err := readFromCloud(ctx, cfg, true, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg2, test.ShouldNotResemble, cfg)
 
@@ -51,7 +51,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read updated cloud config, confirm that it now matches our updated cfg
-	cloudCfg3, _, err := readFromCloud(ctx, cfg.Cloud, true, true, logger)
+	cloudCfg3, _, err := readFromCloud(ctx, cfg, true, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
 }
