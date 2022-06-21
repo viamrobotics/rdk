@@ -24,9 +24,10 @@ var (
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
 	// Buffer size set at 32 kiB, this is 32768 Bytes.
-	bufferSize         = 32768
-	hardCodePartName   = "TODO [DATA-164]"
-	hardCodeMethodName = "TODO [DATA-164]"
+	bufferSize            = 32768
+	hardCodePartName      = "TODO [DATA-164]"
+	hardCodeMethodName    = "TODO [DATA-164]"
+	hardCodeComponentName = "TODO [DATA-164]"
 )
 
 type emptyFileError struct{}
@@ -325,13 +326,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	}
 
 	// Parse filepath to get metadata about the file which we will be reading from.
-
-	// (UNCOMMENT BELOW) syncQueuePath is directory where files are queued while waiting to be synced to cloud.
-	// syncQueuePath := filepath.Clean(f.Name()[:(strings.Index(f.Name(), ".viam") + 5)])
-
-	// remainingPathContent is a slice of strings that includes subtypeName & componentName (in that order).
-	remainingPathContent := strings.Split(f.Name()[len(viamCaptureDotDir):], "/")
-	componentName := remainingPathContent[1]
+	// TODO: construct metadata gRPC message that contains PartName, ComponentName, MethodName
 
 	// dataType represents the protobuf DataType value describing the file to be uploaded.
 	dataType, err := getDataTypeFromLeadingMessage(f)
@@ -352,7 +347,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 			// TODO: Figure out best way to pass these in.
 			Metadata: &v1.UploadMetadata{
 				PartName:      hardCodePartName,
-				ComponentName: componentName,
+				ComponentName: hardCodeComponentName,
 				MethodName:    hardCodeMethodName,
 				Type:          dataType,
 				FileName:      filepath.Base(f.Name()),
