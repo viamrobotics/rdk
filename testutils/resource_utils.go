@@ -50,3 +50,17 @@ func AddSuffixes(values []resource.Name, suffixes ...string) []resource.Name {
 	}
 	return rNames
 }
+
+// AddRemote takes a slice of resource.Name objects and for each remote,
+// adds the remote to every object, then returns the entire list.
+func AddRemotes(values []resource.Name, remotes ...string) []resource.Name {
+	var rNames []resource.Name
+
+	for _, s := range remotes {
+		for _, v := range values {
+			v.PrependRemote(resource.RemoteName(s))
+			rNames = append(rNames, v)
+		}
+	}
+	return rNames
+}

@@ -20,7 +20,7 @@ type (
 
 	// SubtypeName identifies the resources subtypes that robot resources can be.
 	SubtypeName string
-
+	// RemoteName identifies the remote the resource is attached to.
 	RemoteName string
 )
 
@@ -29,16 +29,15 @@ const (
 	ResourceNamespaceRDK  = Namespace("rdk")
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
-	ResourceTypeRobot     = TypeName("robot")
 )
 
-// Remote is set when the resource sits behind (a) Remote(s)
+// Remote is set when the resource sits behind (a) Remote(s).
 type Remote struct {
 	Remote RemoteName
 }
 
 func (r Remote) String() string {
-	return fmt.Sprintf("%s", r.Remote)
+	return string(r.Remote)
 }
 
 // Type represents a known component/service type of a robot.
@@ -117,6 +116,7 @@ func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name stri
 	}
 }
 
+// NewRemoteName creates a new Name for a resource attached to a remote.
 func NewRemoteName(remote RemoteName, namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
 	n := NewName(namespace, rType, subtype, name)
 	n.Remote.Remote = remote
@@ -128,9 +128,11 @@ func NameFromSubtype(subtype Subtype, name string) Name {
 	return NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, name)
 }
 
+// ^(\w+:(?:\w+:)*(?=rdk))?(\w+:(?:\w+:\w+))\/?(.+)?$
+// ^(\w+:(?:\w+:)*)?(rdk:\w+:(?:\w+))\/?([\w]+)?$
 // NewFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewFromString(resourceName string) (Name, error) {
-	r := regexp.MustCompile("^(\\w+:(?:\\w+:)*)?(rdk:\\w+:(?:\\w+))\\/?(.+)?$")
+	r := regexp.MustCompile(`^(\w+:(?:\w+:)*)?(rdk:\w+:(?:\w+))\/?(.+)?$`)
 	if !r.MatchString(resourceName) {
 		return Name{}, errors.New("string is not a valid resource name")
 	}
@@ -143,6 +145,37 @@ func NewFromString(resourceName string) (Name, error) {
 	return NewRemoteName(RemoteName(remote),
 		Namespace(rSubtypeParts[0]), TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]),
 		matches[3]), nil
+}
+
+// PrependRemote prepend a remote to a name
+func (n *Name) PrependRemote(remote RemoteName) {
+	if n.Remote.Remote == "" {
+		n.Remote.Remote = remote
+	} else {
+		n.Remote.Remote = RemoteName(strings.Join([]string{string(remote), string(n.Remote.Remote)}, ":"))
+	}
+}
+
+// PopRemote pop the first remote from a Name and returns a copy fo the Name
+func (n Name) PopRemote() Name {
+	if n.Remote.Remote == "" {
+		return n
+	} else {
+		remotes := strings.Split(string(n.Remote.Remote), ":")
+		return NewRemoteName(
+			RemoteName(strings.Join(remotes[1:], ":")),
+			n.Namespace,
+			n.ResourceType,
+			n.ResourceSubtype,
+			n.Name)
+	}
+}
+
+func (n Name) IsRemoteResource() bool {
+	if len(n.Remote.Remote) > 1 {
+		return true
+	}
+	return false
 }
 
 // Validate ensures that important fields exist and are valid.

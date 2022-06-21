@@ -3,6 +3,7 @@ package sensors
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -64,6 +65,17 @@ var Subtype = resource.NewSubtype(
 
 // Name is the SensorService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
+
+// Named is a helper for getting the named sensor's typed resource name.
+func Named(name string) resource.Name {
+	remotes := strings.Split(name, ":")
+	if len(remotes) > 1 {
+		rName := resource.NameFromSubtype(Subtype, "")
+		rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+		return rName
+	}
+	return resource.NameFromSubtype(Subtype, "")
+}
 
 // FromRobot retrieves the sensor service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {

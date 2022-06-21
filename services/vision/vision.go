@@ -4,6 +4,7 @@ package vision
 
 import (
 	"context"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
@@ -74,6 +75,17 @@ var Subtype = resource.NewSubtype(
 
 // Name is the Vision Service's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
+
+// Named is a helper for getting the named vision's typed resource name.
+func Named(name string) resource.Name {
+	remotes := strings.Split(name, ":")
+	if len(remotes) > 1 {
+		rName := resource.NameFromSubtype(Subtype, "")
+		rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+		return rName
+	}
+	return resource.NameFromSubtype(Subtype, "")
+}
 
 // FromRobot retrieves the vision service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {

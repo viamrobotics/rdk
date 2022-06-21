@@ -4,6 +4,7 @@ package camera
 import (
 	"context"
 	"image"
+	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -60,6 +61,12 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named cameras's typed resource name.
 func Named(name string) resource.Name {
+	remotes := strings.Split(name, ":")
+	if len(remotes) > 1 {
+		rName := resource.NameFromSubtype(Subtype, remotes[len(remotes)-1])
+		rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+		return rName
+	}
 	return resource.NameFromSubtype(Subtype, name)
 }
 
