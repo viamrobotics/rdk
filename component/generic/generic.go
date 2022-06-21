@@ -30,6 +30,7 @@ func init() {
 				pb.RegisterGenericServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.GenericService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -38,9 +39,10 @@ func init() {
 
 // SubtypeName is a constant that identifies the component resource subtype string "Generic".
 const SubtypeName = resource.SubtypeName("generic")
+
 var (
 	ErrUnimplemented = errors.New("Do() unimplemented")
-	EchoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	EchoFunc         = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return cmd, nil
 	}
 	TestCommand = map[string]interface{}{"command": "test", "data": 500}
@@ -65,7 +67,7 @@ type Generic interface {
 }
 
 // Unimplemented can be embedded in other components to save boilerplate.
-type Unimplemented struct {}
+type Unimplemented struct{}
 
 // Do covers the unimplemented case for other components
 func (u *Unimplemented) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -73,7 +75,7 @@ func (u *Unimplemented) Do(ctx context.Context, cmd map[string]interface{}) (map
 }
 
 // Echo can be embedded in other (fake) components to save boilerplate.
-type Echo struct {}
+type Echo struct{}
 
 // Do covers the echo case for other components
 func (e *Echo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

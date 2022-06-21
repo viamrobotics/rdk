@@ -72,7 +72,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
 	res, err = gantry.FromRobot(r, fakeGantryName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGantry", "string"))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gantry.FromRobot(r, missingGantryName)
@@ -146,6 +146,21 @@ func TestCreateStatus(t *testing.T) {
 		status2, err := resourceSubtype.Status(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status2, test.ShouldResemble, status)
+	})
+
+	t.Run("not moving", func(t *testing.T) {
+		injectGantry.IsMovingFunc = func() bool {
+			return false
+		}
+
+		status2 := &pb.Status{
+			PositionsMm: []float64{1.1, 2.2, 3.3},
+			LengthsMm:   []float64{4.4, 5.5, 6.6},
+			IsMoving:    false,
+		}
+		status1, err := gantry.CreateStatus(context.Background(), injectGantry)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
 	t.Run("fail on GetLengths", func(t *testing.T) {
