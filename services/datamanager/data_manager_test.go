@@ -126,10 +126,8 @@ func TestManualSync(t *testing.T) {
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1/"
-	queueDir := datamanager.SyncQueuePath + "/arm/arm1/"
 
 	// Clear the capture and queue dirs after we're done.
-	defer resetFolder(t, queueDir)
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
@@ -156,16 +154,11 @@ func TestManualSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to list files in armDir")
 	}
-	filesInQueueDir, err := readDir(t, queueDir)
-	if err != nil {
-		t.Fatalf("failed to list files in queueDir")
-	}
 
 	// We should have uploaded the first file and should now be collecting another one.
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 	secondFileInArmDir := filesInArmDir[0].Name()
 	test.That(t, firstFileInArmDir, test.ShouldNotEqual, secondFileInArmDir)
-	test.That(t, len(filesInQueueDir), test.ShouldEqual, 0)
 	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 1)
 }
 
@@ -193,11 +186,9 @@ func TestScheduledSync(t *testing.T) {
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1/"
-	queueDir := datamanager.SyncQueuePath + "/arm/arm1/"
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 
 	// Clear the capture and queue dirs after we're done.
-	defer resetFolder(t, queueDir)
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager, update it with our config, and tell it to close later.
@@ -219,15 +210,6 @@ func TestScheduledSync(t *testing.T) {
 
 	// We set sync_interval_mins to be about 510ms in the config, so wait 700ms for queueing to occur.
 	time.Sleep(time.Millisecond * 700)
-
-	// Verify files were enqueued.
-	filesInQueueDir, err := readDir(t, queueDir)
-	if err != nil {
-		t.Fatalf("failed to list files in queueDir")
-	}
-
-	// Should have 1 file in the queue since we just moved it there.
-	test.That(t, len(filesInQueueDir), test.ShouldEqual, 1)
 
 	// Wait a bit for the upload goroutine to trigger on the syncer, then ensure the file was uploaded.
 	time.Sleep(time.Millisecond * 450)
@@ -272,11 +254,9 @@ func TestManualAndScheduledSync(t *testing.T) {
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1"
-	queueDir := datamanager.SyncQueuePath + "/arm/arm1/"
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 
 	// Clear the capture and queue dirs after we're done.
-	defer resetFolder(t, queueDir)
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
@@ -300,7 +280,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	// Perform a manual and scheduled sync at approximately the same time, then wait for the upload routine to fire.
 	time.Sleep(time.Millisecond * 500)
 	dmsvc.Sync(cancelCtx)
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(time.Millisecond * 300)
 
 	// Verify two files were uploaded, and that they're different.
 	lock.Lock()
