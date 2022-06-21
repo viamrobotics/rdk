@@ -17,8 +17,8 @@ func TestDetectorMap(t *testing.T) {
 	fn := func(image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
-	registeredFn := registeredDetector{detector: fn, model: nil}
-	emptyFn := registeredDetector{detector: nil, model: nil}
+	registeredFn := registeredDetector{detector: fn, closer: nil}
+	emptyFn := registeredDetector{detector: nil, closer: nil}
 	fnName := "x"
 	reg := make(detectorMap)
 	testlog := golog.NewLogger("testlog")
