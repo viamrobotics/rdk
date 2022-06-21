@@ -2,14 +2,24 @@
   <div>
     <Collapse>
       <div class="flex">
-        <h2 class="p-4 text-xl"> SLAM </h2>
+        <h2 class="p-4 text-xl">SLAM</h2>
       </div>
-        <div style="display: flex; margin-bottom: 1em">
-        <table border="1" style="margin-right: 1em" class="border border-slate-300">
+      <div style="display: flex; margin-bottom: 1em">
+        <table
+          border="1"
+          style="margin-right: 1em"
+          class="border border-slate-300"
+        >
           <tr>
             <th colspan="1" class="border border-slate-300">
-              <h5>View SLAM Map (JPEG)
-                <ViamButton color="black"  group variant="primary"  @click="refreshImageMap()" >
+              <h5>
+                View SLAM Map (JPEG)
+                <ViamButton
+                  color="black"
+                  group
+                  variant="primary"
+                  @click="refreshImageMap()"
+                >
                   Refresh
                 </ViamButton>
               </h5>
@@ -17,15 +27,30 @@
           </tr>
           <tr>
             <th colspan="1" class="border border-slate-300">
-              <img v-if="imageMap !== ''" :src="imageMap" width="500" height="500">
+              <img
+                v-if="imageMap !== ''"
+                :src="imageMap"
+                width="500"
+                height="500"
+              />
             </th>
           </tr>
         </table>
-        <table border="1" style="margin-right: 1em" class="border border-slate-300">
+        <table
+          border="1"
+          style="margin-right: 1em"
+          class="border border-slate-300"
+        >
           <tr>
             <th colspan="1" class="border border-slate-300">
-              <h5>View SLAM Map (PCD)
-                <ViamButton color="black"  group variant="primary"  @click="refreshPCDMap()" >
+              <h5>
+                View SLAM Map (PCD)
+                <ViamButton
+                  color="black"
+                  group
+                  variant="primary"
+                  @click="refreshPCDMap()"
+                >
                   Refresh
                 </ViamButton>
               </h5>
@@ -55,9 +80,8 @@ import ViamButton from "./Button.vue";
   },
 })
 export default class Slam extends Vue {
-
-    @Prop({ default: ""}) imageMap = "";
-    @Prop({ default: null}) pcdMap = null;
+  @Prop({ default: "" }) imageMap = "";
+  @Prop({ default: null }) pcdMap = null;
 
   refreshImageMap(): void {
     this.$emit("refresh-image-map");

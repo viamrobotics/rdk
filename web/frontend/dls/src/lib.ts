@@ -31,7 +31,6 @@ import NumberInput from "./components/NumberInput.vue";
 import Slam from "./components/Slam.vue";
 import ClickOutside from "./directives/clickOutside";
 
-
 const Components: { [key: string]: VueConstructor<Vue> } = {
   MotorDetail,
   InputController,
