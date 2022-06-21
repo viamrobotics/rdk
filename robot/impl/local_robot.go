@@ -112,6 +112,11 @@ func (r *localRobot) ResourceNames() []resource.Name {
 	return r.manager.ResourceNames()
 }
 
+// ResourceRPCSubtypes returns all known resource RPC subtypes in use.
+func (r *localRobot) ResourceRPCSubtypes() []resource.RPCSubtype {
+	return r.manager.ResourceRPCSubtypes()
+}
+
 // ProcessManager returns the process manager for the robot.
 func (r *localRobot) ProcessManager() pexec.ProcessManager {
 	return r.manager.processManager
@@ -316,7 +321,10 @@ func newWithResources(
 
 	// default services
 	for _, name := range defaultSvc {
-		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
+		cfg := config.Service{
+			Namespace: name.Namespace,
+			Type:      config.ServiceType(name.ResourceSubtype),
+		}
 		svc, err := r.newService(ctx, cfg)
 		if err != nil {
 			return nil, err
@@ -387,7 +395,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	resources := map[resource.Name]interface{}{}
 
 	for _, n := range r.ResourceNames() {
-		// TODO(RSDK-22) if not found, could mean a name clash or a remote service
+		// TODO(RSDK-333) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
