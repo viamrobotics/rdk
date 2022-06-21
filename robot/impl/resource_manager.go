@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
+	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -15,6 +16,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
@@ -26,6 +28,7 @@ type resourceManager struct {
 	resources      *resource.Graph
 	processManager pexec.ProcessManager
 	opts           resourceManagerOptions
+	logger         golog.Logger
 }
 
 type resourceUpdateWrapper struct {
@@ -58,6 +61,7 @@ func newResourceManager(
 		resources:      resource.NewGraph(),
 		processManager: pexec.NewProcessManager(logger),
 		opts:           opts,
+		logger:         logger,
 	}
 }
 
@@ -170,6 +174,65 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 		names = append(names, k)
 	}
 	return names
+}
+
+// ResourceRPCSubtypes returns the types of all resource RPC subtypes in use by the manager.
+func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
+	resourceSubtypes := registry.RegisteredResourceSubtypes()
+
+	types := map[resource.Subtype]*desc.ServiceDescriptor{}
+	for k := range manager.resources.Nodes {
+		if k.ResourceType == resource.TypeName("remote") {
+			rr, ok := manager.resources.Nodes[k].(robot.Robot)
+			if !ok {
+				manager.logger.Errorw("remote robot is not a robot interface",
+					"remote", k,
+					"type", manager.resources.Nodes[k])
+				continue
+			}
+			manager.mergeResourceRPCSubtypesWithRemote(rr, types)
+			continue
+		}
+		if k.IsRemoteResource() {
+			continue
+		}
+		if types[k.Subtype] != nil {
+			continue
+		}
+
+		st, ok := resourceSubtypes[k.Subtype]
+		if !ok {
+			continue
+		}
+
+		types[k.Subtype] = st.ReflectRPCServiceDesc
+	}
+	typesList := make([]resource.RPCSubtype, 0, len(types))
+	for k, v := range types {
+		typesList = append(typesList, resource.RPCSubtype{
+			Subtype: k,
+			Desc:    v,
+		})
+	}
+	return typesList
+}
+
+// mergeResourceRPCSubtypesWithRemotes merges types from the manager itself as well as its
+// remotes.
+func (manager *resourceManager) mergeResourceRPCSubtypesWithRemote(r robot.Robot, types map[resource.Subtype]*desc.ServiceDescriptor) {
+	remoteTypes := r.ResourceRPCSubtypes()
+	for _, remoteType := range remoteTypes {
+		if svcName, ok := types[remoteType.Subtype]; ok {
+			if svcName.GetFullyQualifiedName() != remoteType.Desc.GetFullyQualifiedName() {
+				manager.logger.Errorw(
+					"remote proto service name clashes with another of same subtype",
+					"existing", svcName.GetFullyQualifiedName(),
+					"remote", remoteType.Desc.GetFullyQualifiedName())
+			}
+			continue
+		}
+		types[remoteType.Subtype] = remoteType.Desc
+	}
 }
 
 // remoteNameByResource returns the remote the resource is pulled from, if found.

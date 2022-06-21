@@ -88,6 +88,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Remot
 			servoNames,
 		)
 	}
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
 	}
@@ -558,9 +559,9 @@ func (w *dummyRemoteRobotWrapper) Changed() <-chan bool {
 
 func (w *dummyRemoteRobotWrapper) updateConnection(connected bool) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	w.connected = connected
+	w.mu.Unlock()
+
 	if w.changeChan != nil {
 		w.changeChan <- true
 	}

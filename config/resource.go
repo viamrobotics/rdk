@@ -55,6 +55,7 @@ type ComponentLevelServiceConfig struct {
 type Component struct {
 	Name string `json:"name"`
 
+	Namespace     resource.Namespace            `json:"namespace"`
 	Type          resource.SubtypeName          `json:"type"`
 	SubType       string                        `json:"subtype"`
 	Model         string                        `json:"model"`
@@ -77,11 +78,16 @@ func (config *Component) String() string {
 // ResourceName returns the  ResourceName for the component.
 func (config *Component) ResourceName() resource.Name {
 	cType := string(config.Type)
-	return resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
+	return resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *Component) Validate(path string) error {
+	if config.Namespace == "" {
+		// NOTE: This should never be removed in order to ensure RDK is the
+		// default namespace.
+		config.Namespace = resource.ResourceNamespaceRDK
+	}
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
@@ -167,10 +173,11 @@ type ServiceType string
 
 // A Service describes the configuration of a service.
 type Service struct {
-	Name                string       `json:"name"` // NOTE: This property is deprecated for services
-	Type                ServiceType  `json:"type"`
-	Attributes          AttributeMap `json:"attributes"`
-	ConvertedAttributes interface{}  `json:"-"`
+	Name                string             `json:"name"` // NOTE: This property is deprecated for services
+	Namespace           resource.Namespace `json:"namespace"`
+	Type                ServiceType        `json:"type"`
+	Attributes          AttributeMap       `json:"attributes"`
+	ConvertedAttributes interface{}        `json:"-"`
 }
 
 // Ensure Service conforms to flag.Value.
@@ -185,7 +192,7 @@ func (config *Service) String() string {
 func (config *Service) ResourceName() resource.Name {
 	cType := string(config.Type)
 	return resource.NewName(
-		resource.ResourceNamespaceRDK,
+		config.Namespace,
 		resource.ResourceTypeService,
 		resource.SubtypeName(cType),
 		cType,
@@ -253,6 +260,11 @@ func ParseServiceFlag(flag string) (Service, error) {
 func (config *Service) Validate(path string) error {
 	if config.Type == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "type")
+	}
+	if config.Namespace == "" {
+		// NOTE: This should never be removed in order to ensure RDK is the
+		// default namespace.
+		config.Namespace = resource.ResourceNamespaceRDK
 	}
 	for key, value := range config.Attributes {
 		v, ok := value.(validator)

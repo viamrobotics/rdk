@@ -31,6 +31,7 @@ func init() {
 				pb.RegisterGenericServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.GenericService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},

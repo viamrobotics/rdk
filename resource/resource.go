@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 )
 
@@ -71,6 +72,12 @@ func (t Type) String() string {
 type Subtype struct {
 	Type
 	ResourceSubtype SubtypeName
+}
+
+// An RPCSubtype provides RPC information about a particular subtype.
+type RPCSubtype struct {
+	Subtype Subtype
+	Desc    *desc.ServiceDescriptor
 }
 
 // NewSubtype creates a new Subtype based on parameters passed in.
@@ -204,4 +211,10 @@ type Reconfigurable interface {
 type Updateable interface {
 	// Update updates the resource
 	Update(context.Context, map[Name]interface{}) error
+}
+
+// MovingCheckable is implemented when a resource of a robot returns whether it is moving or not.
+type MovingCheckable interface {
+	// IsMoving returns whether the resource is moving or not
+	IsMoving() bool
 }

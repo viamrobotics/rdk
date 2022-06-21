@@ -277,18 +277,11 @@ func storeToCache(id string, cfg *Config) error {
 	return artifact.AtomicStore(path, reader, id)
 }
 
-// readFromCloud fetches a robot config from the cloud based
-// on the given config.
-func readFromCloud(
-	ctx context.Context,
-	cloudCfg *Cloud,
-	readFromCache bool,
-	checkForNewCert bool,
-	logger golog.Logger,
-) (*Config, *Config, error) {
+// getFromCloud actually does the fetching of the robot config.
+func getFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool, logger golog.Logger) (io.ReadCloser, bool, error) {
 	cloudReq, err := CreateCloudRequest(ctx, cloudCfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, false, err
 	}
 
 	var client http.Client
@@ -304,32 +297,53 @@ func readFromCloud(
 			}()
 			rd, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				return nil, nil, err
+				return nil, cached, err
 			}
 			if len(rd) != 0 {
-				return nil, nil, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
+				return nil, cached, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
 			}
-			return nil, nil, errors.Errorf("unexpected status %d", resp.StatusCode)
+			return nil, cached, errors.Errorf("unexpected status %d", resp.StatusCode)
 		}
 		configReader = resp.Body
 	} else {
 		if !readFromCache {
-			return nil, nil, err
+			return nil, cached, err
 		}
 		var urlErr *url.Error
 		if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {
-			return nil, nil, err
+			return nil, cached, err
 		}
 		var cacheErr error
 		configReader, cacheErr = openFromCache(cloudCfg.ID)
 		if cacheErr != nil {
 			if os.IsNotExist(cacheErr) {
-				return nil, nil, err
+				return nil, cached, err
 			}
-			return nil, nil, cacheErr
+			cached = true
+			return nil, cached, cacheErr
 		}
 		cached = true
 		logger.Warnw("unable to get cloud config; using cached version", "error", err)
+	}
+	return configReader, cached, nil
+}
+
+// readFromCloud fetches a robot config from the cloud based
+// on the given config.
+func readFromCloud(
+	ctx context.Context,
+	originalCfg *Config,
+	readFromCache bool,
+	checkForNewCert bool,
+	logger golog.Logger,
+) (*Config, *Config, error) {
+	cloudCfg := originalCfg.Cloud
+	configReader, cached, err := getFromCloud(ctx, cloudCfg, readFromCache, logger)
+	if err != nil {
+		if !cached {
+			err = errors.Wrapf(err, "error getting cloud config, please make sure the RDK config located in %v is valid", originalCfg.ConfigFilePath)
+		}
+		return nil, nil, err
 	}
 	defer utils.UncheckedErrorFunc(configReader.Close)
 
@@ -493,7 +507,7 @@ func fromReader(
 	}
 
 	if !skipCloud && cfg.Cloud != nil {
-		return readFromCloud(ctx, cfg.Cloud, true, true, logger)
+		return readFromCloud(ctx, &cfg, true, true, logger)
 	}
 
 	for idx, c := range cfg.Components {
