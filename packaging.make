@@ -10,12 +10,12 @@ appimage-multiarch: appimage-amd64 appimage-arm64
 
 appimage-amd64: DOCKER_PLATFORM = --platform linux/amd64
 appimage-amd64: DOCKER_TAG = amd64-cache
-appimage-amd64:
+appimage-amd64: canon-update
 	$(DOCKER_CMD) make appimage
 
 appimage-arm64: DOCKER_PLATFORM = --platform linux/arm64
 appimage-arm64: DOCKER_TAG = arm64-cache
-appimage-arm64:
+appimage-arm64: canon-update
 	$(DOCKER_CMD) make appimage
 
 appimage-deploy:
