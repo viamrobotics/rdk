@@ -295,17 +295,19 @@ func TestServiceWithRemote(t *testing.T) {
 	localConfig := &config.Config{
 		Components: []config.Component{
 			{
-				Name:  "foo",
-				Type:  base.SubtypeName,
-				Model: "fake",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      base.SubtypeName,
+				Model:     "fake",
 				Frame: &config.Frame{
 					Parent: referenceframe.World,
 				},
 			},
 			{
-				Name:  "myParentIsRemote",
-				Type:  gripper.SubtypeName,
-				Model: "fake",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "myParentIsRemote",
+				Type:      gripper.SubtypeName,
+				Model:     "fake",
 				Frame: &config.Frame{
 					Parent: "bar.pieceArm",
 				},

@@ -46,15 +46,17 @@ func TestClient(t *testing.T) {
 	t.Run("failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = sensors.NewClient(cancelCtx, "", listener1.Addr().String(), logger)
+		_, err = viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	// working client
 	t.Run("sensors client 1", func(t *testing.T) {
-		client, err := sensors.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		client := sensors.NewClientFromConn(context.Background(), conn, "", logger)
 
 		names := []resource.Name{gps.Named("gps"), imu.Named("imu")}
 		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
@@ -86,6 +88,7 @@ func TestClient(t *testing.T) {
 		test.That(t, observed, test.ShouldResemble, expected)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	// broken client
@@ -112,6 +115,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -134,15 +138,19 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := sensors.NewClient(ctx, "", listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := sensors.NewClientFromConn(ctx, conn1, "", logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := sensors.NewClient(ctx, "", listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := sensors.NewClientFromConn(ctx, conn2, "", logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }
