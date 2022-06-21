@@ -77,14 +77,15 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = camera.NewClient(cancelCtx, testCameraName, listener1.Addr().String(), logger)
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("camera client 1", func(t *testing.T) {
-		camera1Client, err := camera.NewClient(context.Background(), testCameraName, listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+		camera1Client := camera.NewClientFromConn(context.Background(), conn, testCameraName, logger)
 		frame, _, err := camera1Client.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		compVal, _, err := rimage.CompareImages(img, frame)
@@ -104,6 +105,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		test.That(t, utils.TryClose(context.Background(), camera1Client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("camera client 2", func(t *testing.T) {
@@ -141,15 +143,19 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := camera.NewClientFromConn(ctx, conn1, testCameraName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := camera.NewClientFromConn(ctx, conn2, testCameraName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }
