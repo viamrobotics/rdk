@@ -128,6 +128,17 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status2, test.ShouldResemble, status)
 	})
 
+	t.Run("not moving", func(t *testing.T) {
+		injectServo.IsMovingFunc = func() bool {
+			return false
+		}
+
+		status2 := &pb.Status{PositionDeg: uint32(8), IsMoving: false}
+		status2, err := servo.CreateStatus(context.Background(), injectServo)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status2, test.ShouldResemble, status2)
+	})
+
 	t.Run("fail on GetPosition", func(t *testing.T) {
 		errFail := errors.New("can't get position")
 		injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {

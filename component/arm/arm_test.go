@@ -150,6 +150,21 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status2, test.ShouldResemble, status)
 	})
 
+	t.Run("not moving", func(t *testing.T) {
+		injectArm.IsMovingFunc = func() bool {
+			return false
+		}
+
+		status2 := &pb.Status{
+			EndPosition:    pose,
+			JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+			IsMoving:       false,
+		}
+		status2, err := arm.CreateStatus(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status2, test.ShouldResemble, status2)
+	})
+
 	t.Run("fail on GetJointPositions", func(t *testing.T) {
 		errFail := errors.New("can't get joint positions")
 		injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
