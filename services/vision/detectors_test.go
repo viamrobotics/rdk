@@ -67,7 +67,6 @@ func TestDetectorRemoval(t *testing.T) {
 	fakeDetectFn := func(image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
-	// closer := inf.TFLiteStruct{Info: &inf.TFLiteInfo{100, 100, 3, "uint8", 1, 4, []string{}}}
 	closer, err := addTFLiteModel(artifact.MustPath("vision/tflite/effdet0.tflite"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	d := registeredDetector{detector: fakeDetectFn, closer: closer}
