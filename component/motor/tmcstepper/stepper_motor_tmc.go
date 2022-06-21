@@ -3,7 +3,6 @@ package tmcstepper
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
@@ -132,7 +131,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", c.BoardName)
+		return nil, errors.Errorf("board %s is not local", c.BoardName)
 	}
 	bus, ok := localB.SPIByName(c.SPIBus)
 	if !ok {
@@ -629,7 +628,7 @@ const (
 func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
 	if !ok {
-		return nil, errors.New("missing " + Command + " value")
+		return nil, errors.Errorf("missing %s value", Command)
 	}
 	switch name {
 	case Home:
@@ -637,7 +636,7 @@ func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]
 	case Jog:
 		rpmRaw, ok := cmd[RPMVal]
 		if !ok {
-			return nil, errors.New("need " + RPMVal + " value for jog")
+			return nil, errors.Errorf("need %s value for jog", RPMVal)
 		}
 		rpm, ok := rpmRaw.(float64)
 		if !ok {
@@ -645,6 +644,6 @@ func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]
 		}
 		return nil, m.Jog(ctx, rpm)
 	default:
-		return nil, fmt.Errorf("no such command: %s", name)
+		return nil, errors.Errorf("no such command: %s", name)
 	}
 }
