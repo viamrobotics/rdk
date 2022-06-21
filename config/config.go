@@ -93,7 +93,8 @@ type Config struct {
 	Services   []Service             `json:"services,omitempty"`
 	Network    NetworkConfig         `json:"network"`
 	Auth       AuthConfig            `json:"auth"`
-	Debug      bool                  `json:"-"`
+
+	Debug bool `json:"-"`
 
 	ConfigFilePath string `json:"-"`
 

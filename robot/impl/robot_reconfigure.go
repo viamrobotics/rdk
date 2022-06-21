@@ -81,6 +81,11 @@ func (draft *draftRobot) ResourceNames() []resource.Name {
 	return draft.original.ResourceNames()
 }
 
+// ResourceRPCSubtypes returns a list of all known resource subtypes.
+func (draft *draftRobot) ResourceRPCSubtypes() []resource.RPCSubtype {
+	return draft.original.ResourceRPCSubtypes()
+}
+
 // ProcessManager returns the process manager for the robot.
 func (draft *draftRobot) ProcessManager() pexec.ProcessManager {
 	return draft.original.ProcessManager()

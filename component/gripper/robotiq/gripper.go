@@ -58,7 +58,7 @@ type robotiqGripper struct {
 }
 
 // newGripper TODO.
-func newGripper(ctx context.Context, host string, logger golog.Logger) (gripper.Gripper, error) {
+func newGripper(ctx context.Context, host string, logger golog.Logger) (gripper.LocalGripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err
@@ -261,6 +261,11 @@ func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 func (g *robotiqGripper) Stop(ctx context.Context) error {
 	// RSDK-388: Implement Stop
 	return gripper.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the gripper is moving.
+func (g *robotiqGripper) IsMoving() bool {
+	return g.opMgr.OpRunning()
 }
 
 // ModelFrame is unimplemented for robotiqGripper.

@@ -86,19 +86,15 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = input.NewClient(cancelCtx, testInputControllerName, listener1.Addr().String(), logger)
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("input controller client 1", func(t *testing.T) {
-		inputController1Client, err := input.NewClient(
-			context.Background(),
-			testInputControllerName,
-			listener1.Addr().String(),
-			logger,
-		)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+		inputController1Client := input.NewClientFromConn(context.Background(), conn, testInputControllerName, logger)
 
 		// Do
 		resp, err := inputController1Client.Do(context.Background(), generic.TestCommand)
@@ -225,6 +221,7 @@ func TestClient(t *testing.T) {
 		injectInputController.TriggerEventFunc = nil
 
 		test.That(t, utils.TryClose(context.Background(), inputController1Client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("input controller client 2", func(t *testing.T) {
@@ -255,6 +252,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Triggerable")
 
 		test.That(t, utils.TryClose(context.Background(), inputController2Client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -274,15 +272,18 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := input.NewClient(ctx, testInputControllerName, listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := input.NewClientFromConn(ctx, conn1, testInputControllerName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := input.NewClient(ctx, testInputControllerName, listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := input.NewClientFromConn(ctx, conn2, testInputControllerName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

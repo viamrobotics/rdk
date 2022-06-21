@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/alessio/shellescape"
 	"github.com/edaniels/golog"
+	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
@@ -120,6 +121,55 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 	return manager.mergeResourceNamesWithRemotes(names)
 }
 
+// ResourceRPCSubtypes returns the types of all resource RPC subtypes in use by the manager.
+func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
+	resourceSubtypes := registry.RegisteredResourceSubtypes()
+
+	types := map[resource.Subtype]*desc.ServiceDescriptor{}
+	for k := range manager.resources.Nodes {
+		if types[k.Subtype] != nil {
+			continue
+		}
+
+		st, ok := resourceSubtypes[k.Subtype]
+		if !ok {
+			continue
+		}
+
+		types[k.Subtype] = st.ReflectRPCServiceDesc
+	}
+
+	manager.mergeResourceRPCSubtypesWithRemotes(types)
+	typesList := make([]resource.RPCSubtype, 0, len(types))
+	for k, v := range types {
+		typesList = append(typesList, resource.RPCSubtype{
+			Subtype: k,
+			Desc:    v,
+		})
+	}
+	return typesList
+}
+
+// mergeResourceRPCSubtypesWithRemotes merges types from the manager itself as well as its
+// remotes.
+func (manager *resourceManager) mergeResourceRPCSubtypesWithRemotes(types map[resource.Subtype]*desc.ServiceDescriptor) {
+	for _, r := range manager.remotes {
+		remoteTypes := r.ResourceRPCSubtypes()
+		for _, remoteType := range remoteTypes {
+			if svcName, ok := types[remoteType.Subtype]; ok {
+				if svcName.GetFullyQualifiedName() != remoteType.Desc.GetFullyQualifiedName() {
+					manager.logger.Errorw(
+						"remote proto service name clashes with another of same subtype",
+						"existing", svcName.GetFullyQualifiedName(),
+						"remote", remoteType.Desc.GetFullyQualifiedName())
+				}
+				continue
+			}
+			types[remoteType.Subtype] = remoteType.Desc
+		}
+	}
+}
+
 // updateResourceRemoteNames populates the resourceRemoteNames map.
 func (manager *resourceManager) updateResourceRemoteNames() {
 	manager.resourceRemoteNames = make(map[resource.Name]string)
@@ -219,30 +269,96 @@ func (manager *resourceManager) processConfig(
 
 // processModifiedConfig ingests a given config and constructs all constituent parts.
 
+// cleanAppImageEnv attempts to revert environent variable changes so
+// normal, non-AppImage processes can be executed correctly.
+func cleanAppImageEnv() error {
+	_, isAppImage := os.LookupEnv("APPIMAGE")
+	if isAppImage {
+		err := os.Chdir(os.Getenv("APPRUN_CWD"))
+		if err != nil {
+			return err
+		}
+
+		// Reset original values where available
+		for _, eVarStr := range os.Environ() {
+			eVar := strings.Split(eVarStr, "=")
+			key := eVar[0]
+			origV, present := os.LookupEnv("APPRUN_ORIGINAL_" + key)
+			if present {
+				if origV != "" {
+					err = os.Setenv(key, origV)
+				} else {
+					err = os.Unsetenv(key)
+				}
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// Remove all explicit appimage vars
+		err = multierr.Combine(os.Unsetenv("ARGV0"), os.Unsetenv("ORIGIN"))
+		for _, eVarStr := range os.Environ() {
+			eVar := strings.Split(eVarStr, "=")
+			key := eVar[0]
+			if strings.HasPrefix(key, "APPRUN") ||
+				strings.HasPrefix(key, "APPDIR") ||
+				strings.HasPrefix(key, "APPIMAGE") ||
+				strings.HasPrefix(key, "AIX_") {
+				err = multierr.Combine(err, os.Unsetenv(key))
+			}
+		}
+		if err != nil {
+			return err
+		}
+
+		// Remove AppImage paths from path-like env vars
+		for _, eVarStr := range os.Environ() {
+			eVar := strings.Split(eVarStr, "=")
+			var newPaths []string
+			const mountPrefix = "/tmp/.mount_"
+			key := eVar[0]
+			if len(eVar) >= 2 && strings.Contains(eVar[1], mountPrefix) {
+				for _, path := range strings.Split(eVar[1], ":") {
+					if !strings.HasPrefix(path, mountPrefix) && path != "" {
+						newPaths = append(newPaths, path)
+					}
+				}
+				if len(newPaths) > 0 {
+					err = os.Setenv(key, strings.Join(newPaths, ":"))
+				} else {
+					err = os.Unsetenv(key)
+				}
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // newProcesses constructs all processes defined.
 func (manager *resourceManager) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) {
+	// If we're in an AppImage, clean the environment before external execution.
+	err := cleanAppImageEnv()
+	if err != nil {
+		manager.logger.Errorw("failed to properly clean AppImage", "error", err)
+	}
+
 	for _, procConf := range processes {
 		if err := manager.newProcess(ctx, procConf); err != nil {
 			manager.logger.Errorw("failed to create new process", "error", err)
 		}
 	}
 
-	err := manager.processManager.Start(ctx)
+	err = manager.processManager.Start(ctx)
 	if err != nil {
 		manager.logger.Errorw("there are process(es) that failed to start", "error", err)
 	}
 }
 
 func (manager *resourceManager) newProcess(ctx context.Context, procConf pexec.ProcessConfig) error {
-	// In an AppImage execve() is meant to be hooked to swap out the AppImage's libraries and the system ones.
-	// Go doesn't use libc's execve() though, so the hooks fail and trying to exec binaries outside the AppImage can fail.
-	// We work around this by execing through a bash shell (included in the AppImage) which then gets hooked properly.
-	_, isAppImage := os.LookupEnv("APPIMAGE")
-	if isAppImage {
-		procConf.Args = []string{"-c", shellescape.QuoteCommand(append([]string{procConf.Name}, procConf.Args...))}
-		procConf.Name = "bash"
-	}
-
 	if _, err := manager.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
 		return err
 	}
