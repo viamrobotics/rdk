@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"os"
 	"strings"
 
@@ -73,13 +72,13 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 func (manager *resourceManager) addRemote(ctx context.Context, r robot.Robot, c config.Remote) {
 	rName := fromRemoteNameToRemoteNodeName(c.Name)
 	manager.addResource(rName, r)
-	manager.updateRemoteResourceNames(rName, r)
-	fmt.Printf("All childrens are %#v\r\n", manager.resources.GetAllChildrenOf(rName))
+	manager.updateRemoteResourceNames(ctx, rName, r)
 }
-func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) ([]resource.Name, error) {
+
+func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []resource.Name {
 	filtered := []resource.Name{}
 	if _, ok := manager.resources.Nodes[remoteName]; !ok {
-		return nil, errors.Errorf("remote named %q doesn't exist", remoteName.Name)
+		manager.logger.Errorf("trying to get remote resources of a non existinmg remote %q", remoteName)
 	}
 	children := manager.resources.GetAllChildrenOf(remoteName)
 	for _, child := range children {
@@ -87,18 +86,13 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) ([
 			filtered = append(filtered, child)
 		}
 	}
-	fmt.Printf("returnning %+v\r\n", children)
-	return children, nil
+	return filtered
 }
 
-func (manager *resourceManager) updateRemoteResourceNames(remoteName resource.Name, r robot.Robot) error {
+func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, remoteName resource.Name, r robot.Robot) {
 	visited := make(map[resource.Name]bool)
 	newResources := r.ResourceNames()
-	oldResources, err := manager.remoteResourceNames(remoteName)
-	fmt.Printf("This guy %s send resources %+v had %+v\r\n", remoteName, newResources, oldResources)
-	if err != nil {
-		return err
-	}
+	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		visited[res] = false
 	}
@@ -114,35 +108,46 @@ func (manager *resourceManager) updateRemoteResourceNames(remoteName resource.Na
 			visited[res] = true
 			continue
 		}
+		// TODO(npmenard)
 		iface, err := r.ResourceByName(rrName)
-		fmt.Printf("AProcessing the following resource %s we have %+v err is %+v\r\n", res, iface, err)
+		if err != nil {
+			manager.logger.Errorw("couldn't obtain remote resource interface",
+				"name", rrName,
+				"reason", err)
+		}
+		// fmt.Printf("AProcessing the following resource %s we have %+v err is %+v\r\n", res, iface, err)
 		manager.addResource(res, iface)
-		manager.resources.AddChildren(res, remoteName)
+		err = manager.resources.AddChildren(res, remoteName)
+		if err != nil {
+			manager.logger.Errorf("error while trying add %q as a dependency of remote %q", res, remoteName)
+		}
 	}
 	for res, visit := range visited {
 		if !visit {
-			fmt.Printf("-----=====> Removing %q\r\n", res)
-			children := manager.resources.GetAllChildrenOf(res)
-			for _, child := range children {
-				manager.resources.Remove(child)
-				// if err := utils.TryClose(ctx, child); err != nil {
-				// 	return err
-				// }
+			// TODO(npmenard) Add test case
+			sg, err := manager.resources.SubGraphFrom(res)
+			if err != nil {
+				manager.logger.Errorf("tried to remove remote resource %q but it doesn't exist", res)
 			}
-			manager.resources.Remove(res)
+			sorted := sg.TopologicalSort()
+			for _, child := range sorted {
+				if err := utils.TryClose(ctx, child); err != nil {
+					manager.logger.Errorw("error while trying to remove a node depending on a delete remote resource",
+						"remote", res,
+						"node", child,
+						"error", err)
+				}
+				manager.resources.Remove(child)
+			}
 		}
 	}
-	return nil
 }
-func (manager *resourceManager) updateRemotesResourceNames() {
+
+func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) {
 	for name, iface := range manager.resources.Nodes {
 		if name.ResourceType == resource.TypeName("remote") {
 			if r, ok := iface.(robot.Robot); ok {
-				err := manager.updateRemoteResourceNames(name, r)
-				if err != nil {
-					//TODO logger
-					panic(":oops")
-				}
+				manager.updateRemoteResourceNames(ctx, name, r)
 			}
 		}
 	}
@@ -267,9 +272,9 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 
 	order := manager.resources.TopologicalSort()
 	for _, x := range order {
-		fmt.Printf("Closing %+v\r\n", x)
+		// fmt.Printf("Closing %+v\r\n", x)
 		if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
-			fmt.Printf("+++++>>>>---- %+v\r\n", err)
+			// fmt.Printf("+++++>>>>---- %+v\r\n", err)
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 		}
 	}
@@ -844,7 +849,7 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 				return nil, err
 			}
 		}
-		//TODO also remove children
+		// TODO also remove children
 		manager.resources.Remove(remoteName)
 	}
 	for _, compConf := range conf.Components {

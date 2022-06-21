@@ -60,7 +60,6 @@ type localRobot struct {
 	config     *config.Config
 	operations *operation.Manager
 	logger     golog.Logger
-	name       resource.Name
 
 	// services internal to a localRobot. Currently just web, more to come.
 	internalServices map[internalServiceName]interface{}
@@ -503,7 +502,11 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Quer
 	return discoveries, nil
 }
 
-func dialRobotClient(ctx context.Context, config config.Remote, logger golog.Logger, dialOpts ...rpc.DialOption) (*client.RobotClient, error) {
+func dialRobotClient(ctx context.Context,
+	config config.Remote,
+	logger golog.Logger,
+	dialOpts ...rpc.DialOption,
+) (*client.RobotClient, error) {
 	var outerError error
 	connectionCheckInterval := config.ConnectionCheckInterval
 	if connectionCheckInterval == 0 {

@@ -871,8 +871,10 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		return fmt.Errorf("unable to route foreign message due to invalid name field %v", name)
 	}
 
-	fqName := resource.Name{Subtype: foundType.Subtype,
-		Remote: resource.Remote{Remote: ""}, Name: name}
+	fqName := resource.Name{
+		Subtype: foundType.Subtype,
+		Remote:  resource.Remote{Remote: ""}, Name: name,
+	}
 
 	resource, err := svc.r.ResourceByName(fqName)
 	if err != nil {

@@ -252,10 +252,9 @@ func TestManagerResourceRemoteName(t *testing.T) {
 		config.Remote{Name: "remote1"},
 	)
 
-	manager.updateRemotesResourceNames()
+	manager.updateRemotesResourceNames(context.Background())
 
-	res, err := manager.remoteResourceNames(fromRemoteNameToRemoteNodeName("remote1"))
-	test.That(t, err, test.ShouldBeNil)
+	res := manager.remoteResourceNames(fromRemoteNameToRemoteNodeName("remote1"))
 
 	test.That(
 		t,

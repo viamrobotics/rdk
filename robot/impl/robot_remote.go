@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -15,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -82,39 +80,6 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 		}
 	}
 	return dialOpts
-}
-
-func dialRemote(
-	ctx context.Context,
-	config config.Remote,
-	logger golog.Logger,
-	dialOpts ...rpc.DialOption,
-) (robot.RemoteRobot, error) {
-	var outerError error
-	connectionCheckInterval := config.ConnectionCheckInterval
-	if connectionCheckInterval == 0 {
-		connectionCheckInterval = 10 * time.Second
-	}
-	reconnectInterval := config.ReconnectInterval
-	if reconnectInterval == 0 {
-		reconnectInterval = 1 * time.Second
-	}
-	for attempt := 0; attempt < 3; attempt++ {
-		robotClient, err := client.New(
-			ctx,
-			config.Address,
-			logger,
-			client.WithDialOptions(dialOpts...),
-			client.WithCheckConnectedEvery(connectionCheckInterval),
-			client.WithReconnectEvery(reconnectInterval),
-		)
-		if err != nil {
-			outerError = err
-			continue
-		}
-		return robotClient, nil
-	}
-	return nil, outerError
 }
 
 type changeable interface {
@@ -211,27 +176,6 @@ func (rr *remoteRobot) Refresh(ctx context.Context) error {
 	}
 	rr.manager = managerForRemoteRobot(rr.robot)
 	return nil
-}
-
-// replace replaces this robot with the given robot. We can do a full
-// replacement here since we will always get a full view of the parts,
-// not one partially created from a diff.
-func (rr *remoteRobot) replace(ctx context.Context, newRobot robot.Robot) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-
-	actual, ok := newRobot.(*remoteRobot)
-	if !ok {
-		panic(fmt.Errorf("expected new remote to be %T but got %T", actual, newRobot))
-	}
-
-	rr.manager.replaceForRemote(ctx, actual.manager)
-	if err := rr.Close(ctx); err != nil {
-		rr.Logger().Errorw("error closing replaced remote robot client", "error", err)
-	}
-	rr.robot = actual.robot
-	rr.conf = actual.conf
-	rr.startWatcher(ctx)
 }
 
 func (rr *remoteRobot) prefixName(name string) string {
