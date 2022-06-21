@@ -84,7 +84,7 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 	return dialOpts
 }
 
-func dialRemote(ctx context.Context, config config.Remote, logger golog.Logger, dialOpts ...rpc.DialOption) (robot.RemoteRobot, error) {
+func dialRemote(ctx context.Context, config config.Remote, logger golog.Logger, dialOpts ...rpc.DialOption) (*client.RobotClient, error) {
 	var outerError error
 	connectionCheckInterval := config.ConnectionCheckInterval
 	if connectionCheckInterval == 0 {

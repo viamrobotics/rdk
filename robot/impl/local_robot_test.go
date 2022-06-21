@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -160,23 +161,29 @@ func TestConfigRemote(t *testing.T) {
 		vision.Name,
 		sensors.Name,
 		datamanager.Name,
-		arm.Named("pieceArm"),
-		arm.Named("foo.pieceArm"),
-		arm.Named("bar.pieceArm"),
+		arm.Named("squee:pieceArm"),
+		arm.Named("foo:pieceArm"),
+		arm.Named("bar:pieceArm"),
 		base.Named("foo"),
 		base.Named("myParentIsRemote"),
-		camera.Named("cameraOver"),
-		camera.Named("foo.cameraOver"),
-		camera.Named("bar.cameraOver"),
-		gps.Named("gps1"),
-		gps.Named("foo.gps1"),
-		gps.Named("bar.gps1"),
-		gps.Named("gps2"),
-		gps.Named("foo.gps2"),
-		gps.Named("bar.gps2"),
-		gripper.Named("pieceGripper"),
-		gripper.Named("foo.pieceGripper"),
-		gripper.Named("bar.pieceGripper"),
+		camera.Named("squee:cameraOver"),
+		camera.Named("foo:cameraOver"),
+		camera.Named("bar:cameraOver"),
+		gps.Named("squee:gps1"),
+		gps.Named("foo:gps1"),
+		gps.Named("bar:gps1"),
+		gps.Named("squee:gps2"),
+		gps.Named("foo:gps2"),
+		gps.Named("bar:gps2"),
+		gripper.Named("squee:pieceGripper"),
+		gripper.Named("foo:pieceGripper"),
+		gripper.Named("bar:pieceGripper"),
+		vision.Named("squee:"),
+		sensors.Named("squee:"),
+		vision.Named("foo:"),
+		sensors.Named("foo:"),
+		vision.Named("bar:"),
+		sensors.Named("bar:"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -199,7 +206,7 @@ func TestConfigRemote(t *testing.T) {
 
 	statuses, err := r2.GetStatus(
 		context.Background(),
-		[]resource.Name{gps.Named("gps1"), gps.Named("foo.gps1"), gps.Named("bar.gps1")},
+		[]resource.Name{gps.Named("squee:gps1"), gps.Named("foo:gps1"), gps.Named("bar:gps1")},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -212,7 +219,7 @@ func TestConfigRemote(t *testing.T) {
 
 	statuses, err = r2.GetStatus(
 		context.Background(),
-		[]resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm"), arm.Named("bar.pieceArm")},
+		[]resource.Name{arm.Named("squee:pieceArm"), arm.Named("foo:pieceArm"), arm.Named("bar:pieceArm")},
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 3)
@@ -366,6 +373,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				remoteConfig.Remotes[1].Auth.Entity = entityName
 				r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
 				test.That(t, err, test.ShouldBeNil)
+				fmt.Printf("first ->>>>>>\r\n")
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
 				test.That(t, err, test.ShouldBeNil)
@@ -400,16 +408,20 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				vision.Name,
 				sensors.Name,
 				datamanager.Name,
-				arm.Named("pieceArm"),
-				arm.Named("foo.pieceArm"),
-				camera.Named("cameraOver"),
-				camera.Named("foo.cameraOver"),
-				gps.Named("gps1"),
-				gps.Named("foo.gps1"),
-				gps.Named("gps2"),
-				gps.Named("foo.gps2"),
-				gripper.Named("pieceGripper"),
-				gripper.Named("foo.pieceGripper"),
+				arm.Named("bar:pieceArm"),
+				arm.Named("foo:pieceArm"),
+				camera.Named("bar:cameraOver"),
+				camera.Named("foo:cameraOver"),
+				gps.Named("bar:gps1"),
+				gps.Named("foo:gps1"),
+				gps.Named("bar:gps2"),
+				gps.Named("foo:gps2"),
+				gripper.Named("bar:pieceGripper"),
+				gripper.Named("foo:pieceGripper"),
+				vision.Named("foo:"),
+				sensors.Named("foo:"),
+				vision.Named("bar:"),
+				sensors.Named("bar:"),
 			}
 
 			resources2 := r2.ResourceNames()
@@ -431,7 +443,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			)
 
 			statuses, err := r2.GetStatus(
-				context.Background(), []resource.Name{gps.Named("gps1"), gps.Named("foo.gps1")},
+				context.Background(), []resource.Name{gps.Named("bar:gps1"), gps.Named("foo:gps1")},
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(statuses), test.ShouldEqual, 2)
@@ -439,7 +451,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, statuses[1].Status, test.ShouldResemble, map[string]interface{}{})
 
 			statuses, err = r2.GetStatus(
-				context.Background(), []resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm")},
+				context.Background(), []resource.Name{arm.Named("bar:pieceArm"), arm.Named("foo:pieceArm")},
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(statuses), test.ShouldEqual, 2)

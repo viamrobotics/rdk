@@ -4,6 +4,7 @@ package generic
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -38,9 +39,10 @@ func init() {
 
 // SubtypeName is a constant that identifies the component resource subtype string "Generic".
 const SubtypeName = resource.SubtypeName("generic")
+
 var (
 	ErrUnimplemented = errors.New("Do() unimplemented")
-	EchoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	EchoFunc         = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return cmd, nil
 	}
 	TestCommand = map[string]interface{}{"command": "test", "data": 500}
@@ -55,6 +57,12 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named Generic's typed resource name.
 func Named(name string) resource.Name {
+	remotes := strings.Split(name, ":")
+	if len(remotes) > 1 {
+		rName := resource.NameFromSubtype(Subtype, remotes[len(remotes)-1])
+		rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+		return rName
+	}
 	return resource.NameFromSubtype(Subtype, name)
 }
 
@@ -65,7 +73,7 @@ type Generic interface {
 }
 
 // Unimplemented can be embedded in other components to save boilerplate.
-type Unimplemented struct {}
+type Unimplemented struct{}
 
 // Do covers the unimplemented case for other components
 func (u *Unimplemented) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -73,7 +81,7 @@ func (u *Unimplemented) Do(ctx context.Context, cmd map[string]interface{}) (map
 }
 
 // Echo can be embedded in other (fake) components to save boilerplate.
-type Echo struct {}
+type Echo struct{}
 
 // Do covers the echo case for other components
 func (e *Echo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

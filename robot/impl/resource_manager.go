@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"strings"
 
@@ -22,11 +23,9 @@ import (
 
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
-	remotes             map[string]*remoteRobot
-	resources           *resource.Graph
-	processManager      pexec.ProcessManager
-	opts                resourceManagerOptions
-	resourceRemoteNames map[resource.Name]string
+	resources      *resource.Graph
+	processManager pexec.ProcessManager
+	opts           resourceManagerOptions
 }
 
 type resourceUpdateWrapper struct {
@@ -56,20 +55,92 @@ func newResourceManager(
 	logger golog.Logger,
 ) *resourceManager {
 	return &resourceManager{
-		remotes:             map[string]*remoteRobot{},
-		resources:           resource.NewGraph(),
-		processManager:      pexec.NewProcessManager(logger),
-		opts:                opts,
-		resourceRemoteNames: make(map[resource.Name]string),
+		resources:      resource.NewGraph(),
+		processManager: pexec.NewProcessManager(logger),
+		opts:           opts,
 	}
 }
 
+func fromRemoteNameToRemoteNodeName(name string) resource.Name {
+	return resource.NewName(resource.ResourceNamespaceRDK, resource.TypeName("remote"), resource.SubtypeName(""), name)
+}
+
 // addRemote adds a remote to the manager.
-func (manager *resourceManager) addRemote(ctx context.Context, r *remoteRobot, c config.Remote) {
-	if old, ok := manager.remotes[c.Name]; ok {
-		old.replace(ctx, r)
-	} else {
-		manager.remotes[c.Name] = r
+func (manager *resourceManager) addRemote(ctx context.Context, r robot.Robot, c config.Remote) {
+	rName := fromRemoteNameToRemoteNodeName(c.Name)
+	manager.addResource(rName, r)
+	manager.updateRemoteResourceNames(rName, r)
+	fmt.Printf("All childrens are %#v\r\n", manager.resources.GetAllChildrenOf(rName))
+}
+func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) ([]resource.Name, error) {
+	filtered := []resource.Name{}
+	if _, ok := manager.resources.Nodes[remoteName]; !ok {
+		return nil, errors.Errorf("remote named %q doesn't exist", remoteName.Name)
+	}
+	children := manager.resources.GetAllChildrenOf(remoteName)
+	for _, child := range children {
+		if child.IsRemoteResource() {
+			filtered = append(filtered, child)
+		}
+	}
+	fmt.Printf("returnning %+v\r\n", children)
+	return children, nil
+}
+
+func (manager *resourceManager) updateRemoteResourceNames(remoteName resource.Name, r robot.Robot) error {
+	visited := make(map[resource.Name]bool)
+	newResources := r.ResourceNames()
+	oldResources, err := manager.remoteResourceNames(remoteName)
+	fmt.Printf("This guy %s send resources %+v had %+v\r\n", remoteName, newResources, oldResources)
+	if err != nil {
+		return err
+	}
+	for _, res := range oldResources {
+		visited[res] = false
+	}
+	for _, res := range newResources {
+		// skip datamanager since we know it doesn't have a client
+		// TODO: remove after we add corresponding datamanager client
+		if res == datamanager.Name {
+			continue
+		}
+		rrName := res
+		res.PrependRemote(resource.RemoteName(remoteName.Name))
+		if _, ok := visited[res]; ok {
+			visited[res] = true
+			continue
+		}
+		iface, err := r.ResourceByName(rrName)
+		fmt.Printf("AProcessing the following resource %s we have %+v err is %+v\r\n", res, iface, err)
+		manager.addResource(res, iface)
+		manager.resources.AddChildren(res, remoteName)
+	}
+	for res, visit := range visited {
+		if !visit {
+			fmt.Printf("-----=====> Removing %q\r\n", res)
+			children := manager.resources.GetAllChildrenOf(res)
+			for _, child := range children {
+				manager.resources.Remove(child)
+				// if err := utils.TryClose(ctx, child); err != nil {
+				// 	return err
+				// }
+			}
+			manager.resources.Remove(res)
+		}
+	}
+	return nil
+}
+func (manager *resourceManager) updateRemotesResourceNames() {
+	for name, iface := range manager.resources.Nodes {
+		if name.ResourceType == resource.TypeName("remote") {
+			if r, ok := iface.(robot.Robot); ok {
+				err := manager.updateRemoteResourceNames(name, r)
+				if err != nil {
+					//TODO logger
+					panic(":oops")
+				}
+			}
+		}
 	}
 }
 
@@ -81,28 +152,9 @@ func (manager *resourceManager) addResource(name resource.Name, r interface{}) {
 // RemoteNames returns the names of all remotes in the manager.
 func (manager *resourceManager) RemoteNames() []string {
 	names := []string{}
-	for k := range manager.remotes {
-		names = append(names, k)
-	}
-	return names
-}
-
-// mergeResourceNamesWithRemotes merges names from the manager itself as well as its
-// remotes.
-func (manager *resourceManager) mergeResourceNamesWithRemotes(names []resource.Name) []resource.Name {
-	// use this to filter out seen names and preserve order
-	seen := make(map[resource.Name]struct{}, len(manager.resources.Nodes))
-	for _, name := range names {
-		seen[name] = struct{}{}
-	}
-	for _, r := range manager.remotes {
-		remoteNames := r.ResourceNames()
-		for _, name := range remoteNames {
-			if _, ok := seen[name]; ok {
-				continue
-			}
-			names = append(names, name)
-			seen[name] = struct{}{}
+	for k := range manager.resources.Nodes {
+		if k.ResourceType == resource.TypeName("remote") {
+			names = append(names, k.Name)
 		}
 	}
 	return names
@@ -112,65 +164,32 @@ func (manager *resourceManager) mergeResourceNamesWithRemotes(names []resource.N
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for k := range manager.resources.Nodes {
+		if k.ResourceType == resource.TypeName("remote") {
+			continue
+		}
 		names = append(names, k)
 	}
-	return manager.mergeResourceNamesWithRemotes(names)
-}
-
-// updateResourceRemoteNames populates the resourceRemoteNames map.
-func (manager *resourceManager) updateResourceRemoteNames() {
-	manager.resourceRemoteNames = make(map[resource.Name]string)
-	names := manager.ResourceNames()
-	for _, n := range names {
-		// skip local parts
-		if _, ok := manager.resources.Nodes[n]; ok {
-			continue
-		}
-		// skip if name clash
-		if _, err := manager.ResourceByName(n); err != nil {
-			continue
-		}
-		for remoteName, remote := range manager.remotes {
-			// only check for part if remote has prefix and the prefix matches the name of remote OR if remote doesn't have a prefix
-			if (remote.conf.Prefix && strings.HasPrefix(n.Name, remote.conf.Name)) || !remote.conf.Prefix {
-				if _, err := remote.ResourceByName(n); err == nil {
-					manager.resourceRemoteNames[n] = remoteName
-					break
-				}
-			}
-		}
-	}
+	return names
 }
 
 // remoteNameByResource returns the remote the resource is pulled from, if found.
 // False can mean either the resource doesn't exist or is local to the robot.
 func (manager *resourceManager) remoteNameByResource(resourceName resource.Name) (string, bool) {
-	name, ok := manager.resourceRemoteNames[resourceName]
-	return name, ok
+	if !resourceName.IsRemoteResource() {
+		return "", false
+	}
+	remote := strings.Split(string(resourceName.Remote.Remote), ":")
+	return remote[0], true
 }
 
 // Clone provides a shallow copy of each part.
 func (manager *resourceManager) Clone() *resourceManager {
 	var clonedManager resourceManager
-	if len(manager.remotes) != 0 {
-		clonedManager.remotes = make(map[string]*remoteRobot, len(manager.remotes))
-		for k, v := range manager.remotes {
-			clonedManager.remotes[k] = v
-		}
-	} else {
-		clonedManager.remotes = map[string]*remoteRobot{}
-	}
 	if len(manager.resources.Nodes) != 0 {
 		clonedManager.resources = manager.resources.Clone()
 	}
 	if manager.processManager != nil {
 		clonedManager.processManager = manager.processManager.Clone()
-	}
-	if len(manager.resourceRemoteNames) != 0 {
-		clonedManager.resourceRemoteNames = make(map[resource.Name]string, len(manager.resourceRemoteNames))
-		for k, v := range manager.resourceRemoteNames {
-			clonedManager.resourceRemoteNames[k] = v
-		}
 	}
 	clonedManager.opts = manager.opts
 	return &clonedManager
@@ -183,19 +202,14 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
 
-	for _, x := range manager.remotes {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
-		}
-	}
-
 	order := manager.resources.TopologicalSort()
 	for _, x := range order {
+		fmt.Printf("Closing %+v\r\n", x)
 		if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
+			fmt.Printf("+++++>>>>---- %+v\r\n", err)
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 		}
 	}
-
 	return allErrs
 }
 
@@ -316,7 +330,7 @@ func (manager *resourceManager) newProcesses(ctx context.Context, processes []pe
 func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
 		dialOpts := remoteDialOptions(config, manager.opts)
-		robotClient, err := dialRemote(ctx, config, logger, dialOpts...)
+		robotClient, err := dialRobotClient(ctx, config, logger, dialOpts...)
 		if err != nil {
 			if errors.Is(err, rpc.ErrInsecureWithCredentials) {
 				if manager.opts.fromCommand {
@@ -328,7 +342,7 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
 		configCopy := config
-		manager.addRemote(ctx, newRemoteRobot(ctx, robotClient, configCopy), configCopy)
+		manager.addRemote(ctx, robotClient, configCopy)
 	}
 	return nil
 }
@@ -382,15 +396,13 @@ func (manager *resourceManager) newServices(ctx context.Context, services []conf
 // RemoteByName returns the given remote robot by name, if it exists;
 // returns nil otherwise.
 func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
-	part, ok := manager.remotes[name]
-	if ok {
-		return part, true
-	}
-	for _, remote := range manager.remotes {
-		part, ok := remote.RemoteByName(name)
-		if ok {
-			return part, true
+	rName := resource.NewName(resource.ResourceNamespaceRDK, resource.TypeName("remote"), resource.SubtypeName(""), name)
+	if iface, ok := manager.resources.Nodes[rName]; ok {
+		part, ok := iface.(robot.Robot)
+		if !ok {
+			panic(errors.Errorf("tried to access remote '%q' but its not a robot its %T", name, iface))
 		}
+		return part, true
 	}
 	return nil, false
 }
@@ -723,25 +735,8 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns an error otherwise.
 func (manager *resourceManager) ResourceByName(name resource.Name) (interface{}, error) {
-	partExists := false
 	robotPart, ok := manager.resources.Nodes[name]
 	if ok {
-		return robotPart, nil
-	}
-	for _, remote := range manager.remotes {
-		// only check for part if remote has prefix and the prefix matches the name of remote OR if remote doesn't have a prefix
-		if (remote.conf.Prefix && strings.HasPrefix(name.Name, remote.conf.Name)) || !remote.conf.Prefix {
-			part, err := remote.ResourceByName(name)
-			if err == nil {
-				if partExists {
-					return nil, errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", name)
-				}
-				robotPart = part
-				partExists = true
-			}
-		}
-	}
-	if partExists {
 		return robotPart, nil
 	}
 	return nil, rutils.NewResourceNotFoundError(name)
@@ -768,12 +763,26 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		manager.processManager.RemoveProcessByID(conf.ID)
 	}
 	for _, conf := range conf.Remotes {
-		part, ok := manager.remotes[conf.Name]
+		remoteName := fromRemoteNameToRemoteNodeName(conf.Name)
+		iface, ok := manager.resources.Nodes[remoteName]
 		if !ok {
 			continue
 		}
-		filtered.addRemote(ctx, part, conf)
-		delete(manager.remotes, conf.Name)
+		part, ok := iface.(robot.Robot)
+		if !ok {
+			return nil, errors.Errorf("remote named %q exists but its a %T and not a robotClient", remoteName, iface)
+		}
+		filtered.resources.AddNode(remoteName, part)
+		for _, child := range manager.resources.GetAllChildrenOf(remoteName) {
+			if _, ok := filtered.resources.Nodes[child]; !ok {
+				filtered.resources.AddNode(child, manager.resources.Nodes[child])
+			}
+			if err := filtered.resources.AddChildren(child, remoteName); err != nil {
+				return nil, err
+			}
+		}
+		//TODO also remove children
+		manager.resources.Remove(remoteName)
 	}
 	for _, compConf := range conf.Components {
 		rName := compConf.ResourceName()

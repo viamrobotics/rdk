@@ -7,14 +7,17 @@ package robotimpl
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -57,6 +60,7 @@ type localRobot struct {
 	config     *config.Config
 	operations *operation.Manager
 	logger     golog.Logger
+	name       resource.Name
 
 	// services internal to a localRobot. Currently just web, more to come.
 	internalServices map[internalServiceName]interface{}
@@ -205,25 +209,11 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 		if !ok {
 			continue
 		}
-		remote, ok := r.RemoteByName(remoteName)
-		if !ok {
-			// should never happen
-			r.Logger().Errorw("remote robot not found while creating status", "remote", remoteName)
-			continue
-		}
-		rRobot, ok := remote.(*remoteRobot)
-		if !ok {
-			// should never happen
-			r.Logger().Errorw("remote robot not a *remoteRobot while creating status", "remote", remoteName)
-			continue
-		}
-		unprefixed := rRobot.unprefixResourceName(name)
-
 		mappings, ok := groupedResources[remoteName]
 		if !ok {
 			mappings = make(map[resource.Name]resource.Name)
 		}
-		mappings[unprefixed] = name
+		mappings[name.PopRemote()] = name
 		groupedResources[remoteName] = mappings
 	}
 	// make requests and map it back to the local resource name
@@ -313,7 +303,6 @@ func newWithResources(
 		}
 	}()
 	r.config = cfg
-
 	// default services
 	for _, name := range defaultSvc {
 		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
@@ -340,7 +329,6 @@ func newWithResources(
 	if err := r.updateDefaultServices(ctx); err != nil {
 		return nil, err
 	}
-	r.manager.updateResourceRemoteNames()
 	successful = true
 	return r, nil
 }
@@ -505,4 +493,32 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Quer
 		}
 	}
 	return discoveries, nil
+}
+
+func dialRobotClient(ctx context.Context, config config.Remote, logger golog.Logger, dialOpts ...rpc.DialOption) (*client.RobotClient, error) {
+	var outerError error
+	connectionCheckInterval := config.ConnectionCheckInterval
+	if connectionCheckInterval == 0 {
+		connectionCheckInterval = 10 * time.Second
+	}
+	reconnectInterval := config.ReconnectInterval
+	if reconnectInterval == 0 {
+		reconnectInterval = 1 * time.Second
+	}
+	for attempt := 0; attempt < 3; attempt++ {
+		robotClient, err := client.New(
+			ctx,
+			config.Address,
+			logger,
+			client.WithDialOptions(dialOpts...),
+			client.WithCheckConnectedEvery(connectionCheckInterval),
+			client.WithReconnectEvery(reconnectInterval),
+		)
+		if err != nil {
+			outerError = err
+			continue
+		}
+		return robotClient, nil
+	}
+	return nil, outerError
 }

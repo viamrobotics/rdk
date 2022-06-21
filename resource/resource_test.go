@@ -1,7 +1,6 @@
 package resource_test
 
 import (
-	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -289,7 +288,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, observed, test.ShouldResemble, tc.Expected)
-				test.That(t, fmt.Sprintf("%s", observed), test.ShouldResemble, tc.Name)
+				test.That(t, observed.String(), test.ShouldResemble, tc.Name)
 			} else {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
