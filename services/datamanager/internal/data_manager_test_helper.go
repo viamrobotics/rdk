@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/data"
 )
 
 // DMService in the internal package includes additional exported functions relating to the syncing and
@@ -16,4 +17,6 @@ type DMService interface {
 	Update(ctx context.Context, cfg *config.Config) error
 	Close(ctx context.Context) error
 	SetUploadFn(fn func(ctx context.Context, path string) error)
+	NumCollectors() int
+	HasInCollector(componentName string, componentMetadata data.MethodMetadata) bool
 }

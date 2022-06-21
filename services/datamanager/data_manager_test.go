@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/data"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
@@ -22,41 +23,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
-
-func newTestDataManager(t *testing.T, captureDir string) internal.DMService {
-	t.Helper()
-	dmCfg := &datamanager.Config{
-		CaptureDir: captureDir,
-	}
-	cfgService := config.Service{
-		Type:                "data_manager",
-		ConvertedAttributes: dmCfg,
-	}
-
-	logger := golog.NewTestLogger(t)
-	r := &inject.Robot{}
-	const arm1Key = "arm1"
-	arm1 := &inject.Arm{}
-	// Set a dummy GetEndPositionFunc so inject doesn't throw error
-	arm1.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
-		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
-	}
-	rs := map[resource.Name]interface{}{arm.Named(arm1Key): arm1}
-	r.MockResourcesFromMap(rs)
-	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
-	if err != nil {
-		t.Log(err)
-	}
-	return svc.(internal.DMService)
-}
-
-func setupConfig(t *testing.T, relativePath string) *config.Config {
-	t.Helper()
-	logger := golog.NewTestLogger(t)
-	testCfg, err := config.Read(context.Background(), rutils.ResolveFile(relativePath), logger)
-	test.That(t, err, test.ShouldBeNil)
-	return testCfg
-}
 
 // readDir filters out folders from a slice of FileInfos.
 func readDir(t *testing.T, dir string) ([]fs.FileInfo, error) {
@@ -81,6 +47,71 @@ func resetFolder(t *testing.T, path string) {
 	}
 }
 
+func newTestDataManager(t *testing.T) internal.DMService {
+	t.Helper()
+	dmCfg := &datamanager.Config{}
+	cfgService := config.Service{
+		Type:                "data_manager",
+		ConvertedAttributes: dmCfg,
+	}
+	logger := golog.NewTestLogger(t)
+	r := &inject.Robot{}
+	const arm1Key = "arm1"
+	arm1 := &inject.Arm{}
+
+	// Set a dummy GetEndPositionFunc so inject doesn't throw error
+	arm1.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
+	}
+	rs := map[resource.Name]interface{}{arm.Named(arm1Key): arm1}
+	r.MockResourcesFromMap(rs)
+	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
+	if err != nil {
+		t.Log(err)
+	}
+	return svc.(internal.DMService)
+}
+
+func setupConfig(t *testing.T, relativePath string) *config.Config {
+	t.Helper()
+	logger := golog.NewTestLogger(t)
+	testCfg, err := config.Read(context.Background(), rutils.ResolveFile(relativePath), logger)
+	test.That(t, err, test.ShouldBeNil)
+	return testCfg
+}
+
+func TestNewDataManager(t *testing.T) {
+	// Empty config at initialization.
+	captureDir := "/tmp/capture"
+	svc := newTestDataManager(t)
+	// Set capture parameters in Update.
+	conf := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
+	svcConfig, ok, err := datamanager.GetServiceConfig(conf)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeNil)
+	defer resetFolder(t, captureDir)
+	svc.Update(context.Background(), conf)
+	sleepTime := time.Millisecond * 5
+	time.Sleep(sleepTime)
+
+	// Check that the expected collector is running.
+	test.That(t, svc.NumCollectors(), test.ShouldEqual, 1)
+	expectedMetadata := data.MethodMetadata{Subtype: resource.SubtypeName("arm"), MethodName: "GetEndPosition"}
+	present := svc.HasInCollector("arm1", expectedMetadata)
+	test.That(t, present, test.ShouldBeTrue)
+
+	// Check that collector is closed.
+	err = svc.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(sleepTime)
+	test.That(t, svc.NumCollectors(), test.ShouldEqual, 0)
+
+	// Check that the collector wrote to a single file.
+	files, err := ioutil.ReadDir(svcConfig.CaptureDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(files), test.ShouldEqual, 1)
+}
+
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
 	var uploadCount uint64
@@ -102,7 +133,7 @@ func TestManualSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t, captureDir)
+	dmsvc := newTestDataManager(t)
 	defer dmsvc.Close(context.Background())
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.Background(), testCfg)
@@ -150,13 +181,12 @@ func TestScheduledSync(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 
 	// Set the sync interval mins to 510ms for the scheduled sync.
-	unconvertedSvcConfig, ok := datamanager.GetDataManagerServiceConfig(testCfg)
+	svcConfig, ok, err := datamanager.GetServiceConfig(testCfg)
 	if !ok {
 		t.Error("malformed/missing datamanager service in config")
 	}
-	svcConfig, ok := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
-	if !ok {
-		t.Error("malformed/missing datamanager service in config")
+	if err != nil {
+		t.Error(err)
 	}
 	svcConfig.SyncIntervalMins = 0.0085
 
@@ -171,7 +201,7 @@ func TestScheduledSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager, update it with our config, and tell it to close later.
-	dmsvc := newTestDataManager(t, captureDir)
+	dmsvc := newTestDataManager(t)
 	defer dmsvc.Close(cancelCtx)
 	defer cancelFn()
 	dmsvc.SetUploadFn(uploadFn)
@@ -230,13 +260,12 @@ func TestManualAndScheduledSync(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 
 	// Set the sync interval mins to 510ms for the scheduled sync.
-	unconvertedSvcConfig, ok := datamanager.GetDataManagerServiceConfig(testCfg)
+	svcConfig, ok, err := datamanager.GetServiceConfig(testCfg)
 	if !ok {
 		t.Error("malformed/missing datamanager service in config")
 	}
-	svcConfig, ok := unconvertedSvcConfig.ConvertedAttributes.(*datamanager.Config)
-	if !ok {
-		t.Error("malformed/missing datamanager service in config")
+	if err != nil {
+		t.Error(err)
 	}
 	svcConfig.SyncIntervalMins = 0.0085
 
@@ -251,7 +280,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t, captureDir)
+	dmsvc := newTestDataManager(t)
 
 	// Make sure we close resources to prevent leaks.
 	defer dmsvc.Close(cancelCtx)
