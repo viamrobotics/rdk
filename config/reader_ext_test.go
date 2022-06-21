@@ -50,8 +50,9 @@ func TestFromReaderValidate(t *testing.T) {
 		ConfigFilePath: "somepath",
 		Components: []config.Component{
 			{
-				Name: "foo",
-				Type: arm.SubtypeName,
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      arm.SubtypeName,
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080", BindAddressDefaultSet: true}},
