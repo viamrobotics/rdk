@@ -174,7 +174,7 @@ func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSp
 	return constraint
 }
 
-// NewCollisionConstraintFromWorldState creates a collision constraint from a world state, frame system, a model and a set of initial states.
+// NewCollisionConstraintFromWorldState creates a collision constraint from a world state, framesystem, a model and a set of initial states.
 func NewCollisionConstraintFromWorldState(
 	model referenceframe.Frame,
 	fs referenceframe.FrameSystem,
