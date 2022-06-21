@@ -7,9 +7,12 @@ import (
 	"runtime"
 
 	"github.com/edaniels/golog"
+	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
@@ -96,10 +99,12 @@ type Component struct {
 
 // ResourceSubtype stores subtype-specific functions and clients.
 type ResourceSubtype struct {
-	Reconfigurable     CreateReconfigurable
-	Status             CreateStatus
-	RegisterRPCService RegisterSubtypeRPCService
-	RPCClient          CreateRPCClient
+	Reconfigurable        CreateReconfigurable
+	Status                CreateStatus
+	RegisterRPCService    RegisterSubtypeRPCService
+	RPCServiceDesc        *grpc.ServiceDesc
+	ReflectRPCServiceDesc *desc.ServiceDescriptor `copy:"shallow"`
+	RPCClient             CreateRPCClient
 }
 
 // SubtypeGrpc stores functions necessary for a resource subtype to be accessible through grpc.
@@ -145,6 +150,17 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 	if creator.Reconfigurable == nil && creator.Status == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
 		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
+	if creator.RegisterRPCService != nil && creator.RPCServiceDesc == nil {
+		panic(errors.Errorf("cannot register a RPC enabled subtype with no RPC service description: %s", subtype))
+	}
+
+	if creator.RPCServiceDesc != nil {
+		reflectSvcDesc, err := grpcreflect.LoadServiceDescriptor(creator.RPCServiceDesc)
+		if err != nil {
+			panic(err)
+		}
+		creator.ReflectRPCServiceDesc = reflectSvcDesc
+	}
 	subtypeRegistry[subtype] = creator
 }
 
@@ -177,11 +193,11 @@ func RegisteredComponents() map[string]Component {
 
 // RegisteredResourceSubtypes returns a copy of the registered resource subtypes.
 func RegisteredResourceSubtypes() map[resource.Subtype]ResourceSubtype {
-	copied, err := copystructure.Copy(subtypeRegistry)
-	if err != nil {
-		panic(err)
+	toCopy := make(map[resource.Subtype]ResourceSubtype, len(subtypeRegistry))
+	for k, v := range subtypeRegistry {
+		toCopy[k] = v
 	}
-	return copied.(map[resource.Subtype]ResourceSubtype)
+	return toCopy
 }
 
 var discoveryFunctions = map[discovery.Query]discovery.Discover{}

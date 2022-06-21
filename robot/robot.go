@@ -32,8 +32,11 @@ type Robot interface {
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
-	// ResourceNames returns a list of all known resource names
+	// ResourceNames returns a list of all known resource names.
 	ResourceNames() []resource.Name
+
+	// ResourceRPCSubtypes returns a list of all known resource RPC subtypes.
+	ResourceRPCSubtypes() []resource.RPCSubtype
 
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
