@@ -287,13 +287,9 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func getDataTypeFromLeadingMessage(path string) (v1.DataType, error) {
-	//nolint
-	f, err := os.Open(path)
-	if err != nil {
-		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
-	}
-	if _, err = f.Seek(0, 0); err != nil {
+func getDataTypeFromLeadingMessage(f *os.File) (v1.DataType, error) {
+
+	if _, err := f.Seek(0, 0); err != nil {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
 
@@ -339,7 +335,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	componentName := remainingPathContent[1]
 
 	// dataType represents the protobuf DataType value describing the file to be uploaded.
-	dataType, err := getDataTypeFromLeadingMessage(path)
+	dataType, err := getDataTypeFromLeadingMessage(f)
 	if err != nil {
 		return errors.Wrap(err, "error while getting metadata data type")
 	}
