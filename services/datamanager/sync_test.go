@@ -92,7 +92,6 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []v1.UploadReque
 			e := actual[i+1].GetSensorContents().GetStruct()
 			test.That(t, a, test.ShouldResemble, e)
 		}
-
 	} else {
 		// Compare sensor data upload request (stream).
 		for i, uploadRequest := range actual[1:] {
@@ -104,7 +103,8 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []v1.UploadReque
 }
 
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
-	expectedMetadata *v1.UploadMetadata) {
+	expectedMetadata *v1.UploadMetadata,
+) {
 	t.Helper()
 
 	// Test the fields within UploadRequest Metadata.
