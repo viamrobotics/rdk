@@ -20,7 +20,7 @@
             'text-xs': small,
             'bg-gray-200 text-gray-400 border-gray-400': disabled,
           }"
-          style="height:38px"
+          style="height: 38px"
         />
         <div
           v-show="!readonly"
