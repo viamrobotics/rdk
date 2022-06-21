@@ -735,8 +735,6 @@
                 }
                 console.log("loading pcd map");
                 pcObject = resp.getPointCloud();
-                //this.pcdMapTemp = pcObject.getPointCloud_asB64();
-                //pcdLoad(`data:${mimeType};base64,${this.pcdMapTemp}`);
                 theData.fullcloud = pcObject.getPointCloud_asB64();
                 pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
               });

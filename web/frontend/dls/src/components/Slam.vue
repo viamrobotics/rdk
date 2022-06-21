@@ -4,7 +4,7 @@
       <div class="flex">
         <h2 class="p-4 text-xl">SLAM</h2>
       </div>
-      <div style="display: flex; margin-bottom: 1em">
+      <div class="flex mb-4">
         <table
           border="1"
           style="margin-right: 1em"
