@@ -131,8 +131,8 @@
       "size": 106186
     },
     "chessOUT3nums.jpeg": {
-      "hash": "f0faa3ae4222a733bb1b0d939bcf66b9",
-      "size": 107752
+      "hash": "17be601b6247f90e5ffbad5462b2fa5b",
+      "size": 108206
     }
   },
   "chess": {
@@ -50208,6 +50208,16 @@
         "size": 245707
       }
     },
+    "odometry": {
+      "000001.png": {
+        "hash": "a44f083fc181ffa85b0714503de6da76",
+        "size": 273625
+      },
+      "000002.png": {
+        "hash": "633579926f5a6dc23b653fc5dcb18647",
+        "size": 274770
+      }
+    },
     "segmentation": {
       "pointcloudsegmentation": {
         "align-test-1615172036.both.gz": {
@@ -50218,6 +50228,20 @@
           "hash": "02af0da75cca1f105f58c71379251490",
           "size": 335
         }
+      }
+    },
+    "tflite": {
+      "dogscute.jpeg": {
+        "hash": "a9d844a1ac8a1133906e32fb2c44cd7b",
+        "size": 5765
+      },
+      "effdet0.tflite": {
+        "hash": "3a047d6fd440b36cbba72e5532ff3548",
+        "size": 4563519
+      },
+      "fakelabels.txt": {
+        "hash": "9b9d5e11ece4e6fe52246a2851636145",
+        "size": 50
       }
     },
     "white1.png": {
