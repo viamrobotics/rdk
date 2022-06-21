@@ -28,14 +28,14 @@ var cartographerMetadata = LibraryMetadata{
 	AlgoName:       "cartographer",
 	AlgoType:       dense,
 	SlamMode:       map[string]mode{"2d": dim2d},
-	BinaryLocation: "true",
+	BinaryLocation: "",
 }
 
 var orbslamv3Metadata = LibraryMetadata{
 	AlgoName:       "orbslamv3",
 	AlgoType:       sparse,
 	SlamMode:       map[string]mode{"mono": mono, "rgbd": rgbd},
-	BinaryLocation: "true",
+	BinaryLocation: "",
 }
 
 // LibraryMetadata contains all pertinent information for defining a SLAM library/algorithm including the
