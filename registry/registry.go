@@ -75,8 +75,8 @@ type (
 	// Dependencies is a map of resources that a component requires for creation.
 	Dependencies map[resource.Name]interface{}
 
-	// A CreateRobotComponent creates a resource from a robot and a given config.
-	CreateRobotComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error)
+	// A CreateComponentWithRobot creates a resource from a robot and a given config.
+	CreateComponentWithRobot func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error)
 
 	// A CreateComponent creates a resource from a collection of dependencies and a given config.
 	CreateComponent func(ctx context.Context, deps Dependencies, config config.Component, logger golog.Logger) (interface{}, error)
@@ -112,7 +112,7 @@ type Component struct {
 	RegDebugInfo
 	Constructor CreateComponent
 	// TODO(RSDK-418): remove this legacy constructor once all components that use it no longer need to receive the entire robot.
-	RobotConstructor CreateRobotComponent
+	RobotConstructor CreateComponentWithRobot
 }
 
 // ResourceSubtype stores subtype-specific functions and clients.
