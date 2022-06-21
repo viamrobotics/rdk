@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -194,7 +193,7 @@ func TestFileUpload(t *testing.T) {
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
 					PartName:      hardCodePartName,
-					ComponentName: strings.Split(tf.Name()[len(viamCaptureDotDir):], "/")[1],
+					ComponentName: hardCodeComponentName,
 					MethodName:    hardCodeMethodName,
 					Type:          v1.DataType_DATA_TYPE_FILE,
 					FileName:      filepath.Base(tf.Name()),
@@ -302,7 +301,7 @@ func TestSensorUploadTabular(t *testing.T) {
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
 					PartName:      hardCodePartName,
-					ComponentName: strings.Split(tf.Name()[len(viamCaptureDotDir):], "/")[1],
+					ComponentName: hardCodeComponentName,
 					MethodName:    hardCodeMethodName,
 					Type:          v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 					FileName:      filepath.Base(tf.Name()),
@@ -391,7 +390,7 @@ func TestSensorUploadBinary(t *testing.T) {
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
 					PartName:      hardCodePartName,
-					ComponentName: strings.Split(tf.Name()[len(viamCaptureDotDir):], "/")[1],
+					ComponentName: hardCodeComponentName,
 					MethodName:    hardCodeMethodName,
 					Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
 					FileName:      filepath.Base(tf.Name()),
