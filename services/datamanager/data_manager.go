@@ -172,7 +172,7 @@ type dataManagerService struct {
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
 	updateCollectorsCancelFn func()
-	uploadFn                 func(ctx context.Context, path string) error
+	uploadFunc               uploadFn
 }
 
 // Parameters stored for each collector.
@@ -321,7 +321,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 	// Init a new syncer.
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.updateCollectorsCancelFn = fn
-	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir, svc.uploadFn)
+	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir, svc.uploadFunc)
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {

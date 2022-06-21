@@ -30,7 +30,6 @@ var (
 	hardCodeComponentName = "TODO [DATA-164]"
 )
 
-
 func emptyReadingErr(fileName string) error {
 	return errors.Errorf("%s is empty", fileName)
 }
@@ -60,7 +59,7 @@ type syncer struct {
 type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error
 
 // newSyncer returns a new syncer.
-func newSyncer(queuePath string, logger golog.Logger, captureDir string, uploadFunc func(ctx context.Context, path string) error) *syncer {
+func newSyncer(queuePath string, logger golog.Logger, captureDir string, uploadFunc uploadFn) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	// TODO: Change to uploadFunc = viamUpload when PR #915 (DATA-166) is merged.
 	if uploadFunc == nil {

@@ -46,9 +46,10 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = datamanager.NewClient(cancelCtx, "", listener1.Addr().String(), logger)
+		client, err := datamanager.NewClient(cancelCtx, "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
 
 	// working
@@ -83,6 +84,7 @@ func TestClient(t *testing.T) {
 
 		err = client2.Sync(context.Background())
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
 }
 
