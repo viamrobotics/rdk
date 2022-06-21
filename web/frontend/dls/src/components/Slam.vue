@@ -2,46 +2,42 @@
   <div>
     <Collapse>
       <div class="flex">
-        <h2 class="p-4 text-xl">{{ streamName }}</h2>
-        <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
+        <h2 class="p-4 text-xl"> SLAM </h2>
       </div>
-      <template v-slot:content>
-        <div
-          class="border-l border-r border-b border-black p-2"
-          :style="{ height: height }"
-        >
-          <Container>
-            <div class="pt-4">
-              <span class="pr-2">View SLAM Map</span>
-              <div class="float-right pb-4">
-                <div class="flex">
-                  <div class="w-64">
-                  </div>
-                  <div class="pl-2 pr-2 pt-7">
-                    <ViamButton
-                      color="black"
-                      group
-                      variant="primary"
-                      @click="refreshMap()"
-                    >
-                      <template v-slot:icon>
-                        <ViamIcon color="white" :path="mdiRestore"
-                          >Refresh</ViamIcon
-                        >
-                      </template>
-                      Refresh
-                    </ViamButton>
-                  </div>
-                </div>
-              </div>
-              <div
-                class="clear-both h-fit transition-all duration-300 ease-in-out"
-                :id="streamId"
-              ></div>
-            </div>
-          </Container>
-        </div>
-      </template>
+        <div style="display: flex; margin-bottom: 1em">
+        <table border="1" style="margin-right: 1em" class="border border-slate-300">
+          <tr>
+            <th colspan="1" class="border border-slate-300">
+              <h5>View SLAM Map (JPEG)
+                <ViamButton color="black"  group variant="primary"  @click="refreshImageMap()" >
+                  Refresh
+                </ViamButton>
+              </h5>
+            </th>
+          </tr>
+          <tr>
+            <th colspan="1" class="border border-slate-300">
+              <img v-if="imageMap !== ''" :src="imageMap" width="500" height="500">
+            </th>
+          </tr>
+        </table>
+        <table border="1" style="margin-right: 1em" class="border border-slate-300">
+          <tr>
+            <th colspan="1" class="border border-slate-300">
+              <h5>View SLAM Map (PCD)
+                <ViamButton color="black"  group variant="primary"  @click="refreshPCDMap()" >
+                  Refresh
+                </ViamButton>
+              </h5>
+            </th>
+          </tr>
+          <tr>
+            <th colspan="1" class="border border-slate-300">
+              <div id="pcd" width="400" height="400" />
+            </th>
+          </tr>
+        </table>
+      </div>
     </Collapse>
   </div>
 </template>
@@ -50,60 +46,28 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import "vue-class-component/hooks";
 import Collapse from "./Collapse.vue";
-import Breadcrumbs from "./Breadcrumbs.vue";
-import ViamSwitch from "./Switch.vue";
-import ViamIcon from "./ViamIcon.vue";
-import ViamInfoButton from "./ViamInfoButton.vue";
-
-import RadioButtons from "./RadioButtons.vue";
-import {
-  mdiRestore,
-  mdiImageFilterCenterFocus,
-  mdiCameraIris,
-  mdiDownloadOutline,
-  mdiInformationOutline,
-} from "@mdi/js";
+import ViamButton from "./Button.vue";
 
 @Component({
   components: {
     Collapse,
-    Breadcrumbs,
-    ViamSwitch,
-    ViamIcon,
-    RadioButtons,
-    ViamInfoButton,
+    ViamButton,
   },
 })
-export default class Base extends Vue {
-  @Prop({ default: null }) streamName!: string;
-  @Prop({ default: null }) crumbs!: [string];
-  @Prop({ default: true }) connectedCamera!: boolean;
-  @Prop({ default: true }) connectedPCD!: boolean;
-  @Prop({ default: 0 }) x = 0;
-  @Prop({ default: 0 }) y = 0;
-  @Prop({ default: 0 }) z = 0;
+export default class Slam extends Vue {
 
-  mdiInformationOutline = mdiInformationOutline;
-  mdiDownloadOutline = mdiDownloadOutline;
-  mdiCameraIris = mdiCameraIris;
-  mdiImageFilterCenterFocus = mdiImageFilterCenterFocus;
-  mdiRestore = mdiRestore;
+    @Prop({ default: ""}) imageMap = "";
+    @Prop({ default: null}) pcdMap = null;
 
-  camera = !this.connectedCamera;
-  pcd = !this.connectedPCD;
-  height = "auto";
-  selectedValue = "live";
-  streamId = "stream-" + this.streamName;
-  //pcdId = "pcd-" + this.streamName;
-  selected = "";
-  speed = 0;
-  min = 0;
-  max = 500;
-
-
-  refreshMap(): void {
-    this.$emit("refresh-map", this.selectedValue);
+  refreshImageMap(): void {
+    this.$emit("refresh-image-map");
   }
+  refreshPCDMap(): void {
+    this.$emit("refresh-pcd-map");
+  }
+  // refreshPCDMap(e: Event): void {
+  //   this.$emit("refresh-pcd-map", e);
+  // }
 }
 </script>
 
