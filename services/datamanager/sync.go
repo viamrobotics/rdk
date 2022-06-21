@@ -393,7 +393,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if errors.Is(err, &EmptyFile{}) {
+		if errors.Is(err, &emptyFile{}) {
 			continue
 		}
 		// If there is any other error, return it.
@@ -468,7 +468,7 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
 	if r.GetBinary() == nil {
 		if r.GetStruct() == nil {
-			return r, &EmptyFile{}
+			return r, &emptyFile{}
 		}
 		return r, nil
 	}
