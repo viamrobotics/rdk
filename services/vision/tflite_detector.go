@@ -71,26 +71,23 @@ func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 // to register a tflite model. Default is chosen if there's no numThreads given.
 func addTFLiteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
 	var model *inf.TFLiteStruct
+	var loader *inf.TFLiteModelLoader
+	var err error
 
 	if numThreads == nil {
-		loader, err := inf.NewDefaultTFLiteModelLoader()
-		if err != nil {
-			return model, errors.Wrap(err, "could not get loader")
-		}
-		model, err = loader.Load(filepath)
-		if err != nil {
-			return nil, errors.Wrap(err, "loader could not load model")
-		}
+		loader, err = inf.NewDefaultTFLiteModelLoader()
 	} else {
-		loader, err := inf.NewTFLiteModelLoader(*numThreads)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get loader")
-		}
-		model, err = loader.Load(filepath)
-		if err != nil {
-			return nil, errors.Wrap(err, "loader could not load model")
-		}
+		loader, err = inf.NewTFLiteModelLoader(*numThreads)
 	}
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get loader")
+	}
+
+	model, err = loader.Load(filepath)
+	if err != nil {
+		return nil, errors.Wrap(err, "loader could not load model")
+	}
+
 	return model, nil
 }
 
@@ -99,7 +96,7 @@ func addTFLiteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error)
 func tfliteInfer(model *inf.TFLiteStruct, image image.Image) ([]interface{}, error) {
 	// Converts the image to bytes before sending it off
 	imgBuff := imageToBuffer(image)
-	out, err := model.Infer(imgBuff) // out is gonna be a []interface{}
+	out, err := model.Infer(imgBuff)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't infer from model")
 	}
@@ -114,13 +111,25 @@ func imageToBuffer(img image.Image) []byte {
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()
-			rr, gg, bb := uint8(float64(r)*255/float64(a)), uint8(float64(g)*255/float64(a)), uint8(float64(b)*255/float64(a))
+			rr, gg, bb := rgbaTo8Bit(r, g, b, a)
+			//rr, gg, bb := uint8(float64(r)*255/float64(a)), uint8(float64(g)*255/float64(a)), uint8(float64(b)*255/float64(a))
 			output[(y*img.Bounds().Dx()+x)*3+0] = rr
 			output[(y*img.Bounds().Dx()+x)*3+1] = gg
 			output[(y*img.Bounds().Dx()+x)*3+2] = bb
 		}
 	}
 	return output
+}
+
+// rgbaTo8Bit converts the uint32s from RGBA() to uint8s
+func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb uint8) {
+	r = r >> 8
+	rr = uint8(r)
+	g = g >> 8
+	gg = uint8(g)
+	b = b >> 8
+	bb = uint8(b)
+	return
 }
 
 // unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.

@@ -29,6 +29,6 @@ func registerColorDetector(dm detectorMap, conf *DetectorConfig, logger golog.Lo
 	if err != nil {
 		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}
-	regDetector := registeredDetector{detector: detector, model: nil}
+	regDetector := registeredDetector{detector: detector, closer: nil}
 	return dm.registerDetector(conf.Name, &regDetector, logger)
 }

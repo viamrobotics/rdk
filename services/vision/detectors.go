@@ -2,13 +2,13 @@ package vision
 
 import (
 	"context"
+	"io"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
-	inf "go.viam.com/rdk/ml/inference"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -36,11 +36,11 @@ type DetectorConfig struct {
 }
 
 // detectorMap stores the registered detectors of the service.
-type detectorMap map[string]*registeredDetector
+type detectorMap map[string]registeredDetector
 
 type registeredDetector struct {
 	detector objdet.Detector
-	model    *inf.TFLiteStruct
+	closer   io.Closer
 }
 
 // registerDetector registers a Detector type to a registry.
@@ -52,10 +52,10 @@ func (dm detectorMap) registerDetector(name string, det *registeredDetector, log
 		logger.Infof("overwriting the detector with name: %s", name)
 	}
 
-	if det.model != nil {
-		dm[name] = &registeredDetector{detector: det.detector, model: det.model}
+	if det.closer != nil {
+		dm[name] = registeredDetector{detector: det.detector, closer: det.closer}
 	}
-	dm[name] = &registeredDetector{detector: det.detector, model: nil}
+	dm[name] = registeredDetector{detector: det.detector, closer: nil}
 	return nil
 }
 
@@ -80,8 +80,11 @@ func (dm detectorMap) detectorNames() []string {
 
 // removeDetector closes the model and removes the detector from the registry.
 func (dm detectorMap) removeDetector(name string) {
-	if dm[name].model != nil {
-		dm[name].model.Close()
+	if dm[name].closer != nil {
+		err := dm[name].closer.Close()
+		if err != nil {
+			panic(err)
+		}
 	}
 	delete(dm, name)
 }

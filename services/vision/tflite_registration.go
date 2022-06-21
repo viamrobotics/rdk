@@ -13,7 +13,8 @@ func registerTfliteDetector(dm detectorMap, conf *DetectorConfig, logger golog.L
 	if err != nil {
 		return errors.Wrapf(err, "could not register tflite detector %s", conf.Name)
 	}
-	regDetector := registeredDetector{detector: detector, model: model}
+
+	regDetector := registeredDetector{detector: detector, closer: model}
 
 	return dm.registerDetector(conf.Name, &regDetector, logger)
 }
