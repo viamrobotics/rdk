@@ -111,8 +111,8 @@ func imageToBuffer(img image.Image) []byte {
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()
-			rr, gg, bb := rgbaTo8Bit(r, g, b, a)
-			//rr, gg, bb := uint8(float64(r)*255/float64(a)), uint8(float64(g)*255/float64(a)), uint8(float64(b)*255/float64(a))
+			rr, gg, bb, _ := rgbaTo8Bit(r, g, b, a)
+			// rr, gg, bb := uint8(float64(r)*255/float64(a)), uint8(float64(g)*255/float64(a)), uint8(float64(b)*255/float64(a))
 			output[(y*img.Bounds().Dx()+x)*3+0] = rr
 			output[(y*img.Bounds().Dx()+x)*3+1] = gg
 			output[(y*img.Bounds().Dx()+x)*3+2] = bb
@@ -121,14 +121,16 @@ func imageToBuffer(img image.Image) []byte {
 	return output
 }
 
-// rgbaTo8Bit converts the uint32s from RGBA() to uint8s
-func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb uint8) {
-	r = r >> 8
+// rgbaTo8Bit converts the uint32s from RGBA() to uint8s.
+func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
+	r >>= 8
 	rr = uint8(r)
-	g = g >> 8
+	g >>= 8
 	gg = uint8(g)
-	b = b >> 8
+	b >>= 8
 	bb = uint8(b)
+	a >>= 8
+	aa = uint8(a)
 	return
 }
 
