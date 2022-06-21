@@ -62,15 +62,16 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = gps.NewClient(cancelCtx, testGPSName, listener1.Addr().String(), logger)
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("GPS client 1", func(t *testing.T) {
 		// working
-		gps1Client, err := gps.NewClient(context.Background(), testGPSName, listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+		gps1Client := gps.NewClientFromConn(context.Background(), conn, testGPSName, logger)
 
 		// Do
 		resp, err := gps1Client.Do(context.Background(), generic.TestCommand)
@@ -95,6 +96,8 @@ func TestClient(t *testing.T) {
 		test.That(t, rs1, test.ShouldResemble, rs)
 
 		test.That(t, utils.TryClose(context.Background(), gps1Client), test.ShouldBeNil)
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("GPS client 2", func(t *testing.T) {
@@ -121,6 +124,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
 		test.That(t, utils.TryClose(context.Background(), gps2Client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -140,15 +144,19 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := gps.NewClientFromConn(ctx, conn1, testGPSName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := gps.NewClientFromConn(ctx, conn2, testGPSName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

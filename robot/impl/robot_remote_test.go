@@ -88,6 +88,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Remot
 			servoNames,
 		)
 	}
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
 	}
