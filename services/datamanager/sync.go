@@ -288,7 +288,6 @@ func getNextWait(lastWait time.Duration) time.Duration {
 }
 
 func getDataTypeFromLeadingMessage(f *os.File) (v1.DataType, error) {
-
 	if _, err := f.Seek(0, 0); err != nil {
 		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
 	}
