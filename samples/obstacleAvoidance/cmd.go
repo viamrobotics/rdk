@@ -35,8 +35,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	// setup planning problem - the idea is to move from one position to the other while avoiding obstalces
 	position1 := r3.Vector{0, -600, 200}
-	position2 := r3.Vector{0, -600, 400}
-	// position2 := r3.Vector{-600, -300, 200}
+	//position2 := r3.Vector{0, -600, 400}
+	position2 := r3.Vector{-600, -300, 200}
 	box, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{-400, -550, 150}), r3.Vector{300, 300, 300})
 	table, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, -25}), r3.Vector{1500, 1500, 50})
 
