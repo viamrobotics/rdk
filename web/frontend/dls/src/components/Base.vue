@@ -141,7 +141,6 @@
                   label="Speed (deg/sec)"
                   v-if="movementMode === 'Spin'"
                 ></NumberInput>
-
               </div>
               <div
                 :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
@@ -276,27 +275,20 @@ export default class Base extends Vue {
   }
   baseRun(): void {
     if (this.movementMode == "Spin") {
-      this.$emit(
-        "base-spin", 
-        {
-          direction: this.spinType == "Clockwise" ? 1 : -1,
-          speed: this.spinSpeed,
-          angle: this.angle
-        }
-      );
-
+      this.$emit("base-spin", {
+        direction: this.spinType == "Clockwise" ? 1 : -1,
+        speed: this.spinSpeed,
+        angle: this.angle,
+      });
     } else if (this.movementMode == "Straight") {
-      this.$emit(
-        "base-straight",
-        {
-          movementType: this.movementType,
-          direction: this.direction == "Forwards" ? 1 : -1,
-          speed: this.speed,
-          distance: this.increment
-        }
-      );
+      this.$emit("base-straight", {
+        movementType: this.movementType,
+        direction: this.direction == "Forwards" ? 1 : -1,
+        speed: this.speed,
+        distance: this.increment,
+      });
     } else {
-      console.log("Unrecognized discrete movement mode: " + this.movementMode)
+      console.log("Unrecognized discrete movement mode: " + this.movementMode);
     }
   }
   baseStop(e: Event): void {
@@ -305,14 +297,12 @@ export default class Base extends Vue {
     this.$emit("base-stop");
   }
   keyboardCtl(keysPressed: Record<string, unknown>): void {
-    this.$emit(
-      "keyboard-ctl", 
-      {
-        forward: keysPressed.forward,
-        backward: keysPressed.backward,
-        right: keysPressed.right,
-        left: keysPressed.left,
-      });
+    this.$emit("keyboard-ctl", {
+      forward: keysPressed.forward,
+      backward: keysPressed.backward,
+      right: keysPressed.right,
+      left: keysPressed.left,
+    });
   }
   removeKeyboardListeners(): void {
     // eslint-disable-next-line
