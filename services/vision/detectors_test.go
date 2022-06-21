@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config"
+	inf "go.viam.com/rdk/ml/inference"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -44,8 +45,44 @@ func TestDetectorMap(t *testing.T) {
 	names = reg.detectorNames()
 	test.That(t, names, test.ShouldContain, fnName)
 	// remove
-	reg.removeDetector(fnName)
+	reg.removeDetector(fnName, testlog)
 	test.That(t, reg.detectorNames(), test.ShouldNotContain, fnName)
+}
+
+func TestDetectorCloser(t *testing.T) {
+	fakeDetectFn := func(image.Image) ([]objdet.Detection, error) {
+		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
+	}
+	closer := inf.TFLiteStruct{Info: &inf.TFLiteInfo{100, 100, 3, "uint8", 1, 4, []string{}}}
+
+	d := registeredDetector{detector: fakeDetectFn, closer: &closer}
+	reg := make(detectorMap)
+	err := reg.registerDetector("x", &d, golog.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	got := reg["x"].closer
+	test.That(t, got, test.ShouldNotBeNil)
+}
+
+func TestDetectorRemoval(t *testing.T) {
+	fakeDetectFn := func(image.Image) ([]objdet.Detection, error) {
+		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
+	}
+	// closer := inf.TFLiteStruct{Info: &inf.TFLiteInfo{100, 100, 3, "uint8", 1, 4, []string{}}}
+	closer, err := addTFLiteModel(artifact.MustPath("vision/tflite/effdet0.tflite"), nil)
+	test.That(t, err, test.ShouldBeNil)
+	d := registeredDetector{detector: fakeDetectFn, closer: closer}
+	testlog := golog.NewTestLogger(t)
+	reg := make(detectorMap)
+	err = reg.registerDetector("x", &d, testlog)
+	test.That(t, err, test.ShouldBeNil)
+	err = reg.registerDetector("y", &d, testlog)
+	test.That(t, err, test.ShouldBeNil)
+	logger, obs := golog.NewObservedTestLogger(t)
+	reg.removeDetector("z", logger)
+	got := obs.All()[len(obs.All())-1].Message
+	test.That(t, got, test.ShouldContainSubstring, "no Detector with name")
+	reg.removeDetector("x", logger)
+	test.That(t, reg.detectorNames(), test.ShouldNotContain, "x")
 }
 
 func TestRegisterTFLiteDetector(t *testing.T) {

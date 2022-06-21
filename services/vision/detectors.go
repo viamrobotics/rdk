@@ -54,6 +54,7 @@ func (dm detectorMap) registerDetector(name string, det *registeredDetector, log
 
 	if det.closer != nil {
 		dm[name] = registeredDetector{detector: det.detector, closer: det.closer}
+		return nil
 	}
 	dm[name] = registeredDetector{detector: det.detector, closer: nil}
 	return nil
@@ -79,7 +80,12 @@ func (dm detectorMap) detectorNames() []string {
 }
 
 // removeDetector closes the model and removes the detector from the registry.
-func (dm detectorMap) removeDetector(name string) {
+func (dm detectorMap) removeDetector(name string, logger golog.Logger) {
+	if _, ok := dm[name]; !ok {
+		logger.Infof("no Detector with name %s", name)
+		return
+	}
+
 	if dm[name].closer != nil {
 		err := dm[name].closer.Close()
 		if err != nil {

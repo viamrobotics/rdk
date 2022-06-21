@@ -112,7 +112,6 @@ func imageToBuffer(img image.Image) []byte {
 		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()
 			rr, gg, bb, _ := rgbaTo8Bit(r, g, b, a)
-			// rr, gg, bb := uint8(float64(r)*255/float64(a)), uint8(float64(g)*255/float64(a)), uint8(float64(b)*255/float64(a))
 			output[(y*img.Bounds().Dx()+x)*3+0] = rr
 			output[(y*img.Bounds().Dx()+x)*3+1] = gg
 			output[(y*img.Bounds().Dx()+x)*3+2] = bb
