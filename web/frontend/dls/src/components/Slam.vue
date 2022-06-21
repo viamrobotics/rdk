@@ -89,9 +89,6 @@ export default class Slam extends Vue {
   refreshPCDMap(): void {
     this.$emit("refresh-pcd-map");
   }
-  // refreshPCDMap(e: Event): void {
-  //   this.$emit("refresh-pcd-map", e);
-  // }
 }
 </script>
 

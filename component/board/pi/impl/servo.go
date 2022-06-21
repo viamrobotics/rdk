@@ -41,7 +41,7 @@ func init() {
 					return nil, errors.Errorf("no hw mapping for %s", attr.Pin)
 				}
 
-				theServo := &piPigpioServo{pin: C.uint(bcom)}
+				var theServo servo.LocalServo = &piPigpioServo{pin: C.uint(bcom)}
 				if attr.Min > 0 {
 					theServo.min = uint8(attr.Min)
 				}
@@ -90,9 +90,15 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 }
 
 func (s *piPigpioServo) Stop(ctx context.Context) error {
+	ctx, done := s.opMgr.New(ctx)
+	defer done()
 	res := C.gpioServo(s.pin, C.uint(0))
 	if res != 0 {
 		return errors.Errorf("gpioServo failed with %d", res)
 	}
 	return nil
+}
+
+func (s *piPigpioServo) IsMoving() bool {
+	return s.opMgr.OpRunning()
 }
