@@ -89,10 +89,17 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		return nil, multierr.Combine(err, rc.conn.Close())
 	}
 
-	if rOpts.refreshEvery != 0 {
+	var refreshTime time.Duration
+	if rOpts.refreshEvery == nil {
+		refreshTime = 10 * time.Second
+	} else {
+		refreshTime = *rOpts.refreshEvery
+	}
+
+	if refreshTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.RefreshEvery(closeCtx, rOpts.refreshEvery)
+			rc.RefreshEvery(closeCtx, refreshTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 

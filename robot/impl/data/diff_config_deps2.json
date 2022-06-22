@@ -23,7 +23,7 @@
       "model": "fake",
       "name": "m2",
       "type": "motor",
-      "depends_on" : ["arm2"],
+      "depends_on" : ["arm2", "board1"],
       "attributes" : {
         "board" : "board1",
         "pins" : {
