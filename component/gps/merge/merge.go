@@ -149,7 +149,7 @@ func (m *mergeGPS) ReadValid(ctx context.Context) (bool, error) {
 	return false, allErrors
 }
 
-// Fix quality of GPS measurements
+// Fix quality of GPS measurements.
 func (m *mergeGPS) ReadFix(ctx context.Context) (int, error) {
 	var allErrors error
 	for _, g := range m.subs {

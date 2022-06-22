@@ -1,22 +1,22 @@
 {
-    "components": [
-      {
-        "attributes": {
-          "ntrip_addr": "http://rtn.dot.ny.gov:8082",
-          "ntrip_username": "username",
-          "ntrip_password": "password",
-          "ntrip_mountpoint": "NJI2",
-          "ntrip_path": "",
-          "ntrip_baud": 115200,
-          "ntrip_send_nmea": true,
-          "ntrip_connect_attempts": 10,
-          "ntrip_input_protocol": "serial",
-          "path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
-        },
-        "depends_on": [],
-        "model": "rtk",
-        "name": "gps",
-        "type": "gps"
-      }
-    ]
-  }
+  "components": [
+    {
+      "attributes": {
+        "ntrip_addr": "http://rtn.dot.ny.gov:8082",
+        "ntrip_username": "username",
+        "ntrip_password": "password",
+        "ntrip_mountpoint": "NJI2",
+        "ntrip_path": "",
+        "ntrip_baud": 115200,
+        "ntrip_send_nmea": true,
+        "ntrip_connect_attempts": 10,
+        "ntrip_input_protocol": "serial",
+        "path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
+      },
+      "depends_on": [],
+      "model": "rtk",
+      "name": "gps",
+      "type": "gps"
+    }
+  ]
+}

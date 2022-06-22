@@ -1,9 +1,10 @@
 package nmea
 
 import (
+	"strconv"
+
 	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"
-	"strconv"
 )
 
 const (
@@ -67,6 +68,9 @@ func (g *gpsData) parseAndUpdate(line string) error {
 	} else if gga, ok := s.(nmea.GGA); ok {
 		// GGA provides validity, lon/lat, altitude, altitude, sats in use, and horizontal position error
 		g.fixQuality, err = strconv.Atoi(gga.FixQuality)
+		if err != nil {
+			return err
+		}
 		if gga.FixQuality == "0" {
 			g.valid = false
 		} else {
