@@ -149,6 +149,23 @@ func (m *mergeGPS) ReadValid(ctx context.Context) (bool, error) {
 	return false, allErrors
 }
 
+// Fix quality of GPS measurements
+func (m *mergeGPS) ReadFix(ctx context.Context) (int, error) {
+	var allErrors error
+	for _, g := range m.subs {
+		localG, ok := g.(gps.LocalGPS)
+		if !ok {
+			continue
+		}
+		v, err := localG.ReadFix(ctx)
+		if err == nil {
+			return v, nil
+		}
+		allErrors = multierr.Combine(allErrors, err)
+	}
+	return 0, allErrors
+}
+
 // GetReadings return data specific to the type of sensor and can be of any type.
 func (m *mergeGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	var (
