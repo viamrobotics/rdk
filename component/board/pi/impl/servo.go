@@ -28,8 +28,16 @@ func init() {
 		servo.Subtype,
 		picommon.ModelName,
 		registry.Component{
+<<<<<<< HEAD
 			Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 				attr := config.ConvertedAttributes.(*picommon.ServoConfig)
+=======
+			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+				attr, ok := config.ConvertedAttributes.(*picommon.ServoConfig)
+				if !ok {
+					return nil, errors.New("need servo configuration")
+				}
+>>>>>>> d78dafb9 (Fix up pi tests)
 
 				if attr.Pin == "" {
 					return nil, errors.New("need pin for pi servo")
