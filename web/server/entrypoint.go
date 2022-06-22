@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -368,6 +369,46 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	if err != nil {
 		return err
 	}
+
+	utils.PanicCapturingGo(func() {
+		var client http.Client
+		defer client.CloseIdleConnections()
+		for {
+			if !utils.SelectContextOrWait(ctx, time.Second) {
+				return
+			}
+			req, err := config.CreateCloudRequest(ctx, processedConfig.Cloud)
+			req.URL.Path = "/api/json1/needs_restart"
+			resp, err := client.Do(req)
+			if err != nil {
+				logger.Debugw("error querying cloud request")
+				continue
+			}
+			checkNeedsRestart := func() bool {
+
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					logger.Debugw("bad status code")
+					return false
+				}
+
+				read, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					logger.Debugw("error reading response")
+					return false
+				}
+
+				return bytes.Equal(read, []byte("true"))
+
+			}
+			if checkNeedsRestart() {
+				cancel()
+				return
+			}
+		}
+	})
+
 	myRobot, err := robotimpl.New(ctx, processedConfig, logger)
 	if err != nil {
 		return err
