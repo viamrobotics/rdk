@@ -41,7 +41,7 @@ func init() {
 					return nil, errors.Errorf("no hw mapping for %s", attr.Pin)
 				}
 
-				var theServo servo.LocalServo = &piPigpioServo{pin: C.uint(bcom)}
+				theServo := &piPigpioServo{pin: C.uint(bcom)}
 				if attr.Min > 0 {
 					theServo.min = uint8(attr.Min)
 				}
@@ -53,6 +53,8 @@ func init() {
 		},
 	)
 }
+
+var _ = servo.LocalServo(&piPigpioServo{})
 
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
