@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -108,9 +109,11 @@ func TestNewDataManager(t *testing.T) {
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
 	var uploaded []string
+	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+		lock.Lock()
 		uploaded = append(uploaded, path)
-		_ = os.Remove(path)
+		lock.Unlock()
 		return nil
 	}
 	configPath := "robots/configs/fake_data_manager.json"
@@ -134,11 +137,14 @@ func TestManualSync(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	// Verify that the file was uploaded.
+	lock.Lock()
 	test.That(t, len(uploaded), test.ShouldEqual, 1)
+	lock.Unlock()
 
 	// Do it again and verify it synced the second file, but not the first again.
 	dmsvc.Sync(context.Background())
 	time.Sleep(time.Millisecond * 100)
+	_ = dmsvc.Close(context.TODO())
 	test.That(t, len(uploaded), test.ShouldEqual, 2)
 	test.That(t, uploaded[0], test.ShouldNotEqual, uploaded[1])
 }
@@ -146,8 +152,11 @@ func TestManualSync(t *testing.T) {
 // Validates that scheduled syncing works for a datamanager.
 func TestScheduledSync(t *testing.T) {
 	uploaded := []string{}
+	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+		lock.Lock()
 		uploaded = append(uploaded, path)
+		lock.Unlock()
 		return nil
 	}
 	configPath := "robots/configs/fake_data_manager_with_sync.json"
@@ -177,8 +186,11 @@ func TestScheduledSync(t *testing.T) {
 // or running into errors.
 func TestManualAndScheduledSync(t *testing.T) {
 	var uploadedFiles []string
+	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+		lock.Lock()
 		uploadedFiles = append(uploadedFiles, path)
+		lock.Unlock()
 		return nil
 	}
 	// Use config with 250ms sync interval.
@@ -222,8 +234,11 @@ func TestManualAndScheduledSync(t *testing.T) {
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
 	uploaded := []string{}
+	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+		lock.Lock()
 		uploaded = append(uploaded, path)
+		lock.Unlock()
 		return nil
 	}
 	configPath := "robots/configs/fake_data_manager_with_sync.json"
