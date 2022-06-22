@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
-	"go.viam.com/rdk/services/datamanager"
 )
 
 var errUnimplemented = errors.New("unimplemented")
@@ -372,11 +371,6 @@ func managerForRemoteRobot(robot robot.Robot) *resourceManager {
 	manager := newResourceManager(resourceManagerOptions{}, robot.Logger().Named("manager"))
 
 	for _, name := range robot.ResourceNames() {
-		// skip datamanager since we know it doesn't have a client
-		// TODO: remove after we add corresponding datamanager client
-		if name == datamanager.Name {
-			continue
-		}
 		part, err := robot.ResourceByName(name)
 		if err != nil {
 			robot.Logger().Debugw("error getting resource", "resource", name, "error", err)
