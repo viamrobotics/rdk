@@ -54,6 +54,7 @@ func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 		blank := ""
 		params.LabelPath = &blank
 	}
+
 	labelMap, err := loadLabels(*params.LabelPath)
 	if err != nil {
 		logger.Warn("did not retrieve class labels")
