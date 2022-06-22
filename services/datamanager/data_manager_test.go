@@ -217,3 +217,47 @@ func TestManualAndScheduledSync(t *testing.T) {
 	}
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 3)
 }
+
+// Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
+// synced at start up.
+func TestRecoversAfterKilled(t *testing.T) {
+	uploaded := []string{}
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+		uploaded = append(uploaded, path)
+		return nil
+	}
+	configPath := "robots/configs/fake_data_manager_with_sync.json"
+	testCfg := setupConfig(t, configPath)
+
+	// Make the captureDir where we're logging data for our arm.
+	captureDir := "/tmp/capture"
+	armDir := captureDir + "/arm/arm1/"
+	resetFolder(t, armDir)
+	defer resetFolder(t, armDir)
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t)
+	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.Update(context.TODO(), testCfg)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
+	time.Sleep(time.Millisecond * 150)
+
+	// Simulate turning off the service.
+	err := dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Validate nothing has been synced yet.
+	test.That(t, len(uploaded), test.ShouldEqual, 0)
+
+	// Turn the service back on.
+	dmsvc = newTestDataManager(t)
+	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.Update(context.TODO(), testCfg)
+
+	// Validate that the previously captured file was uploaded at startup.
+	time.Sleep(time.Millisecond * 50)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(uploaded), test.ShouldEqual, 1)
+}
