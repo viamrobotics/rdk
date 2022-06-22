@@ -139,9 +139,7 @@ func (svc *dataManagerService) Close(ctx context.Context) error {
 	if svc.syncer != nil {
 		svc.syncer.Close()
 	}
-	if svc.updateCollectorsCancelFn != nil {
-		svc.updateCollectorsCancelFn()
-	}
+	svc.cancelSyncBackgroundRoutine()
 	svc.backgroundWorkers.Wait()
 	return nil
 }
@@ -314,10 +312,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
 	}
-	if svc.updateCollectorsCancelFn != nil {
-		svc.updateCollectorsCancelFn()
-		svc.updateCollectorsCancelFn = nil
-	}
+	svc.cancelSyncBackgroundRoutine()
 
 	svc.syncer = newSyncer(svc.logger, svc.uploadFunc)
 
@@ -339,9 +334,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 		svc.syncer.Sync(previouslyCaptured)
 
 		// Kick off background routine to periodically sync files.
-		cancelCtx, fn := context.WithCancel(context.Background())
-		svc.updateCollectorsCancelFn = fn
-		svc.uploadCapturedData(cancelCtx, intervalMins)
+		svc.startSyncBackgroundRoutine(intervalMins)
 	}
 }
 
@@ -505,4 +498,17 @@ func (svc *dataManagerService) uploadCapturedData(cancelCtx context.Context, int
 			}
 		}
 	})
+}
+
+func (svc *dataManagerService) startSyncBackgroundRoutine(intervalMins float64) {
+	cancelCtx, fn := context.WithCancel(context.Background())
+	svc.updateCollectorsCancelFn = fn
+	svc.uploadCapturedData(cancelCtx, intervalMins)
+}
+
+func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
+	if svc.updateCollectorsCancelFn != nil {
+		svc.updateCollectorsCancelFn()
+		svc.updateCollectorsCancelFn = nil
+	}
 }
