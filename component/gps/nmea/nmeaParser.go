@@ -3,6 +3,7 @@ package nmea
 import (
 	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"
+	"strconv"
 )
 
 const (
@@ -19,6 +20,7 @@ type gpsData struct {
 	satsInView int     // quantity satellites in view
 	satsInUse  int     // quantity satellites in view
 	valid      bool
+	fixQuality int
 }
 
 // parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
@@ -64,6 +66,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		g.satsInUse = len(gsa.SV)
 	} else if gga, ok := s.(nmea.GGA); ok {
 		// GGA provides validity, lon/lat, altitude, altitude, sats in use, and horizontal position error
+		g.fixQuality, err = strconv.Atoi(gga.FixQuality)
 		if gga.FixQuality == "0" {
 			g.valid = false
 		} else {

@@ -329,6 +329,11 @@ func (g *RTKGPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.nmeagps.ReadValid(ctx)
 }
 
+// ReadFix returns Fix quality of GPS measurements
+func (g *RTKGPS) ReadFix(ctx context.Context) (int, error) {
+	return g.nmeagps.ReadFix(ctx)
+}
+
 // Close shuts down the RTKGPS.
 func (g *RTKGPS) Close() error {
 	g.cancelFunc()
