@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"strings"
 
@@ -124,7 +125,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 	}
 	for res, visit := range visited {
 		if !visit {
-			// TODO(npmenard) Add test case
+			//TODO(npmenard) Add test case
 			sg, err := manager.resources.SubGraphFrom(res)
 			if err != nil {
 				manager.logger.Errorf("tried to remove remote resource %q but it doesn't exist", res)
@@ -292,7 +293,7 @@ func (manager *resourceManager) processConfig(
 		return err
 	}
 
-	if err := manager.newRemotes(ctx, config.Remotes, logger); err != nil {
+	if err := manager.newRemotes(ctx, config.Remotes, logger, robot.remotesChanged); err != nil {
 		return err
 	}
 
@@ -395,7 +396,9 @@ func (manager *resourceManager) newProcesses(ctx context.Context, processes []pe
 }
 
 // newRemotes constructs all remotes defined and integrates their parts in.
-func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
+func (manager *resourceManager) newRemotes(ctx context.Context,
+	remotes []config.Remote, logger golog.Logger,
+	notifyChannel chan<- resource.Name) error {
 	for _, config := range remotes {
 		dialOpts := remoteDialOptions(config, manager.opts)
 		robotClient, err := dialRobotClient(ctx, config, logger, dialOpts...)
@@ -411,6 +414,11 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 		}
 		configCopy := config
 		manager.addRemote(ctx, robotClient, configCopy)
+		robotClient.SetParentNotifier(func() {
+			rName := fromRemoteNameToRemoteNodeName(configCopy.Name)
+			fmt.Printf("-----> notifying %s\r\n", rName)
+			notifyChannel <- rName
+		})
 	}
 	return nil
 }
@@ -482,7 +490,7 @@ func (manager *resourceManager) UpdateConfig(ctx context.Context,
 	robot *draftRobot,
 ) (PartsMergeResult, error) {
 	var leftovers PartsMergeResult
-	replacedRemotes, err := manager.updateRemotes(ctx, added.Remotes, modified.Remotes, logger)
+	replacedRemotes, err := manager.updateRemotes(ctx, added.Remotes, modified.Remotes, logger, robot.original.remotesChanged)
 	leftovers.ReplacedRemotes = replacedRemotes
 	if err != nil {
 		return leftovers, err
@@ -529,13 +537,14 @@ func (manager *resourceManager) updateRemotes(ctx context.Context,
 	addedRemotes []config.Remote,
 	modifiedRemotes []config.Remote,
 	logger golog.Logger,
+	notifyChannel chan<- resource.Name,
 ) ([]*remoteRobot, error) {
 	var replacedRemotes []*remoteRobot
-	if err := manager.newRemotes(ctx, addedRemotes, logger); err != nil {
+	if err := manager.newRemotes(ctx, addedRemotes, logger, notifyChannel); err != nil {
 		return nil, err
 	}
 	for _, r := range modifiedRemotes {
-		if err := manager.newRemotes(ctx, []config.Remote{r}, logger); err != nil {
+		if err := manager.newRemotes(ctx, []config.Remote{r}, logger, notifyChannel); err != nil {
 			return replacedRemotes, err
 		}
 	}

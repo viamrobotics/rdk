@@ -63,6 +63,12 @@ type localRobot struct {
 
 	// services internal to a localRobot. Currently just web, more to come.
 	internalServices map[internalServiceName]interface{}
+
+	activeBackgroundWorkers *sync.WaitGroup
+	cancelBackgroundWorkers func()
+
+	remotesChanged chan resource.Name
+	closeContext   context.Context
 }
 
 // webService returns the localRobot's web service. Raises if the service has not been initialized.
@@ -138,6 +144,12 @@ func (r *localRobot) Close(ctx context.Context) error {
 		}
 	}
 
+	if r.cancelBackgroundWorkers != nil {
+		close(r.remotesChanged)
+		r.cancelBackgroundWorkers()
+		r.cancelBackgroundWorkers = nil
+	}
+	r.activeBackgroundWorkers.Wait()
 	return r.manager.Close(ctx)
 }
 
@@ -284,6 +296,7 @@ func newWithResources(
 	resources map[resource.Name]interface{},
 	logger golog.Logger,
 ) (robot.LocalRobot, error) {
+	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{
@@ -294,8 +307,12 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations: operation.NewManager(),
-		logger:     logger,
+		operations:              operation.NewManager(),
+		logger:                  logger,
+		remotesChanged:          make(chan resource.Name),
+		activeBackgroundWorkers: &sync.WaitGroup{},
+		closeContext:            closeCtx,
+		cancelBackgroundWorkers: cancel,
 	}
 
 	var successful bool
@@ -319,6 +336,27 @@ func newWithResources(
 		}
 		r.manager.addResource(name, svc)
 	}
+
+	r.activeBackgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		for {
+			select {
+			case <-closeCtx.Done():
+				return
+			default:
+			}
+			select {
+			case <-closeCtx.Done():
+				return
+			case n, ok := <-r.remotesChanged:
+				if !ok {
+					return
+				}
+				r.manager.updateRemoteResourceNames(ctx, n, r)
+
+			}
+		}
+	}, r.activeBackgroundWorkers.Done)
 
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
