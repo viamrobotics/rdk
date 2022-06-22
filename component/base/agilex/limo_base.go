@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 var (
@@ -52,13 +51,13 @@ func (m steeringMode) String() string {
 }
 
 func init() {
-	//controllers = make(map[string]*controller)
+	controllers = make(map[string]*controller)
 
 	limoBaseComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
+			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateLimoBase(ctx, r, config.ConvertedAttributes.(*Config), logger)
+			return CreateLimoBase(config.ConvertedAttributes.(*Config), logger)
 		},
 	}
 
@@ -116,7 +115,7 @@ type Config struct {
 }
 
 // CreateLimoBase returns a AgileX limo base
-func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger golog.Logger) (base.LocalBase, error) {
+func CreateLimoBase(config *Config, logger golog.Logger) (base.LocalBase, error) {
 
 	logger.Debugf("creating limo base with config %+v", config)
 
