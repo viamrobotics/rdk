@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"bytes"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
@@ -15,6 +16,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -51,6 +53,7 @@ type RTKGPS struct {
 	logger             golog.Logger
 	correctionWriter   io.ReadWriteCloser
 	ntripStatus        bool
+	bus    			   board.I2C
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -68,6 +71,7 @@ type ntripInfo struct {
 	client             *ntrip.Client
 	stream             io.ReadCloser
 	maxConnectAttempts int
+	addr 			   byte
 }
 
 const (
@@ -80,6 +84,7 @@ const (
 	ntripSendNmeaName          = "ntrip_send_nmea"
 	ntripInputProtocolAttrName = "ntrip_input_protocol"
 	ntripConnectAttemptsName   = "ntrip_connect_attempts"
+	i2cAddr  				   = "i2c_address"
 )
 
 func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (nmeaGPS, error) {
@@ -126,6 +131,12 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 		g.logger.Info("ntrip_path will use same path for writing RCTM messages to gps")
 		g.ntripClient.writepath = config.Attributes.String(pathAttrName)
 	}
+	addr := config.Attributes.Int(i2cAddr, -1)
+	if addr == -1 {
+		return nil, fmt.Errorf("Must specify I2C address")
+	} else {
+		g.ntripClient.addr = byte(addr)
+	}
 	g.ntripClient.wbaud = config.Attributes.Int(ntripBaudAttrName, 38400)
 	if g.ntripClient.wbaud == 38400 {
 		g.logger.Info("ntrip_baud using default baud rate 38400")
@@ -150,10 +161,10 @@ func (g *RTKGPS) Start(ctx context.Context) {
 	case "serial":
 		go g.ReceiveAndWriteSerial()
 	case "I2C":
-		g.logger.Error("I2C not implemented")
+		go g.ReceiveAndWriteI2C(ctx)
 	}
-
 	g.nmeagps.Start(ctx)
+	
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
@@ -225,6 +236,106 @@ func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) error {
 	g.logger.Debug("Connected to stream")
 
 	return nil
+}
+
+func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
+	g.activeBackgroundWorkers.Add(1)
+	defer g.activeBackgroundWorkers.Done()
+	err := g.Connect(g.ntripClient.url, g.ntripClient.username, g.ntripClient.password, g.ntripClient.maxConnectAttempts)
+	if err != nil {
+		return
+	}
+
+	if !g.ntripClient.client.IsCasterAlive() {
+		g.logger.Infof("caster %s seems to be down", g.ntripClient.url)
+	}
+
+	//establish I2C connection
+	handle, err := g.bus.OpenHandle(g.ntripClient.addr)
+	if err != nil {
+		g.logger.Fatalf("can't open gps i2c %s", err)
+		return
+	}
+	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
+	cmd251 := addChk([]byte("PMTK251,115200")) //set baud rate
+	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
+	cmd220 := addChk([]byte("PMTK220,1000"))
+
+	err = handle.Write(ctx, cmd251)
+	if err != nil {
+		g.logger.Debug("Failed to set baud rate")
+	}
+	err = handle.Write(ctx, cmd314)
+	if err != nil {
+		g.logger.Debug("failed to set NMEA output")
+		return
+	}
+	err = handle.Write(ctx, cmd220)
+	if err != nil {
+		g.logger.Debug("failed to set NMEA update rate")
+		return
+	}
+
+	
+	err = g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
+	if err != nil {
+		return
+	}
+
+	// create a buffer
+	w := &bytes.Buffer{}
+	r := io.TeeReader(g.ntripClient.stream, w)
+	
+	buf := make([]byte, 1100)
+	n, err := g.ntripClient.stream.Read(buf)
+	w_i2c := addChk(buf[:n])
+
+	//port still open
+	// g.logger.Infof("writing: %s", w_i2c)
+	err = handle.Write(ctx, w_i2c)
+	if err != nil {
+		g.logger.Fatalf("uh oh, i2c handle write failed %s", err)
+		return
+	}
+
+	scanner := rtcm3.NewScanner(r)
+
+	for err == nil {
+		msg, err := scanner.NextMessage()
+		if err != nil {
+			if msg == nil {
+				fmt.Println("No message... reconnecting to stream...")
+				err = g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
+				if err != nil {
+					return
+				}
+
+				w = &bytes.Buffer{}
+				r = io.TeeReader(g.ntripClient.stream, w)
+				
+				buf = make([]byte, 1100)
+				n, err := g.ntripClient.stream.Read(buf)
+				w_i2c := addChk(buf[:n])
+							
+				err = handle.Write(ctx, w_i2c)
+
+				if err != nil {
+					g.logger.Debug("i2c handle write failed %s", err)
+					return
+				}
+
+				scanner = rtcm3.NewScanner(r)
+				continue
+			}
+			g.logger.Fatal(err, msg)
+		}
+	}
+	g.logger.Info("Closing GPS I2C handle")
+	err = handle.Close()
+	if err != nil {
+		g.logger.Debug("failed to close handle: %s", err)
+		return
+	}
 }
 
 // ReceiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the GPS through serial.
