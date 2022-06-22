@@ -187,6 +187,12 @@ func (g *pmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.data.valid, nil
 }
 
+func (g *pmtkI2CNMEAGPS) ReadFix(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.fixQuality, nil
+}
+
 func (g *pmtkI2CNMEAGPS) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()

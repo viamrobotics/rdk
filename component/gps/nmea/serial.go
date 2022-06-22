@@ -133,6 +133,12 @@ func (g *serialNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.data.valid, nil
 }
 
+func (g *serialNMEAGPS) ReadFix(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.fixQuality, nil
+}
+
 func (g *serialNMEAGPS) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
