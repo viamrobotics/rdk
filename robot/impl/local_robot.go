@@ -367,13 +367,44 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
+// getDependencies derives a collection of dependencies from a robot for a given
+// component configuration. We don't use the resource manager for this information since it
+// is not be constructed at this point.
+func (r *localRobot) getDependencies(config config.Component) (registry.Dependencies, error) {
+	deps := make(registry.Dependencies)
+	for _, dep := range config.DependsOn {
+		if c := r.config.FindComponent(dep); c != nil {
+			res, err := r.ResourceByName(c.ResourceName())
+			if err != nil {
+				return nil, &registry.DependencyNotReadyError{Name: dep}
+			}
+			deps[c.ResourceName()] = res
+		}
+	}
+
+	return deps, nil
+}
+
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
-	newResource, err := f.Constructor(ctx, r, config, r.logger)
+
+	deps, err := r.getDependencies(config)
+	if err != nil {
+		return nil, err
+	}
+
+	var newResource interface{}
+	if f.Constructor != nil {
+		newResource, err = f.Constructor(ctx, deps, config, r.logger)
+	} else {
+		r.logger.Warnw("using legacy constructor", "subtype", rName.Subtype, "model", config.Model)
+		newResource, err = f.RobotConstructor(ctx, r, config, r.logger)
+	}
+
 	if err != nil {
 		return nil, err
 	}
