@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -22,7 +21,7 @@ func init() {
 		"color_detector",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -31,7 +30,7 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			src, err := camera.FromRobot(r, sourceName)
+			src, err := camera.FromDependencies(deps, sourceName)
 			if err != nil {
 				return nil, fmt.Errorf("no source camera (%s): %w", sourceName, err)
 			}

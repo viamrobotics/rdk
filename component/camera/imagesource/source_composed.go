@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -23,7 +22,7 @@ func init() {
 		"depth_to_pretty",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -31,7 +30,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newDepthToPretty(r, attrs)
+			return newDepthToPretty(deps, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_to_pretty",
@@ -45,7 +44,7 @@ func init() {
 		"overlay",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -53,7 +52,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newOverlay(r, attrs)
+			return newOverlay(deps, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "overlay",
@@ -80,8 +79,8 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	return ii.Overlay(), func() {}, nil
 }
 
-func newOverlay(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
-	source, err := camera.FromRobot(r, attrs.Source)
+func newOverlay(deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
@@ -106,8 +105,8 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 	return rimage.MakeImageWithDepth(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), ii.Depth, true), func() {}, nil
 }
 
-func newDepthToPretty(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
-	source, err := camera.FromRobot(r, attrs.Source)
+func newDepthToPretty(deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
