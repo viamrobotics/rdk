@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -24,11 +23,11 @@ func init() {
 		"nmea-pmtkI2C",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newPmtkI2CNMEAGPS(ctx, r, config, logger)
+			return newPmtkI2CNMEAGPS(ctx, deps, config, logger)
 		}})
 }
 
@@ -48,8 +47,13 @@ type pmtkI2CNMEAGPS struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
-	b, err := board.FromRobot(r, config.Attributes.String("board"))
+func newPmtkI2CNMEAGPS(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (gps.LocalGPS, error) {
+	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
