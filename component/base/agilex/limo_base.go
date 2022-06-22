@@ -3,6 +3,7 @@ package limo
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"strings"
@@ -390,6 +391,32 @@ func (base *limoBase) Stop(ctx context.Context) error {
 	}
 	base.opMgr.CancelRunning(ctx)
 	return nil
+}
+
+// Do executes additional commands beyond the Base{} interface.
+func (base *limoBase) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	name, ok := cmd["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' value")
+	}
+	switch name {
+	case "drive_mode":
+		modeRaw, ok := cmd["mode"]
+		if !ok {
+			return nil, errors.New("mode must be set, one of differential|ackermann|omni")
+		}
+		mode, ok := modeRaw.(string)
+		if !ok {
+			return nil, errors.New("mode value must be a string")
+		}
+		if !((mode == "differential") || (mode == "ackermann") || (mode == "omni")) {
+			return nil, errors.New("mode value must be one of differential|ackermann|omni")
+		}
+		base.driveMode = mode
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("no such command: %s", name)
+	}
 }
 
 func (base *limoBase) Close(ctx context.Context) error {
