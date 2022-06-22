@@ -81,9 +81,14 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 		return
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
-	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
+	cmd251 := addChk([]byte("PMTK251,115200")) //set baud rate
+	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
+	err = handle.Write(ctx, cmd251)
+	if err != nil {
+		g.logger.Debug("Failed to set baud rate")
+	}
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
 		g.logger.Fatalf("i2c handle write failed %s", err)
@@ -138,11 +143,15 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 						err = g.data.parseAndUpdate(strBuf)
 						g.mu.Unlock()
 						if err != nil {
-							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
+							//g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
+							continue
+						// }
+						} else {
+							g.logger.Info(g.ReadLocation(ctx))
 						}
 					}
 					strBuf = ""
-				} else if b != 0x0A {
+				} else if b!=0xFF{
 					strBuf += string(b)
 				}
 			}
