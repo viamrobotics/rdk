@@ -58,3 +58,20 @@ jobs:
       uses: codecov/codecov-action@v1
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+
+  test_pi:
+    name: Test Raspberry Pi Code
+    runs-on: pi4
+    timeout-minutes: 5
+
+    steps:
+    - name: Check out code in rdk directory
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
+
+    - name: Clean
+      run: make clean-all
+
+    - name: Test
+      run: make test-pi
