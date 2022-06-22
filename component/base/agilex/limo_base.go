@@ -175,7 +175,8 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 
 	base.stateMutex.Lock()
 	if !base.state.controlThreadStarted {
-		base.startControlThread(ctx)
+		// nolint:contextcheck
+		base.startControlThread()
 		base.state.controlThreadStarted = true
 	}
 	base.stateMutex.Unlock()
@@ -215,7 +216,8 @@ func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (
 }
 
 // this rover requires messages to be sent continously or the motors will shut down after 100ms
-func (base *limoBase) startControlThread(ctx context.Context) {
+func (base *limoBase) startControlThread() {
+	var ctx context.Context
 	ctx, base.cancel = context.WithCancel(context.Background())
 	base.controller.logger.Debug("Starting control thread")
 
