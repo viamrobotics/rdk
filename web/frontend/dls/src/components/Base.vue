@@ -276,7 +276,7 @@ export default class Base extends Vue {
   baseRun(): void {
     if (this.movementMode == "Spin") {
       this.$emit("base-spin", {
-        direction: this.spinType == "Clockwise" ? 1 : -1,
+        direction: this.spinType == "Clockwise" ? -1 : 1,
         speed: this.spinSpeed,
         angle: this.angle,
       });
