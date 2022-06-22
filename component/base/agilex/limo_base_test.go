@@ -26,7 +26,7 @@ func TestLimoBaseConstructor(t *testing.T) {
 		TestChan: c,
 	}
 
-	_, err := CreateLimoBase(context.Background(), fakeRobot, &Config{}, rlog.Logger)
+	_, err := CreateLimoBase(&Config{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg = &Config{
@@ -34,7 +34,7 @@ func TestLimoBaseConstructor(t *testing.T) {
 		TestChan:  c,
 	}
 
-	baseBase, err := CreateLimoBase(ctx, fakeRobot, cfg, rlog.Logger)
+	baseBase, err := CreateLimoBase(cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*limoBase)
 	test.That(t, ok, test.ShouldBeTrue)
