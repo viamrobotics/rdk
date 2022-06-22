@@ -90,10 +90,9 @@ type limoBase struct {
 
 // Config is how you configure a limo base.
 type Config struct {
-	DriveMode    string `json:"drive_mode"`
-	SerialDevice string `json:"serial_device"` // path to /dev/ttyXXXX file
-	// TestChan is a fake "serial" path for test use only
-	TestChan chan []uint8
+	DriveMode    string       `json:"drive_mode"`
+	SerialDevice string       `json:"serial_device"` // path to /dev/ttyXXXX file
+	TestChan     chan []uint8 // TestChan is a fake "serial" path for test use only
 }
 
 // CreateLimoBase returns a AgileX limo base
@@ -198,7 +197,7 @@ func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (
 	return ctrl, nil
 }
 
-// this rover requires messages to be sent continously or the motors will shut down
+// this rover requires messages to be sent continously or the motors will shut down after 100ms
 func (b *limoBase) startControlThread() error {
 	var ctx context.Context
 	ctx, b.cancel = context.WithCancel(context.Background())
@@ -287,6 +286,7 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 	return nil
 }
 
+// see https://github.com/agilexrobotics/limo_ros/blob/master/limo_base/src/limo_driver.cpp
 func (base *limoBase) setMotionCommand(ctx context.Context, linear_vel float64, angular_vel float64, lateral_vel float64, steering_angle float64) error {
 	frame := new(limoFrame)
 	frame.id = 0x111
@@ -325,11 +325,11 @@ func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec flo
 	} else if base.driveMode == "ackermann" {
 		// TODO: this is not the correct math
 		linear := float64(base.maxLinearVelocity) * (degsPerSec / 360) * math.Pi
+		// max angular translates to max steering angle for ackermann+
 		angular := float64(base.maxAngularVelocity)
 		if angleDeg < 0 {
 			angular = -angular
 		}
-		// max angular translates to max steering angle for ackermann+
 		err = base.SetVelocity(ctx, r3.Vector{Y: linear}, r3.Vector{Z: angular})
 	}
 
