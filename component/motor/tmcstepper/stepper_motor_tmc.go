@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // TMC5072Config extends motor.Config, mainly for RegisterComponentAttributeMapConverter.
@@ -40,8 +39,8 @@ const (
 
 func init() {
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			m, err := NewMotor(ctx, r, *config.ConvertedAttributes.(*TMC5072Config), logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			m, err := NewMotor(ctx, deps, *config.ConvertedAttributes.(*TMC5072Config), logger)
 			if err != nil {
 				return nil, err
 			}
@@ -124,10 +123,10 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.Logger) (*Motor, error) {
-	b, err := board.FromRobot(r, c.BoardName)
+func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, logger golog.Logger) (*Motor, error) {
+	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("%q is not a board", c.BoardName)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
