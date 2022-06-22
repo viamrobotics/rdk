@@ -38,6 +38,7 @@ func TestLimoBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*limoBase)
 	test.That(t, ok, test.ShouldBeTrue)
-	width, err := base.GetWidth(ctx)
+	width, _ := base.GetWidth(ctx)
 	test.That(t, width, test.ShouldEqual, 172)
+	base.Close(ctx)
 }
