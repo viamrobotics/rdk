@@ -413,8 +413,8 @@ func TestSensorUploadBinary(t *testing.T) {
 	}
 }
 
-// Validates that for some captureDir, files are enqueued and uploaded exactly once.
-func TestQueuesAndUploadsOnce(t *testing.T) {
+// Validates that for some captureDir, files are uploaded exactly once.
+func TestUploadsOnce(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
