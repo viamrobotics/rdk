@@ -10,6 +10,8 @@ import "C"
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -48,6 +50,18 @@ func init() {
 				if attr.Max > 0 {
 					theServo.max = uint8(attr.Max)
 				}
+
+				start := time.Now()
+				res := C.gpioServo(theServo.pin, 500)
+				if res != 0 {
+					return nil, errors.Errorf("gpioServo failed with %d", res)
+				}
+
+				elapsed := start.Sub(start)
+				if elapsed > (time.Millisecond * 500) {
+					C.gpioServo(theServo.pin, 0)
+				}
+
 				return theServo, nil
 			},
 		},
@@ -74,12 +88,25 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	if s.max > 0 && angle > s.max {
 		angle = s.max
 	}
-	val := 500 + (2000.0 * float64(angle) / 180.0)
+
+	start := time.Now()
+	val := angleToVal(angle)
 	res := C.gpioServo(s.pin, C.uint(val))
 	if res != 0 {
 		return errors.Errorf("gpioServo failed with %d", res)
 	}
+	fmt.Printf("trying to move to %s", res)
+	elapsed := start.Sub(start)
+	if elapsed > (time.Millisecond * 500) {
+		C.gpioServo(s.pin, 0)
+		return nil
+	}
 	return nil
+}
+
+func angleToVal(angle uint8) float64 {
+	val := 500 + (2000.0 * float64(angle) / 180.0)
+	return val
 }
 
 func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
@@ -88,7 +115,12 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 		// this includes, errors, we'll ignore
 		return 0, nil
 	}
-	return uint8(180 * (float64(res) - 500.0) / 2000), nil
+	return valToAngle(float64(res)), nil
+}
+
+func valToAngle(val float64) uint8 {
+	angle := 180 * (float64(val) - 500.0) / 2000.0
+	return uint8(angle)
 }
 
 func (s *piPigpioServo) Stop(ctx context.Context) error {
