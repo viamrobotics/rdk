@@ -29,6 +29,10 @@ var (
 	controllers map[string]*controller
 )
 
+const DIFFERENTIAL = "differential"
+const ACKERMANN = "ackermann"
+const OMNI = "omni"
+
 func init() {
 	controllers = make(map[string]*controller)
 
@@ -61,10 +65,8 @@ type controller struct {
 }
 
 type limoFrame struct {
-	stamp float64
-	id    uint16
-	data  []uint8
-	count uint8
+	id   uint16
+	data []uint8
 }
 
 type limoState struct {
@@ -198,23 +200,23 @@ func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (
 }
 
 // this rover requires messages to be sent continously or the motors will shut down after 100ms
-func (b *limoBase) startControlThread() error {
+func (base *limoBase) startControlThread() error {
 	var ctx context.Context
-	ctx, b.cancel = context.WithCancel(context.Background())
-	b.controller.logger.Debug("Starting control thread")
+	ctx, base.cancel = context.WithCancel(context.Background())
+	base.controller.logger.Debug("Starting control thread")
 
-	b.waitGroup.Add(1)
+	base.waitGroup.Add(1)
 	go func() {
-		defer b.waitGroup.Done()
+		defer base.waitGroup.Done()
 
 		for {
 			utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*10))
-			err := b.controlThreadLoop(ctx)
+			err := base.controlThreadLoop(ctx)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
 					return
 				}
-				b.controller.logger.Warn(err)
+				base.controller.logger.Warn(err)
 			}
 		}
 	}()
@@ -224,9 +226,9 @@ func (b *limoBase) startControlThread() error {
 
 func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 	var err error
-	if base.driveMode == "differential" {
+	if base.driveMode == DIFFERENTIAL {
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
-	} else if base.driveMode == "ackermann" {
+	} else if base.driveMode == ACKERMANN {
 		r := base.state.velocityLinearGoal.Y / base.state.velocityAngularGoal.Z
 		if math.Abs(r) < float64(base.width)/2.0 {
 			if r == 0 {
@@ -235,20 +237,21 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 				r = r / math.Abs(r) * (float64(base.width)/2.0 + 10)
 			}
 		}
-		central_angle := math.Atan(float64(base.wheelbase) / r)
-		inner_angle := math.Atan((2 * float64(base.wheelbase) * math.Sin(central_angle) / (2*float64(base.wheelbase)*math.Cos(math.Abs(central_angle)) - float64(base.width)*math.Sin(math.Abs(central_angle)))))
+		centralAngle := math.Atan(float64(base.wheelbase) / r)
+		innerAngle := math.Atan((2 * float64(base.wheelbase) * math.Sin(centralAngle) /
+			(2*float64(base.wheelbase)*math.Cos(math.Abs(centralAngle)) - float64(base.width)*math.Sin(math.Abs(centralAngle)))))
 
-		if inner_angle > base.maxInnerAngle {
-			inner_angle = base.maxInnerAngle
+		if innerAngle > base.maxInnerAngle {
+			innerAngle = base.maxInnerAngle
 		}
-		if inner_angle < -base.maxInnerAngle {
-			inner_angle = -base.maxInnerAngle
+		if innerAngle < -base.maxInnerAngle {
+			innerAngle = -base.maxInnerAngle
 		}
 
-		steering_angle := inner_angle / base.rightAngleScale
+		steeringAngle := innerAngle / base.rightAngleScale
 		// steering angle is in unit of .001 radians
-		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, 0, 0, -steering_angle*1000)
-	} else if base.driveMode == "omni" {
+		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, 0, 0, -steeringAngle*1000)
+	} else if base.driveMode == OMNI {
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, base.state.velocityLinearGoal.X, 0)
 	}
 
@@ -260,18 +263,18 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 
 // Must be run inside a lock.
 func (c *controller) sendFrame(frame *limoFrame) error {
-	var checksum uint32 = 0
-	var frame_len uint8 = 0x0e
+	var checksum uint32
+	var frameLen uint8 = 0x0e
 	var data = make([]uint8, 14)
 	data[0] = 0x55
-	data[1] = frame_len // frame length
+	data[1] = frameLen // frame length
 	data[2] = uint8(frame.id >> 8)
 	data[3] = uint8(frame.id & 0xff)
 	for i := 0; i < 8; i++ {
 		data[i+4] = frame.data[i]
 		checksum += uint32(frame.data[i])
 	}
-	data[frame_len-1] = uint8(checksum & 0xff)
+	data[frameLen-1] = uint8(checksum & 0xff)
 
 	if c.testChan != nil {
 		c.logger.Debug("writing to test chan")
@@ -287,23 +290,24 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 }
 
 // see https://github.com/agilexrobotics/limo_ros/blob/master/limo_base/src/limo_driver.cpp
-func (base *limoBase) setMotionCommand(ctx context.Context, linear_vel float64, angular_vel float64, lateral_vel float64, steering_angle float64) error {
+func (base *limoBase) setMotionCommand(ctx context.Context, linear_vel float64,
+	angular_vel float64, lateral_vel float64, steering_angle float64) error {
 	frame := new(limoFrame)
 	frame.id = 0x111
-	linear_cmd := int16(linear_vel)
-	angular_cmd := int16(angular_vel)
-	lateral_cmd := int16(lateral_vel)
-	steering_cmd := int16(steering_angle)
+	linearCmd := int16(linear_vel)
+	angularCmd := int16(angular_vel)
+	lateralCmd := int16(lateral_vel)
+	steeringCmd := int16(steering_angle)
 
 	frame.data = make([]uint8, 8)
-	frame.data[0] = uint8(linear_cmd >> 8)
-	frame.data[1] = uint8(linear_cmd & 0x00ff)
-	frame.data[2] = uint8(angular_cmd >> 8)
-	frame.data[3] = uint8(angular_cmd & 0x00ff)
-	frame.data[4] = uint8(lateral_cmd >> 8)
-	frame.data[5] = uint8(lateral_cmd & 0x00ff)
-	frame.data[6] = uint8(steering_cmd >> 8)
-	frame.data[7] = uint8(steering_cmd & 0x00ff)
+	frame.data[0] = uint8(linearCmd >> 8)
+	frame.data[1] = uint8(linearCmd & 0x00ff)
+	frame.data[2] = uint8(angularCmd >> 8)
+	frame.data[3] = uint8(angularCmd & 0x00ff)
+	frame.data[4] = uint8(lateralCmd >> 8)
+	frame.data[5] = uint8(lateralCmd & 0x00ff)
+	frame.data[6] = uint8(steeringCmd >> 8)
+	frame.data[7] = uint8(steeringCmd & 0x00ff)
 
 	base.controller.mu.Lock()
 	err := base.controller.sendFrame(frame)
@@ -319,10 +323,10 @@ func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec flo
 	base.controller.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error
-	if base.driveMode == "differential" || base.driveMode == "omni" {
+	if base.driveMode == DIFFERENTIAL || base.driveMode == OMNI {
 		// angular velocity is expressed in units of .001 radians/sec
 		err = base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: degsPerSec})
-	} else if base.driveMode == "ackermann" {
+	} else if base.driveMode == ACKERMANN {
 		// TODO: this is not the correct math
 		linear := float64(base.maxLinearVelocity) * (degsPerSec / 360) * math.Pi
 		// max angular translates to max steering angle for ackermann+
@@ -345,10 +349,13 @@ func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec flo
 
 func (base *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
 	base.controller.logger.Debugf("MoveStraight(%d, %f)", distanceMm, mmPerSec)
-	base.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{})
+	err := base.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{})
+	if err != nil {
+		return err
+	}
 
 	// stop base after calculated time
-	timeToRun := time.Millisecond * time.Duration(math.Abs(float64(distanceMm)/float64(mmPerSec))*1000)
+	timeToRun := time.Millisecond * time.Duration(math.Abs(float64(distanceMm)/mmPerSec)*1000)
 	base.controller.logger.Debugf("Will run for duration %f", timeToRun)
 	utils.SelectContextOrWait(ctx, timeToRun)
 	return base.Stop(ctx)
@@ -409,7 +416,7 @@ func (base *limoBase) Do(ctx context.Context, cmd map[string]interface{}) (map[s
 		if !ok {
 			return nil, errors.New("mode value must be a string")
 		}
-		if !((mode == "differential") || (mode == "ackermann") || (mode == "omni")) {
+		if !((mode == DIFFERENTIAL) || (mode == ACKERMANN) || (mode == OMNI)) {
 			return nil, errors.New("mode value must be one of differential|ackermann|omni")
 		}
 		base.driveMode = mode
@@ -421,7 +428,10 @@ func (base *limoBase) Do(ctx context.Context, cmd map[string]interface{}) (map[s
 
 func (base *limoBase) Close(ctx context.Context) error {
 	base.controller.logger.Debug("Close()")
-	base.Stop(ctx)
+	err := base.Stop(ctx)
+	if err != nil {
+		return err
+	}
 	if base.cancel != nil {
 		base.controller.logger.Debug("calling cancel()")
 		base.cancel()
