@@ -101,7 +101,7 @@ func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger g
 	logger.Debugf("creating limo base with config %+v", config)
 
 	if config.DriveMode == "" {
-		return nil, errors.Errorf("drive mode must be defined and one of differential, ackermann, or omni")
+		return nil, errors.New("drive mode must be defined and one of differential, ackermann, or omni")
 	}
 
 	globalMu.Lock()
