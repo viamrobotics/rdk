@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -23,7 +22,7 @@ func init() {
 		"fake",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			_ registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
