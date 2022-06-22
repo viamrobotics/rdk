@@ -158,7 +158,7 @@
       }
 
       function fixServoStatus(old) {
-        return { positionDeg: old["position_deg"] || 0 };
+        return { positionDeg: old["position_deg"] || 0, is_moving: old["is_moving"] || false };
       }
 
       function fixRawStatus(name, status) {
@@ -233,7 +233,9 @@
           currentOps: [],
           setPin: "",
           getPin: "",
-          locationValue: "40.745297,-74.010916"
+          locationValue: "40.745297,-74.010916",
+          imageMapTemp: "",
+          pcdMapTemp: null
         };
         theApp = new Vue({
           el: "#app",
@@ -648,6 +650,38 @@
                     theData.fullcloud = resp.getPointCloud_asB64();
                     pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
                   });
+              });
+            },
+            viewSLAMImageMap: function () {
+              req = new slamApi.GetMapRequest();
+              req.setName("UI");
+              const mimeType = "image/jpeg";
+              req.setMimeType(mimeType);
+              slamService.getMap(req, {}, (err, resp) => {
+                grpcCallback(err, resp, false);
+                if (err) {
+                  return;
+                }
+                console.log("loading image map");
+                let blob = new Blob([resp.getImage_asU8()], { type: mimeType });
+                this.imageMapTemp = URL.createObjectURL(blob);
+              });
+            },
+            viewSLAMPCDMap: function () {
+              req = new slamApi.GetMapRequest();
+              req.setName("UI");
+              const mimeType = "pointcloud/pcd";
+              req.setMimeType(mimeType);
+              initPCDIfNeeded();
+              slamService.getMap(req, {}, (err, resp) => {
+                grpcCallback(err, resp, false);
+                if (err) {
+                  return;
+                }
+                console.log("loading pcd map");
+                pcObject = resp.getPointCloud();
+                theData.fullcloud = pcObject.getPointCloud_asB64();
+                pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
               });
             },
             getReadings: function (sensorNames) {
@@ -1788,36 +1822,45 @@
           <!-- ******* CAMERAS *******  -->
           <div class="camera pb-4" v-for="streamName in streamNames" :key="streamName">
               <camera
-                      :stream-name="streamName"
-                      :crumbs="[streamName]"
-                      :x="pcdClick.x"
-                      :y="pcdClick.y"
-                      :z="pcdClick.z"
-                      :pcd-click="pcdClick"
-                      :segmenter-names="segmenterNames"
-                      :segmenter-parameters="segmenterParameters"
-                      :segmenter-parameter-names="segmenterParameterNames"
-                      :parameter-type="parameterType"
-                      :segment-algo="segmentAlgo"
-                      :segment-objects="objects"
-                      :find-status="pcdClick.calculatingSegments"
-                      @full-image="doPCDLoad(fullcloud)"
-                      @center-pcd="doCenterPCDLoad(fullcloud)"
-                      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
-                      @change-segmenter="getSegmenterParameters"
-                      @toggle-camera="viewCamera(streamName)"
-                      @refresh-camera="viewCameraFrame"
-                      @selected-camera-view="viewCameraFrame"
-                      @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
-                      @pcd-click="grabClick"
-                      @pcd-move="doPCDMove"
-                      @point-load="doPointLoad"
-                      @segment-load="doSegmentLoad"
-                      @bounding-box-load="doBoundingBoxLoad"
-                      @download-screenshot="renderFrame(streamName)"
-                      @download-raw-data="doPCDDownload(fullcloud)"
-                      @select-object="doSelectObject"
+                :stream-name="streamName"
+                :crumbs="[streamName]"
+                :x="pcdClick.x"
+                :y="pcdClick.y"
+                :z="pcdClick.z"
+                :pcd-click="pcdClick"
+                :segmenter-names="segmenterNames"
+                :segmenter-parameters="segmenterParameters"
+                :segmenter-parameter-names="segmenterParameterNames"
+                :parameter-type="parameterType"
+                :segment-algo="segmentAlgo"
+                :segment-objects="objects"
+                :find-status="pcdClick.calculatingSegments"
+                @full-image="doPCDLoad(fullcloud)"
+                @center-pcd="doCenterPCDLoad(fullcloud)"
+                @find-segments="findSegments(segmentAlgo, segmenterParameters)"
+                @change-segmenter="getSegmenterParameters"
+                @toggle-camera="viewCamera(streamName)"
+                @refresh-camera="viewCameraFrame"
+                @selected-camera-view="viewCameraFrame"
+                @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
+                @pcd-click="grabClick"
+                @pcd-move="doPCDMove"
+                @point-load="doPointLoad"
+                @segment-load="doSegmentLoad"
+                @bounding-box-load="doBoundingBoxLoad"
+                @download-screenshot="renderFrame(streamName)"
+                @download-raw-data="doPCDDownload(fullcloud)"
+                @select-object="doSelectObject"
               ></camera>
+          </div>
+          <!-- ******* SLAM *******  -->
+          <div class="slam pb-4" v-if="filterResources('rdk', 'service', 'slam').length !== 0">
+            <slam
+              :image-map="imageMapTemp"
+              :pcd-map="pcdMapTemp"
+              @refresh-image-map="viewSLAMImageMap"
+              @refresh-pcd-map="viewSLAMPCDMap"
+            ></slam>
           </div>
         </div>
     </div>

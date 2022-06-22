@@ -121,14 +121,14 @@
                 </div>
                 <NumberInput
                   v-model="speed"
-                  class="mr-4 w-32"
+                  class="mr-2"
                   inputId="speed"
                   label="Speed (mm/sec)"
                   v-if="movementMode === 'Straight'"
                 ></NumberInput>
                 <NumberInput
                   v-model="increment"
-                  class="mr-4 w-32"
+                  class="mr-2"
                   inputId="distance"
                   :disabled="movementType === 'Continuous'"
                   label="Distance (mm)"

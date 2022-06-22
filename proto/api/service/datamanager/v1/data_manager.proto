@@ -2,17 +2,21 @@ syntax = "proto3";
 
 package proto.api.service.datamanager.v1;
 
-import "google/protobuf/struct.proto";
-import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 option go_package = "go.viam.com/rdk/proto/api/service/datamanager/v1";
+option java_package = "com.viam.rdk.proto.api.service.datamanager.v1";
 
-message SensorMetadata {
-  google.protobuf.Timestamp time_requested = 1;
-  google.protobuf.Timestamp time_received = 2;
+// A DataManagerService service manages data between the robot and the cloud.
+service DataManagerService {
+  // Sync performs a sync of the non-synced files for the specified service name,
+  rpc Sync(SyncRequest) returns (SyncResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/datamanager/sync"
+    };
+  }
 }
 
-message SensorData {
-  SensorMetadata metadata = 1;
-  google.protobuf.Struct data = 2;
-}
+message SyncRequest {}
+
+message SyncResponse {}

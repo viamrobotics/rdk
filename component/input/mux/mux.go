@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -39,7 +38,7 @@ type Config struct {
 }
 
 // NewController returns a new multiplexed input.Controller.
-func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+func NewController(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 	var m mux
 	m.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -47,7 +46,7 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	m.ctxWithCancel = ctxWithCancel
 
 	for _, s := range config.ConvertedAttributes.(*Config).Sources {
-		c, err := input.FromRobot(r, s)
+		c, err := input.FromDependencies(deps, s)
 		if err != nil {
 			return nil, err
 		}

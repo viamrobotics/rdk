@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/component/motor/dmc4000"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 // check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves the go routines stuck waiting).
@@ -67,7 +66,7 @@ func TestDMC4000Motor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	c := make(chan string)
 	resChan := make(chan string, 1024)
-	r := inject.Robot{}
+	deps := make(registry.Dependencies)
 
 	mc := dmc4000.Config{
 		SerialDevice:  "testchan",
@@ -113,7 +112,7 @@ func TestDMC4000Motor(t *testing.T) {
 		},
 	)
 
-	m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+	m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		txMu.Lock()

@@ -29,7 +29,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -47,7 +46,7 @@ var evamodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewEva(ctx, config, logger)
 		},
 	})

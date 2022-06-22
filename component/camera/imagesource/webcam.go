@@ -19,7 +19,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -31,7 +30,7 @@ func init() {
 		model,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			_ registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
