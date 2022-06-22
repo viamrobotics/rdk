@@ -263,6 +263,7 @@ export default class Base extends Vue {
 
   setMovementMode(e: string): void {
     this.movementMode = e;
+    this.movementType = "Continuous";
   }
   setMovementType(e: string): void {
     this.movementType = e;
