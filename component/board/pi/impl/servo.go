@@ -54,6 +54,8 @@ func init() {
 	)
 }
 
+var _ = servo.LocalServo(&piPigpioServo{})
+
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
 	generic.Unimplemented
@@ -90,9 +92,15 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 }
 
 func (s *piPigpioServo) Stop(ctx context.Context) error {
+	ctx, done := s.opMgr.New(ctx)
+	defer done()
 	res := C.gpioServo(s.pin, C.uint(0))
 	if res != 0 {
 		return errors.Errorf("gpioServo failed with %d", res)
 	}
 	return nil
+}
+
+func (s *piPigpioServo) IsMoving() bool {
+	return s.opMgr.OpRunning()
 }

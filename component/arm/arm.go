@@ -39,6 +39,7 @@ func init() {
 				pb.RegisterArmServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.ArmService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -102,7 +103,7 @@ type LocalArm interface {
 }
 
 var (
-	_ = Arm(&reconfigurableArm{})
+	_ = LocalArm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.

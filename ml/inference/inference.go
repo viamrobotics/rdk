@@ -17,7 +17,7 @@ type MLModel interface {
 
 	// Close closes the model and interpreter that allows inferences to be made, opens up space in memory.
 	// All models must be closed when done using
-	Close()
+	Close() error
 }
 
 // FailedToLoadError is the default error message for when expected resources for inference fail to load
