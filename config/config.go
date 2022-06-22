@@ -16,7 +16,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/rlog"
-
 	rutils "go.viam.com/rdk/utils"
 )
 
