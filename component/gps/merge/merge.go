@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // ModelName is the name of th merge model for gps.
@@ -25,24 +24,24 @@ func init() {
 		gps.Subtype,
 		ModelName, registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newMerge(r, config, logger)
+			return newMerge(deps, config, logger)
 		}})
 }
 
-func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
+func newMerge(deps registry.Dependencies, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
 	subs := config.Attributes.StringSlice("subs")
 	if len(subs) == 0 {
 		return nil, errors.New("no subs for merge gps")
 	}
 
-	m := &mergeGPS{r, nil, logger, generic.Unimplemented{}}
+	m := &mergeGPS{deps, nil, logger, generic.Unimplemented{}}
 
 	for _, s := range subs {
-		g, err := gps.FromRobot(r, s)
+		g, err := gps.FromDependencies(deps, s)
 		if err != nil {
 			return nil, err
 		}
@@ -53,7 +52,7 @@ func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.
 }
 
 type mergeGPS struct {
-	r      robot.Robot
+	deps   registry.Dependencies
 	subs   []gps.GPS
 	logger golog.Logger
 	generic.Unimplemented

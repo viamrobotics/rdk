@@ -8,13 +8,13 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/tmcstepper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 // check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves fake.SPI stuck waiting).
@@ -54,10 +54,8 @@ func TestTMCStepperMotor(t *testing.T) {
 	b.GPIOPins = map[string]*fakeboard.GPIOPin{}
 	b.SPIs = map[string]*fakeboard.SPI{}
 	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
-	r := inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return b, nil
-	}
+
+	deps := registry.Dependencies(map[resource.Name]interface{}{board.Named(b.Name): b})
 
 	mc := tmcstepper.TMC5072Config{
 		SPIBus:     "main",
@@ -93,7 +91,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		{161, 0, 0, 0, 0},
 	})
 
-	m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+	m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
@@ -660,7 +658,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	})
@@ -688,7 +686,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	})
@@ -718,7 +716,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	})
