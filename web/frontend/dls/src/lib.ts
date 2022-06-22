@@ -28,6 +28,7 @@ import ViamSelect from "./components/ViamSelect.vue";
 import ViamInfoButton from "./components/ViamInfoButton.vue";
 import Popper from "vue-popperjs";
 import NumberInput from "./components/NumberInput.vue";
+import Slam from "./components/Slam.vue";
 import ClickOutside from "./directives/clickOutside";
 
 const Components: { [key: string]: VueConstructor<Vue> } = {
@@ -54,6 +55,7 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   ViamInfoButton,
   Popper,
   NumberInput,
+  Slam,
 };
 
 Object.keys(Components).forEach((name) => {
