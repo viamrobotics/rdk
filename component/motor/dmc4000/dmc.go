@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -86,8 +85,8 @@ func init() {
 	controllers = make(map[string]*controller)
 
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, r, config.ConvertedAttributes.(*Config), logger)
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewMotor(ctx, config.ConvertedAttributes.(*Config), logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -111,7 +110,7 @@ func init() {
 }
 
 // NewMotor returns a DMC4000 driven motor.
-func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.Motor, error) {
 	if c.SerialDevice == "" {
 		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
 			if vendorID == 0x403 && productID == 0x6001 {
