@@ -139,6 +139,7 @@ func (svc *dataManagerService) Close(ctx context.Context) error {
 	if svc.syncer != nil {
 		svc.syncer.Close()
 	}
+	
 	svc.cancelSyncBackgroundRoutine()
 	svc.backgroundWorkers.Wait()
 	return nil
@@ -312,6 +313,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
 	}
+	
 	svc.cancelSyncBackgroundRoutine()
 
 	svc.syncer = newSyncer(svc.logger, svc.uploadFunc)
@@ -334,6 +336,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 		svc.syncer.Sync(previouslyCaptured)
 
 		// Kick off background routine to periodically sync files.
+		//nolint:contextcheck
 		svc.startSyncBackgroundRoutine(intervalMins)
 	}
 }
