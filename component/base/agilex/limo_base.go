@@ -28,8 +28,10 @@ var (
 	controllers map[string]*controller
 )
 
+// default port for limo serial comm
 const DEFAULT_SERIAL = "/dev/ttyTHS1"
 
+// valid steering modes for limo
 const (
 	DIFFERENTIAL = steeringMode(iota)
 	ACKERMANN
@@ -57,7 +59,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateLimoBase(config.ConvertedAttributes.(*Config), logger)
+			return CreateLimoBase(ctx, config.ConvertedAttributes.(*Config), logger)
 		},
 	}
 
@@ -115,7 +117,7 @@ type Config struct {
 }
 
 // CreateLimoBase returns a AgileX limo base
-func CreateLimoBase(config *Config, logger golog.Logger) (base.LocalBase, error) {
+func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (base.LocalBase, error) {
 
 	logger.Debugf("creating limo base with config %+v", config)
 
@@ -173,11 +175,7 @@ func CreateLimoBase(config *Config, logger golog.Logger) (base.LocalBase, error)
 
 	base.stateMutex.Lock()
 	if !base.state.controlThreadStarted {
-		// nolint:contextcheck
-		err := base.startControlThread()
-		if err != nil {
-			return base, err
-		}
+		base.startControlThread()
 		base.state.controlThreadStarted = true
 	}
 	base.stateMutex.Unlock()
@@ -217,7 +215,7 @@ func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (
 }
 
 // this rover requires messages to be sent continously or the motors will shut down after 100ms
-func (base *limoBase) startControlThread() error {
+func (base *limoBase) startControlThread() {
 	var ctx context.Context
 	ctx, base.cancel = context.WithCancel(context.Background())
 	base.controller.logger.Debug("Starting control thread")
@@ -238,14 +236,15 @@ func (base *limoBase) startControlThread() error {
 		}
 	}()
 
-	return nil
+	return
 }
 
 func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 	var err error
-	if base.driveMode == DIFFERENTIAL.String() {
+	switch base.driveMode {
+	case DIFFERENTIAL.String():
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
-	} else if base.driveMode == ACKERMANN.String() {
+	case ACKERMANN.String():
 		r := base.state.velocityLinearGoal.Y / base.state.velocityAngularGoal.Z
 		if math.Abs(r) < float64(base.width)/2.0 {
 			if r == 0 {
@@ -268,7 +267,7 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 		steeringAngle := innerAngle / base.rightAngleScale
 		// steering angle is in unit of .001 radians
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, 0, 0, -steeringAngle*1000)
-	} else if base.driveMode == OMNI.String() {
+	case OMNI.String():
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, base.state.velocityLinearGoal.X, 0)
 	}
 
@@ -307,14 +306,14 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 }
 
 // see https://github.com/agilexrobotics/limo_ros/blob/master/limo_base/src/limo_driver.cpp
-func (base *limoBase) setMotionCommand(ctx context.Context, linear_vel float64,
-	angular_vel float64, lateral_vel float64, steering_angle float64) error {
+func (base *limoBase) setMotionCommand(ctx context.Context, linearVel float64,
+	angularVel float64, lateralVel float64, steeringAngle float64) error {
 	frame := new(limoFrame)
 	frame.id = 0x111
-	linearCmd := int16(linear_vel)
-	angularCmd := int16(angular_vel)
-	lateralCmd := int16(lateral_vel)
-	steeringCmd := int16(steering_angle)
+	linearCmd := int16(linearVel)
+	angularCmd := int16(angularVel)
+	lateralCmd := int16(lateralVel)
+	steeringCmd := int16(steeringAngle)
 
 	frame.data = make([]uint8, 8)
 	frame.data[0] = uint8(linearCmd >> 8)
@@ -434,7 +433,7 @@ func (base *limoBase) Do(ctx context.Context, cmd map[string]interface{}) (map[s
 			return nil, errors.New("mode value must be one of differential|ackermann|omni")
 		}
 		base.driveMode = mode
-		return nil, nil
+		return map[string]interface{}{"return": mode}, nil
 	default:
 		return nil, fmt.Errorf("no such command: %s", name)
 	}
@@ -442,8 +441,7 @@ func (base *limoBase) Do(ctx context.Context, cmd map[string]interface{}) (map[s
 
 func (base *limoBase) Close(ctx context.Context) error {
 	base.controller.logger.Debug("Close()")
-	err := base.Stop(ctx)
-	if err != nil {
+	if err := base.Stop(ctx); err != nil {
 		return err
 	}
 	if base.cancel != nil {
