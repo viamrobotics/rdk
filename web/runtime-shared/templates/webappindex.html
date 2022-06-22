@@ -519,7 +519,7 @@
               var angular = new commonApi.Vector3();
               linear.setY(inputs.linear)
               angular.setZ(inputs.angular)
-              BaseControlHelper.setPower(baseName,
+              BaseControlHelper.setPower(name,
                                          linear,
                                          angular,
                                          (err, resp) => {
@@ -541,10 +541,13 @@
             },
             handleBaseStraight: function(name, event) {
               if (event.movementType === "Continuous") {
+                let linear = new commonApi.Vector3();
+                linear.setY(event.speed * event.direction);
+
                 BaseControlHelper.setVelocity(
                   name, 
-                  commonApi.Vector3(0, 1 * event.direction, 0), // linear
-                  commonApi.Vector3(0, 0, 0), // angular
+                  linear, // linear
+                  new commonApi.Vector3(), // angular
                   (err, resp) => {
                     return grpcCallback(err, resp)
                   });
