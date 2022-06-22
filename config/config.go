@@ -74,7 +74,9 @@ func SortComponents(components []Component) ([]Component, error) {
 				return err
 			}
 		}
-		sortedCmps = append(sortedCmps, componentToConfig[name])
+		if ctc, ok := componentToConfig[name]; ok {
+			sortedCmps = append(sortedCmps, ctc)
+		}
 		return nil
 	}
 

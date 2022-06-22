@@ -18,6 +18,7 @@ import (
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/motor"
+
 	// motor attribute converters.
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
@@ -339,11 +340,14 @@ func TestConfigSortComponents(t *testing.T) {
 			nil,
 			"not unique",
 		},
+		// TODO(RSDK-427): this check just raises a warning if a dependency is missing.
+		// We cannot actually make the check fail since it will always fail for remote
+		// dependencies.
 		{
 			"dependency not found",
 			[]config.Component{c2},
-			nil,
-			"does not exist",
+			[]config.Component{c2},
+			"",
 		},
 		{
 			"circular dependency",
