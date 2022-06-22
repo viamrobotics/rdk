@@ -69,7 +69,7 @@ type LocalGPS interface {
 	ReadAccuracy(ctx context.Context) (float64, float64, error) // Horizontal and vertical position error in meters
 	ReadSatellites(ctx context.Context) (int, int, error)       // Number of satellites used for fix, and total in view
 	ReadValid(ctx context.Context) (bool, error)                // Whether or not the GPS chip had a valid fix for the most recent dataset
-	ReadFix(ctx context.Context) (int, error)                // Fix quality of GPS measurements
+	ReadFix(ctx context.Context) (int, error)                   // Fix quality of GPS measurements
 }
 
 var (
