@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -258,7 +259,6 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsConfig, test.ShouldHaveLength, 12)
 
-	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 }
 
@@ -893,6 +893,9 @@ func TestGetStatus(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 
 		test.That(t, err, test.ShouldBeNil)
 
@@ -902,6 +905,9 @@ func TestGetStatus(t *testing.T) {
 
 	t.Run("no CreateStatus", func(t *testing.T) {
 		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := r.GetStatus(context.Background(), []resource.Name{button1})
@@ -911,6 +917,9 @@ func TestGetStatus(t *testing.T) {
 
 	t.Run("failing resource", func(t *testing.T) {
 		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = r.GetStatus(context.Background(), []resource.Name{fail1})
@@ -925,6 +934,9 @@ func TestGetStatus(t *testing.T) {
 		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
 		test.That(t, err, test.ShouldBeNil)
 
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 		_, err = r.GetStatus(context.Background(), []resource.Name{button2})
 		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
 
@@ -959,6 +971,9 @@ func TestGetStatus(t *testing.T) {
 			button1:  map[string]interface{}{},
 		}
 		r, err := robotimpl.RobotFromResources(context.Background(), workingResourceMap, logger)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := r.GetStatus(context.Background(), []resource.Name{})

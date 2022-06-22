@@ -170,6 +170,10 @@ func TestRemoteRobot(t *testing.T) {
 		},
 	)
 
+	defer func() {
+		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+	}()
+
 	robot.conf.Prefix = false
 	test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 	robot.conf.Prefix = true
@@ -453,7 +457,6 @@ func TestRemoteRobot(t *testing.T) {
 	_, err = sensor.FromRobot(robot, "one.sensor1")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, wrapped.Robot.Close(context.Background()), test.ShouldBeNil)
 }
 
