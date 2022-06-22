@@ -52,7 +52,6 @@ type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, 
 // newSyncer returns a new syncer.
 func newSyncer(logger golog.Logger, uploadFunc uploadFn) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	// TODO: Change to uploadFunc = viamUpload when PR #915 (DATA-166) is merged.
 	if uploadFunc == nil {
 		uploadFunc = viamUpload
 	}

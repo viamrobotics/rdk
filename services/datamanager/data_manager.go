@@ -139,6 +139,9 @@ func (svc *dataManagerService) Close(ctx context.Context) error {
 	if svc.syncer != nil {
 		svc.syncer.Close()
 	}
+	if svc.updateCollectorsCancelFn != nil {
+		svc.updateCollectorsCancelFn()
+	}
 	svc.backgroundWorkers.Wait()
 	return nil
 }
@@ -309,16 +312,23 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
-		svc.syncer = nil
 	}
+	if svc.updateCollectorsCancelFn != nil {
+		svc.updateCollectorsCancelFn()
+		svc.updateCollectorsCancelFn = nil
+	}
+
+	svc.syncer = newSyncer(svc.logger, svc.uploadFunc)
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
-		svc.syncer = newSyncer(svc.logger, svc.uploadFunc)
 		// Sync existing files in captureDir.
 		var previouslyCaptured []string
 		//nolint
 		_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
 			if info.IsDir() {
 				return nil
 			}
