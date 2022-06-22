@@ -29,7 +29,7 @@ var (
 )
 
 // default port for limo serial comm
-const DEFAULT_SERIAL = "/dev/ttyTHS1"
+const defaultSerial = "/dev/ttyTHS1"
 
 // valid steering modes for limo
 const (
@@ -128,7 +128,7 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 	globalMu.Lock()
 	sDevice := config.SerialDevice
 	if sDevice == "" {
-		sDevice = DEFAULT_SERIAL
+		sDevice = defaultSerial
 	}
 	ctrl, controllerExists := controllers[sDevice]
 	if !controllerExists {
@@ -175,7 +175,7 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 
 	base.stateMutex.Lock()
 	if !base.state.controlThreadStarted {
-		base.startControlThread()
+		base.startControlThread(ctx)
 		base.state.controlThreadStarted = true
 	}
 	base.stateMutex.Unlock()
@@ -215,8 +215,7 @@ func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (
 }
 
 // this rover requires messages to be sent continously or the motors will shut down after 100ms
-func (base *limoBase) startControlThread() {
-	var ctx context.Context
+func (base *limoBase) startControlThread(ctx context.Context) {
 	ctx, base.cancel = context.WithCancel(context.Background())
 	base.controller.logger.Debug("Starting control thread")
 
@@ -235,15 +234,13 @@ func (base *limoBase) startControlThread() {
 			}
 		}
 	}()
-
-	return
 }
 
 func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 	var err error
 	switch base.driveMode {
 	case DIFFERENTIAL.String():
-		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
+		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
 	case ACKERMANN.String():
 		r := base.state.velocityLinearGoal.Y / base.state.velocityAngularGoal.Z
 		if math.Abs(r) < float64(base.width)/2.0 {
@@ -266,9 +263,9 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 
 		steeringAngle := innerAngle / base.rightAngleScale
 		// steering angle is in unit of .001 radians
-		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, 0, 0, -steeringAngle*1000)
+		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, 0, 0, -steeringAngle*1000)
 	case OMNI.String():
-		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, base.state.velocityLinearGoal.X, 0)
+		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, base.state.velocityLinearGoal.X, 0)
 	}
 
 	if ctx.Err() != nil {
@@ -306,7 +303,7 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 }
 
 // see https://github.com/agilexrobotics/limo_ros/blob/master/limo_base/src/limo_driver.cpp
-func (base *limoBase) setMotionCommand(ctx context.Context, linearVel float64,
+func (base *limoBase) setMotionCommand(linearVel float64,
 	angularVel float64, lateralVel float64, steeringAngle float64) error {
 	frame := new(limoFrame)
 	frame.id = 0x111
