@@ -63,6 +63,7 @@ type GPS struct {
 	hAcc       float64
 	vAcc       float64
 	valid      bool
+	fix        int
 }
 
 // ReadLocation always returns the set values.
@@ -105,6 +106,13 @@ func (g *GPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.valid, nil
+}
+
+// ReadFix returns the set value.
+func (g *GPS) ReadFix(ctx context.Context) (int, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.fix, nil
 }
 
 // Do runs an arbitrary command.

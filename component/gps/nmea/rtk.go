@@ -35,7 +35,7 @@ func init() {
 		}})
 }
 
-// A NMEAGPS represents a GPS that can read and parse NMEA messages.
+// A nmeaGPS represents a GPS that can read and parse NMEA messages.
 type nmeaGPS interface {
 	gps.LocalGPS
 	Start(ctx context.Context) // Initialize and run GPS
@@ -93,11 +93,10 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 	switch g.ntripInputProtocol {
 	case "serial":
 		var err error
-		localgps, err := newSerialNMEAGPS(ctx, config, logger)
+		g.nmeagps, err = newSerialNMEAGPS(ctx, config, logger)
 		if err != nil {
 			return nil, err
 		}
-		g.nmeagps = localgps.(nmeaGPS)
 	case "I2C":
 		return nil, errors.New("I2C not implemented")
 	default:
@@ -329,7 +328,7 @@ func (g *RTKGPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.nmeagps.ReadValid(ctx)
 }
 
-// ReadFix returns Fix quality of GPS measurements
+// ReadFix returns Fix quality of GPS measurements.
 func (g *RTKGPS) ReadFix(ctx context.Context) (int, error) {
 	return g.nmeagps.ReadFix(ctx)
 }
