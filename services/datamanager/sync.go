@@ -36,8 +36,7 @@ type syncManager interface {
 	Close()
 }
 
-// TODO: replace uploadFn with some Uploader interface with Upload/Close methods syncer is responsible for
-// enqueuing files in captureDir and uploading them to the cloud.
+// syncer is responsible for uploading files in captureDir to the cloud.
 type syncer struct {
 	logger            golog.Logger
 	progressTracker   progressTracker
@@ -288,7 +287,8 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	}
 	// Close stream and receive response.
 	if _, err := client.CloseAndRecv(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from syncDataCaptureFiles service backend")
+		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
+			"sync service backend")
 	}
 	return nil
 }

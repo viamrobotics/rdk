@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 // readDir filters out folders from a slice of FileInfos.
