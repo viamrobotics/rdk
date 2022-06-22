@@ -124,7 +124,7 @@ func TestManualSync(t *testing.T) {
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1/"
 
-	// Clear the capture and queue dirs after we're done.
+	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
@@ -176,7 +176,7 @@ func TestScheduledSync(t *testing.T) {
 	armDir := captureDir + "/arm/arm1/"
 	resetFolder(t, armDir)
 
-	// Clear the capture and queue dirs after we're done.
+	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
@@ -212,7 +212,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1"
 
-	// Clear the capture and queue dirs after we're done.
+	// Clear the capture dir after we're done.
 	resetFolder(t, armDir)
 	defer resetFolder(t, armDir)
 
