@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/robot"
 	pb "go.viam.com/rdk/samples/mycomponent/proto/api/component/mycomponent/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -53,27 +52,27 @@ func init() {
 	registry.RegisterComponent(resourceSubtype, "myActualComponent", registry.Component{
 		Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newMyComponent(r, config, logger), nil
+			return newMyComponent(deps, config, logger), nil
 		},
 	})
 }
 
 type myActualComponent struct {
-	r      robot.Robot
+	deps   registry.Dependencies
 	config config.Component
 	logger golog.Logger
 }
 
 func newMyComponent(
-	r robot.Robot,
+	deps registry.Dependencies,
 	config config.Component,
 	logger golog.Logger,
 ) MyComponent {
-	return &myActualComponent{r, config, logger}
+	return &myActualComponent{deps, config, logger}
 }
 
 func (mc *myActualComponent) DoOne(ctx context.Context, arg1 string) (bool, error) {

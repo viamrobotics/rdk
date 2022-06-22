@@ -50,6 +50,7 @@ func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 	}
 
 	inHeight, inWidth := uint(model.Info.InputHeight), uint(model.Info.InputWidth)
+
 	if params.LabelPath == nil {
 		blank := ""
 		params.LabelPath = &blank
