@@ -29,12 +29,30 @@ var (
 	controllers map[string]*controller
 )
 
-const DIFFERENTIAL = "differential"
-const ACKERMANN = "ackermann"
-const OMNI = "omni"
+const DEFAULT_SERIAL = "/dev/ttyTHS1"
+
+const (
+	DIFFERENTIAL = steeringMode(iota)
+	ACKERMANN
+	OMNI
+)
+
+type steeringMode uint8
+
+func (m steeringMode) String() string {
+	switch m {
+	case DIFFERENTIAL:
+		return "differential"
+	case ACKERMANN:
+		return "ackermann"
+	case OMNI:
+		return "omni"
+	}
+	return "Unknown"
+}
 
 func init() {
-	controllers = make(map[string]*controller)
+	//controllers = make(map[string]*controller)
 
 	limoBaseComp := registry.Component{
 		Constructor: func(
@@ -109,7 +127,7 @@ func CreateLimoBase(ctx context.Context, r robot.Robot, config *Config, logger g
 	globalMu.Lock()
 	sDevice := config.SerialDevice
 	if sDevice == "" {
-		sDevice = "/dev/ttyTHS1"
+		sDevice = DEFAULT_SERIAL
 	}
 	ctrl, controllerExists := controllers[sDevice]
 	if !controllerExists {
@@ -226,9 +244,9 @@ func (base *limoBase) startControlThread() error {
 
 func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 	var err error
-	if base.driveMode == DIFFERENTIAL {
+	if base.driveMode == DIFFERENTIAL.String() {
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
-	} else if base.driveMode == ACKERMANN {
+	} else if base.driveMode == ACKERMANN.String() {
 		r := base.state.velocityLinearGoal.Y / base.state.velocityAngularGoal.Z
 		if math.Abs(r) < float64(base.width)/2.0 {
 			if r == 0 {
@@ -251,7 +269,7 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 		steeringAngle := innerAngle / base.rightAngleScale
 		// steering angle is in unit of .001 radians
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, 0, 0, -steeringAngle*1000)
-	} else if base.driveMode == OMNI {
+	} else if base.driveMode == OMNI.String() {
 		err = base.setMotionCommand(ctx, base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, base.state.velocityLinearGoal.X, 0)
 	}
 
@@ -323,17 +341,13 @@ func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec flo
 	base.controller.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error
-	if base.driveMode == DIFFERENTIAL || base.driveMode == OMNI {
-		// angular velocity is expressed in units of .001 radians/sec
+	if base.driveMode == DIFFERENTIAL.String() || base.driveMode == OMNI.String() {
 		err = base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: degsPerSec})
-	} else if base.driveMode == ACKERMANN {
+	} else if base.driveMode == ACKERMANN.String() {
 		// TODO: this is not the correct math
 		linear := float64(base.maxLinearVelocity) * (degsPerSec / 360) * math.Pi
 		// max angular translates to max steering angle for ackermann+
-		angular := float64(base.maxAngularVelocity)
-		if angleDeg < 0 {
-			angular = -angular
-		}
+		angular := math.Copysign(float64(base.maxAngularVelocity), angleDeg)
 		err = base.SetVelocity(ctx, r3.Vector{Y: linear}, r3.Vector{Z: angular})
 	}
 
@@ -416,7 +430,8 @@ func (base *limoBase) Do(ctx context.Context, cmd map[string]interface{}) (map[s
 		if !ok {
 			return nil, errors.New("mode value must be a string")
 		}
-		if !((mode == DIFFERENTIAL) || (mode == ACKERMANN) || (mode == OMNI)) {
+		mode = strings.ToLower(mode)
+		if !((mode == DIFFERENTIAL.String()) || (mode == ACKERMANN.String()) || (mode == OMNI.String())) {
 			return nil, errors.New("mode value must be one of differential|ackermann|omni")
 		}
 		base.driveMode = mode
