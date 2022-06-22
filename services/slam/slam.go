@@ -53,6 +53,7 @@ func init() {
 				pb.RegisterSLAMServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.SLAMService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},

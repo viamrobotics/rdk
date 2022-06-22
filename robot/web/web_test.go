@@ -5,15 +5,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/edaniels/golog"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
+	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
@@ -24,6 +29,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	mycomppb "go.viam.com/rdk/samples/mycomponent/proto/api/component/mycomponent/v1"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -43,8 +49,9 @@ func TestWebStart(t *testing.T) {
 	err := svc.Start(ctx, weboptions.New())
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClient(context.Background(), arm1String, "localhost:8080", logger)
+	conn, err := rgrpc.Dial(context.Background(), "localhost:8080", logger)
 	test.That(t, err, test.ShouldBeNil)
+	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 	arm1Position, err := arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -56,6 +63,7 @@ func TestWebStart(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestWebStartOptions(t *testing.T) {
@@ -73,8 +81,9 @@ func TestWebStartOptions(t *testing.T) {
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
+	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 	arm1Position, err := arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -82,6 +91,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestWebWithAuth(t *testing.T) {
@@ -133,12 +143,12 @@ func TestWebWithAuth(t *testing.T) {
 			err = svc.Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
-			_, err = arm.NewClient(context.Background(), arm1String, addr, logger)
+			_, err = rgrpc.Dial(context.Background(), addr, logger)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
 			if tc.Managed {
-				_, err = arm.NewClient(context.Background(), arm1String, addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
+				_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
 						Payload: apiKey,
@@ -146,7 +156,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
-				_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+				_, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -160,7 +170,7 @@ func TestWebWithAuth(t *testing.T) {
 				if entityName == "" {
 					entityName = options.LocalFQDN
 				}
-				arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger,
+				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
@@ -168,14 +178,16 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
+				arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 				arm1Position, err := arm1.GetEndPosition(ctx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
 
-				arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+				conn, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -183,14 +195,16 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
+				arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 				arm1Position, err = arm1.GetEndPosition(ctx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
 			} else {
-				arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger,
+				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
@@ -199,13 +213,16 @@ func TestWebWithAuth(t *testing.T) {
 				)
 				test.That(t, err, test.ShouldBeNil)
 
+				arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 				arm1Position, err := arm1.GetEndPosition(ctx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
 
-				arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+				conn, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -214,11 +231,14 @@ func TestWebWithAuth(t *testing.T) {
 				)
 				test.That(t, err, test.ShouldBeNil)
 
+				arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 				arm1Position, err = arm1.GetEndPosition(ctx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
 			}
 
 			err = utils.TryClose(context.Background(), svc)
@@ -275,13 +295,13 @@ func TestWebWithTLSAuth(t *testing.T) {
 	clientTLSConfig.Certificates = nil
 	clientTLSConfig.ServerName = "somename"
 
-	_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+	_, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
-	_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+	_, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithEntityCredentials("wrong", rpc.Credentials{
 			Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -292,7 +312,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
 	// use secret
-	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger,
+	conn, err := rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithEntityCredentials(options.FQDN, rpc.Credentials{
 			Type:    rutils.CredentialsTypeRobotLocationSecret,
@@ -301,34 +321,43 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 	arm1Position, err := arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert
 	clientTLSConfig.Certificates = []tls.Certificate{cert}
-	arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+	conn, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS
-	arm1, err = arm.NewClient(context.Background(), arm1String, options.FQDN, logger,
+	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
 		rpc.WithDialDebug(),
 		rpc.WithTLSConfig(clientTLSConfig),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use signaling creds
-	arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
+	conn, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithDialDebug(),
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
@@ -342,12 +371,14 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS while signaling present
-	arm1, err = arm.NewClient(context.Background(), arm1String, options.FQDN, logger,
+	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
 		rpc.WithDialDebug(),
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
@@ -364,12 +395,15 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestWebWithBadAuthHandlers(t *testing.T) {
@@ -429,12 +463,15 @@ func TestWebUpdate(t *testing.T) {
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 	arm1Position, err := arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// add arm to robot and then update
 	injectArm := &inject.Arm{}
@@ -448,7 +485,7 @@ func TestWebUpdate(t *testing.T) {
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	aClient := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 	position, err := aClient.GetEndPosition(context.Background())
@@ -471,8 +508,10 @@ func TestWebUpdate(t *testing.T) {
 	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger)
+	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
 	arm1Position, err = arm1.GetEndPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -638,9 +677,116 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return injectArm, nil
 	}
 
 	return context.Background(), injectRobot
+}
+
+func TestForeignResource(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, robot := setupRobotCtx()
+
+	svc := web.New(ctx, robot, logger)
+
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := weboptions.New()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	myCompClient := mycomppb.NewMyComponentServiceClient(conn)
+	_, err = myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
+	test.That(t, err, test.ShouldNotBeNil)
+	errStatus, ok := status.FromError(err)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, errStatus.Code(), test.ShouldEqual, codes.Unimplemented)
+
+	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+
+	remoteServer := grpc.NewServer()
+	mycomppb.RegisterMyComponentServiceServer(remoteServer, &myCompServer{})
+
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	go remoteServer.Serve(listener)
+	defer remoteServer.Stop()
+
+	remoteConn, err := rgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	resourceSubtype := resource.NewSubtype(
+		"acme",
+		resource.ResourceTypeComponent,
+		resource.SubtypeName("mycomponent"),
+	)
+	resName := resource.NameFromSubtype(resourceSubtype, "thing1")
+
+	foreignRes := rgrpc.NewForeignResource(resName, remoteConn)
+
+	svcDesc, err := grpcreflect.LoadServiceDescriptor(&mycomppb.MyComponentService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobot := &inject.Robot{}
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{
+			resource.NameFromSubtype(resourceSubtype, "thing1"),
+		}
+	}
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return foreignRes, nil
+	}
+
+	svc = web.New(ctx, injectRobot, logger)
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err = rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	myCompClient = mycomppb.NewMyComponentServiceClient(conn)
+
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+		return nil
+	}
+
+	_, err = myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
+	test.That(t, err, test.ShouldNotBeNil)
+	errStatus, ok = status.FromError(err)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, errStatus.Code(), test.ShouldEqual, codes.Unimplemented)
+
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+		return []resource.RPCSubtype{
+			{
+				Subtype: resourceSubtype,
+				Desc:    svcDesc,
+			},
+		}
+	}
+
+	resp, err := myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Ret1, test.ShouldBeTrue)
+
+	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	test.That(t, remoteConn.Close(), test.ShouldBeNil)
+}
+
+type myCompServer struct {
+	mycomppb.UnimplementedMyComponentServiceServer
+}
+
+func (s *myCompServer) DoOne(ctx context.Context, req *mycomppb.DoOneRequest) (*mycomppb.DoOneResponse, error) {
+	return &mycomppb.DoOneResponse{Ret1: req.Arg1 == "hello"}, nil
 }

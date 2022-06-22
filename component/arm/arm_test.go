@@ -16,6 +16,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -142,6 +143,26 @@ func TestCreateStatus(t *testing.T) {
 		status1, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
+
+		resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
+		status2, err := resourceSubtype.Status(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status2, test.ShouldResemble, status)
+	})
+
+	t.Run("not moving", func(t *testing.T) {
+		injectArm.IsMovingFunc = func() bool {
+			return false
+		}
+
+		status2 := &pb.Status{
+			EndPosition:    pose,
+			JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+			IsMoving:       false,
+		}
+		status1, err := arm.CreateStatus(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
 	t.Run("fail on GetJointPositions", func(t *testing.T) {
