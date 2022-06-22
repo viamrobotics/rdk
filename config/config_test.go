@@ -18,7 +18,6 @@ import (
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/motor"
-
 	// motor attribute converters.
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
