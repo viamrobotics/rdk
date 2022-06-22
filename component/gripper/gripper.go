@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -24,6 +25,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -32,6 +36,7 @@ func init() {
 				pb.RegisterGripperServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.GripperService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -71,11 +76,18 @@ type Gripper interface {
 	referenceframe.ModelFramer
 }
 
+// A LocalGripper represents a Gripper that can report whether it is moving or not.
+type LocalGripper interface {
+	Gripper
+
+	resource.MovingCheckable
+}
+
 // WrapWithReconfigurable wraps a gripper with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	g, ok := r.(Gripper)
+	g, ok := r.(LocalGripper)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gripper", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalGripper", r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGripper); ok {
 		return reconfigurable, nil
@@ -84,7 +96,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 }
 
 var (
-	_ = Gripper(&reconfigurableGripper{})
+	_ = LocalGripper(&reconfigurableGripper{})
 	_ = resource.Reconfigurable(&reconfigurableGripper{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
@@ -109,9 +121,18 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
+// CreateStatus creates a status from the gripper.
+func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.ActuatorStatus, error) {
+	gripper, ok := resource.(LocalGripper)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("LocalGripper", resource)
+	}
+	return &commonpb.ActuatorStatus{IsMoving: gripper.IsMoving()}, nil
+}
+
 type reconfigurableGripper struct {
 	mu     sync.RWMutex
-	actual Gripper
+	actual LocalGripper
 }
 
 func (g *reconfigurableGripper) ProxyFor() interface{} {
@@ -142,6 +163,12 @@ func (g *reconfigurableGripper) Stop(ctx context.Context) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual.Stop(ctx)
+}
+
+func (g *reconfigurableGripper) IsMoving() bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.IsMoving()
 }
 
 // Reconfigure reconfigures the resource.
