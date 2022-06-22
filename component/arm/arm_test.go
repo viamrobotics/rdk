@@ -2,6 +2,7 @@ package arm_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 
@@ -226,7 +227,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = arm.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalArm", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalArm or Arm", nil))
 
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)
@@ -247,6 +248,11 @@ func TestReconfigurableArm(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm1, test.ShouldResemble, reconfArm2)
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, reconfArm1, test.ShouldNotBeNil)
+	test.That(t, reconfArm2, test.ShouldNotBeNil)
+
+	fmt.Println(reconfArm1)
+	fmt.Println(reconfArm2)
 
 	test.That(t, actualArm1.endPosCount, test.ShouldEqual, 0)
 	test.That(t, actualArm2.endPosCount, test.ShouldEqual, 0)
@@ -317,6 +323,7 @@ type mock struct {
 
 func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	m.endPosCount++
+	fmt.Println("get end position called")
 	return pose, nil
 }
 
