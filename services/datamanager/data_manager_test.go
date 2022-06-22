@@ -2,6 +2,7 @@ package datamanager_test
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -159,8 +160,16 @@ func TestScheduledSync(t *testing.T) {
 		lock.Unlock()
 		return nil
 	}
-	configPath := "robots/configs/fake_data_manager_with_sync.json"
+	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
+	svcConfig, ok, err := datamanager.GetServiceConfig(testCfg)
+	if !ok {
+		t.Error("malformed/missing datamanager service in config")
+	}
+	if err != nil {
+		t.Error(err)
+	}
+	svcConfig.SyncIntervalMins = 0.0041
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
@@ -194,8 +203,10 @@ func TestManualAndScheduledSync(t *testing.T) {
 		return nil
 	}
 	// Use config with 250ms sync interval.
-	configPath := "robots/configs/fake_data_manager_with_sync.json"
+	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
+	err := setConfigIntervalMins(testCfg, 0.0041)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
@@ -241,8 +252,10 @@ func TestRecoversAfterKilled(t *testing.T) {
 		lock.Unlock()
 		return nil
 	}
-	configPath := "robots/configs/fake_data_manager_with_sync.json"
+	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
+	err := setConfigIntervalMins(testCfg, 0.0041)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
@@ -259,7 +272,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	time.Sleep(time.Millisecond * 150)
 
 	// Simulate turning off the service.
-	err := dmsvc.Close(context.TODO())
+	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been synced yet.
@@ -275,4 +288,16 @@ func TestRecoversAfterKilled(t *testing.T) {
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(uploaded), test.ShouldEqual, 1)
+}
+
+func setConfigIntervalMins(config *config.Config, interval float64) error {
+	svcConfig, ok, err := datamanager.GetServiceConfig(config)
+	if !ok {
+		return errors.New("failed to get service config")
+	}
+	if err != nil {
+		return err
+	}
+	svcConfig.SyncIntervalMins = interval
+	return nil
 }
