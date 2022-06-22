@@ -6,6 +6,7 @@ import (
 	// for embedding model file.
 	_ "embed"
 	"errors"
+	"math"
 	"net"
 	"runtime"
 	"sync"
@@ -23,8 +24,15 @@ import (
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Host string `json:"host"`
+	Host         string  `json:"host"`
+	Speed        float32 `json:"speed"`        // deg/s
+	Acceleration float32 `json:"acceleration"` // deg/s/s
 }
+
+const (
+	defaultSpeed        = 20
+	defaultAcceleration = 50
+)
 
 type xArm struct {
 	generic.Unimplemented
@@ -32,9 +40,9 @@ type xArm struct {
 	tid      uint16
 	conn     net.Conn
 	speed    float32 // speed=max joint radians per second
-	accel    float32 // acceleration=500*π/180rad/s^2
+	accel    float32 // acceleration=rad/s^2
 	moveHZ   float64 // Number of joint positions to send per second
-	moveLock *sync.Mutex
+	moveLock sync.Mutex
 	mp       motionplan.MotionPlanner
 	model    referenceframe.Model
 	started  bool
@@ -86,8 +94,23 @@ func xArmModel(dof int) (referenceframe.Model, error) {
 
 // NewxArm returns a new xArm with the specified dof.
 func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
-	host := cfg.ConvertedAttributes.(*AttrConfig).Host
-	conn, err := net.Dial("tcp", host+":502")
+	armCfg := cfg.ConvertedAttributes.(*AttrConfig)
+
+	if armCfg.Host == "" {
+		return nil, errors.New("xArm host not set")
+	}
+
+	speed := armCfg.Speed
+	if speed == 0 {
+		speed = defaultSpeed
+	}
+
+	acceleration := armCfg.Acceleration
+	if acceleration == 0 {
+		acceleration = defaultAcceleration
+	}
+
+	conn, err := net.Dial("tcp", armCfg.Host+":502")
 	if err != nil {
 		return nil, err
 	}
@@ -101,20 +124,16 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		return nil, err
 	}
 
-	mutex := &sync.Mutex{}
-	// Start with default speed/acceleration parameters
-	// TODO(pl): add settable speed
 	xA := xArm{
-		dof:      dof,
-		tid:      0,
-		conn:     conn,
-		speed:    0.3,
-		accel:    8.7,
-		moveHZ:   100.,
-		moveLock: mutex,
-		mp:       mp,
-		model:    model,
-		started:  false,
+		dof:     dof,
+		tid:     0,
+		conn:    conn,
+		speed:   speed * math.Pi / 180,
+		accel:   acceleration * math.Pi / 180,
+		moveHZ:  100.,
+		mp:      mp,
+		model:   model,
+		started: false,
 	}
 
 	err = xA.start(ctx)
