@@ -2,7 +2,6 @@ package datamanager_test
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -11,9 +10,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
-	"go.viam.com/test"
+	"github.com/pkg/errors"
 
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -22,6 +21,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 // readDir filters out folders from a slice of FileInfos.
