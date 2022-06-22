@@ -22,19 +22,15 @@ func TestLimoBaseConstructor(t *testing.T) {
 
 	c := make(chan []uint8, 100)
 
-	cfg := &Config{
-		TestChan: c,
-	}
-
-	_, err := CreateLimoBase(&Config{}, rlog.Logger)
+	_, err := CreateLimoBase(context.Background(), &Config{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg = &Config{
+	cfg := &Config{
 		DriveMode: "ackermann",
 		TestChan:  c,
 	}
 
-	baseBase, err := CreateLimoBase(cfg, rlog.Logger)
+	baseBase, err := CreateLimoBase(context.Background(), cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*limoBase)
 	test.That(t, ok, test.ShouldBeTrue)
