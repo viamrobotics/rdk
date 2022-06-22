@@ -2,7 +2,6 @@ package nmea
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -34,9 +33,7 @@ func TestConnect(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	err = g.GetStream(mountPoint, 10)
-	if !strings.Contains(err.Error(), "no such host") {
-		t.Error()
-	}
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no such host")
 }
 
 func TestNewRTKGPS(t *testing.T) {
