@@ -40,7 +40,7 @@ func writeTempConfig(cfg *config.Config) (string, error) {
 	return tmpFile.Name(), nil
 }
 
-// make a fake robot with a vision service
+// make a fake robot with a vision service.
 func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	// add a fake camera to the config
 	cfg, err := config.Read(context.Background(), "data/vision.json", logger)

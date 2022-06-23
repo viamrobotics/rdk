@@ -16,7 +16,7 @@ func NewAreaFilter(area int) Postprocessor {
 	}
 }
 
-// NewScoreFilter returns a function that filters out detections below a certain confidence
+// NewScoreFilter returns a function that filters out detections below a certain confidence.
 func NewScoreFilter(conf float64) Postprocessor {
 	return func(in []Detection) []Detection {
 		out := make([]Detection, 0, len(in))
