@@ -2,7 +2,6 @@ package arm_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -32,7 +31,7 @@ const (
 )
 
 func setupInjectRobot() *inject.Robot {
-	arm1 := &mock{Name: testArmName}
+	arm1 := &mockLocal{Name: testArmName}
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
@@ -222,7 +221,7 @@ func TestArmName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualArm1 arm.Arm = &mock{Name: testArmName}
+	var actualArm1 arm.Arm = &mockLocal{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -235,12 +234,12 @@ func TestWrapWithReconfigurable(t *testing.T) {
 }
 
 func TestReconfigurableArm(t *testing.T) {
-	actualArm1 := &mock{Name: testArmName}
+	actualArm1 := &mockLocal{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm1, test.ShouldNotBeNil)
 
-	actualArm2 := &mock{Name: testArmName2}
+	actualArm2 := &mockLocal{Name: testArmName2}
 	reconfArm2, err := arm.WrapWithReconfigurable(actualArm2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm2, test.ShouldNotBeNil)
@@ -262,10 +261,23 @@ func TestReconfigurableArm(t *testing.T) {
 	err = reconfArm1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableLocalArm")
+
+	actualArm3 := &mock{Name: failArmName}
+	reconfArm3, err := arm.WrapWithReconfigurable(actualArm3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfArm3, test.ShouldNotBeNil)
+
+	err = reconfArm1.Reconfigure(context.Background(), reconfArm3)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableLocalArm")
+
+	err = reconfArm3.Reconfigure(context.Background(), reconfArm1)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableArm")
 }
 
 func TestStop(t *testing.T) {
-	actualArm1 := &mock{Name: testArmName}
+	actualArm1 := &mockLocal{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -275,7 +287,7 @@ func TestStop(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	actualArm1 := &mock{Name: testArmName}
+	actualArm1 := &mockLocal{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -310,7 +322,7 @@ func TestArmPositionDiff(t *testing.T) {
 
 var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
-type mock struct {
+type mockLocal struct {
 	arm.LocalArm
 	Name        string
 	endPosCount int
@@ -318,19 +330,23 @@ type mock struct {
 	stopCount   int
 }
 
-func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+type mock struct {
+	arm.Arm
+	Name string
+}
+
+func (m *mockLocal) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	m.endPosCount++
-	fmt.Println("get end position called")
 	return pose, nil
 }
 
-func (m *mock) Stop(ctx context.Context) error {
+func (m *mockLocal) Stop(ctx context.Context) error {
 	m.stopCount++
 	return nil
 }
 
-func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }
+func (m *mockLocal) Close(ctx context.Context) error { m.reconfCount++; return nil }
 
-func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
