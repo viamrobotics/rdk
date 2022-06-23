@@ -71,10 +71,9 @@ test-go:
 test-web: build-web
 	cd web/frontend/dls && npm run test:unit
 
-# GOARCH=arm64 forces an attempt to build, so build flags don't just silently skip tests
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
-	GOARCH=arm64 go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
+	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
 	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short
 
 server:
