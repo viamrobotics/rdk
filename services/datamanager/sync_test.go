@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -122,21 +121,13 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 }
 
 // Builds syncer used in tests.
-func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
+func newTestSyncer(t *testing.T, mc *mockClient, uploadFn uploadFn) *syncer {
 	t.Helper()
-	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	l := golog.NewTestLogger(t)
 
-	return syncer{
-		logger: l,
-		progressTracker: progressTracker{
-			lock: &sync.Mutex{},
-			m:    make(map[string]struct{}),
-		},
-		uploadFn:   uploadFn,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFn,
-	}
+	ret := *newSyncer(l, uploadFn, partId)
+	ret.client = mc
+	return &ret
 }
 
 // TODO: figure out how to pass part id in for file uploads
@@ -174,7 +165,7 @@ func TestFileUpload(t *testing.T) {
 
 		// Create temp file to be used as examples of reading data from the files into buffers
 		// (and finally to have that data be uploaded) to the cloud.
-		tf, err := ioutil.TempFile("", tc.name)
+		tf, err := ioutil.TempFile("", "")
 		if err != nil {
 			t.Errorf("%v: cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
@@ -185,9 +176,8 @@ func TestFileUpload(t *testing.T) {
 			t.Errorf("%v: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
 		}
 
-		if err := viamUpload(context.TODO(), mc, tf.Name()); err != nil {
-			t.Errorf("%v: cannot upload file", tc.name)
-		}
+		sut := newTestSyncer(t, mc, nil)
+		sut.Sync([]string{tf.Name()})
 
 		// Create []v1.UploadRequest object from test case input 'expData [][]byte'.
 		var expectedMsgs []*v1.UploadRequest
@@ -209,6 +199,7 @@ func TestFileUpload(t *testing.T) {
 				},
 			})
 		}
+		time.Sleep(time.Millisecond * 100)
 
 		// The mc.sent value should be the same as the expectedMsgs value.
 		compareMetadata(t, mc.sent[0].GetMetadata(), expectedMsgs[0].GetMetadata())
@@ -303,9 +294,8 @@ func TestSensorUploadTabular(t *testing.T) {
 			}
 		}
 
-		if err := viamUpload(context.TODO(), mc, tf.Name()+dataCaptureFileExt); err != nil {
-			t.Error(err)
-		}
+		sut := newTestSyncer(t, mc, nil)
+		sut.Sync([]string{tf.Name() + dataCaptureFileExt})
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
 		var expectedMsgs []*v1.UploadRequest
@@ -335,6 +325,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		}
 
 		// The mc.sent value should be the same as the expectedMsgs value.
+		time.Sleep(100 * time.Millisecond)
 		compareUploadRequests(t, true, mc.sent, expectedMsgs)
 	}
 }
@@ -406,9 +397,8 @@ func TestSensorUploadBinary(t *testing.T) {
 		}
 
 		// Upload the contents from the created file.
-		if err := viamUpload(context.TODO(), mc, tf.Name()+dataCaptureFileExt); err != nil {
-			t.Errorf("%v cannot upload file", tc.name)
-		}
+		sut := newTestSyncer(t, mc, nil)
+		sut.Sync([]string{tf.Name() + dataCaptureFileExt})
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
 		var expectedMsgs []*v1.UploadRequest
@@ -438,6 +428,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		}
 
 		// The mc.sent value should be the same as the expectedMsgs value.
+		time.Sleep(100 * time.Millisecond)
 		compareUploadRequests(t, true, mc.sent, expectedMsgs)
 	}
 }
@@ -450,7 +441,11 @@ func TestUploadsOnce(t *testing.T) {
 		_ = os.Remove(path)
 		return nil
 	}
-	sut := newTestSyncer(t, uploadFn)
+	mc := &mockClient{
+		sent: []*v1.UploadRequest{},
+	}
+
+	sut := newTestSyncer(t, mc, uploadFn)
 
 	// Put a couple files in captureDir.
 	file1, _ := ioutil.TempFile("", "whatever")
@@ -485,7 +480,10 @@ func TestUploadExponentialRetry(t *testing.T) {
 		failureCount++
 		return errors.New("fail for the first 4 tries, then succeed")
 	}
-	sut := newTestSyncer(t, uploadFunc)
+	mc := &mockClient{
+		sent: []*v1.UploadRequest{},
+	}
+	sut := newTestSyncer(t, mc, uploadFunc)
 
 	// Sync file.
 	file1, _ := ioutil.TempFile("", "whatever")
