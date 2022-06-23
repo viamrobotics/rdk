@@ -37,8 +37,8 @@ func init() {
 // A nmeaGPS represents a GPS that can read and parse NMEA messages.
 type nmeaGPS interface {
 	gps.LocalGPS
-	Start(ctx context.Context) // Initialize and run GPS
-	Close() error              // Close GPS
+	Start(ctx context.Context)                // Initialize and run GPS
+	Close() error                             // Close GPS
 	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current GPS measurements
 }
 
@@ -344,7 +344,7 @@ func (g *RTKGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	readings = append(readings, fix)
 
 	return readings, nil
