@@ -1,6 +1,6 @@
 module go.viam.com/rdk
 
-go 1.17
+go 1.18
 
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
@@ -11,8 +11,8 @@ require (
 	github.com/axw/gocov v1.1.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/bep/debounce v1.2.0
-	github.com/bufbuild/buf v1.4.0
-	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
+	github.com/bufbuild/buf v1.6.0
+	github.com/creack/pty v1.1.9
 	github.com/de-bkg/gognss v0.0.0-20220601150219-24ccfdcdbb5d
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
@@ -73,11 +73,11 @@ require (
 	go.viam.com/utils v0.0.4-0.20220612060859-991d838cfae9
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220302094943-723b81ca9867
-	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2
+	golang.org/x/net v0.0.0-20220617184016-355a448f1bc9
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/plot v0.8.1
-	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd
-	google.golang.org/grpc v1.46.2
+	google.golang.org/genproto v0.0.0-20220617124728-180714bec0ad
+	google.golang.org/grpc v1.47.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
 	google.golang.org/protobuf v1.28.0
 	periph.io/x/conn/v3 v3.6.9
@@ -112,6 +112,7 @@ require (
 	github.com/bombsimon/wsl/v3 v3.3.0 // indirect
 	github.com/breml/bidichk v0.2.3 // indirect
 	github.com/breml/errchkjson v0.3.0 // indirect
+	github.com/bufbuild/connect-go v0.1.1 // indirect
 	github.com/butuzov/ireturn v0.1.1 // indirect
 	github.com/campoy/embedmd v1.0.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
@@ -137,6 +138,7 @@ require (
 	github.com/firefart/nonamedreturns v1.0.1 // indirect
 	github.com/fzipp/gocyclo v0.5.1 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
+	github.com/go-chi/chi/v5 v5.0.7 // indirect
 	github.com/go-critic/go-critic v0.6.3 // indirect
 	github.com/go-latex/latex v0.0.0-20200518072620-0806b477ea35 // indirect
 	github.com/go-restruct/restruct v1.2.0-alpha.0.20210525045353-983b86fa188e // indirect
@@ -198,7 +200,7 @@ require (
 	github.com/jung-kurt/gofpdf v1.16.2 // indirect
 	github.com/kisielk/errcheck v1.6.1 // indirect
 	github.com/kisielk/gotool v1.0.0 // indirect
-	github.com/klauspost/compress v1.15.4 // indirect
+	github.com/klauspost/compress v1.15.6 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/kulti/thelper v0.6.3 // indirect
 	github.com/kunwardeep/paralleltest v1.0.4 // indirect
@@ -262,7 +264,7 @@ require (
 	github.com/quasilyte/stdinfo v0.0.0-20220114132959-f7386bf02567 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rocketlaunchr/dataframe-go v0.0.0-20201007021539-67b046771f0b // indirect
-	github.com/rs/cors v1.7.0 // indirect
+	github.com/rs/cors v1.8.2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryancurrah/gomodguard v1.2.3 // indirect
 	github.com/ryanrolds/sqlclosecheck v0.3.0 // indirect
@@ -284,8 +286,8 @@ require (
 	github.com/srikrsna/protoc-gen-gotag v0.6.2 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.1.1 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
-	github.com/stretchr/testify v1.7.1 // indirect
+	github.com/stretchr/objx v0.4.0 // indirect
+	github.com/stretchr/testify v1.7.4 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/sylvia7788/contextcheck v1.0.4 // indirect
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07 // indirect
@@ -313,11 +315,11 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20220218215828-6cf2b201936e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
-	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29 // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
-	golang.org/x/term v0.0.0-20220411215600-e5f449aeb171 // indirect
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
+	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c // indirect
+	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/tools v0.1.11-0.20220518213611-904e24e9fcf9 // indirect
+	golang.org/x/tools v0.1.11 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/api v0.81.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
