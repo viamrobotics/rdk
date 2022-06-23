@@ -110,7 +110,7 @@ func init() {
 }
 
 // NewMotor returns a DMC4000 driven motor.
-func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
 	if c.SerialDevice == "" {
 		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
 			if vendorID == 0x403 && productID == 0x6001 {
@@ -618,6 +618,11 @@ func (m *Motor) Stop(ctx context.Context) error {
 		time.Millisecond*10,
 		m.isStopped,
 	)
+}
+
+// IsMoving returns whether or not the motor is currently moving.
+func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
+	return m.IsPowered(ctx)
 }
 
 // IsPowered returns whether or not the motor is currently moving.
