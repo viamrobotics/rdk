@@ -17,8 +17,6 @@ import (
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
 
 	// for gpio motor.
 	_ "go.viam.com/rdk/component/motor/gpio"
@@ -133,15 +131,11 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
 	})
 
-	injectRobot := inject.Robot{}
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return pp, nil
-	}
-
 	motorReg := registry.ComponentLookup(motor.Subtype, picommon.ModelName)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
-	motorInt, err := motorReg.Constructor(ctx, &injectRobot, config.Component{
+	deps := make(registry.Dependencies)
+	motorInt, err := motorReg.Constructor(ctx, deps, config.Component{
 		Name: "motor1", ConvertedAttributes: &motor.Config{
 			Pins: motor.PinConfig{
 				A:   "13", // bcom 27
