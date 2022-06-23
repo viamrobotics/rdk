@@ -3,13 +3,15 @@ module go.viam.com/rdk
 go 1.17
 
 require (
+	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/a8m/envsubst v1.3.0
 	github.com/adrianmo/go-nmea v1.3.0
+	github.com/axw/gocov v1.1.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/bep/debounce v1.2.0
-	github.com/bufbuild/buf v1.1.0
+	github.com/bufbuild/buf v1.4.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
@@ -35,7 +37,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.5.0
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/jedib0t/go-pretty/v6 v6.3.0
-	github.com/jhump/protoreflect v1.11.1-0.20220213155251-0c2aedc66cf4
+	github.com/jhump/protoreflect v1.12.1-0.20220417024638-438db461d753
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
@@ -185,13 +187,14 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jdxcode/netrc v0.0.0-20210204082910-926c7f70242a // indirect
 	github.com/jgautheron/goconst v1.5.1 // indirect
+	github.com/jhump/protocompile v0.0.0-20220216033700-d705409f108f // indirect
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
 	github.com/julz/importas v0.1.0 // indirect
 	github.com/jung-kurt/gofpdf v1.16.2 // indirect
 	github.com/kisielk/errcheck v1.6.1 // indirect
 	github.com/kisielk/gotool v1.0.0 // indirect
-	github.com/klauspost/compress v1.14.4 // indirect
+	github.com/klauspost/compress v1.15.1 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/kulti/thelper v0.6.3 // indirect
 	github.com/kunwardeep/paralleltest v1.0.4 // indirect
@@ -307,7 +310,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
+	golang.org/x/term v0.0.0-20220411215600-e5f449aeb171 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.11-0.20220518213611-904e24e9fcf9 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
