@@ -13,9 +13,8 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@cov
     secrets:
       ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS }}
       TEST_MONGODB_URI: ${{ secrets.TEST_MONGODB_URI }}
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
