@@ -15,7 +15,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // AttrConfig is used for converting config attributes.
@@ -25,8 +24,8 @@ type AttrConfig struct {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wrapper_arm", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			childArm, err := arm.FromRobot(r, config.Name)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			childArm, err := arm.FromDependencies(deps, config.Name)
 			if err != nil {
 				return nil, err
 			}

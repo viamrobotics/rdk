@@ -16,7 +16,7 @@ setup:
 build: build-web build-go
 
 build-go: buf-go
-	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) ./...
+	go build ./...
 
 build-web: buf-web
 	cd web/frontend/dls && npm ci && npm run build:prod
@@ -71,11 +71,13 @@ test-go:
 test-web: build-web
 	cd web/frontend/dls && npm run test:unit
 
-testpi:
-	sudo CGO_LDFLAGS=$(CGO_LDFLAGS) go test $(TAGS) -coverprofile=coverage.txt go.viam.com/rdk/component/board/pi
+# test.short skips tests requiring external hardware (motors/servos)
+test-pi:
+	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
+	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short
 
 server:
-	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
+	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
 clean-all:
 	git clean -fxd
