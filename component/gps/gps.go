@@ -69,7 +69,6 @@ type LocalGPS interface {
 	ReadAccuracy(ctx context.Context) (float64, float64, error) // Horizontal and vertical position error in meters
 	ReadSatellites(ctx context.Context) (int, int, error)       // Number of satellites used for fix, and total in view
 	ReadValid(ctx context.Context) (bool, error)                // Whether or not the GPS chip had a valid fix for the most recent dataset
-	ReadFix(ctx context.Context) (int, error)                   // Fix quality of GPS measurements
 }
 
 var (
@@ -144,12 +143,8 @@ func GetReadings(ctx context.Context, g GPS) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	fix, err := localG.ReadFix(ctx)
-	if err != nil {
-		return nil, err
-	}
 
-	return append(readings, active, total, hAcc, vAcc, valid, fix), nil
+	return append(readings, active, total, hAcc, vAcc, valid), nil
 }
 
 type reconfigurableGPS struct {
@@ -209,12 +204,6 @@ func (r *reconfigurableGPS) ReadValid(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ReadValid(ctx)
-}
-
-func (r *reconfigurableGPS) ReadFix(ctx context.Context) (int, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.ReadFix(ctx)
 }
 
 // GetReadings will use the default GPS GetReadings if not provided.

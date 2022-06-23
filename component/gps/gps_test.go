@@ -258,23 +258,12 @@ func TestReadValid(t *testing.T) {
 	test.That(t, actualGPS1.validCount, test.ShouldEqual, 1)
 }
 
-func TestReadFix(t *testing.T) {
-	actualGPS1 := &mock{Name: testGPSName}
-	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
-
-	test.That(t, actualGPS1.fixCount, test.ShouldEqual, 0)
-	fix1, err := reconfGPS1.(gps.LocalGPS).ReadFix(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fix1, test.ShouldEqual, fix)
-	test.That(t, actualGPS1.fixCount, test.ShouldEqual, 1)
-}
-
 func TestGetReadings(t *testing.T) {
 	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	readings1, err := gps.GetReadings(context.Background(), actualGPS1)
-	allReadings := []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid, fix}
+	allReadings := []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
@@ -310,7 +299,6 @@ var (
 	hAcc       = 0.7
 	vAcc       = 0.8
 	valid      = true
-	fix        = 1
 
 	readings = []interface{}{5.6, 6.4}
 )
@@ -362,12 +350,6 @@ func (m *mock) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 func (m *mock) ReadValid(ctx context.Context) (bool, error) {
 	m.validCount++
 	return valid, nil
-}
-
-// ReadFix returns the set value.
-func (m *mock) ReadFix(ctx context.Context) (int, error) {
-	m.fixCount++
-	return fix, nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }

@@ -107,13 +107,6 @@ func (g *GPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.valid, nil
 }
 
-// ReadFix returns the set value.
-func (g *GPS) ReadFix(ctx context.Context) (int, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.fix, nil
-}
-
 // Do runs an arbitrary command.
 func (g *GPS) Do(ctx context.Context, args map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := args["command"]

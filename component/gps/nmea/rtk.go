@@ -39,6 +39,7 @@ type nmeaGPS interface {
 	gps.LocalGPS
 	Start(ctx context.Context) // Initialize and run GPS
 	Close() error              // Close GPS
+	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current GPS measurements
 }
 
 // A RTKGPS is an NMEA GPS model that can intake RTK correction data.
@@ -330,6 +331,22 @@ func (g *RTKGPS) ReadValid(ctx context.Context) (bool, error) {
 // ReadFix returns Fix quality of GPS measurements.
 func (g *RTKGPS) ReadFix(ctx context.Context) (int, error) {
 	return g.nmeagps.ReadFix(ctx)
+}
+
+// GetReadings will use the default GPS GetReadings if not provided.
+func (g *RTKGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
+	readings, err := gps.GetReadings(ctx, g)
+	if err != nil {
+		return nil, err
+	}
+
+	fix, err := g.ReadFix(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings = append(readings, fix)
+
+	return readings, nil
 }
 
 // Close shuts down the RTKGPS.
