@@ -1,0 +1,38 @@
+{
+    "components": [
+        {
+            "model": "pi",
+            "name": "local",
+            "type": "board",
+            "attributes": {
+              "i2cs": [
+                {
+                  "bus": "1",
+                  "name": "bus1"
+                }
+            ]
+            }
+        },
+      {
+        "attributes": {
+          "ntrip_addr": "http://rtn.dot.ny.gov:8082",
+          "i2c_addr": 66,
+          "ntrip_baud": 115200,
+          "ntrip_connect_attempts": 10,
+          "ntrip_input_protocol": "I2C",
+          "ntrip_mountpoint": "NJI2",
+          "ntrip_password": "plswork",
+          "ntrip_path": "",
+          "ntrip_send_nmea": true,
+          "ntrip_username": "skarpoor",
+          "board": "local",
+          "bus": "bus1"
+        },
+        "depends_on": ["local"],
+        "model": "rtk",
+        "name": "gps1",
+        "type": "gps",
+        "service_config": []
+      }
+    ]
+  }
