@@ -340,7 +340,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 
 	svc.cancelSyncBackgroundRoutine()
 
-	svc.syncer = newSyncer(svc.logger, svc.uploadFunc)
+	svc.syncer = newSyncer(svc.logger, svc.uploadFunc, svc.partID)
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {

@@ -36,6 +36,8 @@ type syncManager interface {
 
 // syncer is responsible for uploading files in captureDir to the cloud.
 type syncer struct {
+	partID            string
+	client            v1.DataSyncService_UploadClient
 	logger            golog.Logger
 	progressTracker   progressTracker
 	uploadFn          uploadFn
@@ -47,11 +49,8 @@ type syncer struct {
 type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error
 
 // newSyncer returns a new syncer.
-func newSyncer(logger golog.Logger, uploadFunc uploadFn) *syncer {
+func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	if uploadFunc == nil {
-		uploadFunc = viamUpload
-	}
 	ret := syncer{
 		logger: logger,
 		progressTracker: progressTracker{
@@ -59,9 +58,15 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFn) *syncer {
 			m:    make(map[string]struct{}),
 		},
 		backgroundWorkers: sync.WaitGroup{},
-		uploadFn:          uploadFunc,
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
+		partID:            partID,
+	}
+
+	if uploadFunc == nil {
+		ret.uploadFn = ret.viamUpload
+	} else {
+		ret.uploadFn = uploadFunc
 	}
 
 	return &ret
@@ -84,7 +89,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 		defer s.backgroundWorkers.Done()
 		exponentialRetry(
 			ctx,
-			func(ctx context.Context) error { return s.uploadFn(ctx, nil, path) },
+			func(ctx context.Context) error { return s.uploadFn(ctx, s.client, path) },
 			s.logger,
 		)
 	})
@@ -186,7 +191,7 @@ func getSyncMetadata(f *os.File) (*v1.SyncMetadata, error) {
 	return r, nil
 }
 
-func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+func (s *syncer) viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
@@ -198,32 +203,33 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	}
 
 	// TODO: how to specify that it's a sensordata file? .sd file ext?
-	var md *v1.SyncMetadata
+	var md *v1.UploadMetadata
 	if isDataCaptureFile(f) {
-		md, err = getSyncMetadata(f)
+		syncMD, err := getSyncMetadata(f)
 		if err != nil {
 			return err
 		}
+		md = &v1.UploadMetadata{
+			PartId:           s.partID,
+			ComponentType:    syncMD.GetComponentType(),
+			ComponentName:    syncMD.GetComponentName(),
+			MethodName:       syncMD.GetMethodName(),
+			Type:             syncMD.GetType(),
+			FileName:         filepath.Base(f.Name()),
+			MethodParameters: syncMD.GetMethodParameters(),
+		}
 	} else {
-		md = &v1.SyncMetadata{
-			PartId: "partid",
-			Type:   v1.DataType_DATA_TYPE_FILE,
+		md = &v1.UploadMetadata{
+			PartId:   s.partID,
+			Type:     v1.DataType_DATA_TYPE_FILE,
+			FileName: filepath.Base(f.Name()),
 		}
 	}
 
 	// Construct the Metadata
 	req := &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
-			// TODO: Figure out best way to pass these in.
-			Metadata: &v1.UploadMetadata{
-				PartId:           md.GetPartId(),
-				ComponentType:    md.GetComponentType(),
-				ComponentName:    md.GetComponentName(),
-				MethodName:       md.GetMethodName(),
-				Type:             md.GetType(),
-				FileName:         filepath.Base(f.Name()),
-				MethodParameters: md.GetMethodParameters(),
-			},
+			Metadata: md,
 		},
 	}
 	if err := client.Send(req); err != nil {
@@ -242,12 +248,6 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	default:
 		return errors.New("no data type specified in upload metadata")
 	}
-
-	// TODO: I think we want to delete this, because we want to read starting at the second message (first sensordata) now
-	// Reset file pointer to ensure we are reading from beginning of file.
-	//if _, err = f.Seek(0, 0); err != nil {
-	//	return err
-	//}
 
 	// Loop until there is no more content to be read from file.
 	for {
