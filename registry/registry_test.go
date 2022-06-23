@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/discovery"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -23,7 +22,7 @@ var (
 )
 
 func TestComponentRegistry(t *testing.T) {
-	rf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+	rf := func(ctx context.Context, deps Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
 	modelName := "x"
