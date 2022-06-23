@@ -125,7 +125,7 @@ func TestManualSync(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 
 	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
@@ -176,7 +176,7 @@ func TestScheduledSync(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 
 	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
@@ -212,7 +212,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 
 	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
@@ -245,7 +245,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
-	uploaded := []string{}
+	var uploaded []string
 	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		lock.Lock()
@@ -260,7 +260,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
