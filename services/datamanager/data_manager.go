@@ -67,9 +67,6 @@ type Service interface {
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
 
-// SyncQueuePath is the directory under which files are queued while they are waiting to be synced to the cloud.
-var SyncQueuePath = filepath.Join(os.Getenv("HOME"), "sync_queue", ".viam")
-
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
@@ -80,6 +77,7 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
+// TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates
 // The Collector's queue should be big enough to ensure that .capture() is never blocked by the queue being
 // written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),
 // this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the size of
@@ -140,9 +138,10 @@ func (svc *dataManagerService) Close(ctx context.Context) error {
 	defer svc.lock.Unlock()
 	svc.closeCollectors()
 	if svc.syncer != nil {
-		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
 	}
+
+	svc.cancelSyncBackgroundRoutine()
 	svc.backgroundWorkers.Wait()
 	return nil
 }
@@ -171,8 +170,8 @@ type dataManagerService struct {
 	syncIntervalMins         float64
 	lock                     sync.Mutex
 	backgroundWorkers        sync.WaitGroup
-	updateCollectorsCancelFn func()
 	uploadFunc               uploadFn
+	updateCollectorsCancelFn func()
 }
 
 // Parameters stored for each collector.
@@ -309,38 +308,64 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 }
 
 func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
-	// if user updates config while manual sync is occurring, manual sync will be cancelled (TODO fix)
+	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
+	// TODO DATA-235: fix that
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
-		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
-		svc.backgroundWorkers.Wait()
-		svc.syncer = nil
-		svc.updateCollectorsCancelFn = nil
 	}
-	// Init a new syncer.
-	cancelCtx, fn := context.WithCancel(context.Background())
-	svc.updateCollectorsCancelFn = fn
-	svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir, svc.uploadFunc)
+
+	svc.cancelSyncBackgroundRoutine()
+
+	svc.syncer = newSyncer(svc.logger, svc.uploadFunc)
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
-		svc.QueueCapturedData(cancelCtx, intervalMins)
-		svc.syncer.Start()
+		// Sync existing files in captureDir.
+		var previouslyCaptured []string
+		//nolint
+		_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if info.IsDir() {
+				return nil
+			}
+			previouslyCaptured = append(previouslyCaptured, path)
+			return nil
+		})
+		svc.syncer.Sync(previouslyCaptured)
+
+		// Kick off background routine to periodically sync files.
+		//nolint:contextcheck
+		svc.startSyncBackgroundRoutine(intervalMins)
 	}
 }
 
-// Perform a non-scheduled sync of the data in the capture directory.
+// Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *dataManagerService) Sync(ctx context.Context) error {
 	if svc.syncer == nil {
 		panic("called Sync on data manager service with nil syncer")
 	}
-	filesToQueue := svc.queueFiles()
-	if err := svc.syncer.Enqueue(filesToQueue); err != nil {
-		return err
-	}
-	svc.syncer.Upload()
+
+	svc.syncDataCaptureFiles()
 	return nil
+}
+
+func (svc *dataManagerService) syncDataCaptureFiles() {
+	svc.lock.Lock()
+	oldFiles := make([]string, 0, len(svc.collectors))
+	for _, collector := range svc.collectors {
+		// Create new target and set it.
+		nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
+		if err != nil {
+			svc.logger.Errorw("failed to create new data capture file", "error", err)
+		}
+		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
+		collector.Collector.SetTarget(nextTarget)
+	}
+	svc.lock.Unlock()
+	svc.syncer.Sync(oldFiles)
 }
 
 // Get the config associated with the data manager service.
@@ -422,8 +447,8 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
-	// nolint:contextcheck
 	if svcConfig.SyncIntervalMins != svc.syncIntervalMins {
+		//nolint:contextcheck
 		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	}
@@ -453,7 +478,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	return nil
 }
 
-func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, intervalMins float64) {
+func (svc *dataManagerService) uploadCapturedData(cancelCtx context.Context, intervalMins float64) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -471,36 +496,23 @@ func (svc *dataManagerService) QueueCapturedData(cancelCtx context.Context, inte
 			}
 			select {
 			case <-cancelCtx.Done():
-				files := make([]string, 0, len(svc.collectors))
-				for _, collector := range svc.collectors {
-					files = append(files, collector.Collector.GetTarget().Name())
-				}
-				if err := svc.syncer.Enqueue(files); err != nil {
-					svc.logger.Errorw("failed to move files to sync queue", "error", err)
-				}
 				return
 			case <-ticker.C:
-				filesToQueue := svc.queueFiles()
-				if err := svc.syncer.Enqueue(filesToQueue); err != nil {
-					svc.logger.Errorw("failed to move files to sync queue", "error", err)
-				}
+				svc.syncDataCaptureFiles()
 			}
 		}
 	})
 }
 
-func (svc *dataManagerService) queueFiles() []string {
-	svc.lock.Lock()
-	defer svc.lock.Unlock()
-	filesToQueue := make([]string, 0, len(svc.collectors))
-	for _, collector := range svc.collectors {
-		// Create new target and set it.
-		nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
-		if err != nil {
-			svc.logger.Errorw("failed to create new data capture file", "error", err)
-		}
-		filesToQueue = append(filesToQueue, collector.Collector.GetTarget().Name())
-		collector.Collector.SetTarget(nextTarget)
+func (svc *dataManagerService) startSyncBackgroundRoutine(intervalMins float64) {
+	cancelCtx, fn := context.WithCancel(context.Background())
+	svc.updateCollectorsCancelFn = fn
+	svc.uploadCapturedData(cancelCtx, intervalMins)
+}
+
+func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
+	if svc.updateCollectorsCancelFn != nil {
+		svc.updateCollectorsCancelFn()
+		svc.updateCollectorsCancelFn = nil
 	}
-	return filesToQueue
 }

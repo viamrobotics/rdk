@@ -104,8 +104,8 @@
                 <div class="column pr-2" v-if="movementMode === 'Straight'">
                   <p class="text-xs">Movement Type</p>
                   <RadioButtons
-                    :options="['Continous', 'Discrete']"
-                    defaultOption="Continous"
+                    :options="['Continuous', 'Discrete']"
+                    defaultOption="Continuous"
                     :disabledOptions="[]"
                     v-on:selectOption="setMovementType($event)"
                   />
@@ -129,7 +129,7 @@
                   v-model="increment"
                   class="mr-2"
                   inputId="distance"
-                  :disabled="movementType === 'Continous'"
+                  :disabled="movementType === 'Continuous'"
                   label="Distance (mm)"
                   v-if="movementMode === 'Straight'"
                 ></NumberInput>
@@ -233,7 +233,7 @@ export default class Base extends Vue {
   selectedItem = "keyboard";
   pressedKey = 0;
   movementMode = "Straight";
-  movementType = "Continous";
+  movementType = "Continuous";
   direction = "Forwards";
   spinType = "Clockwise";
   increment = 1000;
@@ -249,7 +249,7 @@ export default class Base extends Vue {
 
   resetDiscreteState(): void {
     this.movementMode = "Straight";
-    this.movementType = "Continous";
+    this.movementType = "Continuous";
     this.direction = "Forwards";
     this.spinType = "Clockwise";
   }
@@ -257,6 +257,7 @@ export default class Base extends Vue {
   setMovementMode(e: string): void {
     console.log(e);
     this.movementMode = e;
+    this.movementType = "Continuous";
   }
   setMovementType(e: string): void {
     console.log(e);
