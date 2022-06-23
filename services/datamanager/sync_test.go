@@ -21,14 +21,21 @@ import (
 	"go.viam.com/rdk/protoutils"
 )
 
+var (
+	partId        = "partid"
+	componentType = "componenttype"
+	componentName = "componentname"
+	methodName    = "methodname"
+)
+
 // implements DataSyncService_UploadClient.
 type mockClient struct {
-	sent []v1.UploadRequest
+	sent []*v1.UploadRequest
 	grpc.ClientStream
 }
 
 func (m *mockClient) Send(req *v1.UploadRequest) error {
-	m.sent = append(m.sent, *req)
+	m.sent = append(m.sent, req)
 	return nil
 }
 
@@ -74,7 +81,7 @@ func writeBinarySensorData(f *os.File, toWrite [][]byte) (int, error) {
 }
 
 // Compares UploadRequests (which hold either binary or tabular data).
-func compareUploadRequests(t *testing.T, isTabular bool, actual []v1.UploadRequest, expected []v1.UploadRequest) {
+func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
 	t.Helper()
 
 	// Ensure length of slices is same before proceeding with rest of tests.
@@ -162,7 +169,7 @@ func TestFileUpload(t *testing.T) {
 		// Create mockClient that will be sending requests, this mock will have an UploadRequest slice that will
 		// contain the UploadRequests that are created by the data contained in files.
 		mc := &mockClient{
-			sent: []v1.UploadRequest{},
+			sent: []*v1.UploadRequest{},
 		}
 
 		// Create temp file to be used as examples of reading data from the files into buffers
@@ -183,18 +190,18 @@ func TestFileUpload(t *testing.T) {
 		}
 
 		// Create []v1.UploadRequest object from test case input 'expData [][]byte'.
-		var expectedMsgs []v1.UploadRequest
-		expectedMsgs = append(expectedMsgs, v1.UploadRequest{
+		var expectedMsgs []*v1.UploadRequest
+		expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartId:   "partid",
+					PartId:   partId,
 					Type:     v1.DataType_DATA_TYPE_FILE,
 					FileName: filepath.Base(tf.Name()),
 				},
 			},
 		})
 		for _, expMsg := range tc.expData {
-			expectedMsgs = append(expectedMsgs, v1.UploadRequest{
+			expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 				UploadPacket: &v1.UploadRequest_FileContents{
 					FileContents: &v1.FileData{
 						Data: expMsg,
@@ -260,23 +267,26 @@ func TestSensorUploadTabular(t *testing.T) {
 		// Create mockClient that will be sending requests, this mock will have an UploadRequest slice that will
 		// contain the UploadRequests that are created by the data contained in files.
 		mc := &mockClient{
-			sent: []v1.UploadRequest{},
+			sent: []*v1.UploadRequest{},
 		}
 
 		// Create temp file to be used as examples of reading data from the files into buffers
 		// (and finally to have that data be uploaded) to the cloud
-		tf, err := ioutil.TempFile("", tc.name)
+		tf, err := ioutil.TempFile("", "")
 		if err != nil {
 			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
-		defer os.Remove(tf.Name())
+		if err = os.Rename(tf.Name(), tf.Name()+dataCaptureFileExt); err != nil {
+			t.Error(err)
+		}
+		defer os.Remove(tf.Name() + dataCaptureFileExt)
 
 		// First write metadata to file.
 		syncMetadata := v1.SyncMetadata{
-			PartId:           "partid",
-			ComponentType:    "componenttype",
-			ComponentName:    "componentname",
-			MethodName:       "methodname",
+			PartId:           partId,
+			ComponentType:    componentType,
+			ComponentName:    componentName,
+			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			MethodParameters: nil,
 		}
@@ -293,27 +303,27 @@ func TestSensorUploadTabular(t *testing.T) {
 			}
 		}
 
-		if err := viamUpload(context.TODO(), mc, tf.Name()); err != nil {
-			t.Errorf("%v cannot upload file", tc.name)
+		if err := viamUpload(context.TODO(), mc, tf.Name()+dataCaptureFileExt); err != nil {
+			t.Error(err)
 		}
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
-		var expectedMsgs []v1.UploadRequest
-		expectedMsgs = append(expectedMsgs, v1.UploadRequest{
+		var expectedMsgs []*v1.UploadRequest
+		expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartId:           "partid",
-					ComponentType:    "componenttype",
-					ComponentName:    "componentname",
-					MethodName:       "methodname",
+					PartId:           partId,
+					ComponentType:    componentType,
+					ComponentName:    componentName,
+					MethodName:       methodName,
 					Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-					FileName:         filepath.Base(tf.Name()),
+					FileName:         filepath.Base(tf.Name() + dataCaptureFileExt),
 					MethodParameters: nil,
 				},
 			},
 		})
 		for _, expMsg := range tc.expData {
-			expectedMsgs = append(expectedMsgs, v1.UploadRequest{
+			expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 				UploadPacket: &v1.UploadRequest_SensorContents{
 					SensorContents: &v1.SensorData{
 						Data: &v1.SensorData_Struct{
@@ -362,7 +372,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		// Create mockClient that will be sending requests, this mock will have an UploadRequest slice that will
 		// contain the UploadRequests that are created by the data contained in files.
 		mc := &mockClient{
-			sent: []v1.UploadRequest{},
+			sent: []*v1.UploadRequest{},
 		}
 
 		// Create temp file to be used as examples of reading data from the files into
@@ -371,7 +381,10 @@ func TestSensorUploadBinary(t *testing.T) {
 		if err != nil {
 			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
-		defer os.Remove(tf.Name())
+		if err = os.Rename(tf.Name(), tf.Name()+dataCaptureFileExt); err != nil {
+			t.Error(err)
+		}
+		defer os.Remove(tf.Name() + dataCaptureFileExt)
 
 		// First write metadata to file.
 		syncMetadata := v1.SyncMetadata{
@@ -393,27 +406,27 @@ func TestSensorUploadBinary(t *testing.T) {
 		}
 
 		// Upload the contents from the created file.
-		if err := viamUpload(context.TODO(), mc, tf.Name()); err != nil {
+		if err := viamUpload(context.TODO(), mc, tf.Name()+dataCaptureFileExt); err != nil {
 			t.Errorf("%v cannot upload file", tc.name)
 		}
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
-		expectedMsgs := []v1.UploadRequest{}
-		expectedMsgs = append(expectedMsgs, v1.UploadRequest{
+		var expectedMsgs []*v1.UploadRequest
+		expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartId:           "partid",
-					ComponentType:    "componenttype",
-					ComponentName:    "componentname",
-					MethodName:       "methodname",
+					PartId:           partId,
+					ComponentType:    componentType,
+					ComponentName:    componentName,
+					MethodName:       methodName,
 					Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-					FileName:         filepath.Base(tf.Name()),
+					FileName:         filepath.Base(tf.Name() + dataCaptureFileExt),
 					MethodParameters: nil,
 				},
 			},
 		})
 		for _, expMsg := range tc.expData {
-			expectedMsgs = append(expectedMsgs, v1.UploadRequest{
+			expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 				UploadPacket: &v1.UploadRequest_SensorContents{
 					SensorContents: &v1.SensorData{
 						Data: &v1.SensorData_Binary{

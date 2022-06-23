@@ -21,10 +21,7 @@ var (
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
 	// Chunk size set at 32 kiB, this is 32768 Bytes.
-	uploadChunkSize       = 32768
-	hardCodePartName      = "TODO [DATA-164]"
-	hardCodeMethodName    = "TODO [DATA-164]"
-	hardCodeComponentName = "TODO [DATA-164]"
+	uploadChunkSize = 32768
 )
 
 func emptyReadingErr(fileName string) error {
@@ -200,9 +197,18 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return err
 	}
 
-	md, err := getSyncMetadata(f)
-	if err != nil {
-		return err
+	// TODO: how to specify that it's a sensordata file? .sd file ext?
+	var md *v1.SyncMetadata
+	if isDataCaptureFile(f) {
+		md, err = getSyncMetadata(f)
+		if err != nil {
+			return err
+		}
+	} else {
+		md = &v1.SyncMetadata{
+			PartId: "partid",
+			Type:   v1.DataType_DATA_TYPE_FILE,
+		}
 	}
 
 	// Construct the Metadata
@@ -348,4 +354,8 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 		return nil, err
 	}
 	return &v1.FileData{Data: byteArr}, nil
+}
+
+func isDataCaptureFile(f *os.File) bool {
+	return filepath.Ext(f.Name()) == dataCaptureFileExt
 }
