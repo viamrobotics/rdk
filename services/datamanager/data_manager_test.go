@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/fs"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"sync"
 	"testing"
@@ -299,5 +300,49 @@ func setConfigIntervalMins(config *config.Config, interval float64) error {
 		return err
 	}
 	svcConfig.SyncIntervalMins = interval
+	return nil
+}
+
+func populateArbitraryFiles(t *testing.T, numDirs int) error {
+	t.Helper()
+
+	// bytesPerFile value doesn't really matter, but maybe it will in future testing?
+	bytesPerFile := 100
+
+	// Begin generating additional_sync_paths "dummy" dirs & files.
+	for d := 0; d < numDirs; d++ {
+		// Create a temp dir that will be in additional_sync_paths.
+		td, err := ioutil.TempDir("", "additional_sync_path_dir_")
+		if err != nil {
+			t.Error("cannot create temporary dir to simulate additional_sync_paths in data manager service config")
+		}
+		defer os.RemoveAll(td)
+
+		// Make the first dir empty.
+		if d == 0 {
+			continue
+		} else {
+			// Make the dirs that will contain at least one (at most two) file(s).
+			for i := 0; i < rand.Intn(2); i++ {
+
+				// Generate data that will be in a temp file.
+				fileData := make([]byte, bytesPerFile)
+				rand.Read(fileData)
+
+				// Create arbitrary file that will be in the temp dir generated above.
+				tf, err := ioutil.TempFile(td, "arbitrary_file_")
+				if err != nil {
+					t.Error("cannot create temporary file to simulate uploading from data manager service")
+				}
+				defer os.Remove(tf.Name())
+
+				// Write data to the temp file.
+				if _, err := tf.Write(fileData); err != nil {
+					t.Error("cannot write arbitrary data to temporary file")
+				}
+			}
+
+		}
+	}
 	return nil
 }
