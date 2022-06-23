@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -29,11 +28,11 @@ func init() {
 		"rtk",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newRTKGPS(ctx, config, logger)
+			return newRTKGPS(ctx, deps, config, logger)
 		}})
 }
 
@@ -53,7 +52,9 @@ type RTKGPS struct {
 	logger             golog.Logger
 	correctionWriter   io.ReadWriteCloser
 	ntripStatus        bool
-	bus    			   board.I2C
+
+	bus    board.I2C
+	addr   byte
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -71,7 +72,6 @@ type ntripInfo struct {
 	client             *ntrip.Client
 	stream             io.ReadCloser
 	maxConnectAttempts int
-	addr 			   byte
 }
 
 const (
@@ -84,10 +84,9 @@ const (
 	ntripSendNmeaName          = "ntrip_send_nmea"
 	ntripInputProtocolAttrName = "ntrip_input_protocol"
 	ntripConnectAttemptsName   = "ntrip_connect_attempts"
-	i2cAddr  				   = "i2c_address"
 )
 
-func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger) (nmeaGPS, error) {
+func newRTKGPS(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (nmeaGPS, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	g := &RTKGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
@@ -103,7 +102,32 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 			return nil, err
 		}
 	case "I2C":
-		return nil, errors.New("I2C not implemented")
+		var err error
+		g.nmeagps, err = newPmtkI2CNMEAGPS(ctx, deps, config, logger)
+		if err != nil {
+			return nil, err
+		}
+		b, err := board.FromDependencies(deps, config.Attributes.String("board"))
+		if err != nil {
+			return nil, fmt.Errorf("gps init: failed to find board: %w", err)
+		}
+		localB, ok := b.(board.LocalBoard)
+		if !ok {
+			return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
+		}
+		i2cbus, ok := localB.I2CByName(config.Attributes.String("bus"))
+		if !ok {
+			return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
+		} else {
+			g.bus = i2cbus
+		}
+
+		addr := config.Attributes.Int("i2c_addr", -1)
+		if addr == -1 {
+			return nil, errors.New("must specify gps i2c address")
+		} else {
+			g.addr = byte(addr)
+		}
 	default:
 		// Invalid protocol
 		return nil, fmt.Errorf("%s is not a valid protocol", g.ntripInputProtocol)
@@ -131,12 +155,6 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 		g.logger.Info("ntrip_path will use same path for writing RCTM messages to gps")
 		g.ntripClient.writepath = config.Attributes.String(pathAttrName)
 	}
-	addr := config.Attributes.Int(i2cAddr, -1)
-	if addr == -1 {
-		return nil, fmt.Errorf("Must specify I2C address")
-	} else {
-		g.ntripClient.addr = byte(addr)
-	}
 	g.ntripClient.wbaud = config.Attributes.Int(ntripBaudAttrName, 38400)
 	if g.ntripClient.wbaud == 38400 {
 		g.logger.Info("ntrip_baud using default baud rate 38400")
@@ -149,7 +167,7 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 	if g.ntripClient.maxConnectAttempts == 10 {
 		g.logger.Info("ntrip_connect_attempts using default 10")
 	}
-
+	g.logger.Info("Starting rtk START")
 	g.Start(ctx)
 
 	return g, nil
@@ -161,7 +179,7 @@ func (g *RTKGPS) Start(ctx context.Context) {
 	case "serial":
 		go g.ReceiveAndWriteSerial()
 	case "I2C":
-		go g.ReceiveAndWriteI2C(ctx)
+		g.ReceiveAndWriteI2C(ctx)
 	}
 	g.nmeagps.Start(ctx)
 	
@@ -251,7 +269,7 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 	}
 
 	//establish I2C connection
-	handle, err := g.bus.OpenHandle(g.ntripClient.addr)
+	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
 		return
@@ -302,6 +320,12 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 
 	for err == nil {
 		msg, err := scanner.NextMessage()
+		//establish I2C connection
+		handle, err := g.bus.OpenHandle(g.addr)
+		if err != nil {
+			g.logger.Fatalf("can't open gps i2c %s", err)
+			return
+		}
 		if err != nil {
 			if msg == nil {
 				fmt.Println("No message... reconnecting to stream...")
@@ -329,12 +353,11 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 			}
 			g.logger.Fatal(err, msg)
 		}
-	}
-	g.logger.Info("Closing GPS I2C handle")
-	err = handle.Close()
-	if err != nil {
-		g.logger.Debug("failed to close handle: %s", err)
-		return
+		err = handle.Close()
+		if err != nil {
+			g.logger.Debug("failed to close handle: %s", err)
+			return
+		}
 	}
 }
 
