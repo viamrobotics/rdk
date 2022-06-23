@@ -35,7 +35,8 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("no source camera (%s): %w", sourceName, err)
 			}
-			detector := &detectorSource{cam, sourceName, attrs.DetectorName, r}
+			confFilter := objectdetection.NewScoreFilter(attrs.Confidence)
+			detector := &detectorSource{cam, sourceName, attrs.DetectorName, confFilter, r, logger}
 			return camera.New(detector, attrs.AttrConfig, cam)
 		}})
 
@@ -66,7 +67,8 @@ func init() {
 // detectorAttrs is the attribute struct for detectors (their name as found in the vision service).
 type detectorAttrs struct {
 	*camera.AttrConfig
-	DetectorName string `json:"detector_name"`
+	DetectorName string  `json:"detector_name"`
+	Confidence   float64 `json:"confidence"`
 }
 
 // detectorSource takes an image from the camera, and overlays the detections from the detector.
@@ -74,7 +76,9 @@ type detectorSource struct {
 	source       camera.Camera
 	cameraName   string
 	detectorName string
+	confFilter   objectdetection.Postprocessor
 	r            robot.Robot
+	logger       golog.Logger
 }
 
 // Next returns the image overlaid with the detection bounding boxes
@@ -94,6 +98,7 @@ func (ds *detectorSource) Next(ctx context.Context) (image.Image, func(), error)
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
 	// overlay detections of the source image
+	dets = ds.confFilter(dets)
 	res, err := objectdetection.Overlay(img, dets)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not overlay bounding boxes: %w", err)
