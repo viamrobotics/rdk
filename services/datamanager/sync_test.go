@@ -108,7 +108,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 
 	// Test the fields within UploadRequest Metadata.
 	test.That(t, actualMetadata.FileName, test.ShouldEqual, expectedMetadata.FileName)
-	test.That(t, actualMetadata.PartName, test.ShouldEqual, expectedMetadata.PartName)
+	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
@@ -132,6 +132,7 @@ func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
 	}
 }
 
+// TODO: figure out how to pass part id in for file uploads
 func TestFileUpload(t *testing.T) {
 	uploadChunkSize = 10
 	msgEmpty := []byte("")
@@ -182,15 +183,13 @@ func TestFileUpload(t *testing.T) {
 		}
 
 		// Create []v1.UploadRequest object from test case input 'expData [][]byte'.
-		expectedMsgs := []v1.UploadRequest{}
+		var expectedMsgs []v1.UploadRequest
 		expectedMsgs = append(expectedMsgs, v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartName:      hardCodePartName,
-					ComponentName: hardCodeComponentName,
-					MethodName:    hardCodeMethodName,
-					Type:          v1.DataType_DATA_TYPE_FILE,
-					FileName:      filepath.Base(tf.Name()),
+					PartId:   "partid",
+					Type:     v1.DataType_DATA_TYPE_FILE,
+					FileName: filepath.Base(tf.Name()),
 				},
 			},
 		})
@@ -272,6 +271,20 @@ func TestSensorUploadTabular(t *testing.T) {
 		}
 		defer os.Remove(tf.Name())
 
+		// First write metadata to file.
+		syncMetadata := v1.SyncMetadata{
+			PartId:           "partid",
+			ComponentType:    "componenttype",
+			ComponentName:    "componentname",
+			MethodName:       "methodname",
+			Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			MethodParameters: nil,
+		}
+		if _, err := pbutil.WriteDelimited(tf, &syncMetadata); err != nil {
+			t.Errorf("%v cannot write protobuf struct to temporary file as part of setup for sensorUpload testing",
+				tc.name)
+		}
+
 		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
 		for i := range tc.toSend {
 			if _, err := pbutil.WriteDelimited(tf, tc.toSend[i]); err != nil {
@@ -285,15 +298,17 @@ func TestSensorUploadTabular(t *testing.T) {
 		}
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
-		expectedMsgs := []v1.UploadRequest{}
+		var expectedMsgs []v1.UploadRequest
 		expectedMsgs = append(expectedMsgs, v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartName:      hardCodePartName,
-					ComponentName: hardCodeComponentName,
-					MethodName:    hardCodeMethodName,
-					Type:          v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-					FileName:      filepath.Base(tf.Name()),
+					PartId:           "partid",
+					ComponentType:    "componenttype",
+					ComponentName:    "componentname",
+					MethodName:       "methodname",
+					Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+					FileName:         filepath.Base(tf.Name()),
+					MethodParameters: nil,
 				},
 			},
 		})
@@ -358,6 +373,20 @@ func TestSensorUploadBinary(t *testing.T) {
 		}
 		defer os.Remove(tf.Name())
 
+		// First write metadata to file.
+		syncMetadata := v1.SyncMetadata{
+			PartId:           "partid",
+			ComponentType:    "componenttype",
+			ComponentName:    "componentname",
+			MethodName:       "methodname",
+			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			MethodParameters: nil,
+		}
+		if _, err := pbutil.WriteDelimited(tf, &syncMetadata); err != nil {
+			t.Errorf("%v cannot write protobuf struct to temporary file as part of setup for sensorUpload testing",
+				tc.name)
+		}
+
 		// Write the data from the test cases into the files to prepare them for reading by the sensorUpload function.
 		if _, err := writeBinarySensorData(tf, tc.toSend); err != nil {
 			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
@@ -373,11 +402,13 @@ func TestSensorUploadBinary(t *testing.T) {
 		expectedMsgs = append(expectedMsgs, v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartName:      hardCodePartName,
-					ComponentName: hardCodeComponentName,
-					MethodName:    hardCodeMethodName,
-					Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
-					FileName:      filepath.Base(tf.Name()),
+					PartId:           "partid",
+					ComponentType:    "componenttype",
+					ComponentName:    "componentname",
+					MethodName:       "methodname",
+					Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+					FileName:         filepath.Base(tf.Name()),
+					MethodParameters: nil,
 				},
 			},
 		})
