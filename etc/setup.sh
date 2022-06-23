@@ -164,7 +164,7 @@ do_brew(){
 	# pinned
 	brew "gcc@11"
 	brew "go@1.18"
-	brew "node@16"
+	brew "node@18"
 	brew "protobuf@3.19"
 
 	EOS
@@ -173,7 +173,7 @@ do_brew(){
 		exit 1
 	fi
 
-	brew link --overwrite "gcc@11" "go@1.18" "node@16" "protobuf@3.19" || exit 1
+	brew link --overwrite "gcc@11" "go@1.18" "node@18" "protobuf@3.19" || exit 1
 
 	echo "Brew installed software versions..."
 	brew list --version
