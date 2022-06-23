@@ -788,7 +788,7 @@ func TestSensorsService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
 
-	readings1 := []interface{}{0.0, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, false, 0}
+	readings1 := []interface{}{0.0, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, false}
 	expected := map[resource.Name]interface{}{
 		gps.Named("gps1"): readings1,
 		gps.Named("gps2"): readings1,
