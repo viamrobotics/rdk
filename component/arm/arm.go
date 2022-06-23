@@ -268,7 +268,6 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.reconfigure(ctx, newArm)
-
 }
 
 func (r *reconfigurableArm) reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
@@ -301,7 +300,6 @@ func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resourc
 	}
 
 	return nil
-
 }
 
 // UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
@@ -335,10 +333,8 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 	if reconfigurableLocal, ok := localArm.(*reconfigurableLocalArm); ok {
 		return reconfigurableLocal, nil
-	} else {
-		return &reconfigurableLocalArm{actual: localArm, reconfigurableArm: &reconfigurableArm{actual: arm}}, nil
 	}
-
+	return &reconfigurableLocalArm{actual: localArm, reconfigurableArm: &reconfigurableArm{actual: arm}}, nil
 }
 
 // NewPositionFromMetersAndOV returns a three-dimensional arm position
