@@ -67,7 +67,6 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Attributes: config.AttributeMap{
 			"source":        "fake_cam",
 			"detector_name": "detector_color",
-			"confidence":    0.75,
 		},
 	}
 	cfg.Components = append(cfg.Components, detectorComp)
@@ -78,6 +77,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Attributes: config.AttributeMap{
 			"source":        "fake_cam",
 			"detector_name": "detector_tflite",
+			"confidence":    0.35,
 		},
 	}
 	cfg.Components = append(cfg.Components, tfliteComp)
@@ -125,7 +125,7 @@ func TestColorDetectionSource(t *testing.T) {
 	t.Logf("image saved at %s", tempFileName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(985, 563), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(984, 561), test.ShouldResemble, rimage.Red)
 }
 
 func TestTFLiteDetectionSource(t *testing.T) {

@@ -67,7 +67,7 @@ func (d *detection2D) Label() string {
 	return d.label
 }
 
-// String turns the detection into a string
+// String turns the detection into a string.
 func (d *detection2D) String() string {
 	return fmt.Sprintf("Label: %s, Score: %.2f, Box: %v", d.label, d.score, d.boundingBox)
 }
