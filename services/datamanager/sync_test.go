@@ -118,15 +118,10 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 func newTestSyncer(t *testing.T, uploadFn uploadFn) syncer {
 	t.Helper()
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
-	captureDir := t.TempDir()
-	syncQueue := t.TempDir()
 	l := golog.NewTestLogger(t)
 
 	return syncer{
-		captureDir:    captureDir,
-		syncQueue:     syncQueue,
-		logger:        l,
-		queueWaitTime: time.Nanosecond,
+		logger: l,
 		progressTracker: progressTracker{
 			lock: &sync.Mutex{},
 			m:    make(map[string]struct{}),
@@ -169,18 +164,13 @@ func TestFileUpload(t *testing.T) {
 			sent: []v1.UploadRequest{},
 		}
 
-		// Create temp dir and file in that dir to be used as examples of reading data from the files into buffers
+		// Create temp file to be used as examples of reading data from the files into buffers
 		// (and finally to have that data be uploaded) to the cloud.
-		td, err := ioutil.TempDir("", "temp-dir")
-		if err != nil {
-			t.Errorf("%v: cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
-		}
-		tf, err := ioutil.TempFile(td, tc.name)
+		tf, err := ioutil.TempFile("", tc.name)
 		if err != nil {
 			t.Errorf("%v: cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
 		defer os.Remove(tf.Name())
-		defer os.Remove(td)
 
 		// Write the data from test cases into the temp file to prepare for reading by the fileUpload function.
 		if _, err := tf.Write(tc.toSend); err != nil {
@@ -274,18 +264,13 @@ func TestSensorUploadTabular(t *testing.T) {
 			sent: []v1.UploadRequest{},
 		}
 
-		// Create temp dir and file in that dir to be used as examples of reading data from the files into buffers
+		// Create temp file to be used as examples of reading data from the files into buffers
 		// (and finally to have that data be uploaded) to the cloud
-		td, err := ioutil.TempDir("", "temp-dir")
-		if err != nil {
-			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
-		}
-		tf, err := ioutil.TempFile(td, tc.name)
+		tf, err := ioutil.TempFile("", tc.name)
 		if err != nil {
 			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
 		defer os.Remove(tf.Name())
-		defer os.Remove(td)
 
 		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
 		for i := range tc.toSend {
@@ -365,18 +350,13 @@ func TestSensorUploadBinary(t *testing.T) {
 			sent: []v1.UploadRequest{},
 		}
 
-		// Create temp dir and file in that dir to be used as examples of reading data from the files into
+		// Create temp file to be used as examples of reading data from the files into
 		// buffers (and finally to have that data be uploaded) to the cloud
-		td, err := ioutil.TempDir("", "temp-dir")
-		if err != nil {
-			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
-		}
-		tf, err := ioutil.TempFile(td, tc.name)
+		tf, err := ioutil.TempFile("", tc.name)
 		if err != nil {
 			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
 		defer os.Remove(tf.Name())
-		defer os.Remove(td)
 
 		// Write the data from the test cases into the files to prepare them for reading by the sensorUpload function.
 		if _, err := writeBinarySensorData(tf, tc.toSend); err != nil {
@@ -418,8 +398,8 @@ func TestSensorUploadBinary(t *testing.T) {
 	}
 }
 
-// Validates that for some captureDir, files are enqueued and uploaded exactly once.
-func TestQueuesAndUploadsOnce(t *testing.T) {
+// Validates that for some captureDir, files are uploaded exactly once.
+func TestUploadsOnce(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
@@ -427,79 +407,27 @@ func TestQueuesAndUploadsOnce(t *testing.T) {
 		return nil
 	}
 	sut := newTestSyncer(t, uploadFn)
-
-	// Start syncer, pass in its own cancel context as its the same as the test's.
-	sut.Start()
 
 	// Put a couple files in captureDir.
-	file1, _ := ioutil.TempFile(sut.captureDir, "whatever")
+	file1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(file1.Name())
-	file2, _ := ioutil.TempFile(sut.captureDir, "whatever2")
+	file2, _ := ioutil.TempFile("", "whatever2")
 	defer os.Remove(file2.Name())
-	err := sut.Enqueue([]string{file1.Name(), file2.Name()})
-	test.That(t, err, test.ShouldBeNil)
-	// Give it a second to run and upload files.
-	time.Sleep(time.Second)
-
-	// Verify files were enqueued and uploaded.
-	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
-	if err != nil {
-		t.Fatalf("failed to list files in captureDir")
+	// Immediately try to Sync same files many times.
+	for i := 1; i < 10; i++ {
+		sut.Sync([]string{file1.Name(), file2.Name()})
 	}
-	filesInQueue, err := ioutil.ReadDir(sut.syncQueue)
-	if err != nil {
-		t.Fatalf("failed to list files in captureDir")
-	}
-	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
-	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
-	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 2)
-	sut.Close()
-}
 
-// Validates that if a syncer is killed after enqueing a file, a new syncer will still pick it up and upload it. This
-// is to simulate the case where a robot is killed mid-sync; we still want that sync to resume and finish when it
-// turns back on.
-func TestRecoversAfterKilled(t *testing.T) {
-	var uploadCount uint64
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
-		atomic.AddUint64(&uploadCount, 1)
-		_ = os.Remove(path)
-		return nil
-	}
-	sut := newTestSyncer(t, uploadFn)
-
-	// Put a file in syncDir; this simulates a file that was enqueued by some previous syncer.
-	file1, _ := ioutil.TempFile(sut.syncQueue, "whatever")
-	defer os.Remove(file1.Name())
-
-	// Put a file in captureDir; this simulates a file that was written but not yet queued by some previous syncer.
-	// It should be synced even if it is not specified in the list passed to Enqueue.
-	file2, _ := ioutil.TempFile(sut.captureDir, "whatever")
-	defer os.Remove(file2.Name())
-
-	// Start syncer, let it run for a second.
-	sut.Start()
-	err := sut.Enqueue([]string{})
-	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(time.Second)
-
-	// Verify enqueued files were uploaded.
-	filesInQueue, err := ioutil.ReadDir(sut.syncQueue)
-	if err != nil {
-		t.Fatalf("failed to list files in syncDir")
-	}
-	// Verify previously captured but not queued files were uploaded.
-	filesInCaptureDir, err := ioutil.ReadDir(sut.captureDir)
-	if err != nil {
-		t.Fatalf("failed to list files in syncDir")
-	}
-	test.That(t, len(filesInQueue), test.ShouldEqual, 0)
-	test.That(t, len(filesInCaptureDir), test.ShouldEqual, 0)
+	// Verify upload was only called twice.
+	time.Sleep(time.Millisecond * 100)
 	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 2)
 	sut.Close()
 }
 
 func TestUploadExponentialRetry(t *testing.T) {
+	// Set retry related global vars to faster values for test.
+	initialWaitTime = time.Millisecond * 25
+	maxRetryInterval = time.Millisecond * 150
 	// Define an uploadFunc that fails 4 times then succeeds on its 5th attempt.
 	failureCount := 0
 	successCount := 0
@@ -515,16 +443,12 @@ func TestUploadExponentialRetry(t *testing.T) {
 	}
 	sut := newTestSyncer(t, uploadFunc)
 
-	// Put a file to be synced in captureDir.
-	file1, _ := ioutil.TempFile(sut.captureDir, "whatever")
+	// Sync file.
+	file1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(file1.Name())
+	sut.Sync([]string{file1.Name()})
 
-	// Start syncer and let it run.
-	initialWaitTime = time.Millisecond * 25
-	maxRetryInterval = time.Millisecond * 150
-	sut.Start()
-	err := sut.Enqueue([]string{})
-	test.That(t, err, test.ShouldBeNil)
+	// Let it run.
 	time.Sleep(time.Second)
 	sut.Close()
 
