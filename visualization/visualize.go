@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -15,6 +16,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -28,12 +30,30 @@ func VisualizePlan(
 	goal *pb.Pose,
 	worldState *pb.WorldState,
 ) {
+	fs := referenceframe.NewEmptySimpleFrameSystem("test")
+	err := fs.AddFrame(model, fs.World())
+	
+	fmt.Println("err", err)
+	
+	from, _ := model.Transform(referenceframe.JointPosToInputs(start))
+	to := spatialmath.NewPoseFromProtobuf(goal)
+	
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt = motionplan.DefaultConstraint(from, to, model, opt)
+	opt.RemoveConstraint("self-collision")
+	
+	startPos := map[string][]referenceframe.Input{}
+	startPos["xArm6"] = referenceframe.JointPosToInputs(start)
+	
+	constraint := motionplan.NewCollisionConstraintFromWorldState(model, fs, worldState, startPos)
+	opt.AddConstraint("collision", constraint)
+	
 	nCPU := runtime.NumCPU()
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	solution, err := mp.Plan(ctx, goal, referenceframe.JointPosToInputs(start), nil)
+	solution, err := mp.Plan(ctx, goal, referenceframe.JointPosToInputs(start), opt)
 	if err != nil {
 		logger.Fatal(err)
 	}

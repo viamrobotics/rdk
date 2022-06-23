@@ -174,6 +174,11 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error) {
 	src := object.FrameName()
+	
+	if src == dst {
+		return object, nil
+	}
+	
 	if !sfs.frameExists(src) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", src)
 	}
