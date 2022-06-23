@@ -15,3 +15,15 @@ func NewAreaFilter(area int) Postprocessor {
 		return out
 	}
 }
+
+func NewScoreFilter(conf float64) Postprocessor {
+	return func(in []Detection) []Detection {
+		out := make([]Detection, 0, len(in))
+		for _, d := range in {
+			if d.Score() >= conf {
+				out = append(out, d)
+			}
+		}
+		return out
+	}
+}

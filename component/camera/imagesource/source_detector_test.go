@@ -20,27 +20,33 @@ import (
 	"go.viam.com/rdk/services/vision"
 )
 
-func writeTempConfig(t testing.TB, cfg *config.Config) string {
-	t.Helper()
+func writeTempConfig(cfg *config.Config) (string, error) {
 	newConf, err := json.MarshalIndent(cfg, "", " ")
-	t.Logf("%v", string(newConf))
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return "", err
+	}
 	tmpFile, err := ioutil.TempFile(os.TempDir(), "objdet_config-")
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return "", err
+	}
 	_, err = tmpFile.Write(newConf)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return "", err
+	}
 	err = tmpFile.Close()
-	test.That(t, err, test.ShouldBeNil)
-	return tmpFile.Name()
+	if err != nil {
+		return "", err
+	}
+	return tmpFile.Name(), nil
 }
 
 // make a fake robot with a vision service
-func buildRobotWithFakeCamera(t testing.TB) robot.Robot {
-	t.Helper()
+func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	// add a fake camera to the config
-	logger := golog.NewLogger("detector_test")
 	cfg, err := config.Read(context.Background(), "data/vision.json", logger)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 	// create fake source camera
 	cameraComp := config.Component{
 		Name:  "fake_cam",
@@ -55,12 +61,13 @@ func buildRobotWithFakeCamera(t testing.TB) robot.Robot {
 	cfg.Components = append(cfg.Components, cameraComp)
 	// create fake detector camera
 	detectorComp := config.Component{
-		Name:  "fake_detect",
+		Name:  "color_detect",
 		Type:  camera.SubtypeName,
 		Model: "detector",
 		Attributes: config.AttributeMap{
 			"source":        "fake_cam",
 			"detector_name": "detector_color",
+			"confidence":    0.75,
 		},
 	}
 	cfg.Components = append(cfg.Components, detectorComp)
@@ -71,22 +78,26 @@ func buildRobotWithFakeCamera(t testing.TB) robot.Robot {
 		Attributes: config.AttributeMap{
 			"source":        "fake_cam",
 			"detector_name": "detector_tflite",
+			"confidence":    0.25,
 		},
 	}
 	cfg.Components = append(cfg.Components, tfliteComp)
-	newConfFile := writeTempConfig(t, cfg)
+	newConfFile, err := writeTempConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	defer os.Remove(newConfFile)
 	// make the robot from new config
-	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
-	test.That(t, err, test.ShouldBeNil)
-	return r
+	return robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
 }
 
 func TestColorDetectionSource(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	r := buildRobotWithFakeCamera(t)
+	r, err := buildRobotWithFakeCamera(logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	// add the detector
 	srv, err := vision.FromRobot(r)
@@ -103,7 +114,7 @@ func TestColorDetectionSource(t *testing.T) {
 	err = srv.AddDetector(context.Background(), detConf)
 	test.That(t, err, test.ShouldBeNil)
 
-	detector, err := camera.FromRobot(r, "fake_detect")
+	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.TryClose(ctx, detector)
 
@@ -119,10 +130,12 @@ func TestColorDetectionSource(t *testing.T) {
 }
 
 func TestTFLiteDetectionSource(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	r := buildRobotWithFakeCamera(t)
+	r, err := buildRobotWithFakeCamera(logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	// add the detector
 	srv, err := vision.FromRobot(r)
@@ -149,15 +162,17 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	err = rimage.SaveImage(ovImg, tempFileName)
 	t.Logf("image saved at %s", tempFileName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(985, 563), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(624, 402), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(816, 648), test.ShouldResemble, rimage.Red)
 }
 
 func BenchmarkColorDetectionSource(b *testing.B) {
+	logger := golog.NewDevelopmentLogger("benchmark-color")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	r := buildRobotWithFakeCamera(b)
+	r, err := buildRobotWithFakeCamera(logger)
+	test.That(b, err, test.ShouldBeNil)
 	// add the detector
 	srv, err := vision.FromRobot(r)
 	test.That(b, err, test.ShouldBeNil)
@@ -172,7 +187,39 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	}
 	err = srv.AddDetector(context.Background(), detConf)
 	test.That(b, err, test.ShouldBeNil)
-	detector, err := camera.FromRobot(r, "fake_detect")
+	detector, err := camera.FromRobot(r, "color_detect")
+	test.That(b, err, test.ShouldBeNil)
+	defer utils.TryClose(ctx, detector)
+
+	b.ResetTimer()
+	// begin benchmarking
+	for i := 0; i < b.N; i++ {
+		_, _, _ = detector.Next(ctx)
+	}
+}
+
+func BenchmarkTFLiteDetectionSource(b *testing.B) {
+	logger := golog.NewDevelopmentLogger("benchmark-tflite")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r, err := buildRobotWithFakeCamera(logger)
+	test.That(b, err, test.ShouldBeNil)
+	// add the detector
+	srv, err := vision.FromRobot(r)
+	test.That(b, err, test.ShouldBeNil)
+	detConf := vision.DetectorConfig{
+		Name: "detector_tflite",
+		Type: "tflite",
+		Parameters: config.AttributeMap{
+			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
+			"num_threads": 1,
+			"confidence":  0.25,
+		},
+	}
+	err = srv.AddDetector(context.Background(), detConf)
+	test.That(b, err, test.ShouldBeNil)
+	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(b, err, test.ShouldBeNil)
 	defer utils.TryClose(ctx, detector)
 
