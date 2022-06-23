@@ -344,6 +344,7 @@ func (g *RTKGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	
 	readings = append(readings, fix)
 
 	return readings, nil
