@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // init registers a pi servo based on pigpio.
@@ -50,16 +51,21 @@ func init() {
 					theServo.max = uint8(attr.Max)
 				}
 
-				start := time.Now()
-				res := C.gpioServo(theServo.pin, 500)
-				if res != 0 {
-					return nil, errors.Errorf("gpioServo failed with %d", res)
+				getPos := C.gpioGetServoPulsewidth(theServo.pin)
+				fmt.Println(int(theServo.pin), "init pin is at", getPos)
+
+				// start := time.Now()
+				setPos := C.gpioServo(theServo.pin, C.uint(0))
+				if setPos != 0 {
+					return nil, errors.Errorf("gpioServo failed with %d", setPos)
 				}
 
-				elapsed := start.Sub(start)
-				if elapsed > (time.Millisecond * 500) {
-					C.gpioServo(theServo.pin, 0)
-				}
+				getPos = C.gpioGetServoPulsewidth(theServo.pin)
+				fmt.Println(int(theServo.pin),  "set pin is at", getPos)
+				// elapsed := start.Sub(start)
+				// if elapsed > (time.Millisecond * 500) {
+				// 	C.gpioServo(theServo.pin, 0)
+				// }
 
 				return theServo, nil
 			},
@@ -88,20 +94,35 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 		angle = s.max
 	}
 
+
 	start := time.Now()
-	val := angleToVal(angle)
-	res := C.gpioServo(s.pin, C.uint(val))
+	movePos := angleToVal(angle)
+	res := C.gpioServo(s.pin, C.uint(movePos))
+	fmt.Println(int(s.pin), " val is ", movePos)
 	if res != 0 {
 		return errors.Errorf("gpioServo failed with %d", res)
 	}
-	fmt.Printf("trying to move to %s", res)
+	getPos, err := s.GetPosition(ctx)
+	if err != nil {
+		return err
+	}
+	fmt.Println("res is", getPos)
+	
+	}
+
 	elapsed := start.Sub(start)
-	if elapsed > (time.Millisecond * 500) {
+	fmt.Println("elapsed is ", elapsed)
+	if elapsed > (time.Millisecond * 5) {
 		C.gpioServo(s.pin, 0)
 		return nil
-	}
+			
 	return nil
 }
+
+
+func 
+
+
 
 func angleToVal(angle uint8) float64 {
 	val := 500 + (2000.0 * float64(angle) / 180.0)
@@ -110,6 +131,7 @@ func angleToVal(angle uint8) float64 {
 
 func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
+	fmt.Println(int(s.pin), " res is", res)
 	if res <= 0 {
 		// this includes, errors, we'll ignore
 		return 0, nil
