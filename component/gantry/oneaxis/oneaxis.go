@@ -21,7 +21,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -83,11 +82,11 @@ func init() {
 	registry.RegisterComponent(gantry.Subtype, modelname, registry.Component{
 		Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newOneAxis(ctx, r, config, logger)
+			return newOneAxis(ctx, deps, config, logger)
 		},
 	})
 
@@ -133,13 +132,13 @@ const (
 )
 
 // NewOneAxis creates a new one axis gantry.
-func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
+func newOneAxis(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (gantry.LocalGantry, error) {
 	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 	}
 
-	_motor, err := motor.FromRobot(r, conf.Motor)
+	_motor, err := motor.FromDependencies(deps, conf.Motor)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +169,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 			return nil, errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
 		}
 
-		board, err := board.FromRobot(r, conf.Board)
+		board, err := board.FromDependencies(deps, conf.Board)
 		if err != nil {
 			return nil, err
 		}
@@ -181,7 +180,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 
 	case 2:
 		oAx.limitType = limitTwoPin
-		board, err := board.FromRobot(r, conf.Board)
+		board, err := board.FromDependencies(deps, conf.Board)
 		if err != nil {
 			return nil, err
 		}
@@ -205,6 +204,9 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 }
 
 func (g *oneAxis) Home(ctx context.Context) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
+
 	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
 	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
 	switch g.limitType {
@@ -421,7 +423,14 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, world
 
 // Stop stops the motor of the gantry.
 func (g *oneAxis) Stop(ctx context.Context) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
 	return g.motor.Stop(ctx)
+}
+
+// IsMoving returns whether the gantry is moving.
+func (g *oneAxis) IsMoving() bool {
+	return g.opMgr.OpRunning()
 }
 
 //  ModelFrame returns the frame model of the Gantry.

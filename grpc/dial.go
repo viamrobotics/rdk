@@ -57,7 +57,7 @@ func DialWithTimout(ctx context.Context, address string, logger golog.Logger, ti
 
 // InferSignalingServerAddress returns the appropriate WebRTC signaling server address
 // if it can be detected.
-// TODO(GOUT-4):
+// TODO(RSDK-235):
 // remove hard coding of signaling server address and
 // prefer SRV lookup instead.
 func InferSignalingServerAddress(address string) (string, bool, bool) {

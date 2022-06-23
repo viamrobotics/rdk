@@ -24,12 +24,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/generic"
 	picommon "go.viam.com/rdk/component/board/pi/common"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -42,7 +41,7 @@ func init() {
 		picommon.ModelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			_ registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -553,7 +552,6 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		// TODO(RDK-37): use new cgo Value to pass a context?
 		err := i.Tick(context.TODO(), high, tick*1000)
 		if err != nil {
 			instance.logger.Error(err)

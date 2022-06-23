@@ -19,7 +19,6 @@ jobs:
     secrets:
       ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS }}
       TEST_MONGODB_URI: ${{ secrets.TEST_MONGODB_URI }}
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
 
   appimage:
@@ -27,3 +26,4 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+      REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
