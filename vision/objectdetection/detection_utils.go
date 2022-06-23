@@ -34,6 +34,12 @@ func OverlayText(img image.Image, text string) image.Image {
 // drawBox draws a red box over the image, each side is 3 pixels wide.
 func drawBox(img *rimage.Image, rec *image.Rectangle) {
 	x0, y0, x1, y1 := rec.Min.X, rec.Min.Y, rec.Max.X, rec.Max.Y
+	if x1 == img.Bounds().Dx() {
+		x1 = x1 - 1
+	}
+	if y1 == img.Bounds().Dy() {
+		y1 = y1 - 1
+	}
 	horizontal(x0, y0, x1, img, rimage.Red)
 	horizontal(x0, y1, x1, img, rimage.Red)
 	vertical(x0, y0, y1, img, rimage.Red)

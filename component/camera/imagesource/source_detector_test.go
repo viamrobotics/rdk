@@ -78,7 +78,6 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Attributes: config.AttributeMap{
 			"source":        "fake_cam",
 			"detector_name": "detector_tflite",
-			"confidence":    0.25,
 		},
 	}
 	cfg.Components = append(cfg.Components, tfliteComp)
@@ -214,7 +213,6 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 		Parameters: config.AttributeMap{
 			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
 			"num_threads": 1,
-			"confidence":  0.25,
 		},
 	}
 	err = srv.AddDetector(context.Background(), detConf)
