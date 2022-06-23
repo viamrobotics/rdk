@@ -3,7 +3,6 @@ package arm
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 
@@ -154,7 +153,7 @@ type reconfigurableArm struct {
 }
 
 type reconfigurableLocalArm struct {
-	reconfigurableArm
+	*reconfigurableArm
 	actual LocalArm
 }
 
@@ -236,7 +235,11 @@ func (r *reconfigurableArm) Close(ctx context.Context) error {
 func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	fmt.Println("reconfiguring reconfigurableArm")
+	return r.reconfigure(ctx, newArm)
+
+}
+
+func (r *reconfigurableArm) reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
 	arm, ok := newArm.(*reconfigurableArm)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newArm)
@@ -246,13 +249,11 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	}
 	r.actual = arm.actual
 	return nil
-
 }
 
 func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	fmt.Println("reconfiguring reconfigurableLocalArm")
 	arm, ok := newArm.(*reconfigurableLocalArm)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newArm)
@@ -260,16 +261,13 @@ func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resourc
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
+
 	r.actual = arm.actual
-	if r.actual == nil {
-		return errors.New("r.actual is still nil")
+	err := r.reconfigurableArm.reconfigure(ctx, arm.reconfigurableArm)
+	if err != nil {
+		return err
 	}
-	if arm.actual == nil {
-		return errors.New("arm.actual was originally nil")
-	}
-	fmt.Println("printing r ")
-	fmt.Println(r)
-	fmt.Println("done printing r ")
+
 	return nil
 
 }
@@ -288,29 +286,27 @@ func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActio
 // and a localArm into a reconfigurableLocalArm
 // If arm is already a Reconfigurable, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+	arm, ok1 := r.(Arm)
+	if !ok1 {
+		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
+	}
+
+	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
+		return reconfigurable, nil
+	}
+
 	localArm, ok := r.(LocalArm)
-	if ok {
-		if reconfigurable, ok := localArm.(*reconfigurableLocalArm); ok {
-			if reconfigurable == nil {
-				fmt.Println("arm is nil")
-			}
-			return reconfigurable, nil
-		} else {
-			return &reconfigurableLocalArm{actual: localArm}, nil
-		}
+	if !ok {
+		// is an arm but is not a local arm
+		return &reconfigurableArm{actual: arm}, nil
 	}
-	arm, ok := r.(Arm)
-	if ok {
-		if reconfigurable, ok := arm.(*reconfigurableArm); ok {
-			if reconfigurable == nil {
-				fmt.Println("arm is nil")
-			}
-			return reconfigurable, nil
-		} else {
-			return &reconfigurableArm{actual: arm}, nil
-		}
+
+	if reconfigurableLocal, ok := localArm.(*reconfigurableLocalArm); ok {
+		return reconfigurableLocal, nil
+	} else {
+		return &reconfigurableLocalArm{actual: localArm, reconfigurableArm: &reconfigurableArm{actual: arm}}, nil
 	}
-	return nil, utils.NewUnimplementedInterfaceError("LocalArm or Arm", r)
+
 }
 
 // NewPositionFromMetersAndOV returns a three-dimensional arm position
