@@ -16,7 +16,7 @@ setup:
 build: build-web build-go
 
 build-go: buf-go
-	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) ./...
+	go build ./...
 
 build-web: buf-web
 	cd web/frontend/dls && npm ci && npm run build:prod
@@ -31,8 +31,10 @@ tool-install:
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
 		github.com/edaniels/golinters/cmd/combined \
-		github.com/golangci/golangci-lint/cmd/golangci-lint
-	GOBIN=`pwd`/$(TOOL_BIN) go install github.com/bufbuild/buf/cmd/buf@v1.4.0
+		github.com/golangci/golangci-lint/cmd/golangci-lint \
+		github.com/AlekSi/gocov-xml \
+		github.com/axw/gocov/gocov \
+		github.com/bufbuild/buf/cmd/buf
 
 buf: buf-go buf-web
 
@@ -61,7 +63,7 @@ lint-web:
 	cd web/frontend && npm ci && npm run lint
 
 cover:
-	./etc/test.sh cover
+	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
 
 test: test-go test-web
 
@@ -71,11 +73,13 @@ test-go:
 test-web: build-web
 	cd web/frontend/dls && npm run test:unit
 
-testpi:
-	sudo CGO_LDFLAGS=$(CGO_LDFLAGS) go test $(TAGS) -coverprofile=coverage.txt go.viam.com/rdk/component/board/pi
+# test.short skips tests requiring external hardware (motors/servos)
+test-pi:
+	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
+	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short
 
 server:
-	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
+	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
 clean-all:
 	git clean -fxd
