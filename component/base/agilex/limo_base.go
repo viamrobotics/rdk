@@ -28,10 +28,10 @@ var (
 	controllers map[string]*controller
 )
 
-// default port for limo serial comm
+// default port for limo serial comm.
 const defaultSerial = "/dev/ttyTHS1"
 
-// valid steering modes for limo
+// valid steering modes for limo.
 const (
 	DIFFERENTIAL = steeringMode(iota)
 	ACKERMANN
@@ -116,9 +116,8 @@ type Config struct {
 	TestChan     chan []uint8 // TestChan is a fake "serial" path for test use only
 }
 
-// CreateLimoBase returns a AgileX limo base
+// CreateLimoBase returns a AgileX limo base.
 func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (base.LocalBase, error) {
-
 	logger.Debugf("creating limo base with config %+v", config)
 
 	if config.DriveMode == "" {
@@ -215,7 +214,7 @@ func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (
 	return ctrl, nil
 }
 
-// this rover requires messages to be sent continously or the motors will shut down after 100ms
+// this rover requires messages to be sent continously or the motors will shut down after 100ms.
 func (base *limoBase) startControlThread() {
 	var ctx context.Context
 	ctx, base.cancel = context.WithCancel(context.Background())
@@ -280,7 +279,7 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 func (c *controller) sendFrame(frame *limoFrame) error {
 	var checksum uint32
 	var frameLen uint8 = 0x0e
-	var data = make([]uint8, 14)
+	data := make([]uint8, 14)
 	data[0] = 0x55
 	data[1] = frameLen // frame length
 	data[2] = uint8(frame.id >> 8)
@@ -306,7 +305,8 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 
 // see https://github.com/agilexrobotics/limo_ros/blob/master/limo_base/src/limo_driver.cpp
 func (base *limoBase) setMotionCommand(linearVel float64,
-	angularVel float64, lateralVel float64, steeringAngle float64) error {
+	angularVel float64, lateralVel float64, steeringAngle float64,
+) error {
 	frame := new(limoFrame)
 	frame.id = 0x111
 	linearCmd := int16(linearVel)
@@ -372,7 +372,7 @@ func (base *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec
 	return base.Stop(ctx)
 }
 
-// linear is in mm/sec, angular in degrees/sec
+// linear is in mm/sec, angular in degrees/sec.
 func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
 	base.controller.logger.Debugf("Will set linear velocity %f angular velocity %f", linear, angular)
 
