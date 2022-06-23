@@ -1,0 +1,20 @@
+version: v1beta1
+plugins:
+  - name: go
+    out: .
+    opt:
+      - paths=source_relative
+  - name: go-grpc
+    out: .
+    opt:
+      - paths=source_relative
+  - name: grpc-gateway
+    out: .
+    opt:
+      - paths=source_relative
+      - generate_unbound_methods=true
+  - name: doc
+    out: docs/proto
+    strategy: all
+    opt:
+      - html,index.html

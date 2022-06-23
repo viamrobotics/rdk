@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -31,6 +32,7 @@ func init() {
 				pb.RegisterBaseServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.BaseService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -87,6 +89,20 @@ var (
 	_ = LocalBase(&reconfigurableBase{})
 	_ = resource.Reconfigurable(&reconfigurableBase{})
 )
+
+// FromDependencies is a helper for getting the named base from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Base, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Base)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Base", res)
+	}
+	return part, nil
+}
 
 // FromRobot is a helper for getting the named base from the given Robot.
 func FromRobot(r robot.Robot, name string) (Base, error) {
@@ -179,6 +195,14 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 	}
 	r.actual = actual.actual
 	return nil
+}
+
+func (r *reconfigurableBase) UpdateAction(c *config.Component) config.UpdateActionType {
+	obj, canUpdate := r.actual.(config.CompononentUpdate)
+	if canUpdate {
+		return obj.UpdateAction(c)
+	}
+	return config.Reconfigure
 }
 
 // WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.

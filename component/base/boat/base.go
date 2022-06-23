@@ -20,16 +20,15 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
 	boatComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
+			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return createBoat(r, config.ConvertedAttributes.(*boatConfig), logger)
+			return createBoat(deps, config.ConvertedAttributes.(*boatConfig), logger)
 		},
 	}
 	registry.RegisterComponent(base.Subtype, "boat", boatComp)
@@ -44,7 +43,7 @@ func init() {
 		&boatConfig{})
 }
 
-func createBoat(r robot.Robot, config *boatConfig, logger golog.Logger) (base.LocalBase, error) {
+func createBoat(deps registry.Dependencies, config *boatConfig, logger golog.Logger) (base.LocalBase, error) {
 	if config.WidthMM <= 0 {
 		return nil, errors.New("width has to be > 0")
 	}
@@ -56,7 +55,7 @@ func createBoat(r robot.Robot, config *boatConfig, logger golog.Logger) (base.Lo
 	theBoat := &boat{cfg: config, logger: logger}
 
 	for _, mc := range config.Motors {
-		m, err := motor.FromRobot(r, mc.Name)
+		m, err := motor.FromDependencies(deps, mc.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +64,7 @@ func createBoat(r robot.Robot, config *boatConfig, logger golog.Logger) (base.Lo
 
 	if config.IMU != "" {
 		var err error
-		theBoat.imu, err = imu.FromRobot(r, config.IMU)
+		theBoat.imu, err = imu.FromDependencies(deps, config.IMU)
 		if err != nil {
 			return nil, err
 		}
@@ -137,7 +136,7 @@ func (b *boat) startVelocityThread() error {
 		defer b.waitGroup.Done()
 
 		for {
-			utils.SelectContextOrWait(ctx, time.Millisecond*100)
+			utils.SelectContextOrWait(ctx, time.Millisecond*500)
 			err := b.velocityThreadLoop(ctx)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
@@ -164,14 +163,13 @@ func (b *boat) velocityThreadLoop(ctx context.Context) error {
 		return nil
 	}
 
-	linear, angular := computeNextPower(&b.state, av)
+	linear, angular := computeNextPower(&b.state, av, b.logger)
 
 	b.stateMutex.Unlock()
-	b.logger.Debugf("going to set power to %v %v", linear, angular)
 	return b.setPowerInternal(ctx, linear, angular)
 }
 
-func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVelocity) (r3.Vector, r3.Vector) {
+func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVelocity, logger golog.Logger) (r3.Vector, r3.Vector) {
 	linear := state.lastPowerLinear
 	angular := state.lastPowerAngular
 
@@ -183,7 +181,7 @@ func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVeloc
 			delta *= 2
 		}
 
-		angular.Z -= delta
+		angular.Z -= delta * 10
 		angular.Z = math.Max(-1, angular.Z)
 		angular.Z = math.Min(1, angular.Z)
 	}
@@ -191,10 +189,10 @@ func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVeloc
 	linear.Y = state.velocityLinearGoal.Y // TEMP
 	linear.X = state.velocityLinearGoal.X // TEMP
 
-	/*
-		fmt.Printf(
-			"computeNextPower last power (lx,ly,a): %0.2f %0.2f %0.2f goal velocity (lx, ly, a) %0.2f %0.2f %0.2f av; %0.2f\n" +
-			"\t after lx, ly, a : %0.2f %0.2f %0.2g\n",
+	if logger != nil && true {
+		logger.Debugf(
+			"computeNextPower last: %0.2f %0.2f %0.2f goal v: %0.2f %0.2f %0.2f av: %0.2f"+
+				" -> %0.2f %0.2f %0.2f",
 			state.lastPowerLinear.X,
 			state.lastPowerLinear.Y,
 			state.lastPowerAngular.Z,
@@ -204,7 +202,7 @@ func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVeloc
 			angularVelocity.Z,
 			linear.X, linear.Y, angular.Z,
 		)
-	*/
+	}
 
 	return linear, angular
 }
@@ -234,6 +232,7 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 }
 
 func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	b.logger.Debugf("SetPower %v %v", linear, angular)
 	ctx, done := b.opMgr.New(ctx)
 	defer done()
 
@@ -247,7 +246,7 @@ func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
 func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) error {
 	power := b.cfg.computePower(linear, angular)
 
-	b.logger.Debugf("setPowerInternal %0.2f %0.2f %0.2f computePower: %v", linear.X, linear.Y, angular.Z, power)
+	// b.logger.Debugf("setPowerInternal %0.2f %0.2f %0.2f computePower: %v", linear.X, linear.Y, angular.Z, power)
 
 	for idx, p := range power {
 		err := b.motors[idx].SetPower(ctx, p)

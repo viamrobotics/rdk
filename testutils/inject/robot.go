@@ -22,18 +22,19 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	DiscoverComponentsFunc func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
-	RemoteByNameFunc       func(name string) (robot.Robot, bool)
-	ResourceByNameFunc     func(name resource.Name) (interface{}, error)
-	RemoteNamesFunc        func() []string
-	ResourceNamesFunc      func() []resource.Name
-	ProcessManagerFunc     func() pexec.ProcessManager
-	ConfigFunc             func(ctx context.Context) (*config.Config, error)
-	LoggerFunc             func() golog.Logger
-	CloseFunc              func(ctx context.Context) error
-	RefreshFunc            func(ctx context.Context) error
-	FrameSystemConfigFunc  func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
-	TransformPoseFunc      func(
+	DiscoverComponentsFunc  func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
+	RemoteByNameFunc        func(name string) (robot.Robot, bool)
+	ResourceByNameFunc      func(name resource.Name) (interface{}, error)
+	RemoteNamesFunc         func() []string
+	ResourceNamesFunc       func() []resource.Name
+	ResourceRPCSubtypesFunc func() []resource.RPCSubtype
+	ProcessManagerFunc      func() pexec.ProcessManager
+	ConfigFunc              func(ctx context.Context) (*config.Config, error)
+	LoggerFunc              func() golog.Logger
+	CloseFunc               func(ctx context.Context) error
+	RefreshFunc             func(ctx context.Context) error
+	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
+	TransformPoseFunc       func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
@@ -93,6 +94,14 @@ func (r *Robot) ResourceNames() []resource.Name {
 		return r.LocalRobot.ResourceNames()
 	}
 	return r.ResourceNamesFunc()
+}
+
+// ResourceRPCSubtypes returns a list of all known resource RPC subtypes.
+func (r *Robot) ResourceRPCSubtypes() []resource.RPCSubtype {
+	if r.ResourceRPCSubtypesFunc == nil {
+		return r.LocalRobot.ResourceRPCSubtypes()
+	}
+	return r.ResourceRPCSubtypesFunc()
 }
 
 // ProcessManager calls the injected ProcessManager or the real version.

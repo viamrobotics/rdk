@@ -27,7 +27,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -48,7 +47,7 @@ var ur5DHmodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return URArmConnect(ctx, config, logger)
 		},
 	})
@@ -116,7 +115,7 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	speed := cfg.ConvertedAttributes.(*AttrConfig).Speed
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	if speed > 1 || speed < .1 {
@@ -265,11 +264,17 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 
 // Stop stops the arm with some deceleration.
 func (ua *URArm) Stop(ctx context.Context) error {
-	ua.opMgr.CancelRunning(ctx)
+	_, done := ua.opMgr.New(ctx)
+	defer done()
 	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speed)
 
 	_, err := ua.conn.Write([]byte(cmd))
 	return err
+}
+
+// IsMoving returns whether the arm is moving.
+func (ua *URArm) IsMoving() bool {
+	return ua.opMgr.OpRunning()
 }
 
 // MoveToJointPositionRadians TODO.

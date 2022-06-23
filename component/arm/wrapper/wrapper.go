@@ -15,7 +15,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // AttrConfig is used for converting config attributes.
@@ -25,8 +24,8 @@ type AttrConfig struct {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wrapper_arm", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			childArm, err := arm.FromRobot(r, config.Name)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			childArm, err := arm.FromDependencies(deps, config.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -55,7 +54,7 @@ type Arm struct {
 }
 
 // NewWrapperArm returns a wrapper component for another arm.
-func NewWrapperArm(cfg config.Component, actual arm.Arm, logger golog.Logger) (arm.Arm, error) {
+func NewWrapperArm(cfg config.Component, actual arm.Arm, logger golog.Logger) (arm.LocalArm, error) {
 	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
 	if err != nil {
 		return nil, err
@@ -122,8 +121,15 @@ func (wrapper *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, 
 
 // Stop stops the actual arm.
 func (wrapper *Arm) Stop(ctx context.Context) error {
-	wrapper.opMgr.CancelRunning(ctx)
+	ctx, done := wrapper.opMgr.New(ctx)
+	defer done()
+
 	return wrapper.actual.Stop(ctx)
+}
+
+// IsMoving returns whether the arm is moving.
+func (wrapper *Arm) IsMoving() bool {
+	return wrapper.opMgr.OpRunning()
 }
 
 // CurrentInputs returns the current inputs of the arm.

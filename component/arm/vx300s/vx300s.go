@@ -28,7 +28,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 //go:embed vx300s_kinematics.json
@@ -36,7 +35,7 @@ var vx300smodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "vx300s", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newArm(config.Attributes, logger)
 		},
 	})
@@ -99,7 +98,7 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
-func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.LocalArm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
@@ -194,6 +193,10 @@ func (a *myArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, erro
 func (a *myArm) Stop(ctx context.Context) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
+}
+
+func (a *myArm) IsMoving() bool {
+	return a.opMgr.OpRunning()
 }
 
 // Close will get the arm ready to be turned off.

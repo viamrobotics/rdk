@@ -29,7 +29,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -47,7 +46,7 @@ var evamodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewEva(ctx, config, logger)
 		},
 	})
@@ -291,6 +290,10 @@ func (e *eva) Stop(ctx context.Context) error {
 	return arm.ErrStopUnimplemented
 }
 
+func (e *eva) IsMoving() bool {
+	return e.opMgr.OpRunning()
+}
+
 func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
 	type Temp struct {
 		Snapshot evaData
@@ -365,7 +368,7 @@ func evaModel() (referenceframe.Model, error) {
 }
 
 // NewEva TODO.
-func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	model, err := evaModel()
 	if err != nil {
 		return nil, err
