@@ -274,7 +274,6 @@ func TestSensorUploadTabular(t *testing.T) {
 
 		// First write metadata to file.
 		syncMetadata := v1.SyncMetadata{
-			PartId:           partId,
 			ComponentType:    componentType,
 			ComponentName:    componentName,
 			MethodName:       methodName,
@@ -379,7 +378,6 @@ func TestSensorUploadBinary(t *testing.T) {
 
 		// First write metadata to file.
 		syncMetadata := v1.SyncMetadata{
-			PartId:           "partid",
 			ComponentType:    "componenttype",
 			ComponentName:    "componentname",
 			MethodName:       "methodname",

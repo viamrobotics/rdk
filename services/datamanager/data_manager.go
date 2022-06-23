@@ -239,7 +239,6 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	}
 	// Build metadata.
 	syncMetadata := v1.SyncMetadata{
-		PartId:           svc.partID,
 		ComponentType:    string(attributes.Type),
 		ComponentName:    attributes.Name,
 		MethodName:       attributes.Method,
@@ -382,7 +381,6 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 		// Create new target and set it.
 		// Build metadata.
 		syncMetadata := v1.SyncMetadata{
-			PartId:           svc.partID,
 			ComponentType:    string(collector.Attributes.Type),
 			ComponentName:    collector.Attributes.Name,
 			MethodName:       collector.Attributes.Method,
