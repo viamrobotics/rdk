@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/rlog"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -31,13 +32,18 @@ func SortComponents(components []Component) ([]Component, error) {
 		dependencies[config.Name] = config.DependsOn
 	}
 
+	// TODO(RSDK-427): this check just raises a warning if a dependency is missing. We
+	// cannot actually make the check fail since it will always fail for remote
+	// dependencies.
 	for name, dps := range dependencies {
 		for _, depName := range dps {
 			if _, ok := componentToConfig[depName]; !ok {
-				return nil, utils.NewConfigValidationError(
-					fmt.Sprintf("%s.%s", "components", name),
-					errors.Errorf("dependency %q does not exist", depName),
+				rlog.Logger.Warnw(
+					"missing dependency on local robot, is this a remote dependency?",
+					"component", name,
+					"dependency", depName,
 				)
+				continue
 			}
 		}
 	}
@@ -68,7 +74,9 @@ func SortComponents(components []Component) ([]Component, error) {
 				return err
 			}
 		}
-		sortedCmps = append(sortedCmps, componentToConfig[name])
+		if ctc, ok := componentToConfig[name]; ok {
+			sortedCmps = append(sortedCmps, ctc)
+		}
 		return nil
 	}
 

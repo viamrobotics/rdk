@@ -30,6 +30,15 @@ const (
 	missingArmName = "arm5"
 )
 
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[arm.Named(testArmName)] = &mock{Name: testArmName}
+	deps[arm.Named(fakeArmName)] = "not an arm"
+	return deps
+}
+
 func setupInjectRobot() *inject.Robot {
 	arm1 := &mock{Name: testArmName}
 	r := &inject.Robot{}
@@ -60,6 +69,26 @@ func TestGenericDo(t *testing.T) {
 	ret, err := a.Do(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	a, err := arm.FromDependencies(deps, testArmName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, a, test.ShouldNotBeNil)
+
+	pose1, err := a.GetEndPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose1, test.ShouldResemble, pose)
+
+	a, err = arm.FromDependencies(deps, fakeArmName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeArmName, "Arm", "string"))
+	test.That(t, a, test.ShouldBeNil)
+
+	a, err = arm.FromDependencies(deps, missingArmName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingArmName))
+	test.That(t, a, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {
