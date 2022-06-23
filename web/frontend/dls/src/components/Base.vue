@@ -136,7 +136,7 @@
                 ></NumberInput>
                 <NumberInput
                   v-model="spinSpeed"
-                  class="mr-4 w-32"
+                  class="mr-2"
                   inputId="spinspeed"
                   label="Speed (deg/sec)"
                   v-if="movementMode === 'Spin'"
