@@ -90,7 +90,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger,
 		)
 	})
-	// TODO: If upload completed successfully, unmark in-progress and delete file.
+	// TODO DATA-40: If upload completed successfully, unmark in-progress and delete file.
 }
 
 func (s *syncer) Sync(paths []string) {

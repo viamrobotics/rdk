@@ -102,6 +102,9 @@ func TestNewDataManager(t *testing.T) {
 	// Verify that after close is called, the collector is no longer writing.
 	oldSize := files[0].Size()
 	err = svc.Close(context.Background())
+	// When Close returns all background processes in svc should be closed, but still sleep for 100ms to verify
+	// that there's not a resource leak causing writes to still happens after Close() returns.
+	time.Sleep(time.Millisecond * 100)
 	test.That(t, err, test.ShouldBeNil)
 	newSize := files[0].Size()
 	test.That(t, oldSize, test.ShouldEqual, newSize)
@@ -133,7 +136,7 @@ func TestManualSync(t *testing.T) {
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.Background(), testCfg)
 
-	// Give it a second to run and upload files.
+	// Run and upload files.
 	dmsvc.Sync(context.Background())
 	time.Sleep(time.Millisecond * 100)
 
@@ -174,7 +177,6 @@ func TestScheduledSync(t *testing.T) {
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1/"
-	resetFolder(t, armDir)
 
 	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
@@ -213,7 +215,6 @@ func TestManualAndScheduledSync(t *testing.T) {
 	armDir := captureDir + "/arm/arm1"
 
 	// Clear the capture dir after we're done.
-	resetFolder(t, armDir)
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
@@ -260,7 +261,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1/"
-	resetFolder(t, armDir)
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.

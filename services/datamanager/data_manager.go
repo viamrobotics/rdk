@@ -308,8 +308,8 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 }
 
 func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
-	// TODO: is this the behavior we want?
-	// If user updates sync config while manual sync is occurring, manual sync will be cancelled.
+	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
+	// TODO DATA-235: fix that
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()

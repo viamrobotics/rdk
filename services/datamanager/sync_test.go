@@ -164,18 +164,13 @@ func TestFileUpload(t *testing.T) {
 			sent: []v1.UploadRequest{},
 		}
 
-		// Create temp dir and file in that dir to be used as examples of reading data from the files into buffers
+		// Create temp file to be used as examples of reading data from the files into buffers
 		// (and finally to have that data be uploaded) to the cloud.
-		td, err := ioutil.TempDir("", "temp-dir")
-		if err != nil {
-			t.Errorf("%v: cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
-		}
-		tf, err := ioutil.TempFile(td, tc.name)
+		tf, err := ioutil.TempFile("", tc.name)
 		if err != nil {
 			t.Errorf("%v: cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
 		defer os.Remove(tf.Name())
-		defer os.Remove(td)
 
 		// Write the data from test cases into the temp file to prepare for reading by the fileUpload function.
 		if _, err := tf.Write(tc.toSend); err != nil {
@@ -269,18 +264,13 @@ func TestSensorUploadTabular(t *testing.T) {
 			sent: []v1.UploadRequest{},
 		}
 
-		// Create temp dir and file in that dir to be used as examples of reading data from the files into buffers
+		// Create temp file to be used as examples of reading data from the files into buffers
 		// (and finally to have that data be uploaded) to the cloud
-		td, err := ioutil.TempDir("", "temp-dir")
-		if err != nil {
-			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
-		}
-		tf, err := ioutil.TempFile(td, tc.name)
+		tf, err := ioutil.TempFile("", tc.name)
 		if err != nil {
 			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
 		defer os.Remove(tf.Name())
-		defer os.Remove(td)
 
 		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
 		for i := range tc.toSend {
@@ -360,18 +350,13 @@ func TestSensorUploadBinary(t *testing.T) {
 			sent: []v1.UploadRequest{},
 		}
 
-		// Create temp dir and file in that dir to be used as examples of reading data from the files into
+		// Create temp file to be used as examples of reading data from the files into
 		// buffers (and finally to have that data be uploaded) to the cloud
-		td, err := ioutil.TempDir("", "temp-dir")
-		if err != nil {
-			t.Errorf("%v cannot create temporary directory to be used for sensorUpload/fileUpload testing", tc.name)
-		}
-		tf, err := ioutil.TempFile(td, tc.name)
+		tf, err := ioutil.TempFile("", tc.name)
 		if err != nil {
 			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
 		}
 		defer os.Remove(tf.Name())
-		defer os.Remove(td)
 
 		// Write the data from the test cases into the files to prepare them for reading by the sensorUpload function.
 		if _, err := writeBinarySensorData(tf, tc.toSend); err != nil {
@@ -440,7 +425,6 @@ func TestUploadsOnce(t *testing.T) {
 }
 
 func TestUploadExponentialRetry(t *testing.T) {
-	dir := t.TempDir()
 	// Set retry related global vars to faster values for test.
 	initialWaitTime = time.Millisecond * 25
 	maxRetryInterval = time.Millisecond * 150
@@ -460,7 +444,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	sut := newTestSyncer(t, uploadFunc)
 
 	// Sync file.
-	file1, _ := ioutil.TempFile(dir, "whatever")
+	file1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(file1.Name())
 	sut.Sync([]string{file1.Name()})
 
