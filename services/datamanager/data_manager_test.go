@@ -315,7 +315,7 @@ func setConfigAdditionalSyncPaths(config *config.Config, dirs []string) error {
 	return nil
 }
 
-func populateArbitraryFiles(t *testing.T, dmsvc internal.DMService, configPath string, numDirs int) error {
+func populateArbitraryFiles(t *testing.T, configPath string, numDirs int) ([]string, *config.Config, error) {
 	t.Helper()
 
 	// Retrieve config from config filepath and
@@ -337,7 +337,6 @@ func populateArbitraryFiles(t *testing.T, dmsvc internal.DMService, configPath s
 			t.Error("cannot create temporary dir to simulate additional_sync_paths in data manager service config")
 		}
 		additionalSyncPaths = append(additionalSyncPaths, td)
-		defer os.RemoveAll(td)
 
 		// Make the first dir empty.
 		if d == 0 {
@@ -355,7 +354,6 @@ func populateArbitraryFiles(t *testing.T, dmsvc internal.DMService, configPath s
 				if err != nil {
 					t.Error("cannot create temporary file to simulate uploading from data manager service")
 				}
-				defer os.Remove(tf.Name())
 
 				// Write data to the temp file.
 				if _, err := tf.Write(fileData); err != nil {
@@ -369,5 +367,39 @@ func populateArbitraryFiles(t *testing.T, dmsvc internal.DMService, configPath s
 	err = setConfigAdditionalSyncPaths(testCfg, additionalSyncPaths)
 	test.That(t, err, test.ShouldBeNil)
 
-	return nil
+	return additionalSyncPaths, testCfg, nil
+}
+
+func TestAdditionalSyncPathsManualSync(t *testing.T) {
+
+	// Test Case Setup
+	configPath := "robots/configs/fake_dms.json"
+	numDirs := 2
+	dirs, testCfg, err := populateArbitraryFiles(t, configPath, numDirs)
+
+	// Make sure populateArbitraryFiles worked.
+	test.That(t, err, test.ShouldBeNil)
+
+	// Prepare list uploaded filepaths.
+	uploaded := []string{}
+	lock := sync.Mutex{}
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+		lock.Lock()
+		uploaded = append(uploaded, path)
+		lock.Unlock()
+		return nil
+	}
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t)
+	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.Update(context.TODO(), testCfg)
+
+	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
+	defer func() {
+		for _, dir := range dirs {
+			os.RemoveAll(dir)
+		}
+	}()
+
 }
