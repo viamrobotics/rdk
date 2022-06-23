@@ -47,6 +47,7 @@ type pmtkI2CNMEAGPS struct {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (nmeaGPS, error) {
 	b, err := board.FromRobot(r, config.Attributes.String("board"))
 =======
@@ -58,6 +59,10 @@ func newPmtkI2CNMEAGPS(
 ) (gps.LocalGPS, error) {
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 >>>>>>> 7e719b20 (RSDK-160 Remove robot robot from component constructors (#919))
+=======
+func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (nmeaGPS, error) {
+	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
+>>>>>>> bf6b9050 (i2c integrated)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
@@ -69,7 +74,7 @@ func newPmtkI2CNMEAGPS(
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
 	}
-	addr := config.Attributes.Int("address", -1)
+	addr := config.Attributes.Int("i2c_addr", -1)
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
@@ -153,7 +158,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 						err = g.data.parseAndUpdate(strBuf)
 						g.mu.Unlock()
 						if err != nil {
-							//g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
+							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
 							continue
 						// }
 						} else {
