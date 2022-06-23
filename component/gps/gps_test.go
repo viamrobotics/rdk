@@ -312,7 +312,6 @@ type mock struct {
 	satCount    int
 	accCount    int
 	validCount  int
-	fixCount    int
 	reconfCount int
 }
 

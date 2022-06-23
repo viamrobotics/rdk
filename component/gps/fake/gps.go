@@ -62,7 +62,6 @@ type GPS struct {
 	hAcc       float64
 	vAcc       float64
 	valid      bool
-	fix        int
 }
 
 // ReadLocation always returns the set values.
