@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	rdkutils "go.viam.com/rdk/utils"
@@ -325,22 +324,22 @@ func recordDepthWorker(ctx context.Context, depthSensor sensor.Sensor) {
 }
 
 // newBoat TODO.
-func newBoat(ctx context.Context, r robot.Robot) (base.Base, error) {
+func newBoat(ctx context.Context, deps registry.Dependencies) (base.Base, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	b := &boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
 	var err error
 	var ok bool
-	b.theBoard, err = board.FromRobot(r, "local")
+	b.theBoard, err = board.FromDependencies(deps, "local")
 	if err != nil {
 		return nil, err
 	}
 
-	b.starboard, err = motor.FromRobot(r, "starboard")
+	b.starboard, err = motor.FromDependencies(deps, "starboard")
 	if err != nil {
 		return nil, errors.Wrap(err, "need a starboard motor")
 	}
 
-	b.port, err = motor.FromRobot(r, "port")
+	b.port, err = motor.FromDependencies(deps, "port")
 	if err != nil {
 		return nil, errors.Wrap(err, "need a port motor")
 	}
@@ -391,11 +390,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	registry.RegisterComponent(base.Subtype, "viam-boat1", registry.Component{
 		Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newBoat(ctx, r)
+			return newBoat(ctx, deps)
 		},
 	})
 

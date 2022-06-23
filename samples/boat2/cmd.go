@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/navigation"
@@ -42,9 +41,8 @@ func main() {
 }
 
 type boat struct {
-	myRobot robot.Robot
-	myImu   imu.IMU
-	rc      input.Controller
+	myImu imu.IMU
+	rc    input.Controller
 
 	squirt, thrust  motor.Motor
 	starboard, port motor.Motor
@@ -160,29 +158,29 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, pctMaxRPM float64) error {
 	)
 }
 
-func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.LocalBase, error) {
+func newBoat(ctx context.Context, deps registry.Dependencies, logger golog.Logger) (base.LocalBase, error) {
 	var err error
 	var ok bool
 
-	b := &boat{myRobot: r}
+	b := &boat{}
 
-	b.myImu, err = imu.FromRobot(r, "imu")
+	b.myImu, err = imu.FromDependencies(deps, "imu")
 	if err != nil {
 		return nil, err
 	}
 
-	b.rc, err = input.FromRobot(r, "BoatRC")
+	b.rc, err = input.FromDependencies(deps, "BoatRC")
 	if err != nil {
 		return nil, err
 	}
 	// get all motors
 
-	b.squirt, err = motor.FromRobot(r, "squirt")
+	b.squirt, err = motor.FromDependencies(deps, "squirt")
 	if err != nil {
 		return nil, errors.Wrap(err, "no squirt motor")
 	}
 
-	steeringMotor, err := motor.FromRobot(r, "steering")
+	steeringMotor, err := motor.FromDependencies(deps, "steering")
 	if err != nil {
 		return nil, errors.Wrap(err, "no steering motor")
 	}
@@ -192,17 +190,17 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 	}
 	b.steering = stoppableMotor
 
-	b.thrust, err = motor.FromRobot(r, "thrust")
+	b.thrust, err = motor.FromDependencies(deps, "thrust")
 	if err != nil {
 		return nil, errors.Wrap(err, "no thrust motor")
 	}
 
-	b.starboard, err = motor.FromRobot(r, "starboard")
+	b.starboard, err = motor.FromDependencies(deps, "starboard")
 	if err != nil {
 		return nil, errors.Wrap(err, "no starboard motor")
 	}
 
-	b.port, err = motor.FromRobot(r, "port")
+	b.port, err = motor.FromDependencies(deps, "port")
 	if err != nil {
 		return nil, errors.Wrap(err, "no port motor")
 	}
@@ -535,11 +533,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	registry.RegisterComponent(base.Subtype, "viam-boat2", registry.Component{
 		Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newBoat(ctx, r, logger)
+			return newBoat(ctx, deps, logger)
 		},
 	})
 
