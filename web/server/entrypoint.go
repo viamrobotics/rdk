@@ -389,11 +389,10 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				continue
 			}
 			checkNeedsRestart := func() bool {
-
 				defer utils.UncheckedErrorFunc(resp.Body.Close)
 
 				if resp.StatusCode != http.StatusOK {
-					logger.Debugw("bad status code", "status_code", rest.StatusCode)
+					logger.Debugw("bad status code", "status_code", resp.StatusCode)
 					return false
 				}
 
@@ -404,7 +403,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				}
 
 				return bytes.Equal(read, []byte("true"))
-
 			}
 			if checkNeedsRestart() {
 				cancel()
