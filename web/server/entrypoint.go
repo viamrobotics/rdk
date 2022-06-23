@@ -378,6 +378,10 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				return
 			}
 			req, err := config.CreateCloudRequest(ctx, processedConfig.Cloud)
+			if err != nil {
+				logger.Debugw("error creating cloud request")
+				continue
+			}
 			req.URL.Path = "/api/json1/needs_restart"
 			resp, err := client.Do(req)
 			if err != nil {
