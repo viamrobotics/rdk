@@ -379,27 +379,27 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			}
 			req, err := config.CreateCloudRequest(ctx, processedConfig.Cloud)
 			if err != nil {
-				logger.Debugw("error creating cloud request")
+				logger.Debugw("error creating cloud request", "error", err)
 				continue
 			}
 			req.URL.Path = "/api/json1/needs_restart"
 			resp, err := client.Do(req)
 			if err != nil {
-				logger.Debugw("error querying cloud request")
+				logger.Debugw("error querying cloud request", "error", err)
 				continue
 			}
 			checkNeedsRestart := func() bool {
 
-				defer resp.Body.Close()
+				defer utils.UncheckedErrorFunc(resp.Body.Close)
 
 				if resp.StatusCode != http.StatusOK {
-					logger.Debugw("bad status code")
+					logger.Debugw("bad status code", "status_code", rest.StatusCode)
 					return false
 				}
 
 				read, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					logger.Debugw("error reading response")
+					logger.Debugw("error reading response", "error", err)
 					return false
 				}
 
