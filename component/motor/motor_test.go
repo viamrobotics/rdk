@@ -117,12 +117,17 @@ func TestNamesFromRobot(t *testing.T) {
 }
 
 func TestStatusValid(t *testing.T) {
-	status := &pb.Status{IsOn: true, PositionReporting: true, Position: 7.7}
+	status := &pb.Status{IsPowered: true, PositionReporting: true, Position: 7.7}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
 	newStruct, err := structpb.NewStruct(map1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"is_on": true, "position_reporting": true, "position": 7.7})
+	test.That(
+		t,
+		newStruct.AsMap(),
+		test.ShouldResemble,
+		map[string]interface{}{"is_powered": true, "position_reporting": true, "position": 7.7},
+	)
 
 	convMap := &pb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -150,11 +155,11 @@ func TestCreateStatus(t *testing.T) {
 	_, err := motor.CreateStatus(context.Background(), "not a motor")
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", "string"))
 
-	status := &pb.Status{IsOn: true, PositionReporting: true, Position: 7.7}
+	status := &pb.Status{IsPowered: true, PositionReporting: true, Position: 7.7}
 
 	injectMotor := &inject.Motor{}
 	injectMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
-		return status.IsOn, nil
+		return status.IsPowered, nil
 	}
 	injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{motor.PositionReporting: status.PositionReporting}, nil
@@ -185,7 +190,7 @@ func TestCreateStatus(t *testing.T) {
 
 		status1, err := motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status1, test.ShouldResemble, &pb.Status{IsOn: true, PositionReporting: false})
+		test.That(t, status1, test.ShouldResemble, &pb.Status{IsPowered: true, PositionReporting: false})
 	})
 
 	t.Run("fail on GetFeatures", func(t *testing.T) {
