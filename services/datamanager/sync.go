@@ -237,10 +237,12 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return errors.New("no data type specified in upload metadata")
 	}
 
+	// TODO: I think we want to delete this, because we want to read starting at the second message (first sensordata) now
 	// Reset file pointer to ensure we are reading from beginning of file.
-	if _, err = f.Seek(0, 0); err != nil {
-		return err
-	}
+	//if _, err = f.Seek(0, 0); err != nil {
+	//	return err
+	//}
+
 	// Loop until there is no more content to be read from file.
 	for {
 		// Get the next UploadRequest from the file.
