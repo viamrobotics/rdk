@@ -2,6 +2,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -175,30 +176,17 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func getDataTypeFromLeadingMessage(f *os.File) (v1.DataType, error) {
+func getSyncMetadata(f *os.File) (*v1.SyncMetadata, error) {
 	if _, err := f.Seek(0, 0); err != nil {
-		return v1.DataType_DATA_TYPE_UNSPECIFIED, err
+		return nil, err
 	}
 
-	// Read the file as if it is SensorData, and if the error is EOF (end of file) that means the filetype is
-	// arbitrary because no protobuf-generated structs (for SensorData) were able to be read (and thus the file has no
-	// readable data). If the error is anything other than EOF, return the data type as UNSPECIFIED with the
-	// corresponding error.
-	sensorData, err := readNextSensorData(f)
-
-	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
-		return v1.DataType_DATA_TYPE_FILE, nil
+	r := &v1.SyncMetadata{}
+	if _, err := pbutil.ReadDelimited(f, r); err != nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read SyncMetadata from %s", f.Name()))
 	}
 
-	// If sensorData contains a struct it's tabular data; if it contains binary it's binary data; if it contains
-	// neither it is invalid.
-	if s := sensorData.GetStruct(); s != nil {
-		return v1.DataType_DATA_TYPE_TABULAR_SENSOR, nil
-	}
-	if b := sensorData.GetBinary(); b != nil {
-		return v1.DataType_DATA_TYPE_BINARY_SENSOR, nil
-	}
-	return v1.DataType_DATA_TYPE_UNSPECIFIED, errors.New("sensordata data type not specified")
+	return r, nil
 }
 
 func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
@@ -212,42 +200,33 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return err
 	}
 
-	// Parse filepath to get metadata about the file which we will be reading from.
-	// TODO: construct metadata gRPC message that contains PartName, ComponentName, MethodName
-
-	// dataType represents the protobuf DataType value describing the file to be uploaded.
-	dataType, err := getDataTypeFromLeadingMessage(f)
+	md, err := getSyncMetadata(f)
 	if err != nil {
-		return errors.Wrap(err, "error while getting metadata data type")
+		return err
 	}
 
-	// METADATA FIELDS FOR CONSTRUCTION BELOW:
-	// PartName: TODO [DATA-164]
-	// ComponentName: Above
-	// MethodName: TODO [DATA-164]
-	// Type: Above
-	// FileName: Above
-
-	// Actually construct the Metadata
-	md := &v1.UploadRequest{
+	// Construct the Metadata
+	req := &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			// TODO: Figure out best way to pass these in.
 			Metadata: &v1.UploadMetadata{
-				PartName:      hardCodePartName,
-				ComponentName: hardCodeComponentName,
-				MethodName:    hardCodeMethodName,
-				Type:          dataType,
-				FileName:      filepath.Base(f.Name()),
+				PartId:           md.GetPartId(),
+				ComponentType:    md.GetComponentType(),
+				ComponentName:    md.GetComponentName(),
+				MethodName:       md.GetMethodName(),
+				Type:             md.GetType(),
+				FileName:         filepath.Base(f.Name()),
+				MethodParameters: md.GetMethodParameters(),
 			},
 		},
 	}
-	if err := client.Send(md); err != nil {
+	if err := client.Send(req); err != nil {
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
 	var getNextRequest func(context.Context, *os.File) (*v1.UploadRequest, error)
 
-	switch md.GetMetadata().GetType() {
+	switch md.GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
 		getNextRequest = getNextSensorUploadRequest
 	case v1.DataType_DATA_TYPE_FILE:
@@ -282,6 +261,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 			return errors.Wrap(err, "error while sending uploadRequest")
 		}
 	}
+
 	if err = f.Close(); err != nil {
 		return err
 	}

@@ -2,6 +2,8 @@ module go.viam.com/rdk
 
 go 1.17
 
+replace go.viam.com/api => /Users/aaroncasas/code/api
+
 require (
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
 	github.com/Masterminds/sprig v2.22.0+incompatible
