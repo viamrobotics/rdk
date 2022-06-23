@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -358,8 +359,12 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 				remoteConfig.AllowInsecureCreds = true
 
-				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
+				r3, err := robotimpl.New(context.Background(), remoteConfig, logger)
 				test.That(t, err, test.ShouldBeNil)
+				test.That(t, r3, test.ShouldNotBeNil)
+				remoteBot, ok := r3.RemoteByName("foo")
+				test.That(t, ok, test.ShouldBeFalse)
+				test.That(t, remoteBot, test.ShouldBeNil)
 
 				remoteConfig.Remotes[0].Auth.Entity = entityName
 				remoteConfig.Remotes[1].Auth.Entity = entityName

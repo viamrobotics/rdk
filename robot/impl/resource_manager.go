@@ -386,7 +386,7 @@ func (manager *resourceManager) newRemote(ctx context.Context, config config.Rem
 				err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
 			}
 		}
-		// TODO: return a remote robot here that continues to retry
+		// TODO: [RSDK-428] return a remote robot here that continues to retry
 		return errors.Errorf("couldn't connect to robot remote %v with error: %v", config.Address, err)
 	}
 	configCopy := config
@@ -526,8 +526,14 @@ func (manager *resourceManager) updateRemotes(ctx context.Context,
 }
 
 func (manager *resourceManager) reconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
+	if old == nil {
+		// if the oldPart was never created, replace directly with the new resource
+		return newR, nil
+	}
+
 	oldPart, oldResourceIsReconfigurable := old.(resource.Reconfigurable)
 	newPart, newResourceIsReconfigurable := newR.(resource.Reconfigurable)
+
 	switch {
 	case oldResourceIsReconfigurable != newResourceIsReconfigurable:
 		// this is an indicator of a serious constructor problem

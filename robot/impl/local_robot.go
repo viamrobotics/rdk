@@ -320,17 +320,17 @@ func newWithResources(
 	r.config = cfg
 
 	// default services
-	for _, name := range defaultSvc {
+	for _, service := range defaultSvc {
 		cfg := config.Service{
-			Namespace: name.Namespace,
-			Type:      config.ServiceType(name.ResourceSubtype),
+			Namespace: service.Namespace,
+			Type:      config.ServiceType(service.ResourceSubtype),
 		}
 		svc, err := r.newService(ctx, cfg)
 		if err != nil {
-			logger.Errorw("failed to add default service", "error", err, "service name", name)
+			logger.Errorw("failed to add default service", "error", err, "service name", service)
 			continue
 		}
-		r.manager.addResource(name, svc)
+		r.manager.addResource(service, svc)
 	}
 
 	r.internalServices = make(map[internalServiceName]interface{})

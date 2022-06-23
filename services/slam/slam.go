@@ -60,11 +60,7 @@ func init() {
 	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			svc, err := New(ctx, r, c, logger)
-			if err != nil {
-				return nil, err
-			}
-			return svc, nil
+			return New(ctx, r, c, logger)
 		},
 	})
 }
