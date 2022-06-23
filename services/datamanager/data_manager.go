@@ -3,6 +3,8 @@ package datamanager
 
 import (
 	"context"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -172,6 +174,7 @@ type dataManagerService struct {
 	backgroundWorkers        sync.WaitGroup
 	uploadFunc               uploadFn
 	updateCollectorsCancelFn func()
+	partID                   string
 }
 
 // Parameters stored for each collector.
@@ -198,14 +201,24 @@ func getFileTimestampName() string {
 }
 
 // Create a timestamped file within the given capture directory.
-func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, componentName string) (*os.File, error) {
-	fileDir := filepath.Join(captureDir, string(subtypeName), componentName)
+func createDataCaptureFile(captureDir string, md *v1.SyncMetadata) (*os.File, error) {
+	// First create directories and the file in it.
+	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
 	fileName := filepath.Join(fileDir, getFileTimestampName())
 	//nolint:gosec
-	return os.Create(fileName)
+	f, err := os.Create(fileName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Then write first metadata message to the file.
+	if _, err := pbutil.WriteDelimited(f, md); err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -223,6 +236,16 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		ComponentName:  attributes.Name,
 		MethodMetadata: metadata,
 	}
+	// Build metadata.
+	syncMetadata := v1.SyncMetadata{
+		PartId:           svc.partID,
+		ComponentType:    string(attributes.Type),
+		ComponentName:    attributes.Name,
+		MethodName:       attributes.Method,
+		Type:             getDataType(string(attributes.Type), attributes.Method),
+		MethodParameters: attributes.AdditionalParams,
+	}
+
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
 		previousAttributes := storedCollectorParams.Attributes
@@ -230,8 +253,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := createDataCaptureFile(
-					svc.captureDir, attributes.Type, attributes.Name)
+				targetFile, err := createDataCaptureFile(svc.captureDir, &syncMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -263,7 +285,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, attributes.Name)
+	targetFile, err := createDataCaptureFile(svc.captureDir, &syncMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +379,17 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
-		nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
+		// Build metadata.
+		syncMetadata := v1.SyncMetadata{
+			PartId:           svc.partID,
+			ComponentType:    string(collector.Attributes.Type),
+			ComponentName:    collector.Attributes.Name,
+			MethodName:       collector.Attributes.Method,
+			Type:             getDataType(string(collector.Attributes.Type), collector.Attributes.Method),
+			MethodParameters: collector.Attributes.AdditionalParams,
+		}
+
+		nextTarget, err := createDataCaptureFile(svc.captureDir, &syncMetadata)
 		if err != nil {
 			svc.logger.Errorw("failed to create new data capture file", "error", err)
 		}
@@ -390,7 +422,7 @@ func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 
 // Get the component configs associated with the data manager service.
 func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
-	componentDataCaptureConfigs := []dataCaptureConfig{}
+	var componentDataCaptureConfigs []dataCaptureConfig
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
@@ -515,4 +547,12 @@ func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
 		svc.updateCollectorsCancelFn()
 		svc.updateCollectorsCancelFn = nil
 	}
+}
+
+// TODO: Implement this in some more roboust way. Probably by making the DataType a field of the collector.
+func getDataType(componentType string, methodName string) v1.DataType {
+	if methodName == "NextPointCloud" {
+		return v1.DataType_DATA_TYPE_BINARY_SENSOR
+	}
+	return v1.DataType_DATA_TYPE_TABULAR_SENSOR
 }
