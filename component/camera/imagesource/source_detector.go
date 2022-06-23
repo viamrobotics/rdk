@@ -81,7 +81,7 @@ type detectorSource struct {
 	logger       golog.Logger
 }
 
-// Next returns the image overlaid with the detection bounding boxes
+// Next returns the image overlaid with the detection bounding boxes.
 func (ds *detectorSource) Next(ctx context.Context) (image.Image, func(), error) {
 	// get the bounding boxes from the service
 	srv, err := vision.FromRobot(ds.r)
@@ -104,5 +104,4 @@ func (ds *detectorSource) Next(ctx context.Context) (image.Image, func(), error)
 		return nil, nil, fmt.Errorf("could not overlay bounding boxes: %w", err)
 	}
 	return res, release, nil
-
 }
