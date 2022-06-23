@@ -303,11 +303,31 @@ func setConfigIntervalMins(config *config.Config, interval float64) error {
 	return nil
 }
 
-func populateArbitraryFiles(t *testing.T, numDirs int) error {
+func setConfigAdditionalSyncPaths(config *config.Config, dirs []string) error {
+	svcConfig, ok, err := datamanager.GetServiceConfig(config)
+	if !ok {
+		return errors.New("failed to get service config")
+	}
+	if err != nil {
+		return err
+	}
+	svcConfig.AdditionalSyncPaths = dirs
+	return nil
+}
+
+func populateArbitraryFiles(t *testing.T, dmsvc internal.DMService, configPath string, numDirs int) error {
 	t.Helper()
+
+	// Retrieve config from config filepath and
+	testCfg := setupConfig(t, configPath)
+	err := setConfigIntervalMins(testCfg, 0.0041)
+	test.That(t, err, test.ShouldBeNil)
 
 	// bytesPerFile value doesn't really matter, but maybe it will in future testing?
 	bytesPerFile := 100
+
+	// Slice of temp dirs to be generated.
+	additionalSyncPaths := []string{}
 
 	// Begin generating additional_sync_paths "dummy" dirs & files.
 	for d := 0; d < numDirs; d++ {
@@ -316,6 +336,7 @@ func populateArbitraryFiles(t *testing.T, numDirs int) error {
 		if err != nil {
 			t.Error("cannot create temporary dir to simulate additional_sync_paths in data manager service config")
 		}
+		additionalSyncPaths = append(additionalSyncPaths, td)
 		defer os.RemoveAll(td)
 
 		// Make the first dir empty.
@@ -341,8 +362,12 @@ func populateArbitraryFiles(t *testing.T, numDirs int) error {
 					t.Error("cannot write arbitrary data to temporary file")
 				}
 			}
-
 		}
 	}
+
+	// Add the additional sync paths dirs to the test case datamanager config.
+	err = setConfigAdditionalSyncPaths(testCfg, additionalSyncPaths)
+	test.That(t, err, test.ShouldBeNil)
+
 	return nil
 }
