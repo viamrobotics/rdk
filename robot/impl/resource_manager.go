@@ -388,7 +388,8 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 
 // newComponents constructs all components defined.
 func (manager *resourceManager) newComponents(ctx context.Context,
-	components []config.Component, robot *localRobot, logger golog.Logger) error {
+	components []config.Component, robot *localRobot, logger golog.Logger,
+) error {
 	for _, c := range components {
 		rName := c.ResourceName()
 		logger.Infof("adding component %s, %s", rName.Subtype, c.Model)
