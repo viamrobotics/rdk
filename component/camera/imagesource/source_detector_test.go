@@ -120,10 +120,6 @@ func TestColorDetectionSource(t *testing.T) {
 	resImg, _, err := detector.Next(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
-	tempFileName := os.TempDir() + "source_detector_color.jpg"
-	err = rimage.SaveImage(ovImg, tempFileName)
-	t.Logf("image saved at %s", tempFileName)
-	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(984, 561), test.ShouldResemble, rimage.Red)
 }
@@ -157,10 +153,6 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	resImg, _, err := detector.Next(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
-	tempFileName := os.TempDir() + "source_detector_tflite.jpg"
-	err = rimage.SaveImage(ovImg, tempFileName)
-	t.Logf("image saved at %s", tempFileName)
-	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ovImg.GetXY(624, 402), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(816, 648), test.ShouldResemble, rimage.Red)
 }
