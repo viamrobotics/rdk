@@ -53,7 +53,7 @@ jobs:
         sudo -u testbot bash -lc 'make test-web'
 
     - name: Code Coverage Summary Report
-      uses: irongut/CodeCoverageSummary@v1.2.0
+      uses: edaniels/CodeCoverageSummary@v1.2.2
       with:
         filename: coverage.xml
         badge: true
