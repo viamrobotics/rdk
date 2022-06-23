@@ -68,6 +68,7 @@ type Service interface {
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
+const dataCaptureFileExt = ".sd"
 
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
@@ -207,7 +208,7 @@ func createDataCaptureFile(captureDir string, md *v1.SyncMetadata) (*os.File, er
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
-	fileName := filepath.Join(fileDir, getFileTimestampName())
+	fileName := filepath.Join(fileDir, getFileTimestampName()) + dataCaptureFileExt
 	//nolint:gosec
 	f, err := os.Create(fileName)
 	if err != nil {
