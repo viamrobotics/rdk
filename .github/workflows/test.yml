@@ -73,7 +73,7 @@ jobs:
       with:
         recreate: true
         path: code-coverage-results.md
-        GITHUB_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
 
   test_pi:
     name: Test Raspberry Pi Code
