@@ -434,3 +434,47 @@ func TestResourceNameValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoteResource(t *testing.T) {
+	n, err := resource.NewFromString("rdk:component:gps/gps1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldResemble, resource.Name{
+		Subtype: resource.Subtype{
+			Type: resource.Type{
+				Namespace:    resource.ResourceNamespaceRDK,
+				ResourceType: resource.ResourceTypeComponent,
+			},
+			ResourceSubtype: gps.SubtypeName,
+		},
+		Name: "gps1",
+	})
+
+	test.That(t, n.IsRemoteResource(), test.ShouldBeFalse)
+
+	n1 := n.PrependRemote("remote1")
+
+	test.That(t, n1.IsRemoteResource(), test.ShouldBeTrue)
+	test.That(t, n1.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
+	test.That(t, n1.String(), test.ShouldResemble, "remote1:rdk:component:gps/gps1")
+
+	test.That(t, n1, test.ShouldNotResemble, n)
+
+	n2 := n1.PrependRemote("remote2")
+
+	test.That(t, n2.IsRemoteResource(), test.ShouldBeTrue)
+	test.That(t, n2.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote2:remote1"))
+	test.That(t, n2.String(), test.ShouldResemble, "remote2:remote1:rdk:component:gps/gps1")
+
+	n3 := n2.PopRemote()
+	test.That(t, n3.IsRemoteResource(), test.ShouldBeTrue)
+	test.That(t, n3.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
+	test.That(t, n3, test.ShouldResemble, n1)
+	test.That(t, n3.String(), test.ShouldResemble, "remote1:rdk:component:gps/gps1")
+
+	n4 := n3.PopRemote()
+	test.That(t, n4.IsRemoteResource(), test.ShouldBeFalse)
+	test.That(t, n4.Remote.Remote, test.ShouldResemble, resource.RemoteName(""))
+	test.That(t, n4, test.ShouldResemble, n)
+	test.That(t, n4.String(), test.ShouldResemble, "rdk:component:gps/gps1")
+
+}

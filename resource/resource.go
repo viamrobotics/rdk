@@ -152,16 +152,20 @@ func NewFromString(resourceName string) (Name, error) {
 		matches[3]), nil
 }
 
-// PrependRemote prepend a remote to a name.
-func (n *Name) PrependRemote(remote RemoteName) {
-	if n.Remote.Remote == "" {
-		n.Remote.Remote = remote
-	} else {
-		n.Remote.Remote = RemoteName(strings.Join([]string{string(remote), string(n.Remote.Remote)}, ":"))
+// PrependRemote returns a Name with a remote prepended.
+func (n Name) PrependRemote(remote RemoteName) Name {
+	if len(n.Remote.Remote) > 1 {
+		remote = RemoteName(strings.Join([]string{string(remote), string(n.Remote.Remote)}, ":"))
 	}
+	return NewRemoteName(
+		remote,
+		n.Namespace,
+		n.ResourceType,
+		n.ResourceSubtype,
+		n.Name)
 }
 
-// PopRemote pop the first remote from a Name and returns a copy fo the Name.
+// PopRemote pop the first remote from a Name (if any) and returns the new Name.
 func (n Name) PopRemote() Name {
 	if n.Remote.Remote == "" {
 		return n
