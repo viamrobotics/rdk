@@ -315,7 +315,7 @@ func setConfigAdditionalSyncPaths(config *config.Config, dirs []string) error {
 	return nil
 }
 
-func populateArbitraryFiles(t *testing.T, configPath string, numDirs int) ([]string, *config.Config, int, error) {
+func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPerDir int) ([]string, *config.Config, int, error) {
 	t.Helper()
 
 	// Retrieve config from config filepath and
@@ -331,7 +331,6 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs int) ([]str
 
 	// Number of total files to be synced.
 	numFilesToBeSynced := 0
-	maxFilesPerDir := 2
 
 	// Begin generating additional_sync_paths "dummy" dirs & files.
 	for d := 0; d < numDirs; d++ {
@@ -377,12 +376,24 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs int) ([]str
 	return additionalSyncPaths, testCfg, numFilesToBeSynced, nil
 }
 
+func noRepeatedElements(slice []string) bool {
+	visited := make(map[string]bool, 0)
+	for i := 0; i < len(slice); i++ {
+		if visited[slice[i]] {
+			return false
+		}
+		visited[slice[i]] = true
+	}
+	return true
+}
+
 func TestAdditionalSyncPathsManualSync(t *testing.T) {
 
 	// Test Case Setup
 	configPath := "robots/configs/fake_dms.json"
 	numDirs := 2
-	dirs, testCfg, numFilesToBeSynced, err := populateArbitraryFiles(t, configPath, numDirs)
+	maxFilesPerDir := 2
+	dirs, testCfg, numFilesToBeSynced, err := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
 
 	// Make sure populateArbitraryFiles worked.
 	test.That(t, err, test.ShouldBeNil)
@@ -418,6 +429,103 @@ func TestAdditionalSyncPathsManualSync(t *testing.T) {
 	// Verify that the file was uploaded.
 	lock.Lock()
 	test.That(t, len(uploaded), test.ShouldEqual, numFilesToBeSynced)
+	test.That(t, noRepeatedElements(uploaded), test.ShouldEqual, true)
 	lock.Unlock()
+}
 
+func TestAdditionalSyncPathsScheduledSync(t *testing.T) {
+
+	// Test Case Setup
+	configPath := "robots/configs/fake_dms.json"
+	numDirs := 2
+	maxFilesPerDir := 2
+	dirs, testCfg, numFilesToBeSynced, err := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
+
+	// Make sure populateArbitraryFiles worked.
+	test.That(t, err, test.ShouldBeNil)
+
+	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
+	defer func() {
+		for _, dir := range dirs {
+			os.RemoveAll(dir)
+		}
+	}()
+
+	// Prepare list uploaded filepaths.
+	uploaded := []string{}
+	lock := sync.Mutex{}
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+		lock.Lock()
+		uploaded = append(uploaded, path)
+		lock.Unlock()
+		return nil
+	}
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t)
+	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.Update(context.TODO(), testCfg)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait more than 250ms (in this case 300ms)
+	// to ensure files are uploaded.
+	time.Sleep(time.Millisecond * 300)
+	_ = dmsvc.Close(context.TODO())
+
+	// Verify that the files were uploaded.
+	lock.Lock()
+	test.That(t, len(uploaded), test.ShouldEqual, numFilesToBeSynced)
+	t.Logf("# uploaded files: %v, # available files for upload: %v", len(uploaded), numFilesToBeSynced)
+	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
+	lock.Unlock()
+}
+
+func TestAdditionalSyncPathsManualAndScheduledSync(t *testing.T) {
+
+	// Test Case Setup
+	configPath := "robots/configs/fake_dms.json"
+	numDirs := 2
+	maxFilesPerDir := 2
+	dirs, testCfg, numFilesToBeSynced, err := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
+
+	// Make sure populateArbitraryFiles worked.
+	test.That(t, err, test.ShouldBeNil)
+
+	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
+	defer func() {
+		for _, dir := range dirs {
+			os.RemoveAll(dir)
+		}
+	}()
+
+	// Prepare list uploaded filepaths.
+	uploaded := []string{}
+	lock := sync.Mutex{}
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+		lock.Lock()
+		uploaded = append(uploaded, path)
+		lock.Unlock()
+		return nil
+	}
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t)
+	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.Update(context.TODO(), testCfg)
+
+	// Perform a manual and scheduled syncDataCaptureFiles at approximately the same time, then close the svc.
+	time.Sleep(time.Millisecond * 250)
+	dmsvc.Sync(context.TODO())
+	time.Sleep(time.Millisecond * 100)
+	_ = dmsvc.Close(context.TODO())
+
+	// Verify two files were uploaded, and that they're different.
+	test.That(t, len(uploaded), test.ShouldEqual, 2)
+	test.That(t, uploaded[0], test.ShouldNotEqual, uploaded[1])
+
+	// Verify that the files were uploaded.
+	lock.Lock()
+	test.That(t, len(uploaded), test.ShouldEqual, numFilesToBeSynced)
+	t.Logf("# uploaded files: %v, # available files for upload: %v", len(uploaded), numFilesToBeSynced)
+	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
+	lock.Unlock()
 }
