@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"os"
 	"strings"
 
@@ -104,7 +103,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 			continue
 		}
 		rrName := res
-		res.PrependRemote(resource.RemoteName(remoteName.Name))
+		res = res.PrependRemote(resource.RemoteName(remoteName.Name))
 		if _, ok := visited[res]; ok {
 			visited[res] = true
 			continue
@@ -116,7 +115,6 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 				"name", rrName,
 				"reason", err)
 		}
-		// fmt.Printf("AProcessing the following resource %s we have %+v err is %+v\r\n", res, iface, err)
 		manager.addResource(res, iface)
 		err = manager.resources.AddChildren(res, remoteName)
 		if err != nil {
@@ -125,7 +123,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 	}
 	for res, visit := range visited {
 		if !visit {
-			//TODO(npmenard) Add test case
+			// TODO(npmenard) Add test case
 			sg, err := manager.resources.SubGraphFrom(res)
 			if err != nil {
 				manager.logger.Errorf("tried to remove remote resource %q but it doesn't exist", res)
@@ -273,9 +271,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 
 	order := manager.resources.TopologicalSort()
 	for _, x := range order {
-		// fmt.Printf("Closing %+v\r\n", x)
 		if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
-			// fmt.Printf("+++++>>>>---- %+v\r\n", err)
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 		}
 	}
@@ -398,7 +394,8 @@ func (manager *resourceManager) newProcesses(ctx context.Context, processes []pe
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (manager *resourceManager) newRemotes(ctx context.Context,
 	remotes []config.Remote, logger golog.Logger,
-	notifyChannel chan<- resource.Name) error {
+	notifyChannel chan<- resource.Name,
+) error {
 	for _, config := range remotes {
 		dialOpts := remoteDialOptions(config, manager.opts)
 		robotClient, err := dialRobotClient(ctx, config, logger, dialOpts...)
@@ -416,7 +413,6 @@ func (manager *resourceManager) newRemotes(ctx context.Context,
 		manager.addRemote(ctx, robotClient, configCopy)
 		robotClient.SetParentNotifier(func() {
 			rName := fromRemoteNameToRemoteNodeName(configCopy.Name)
-			fmt.Printf("-----> notifying %s\r\n", rName)
 			notifyChannel <- rName
 		})
 	}

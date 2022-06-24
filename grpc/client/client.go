@@ -116,6 +116,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	return rc, nil
 }
 
+// SetParentNotifier set the notifier function, robot client will use that the relay changes.
 func (rc *RobotClient) SetParentNotifier(f func()) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
