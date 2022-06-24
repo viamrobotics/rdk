@@ -3,6 +3,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -201,6 +202,7 @@ func getFileTimestampName() string {
 
 // Create a timestamped file within the given capture directory.
 func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, componentName string) (*os.File, error) {
+	fmt.Println("start - createDataCaptureFile")
 	fileDir := filepath.Join(captureDir, string(subtypeName), componentName)
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
@@ -216,6 +218,8 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	attributes dataCaptureConfig, updateCaptureDir bool) (
 	*componentMethodMetadata, error,
 ) {
+	fmt.Println("start - initializeOrUpdateCollector")
+
 	// Create component/method metadata to check if the collector exists.
 	metadata := data.MethodMetadata{
 		Subtype:    attributes.Type,
@@ -310,6 +314,8 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 }
 
 func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
+	fmt.Println("start - initOrUpdateSyncer")
+
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -353,8 +359,8 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 				return nil
 			})
 		}
-
 		svc.syncer.Sync(additionalSyncPathsFiles)
+
 		// Kick off background routine to periodically sync files.
 		//nolint:contextcheck
 		svc.startSyncBackgroundRoutine(intervalMins)
@@ -363,6 +369,8 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *dataManagerService) Sync(ctx context.Context) error {
+	fmt.Println("start - Sync")
+
 	if svc.syncer == nil {
 		panic("called Sync on data manager service with nil syncer")
 	}
@@ -373,6 +381,7 @@ func (svc *dataManagerService) Sync(ctx context.Context) error {
 }
 
 func (svc *dataManagerService) syncDataCaptureFiles() {
+	fmt.Println("start - syncDataCaptureFiles")
 	svc.lock.Lock()
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
@@ -391,6 +400,7 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 // Add files contained in additional sync paths to syncManager (to then be synced). Before adding, ensure the dirs
 // exist (and if they don't, create them). Once all files in additional sync paths have been added, sync them all.
 func (svc *dataManagerService) syncAdditionalSyncPaths() error {
+	fmt.Println("start - syncAdditionalSyncPaths")
 
 	// Slice containing all filepaths (from each additional sync path) that need to be synced.
 	var filepathsToSync []string
@@ -477,6 +487,8 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
+	fmt.Println("start - Update")
+
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
@@ -500,15 +512,17 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return err
 	}
 
-	if len(allComponentAttributes) == 0 {
-		svc.logger.Warn("Could not find any components with data_manager service configuration")
-		return nil
-	}
+	// if len(allComponentAttributes) == 0 {
+	// 	svc.logger.Warn("Could not find any components with data_manager service configuration")
+	// 	return nil
+	// }
 
-	if svcConfig.SyncIntervalMins != svc.syncIntervalMins {
+	if svcConfig.SyncIntervalMins != svc.syncIntervalMins ||
+		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
 		//nolint:contextcheck
 		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 	}
 
 	// Initialize or add a collector based on changes to the component configurations.
@@ -537,6 +551,8 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 }
 
 func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMins float64) {
+	fmt.Println("start - uploadData")
+
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -564,12 +580,16 @@ func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMin
 }
 
 func (svc *dataManagerService) startSyncBackgroundRoutine(intervalMins float64) {
+	fmt.Println("start - startSyncBackgroundRoutine")
+
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.updateCollectorsCancelFn = fn
 	svc.uploadData(cancelCtx, intervalMins)
 }
 
 func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
+	fmt.Println("start - cancelSyncBackgroundRoutine")
+
 	if svc.updateCollectorsCancelFn != nil {
 		svc.updateCollectorsCancelFn()
 		svc.updateCollectorsCancelFn = nil

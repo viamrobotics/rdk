@@ -331,7 +331,7 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs int) ([]str
 
 	// Number of total files to be synced.
 	numFilesToBeSynced := 0
-	maxFilesPerDir := 2 //rand.Intn(2)
+	maxFilesPerDir := 2
 
 	// Begin generating additional_sync_paths "dummy" dirs & files.
 	for d := 0; d < numDirs; d++ {
@@ -387,6 +387,13 @@ func TestAdditionalSyncPathsManualSync(t *testing.T) {
 	// Make sure populateArbitraryFiles worked.
 	test.That(t, err, test.ShouldBeNil)
 
+	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
+	defer func() {
+		for _, dir := range dirs {
+			os.RemoveAll(dir)
+		}
+	}()
+
 	// Prepare list uploaded filepaths.
 	uploaded := []string{}
 	lock := sync.Mutex{}
@@ -400,22 +407,17 @@ func TestAdditionalSyncPathsManualSync(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t)
 	dmsvc.SetUploadFn(uploadFn)
+	// dmsvc.SetAdditionalSyncPaths(dirs)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Run and upload files.
 	dmsvc.Sync(context.Background())
 	time.Sleep(time.Millisecond * 100)
+	_ = dmsvc.Close(context.TODO())
 
 	// Verify that the file was uploaded.
 	lock.Lock()
 	test.That(t, len(uploaded), test.ShouldEqual, numFilesToBeSynced)
 	lock.Unlock()
-
-	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
-	defer func() {
-		for _, dir := range dirs {
-			os.RemoveAll(dir)
-		}
-	}()
 
 }

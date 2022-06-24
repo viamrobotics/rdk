@@ -12,5 +12,10 @@ func (svc *dataManagerService) SetUploadFn(fn func(ctx context.Context, client v
 	svc.uploadFunc = fn
 }
 
+// SetAdditionalSyncPaths sets the additional sync paths to sync when initialized/changed in Service.
+func (svc *dataManagerService) SetAdditionalSyncPaths(asp []string) {
+	svc.additionalSyncPaths = asp
+}
+
 // Make getServiceConfig global for tests.
 var GetServiceConfig = getServiceConfig
