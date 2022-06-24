@@ -29,11 +29,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (c *client) Close() error {
-	return c.conn.Close()
-}
-
 // NewClient constructs a new client that is served at the given address.
 func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Service, error) {
 	conn, err := grpc.Dial(ctx, address, logger, opts...)
