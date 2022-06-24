@@ -362,7 +362,7 @@ func TestSyncDisabled(t *testing.T) {
 	time.Sleep(time.Millisecond * 150)
 
 	// Simulate disabling sync.
-	dmCfg.CaptureDisabled = true
+	dmCfg.ScheduledSyncDisabled = true
 	dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -370,15 +370,14 @@ func TestSyncDisabled(t *testing.T) {
 	test.That(t, len(uploaded), test.ShouldEqual, 0)
 
 	// Re-enable sync.
-	dmCfg.CaptureDisabled = false
+	dmCfg.ScheduledSyncDisabled = false
 	dmsvc.Update(context.Background(), testCfg)
 
-	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms and ensure three files were uploaded
-	// since capture had continued in the background.
+	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms and ensure two files were uploaded.
 	time.Sleep(time.Millisecond * 600)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(uploaded), test.ShouldEqual, 3)
+	test.That(t, len(uploaded), test.ShouldEqual, 2)
 }
 
 func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
