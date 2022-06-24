@@ -2,7 +2,6 @@
 
 <p align="center">
   <a href="https://go.viam.com/pkg/go.viam.com/rdk/"><img src="https://pkg.go.dev/badge/go.viam.com/rdk" alt="PkgGoDev"></a>
-  <a href="https://codecov.io/gh/viamrobotics/rdk"><img src="https://codecov.io/gh/viamrobotics/rdk/branch/master/graph/badge.svg?token=99YH0M8YOA" alt="CodeCov"></a>
 </p>
 
 * [Programs](#programs)
