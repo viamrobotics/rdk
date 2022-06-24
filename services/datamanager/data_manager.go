@@ -459,7 +459,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.initOrUpdateSyncer(ctx, 0)
 	} else if toggledSync || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) {
 		// Initialize the syncer if newly enabled in the config, or update if the sync interval has changed.
-
 		svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	}
