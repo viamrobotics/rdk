@@ -390,6 +390,7 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 // Add files contained in additional sync paths to syncManager (to then be synced). Before adding, ensure the dirs
 // exist (and if they don't, create them). Once all files in additional sync paths have been added, sync them all.
 func (svc *dataManagerService) syncAdditionalSyncPaths() {
+	svc.lock.Lock()
 	// Slice containing all filepaths (from each additional sync path) that need to be synced.
 	var filepathsToSync []string
 
@@ -418,6 +419,7 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 			})
 		}
 	}
+	svc.lock.Unlock()
 	svc.syncer.Sync(filepathsToSync)
 }
 
@@ -505,7 +507,9 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		//nolint:contextcheck
 		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
+		svc.lock.Unlock()
 	}
 
 	// Initialize or add a collector based on changes to the component configurations.

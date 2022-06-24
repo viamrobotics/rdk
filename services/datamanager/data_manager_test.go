@@ -464,7 +464,6 @@ func TestAdditionalSyncPathsScheduledSync(t *testing.T) {
 	// Verify that the files were uploaded.
 	lock.Lock()
 	test.That(t, len(uploaded), test.ShouldEqual, numFilesToBeSynced)
-	t.Logf("# uploaded files: %v, # available files for upload: %v", len(uploaded), numFilesToBeSynced)
 	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
 	lock.Unlock()
 }
@@ -511,7 +510,6 @@ func TestAdditionalSyncPathsManualAndScheduledSync(t *testing.T) {
 	// Verify that the files were uploaded.
 	lock.Lock()
 	test.That(t, len(uploaded), test.ShouldEqual, numFilesToBeSynced)
-	t.Logf("# uploaded files: %v, # available files for upload: %v", len(uploaded), numFilesToBeSynced)
 	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
 	lock.Unlock()
 }
