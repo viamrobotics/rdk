@@ -2,9 +2,9 @@ package vision
 
 import (
 	"context"
+	"io"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
@@ -36,37 +36,38 @@ type DetectorConfig struct {
 }
 
 // detectorMap stores the registered detectors of the service.
-type detectorMap map[string]objdet.Detector
+type detectorMap map[string]registeredDetector
+
+type registeredDetector struct {
+	detector objdet.Detector
+	closer   io.Closer
+}
 
 // registerDetector registers a Detector type to a registry.
-func (dm detectorMap) registerDetector(name string, det objdet.Detector, logger golog.Logger) error {
+func (dm detectorMap) registerDetector(name string, det *registeredDetector, logger golog.Logger) error {
+	if det == nil || det.detector == nil {
+		return errors.Errorf("cannot register a nil detector: %s", name)
+	}
 	if _, old := dm[name]; old {
 		logger.Infof("overwriting the detector with name: %s", name)
 	}
-	if det == nil {
-		return errors.Errorf("cannot register a nil detector: %s", name)
+
+	if det.closer != nil {
+		dm[name] = registeredDetector{detector: det.detector, closer: det.closer}
+		return nil
 	}
-	dm[name] = det
+	dm[name] = registeredDetector{detector: det.detector, closer: nil}
 	return nil
 }
 
 // detectorLookup looks up a detector by name. An error is returned if
 // there is no detector by that name.
 func (dm detectorMap) detectorLookup(name string) (objdet.Detector, error) {
-	det, ok := dm.registeredDetectors()[name]
+	det, ok := dm[name]
 	if ok {
-		return det, nil
+		return det.detector, nil
 	}
 	return nil, errors.Errorf("no Detector with name %q", name)
-}
-
-// registeredDetectors returns a copy of the registered detectors.
-func (dm detectorMap) registeredDetectors() detectorMap {
-	copied, err := copystructure.Copy(dm)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(detectorMap)
 }
 
 // detectorNames returns a slice of all the segmenter names in the registry.
@@ -78,6 +79,22 @@ func (dm detectorMap) detectorNames() []string {
 	return names
 }
 
+// removeDetector closes the model and removes the detector from the registry.
+func (dm detectorMap) removeDetector(name string, logger golog.Logger) {
+	if _, ok := dm[name]; !ok {
+		logger.Infof("no Detector with name %s", name)
+		return
+	}
+
+	if dm[name].closer != nil {
+		err := dm[name].closer.Close()
+		if err != nil {
+			panic(err)
+		}
+	}
+	delete(dm, name)
+}
+
 // registerNewDetectors take an attributes struct and parses each element by type to create an RDK Detector
 // and register it to the detector map.
 func registerNewDetectors(ctx context.Context, dm detectorMap, attrs *Attributes, logger golog.Logger) error {
@@ -87,7 +104,7 @@ func registerNewDetectors(ctx context.Context, dm detectorMap, attrs *Attributes
 		logger.Debugf("adding detector %q of type %s", attr.Name, attr.Type)
 		switch DetectorType(attr.Type) {
 		case TFLiteType:
-			return newDetectorTypeNotImplemented(attr.Type)
+			return registerTfliteDetector(dm, &attr, logger)
 		case TensorFlowType:
 			return newDetectorTypeNotImplemented(attr.Type)
 		case ColorType:

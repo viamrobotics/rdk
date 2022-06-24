@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const modelName = "fake"
@@ -41,7 +40,7 @@ func init() {
 }
 
 // NewInputController returns a fake input.Controller.
-func NewInputController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+func NewInputController(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 	c := &InputController{}
 	c.controls = config.ConvertedAttributes.(*Config).controls
 	return c, nil
