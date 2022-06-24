@@ -283,10 +283,12 @@ func TestGetReadings(t *testing.T) {
 
 func TestGetHeading(t *testing.T) {
 	// test case 1, standard bearing = 0, heading = 270
-	GPS1 := []float64{8.46696, -17.03663}
-	GPS2 := []float64{65.35996, -17.03663}
+	var (
+		GPS1 = geo.NewPoint(8.46696, -17.03663)
+		GPS2 = geo.NewPoint(65.35996, -17.03663)
+	)
 
-	bearing, heading, standardBearing := gps.GetHeading(GPS1[0], GPS1[1], GPS2[0], GPS2[1])
+	bearing, heading, standardBearing := gps.GetHeading(GPS1, GPS2)
 
 	// compare against output
 	test.That(t, bearing, test.ShouldAlmostEqual, 0)
@@ -294,10 +296,10 @@ func TestGetHeading(t *testing.T) {
 	test.That(t, standardBearing, test.ShouldAlmostEqual, 0)
 
 	// test case 2, reversed test case 1.
-	GPS1 = []float64{65.35996, -17.03663}
-	GPS2 = []float64{8.46696, -17.03663}
+	GPS1 = geo.NewPoint(65.35996, -17.03663)
+	GPS2 = geo.NewPoint(8.46696, -17.03663)
 
-	bearing, heading, standardBearing = gps.GetHeading(GPS1[0], GPS1[1], GPS2[0], GPS2[1])
+	bearing, heading, standardBearing = gps.GetHeading(GPS1, GPS2)
 
 	// compare against output
 	test.That(t, bearing, test.ShouldAlmostEqual, 180)
@@ -305,10 +307,10 @@ func TestGetHeading(t *testing.T) {
 	test.That(t, standardBearing, test.ShouldAlmostEqual, 180)
 
 	// test case 3
-	GPS1 = []float64{8.46696, -17.03663}
-	GPS2 = []float64{56.74367734077241, 29.369620000000015}
+	GPS1 = geo.NewPoint(8.46696, -17.03663)
+	GPS2 = geo.NewPoint(56.74367734077241, 29.369620000000015)
 
-	bearing, heading, standardBearing = gps.GetHeading(GPS1[0], GPS1[1], GPS2[0], GPS2[1])
+	bearing, heading, standardBearing = gps.GetHeading(GPS1, GPS2)
 
 	// compare against output
 	test.That(t, bearing, test.ShouldAlmostEqual, 27.2412, 1e-3)
@@ -316,21 +318,10 @@ func TestGetHeading(t *testing.T) {
 	test.That(t, standardBearing, test.ShouldAlmostEqual, 27.24126, 1e-3)
 
 	// test case 4, reversed coordinates
-	GPS1 = []float64{56.74367734077241, 29.369620000000015}
-	GPS2 = []float64{8.46696, -17.03663}
+	GPS1 = geo.NewPoint(56.74367734077241, 29.369620000000015)
+	GPS2 = geo.NewPoint(8.46696, -17.03663)
 
-	bearing, heading, standardBearing = gps.GetHeading(GPS1[0], GPS1[1], GPS2[0], GPS2[1])
-
-	// compare against output
-	test.That(t, bearing, test.ShouldAlmostEqual, 235.6498, 1e-3)
-	test.That(t, heading, test.ShouldAlmostEqual, 145.6498, 1e-3)
-	test.That(t, standardBearing, test.ShouldAlmostEqual, -124.3501, 1e-3)
-
-	// test case 5
-	GPS1 = []float64{56.74367734077241, 29.369620000000015}
-	GPS2 = []float64{8.46696, -17.03663}
-
-	bearing, heading, standardBearing = gps.GetHeading(GPS1[0], GPS1[1], GPS2[0], GPS2[1])
+	bearing, heading, standardBearing = gps.GetHeading(GPS1, GPS2)
 
 	// compare against output
 	test.That(t, bearing, test.ShouldAlmostEqual, 235.6498, 1e-3)
