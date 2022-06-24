@@ -105,12 +105,11 @@ type dataCaptureConfigs struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir          string   `json:"capture_dir"`
-	AdditionalSyncPaths []string `json:"additional_sync_paths"`
-	SyncIntervalMins    float64  `json:"sync_interval_mins"`
-	CaptureDisabled     bool     `json:"capture_disabled"`
-	// Whether scheduled sync is disabled. Manual sync occurs regardless of this setting.
-	SyncDisabled bool `json:"sync_disabled"`
+	CaptureDir            string   `json:"capture_dir"`
+	AdditionalSyncPaths   []string `json:"additional_sync_paths"`
+	SyncIntervalMins      float64  `json:"sync_interval_mins"`
+	CaptureDisabled       bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled bool     `json:"sync_disabled"`
 }
 
 // TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
@@ -453,8 +452,8 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
-	toggledSync := svc.syncDisabled != svcConfig.SyncDisabled
-	svc.syncDisabled = svcConfig.SyncDisabled
+	toggledSync := svc.syncDisabled != svcConfig.ScheduledSyncDisabled
+	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	// Stop syncing if newly disabled in the config.
 	if toggledSync && svc.syncDisabled {
 		svc.initOrUpdateSyncer(ctx, 0)
