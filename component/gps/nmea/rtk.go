@@ -179,7 +179,7 @@ func (g *RTKGPS) Start(ctx context.Context) {
 	case "serial":
 		go g.ReceiveAndWriteSerial()
 	case "I2C":
-		g.ReceiveAndWriteI2C(ctx)
+		go g.ReceiveAndWriteI2C(ctx)
 	}
 	g.nmeagps.Start(ctx)
 	
@@ -312,7 +312,7 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 	// g.logger.Infof("writing: %s", w_i2c)
 	err = handle.Write(ctx, w_i2c)
 	if err != nil {
-		g.logger.Fatalf("uh oh, i2c handle write failed %s", err)
+		g.logger.Fatalf("i2c handle write failed %s", err)
 		return
 	}
 
@@ -344,14 +344,14 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 				err = handle.Write(ctx, w_i2c)
 
 				if err != nil {
-					g.logger.Debug("i2c handle write failed %s", err)
+					g.logger.Fatalf("i2c handle write failed %s", err)
 					return
 				}
 
 				scanner = rtcm3.NewScanner(r)
 				continue
 			}
-			g.logger.Fatal(err, msg)
+			g.logger.Debug(err, msg)
 		}
 		err = handle.Close()
 		if err != nil {
