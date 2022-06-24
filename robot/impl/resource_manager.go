@@ -398,7 +398,9 @@ func (manager *resourceManager) newRemote(ctx context.Context, config config.Rem
 func (manager *resourceManager) newComponents(ctx context.Context, components []config.Component, robot *localRobot) {
 	for _, c := range components {
 		err := manager.newComponent(ctx, c, robot)
-		manager.logger.Errorw("failed to add new component", "error", err)
+		if err != nil {
+			manager.logger.Errorw("failed to add new component", "error", err)
+		}
 	}
 }
 
@@ -595,7 +597,7 @@ func (manager *resourceManager) updateServices(ctx context.Context,
 		}
 		old, ok := manager.resources.Nodes[c.ResourceName()]
 		if !ok {
-			return errors.Errorf("couldn't find %q service while we are trying to modify it", c.ResourceName())
+			manager.resources.Nodes[c.ResourceName()] = svc
 		}
 		rr, err := manager.reconfigureResource(ctx, old, svc)
 		if err != nil {
@@ -743,16 +745,25 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 	}
 	for _, modif := range modifiedComponents {
 		rName := modif.ResourceName()
-		if _, ok := manager.resources.Nodes[rName]; !ok {
-			return errors.Errorf("cannot modify non-existent component %q", rName)
+		_, ok := manager.resources.Nodes[rName]
+		if !ok {
+			manager.addResource(rName, &resourceUpdateWrapper{
+				real:       nil,
+				isAdded:    true,
+				isModified: false,
+				config:     modif,
+			})
+			// return errors.Errorf("cannot modify non-existent component %q", rName)
+		} else {
+			wrapper := &resourceUpdateWrapper{
+				real:       manager.resources.Nodes[rName],
+				isAdded:    false,
+				isModified: true,
+				config:     modif,
+			}
+			manager.resources.Nodes[rName] = wrapper
 		}
-		wrapper := &resourceUpdateWrapper{
-			real:       manager.resources.Nodes[rName],
-			isAdded:    false,
-			isModified: true,
-			config:     modif,
-		}
-		manager.resources.Nodes[rName] = wrapper
+
 		parents := manager.resources.GetAllParentsOf(rName)
 		mapParents := make(map[resource.Name]bool)
 		for _, pdep := range parents {
