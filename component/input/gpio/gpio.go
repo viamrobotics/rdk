@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const modelName = "gpio"
@@ -36,7 +35,7 @@ func init() {
 }
 
 // NewGPIOController returns a new input.Controller.
-func NewGPIOController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+func NewGPIOController(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 	var c Controller
 	c.logger = logger
 	ctx, cancel := context.WithCancel(ctx)
@@ -49,7 +48,7 @@ func NewGPIOController(ctx context.Context, r robot.Robot, config config.Compone
 		return nil, errors.New("type assertion failed on input/gpio config")
 	}
 
-	brd, err := board.FromRobot(r, cfg.Board)
+	brd, err := board.FromDependencies(deps, cfg.Board)
 	if err != nil {
 		return nil, err
 	}

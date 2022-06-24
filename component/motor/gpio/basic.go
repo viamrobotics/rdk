@@ -225,12 +225,19 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	return errors.New("trying to go backwards but don't have dir or a&b pins")
 }
 
+// If revolutions is 0, the returned wait duration will be 0 representing that
+// the motor should run indefinitely.
 func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 	// need to do this so time is reasonable
 	if rpm > maxRPM {
 		rpm = maxRPM
 	} else if rpm < -1*maxRPM {
 		rpm = -1 * maxRPM
+	}
+
+	if revolutions == 0 {
+		powerPct := rpm / maxRPM
+		return powerPct, 0
 	}
 
 	dir := rpm * revolutions / math.Abs(revolutions*rpm)

@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // init registers a pi servo based on pigpio.
@@ -29,8 +28,11 @@ func init() {
 		servo.Subtype,
 		picommon.ModelName,
 		registry.Component{
-			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-				attr := config.ConvertedAttributes.(*picommon.ServoConfig)
+			Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+				attr, ok := config.ConvertedAttributes.(*picommon.ServoConfig)
+				if !ok {
+					return nil, errors.New("need servo configuration")
+				}
 
 				if attr.Pin == "" {
 					return nil, errors.New("need pin for pi servo")
@@ -41,7 +43,7 @@ func init() {
 					return nil, errors.Errorf("no hw mapping for %s", attr.Pin)
 				}
 
-				var theServo servo.LocalServo = &piPigpioServo{pin: C.uint(bcom)}
+				theServo := &piPigpioServo{pin: C.uint(bcom)}
 				if attr.Min > 0 {
 					theServo.min = uint8(attr.Min)
 				}
@@ -54,6 +56,8 @@ func init() {
 	)
 }
 
+var _ = servo.LocalServo(&piPigpioServo{})
+
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
 	generic.Unimplemented
@@ -63,7 +67,7 @@ type piPigpioServo struct {
 }
 
 func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
-	ctx, done := s.opMgr.New(ctx)
+	_, done := s.opMgr.New(ctx)
 	defer done()
 
 	if s.min > 0 && angle < s.min {
