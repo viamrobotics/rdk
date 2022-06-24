@@ -6,6 +6,24 @@
     },
     "components":
     [
+        {
+            "model": "fake",
+            "name": "arm1",
+            "type": "arm",
+            "service_config": [
+                {
+                  "type": "data_manager",
+                  "attributes": {
+                    "capture_methods": [
+                        {
+                            "method": "GetEndPosition",
+                            "capture_frequency_hz": 0
+                        }
+                    ]
+                  }
+                }
+            ]
+        }
     ],
     "services":
     [
@@ -14,7 +32,6 @@
             "attributes": 
             {
                 "sync_interval_mins": 0,
-                "capture_dir": "/tmp/capture",
                 "additional_sync_paths": []
             }
         }
