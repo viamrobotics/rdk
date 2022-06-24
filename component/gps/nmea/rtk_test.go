@@ -10,7 +10,27 @@ import (
 
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/registry"
 )
+
+const (
+	testBoardName    = "board1"
+	testBusName 	 = "i2c1"
+)
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	
+	actualBoard := newBoard(testBoardName)
+	//reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+
+	deps[board.Named(testBoardName)] = actualBoard
+
+	return deps
+}
 
 func TestConnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -38,7 +58,9 @@ func TestConnect(t *testing.T) {
 
 func TestNewRTKGPS(t *testing.T) {
 	path := "somepath"
+	deps := setupDependencies(t)
 
+	// serial protocol
 	cfig := config.Component{
 		Name:  "gps1",
 		Model: "rtk",
@@ -60,8 +82,41 @@ func TestNewRTKGPS(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newRTKGPS(ctx, cfig, logger)
+	g, err := newRTKGPS(ctx, deps, cfig, logger)
 	passErr := "open " + path + ": no such file or directory"
+	if err == nil || err.Error() != passErr {
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, g, test.ShouldNotBeNil)
+	}
+
+	// I2C protocol
+	cfig = config.Component{
+		Name:  "gps1",
+		Model: "rtk",
+		Type:  gps.SubtypeName,
+		Attributes: config.AttributeMap{
+			"ntrip_addr":             "some_ntrip_address",
+			"i2c_addr":				  "",
+			"ntrip_username":         "",
+			"ntrip_password":         "",
+			"ntrip_mountpoint":       "",
+			"ntrip_path":             "",
+			"ntrip_baud":             115200,
+			"ntrip_send_nmea":        true,
+			"ntrip_connect_attempts": 10,
+			"ntrip_input_protocol":   "I2C",
+			"path":                   path,
+			"board": 				  testBoardName,
+          	"bus": 					  testBusName,
+		},
+	}
+
+	logger = golog.NewTestLogger(t)
+	ctx = context.Background()
+
+	g, err = newRTKGPS(ctx, deps, cfig, logger)
+	passErr = "board " + cfig.Attributes.String("board") + " is not local"
+
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, g, test.ShouldNotBeNil)
@@ -89,7 +144,7 @@ func TestNewRTKGPS(t *testing.T) {
 	logger = golog.NewTestLogger(t)
 	ctx = context.Background()
 
-	_, err = newRTKGPS(ctx, cfig, logger)
+	_, err = newRTKGPS(ctx, deps, cfig, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// No ntrip address
@@ -114,7 +169,7 @@ func TestNewRTKGPS(t *testing.T) {
 	logger = golog.NewTestLogger(t)
 	ctx = context.Background()
 
-	_, err = newRTKGPS(ctx, cfig, logger)
+	_, err = newRTKGPS(ctx, deps, cfig, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
@@ -187,4 +242,41 @@ func TestClose(t *testing.T) {
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
+}
+
+// Helpers
+
+type mock struct {
+	board.LocalBoard
+	Name string
+
+	i2cs     []string
+
+	i2c     *mockI2C
+
+	reconfCount int
+	statusCount int
+}
+
+func newBoard(name string) *mock {
+	return &mock{
+		Name:     name,
+		i2cs:     []string{"i2c1"},
+		i2c:      &mockI2C{1},
+	}
+}
+
+// Mock I2C
+
+type mockI2C struct{ handleCount int }
+
+func (m *mock) I2CNames() []string {
+	return m.i2cs
+}
+
+func (m *mock) I2CByName(name string) (*mockI2C, bool) {
+	if len(m.i2cs) == 0 {
+		return nil, false
+	}
+	return m.i2c, true
 }
