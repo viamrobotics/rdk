@@ -108,7 +108,8 @@ type Config struct {
 	CaptureDir          string   `json:"capture_dir"`
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
 	SyncIntervalMins    float64  `json:"sync_interval_mins"`
-	Disabled            bool     `json:"disabled"`
+	CaptureDisabled     bool     `json:"capture_disabled"`
+	SyncDisabled        bool     `json:"sync_disabled"`
 }
 
 // TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
@@ -165,6 +166,8 @@ type dataManagerService struct {
 	r                        robot.Robot
 	logger                   golog.Logger
 	captureDir               string
+	captureDisabled          bool
+	syncDisabled             bool
 	collectors               map[componentMethodMetadata]collectorAndConfig
 	syncer                   syncManager
 	syncIntervalMins         float64
@@ -307,7 +310,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
+func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -427,8 +430,10 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return err
 	}
 
+	toggledCapture := svc.captureDisabled != svcConfig.CaptureDisabled
+	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
-	if svcConfig.Disabled {
+	if toggledCapture && svcConfig.CaptureDisabled {
 		svc.closeCollectors()
 		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
 		return nil
@@ -447,9 +452,15 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
-	if svcConfig.SyncIntervalMins != svc.syncIntervalMins {
-		//nolint:contextcheck
-		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+	toggledSync := svc.syncDisabled != svcConfig.SyncDisabled
+	svc.syncDisabled = svcConfig.SyncDisabled
+	// Stop syncing if newly disabled in the config.
+	if toggledSync && svc.syncDisabled {
+		svc.initOrUpdateSyncer(ctx, 0)
+	} else if toggledSync || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) {
+		// Initialize the syncer if newly enabled in the config, or update if the sync interval has changed.
+
+		svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	}
 
