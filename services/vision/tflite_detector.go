@@ -204,8 +204,11 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 	detections := make([]objectdetection.Detection, len(scores))
 	for i := 0; i < len(scores); i++ {
 		// Gather box
-		xmin, ymin, xmax, ymax := bboxes[4*i+getIndex(boxOrder, 0)]*float64(origW), bboxes[4*i+getIndex(boxOrder, 1)]*float64(origW),
-			bboxes[4*i+getIndex(boxOrder, 2)]*float64(origH), bboxes[4*i+getIndex(boxOrder, 3)]*float64(origH)
+		xmin, ymin, xmax, ymax := utils.Clamp(bboxes[4*i+getIndex(boxOrder, 0)], 0.0, 1.0)*float64(origW),
+			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 1)], 0.0, 1.0)*float64(origH),
+			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 2)], 0.0, 1.0)*float64(origW),
+			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 3)], 0.0, 1.0)*float64(origH)
+
 		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 
 		// Gather label
