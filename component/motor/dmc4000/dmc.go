@@ -622,11 +622,6 @@ func (m *Motor) Stop(ctx context.Context) error {
 
 // IsMoving returns whether or not the motor is currently moving.
 func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
-	return m.IsPowered(ctx)
-}
-
-// IsPowered returns whether or not the motor is currently moving.
-func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	stopped, err := m.isStopped(ctx)
@@ -634,6 +629,11 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return !stopped, nil
+}
+
+// IsPowered returns whether or not the motor is currently moving.
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
+	return m.IsMoving(ctx)
 }
 
 // Must be run inside a lock.
