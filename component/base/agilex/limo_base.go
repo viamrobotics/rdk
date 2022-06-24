@@ -214,7 +214,7 @@ func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (
 	return ctrl, nil
 }
 
-// this rover requires messages to be sent continously or the motors will shut down after 100ms.
+// this rover requires messages to be sent continuously or the motors will shut down after 100ms.
 func (base *limoBase) startControlThread() {
 	var ctx context.Context
 	ctx, base.cancel = context.WithCancel(context.Background())
