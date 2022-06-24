@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -28,7 +27,7 @@ const SetPowerZeroThreshold = .0001
 // init registers an arduino motor.
 func init() {
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
@@ -36,7 +35,7 @@ func init() {
 			if motorConfig.BoardName == "" {
 				return nil, errors.New("expected board name in config for motor")
 			}
-			b, err := board.FromRobot(r, motorConfig.BoardName)
+			b, err := board.FromDependencies(deps, motorConfig.BoardName)
 			if err != nil {
 				return nil, err
 			}
