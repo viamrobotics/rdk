@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -22,6 +23,15 @@ const (
 	fakeBaseName    = "base4"
 	missingBaseName = "base5"
 )
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[base.Named(testBaseName)] = &mock{Name: testBaseName}
+	deps[base.Named(fakeBaseName)] = "not a base"
+	return deps
+}
 
 func setupInjectRobot() *inject.Robot {
 	base1 := &mock{Name: testBaseName}
@@ -53,6 +63,26 @@ func TestGenericDo(t *testing.T) {
 	ret, err := b.Do(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
+}
+
+func TestFromBase(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := base.FromDependencies(deps, testBaseName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	result, err := res.(base.LocalBase).GetWidth(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, width)
+
+	res, err = base.FromDependencies(deps, fakeBaseName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeBaseName, "Base", "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = base.FromDependencies(deps, missingBaseName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingBaseName))
+	test.That(t, res, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {

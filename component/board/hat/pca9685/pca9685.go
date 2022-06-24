@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -34,7 +33,7 @@ func init() {
 		modelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -43,7 +42,7 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
 
-			b, err := board.FromRobot(r, conf.BoardName)
+			b, err := board.FromDependencies(deps, conf.BoardName)
 			if err != nil {
 				return nil, err
 			}
