@@ -3,8 +3,6 @@ package datamanager
 
 import (
 	"context"
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,8 +10,10 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -549,6 +549,7 @@ func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
 }
 
 // TODO: Implement this in some more roboust way. Probably by making the DataType a field of the collector.
+//nolint:unparam
 func getDataType(componentType string, methodName string) v1.DataType {
 	if methodName == "NextPointCloud" {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
