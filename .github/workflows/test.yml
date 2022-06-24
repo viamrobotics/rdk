@@ -10,6 +10,8 @@ on:
         required: true
       REPO_READ_TOKEN:
         required: true
+      GIT_ACCESS_TOKEN:
+        required: true
 
 jobs:
   build_and_test:
@@ -71,6 +73,7 @@ jobs:
       with:
         recreate: true
         path: code-coverage-results.md
+        GITHUB_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
 
   test_pi:
     name: Test Raspberry Pi Code
