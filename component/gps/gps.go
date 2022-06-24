@@ -150,12 +150,13 @@ func GetReadings(ctx context.Context, g GPS) ([]interface{}, error) {
 
 // GetHeading calculates bearing and absolute heading angles given 2 GPS coordinates
 // 0 degrees indicate North, 90 degrees indicate East and so on.
-func GetHeading(gps1Lat float64, gps1Long float64, gps2Lat float64, gps2Long float64) (float64, float64, float64) {
+func GetHeading(gps1 *geo.Point, gps2 *geo.Point) (float64, float64, float64) {
+
 	// convert latitude and longitude readings from degrees to radians
-	gps1Lat = utils.DegToRad(gps1Lat)
-	gps1Long = utils.DegToRad(gps1Long)
-	gps2Lat = utils.DegToRad(gps2Lat)
-	gps2Long = utils.DegToRad(gps2Long)
+	gps1Lat := utils.DegToRad(gps1.Lat())
+	gps1Long := utils.DegToRad(gps1.Lng())
+	gps2Lat := utils.DegToRad(gps2.Lat())
+	gps2Long := utils.DegToRad(gps2.Lng())
 
 	// calculate bearing from gps1 to gps 2
 	dLon := gps2Long - gps1Long
