@@ -31,8 +31,10 @@ tool-install:
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
 		github.com/edaniels/golinters/cmd/combined \
-		github.com/golangci/golangci-lint/cmd/golangci-lint
-	GOBIN=`pwd`/$(TOOL_BIN) go install github.com/bufbuild/buf/cmd/buf@v1.4.0
+		github.com/golangci/golangci-lint/cmd/golangci-lint \
+		github.com/AlekSi/gocov-xml \
+		github.com/axw/gocov/gocov \
+		github.com/bufbuild/buf/cmd/buf
 
 buf: buf-go buf-web
 
@@ -61,7 +63,7 @@ lint-web:
 	cd web/frontend && npm ci && npm run lint
 
 cover:
-	./etc/test.sh cover
+	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
 
 test: test-go test-web
 

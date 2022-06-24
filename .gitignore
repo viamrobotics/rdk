@@ -37,6 +37,7 @@ docs/
 # Test data
 coverage.txt
 coverage2.txt
+coverage.xml
 profile*.pdf
 
 *~

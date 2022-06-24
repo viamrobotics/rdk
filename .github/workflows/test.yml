@@ -8,9 +8,9 @@ on:
         required: true
       TEST_MONGODB_URI:
         required: true
-      CODECOV_TOKEN:
-        required: true
       REPO_READ_TOKEN:
+        required: true
+      GIT_ACCESS_TOKEN:
         required: true
 
 jobs:
@@ -54,10 +54,26 @@ jobs:
         sudo -u testbot bash -lc 'make cover'
         sudo -u testbot bash -lc 'make test-web'
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
+    - name: Code Coverage Summary Report
+      uses: edaniels/CodeCoverageSummary@v1.2.3
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
+        filename: coverage.xml
+        badge: true
+        fail_below_min: false
+        format: markdown
+        hide_branch_rate: true
+        hide_complexity: true
+        indicators: true
+        output: both
+        thresholds: '50 70'
+
+    - name: Add Coverage PR Comment
+      uses: marocchino/sticky-pull-request-comment@v2.2.0
+      if: github.event_name == 'pull_request'
+      with:
+        recreate: true
+        path: code-coverage-results.md
+        GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
 
   test_pi:
     name: Test Raspberry Pi Code
