@@ -292,11 +292,11 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 func setConfigIntervalMins(config *config.Config, interval float64) error {
 	svcConfig, ok, err := datamanager.GetServiceConfig(config)
-	if !ok {
-		return errors.New("failed to get service config")
-	}
 	if err != nil {
 		return err
+	}
+	if !ok {
+		return errors.New("failed to get service config")
 	}
 	svcConfig.SyncIntervalMins = interval
 	return nil
