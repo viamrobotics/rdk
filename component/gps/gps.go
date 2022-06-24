@@ -4,6 +4,7 @@ package gps
 
 import (
 	"context"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -131,6 +132,45 @@ func GetReadings(ctx context.Context, g GPS) ([]interface{}, error) {
 	}
 
 	return append(readings, active, total, hAcc, vAcc, valid), nil
+}
+
+// GetHeading calculates bearing and absolute heading angles given 2 GPS coordinates
+// 0 degrees indicate North, 90 degrees indicate East and so on.
+func GetHeading(gps1Lat float64, gps1Long float64, gps2Lat float64, gps2Long float64) (float64, float64, float64) {
+	// convert latitude and longitude readings from degrees to radians
+	gps1Lat = utils.DegToRad(gps1Lat)
+	gps1Long = utils.DegToRad(gps1Long)
+	gps2Lat = utils.DegToRad(gps2Lat)
+	gps2Long = utils.DegToRad(gps2Long)
+
+	// calculate bearing from gps1 to gps 2
+	dLon := gps2Long - gps1Long
+	y := math.Sin(dLon) * math.Cos(gps2Lat)
+	x := math.Cos(gps1Lat)*math.Sin(gps2Lat) - math.Sin(gps1Lat)*math.Cos(gps2Lat)*math.Cos(dLon)
+	brng := utils.RadToDeg(math.Atan2(y, x))
+
+	// maps bearing to 0-360 degrees
+	if brng < 0 {
+		brng += 360
+	}
+
+	// calculate heading from bearing
+	// adding 90 degrees to bearing to account for yaw offset
+	var standardBearing float64
+	if brng > 180 {
+		standardBearing = -(360 - brng)
+	} else {
+		standardBearing = brng
+	}
+	heading := brng - 90
+
+	// make heading positive again
+	if heading < 0 {
+		diff := math.Abs(heading)
+		heading = 360 - diff
+	}
+
+	return brng, heading, standardBearing
 }
 
 type reconfigurableGPS struct {
