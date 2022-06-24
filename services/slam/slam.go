@@ -492,7 +492,7 @@ func (slamSvc *slamService) StartSLAMProcess(cancelCtx context.Context) ([]strin
 		Name:    SLAMLibraries[slamSvc.slamLib.AlgoName].BinaryLocation,
 		Args:    args,
 		Log:     true,
-		OneShot: false,
+		OneShot: true,
 	}
 
 	_, err := slamSvc.slamProcess.AddProcessFromConfig(cancelCtx, processCfg)
