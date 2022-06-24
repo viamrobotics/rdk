@@ -315,7 +315,7 @@ func setConfigAdditionalSyncPaths(config *config.Config, dirs []string) error {
 	return nil
 }
 
-func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPerDir int) ([]string, *config.Config, int, error) {
+func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPerDir int) ([]string, *config.Config, int) {
 	t.Helper()
 
 	// Retrieve config from config filepath and
@@ -347,7 +347,6 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPe
 		} else {
 			// Make the dirs that will contain at least one (at most two) file(s).
 			for i := 0; i < maxFilesPerDir; i++ {
-
 				// Generate data that will be in a temp file.
 				fileData := make([]byte, bytesPerFile)
 				rand.Read(fileData)
@@ -364,7 +363,7 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPe
 				}
 
 				// Increment number of files to be synced.
-				numFilesToBeSynced += 1
+				numFilesToBeSynced++
 			}
 		}
 	}
@@ -373,7 +372,7 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPe
 	err = setConfigAdditionalSyncPaths(testCfg, additionalSyncPaths)
 	test.That(t, err, test.ShouldBeNil)
 
-	return additionalSyncPaths, testCfg, numFilesToBeSynced, nil
+	return additionalSyncPaths, testCfg, numFilesToBeSynced
 }
 
 func noRepeatedElements(slice []string) bool {
@@ -388,15 +387,11 @@ func noRepeatedElements(slice []string) bool {
 }
 
 func TestAdditionalSyncPathsManualSync(t *testing.T) {
-
 	// Test Case Setup
 	configPath := "robots/configs/fake_dms.json"
 	numDirs := 2
 	maxFilesPerDir := 2
-	dirs, testCfg, numFilesToBeSynced, err := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
-
-	// Make sure populateArbitraryFiles worked.
-	test.That(t, err, test.ShouldBeNil)
+	dirs, testCfg, numFilesToBeSynced := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
 
 	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
 	defer func() {
@@ -418,7 +413,6 @@ func TestAdditionalSyncPathsManualSync(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t)
 	dmsvc.SetUploadFn(uploadFn)
-	// dmsvc.SetAdditionalSyncPaths(dirs)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Run and upload files.
@@ -434,15 +428,11 @@ func TestAdditionalSyncPathsManualSync(t *testing.T) {
 }
 
 func TestAdditionalSyncPathsScheduledSync(t *testing.T) {
-
 	// Test Case Setup
 	configPath := "robots/configs/fake_dms.json"
 	numDirs := 2
 	maxFilesPerDir := 2
-	dirs, testCfg, numFilesToBeSynced, err := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
-
-	// Make sure populateArbitraryFiles worked.
-	test.That(t, err, test.ShouldBeNil)
+	dirs, testCfg, numFilesToBeSynced := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
 
 	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
 	defer func() {
@@ -480,15 +470,11 @@ func TestAdditionalSyncPathsScheduledSync(t *testing.T) {
 }
 
 func TestAdditionalSyncPathsManualAndScheduledSync(t *testing.T) {
-
 	// Test Case Setup
 	configPath := "robots/configs/fake_dms.json"
 	numDirs := 2
 	maxFilesPerDir := 2
-	dirs, testCfg, numFilesToBeSynced, err := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
-
-	// Make sure populateArbitraryFiles worked.
-	test.That(t, err, test.ShouldBeNil)
+	dirs, testCfg, numFilesToBeSynced := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
 
 	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
 	defer func() {
