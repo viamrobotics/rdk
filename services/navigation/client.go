@@ -31,7 +31,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
+// Close no operation.
 func (c *client) Close(ctx context.Context) error {
 	return nil
 }
