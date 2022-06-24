@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // AttrConfig is used for converting config attributes.
@@ -58,12 +57,12 @@ var xArm7modeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "xArm6", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config, logger, 6)
 		},
 	})
 	registry.RegisterComponent(arm.Subtype, "xArm7", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config, logger, 7)
 		},
 	})

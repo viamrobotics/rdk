@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -75,7 +74,7 @@ func init() {
 		"velodyne",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			_ registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {

@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -27,7 +26,7 @@ func init() {
 		"nmea-serial",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			_ registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -51,7 +50,7 @@ const (
 	pathAttrName = "path"
 )
 
-func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
+func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (nmeaGPS, error) {
 	serialPath := config.Attributes.String(pathAttrName)
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialNMEAGPS expected non-empty string for %q", pathAttrName)
@@ -131,6 +130,12 @@ func (g *serialNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.valid, nil
+}
+
+func (g *serialNMEAGPS) ReadFix(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.fixQuality, nil
 }
 
 func (g *serialNMEAGPS) Close() error {
