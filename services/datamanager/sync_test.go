@@ -51,9 +51,7 @@ func (m *mockClient) Context() context.Context {
 }
 
 type anyStruct struct {
-	FieldOne   bool
-	FieldTwo   int
-	FieldThree string
+	Field bool
 }
 
 func toProto(r interface{}) *structpb.Struct {
@@ -211,12 +209,7 @@ func TestFileUpload(t *testing.T) {
 }
 
 func TestSensorUploadTabular(t *testing.T) {
-	protoMsgTabularStruct := toProto(
-		anyStruct{
-			FieldOne:   true,
-			FieldTwo:   16,
-			FieldThree: "Viam",
-		})
+	protoMsgTabularStruct := toProto(anyStruct{})
 
 	tests := []struct {
 		name    string
