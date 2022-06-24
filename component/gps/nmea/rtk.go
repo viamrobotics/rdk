@@ -328,7 +328,7 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 		}
 		if err != nil {
 			if msg == nil {
-				fmt.Println("No message... reconnecting to stream...")
+				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
 				if err != nil {
 					return
