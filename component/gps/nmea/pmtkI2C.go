@@ -46,11 +46,6 @@ type pmtkI2CNMEAGPS struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (nmeaGPS, error) {
-	b, err := board.FromRobot(r, config.Attributes.String("board"))
-=======
 func newPmtkI2CNMEAGPS(
 	ctx context.Context,
 	deps registry.Dependencies,
@@ -58,11 +53,6 @@ func newPmtkI2CNMEAGPS(
 	logger golog.Logger,
 ) (gps.LocalGPS, error) {
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
->>>>>>> 7e719b20 (RSDK-160 Remove robot robot from component constructors (#919))
-=======
-func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (nmeaGPS, error) {
-	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
->>>>>>> bf6b9050 (i2c integrated)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
