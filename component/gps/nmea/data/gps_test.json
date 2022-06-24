@@ -8,6 +8,7 @@
         "ntrip_mountpoint": "NJI2",
         "ntrip_path": "",
         "ntrip_baud": 115200,
+        "ntrip_send_nmea": true,
         "ntrip_connect_attempts": 10,
         "ntrip_input_protocol": "serial",
         "path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
