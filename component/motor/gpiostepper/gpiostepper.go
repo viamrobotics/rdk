@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -27,8 +26,8 @@ const modelName = "gpiostepper"
 
 func init() {
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(r, config)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, config)
 			if err != nil {
 				return nil, err
 			}
@@ -40,7 +39,7 @@ func init() {
 	motor.RegisterConfigAttributeConverter(modelName)
 }
 
-func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Board, *motor.Config, error) {
+func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *motor.Config, error) {
 	motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
 	if !ok {
 		return nil, nil, rdkutils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
@@ -48,7 +47,7 @@ func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Boar
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
 	}
-	b, err := board.FromRobot(r, motorConfig.BoardName)
+	b, err := board.FromDependencies(deps, motorConfig.BoardName)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -2,7 +2,6 @@ package nmea
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -34,9 +33,7 @@ func TestConnect(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	err = g.GetStream(mountPoint, 10)
-	if !strings.Contains(err.Error(), "no such host") {
-		t.Error()
-	}
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no such host")
 }
 
 func TestNewRTKGPS(t *testing.T) {
@@ -130,6 +127,7 @@ var (
 	hAcc       = 0.7
 	vAcc       = 0.8
 	valid      = true
+	fix        = 1
 )
 
 func TestReadings(t *testing.T) {
@@ -147,38 +145,48 @@ func TestReadings(t *testing.T) {
 		satsInView: totalSats,
 		satsInUse:  activeSats,
 		valid:      valid,
+		fixQuality: fix,
 	}
 	g.nmeagps = nmeagps
 
 	status, err := g.NtripStatus()
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, status, test.ShouldNotBeNil)
+	test.That(t, status, test.ShouldEqual, false)
 
-	loc, err := g.ReadLocation(ctx)
+	loc1, err := g.ReadLocation(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, loc, test.ShouldNotBeNil)
+	test.That(t, loc1, test.ShouldEqual, loc)
 
-	alt, err := g.ReadAltitude(ctx)
+	alt1, err := g.ReadAltitude(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, alt, test.ShouldNotBeNil)
+	test.That(t, alt1, test.ShouldEqual, alt)
 
-	speed, err := g.ReadSpeed(ctx)
+	speed1, err := g.ReadSpeed(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, speed, test.ShouldNotBeNil)
+	test.That(t, speed1, test.ShouldEqual, speed)
 
 	inUse, inView, err := g.ReadSatellites(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inUse, test.ShouldNotBeNil)
-	test.That(t, inView, test.ShouldNotBeNil)
+	test.That(t, inUse, test.ShouldEqual, activeSats)
+	test.That(t, inView, test.ShouldEqual, totalSats)
 
 	acc1, acc2, err := g.ReadAccuracy(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, acc1, test.ShouldNotBeNil)
-	test.That(t, acc2, test.ShouldNotBeNil)
+	test.That(t, acc1, test.ShouldEqual, hAcc)
+	test.That(t, acc2, test.ShouldEqual, vAcc)
 
-	valid, err := g.ReadValid(ctx)
+	valid1, err := g.ReadValid(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, valid, test.ShouldNotBeNil)
+	test.That(t, valid1, test.ShouldEqual, valid)
+
+	fix1, err := g.ReadFix(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fix1, test.ShouldEqual, fix)
+
+	readings, err := g.GetReadings(ctx)
+	correctReadings := []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid, fix}
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings, test.ShouldResemble, correctReadings)
 }
 
 func TestClose(t *testing.T) {

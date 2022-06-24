@@ -31,7 +31,7 @@ func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
 		"join_pointclouds",
-		registry.Component{Constructor: func(
+		registry.Component{RobotConstructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,

@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -27,7 +26,7 @@ func init() {
 		"rtk",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -35,11 +34,12 @@ func init() {
 		}})
 }
 
-// A NMEAGPS represents a GPS that can read and parse NMEA messages.
+// A nmeaGPS represents a GPS that can read and parse NMEA messages.
 type nmeaGPS interface {
 	gps.LocalGPS
-	Start(ctx context.Context) // Initialize and run GPS
-	Close() error              // Close GPS
+	Start(ctx context.Context)                // Initialize and run GPS
+	Close() error                             // Close GPS
+	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current GPS measurements
 }
 
 // A RTKGPS is an NMEA GPS model that can intake RTK correction data.
@@ -93,11 +93,10 @@ func newRTKGPS(ctx context.Context, config config.Component, logger golog.Logger
 	switch g.ntripInputProtocol {
 	case "serial":
 		var err error
-		localgps, err := newSerialNMEAGPS(ctx, config, logger)
+		g.nmeagps, err = newSerialNMEAGPS(ctx, config, logger)
 		if err != nil {
 			return nil, err
 		}
-		g.nmeagps = localgps.(nmeaGPS)
 	case "I2C":
 		return nil, errors.New("I2C not implemented")
 	default:
@@ -327,6 +326,28 @@ func (g *RTKGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 // ReadValid returns whether or not the GPS is currently reading valid measurements.
 func (g *RTKGPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.nmeagps.ReadValid(ctx)
+}
+
+// ReadFix returns Fix quality of GPS measurements.
+func (g *RTKGPS) ReadFix(ctx context.Context) (int, error) {
+	return g.nmeagps.ReadFix(ctx)
+}
+
+// GetReadings will use the default GPS GetReadings if not provided.
+func (g *RTKGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
+	readings, err := gps.GetReadings(ctx, g)
+	if err != nil {
+		return nil, err
+	}
+
+	fix, err := g.ReadFix(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	readings = append(readings, fix)
+
+	return readings, nil
 }
 
 // Close shuts down the RTKGPS.
