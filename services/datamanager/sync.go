@@ -197,12 +197,11 @@ func (s *syncer) viamUpload(ctx context.Context, client v1.DataSyncService_Uploa
 	if err != nil {
 		return errors.Wrapf(err, "error while opening file %s", path)
 	}
-	// Resets file pointer; if you ever want to go back to the start of a file, need to call this
+	// Resets file pointer.
 	if _, err = f.Seek(0, 0); err != nil {
 		return err
 	}
 
-	// TODO: how to specify that it's a sensordata file? .sd file ext?
 	var md *v1.UploadMetadata
 	if isDataCaptureFile(f) {
 		syncMD, err := getSyncMetadata(f)

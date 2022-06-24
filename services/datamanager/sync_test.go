@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	partId        = "partid"
+	partID        = "partid"
 	componentType = "componenttype"
 	componentName = "componentname"
 	methodName    = "methodname"
@@ -125,12 +125,12 @@ func newTestSyncer(t *testing.T, mc *mockClient, uploadFn uploadFn) *syncer {
 	t.Helper()
 	l := golog.NewTestLogger(t)
 
-	ret := *newSyncer(l, uploadFn, partId)
+	ret := *newSyncer(l, uploadFn, partID)
 	ret.client = mc
 	return &ret
 }
 
-// TODO: figure out how to pass part id in for file uploads
+// TODO: figure out how to pass part id in for file uploads.
 func TestFileUpload(t *testing.T) {
 	uploadChunkSize = 10
 	msgEmpty := []byte("")
@@ -184,7 +184,7 @@ func TestFileUpload(t *testing.T) {
 		expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartId:   partId,
+					PartId:   partID,
 					Type:     v1.DataType_DATA_TYPE_FILE,
 					FileName: filepath.Base(tf.Name()),
 				},
@@ -201,6 +201,7 @@ func TestFileUpload(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond * 100)
 
+		sut.Close()
 		// The mc.sent value should be the same as the expectedMsgs value.
 		compareMetadata(t, mc.sent[0].GetMetadata(), expectedMsgs[0].GetMetadata())
 		if len(mc.sent) > 1 {
@@ -301,7 +302,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartId:           partId,
+					PartId:           partID,
 					ComponentType:    componentType,
 					ComponentName:    componentName,
 					MethodName:       methodName,
@@ -325,6 +326,7 @@ func TestSensorUploadTabular(t *testing.T) {
 
 		// The mc.sent value should be the same as the expectedMsgs value.
 		time.Sleep(100 * time.Millisecond)
+		sut.Close()
 		compareUploadRequests(t, true, mc.sent, expectedMsgs)
 	}
 }
@@ -403,7 +405,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartId:           partId,
+					PartId:           partID,
 					ComponentType:    componentType,
 					ComponentName:    componentName,
 					MethodName:       methodName,
@@ -427,6 +429,7 @@ func TestSensorUploadBinary(t *testing.T) {
 
 		// The mc.sent value should be the same as the expectedMsgs value.
 		time.Sleep(100 * time.Millisecond)
+		sut.Close()
 		compareUploadRequests(t, true, mc.sent, expectedMsgs)
 	}
 }
