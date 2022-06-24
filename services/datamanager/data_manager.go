@@ -109,7 +109,8 @@ type Config struct {
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
 	SyncIntervalMins    float64  `json:"sync_interval_mins"`
 	CaptureDisabled     bool     `json:"capture_disabled"`
-	SyncDisabled        bool     `json:"sync_disabled"`
+	// Whether scheduled sync is disabled. Manual sync occurs regardless of this setting.
+	SyncDisabled bool `json:"sync_disabled"`
 }
 
 // TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
