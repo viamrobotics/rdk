@@ -35,4 +35,5 @@ fi
 
 if [[ "$1" == "cover" ]]; then
 	sed '1d' coverage2.txt >> coverage.txt
+	gocov convert coverage.txt | gocov-xml > coverage.xml
 fi

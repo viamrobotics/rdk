@@ -29,7 +29,10 @@ func init() {
 		picommon.ModelName,
 		registry.Component{
 			Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-				attr := config.ConvertedAttributes.(*picommon.ServoConfig)
+				attr, ok := config.ConvertedAttributes.(*picommon.ServoConfig)
+				if !ok {
+					return nil, errors.New("need servo configuration")
+				}
 
 				if attr.Pin == "" {
 					return nil, errors.New("need pin for pi servo")
@@ -64,7 +67,7 @@ type piPigpioServo struct {
 }
 
 func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
-	ctx, done := s.opMgr.New(ctx)
+	_, done := s.opMgr.New(ctx)
 	defer done()
 
 	if s.min > 0 && angle < s.min {
