@@ -16,6 +16,7 @@ import (
 	"go.uber.org/multierr"
 
 	spatial "go.viam.com/rdk/spatialmath"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/utils"
 )
 
@@ -115,6 +116,12 @@ type Frame interface {
 	// AlmostEquals returns if the otherFrame is close to the referenceframe.
 	// differences should just be things like floating point inprecision
 	AlmostEquals(otherFrame Frame) bool
+	
+	// InputFromProtobuf does ther correct thing for this frame to convert protobuf units (degrees/mm) to input units (radians/mm)
+	InputFromProtobuf(*pb.JointPositions) []Input
+
+	// ProtobufFromInput does ther correct thing for this frame to convert input units (radians/mm) to protobuf units (degrees/mm)
+	ProtobufFromInput([]Input) *pb.JointPositions
 
 	json.Marshaler
 }
@@ -184,6 +191,24 @@ func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(input))
 	}
 	return sf.transform, nil
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs
+func (sf *staticFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	n := make([]Input, len(jp.Degrees))
+	for idx, d := range jp.Degrees {
+		n[idx] = Input{d}
+	}
+	return n
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition
+func (sf *staticFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	n := make([]float64, len(input))
+	for idx, a := range input {
+		n[idx] = a.Value
+	}
+	return &pb.JointPositions{Degrees: n}
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
@@ -264,6 +289,24 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
 }
 
+// InputFromProtobuf converts pb.JointPosition to inputs
+func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	n := make([]Input, len(jp.Degrees))
+	for idx, d := range jp.Degrees {
+		n[idx] = Input{d}
+	}
+	return n
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition
+func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	n := make([]float64, len(input))
+	for idx, a := range input {
+		n[idx] = a.Value
+	}
+	return &pb.JointPositions{Degrees: n}
+}
+
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.
 func (pf *translationalFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
 	if pf.geometryCreator == nil {
@@ -330,6 +373,24 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 	// Create a copy of the r4aa for thread safety
 	return spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs
+func (rf *rotationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	n := make([]Input, len(jp.Degrees))
+	for idx, d := range jp.Degrees {
+		n[idx] = Input{utils.DegToRad(d)}
+	}
+	return n
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition
+func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	n := make([]float64, len(input))
+	for idx, a := range input {
+		n[idx] = utils.RadToDeg(a.Value)
+	}
+	return &pb.JointPositions{Degrees: n}
 }
 
 // Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
