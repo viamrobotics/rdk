@@ -67,8 +67,10 @@ type Service interface {
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("data_manager")
-const dataCaptureFileExt = ".sd"
+const (
+	SubtypeName        = resource.SubtypeName("data_manager")
+	dataCaptureFileExt = ".sd"
+)
 
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,14 +27,18 @@ var (
 	methodName    = "methodname"
 )
 
-// implements DataSyncService_UploadClient.
+// mockClient implements DataSyncService_UploadClient and maintains a list of all UploadRequests sent with its Send
+// method.
 type mockClient struct {
 	sent []*v1.UploadRequest
+	lock *sync.Mutex
 	grpc.ClientStream
 }
 
 func (m *mockClient) Send(req *v1.UploadRequest) error {
+	m.lock.Lock()
 	m.sent = append(m.sent, req)
+	m.lock.Unlock()
 	return nil
 }
 
@@ -47,9 +51,9 @@ func (m *mockClient) Context() context.Context {
 }
 
 type anyStruct struct {
-	fieldOne   bool
-	fieldTwo   int
-	fieldThree string
+	FieldOne   bool
+	FieldTwo   int
+	FieldThree string
 }
 
 func toProto(r interface{}) *structpb.Struct {
@@ -62,21 +66,19 @@ func toProto(r interface{}) *structpb.Struct {
 
 // Writes the protobuf message to the file passed into method. Returns the number of bytes written and any errors that
 // are raised.
-func writeBinarySensorData(f *os.File, toWrite [][]byte) (int, error) {
-	countBytesWritten := 0
+func writeBinarySensorData(f *os.File, toWrite [][]byte) error {
 	for _, bytes := range toWrite {
 		msg := &v1.SensorData{
 			Data: &v1.SensorData_Binary{
 				Binary: bytes,
 			},
 		}
-		bytesWritten, err := pbutil.WriteDelimited(f, msg)
+		_, err := pbutil.WriteDelimited(f, msg)
 		if err != nil {
-			return countBytesWritten, err
+			return err
 		}
-		countBytesWritten += bytesWritten
 	}
-	return countBytesWritten, nil
+	return nil
 }
 
 // Compares UploadRequests (which hold either binary or tabular data).
@@ -130,7 +132,6 @@ func newTestSyncer(t *testing.T, mc *mockClient, uploadFn uploadFn) *syncer {
 	return &ret
 }
 
-// TODO: figure out how to pass part id in for file uploads.
 func TestFileUpload(t *testing.T) {
 	uploadChunkSize = 10
 	msgEmpty := []byte("")
@@ -157,23 +158,22 @@ func TestFileUpload(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		// Create mockClient that will be sending requests, this mock will have an UploadRequest slice that will
-		// contain the UploadRequests that are created by the data contained in files.
 		mc := &mockClient{
 			sent: []*v1.UploadRequest{},
+			lock: &sync.Mutex{},
 		}
 
 		// Create temp file to be used as examples of reading data from the files into buffers
 		// (and finally to have that data be uploaded) to the cloud.
 		tf, err := ioutil.TempFile("", "")
 		if err != nil {
-			t.Errorf("%v: cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
+			t.Errorf("%s: cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
 		defer os.Remove(tf.Name())
 
 		// Write the data from test cases into the temp file to prepare for reading by the fileUpload function.
 		if _, err := tf.Write(tc.toSend); err != nil {
-			t.Errorf("%v: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
+			t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
 
 		sut := newTestSyncer(t, mc, nil)
@@ -213,9 +213,9 @@ func TestFileUpload(t *testing.T) {
 func TestSensorUploadTabular(t *testing.T) {
 	protoMsgTabularStruct := toProto(
 		anyStruct{
-			fieldOne:   true,
-			fieldTwo:   16,
-			fieldThree: "Viam",
+			FieldOne:   true,
+			FieldTwo:   16,
+			FieldThree: "Viam",
 		})
 
 	tests := []struct {
@@ -224,7 +224,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		expData []*structpb.Struct
 	}{
 		{
-			name: "any struct",
+			name: "One sensor data.",
 			toSend: []*v1.SensorData{
 				{
 					Metadata: &v1.SensorMetadata{},
@@ -236,7 +236,7 @@ func TestSensorUploadTabular(t *testing.T) {
 			expData: []*structpb.Struct{protoMsgTabularStruct},
 		},
 		{
-			name: "stream of tabular sensor data",
+			name: "A stream of sensor data.",
 			toSend: []*v1.SensorData{
 				{
 					Metadata: &v1.SensorMetadata{},
@@ -256,22 +256,18 @@ func TestSensorUploadTabular(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		// Create mockClient that will be sending requests, this mock will have an UploadRequest slice that will
-		// contain the UploadRequests that are created by the data contained in files.
 		mc := &mockClient{
 			sent: []*v1.UploadRequest{},
+			lock: &sync.Mutex{},
 		}
 
-		// Create temp file to be used as examples of reading data from the files into buffers
-		// (and finally to have that data be uploaded) to the cloud
-		tf, err := ioutil.TempFile("", "")
+		// Create temp file to be used as examples of reading data from the files into buffers and finally to have
+		// that data be uploaded to the cloud
+		tf, err := createTmpDataCaptureFile()
 		if err != nil {
-			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
+			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
-		if err = os.Rename(tf.Name(), tf.Name()+dataCaptureFileExt); err != nil {
-			t.Error(err)
-		}
-		defer os.Remove(tf.Name() + dataCaptureFileExt)
+		defer os.Remove(tf.Name())
 
 		// First write metadata to file.
 		syncMetadata := v1.SyncMetadata{
@@ -282,20 +278,20 @@ func TestSensorUploadTabular(t *testing.T) {
 			MethodParameters: nil,
 		}
 		if _, err := pbutil.WriteDelimited(tf, &syncMetadata); err != nil {
-			t.Errorf("%v cannot write protobuf struct to temporary file as part of setup for sensorUpload testing",
-				tc.name)
+			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
+				tc.name, err)
 		}
 
 		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
 		for i := range tc.toSend {
 			if _, err := pbutil.WriteDelimited(tf, tc.toSend[i]); err != nil {
-				t.Errorf("%v cannot write protobuf struct to temporary file as part of setup for sensorUpload testing",
-					tc.name)
+				t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
+					tc.name, err)
 			}
 		}
 
 		sut := newTestSyncer(t, mc, nil)
-		sut.Sync([]string{tf.Name() + dataCaptureFileExt})
+		sut.Sync([]string{tf.Name()})
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
 		var expectedMsgs []*v1.UploadRequest
@@ -307,7 +303,7 @@ func TestSensorUploadTabular(t *testing.T) {
 					ComponentName:    componentName,
 					MethodName:       methodName,
 					Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-					FileName:         filepath.Base(tf.Name() + dataCaptureFileExt),
+					FileName:         filepath.Base(tf.Name()),
 					MethodParameters: nil,
 				},
 			},
@@ -361,44 +357,42 @@ func TestSensorUploadBinary(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		// Create mockClient that will be sending requests, this mock will have an UploadRequest slice that will
-		// contain the UploadRequests that are created by the data contained in files.
 		mc := &mockClient{
 			sent: []*v1.UploadRequest{},
+			lock: &sync.Mutex{},
 		}
 
-		// Create temp file to be used as examples of reading data from the files into
-		// buffers (and finally to have that data be uploaded) to the cloud
-		tf, err := ioutil.TempFile("", tc.name)
+		// Create temp file to be used as examples of reading data from the files into buffers and finally to have
+		// that data be uploaded to the cloud
+		tf, err := createTmpDataCaptureFile()
 		if err != nil {
-			t.Errorf("%v cannot create temporary file to be used for sensorUpload/fileUpload testing", tc.name)
+			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v",
+				tc.name, err)
 		}
-		if err = os.Rename(tf.Name(), tf.Name()+dataCaptureFileExt); err != nil {
-			t.Error(err)
-		}
-		defer os.Remove(tf.Name() + dataCaptureFileExt)
+		defer os.Remove(tf.Name())
 
 		// First write metadata to file.
 		syncMetadata := v1.SyncMetadata{
-			ComponentType:    "componenttype",
-			ComponentName:    "componentname",
-			MethodName:       "methodname",
+			ComponentType:    componentType,
+			ComponentName:    componentName,
+			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			MethodParameters: nil,
 		}
 		if _, err := pbutil.WriteDelimited(tf, &syncMetadata); err != nil {
-			t.Errorf("%v cannot write protobuf struct to temporary file as part of setup for sensorUpload testing",
-				tc.name)
+			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
+				tc.name, err)
 		}
 
 		// Write the data from the test cases into the files to prepare them for reading by the sensorUpload function.
-		if _, err := writeBinarySensorData(tf, tc.toSend); err != nil {
-			t.Errorf("%v cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing", tc.name)
+		if err := writeBinarySensorData(tf, tc.toSend); err != nil {
+			t.Errorf("%s cannot write byte slice to temporary file as part of setup for "+
+				"sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
 
 		// Upload the contents from the created file.
 		sut := newTestSyncer(t, mc, nil)
-		sut.Sync([]string{tf.Name() + dataCaptureFileExt})
+		sut.Sync([]string{tf.Name()})
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
 		var expectedMsgs []*v1.UploadRequest
@@ -410,7 +404,7 @@ func TestSensorUploadBinary(t *testing.T) {
 					ComponentName:    componentName,
 					MethodName:       methodName,
 					Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-					FileName:         filepath.Base(tf.Name() + dataCaptureFileExt),
+					FileName:         filepath.Base(tf.Name()),
 					MethodParameters: nil,
 				},
 			},
@@ -436,17 +430,11 @@ func TestSensorUploadBinary(t *testing.T) {
 
 // Validates that for some captureDir, files are uploaded exactly once.
 func TestUploadsOnce(t *testing.T) {
-	var uploadCount uint64
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
-		atomic.AddUint64(&uploadCount, 1)
-		_ = os.Remove(path)
-		return nil
-	}
 	mc := &mockClient{
 		sent: []*v1.UploadRequest{},
+		lock: &sync.Mutex{},
 	}
-
-	sut := newTestSyncer(t, mc, uploadFn)
+	sut := newTestSyncer(t, mc, nil)
 
 	// Put a couple files in captureDir.
 	file1, _ := ioutil.TempFile("", "whatever")
@@ -460,8 +448,9 @@ func TestUploadsOnce(t *testing.T) {
 
 	// Verify upload was only called twice.
 	time.Sleep(time.Millisecond * 100)
-	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 2)
 	sut.Close()
+	test.That(t, len(mc.sent), test.ShouldEqual, 2)
+	test.That(t, mc.sent[0], test.ShouldNotEqual, mc.sent[1])
 }
 
 func TestUploadExponentialRetry(t *testing.T) {
@@ -472,7 +461,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	failureCount := 0
 	successCount := 0
 	callTimes := make(map[int]time.Time)
-	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		callTimes[failureCount+successCount] = time.Now()
 		if failureCount >= 4 {
 			successCount++
@@ -483,6 +472,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	}
 	mc := &mockClient{
 		sent: []*v1.UploadRequest{},
+		lock: &sync.Mutex{},
 	}
 	sut := newTestSyncer(t, mc, uploadFunc)
 
@@ -513,4 +503,21 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// ... but not increase past maxRetryInterval.
 	test.That(t, callTimes[4].Sub(callTimes[3]), test.ShouldAlmostEqual, maxRetryInterval, marginOfError)
+}
+
+// createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
+// file extension.
+func createTmpDataCaptureFile() (file *os.File, err error) {
+	tf, err := ioutil.TempFile("", "")
+	if err != nil {
+		return nil, err
+	}
+	if err = os.Rename(tf.Name(), tf.Name()+dataCaptureFileExt); err != nil {
+		return nil, err
+	}
+	ret, err := os.OpenFile(tf.Name()+dataCaptureFileExt, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }

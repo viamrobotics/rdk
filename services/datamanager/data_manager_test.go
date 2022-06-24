@@ -114,7 +114,7 @@ func TestNewDataManager(t *testing.T) {
 func TestManualSync(t *testing.T) {
 	var uploaded []string
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -157,7 +157,7 @@ func TestManualSync(t *testing.T) {
 func TestScheduledSync(t *testing.T) {
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -198,7 +198,7 @@ func TestScheduledSync(t *testing.T) {
 func TestManualAndScheduledSync(t *testing.T) {
 	var uploadedFiles []string
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploadedFiles = append(uploadedFiles, path)
 		lock.Unlock()
@@ -247,7 +247,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 func TestRecoversAfterKilled(t *testing.T) {
 	var uploaded []string
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()

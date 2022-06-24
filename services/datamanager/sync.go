@@ -46,9 +46,9 @@ type syncer struct {
 	cancelFunc        func()
 }
 
-type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error
+type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error
 
-// newSyncer returns a new syncer.
+// newSyncer returns a new syncer. If no uploadFunc is passed, the default viamUpload is used.
 func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
@@ -64,7 +64,7 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer 
 	}
 
 	if uploadFunc == nil {
-		ret.uploadFn = ret.viamUpload
+		ret.uploadFn = viamUpload
 	} else {
 		ret.uploadFn = uploadFunc
 	}
@@ -89,7 +89,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 		defer s.backgroundWorkers.Done()
 		exponentialRetry(
 			ctx,
-			func(ctx context.Context) error { return s.uploadFn(ctx, s.client, path) },
+			func(ctx context.Context) error { return s.uploadFn(ctx, s.client, path, s.partID) },
 			s.logger,
 		)
 	})
@@ -191,7 +191,7 @@ func getSyncMetadata(f *os.File) (*v1.SyncMetadata, error) {
 	return r, nil
 }
 
-func (s *syncer) viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
@@ -209,7 +209,7 @@ func (s *syncer) viamUpload(ctx context.Context, client v1.DataSyncService_Uploa
 			return err
 		}
 		md = &v1.UploadMetadata{
-			PartId:           s.partID,
+			PartId:           partID,
 			ComponentType:    syncMD.GetComponentType(),
 			ComponentName:    syncMD.GetComponentName(),
 			MethodName:       syncMD.GetMethodName(),
@@ -219,7 +219,7 @@ func (s *syncer) viamUpload(ctx context.Context, client v1.DataSyncService_Uploa
 		}
 	} else {
 		md = &v1.UploadMetadata{
-			PartId:   s.partID,
+			PartId:   partID,
 			Type:     v1.DataType_DATA_TYPE_FILE,
 			FileName: filepath.Base(f.Name()),
 		}
