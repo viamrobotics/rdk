@@ -32,7 +32,8 @@ type CompononentUpdate interface {
 }
 
 type validator interface {
-	Validate(path string) error
+	// TODO: return dependencies
+	Validate(path string) (interface{}, error)
 }
 
 // A ResourceConfig represents an implmentation of a config for any type of resource.
