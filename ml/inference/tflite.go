@@ -269,10 +269,11 @@ func getTFLiteMetadataAsStruct(metaBytes []byte) *metadata.ModelMetadataT {
 }
 
 // Close should be called at the end of using the interpreter to delete related models and interpreters.
-func (model *TFLiteStruct) Close() {
+func (model *TFLiteStruct) Close() error {
 	model.model.Delete()
 	model.interpreterOptions.Delete()
 	model.interpreter.Delete()
+	return nil
 }
 
 // getInterpreter conforms a *tflite.Interpreter to the Interpreter interface.

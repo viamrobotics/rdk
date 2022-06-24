@@ -108,7 +108,7 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	}
 	part, ok := res.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", res)
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
 	}
 	return part, nil
 }
@@ -148,6 +148,11 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	}
 	return &reconfigurableGantry{actual: g}, nil
 }
+
+var (
+	_ = LocalGantry(&reconfigurableGantry{})
+	_ = resource.Reconfigurable(&reconfigurableGantry{})
+)
 
 type reconfigurableGantry struct {
 	mu     sync.RWMutex

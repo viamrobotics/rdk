@@ -70,7 +70,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, grabbed)
 
 	res, err = gripper.FromRobot(r, fakeGripperName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGripper", "string"))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gripper.FromRobot(r, missingGripperName)
