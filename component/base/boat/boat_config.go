@@ -55,13 +55,9 @@ func (bc *boatConfig) computeGoal(linear, angular r3.Vector) motorWeights {
 	w.angular *= angular.Z
 
 	w.linearX = goalScale(w.linearX, w.linearY, linear.X, linear.Y)
-	w.linearX = goalScale(w.linearX, w.angular, linear.X, angular.Z)
-
 	w.linearY = goalScale(w.linearY, w.linearX, linear.Y, linear.X)
-	w.linearY = goalScale(w.linearY, w.angular, linear.Y, angular.Z)
 
-	w.angular = goalScale(w.angular, w.linearX, angular.Z, linear.X)
-	w.angular = goalScale(w.angular, w.linearY, angular.Z, linear.Y)
+	// we ignore angular as the ratios don't really make sense there
 
 	return w
 }

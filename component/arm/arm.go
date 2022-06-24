@@ -110,7 +110,7 @@ type LocalArm interface {
 }
 
 var (
-	_ = Arm(&reconfigurableArm{})
+	_ = LocalArm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
