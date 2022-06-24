@@ -24,7 +24,7 @@ do_bullseye(){
 
 	# Node repo
 	curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --yes --dearmor -o /usr/share/keyrings/nodesource.gpg
-	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_16.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
+	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
 	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web && apt-get clean
@@ -173,6 +173,8 @@ do_brew(){
 		exit 1
 	fi
 
+	brew uninstall "go@1.17" "node@16"
+	brew unlink "gcc" "go" "node" "protobuf"
 	brew link --overwrite "gcc@11" "go@1.18" "node@18" "protobuf@3.19" || exit 1
 
 	echo "Brew installed software versions..."
