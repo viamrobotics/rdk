@@ -331,9 +331,11 @@ func (m *gpioStepper) GetFeatures(ctx context.Context) (map[motor.Feature]bool, 
 	}, nil
 }
 
-// IsMoving returns if the motor is currently on or off.
+// IsMoving returns if the motor is currently moving.
 func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
-	return m.IsPowered(ctx)
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return m.stepPosition != m.targetStepPosition, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
@@ -353,9 +355,7 @@ func (m *gpioStepper) stop() {
 
 // IsPowered returns whether or not the motor is currently on.
 func (m *gpioStepper) IsPowered(ctx context.Context) (bool, error) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	return m.stepPosition != m.targetStepPosition, nil
+	return m.IsMoving(ctx)
 }
 
 func (m *gpioStepper) enable(ctx context.Context, on bool) error {
