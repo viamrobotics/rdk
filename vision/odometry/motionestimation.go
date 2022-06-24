@@ -77,11 +77,11 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	if display {
 		err = keypoints.PlotKeypoints(im1, matchedKps1, "/tmp/img1.png")
 		if err != nil {
-			log.Printf("img1 could not be saved")
+			log.Println("img1 could not be saved")
 		}
 		err = keypoints.PlotKeypoints(im2, matchedKps2, "/tmp/img2.png")
 		if err != nil {
-			log.Printf("img2 could not be saved")
+			log.Println("img2 could not be saved")
 		}
 	}
 	if err != nil {
