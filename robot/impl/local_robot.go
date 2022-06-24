@@ -320,17 +320,17 @@ func newWithResources(
 	r.config = cfg
 
 	// default services
-	for _, service := range defaultSvc {
+	for _, name := range defaultSvc {
 		cfg := config.Service{
-			Namespace: service.Namespace,
-			Type:      config.ServiceType(service.ResourceSubtype),
+			Namespace: name.Namespace,
+			Type:      config.ServiceType(name.ResourceSubtype),
 		}
 		svc, err := r.newService(ctx, cfg)
 		if err != nil {
-			logger.Errorw("failed to add default service", "error", err, "service name", service)
+			logger.Errorw("failed to add default service", "error", err, "service", name)
 			continue
 		}
-		r.manager.addResource(service, svc)
+		r.manager.addResource(name, svc)
 	}
 
 	r.internalServices = make(map[internalServiceName]interface{})
@@ -417,10 +417,10 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 		}
 	}
 
-	for _, svc := range r.internalServices {
-		if updateable, ok := svc.(resource.Updateable); ok {
+	for _, name := range r.internalServices {
+		if updateable, ok := name.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
-				r.Logger().Errorw("failed to update internal service", "resource", svc, "error", err)
+				r.Logger().Errorw("failed to update internal service", "resource", name, "error", err)
 				continue
 			}
 		}

@@ -399,7 +399,7 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 	for _, c := range components {
 		err := manager.newComponent(ctx, c, robot)
 		if err != nil {
-			manager.logger.Errorw("failed to add new component", "error", err)
+			manager.logger.Errorw("failed to add new component", "component", c.Name, "error", err)
 		}
 	}
 }
@@ -407,7 +407,7 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 func (manager *resourceManager) newComponent(ctx context.Context, c config.Component, robot *localRobot) error {
 	r, err := robot.newResource(ctx, c)
 	if err != nil {
-		return errors.Errorf("cannot not find resource %v", err)
+		return err
 	}
 	rName := c.ResourceName()
 	manager.addResource(rName, r)
@@ -440,7 +440,7 @@ func (manager *resourceManager) newServices(ctx context.Context, services []conf
 	for _, cs := range services {
 		err := manager.newService(ctx, cs, r)
 		if err != nil {
-			manager.logger.Errorw("failed to add new service", "error", err)
+			manager.logger.Errorw("failed to add new service", "service", cs.Name, "error", err)
 		}
 	}
 }
