@@ -894,9 +894,21 @@ func TestManagerNewComponent(t *testing.T) {
 		logger:  logger,
 		config:  cfg,
 	}
+
+	sortedComponents, err := config.SortComponents(cfg.Components)
+	test.That(t, err, test.ShouldBeNil)
+	robotForRemote.manager = newResourceManager(resourceManagerOptions{}, logger)
+
+	for _, c := range sortedComponents {
+		err := robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
+		test.That(t, err, test.ShouldBeNil)
+	}
+
 	robotForRemote.manager.newComponents(context.Background(), cfg.Components, robotForRemote)
 	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
-	robotForRemote.manager = newResourceManager(resourceManagerOptions{}, logger)
+	_, err = config.SortComponents(robotForRemote.config.Components)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, "circular dependency detected in component list between arm3, board3")
 
 	for i, c := range robotForRemote.config.Components {
 		err := robotForRemote.manager.newComponent(context.Background(), c, robotForRemote)
