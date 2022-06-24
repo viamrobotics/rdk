@@ -1062,3 +1062,65 @@ func TestGetStatusRemote(t *testing.T) {
 		test.That(t, convMap, test.ShouldResemble, armStatus)
 	}
 }
+
+func TestResourceStartsOnReconfigure(t *testing.T) {
+	// 1. robot should start, but resource should fail because of bad config -> check for both components and services
+	// 2. upon an update in configs, the robot should now have the updated resources
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	badConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "fake0",
+				Type:      base.SubtypeName,
+				Model:     "random",
+			},
+		},
+		Services: []config.Service{
+			{
+				Name: "fake1",
+				Type: "no",
+			},
+		},
+	}
+
+	goodConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "fake0",
+				Type:      base.SubtypeName,
+				Model:     "fake",
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "fake1",
+				Type:                config.ServiceType(datamanager.SubtypeName),
+				ConvertedAttributes: &datamanager.Config{},
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, badConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r, test.ShouldNotBeNil)
+
+	noBase, err := r.ResourceByName(base.Named("fake0"))
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldResemble, rutils.NewResourceNotFoundError(base.Named("fake0")).Error())
+	test.That(t, noBase, test.ShouldBeNil)
+
+	err = r.Reconfigure(ctx, goodConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	yesBase, err := r.ResourceByName(base.Named("fake0"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, yesBase, test.ShouldNotBeNil)
+
+	yesSvc, err := r.ResourceByName(datamanager.Name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, yesSvc, test.ShouldNotBeNil)
+}
