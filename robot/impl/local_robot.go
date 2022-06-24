@@ -353,7 +353,6 @@ func newWithResources(
 					return
 				}
 				r.manager.updateRemoteResourceNames(ctx, n, r)
-
 			}
 		}
 	}, r.activeBackgroundWorkers.Done)

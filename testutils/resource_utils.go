@@ -58,7 +58,7 @@ func AddRemotes(values []resource.Name, remotes ...string) []resource.Name {
 
 	for _, s := range remotes {
 		for _, v := range values {
-			v.PrependRemote(resource.RemoteName(s))
+			v = v.PrependRemote(resource.RemoteName(s))
 			rNames = append(rNames, v)
 		}
 	}

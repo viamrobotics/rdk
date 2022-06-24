@@ -476,5 +476,4 @@ func TestRemoteResource(t *testing.T) {
 	test.That(t, n4.Remote.Remote, test.ShouldResemble, resource.RemoteName(""))
 	test.That(t, n4, test.ShouldResemble, n)
 	test.That(t, n4.String(), test.ShouldResemble, "rdk:component:gps/gps1")
-
 }
