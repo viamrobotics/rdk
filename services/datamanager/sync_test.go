@@ -475,7 +475,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// ... but not increase past maxRetryInterval.
 	test.That(t, callTimes[4].Sub(callTimes[3]), test.ShouldAlmostEqual, maxRetryInterval, marginOfError)
 
-	// Verify that the files was deleted after upload.
+	// Verify that the file was deleted after upload.
 	_, err := os.Stat(file1.Name())
 	test.That(t, err, test.ShouldNotBeNil)
 }
