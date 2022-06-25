@@ -124,7 +124,14 @@ func GetReadings(ctx context.Context, g GPS) ([]interface{}, error) {
 		return nil, err
 	}
 
-	readings := []interface{}{loc.Lat(), loc.Lng(), alt, speed}
+	readings := []interface{}{}
+	if loc == nil {
+		readings = append(readings, 0, 0)
+	} else {
+		readings = append(readings, loc.Lat(), loc.Lng())
+	}
+
+	readings = append(readings, alt, speed)
 
 	localG, ok := g.(LocalGPS)
 	if !ok {
