@@ -89,9 +89,10 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			func(ctx context.Context) error { return s.uploadFn(ctx, nil, path) },
 			s.logger,
 		)
-		s.progressTracker.unmark(path)
 		if err := os.Remove(path); err != nil {
 			s.logger.Errorw("error while deleting file", "error", err)
+		} else {
+			s.progressTracker.unmark(path)
 		}
 	})
 }
