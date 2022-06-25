@@ -234,12 +234,12 @@ func TestManualAndScheduledSync(t *testing.T) {
 	test.That(t, len(uploadedFiles), test.ShouldEqual, 2)
 	test.That(t, uploadedFiles[0], test.ShouldNotEqual, uploadedFiles[1])
 
-	// We've uploaded the first two files and should now be collecting a single new one.
+	// We've uploaded (and thus deleted) the first two files and should now be collecting a single new one.
 	filesInArmDir, err := readDir(t, armDir)
 	if err != nil {
 		t.Fatalf("failed to list files in armDir")
 	}
-	test.That(t, len(filesInArmDir), test.ShouldEqual, 3)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 }
 
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still

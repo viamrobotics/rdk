@@ -126,7 +126,7 @@ func (p *progressTracker) mark(k string) {
 	p.lock.Unlock()
 }
 
-//nolint:unused
+
 func (p *progressTracker) unmark(k string) {
 	p.lock.Lock()
 	delete(p.m, k)
