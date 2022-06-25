@@ -403,16 +403,14 @@ func TestUploadsOnce(t *testing.T) {
 	var uploadCount uint64
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
 		atomic.AddUint64(&uploadCount, 1)
-		_ = os.Remove(path)
 		return nil
 	}
 	sut := newTestSyncer(t, uploadFn)
 
 	// Put a couple files in captureDir.
 	file1, _ := ioutil.TempFile("", "whatever")
-	defer os.Remove(file1.Name())
 	file2, _ := ioutil.TempFile("", "whatever2")
-	defer os.Remove(file2.Name())
+
 	// Immediately try to Sync same files many times.
 	for i := 1; i < 10; i++ {
 		sut.Sync([]string{file1.Name(), file2.Name()})
@@ -421,6 +419,13 @@ func TestUploadsOnce(t *testing.T) {
 	// Verify upload was only called twice.
 	time.Sleep(time.Millisecond * 100)
 	test.That(t, atomic.LoadUint64(&uploadCount), test.ShouldEqual, 2)
+
+	// Verify that the files were deleted after upload.
+	_, err := os.Stat(file1.Name())
+	test.That(t, err, test.ShouldNotBeNil)
+	_, err = os.Stat(file2.Name())
+	test.That(t, err, test.ShouldNotBeNil)
+
 	sut.Close()
 }
 
@@ -445,7 +450,6 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// Sync file.
 	file1, _ := ioutil.TempFile("", "whatever")
-	defer os.Remove(file1.Name())
 	sut.Sync([]string{file1.Name()})
 
 	// Let it run.
@@ -470,4 +474,8 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// ... but not increase past maxRetryInterval.
 	test.That(t, callTimes[4].Sub(callTimes[3]), test.ShouldAlmostEqual, maxRetryInterval, marginOfError)
+
+	// Verify that the files was deleted after upload.
+	_, err := os.Stat(file1.Name())
+	test.That(t, err, test.ShouldNotBeNil)
 }
