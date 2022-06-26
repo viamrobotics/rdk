@@ -122,6 +122,26 @@ window.BoardControlHelper = {
     rcLogConditionally(req);
     boardService.setGPIO(req, {}, cb);
   },
+};
 
-  // TODO: Add PWM
+// PWM helpers
+window.PWMControlHelper = {
+  getPWM: function (name, pin, cb) {
+    const req = new boardApi.PWMRequest();
+    req.setName(name);
+    req.setPin(pin);
+  
+    rcLogConditionally(req);
+    boardService.pWM(req, {}, cb);
+  },
+  
+  setPWM: function (name, pin, value, cb) {
+    const req = new boardApi.SetPWMRequest();
+    req.setName(name);
+    req.setPin(pin);
+    req.setDutyCyclePct(value);
+  
+    rcLogConditionally(req);
+    boardService.setPWM(req, {}, cb);
+  },
 };

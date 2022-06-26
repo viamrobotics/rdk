@@ -232,8 +232,10 @@
           imuData: {},
           currentOps: [],
           baseRunStatus: false,
-          setPin: "",
-          getPin: "",
+          setPin: 1,
+          getPin: 1,
+          getPWMPin: 1,
+          setPWMPin: 1,
           locationValue: "40.745297,-74.010916",
           imageMapTemp: "",
           pcdMapTemp: null
@@ -1028,6 +1030,22 @@
               var v = document.getElementById("set_pin_v_" + boardName).value;
               BoardControlHelper.setGPIO(boardName, pin, v === "high", grpcCallback);
             },
+            getPWM: function (boardName) {
+              var pin = document.getElementById('get_pwm_pin' + boardName).value;
+              PWMControlHelper.getPWM(boardName, pin, (err, resp) => {
+                if (err) {
+                  console.log(err);
+                  return;
+                }
+                var pwm = resp.toObject();
+                document.getElementById("get_pwm_pin_value_" + boardName).innerHTML = `Pin ${pin}'s duty cycle is ${pwm.dutyCyclePct * 100}%.`
+              })
+            },
+            setPWM: function (boardName) {
+              var pin = document.getElementById("set_pwm_pin_" + boardName).value;
+              var v = document.getElementById("set_pwm_pin_v_" + boardName).value/100;
+              PWMControlHelper.setPWM(boardName, pin, v, grpcCallback);
+            }
           },
           directives: {
             // TODO(APP-82): replace with vue component after naveed work done
@@ -1817,6 +1835,35 @@
                     <option>high</option>
                   </select>
                   <viam-button group v-on:click="setGPIO(board.name)">Set</viam-button><br>
+                </td>
+              </tr>
+
+              <tr> <th class="border border-slate-300" colspan="2">PWM</th></tr>
+              <tr>
+                 <th class="border border-slate-300">Get</th>
+                 <td class="border border-slate-300">
+                  Pin: <number-input  v-model="getPWMPin" :input-id="'get_pwm_pin' + board.name"></number-input>
+                  <viam-button group v-on:click="getPWM(board.name)">Get</viam-button><br>
+                  <span :id="'get_pwm_pin_value_' + board.name"/>
+                </td>
+              </tr>
+              <tr>
+                 <th class="border border-slate-300">Set</th>
+                 <td class="border border-slate-300">
+                  Pin: <number-input v-model="setPWMPin" :input-id="'set_pwm_pin_' + board.name"></number-input><br>
+                  <select :id="'set_pwm_pin_v_' + board.name">
+                    <option>10</option>
+                    <option>20</option>
+                    <option>30</option>
+                    <option>40</option>
+                    <option>50</option>
+                    <option>60</option>
+                    <option>70</option>
+                    <option>80</option>
+                    <option>90</option>
+                    <option>100</option>
+                  </select>
+                  <viam-button group v-on:click="setPWM(board.name)">Set</viam-button><br>
                 </td>
               </tr>
             </table>
