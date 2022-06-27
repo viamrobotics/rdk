@@ -64,12 +64,12 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 
 	g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
-	g.Start(ctx, config)
+	g.Start(ctx)
 
 	return g, nil
 }
 
-func (g *serialNMEAGPS) Start(ctx context.Context, config config.Component) {
+func (g *serialNMEAGPS) Start(ctx context.Context) {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()

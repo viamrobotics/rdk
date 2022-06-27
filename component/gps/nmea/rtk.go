@@ -39,7 +39,7 @@ func init() {
 // A nmeaGPS represents a GPS that can read and parse NMEA messages.
 type nmeaGPS interface {
 	gps.LocalGPS
-	Start(ctx context.Context, config config.Component) // Initialize and run GPS
+	Start(ctx context.Context) // Initialize and run GPS
 	Close() error                                       // Close GPS
 	ReadFix(ctx context.Context) (int, error)           // Returns the fix quality of the current GPS measurements
 }
@@ -68,6 +68,7 @@ type ntripInfo struct {
 	mountPoint         string
 	writepath          string
 	wbaud              int
+	addr			   byte 			// for i2c only 
 	sendNMEA           bool
 	client             *ntrip.Client
 	stream             io.ReadCloser
@@ -148,21 +149,25 @@ func newRTKGPS(ctx context.Context, deps registry.Dependencies, config config.Co
 		g.logger.Info("ntrip_connect_attempts using default 10")
 	}
 
-	g.Start(ctx, config)
+	// I2C address only, assumes address is correct since this was checked when gps was initialized
+	g.ntripClient.addr = byte(config.Attributes.Int("i2c_addr", -1))
+
+	g.Start(ctx)
 
 	return g, nil
 }
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating GPS measurements.
-func (g *RTKGPS) Start(ctx context.Context, config config.Component) {
+func (g *RTKGPS) Start(ctx context.Context) {
 	switch g.ntripInputProtocol {
 	case "serial":
 		go g.ReceiveAndWriteSerial()
 	case "I2C":
-		go g.ReceiveAndWriteI2C(ctx, config)
+		go g.ReceiveAndWriteI2C(ctx)
+
 	}
 
-	g.nmeagps.Start(ctx, config)
+	g.nmeagps.Start(ctx)
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
@@ -237,7 +242,7 @@ func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) error {
 }
 
 // ReceiveAndWriteI2C connects to NTRIP receiver and sends correction stream to the GPS through I2C protocol.
-func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context, config config.Component) {
+func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 	g.activeBackgroundWorkers.Add(1)
 	defer g.activeBackgroundWorkers.Done()
 	err := g.Connect(g.ntripClient.url, g.ntripClient.username, g.ntripClient.password, g.ntripClient.maxConnectAttempts)
@@ -250,15 +255,14 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context, config config.Component
 	}
 
 	// establish I2C connection
-	addr := byte(config.Attributes.Int("i2c_addr", -1))
-	handle, err := g.bus.OpenHandle(addr)
+	handle, err := g.bus.OpenHandle(g.ntripClient.addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
 		return
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
-	cmd251 := addChk([]byte("PMTK251,")) // set baud rate
-	cmd251 = append(cmd251, byte(g.ntripClient.wbaud))
+	baudcmd := fmt.Sprintf("PMTK251,%d", g.ntripClient.wbaud)
+	cmd251 := addChk([]byte(baudcmd))
 	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
@@ -312,7 +316,7 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context, config config.Component
 		}
 
 		// establish I2C connection
-		handle, err := g.bus.OpenHandle(addr)
+		handle, err := g.bus.OpenHandle(g.ntripClient.addr)
 		if err != nil {
 			g.logger.Fatalf("can't open gps i2c %s", err)
 			return
