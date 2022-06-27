@@ -448,10 +448,10 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 		}
 	}
 
-	for _, name := range r.internalServices {
-		if updateable, ok := name.(resource.Updateable); ok {
+	for _, svc := range r.internalServices {
+		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
-				r.Logger().Errorw("failed to update internal service", "resource", name, "error", err)
+				r.Logger().Errorw("failed to update internal service", "resource", svc, "error", err)
 				continue
 			}
 		}
