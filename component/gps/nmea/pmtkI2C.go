@@ -59,7 +59,8 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
 	}
-	addr := config.Attributes.Int("address", -1)
+	addr := config.Attributes.Int("i2c_addr", -1)
+	fmt.Println(addr)
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
