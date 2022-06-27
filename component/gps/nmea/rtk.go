@@ -39,9 +39,9 @@ func init() {
 // A nmeaGPS represents a GPS that can read and parse NMEA messages.
 type nmeaGPS interface {
 	gps.LocalGPS
-	Start(ctx context.Context) // Initialize and run GPS
-	Close() error                                       // Close GPS
-	ReadFix(ctx context.Context) (int, error)           // Returns the fix quality of the current GPS measurements
+	Start(ctx context.Context)                // Initialize and run GPS
+	Close() error                             // Close GPS
+	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current GPS measurements
 }
 
 // A RTKGPS is an NMEA GPS model that can intake RTK correction data.
@@ -68,7 +68,7 @@ type ntripInfo struct {
 	mountPoint         string
 	writepath          string
 	wbaud              int
-	addr			   byte 			// for i2c only 
+	addr               byte // for i2c only
 	sendNMEA           bool
 	client             *ntrip.Client
 	stream             io.ReadCloser
@@ -164,7 +164,6 @@ func (g *RTKGPS) Start(ctx context.Context) {
 		go g.ReceiveAndWriteSerial()
 	case "I2C":
 		go g.ReceiveAndWriteI2C(ctx)
-
 	}
 
 	g.nmeagps.Start(ctx)
