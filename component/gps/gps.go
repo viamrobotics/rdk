@@ -157,7 +157,7 @@ func GetReadings(ctx context.Context, g GPS) ([]interface{}, error) {
 
 // GetHeading calculates bearing and absolute heading angles given 2 GPS coordinates
 // 0 degrees indicate North, 90 degrees indicate East and so on.
-func GetHeading(gps1 *geo.Point, gps2 *geo.Point) (float64, float64, float64) {
+func GetHeading(gps1 *geo.Point, gps2 *geo.Point, yawOffset float64) (float64, float64, float64) {
 
 	// convert latitude and longitude readings from degrees to radians
 	gps1Lat := utils.DegToRad(gps1.Lat())
@@ -176,15 +176,16 @@ func GetHeading(gps1 *geo.Point, gps2 *geo.Point) (float64, float64, float64) {
 		brng += 360
 	}
 
-	// calculate heading from bearing
-	// adding 90 degrees to bearing to account for yaw offset
+	// calculate absolute heading from bearing, accounting for yaw offset
+	// e.g if the GPS antennas are mounted on the left and right sides of the robot,
+	// the yaw offset would be roughly 90 degrees
 	var standardBearing float64
 	if brng > 180 {
 		standardBearing = -(360 - brng)
 	} else {
 		standardBearing = brng
 	}
-	heading := brng - 90
+	heading := brng - yawOffset
 
 	// make heading positive again
 	if heading < 0 {
