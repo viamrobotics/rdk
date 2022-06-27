@@ -6,7 +6,7 @@ DOCKER_MIN_DATE=2022-06-08T00:35:24.791434424Z
 DOCKER_CMD = docker run $(DOCKER_SSH_AGENT) $(DOCKER_NETRC_RUN) -v$(HOME)/.ssh:/home/testbot/.ssh:ro -v$(shell pwd):/host --workdir /host --rm -ti $(DOCKER_PLATFORM) ghcr.io/viamrobotics/canon:$(DOCKER_TAG) --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
 
 ifneq ("$(SSH_AUTH_SOCK)x", "x")
-	DOCKER_SSH_AGENT = -v$(shell dirname $(SSH_AUTH_SOCK)) -e SSH_AUTH_SOCK=$(SSH_AUTH_SOCK)
+	DOCKER_SSH_AGENT = -v$(shell dirname $(SSH_AUTH_SOCK)):$(shell dirname $(SSH_AUTH_SOCK)) -e SSH_AUTH_SOCK=$(SSH_AUTH_SOCK)
 endif
 
 ifeq ("aarch64", "$(shell uname -m)")

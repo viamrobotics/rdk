@@ -44,10 +44,7 @@ do_bullseye(){
 	fi
 
 	cat > ~/.viamdevrc <<-EOS
-	if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
-		export VIAM_DEV_ENV=1
-		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-	fi
+	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 	EOS
 
 	mod_profiles
@@ -74,16 +71,13 @@ do_linux(){
 	fi
 
 	cat > ~/.viamdevrc <<-EOS
-	if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
-		export VIAM_DEV_ENV=1
-		eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-		export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
-		export CGO_LDFLAGS=-L/home/linuxbrew/.linuxbrew/lib
-		export CGO_CFLAGS=-I/home/linuxbrew/.linuxbrew/include
-		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		export CC=gcc-11
-		export CXX=g++-11
-	fi
+	eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+	export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
+	export CGO_LDFLAGS=-L/home/linuxbrew/.linuxbrew/lib
+	export CGO_CFLAGS=-I/home/linuxbrew/.linuxbrew/include
+	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
+	export CC=gcc-11
+	export CXX=g++-11
 	EOS
 
 	do_brew
@@ -101,25 +95,19 @@ do_darwin(){
 	if [ "$(uname -m)" == "arm64" ]; then
 
 		cat > ~/.viamdevrc <<-EOS
-		if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
-			export VIAM_DEV_ENV=1
-			eval "\$(/opt/homebrew/bin/brew shellenv)"
-			export LIBRARY_PATH=/opt/homebrew/lib
-			export CGO_LDFLAGS=-L/opt/homebrew/lib
-			export CGO_CFLAGS=-I/opt/homebrew/include
-			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		fi
+		eval "\$(/opt/homebrew/bin/brew shellenv)"
+		export LIBRARY_PATH=/opt/homebrew/lib
+		export CGO_LDFLAGS=-L/opt/homebrew/lib
+		export CGO_CFLAGS=-I/opt/homebrew/include
+		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		EOS
 
   	else # assuming x86_64, but untested
 
 		cat > ~/.viamdevrc <<-EOS
-		if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
-			export VIAM_DEV_ENV=1
-			eval "\$(/usr/local/bin/brew shellenv)"
-			export LIBRARY_PATH=/usr/local/lib
-			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		fi
+		eval "\$(/usr/local/bin/brew shellenv)"
+		export LIBRARY_PATH=/usr/local/lib
+		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		EOS
 
 	fi
