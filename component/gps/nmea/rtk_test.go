@@ -135,7 +135,7 @@ func TestReadings(t *testing.T) {
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := RTKGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	nmeagps := &serialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	nmeagps := &SerialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	nmeagps.data = gpsData{
 		location:   loc,
 		alt:        alt,
@@ -194,7 +194,7 @@ func TestClose(t *testing.T) {
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := RTKGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	g.nmeagps = &serialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g.nmeagps = &SerialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)

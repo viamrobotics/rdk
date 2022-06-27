@@ -51,8 +51,9 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 	return s, nil
 }
 
-func (s *serialCorrectionSource) Start(ctx context.Context) {
+func (s *serialCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 	ntrip.correctionReader, w := io.Pipe()
+	ready <- true
 
 	// read from s.port and write rctm messages into w, discard other messages in loop
 	var err error

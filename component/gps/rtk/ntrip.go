@@ -150,7 +150,7 @@ func (ntrip *ntripCorrectionSource) GetStream() error {
 	return nil
 }
 
-func (ntrip *ntripCorrectionSource) Start(ctx context.Context) {
+func (ntrip *ntripCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 	ntrip.activeBackgroundWorkers.Add(1)
 	defer ntrip.activeBackgroundWorkers.Done()
 	err := ntrip.Connect()
@@ -163,6 +163,7 @@ func (ntrip *ntripCorrectionSource) Start(ctx context.Context) {
 	}
 
 	ntrip.correctionReader, w := io.Pipe()
+	ready <- true
 
 	err = ntrip.GetStream()
 	if err != nil {

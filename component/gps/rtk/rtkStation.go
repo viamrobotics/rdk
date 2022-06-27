@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/nmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -26,11 +27,11 @@ func init() {
 		"rtk-station",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			_ registry.Dependencies,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newRTKStation(ctx, config, logger)
+			return newRTKStation(ctx, deps, config, logger)
 		}})
 }
 
@@ -39,8 +40,11 @@ type RTKStation struct {
 	mu     					sync.RWMutex
 	logger 					golog.Logger
 	correction				correctionSource
+	correctionType			string
 	i2cPaths				[]i2cBusAddr
-	serialPaths				[]io.ReadWriteCloser
+	serialPorts				[]io.ReadWriteCloser
+	serialWriter			io.ReadWriteCloser
+	gpsNames				[]string
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -60,24 +64,28 @@ type i2cBusAddr struct {
 
 const (
 	correctionSourceName		= "correction_source"
+	childrenName				= "children"
 )
 
-func newRTKStation(ctx context.Context, config config.Component, logger golog.Logger) (RTKStation, error) {
+func newRTKStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (RTKStation, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	r := &RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
-	correctionType := config.Attributes.String(correctionSourceName)
+	r.correctionType = config.Attributes.String(correctionSourceName)
 
 	// Init correction source
-	switch correctionType {
+	switch r.correctionType {
 	case "ntrip":
 		r.correction, err := newNtripCorrectionSource(ctx, config, logger)
 		if err != nil {
 			return nil, err
 		}
 	case "serial":
-		return nil, errors.New("Serial not implemented")
+		r.correction, err := newSerialCorrectionSource(ctx, config, logger)
+		if err != nil {
+			return nil, err
+		}
 	case "I2C":
 		return nil, errors.New("I2C not implemented")
 	default:
@@ -85,15 +93,64 @@ func newRTKStation(ctx context.Context, config config.Component, logger golog.Lo
 		return nil, fmt.Errorf("%s is not a valid correction source", correctionSource)
 	}
 
+	r.gpsNames = config.Attributes.StringSlice(childrenName)
+
 	// Init gps correction input addresses
-	// TODO: Get all gps's dependent on this rtk station and check that they have either serial path or i2c bus/addr
-	// TODO: open all ports and to serial slice
-	// TODO: create all bus/addr structs and add to i2c slice
+	r.serialPorts = make([]io.ReadWriteCloser, 0)
+	for _, gpsName := range r.gpsNames {
+		gps, err := gps.FromDependencies(deps, gpsName)
+		if err != nil {
+			return nil, err
+		}
+
+		switch gps.(type) {
+		case nmea.SerialNMEAGPS:
+			gps = gps.(nmea.SerialNMEAGPS)
+			port, err := serial.Open(gps.GetCorrectionPath())
+
+			r.serialPorts = append(r.serialPorts, port)
+		case nmea.PmtkI2CNMEAGPS:
+			gps = gps.(nmea.PmtkI2CNMEAGPS)
+			bus, addr := gps.GetBusAddr()
+			busAddr := i2cBusAddr{bus: bus, addr: addr}
+
+			r.i2cPaths = append(r.i2cPaths, busAddr)
+		default:
+			return nil, errors.New("Child is not valid nmeaGPS type")
+		}
+	}
+
+	r.serialWriter = io.MultiWriter(r.serialPorts...)
+
+	r.Start(ctx)
 }
 
 func (r *RTKStation) Start(ctx context.Context) {
 	// read from correction source
+    ready := make(chan bool, false)
+	go r.correction.Start(ctx, ready)
+
+	<-ready
+	stream, err := r.GetReader()
+	reader := io.TeeReader(stream, w)
+
+	if r.correctionType == "ntrip" {
+		r.correction.ntripStatus = true
+	}
+
 	// write corrections to all open ports and i2c handles
+	for {
+		select {
+		case <-r.cancelCtx.Done():
+			return
+		default:
+		}
+
+		buf := make([]byte, 1100)
+		n, err := reader.Read(buf)
+
+		// write buf to all i2c handles
+	}
 }
 
 func (r *RTKStation) Close() error {
@@ -107,31 +164,37 @@ func (r *RTKStation) Close() error {
 	}
 
 	// close all ports in slice
+	for _, port := range r.serialPorts {
+		port.Close()
+	}
+	r.serialWriter.Close()
+
+	// close i2c handles?
 
 	return nil
 }
 
 // These are all necessary for this to be a gps... not sure of a better option right now
-func (g *serialNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
+func (g *SerialNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	return nil, nil
 }
 
-func (g *serialNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
+func (g *SerialNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	return nil, nil
 }
 
-func (g *serialNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
+func (g *SerialNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	return nil, nil
 }
 
-func (g *serialNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
+func (g *SerialNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	return nil, nil
 }
 
-func (g *serialNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+func (g *SerialNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	return nil, nil, nil
 }
 
-func (g *serialNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
+func (g *SerialNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	return nil, nil
 }

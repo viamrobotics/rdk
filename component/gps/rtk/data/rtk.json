@@ -7,7 +7,10 @@
           "ntrip_username": "username",
           "ntrip_password": "password",
           "ntrip_mountpoint": "NJI2",
-          "ntrip_connect_attempts": 10
+          "ntrip_connect_attempts": 10,
+          "children": [
+            "gps1"
+          ]
         },
         "depends_on": [
           "gps1"
