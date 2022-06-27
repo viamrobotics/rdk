@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	"github.com/adrianmo/go-nmea"
+	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
@@ -54,6 +55,27 @@ func (s *serialCorrectionSource) Start(ctx context.Context) {
 	ntrip.correctionReader, w := io.Pipe()
 
 	// read from s.port and write rctm messages into w, discard other messages in loop
+	var err error
+	scanner := rtcm3.NewScanner(s.port)
+
+	for err == nil {
+		select {
+		case <-s.cancelCtx.Done():
+			return
+		default:
+		}
+
+		msg, err := scanner.NextMessage()
+		if err != nil {
+			g.logger.Fatalf("Error reading RTCM message: %s", err)
+		}
+		fmt.Println(msg.Number())
+
+		n, err := w.Write(msg.Serialize())
+		if err != nil {
+			g.logger.Fatalf("Error writing RTCM message: %s", err)
+		}
+	}
 }
 
 func (s *serialCorrectionSource) GetReader() (io.ReadCloser, error) {
