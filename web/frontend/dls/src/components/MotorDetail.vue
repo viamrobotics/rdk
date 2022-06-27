@@ -130,7 +130,7 @@
                   <viam-info-button
                     class="pb-2"
                     :iconPath="mdiInformation"
-                    :infoRows="['Continously moves']"
+                    :infoRows="['Continuously moves']"
                   >
                   </viam-info-button>
                 </div>

@@ -113,7 +113,7 @@ describe("Base", () => {
     );
     expect(divColumnWrapper.element.innerHTML.trim()).toBe("Straight");
     expect(wrapper.vm.$data.movementMode).toBe("Straight");
-    expect(wrapper.vm.$data.movementType).toBe("Continous");
+    expect(wrapper.vm.$data.movementType).toBe("Continuous");
     expect(wrapper.vm.$data.direction).toBe("Forwards");
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
   });
@@ -148,7 +148,7 @@ describe("Base", () => {
     expect(divColumnWrapper.element.innerHTML.trim()).toBe("Spin");
     await divColumnWrapper.trigger("click");
     expect(wrapper.vm.$data.movementMode).toBe("Spin");
-    expect(wrapper.vm.$data.movementType).toBe("Continous");
+    expect(wrapper.vm.$data.movementType).toBe("Continuous");
     expect(wrapper.vm.$data.direction).toBe("Forwards");
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
   });
@@ -183,7 +183,7 @@ describe("Base", () => {
     expect(divColumnWrapper.element.innerHTML.trim()).toBe("Spin");
     await divColumnWrapper.trigger("click");
     expect(wrapper.vm.$data.movementMode).toBe("Spin");
-    expect(wrapper.vm.$data.movementType).toBe("Continous");
+    expect(wrapper.vm.$data.movementType).toBe("Continuous");
     expect(wrapper.vm.$data.direction).toBe("Forwards");
     expect(wrapper.vm.$data.spinType).toBe("Clockwise");
     const ccwColumnWrapper = wrapper.find(
