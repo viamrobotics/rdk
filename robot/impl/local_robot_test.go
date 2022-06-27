@@ -705,7 +705,7 @@ func TestNewTeardown(t *testing.T) {
 		modelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -716,7 +716,7 @@ func TestNewTeardown(t *testing.T) {
 		modelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {

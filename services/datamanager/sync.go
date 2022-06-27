@@ -2,13 +2,9 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +19,7 @@ var (
 	initialWaitTime        = time.Second
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
-	// Buffer size set at 32 kiB, this is 32768 Bytes.
+	// Chunk size set at 32 kiB, this is 32768 Bytes.
 	uploadChunkSize       = 32768
 	hardCodePartName      = "TODO [DATA-164]"
 	hardCodeMethodName    = "TODO [DATA-164]"
@@ -36,19 +32,13 @@ func emptyReadingErr(fileName string) error {
 
 // syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type syncManager interface {
-	Start()
-	Enqueue(filesToQueue []string) error
-	Upload()
+	Sync(paths []string)
 	Close()
 }
 
-// TODO: replace uploadFn with some Uploader interface with Upload/Close methods syncer is responsible for
-// enqueuing files in captureDir and uploading them to the cloud.
+// syncer is responsible for uploading files in captureDir to the cloud.
 type syncer struct {
-	captureDir        string
-	syncQueue         string
 	logger            golog.Logger
-	queueWaitTime     time.Duration
 	progressTracker   progressTracker
 	uploadFn          uploadFn
 	backgroundWorkers sync.WaitGroup
@@ -59,17 +49,13 @@ type syncer struct {
 type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error
 
 // newSyncer returns a new syncer.
-func newSyncer(queuePath string, logger golog.Logger, captureDir string, uploadFunc uploadFn) *syncer {
+func newSyncer(logger golog.Logger, uploadFunc uploadFn) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	// TODO: Change to uploadFunc = viamUpload when PR #915 (DATA-166) is merged.
 	if uploadFunc == nil {
 		uploadFunc = viamUpload
 	}
 	ret := syncer{
-		syncQueue:     queuePath,
-		logger:        logger,
-		captureDir:    captureDir,
-		queueWaitTime: time.Minute,
+		logger: logger,
 		progressTracker: progressTracker{
 			lock: &sync.Mutex{},
 			m:    make(map[string]struct{}),
@@ -83,125 +69,15 @@ func newSyncer(queuePath string, logger golog.Logger, captureDir string, uploadF
 	return &ret
 }
 
-// Enqueue moves files that are no longer being written to from captureDir to SyncQueuePath.
-func (s *syncer) Enqueue(filesToQueue []string) error {
-	for _, filePath := range filesToQueue {
-		subPath, err := s.getPathUnderCaptureDir(filePath)
-		if err != nil {
-			return errors.Errorf("could not get path under capture directory: %v", err)
-		}
-
-		if err := os.MkdirAll(filepath.Dir(path.Join(s.syncQueue, subPath)), 0o700); err != nil {
-			return errors.Errorf("failed create directories under sync enqueue: %v", err)
-		}
-
-		if err := os.Rename(filePath, path.Join(s.syncQueue, subPath)); err != nil {
-			return errors.Errorf("failed to move file to sync enqueue: %v", err)
-		}
-	}
-	return nil
-}
-
-// Upload uploads files that are in the SyncQueue directory to the cloud when called.
-func (s *syncer) Upload() {
-	if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
-		s.logger.Errorf("failed to upload file to sync queue: %v", err)
-	}
-}
-
-// Start queues any files already in captureDir that haven't been modified in s.queueWaitTime time, and kicks off a
-// goroutine to constantly upload files in the queue.
-func (s *syncer) Start() {
-	// First, move any files in captureDir to queue.
-	if err := filepath.WalkDir(s.captureDir, s.queueFile); err != nil {
-		s.logger.Errorf("failed to move files to sync queue: %v", err)
-	}
-	s.backgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		ticker := time.NewTicker(time.Millisecond * 500)
-		defer ticker.Stop()
-		defer s.backgroundWorkers.Done()
-		for {
-			if err := s.cancelCtx.Err(); err != nil {
-				if !errors.Is(err, context.Canceled) {
-					s.logger.Errorw("sync context closed unexpectedly", "error", err)
-				}
-				return
-			}
-			select {
-			case <-s.cancelCtx.Done():
-				return
-			case <-ticker.C:
-				if err := filepath.WalkDir(s.syncQueue, s.upload); err != nil {
-					s.logger.Errorf("failed to upload queued file: %v", err)
-				}
-			}
-		}
-	})
-}
-
-// queueFile is an fs.WalkDirFunc that moves matching files to s.syncQueue.
-func (s *syncer) queueFile(filePath string, di fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-
-	if di.IsDir() {
-		return nil
-	}
-
-	fileInfo, err := di.Info()
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to get file info for filepath %s", filePath))
-	}
-
-	// If it's been written to in the last s.queueWaitTime, it's still active and shouldn't be queued.
-	if time.Since(fileInfo.ModTime()) < s.queueWaitTime {
-		return nil
-	}
-
-	subPath, err := s.getPathUnderCaptureDir(filePath)
-	if err != nil {
-		return errors.Wrap(err, "could not get path under capture directory")
-	}
-
-	if err = os.MkdirAll(filepath.Dir(path.Join(s.syncQueue, subPath)), 0o700); err != nil {
-		return errors.Wrap(err, "failed create directories under sync enqueue")
-	}
-
-	if err := os.Rename(filePath, path.Join(s.syncQueue, subPath)); err != nil {
-		return errors.Wrap(err, "failed to move file to sync enqueue")
-	}
-	return nil
-}
-
-func (s *syncer) getPathUnderCaptureDir(filePath string) (string, error) {
-	if idx := strings.Index(filePath, s.captureDir); idx != -1 {
-		return filePath[idx+len(s.captureDir):], nil
-	}
-	return "", errors.Errorf("file path %s is not under capture directory %s", filePath, s.captureDir)
-}
-
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
 }
 
-// upload is an fs.WalkDirFunc that uploads files to Viam cloud storage.
-
-func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
-	if err != nil {
-		s.logger.Errorw("failed to upload queued file", "error", err)
-		return nil
-	}
-
-	if di.IsDir() {
-		return nil
-	}
-
+func (s *syncer) upload(ctx context.Context, path string) {
 	if s.progressTracker.inProgress(path) {
-		return nil
+		return
 	}
 
 	s.progressTracker.mark(path)
@@ -209,14 +85,18 @@ func (s *syncer) upload(path string, di fs.DirEntry, err error) error {
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
 		exponentialRetry(
-			s.cancelCtx,
-			// TODO: figure out how to build client, and make it a field of s.
+			ctx,
 			func(ctx context.Context) error { return s.uploadFn(ctx, nil, path) },
 			s.logger,
 		)
 	})
-	// TODO: If upload completed successfully, unmark in-progress and delete file.
-	return nil
+	// TODO DATA-40: If upload completed successfully, unmark in-progress and delete file.
+}
+
+func (s *syncer) Sync(paths []string) {
+	for _, p := range paths {
+		s.upload(s.cancelCtx, p)
+	}
 }
 
 type progressTracker struct {
@@ -407,7 +287,8 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 	}
 	// Close stream and receive response.
 	if _, err := client.CloseAndRecv(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from sync service backend")
+		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
+			"sync service backend")
 	}
 	return nil
 }

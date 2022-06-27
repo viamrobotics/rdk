@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/vision"
@@ -59,7 +58,7 @@ func TestRobotReconfigure(t *testing.T) {
 	test.That(t, os.Setenv("TEST_MODEL_NAME_2", modelName2), test.ShouldBeNil)
 
 	registry.RegisterComponent(mockSubtype, modelName1, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if _, ok := config.Attributes["should_fail"]; ok {
 				return nil, errors.Errorf("cannot build %q for some obscure reason", config.Name)
 			}
@@ -72,7 +71,7 @@ func TestRobotReconfigure(t *testing.T) {
 	reconfigurableTrue := true
 	testReconfiguringMismatch := false
 	registry.RegisterComponent(mockSubtype, modelName2, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if reconfigurableTrue && testReconfiguringMismatch {
 				reconfigurableTrue = false
 				return &mockFake{x: 5}, nil
@@ -2557,7 +2556,12 @@ func TestRobotReconfigure(t *testing.T) {
 			)...))
 		err = robot.Reconfigure(context.Background(), conf9)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "error processing draft changes: cannot build \"mock4\" for some obscure reason")
+		test.That(
+			t,
+			err.Error(),
+			test.ShouldContainSubstring,
+			"error processing draft changes: cannot build \"mock4\" for some obscure reason",
+		)
 	})
 }
 
