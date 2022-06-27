@@ -25,8 +25,6 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	deps := make(registry.Dependencies)
 
 	actualBoard := newBoard(testBoardName)
-	// reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
-
 	deps[board.Named(testBoardName)] = actualBoard
 
 	return deps
