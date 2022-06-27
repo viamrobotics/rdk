@@ -9,7 +9,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/arm/fake"
-	"go.viam.com/rdk/component/arm/xarm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	pb "go.viam.com/rdk/proto/api/common/v1"
@@ -17,7 +16,6 @@ import (
 	"go.viam.com/rdk/robot"
 	math "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/rdk/visualization"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 )
@@ -38,13 +36,17 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	position2 := r3.Vector{-600, -300, 100}
 	box, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{-400, -550, 150}), r3.Vector{300, 300, 300})
 	table, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 50})
+	ws, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 1000})
 
 	// construct world state message
 	obstacles := make(map[string]math.Geometry)
 	obstacles["box"] = box
 	obstacles["table"] = table
+	workspace := make(map[string]math.Geometry)
+	workspace["workspace"] = ws
 	worldState := &pb.WorldState{
-		Obstacles: []*pb.GeometriesInFrame{frame.GeometriesInFrameToProtobuf(frame.NewGeometriesInFrame(frame.World, obstacles))},
+		Obstacles:         []*pb.GeometriesInFrame{frame.GeometriesInFrameToProtobuf(frame.NewGeometriesInFrame(frame.World, obstacles))},
+		InteractionSpaces: []*pb.GeometriesInFrame{frame.GeometriesInFrameToProtobuf(frame.NewGeometriesInFrame(frame.World, workspace))},
 	}
 
 	// get the arm to plan with - either use hardware or a fake arm
@@ -81,15 +83,15 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	move(ctx, xArm, start, worldState)
 
 	// visualize plan to move it to the goal
-	joints, err := xArm.GetJointPositions(ctx)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	model, err := xarm.XArmModel(6)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	visualization.VisualizePlan(ctx, logger, model, joints, goal, worldState)
+	// joints, err := xArm.GetJointPositions(ctx)
+	// if err != nil {
+	// 	logger.Fatal(err)
+	// }
+	// model, err := xarm.XArmModel(6)
+	// if err != nil {
+	// 	logger.Fatal(err)
+	// }
+	// visualization.VisualizePlan(ctx, logger, model, joints, goal, worldState)
 
 	// move it to the goal
 	move(ctx, xArm, goal, worldState)
