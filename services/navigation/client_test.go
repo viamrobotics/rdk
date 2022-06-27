@@ -185,16 +185,17 @@ func TestClient(t *testing.T) {
 		receivedWpts, err := workingDialedClient.GetWaypoints(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedWpts, test.ShouldResemble, waypoints)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	go failingServer.Serve(listener2)
 	defer failingServer.Stop()
 
-	conn, err = viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	failingNavClient := navigation.NewClientFromConn(context.Background(), conn, navigation.Name.String(), logger)
-
 	t.Run("client tests for failing navigation service", func(t *testing.T) {
+		conn, err = viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		failingNavClient := navigation.NewClientFromConn(context.Background(), conn, navigation.Name.String(), logger)
+
 		// test mode
 		_, err := failingNavClient.GetMode(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)

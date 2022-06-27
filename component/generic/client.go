@@ -30,11 +30,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (sc *serviceClient) Close() error {
-	return nil
-}
-
 // client is a Generic client.
 type client struct {
 	*serviceClient
@@ -53,11 +48,6 @@ func clientFromSvcClient(sc *serviceClient, name string) Generic {
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return DoFromConnection(ctx, c.conn, c.name, cmd)
-}
-
-// Close cleanly closes the underlying connections.
-func (c *client) Close() error {
-	return c.serviceClient.Close()
 }
 
 // DoFromConnection is a helper to allow Do() calls from other component clients.
