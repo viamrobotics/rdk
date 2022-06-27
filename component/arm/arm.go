@@ -166,11 +166,6 @@ type reconfigurableArm struct {
 	actual Arm
 }
 
-type reconfigurableLocalArm struct {
-	*reconfigurableArm
-	actual LocalArm
-}
-
 func (r *reconfigurableArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -186,9 +181,6 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 func (r *reconfigurableArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	// if r.actual == nil {
-	// 	return nil, errors.New("there is no arm")
-	// }
 	return r.actual.GetEndPosition(ctx)
 }
 
@@ -234,12 +226,6 @@ func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referencefram
 	return r.actual.GoToInputs(ctx, goal)
 }
 
-func (r *reconfigurableLocalArm) IsMoving() bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.IsMoving()
-}
-
 func (r *reconfigurableArm) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -264,6 +250,27 @@ func (r *reconfigurableArm) reconfigure(ctx context.Context, newArm resource.Rec
 	return nil
 }
 
+// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
+// See config.ShouldUpdateAction for more information.
+func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActionType {
+	obj, canUpdate := r.actual.(config.CompononentUpdate)
+	if canUpdate {
+		return obj.UpdateAction(c)
+	}
+	return config.Reconfigure
+}
+
+type reconfigurableLocalArm struct {
+	*reconfigurableArm
+	actual LocalArm
+}
+
+func (r *reconfigurableLocalArm) IsMoving() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving()
+}
+
 func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -284,22 +291,12 @@ func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resourc
 	return nil
 }
 
-// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
-// See config.ShouldUpdateAction for more information.
-func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActionType {
-	obj, canUpdate := r.actual.(config.CompononentUpdate)
-	if canUpdate {
-		return obj.UpdateAction(c)
-	}
-	return config.Reconfigure
-}
-
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm
 // and a localArm into a reconfigurableLocalArm
 // If arm is already a Reconfigurable, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	arm, ok1 := r.(Arm)
-	if !ok1 {
+	arm, ok := r.(Arm)
+	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
 	}
 
@@ -307,16 +304,17 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
+	var rArm = &reconfigurableArm{actual: arm}
 	localArm, ok := r.(LocalArm)
 	if !ok {
 		// is an arm but is not a local arm
-		return &reconfigurableArm{actual: arm}, nil
+		return rArm, nil
 	}
 
 	if reconfigurableLocal, ok := localArm.(*reconfigurableLocalArm); ok {
 		return reconfigurableLocal, nil
 	}
-	return &reconfigurableLocalArm{actual: localArm, reconfigurableArm: &reconfigurableArm{actual: arm}}, nil
+	return &reconfigurableLocalArm{actual: localArm, reconfigurableArm: rArm}, nil
 }
 
 // NewPositionFromMetersAndOV returns a three-dimensional arm position

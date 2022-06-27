@@ -34,7 +34,7 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
 
 	deps := make(registry.Dependencies)
-	deps[arm.Named(testArmName)] = &mock{Name: testArmName}
+	deps[arm.Named(testArmName)] = &mockLocal{Name: testArmName}
 	deps[arm.Named(fakeArmName)] = "not an arm"
 	return deps
 }
@@ -289,7 +289,7 @@ func TestReconfigurableArm(t *testing.T) {
 
 	err = reconfArm1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableLocalArm")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm1, nil))
 
 	actualArm3 := &mock{Name: failArmName}
 	reconfArm3, err := arm.WrapWithReconfigurable(actualArm3)
@@ -298,11 +298,11 @@ func TestReconfigurableArm(t *testing.T) {
 
 	err = reconfArm1.Reconfigure(context.Background(), reconfArm3)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableLocalArm")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm1, reconfArm3))
 
 	err = reconfArm3.Reconfigure(context.Background(), reconfArm1)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableArm")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm3, reconfArm1))
 }
 
 func TestStop(t *testing.T) {
@@ -351,17 +351,16 @@ func TestArmPositionDiff(t *testing.T) {
 
 var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
+type mock struct {
+	arm.Arm
+	Name string
+}
 type mockLocal struct {
 	arm.LocalArm
 	Name        string
 	endPosCount int
 	reconfCount int
 	stopCount   int
-}
-
-type mock struct {
-	arm.Arm
-	Name string
 }
 
 func (m *mockLocal) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
