@@ -304,7 +304,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	var rArm = &reconfigurableArm{actual: arm}
+	rArm := &reconfigurableArm{actual: arm}
 	localArm, ok := r.(LocalArm)
 	if !ok {
 		// is an arm but is not a local arm
