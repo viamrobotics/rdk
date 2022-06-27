@@ -395,7 +395,7 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 		}
 		rName := c.ResourceName()
 		manager.addResource(rName, r)
-		for _, dep := range c.DependsOn {
+		for _, dep := range c.ImplicitDependsOn {
 			if comp := robot.config.FindComponent(dep); comp != nil {
 				if err := manager.resources.AddChildren(rName, comp.ResourceName()); err != nil {
 					return err
@@ -710,7 +710,7 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 			return errors.Errorf("cannot add component %q it already exists", rName)
 		}
 		manager.addResource(rName, wrapper)
-		for _, dep := range add.DependsOn {
+		for _, dep := range add.ImplicitDependsOn {
 			if comp := robot.original.config.FindComponent(dep); comp != nil {
 				if err := manager.resources.AddChildren(rName, comp.ResourceName()); err != nil {
 					return err
@@ -743,7 +743,7 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 			mapParents[pdep] = false
 		}
 		// parse the dependency tree and optionally add/remove components
-		for _, dep := range modif.DependsOn {
+		for _, dep := range modif.ImplicitDependsOn {
 			var comp resource.Name
 			if r := robot.original.config.FindComponent(dep); r != nil {
 				comp = r.ResourceName()
