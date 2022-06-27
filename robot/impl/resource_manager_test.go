@@ -890,16 +890,16 @@ func TestManagerNewComponent(t *testing.T) {
 
 	sortedComponents, err := config.SortComponents(cfg.Components)
 	test.That(t, err, test.ShouldBeNil)
-	err = robotForRemote.manager.newComponents(context.Background(), sortedComponents, robotForRemote, logger)
+	err = robotForRemote.manager.newComponents(context.Background(), sortedComponents, robotForRemote)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, robotForRemote.manager.newComponents(context.Background(), sortedComponents, robotForRemote, logger), test.ShouldBeNil)
+	test.That(t, robotForRemote.manager.newComponents(context.Background(), sortedComponents, robotForRemote), test.ShouldBeNil)
 
 	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
 	_, err = config.SortComponents(robotForRemote.config.Components)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldEqual, "circular dependency detected in component list between arm3, board3")
 
-	err = robotForRemote.manager.newComponents(context.Background(), robotForRemote.config.Components, robotForRemote, logger)
+	err = robotForRemote.manager.newComponents(context.Background(), robotForRemote.config.Components, robotForRemote)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldEqual, "circular dependency - \"arm3\" already depends on \"board3\"")
 }
