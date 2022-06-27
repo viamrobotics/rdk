@@ -106,12 +106,26 @@ type LocalArm interface {
 }
 
 var (
-	_ = Arm(&reconfigurableArm{})
+	_ = LocalArm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
+
+// FromDependencies is a helper for getting the named arm from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Arm)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Arm", res)
+	}
+	return part, nil
+}
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
 func FromRobot(r robot.Robot, name string) (Arm, error) {

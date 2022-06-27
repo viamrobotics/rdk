@@ -10,22 +10,21 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
 // init registers a pi motor based on pigpio.
 func init() {
 	comp := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(r, config)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, config)
 			if err != nil {
 				return nil, err
 			}
 
 			encoderBoard := actualBoard
 			if motorConfig.EncoderBoard != "" {
-				b, err := board.FromRobot(r, motorConfig.EncoderBoard)
+				b, err := board.FromDependencies(deps, motorConfig.EncoderBoard)
 				if err != nil {
 					return nil, err
 				}
@@ -59,7 +58,7 @@ func init() {
 	motor.RegisterConfigAttributeConverter("pi")
 }
 
-func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Board, *motor.Config, error) {
+func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *motor.Config, error) {
 	motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
 	if !ok {
 		return nil, nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
@@ -67,7 +66,7 @@ func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Boar
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
 	}
-	b, err := board.FromRobot(r, motorConfig.BoardName)
+	b, err := board.FromDependencies(deps, motorConfig.BoardName)
 	if err != nil {
 		return nil, nil, err
 	}

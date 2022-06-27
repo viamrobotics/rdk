@@ -19,13 +19,12 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, "align_color_depth",
-		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
+		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*alignAttrs)
@@ -33,13 +32,13 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			colorName := attrs.Color
-			color, err := camera.FromRobot(r, colorName)
+			color, err := camera.FromDependencies(deps, colorName)
 			if err != nil {
 				return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
 			}
 
 			depthName := attrs.Depth
-			depth, err := camera.FromRobot(r, depthName)
+			depth, err := camera.FromDependencies(deps, depthName)
 			if err != nil {
 				return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
 			}

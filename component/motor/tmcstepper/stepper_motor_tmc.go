@@ -3,7 +3,6 @@ package tmcstepper
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // TMC5072Config extends motor.Config, mainly for RegisterComponentAttributeMapConverter.
@@ -41,8 +39,8 @@ const (
 
 func init() {
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			m, err := NewMotor(ctx, r, *config.ConvertedAttributes.(*TMC5072Config), logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			m, err := NewMotor(ctx, deps, *config.ConvertedAttributes.(*TMC5072Config), logger)
 			if err != nil {
 				return nil, err
 			}
@@ -125,14 +123,14 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.Logger) (*Motor, error) {
-	b, err := board.FromRobot(r, c.BoardName)
+func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, logger golog.Logger) (*Motor, error) {
+	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("%q is not a board", c.BoardName)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", c.BoardName)
+		return nil, errors.Errorf("board %s is not local", c.BoardName)
 	}
 	bus, ok := localB.SPIByName(c.SPIBus)
 	if !ok {
@@ -142,6 +140,17 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 	if c.CalFactor == 0 {
 		c.CalFactor = 1.0
 	}
+
+	if c.TicksPerRotation == 0 {
+		logger.Warn("ticks_per_rotation isn't set: defaulting to 200")
+		c.TicksPerRotation = 200
+	}
+
+	if c.HomeRPM == 0 {
+		logger.Warn("home_rpm not set: defaulting to 1/4 of max_rpm")
+		c.HomeRPM = c.MaxRPM / 4
+	}
+	c.HomeRPM *= -1
 
 	m := &Motor{
 		board:       b,
@@ -166,10 +175,6 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 	// The register is a 6 bit signed int
 	if c.SGThresh < 0 {
 		c.SGThresh = int32(64 + math.Abs(float64(c.SGThresh)))
-	}
-
-	if m.homeRPM <= 0 {
-		m.homeRPM = m.maxRPM / 4
 	}
 
 	// Hold/Run currents are 0-31 (linear scale),
@@ -500,7 +505,21 @@ func (m *Motor) Stop(ctx context.Context) error {
 
 // Home homes the motor using stallguard.
 func (m *Motor) Home(ctx context.Context) error {
-	return m.GoTillStop(ctx, m.homeRPM, nil)
+	err := m.GoTillStop(ctx, m.homeRPM, nil)
+	if err != nil {
+		return err
+	}
+	for {
+		stopped, err := m.IsStopped(ctx)
+		if err != nil {
+			return err
+		}
+		if stopped {
+			break
+		}
+	}
+
+	return m.ResetZeroPosition(ctx, 0)
 }
 
 // GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
@@ -571,7 +590,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 			break
 		}
 
-		if fails >= 1000 {
+		if fails >= 10000 {
 			return errors.New("timed out during GoTillStop")
 		}
 		fails++
@@ -596,19 +615,27 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	)
 }
 
+// Do() related constants.
+const (
+	Command = "command"
+	Home    = "home"
+	Jog     = "jog"
+	RPMVal  = "rpm"
+)
+
 // Do executes additional commands beyond the Motor{} interface.
 func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
 	if !ok {
-		return nil, errors.New("missing 'command' value")
+		return nil, errors.Errorf("missing %s value", Command)
 	}
 	switch name {
-	case "home":
+	case Home:
 		return nil, m.Home(ctx)
-	case "jog":
-		rpmRaw, ok := cmd["rpm"]
+	case Jog:
+		rpmRaw, ok := cmd[RPMVal]
 		if !ok {
-			return nil, errors.New("need rpm value for jog")
+			return nil, errors.Errorf("need %s value for jog", RPMVal)
 		}
 		rpm, ok := rpmRaw.(float64)
 		if !ok {
@@ -616,6 +643,6 @@ func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]
 		}
 		return nil, m.Jog(ctx, rpm)
 	default:
-		return nil, fmt.Errorf("no such command: %s", name)
+		return nil, errors.Errorf("no such command: %s", name)
 	}
 }
