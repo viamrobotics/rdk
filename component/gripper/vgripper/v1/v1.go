@@ -469,6 +469,7 @@ func (vg *gripperV1) Stop(ctx context.Context) error {
 
 // IsMoving returns whether the gripper is moving.
 func (vg *gripperV1) IsMoving(ctx context.Context) (bool, error) {
+	// RSDK-434: Refine implementation
 	return vg.opMgr.OpRunning(), nil
 }
 
