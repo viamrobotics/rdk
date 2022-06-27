@@ -39,7 +39,7 @@ func init() {
 // A nmeaGPS represents a GPS that can read and parse NMEA messages.
 type nmeaGPS interface {
 	gps.LocalGPS
-	Start(ctx context.Context)                // Initialize and run GPS
+	Start(ctx context.Context, config config.Component)                // Initialize and run GPS
 	Close() error                             // Close GPS
 	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current GPS measurements
 }
@@ -108,24 +108,6 @@ func newRTKGPS(ctx context.Context, deps registry.Dependencies, config config.Co
 		if err != nil {
 			return nil, err
 		}
-		b, err := board.FromDependencies(deps, config.Attributes.String("board"))
-		if err != nil {
-			return nil, fmt.Errorf("gps init: failed to find board: %w", err)
-		}
-		localB, ok := b.(board.LocalBoard)
-		if !ok {
-			return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
-		}
-		i2cbus, ok := localB.I2CByName(config.Attributes.String("bus"))
-		if !ok {
-			return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
-		}
-		g.bus = i2cbus
-		addr := config.Attributes.Int("i2c_addr", -1)
-		if addr == -1 {
-			return nil, errors.New("must specify gps i2c address")
-		}
-		g.addr = byte(addr)
 
 	default:
 		// Invalid protocol
@@ -167,21 +149,21 @@ func newRTKGPS(ctx context.Context, deps registry.Dependencies, config config.Co
 		g.logger.Info("ntrip_connect_attempts using default 10")
 	}
 
-	g.Start(ctx)
+	g.Start(ctx, config)
 
 	return g, nil
 }
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating GPS measurements.
-func (g *RTKGPS) Start(ctx context.Context) {
+func (g *RTKGPS) Start(ctx context.Context, config config.Component) {
 	switch g.ntripInputProtocol {
 	case "serial":
 		go g.ReceiveAndWriteSerial()
 	case "I2C":
-		go g.ReceiveAndWriteI2C(ctx)
+		go g.ReceiveAndWriteI2C(ctx, config)
 	}
 
-	g.nmeagps.Start(ctx)
+	g.nmeagps.Start(ctx, config)
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
@@ -256,7 +238,7 @@ func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) error {
 }
 
 // ReceiveAndWriteI2C connects to NTRIP receiver and sends correction stream to the GPS through I2C protocol.
-func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
+func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context, config config.Component) {
 	g.activeBackgroundWorkers.Add(1)
 	defer g.activeBackgroundWorkers.Done()
 	err := g.Connect(g.ntripClient.url, g.ntripClient.username, g.ntripClient.password, g.ntripClient.maxConnectAttempts)
@@ -269,7 +251,8 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 	}
 
 	// establish I2C connection
-	handle, err := g.bus.OpenHandle(g.addr)
+	addr := byte(config.Attributes.Int("i2c_addr", -1))
+	handle, err := g.bus.OpenHandle(addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
 		return
@@ -329,7 +312,7 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 		}
 
 		// establish I2C connection
-		handle, err := g.bus.OpenHandle(g.addr)
+		handle, err := g.bus.OpenHandle(addr)
 		if err != nil {
 			g.logger.Fatalf("can't open gps i2c %s", err)
 			return
