@@ -13,13 +13,9 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	picommon "go.viam.com/rdk/component/board/pi/common"
-	"go.viam.com/rdk/component/motor"
-	_ "go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 )
 
 func TestPiPigpio(t *testing.T) {
@@ -27,12 +23,9 @@ func TestPiPigpio(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	cfg := board.Config{
-		// Analogs: []board.AnalogConfig{{Name: "blue", Pin: "0"}},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
-			{Name: "i1", Pin: "11"},                     // plug physical 12(18) into this (17)
-			{Name: "servo-i", Pin: "22", Type: "servo"}, // bcom-25
-			{Name: "hall-a", Pin: "33"},                 // bcom 13
-			{Name: "hall-b", Pin: "37"},                 // bcom 26
+			{Name: "i1", Pin: "11"}, // bcom 17
+			{Name: "servo-i", Pin: "22", Type: "servo"},
 		},
 	}
 
@@ -50,41 +43,61 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	t.Run("analog test", func(t *testing.T) {
-		reader, ok := p.AnalogReaderByName("blue")
-		test.That(t, ok, test.ShouldBeTrue)
-		if reader == nil {
-			t.Skip("no blue? analog")
-			return
-		}
-
-		// try to set low
-		err = p.SetGPIOBcom(26, false)
+	t.Run("gpio and pwm", func(t *testing.T) {
+		pin, err := p.GPIOPinByName("29")
 		test.That(t, err, test.ShouldBeNil)
-
-		v, err := reader.Read(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, v, test.ShouldAlmostEqual, 0, 150)
 
 		// try to set high
-		err = p.SetGPIOBcom(26, true)
+		err = pin.Set(ctx, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err = reader.Read(ctx)
+		v, err := pin.Get(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, v, test.ShouldAlmostEqual, 1023, 150)
+		test.That(t, v, test.ShouldEqual, true)
 
-		// back to low
-		err = p.SetGPIOBcom(26, false)
+		// try to set low
+		err = pin.Set(ctx, false)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err = reader.Read(ctx)
+		v, err = pin.Get(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, v, test.ShouldAlmostEqual, 0, 150)
+		test.That(t, v, test.ShouldEqual, false)
+
+		// pwm 50%
+		err = pin.SetPWM(ctx, 0.5)
+		test.That(t, err, test.ShouldBeNil)
+
+		vF, err := pin.PWM(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vF, test.ShouldAlmostEqual, 0.5, 0.01)
+
+		// 4000 hz
+		err = pin.SetPWMFreq(ctx, 4000)
+		test.That(t, err, test.ShouldBeNil)
+
+		vI, err := pin.PWMFreq(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vI, test.ShouldEqual, 4000)
+
+		// 90%
+		err = pin.SetPWM(ctx, 0.9)
+		test.That(t, err, test.ShouldBeNil)
+
+		vF, err = pin.PWM(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vF, test.ShouldAlmostEqual, 0.9, 0.01)
+
+		// 8000hz
+		err = pin.SetPWMFreq(ctx, 8000)
+		test.That(t, err, test.ShouldBeNil)
+
+		vI, err = pin.PWMFreq(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vI, test.ShouldEqual, 8000)
 	})
 
 	t.Run("basic interrupts", func(t *testing.T) {
-		err = p.SetGPIOBcom(18, false)
+		err = p.SetGPIOBcom(17, false)
 		test.That(t, err, test.ShouldBeNil)
 
 		time.Sleep(5 * time.Millisecond)
@@ -94,7 +107,7 @@ func TestPiPigpio(t *testing.T) {
 		before, err := i1.Value(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 
-		err = p.SetGPIOBcom(18, true)
+		err = p.SetGPIOBcom(17, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		time.Sleep(5 * time.Millisecond)
@@ -107,7 +120,7 @@ func TestPiPigpio(t *testing.T) {
 	t.Run("servo in/out", func(t *testing.T) {
 		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
 		test.That(t, servoReg, test.ShouldNotBeNil)
-		servoInt, err := servoReg.Constructor(ctx, nil, config.Component{Name: "servo", Attributes: config.AttributeMap{"pin": "18"}}, logger)
+		servoInt, err := servoReg.Constructor(ctx, nil, config.Component{Name: "servo", ConvertedAttributes: &picommon.ServoConfig{Pin: "22"}}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		servo1 := servoInt.(servo.Servo)
 
@@ -126,122 +139,4 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
 	})
-
-	injectRobot := Robot{}
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return pp, nil
-	}
-
-	motorReg := registry.ComponentLookup(motor.Subtype, picommon.ModelName)
-	test.That(t, motorReg, test.ShouldNotBeNil)
-
-	motorInt, err := motorReg.Constructor(ctx, &injectRobot, config.Component{
-		Name: "motor1", ConvertedAttributes: &motor.Config{
-			Pins: motor.PinConfig{
-				A:   "13", // bcom 27
-				B:   "40", // bcom 21
-				PWM: "7",  // bcom 4
-			},
-			EncoderA:         "hall-a",
-			EncoderB:         "hall-b",
-			TicksPerRotation: 200,
-			BoardName:        "test",
-		},
-	}, logger)
-	test.That(t, err, test.ShouldBeNil)
-	motor1 := motorInt.(motor.Motor)
-
-	t.Run("motor forward", func(t *testing.T) {
-		pos, err := motor1.GetPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldAlmostEqual, .0, 0o1)
-
-		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
-		err = motor1.GoFor(ctx, 15, 2)
-		test.That(t, err, test.ShouldBeNil)
-		on, err := motor1.IsPowered(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldBeTrue)
-
-		hallA, ok := p.DigitalInterruptByName("hall-a")
-		test.That(t, ok, test.ShouldBeTrue)
-		hallB, ok := p.DigitalInterruptByName("hall-b")
-		test.That(t, ok, test.ShouldBeTrue)
-
-		loops := 0
-		for {
-			on, err := motor1.IsPowered(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			if !on {
-				break
-			}
-
-			time.Sleep(100 * time.Millisecond)
-
-			loops++
-			if loops > 100 {
-				pos, err = motor1.GetPosition(ctx)
-				test.That(t, err, test.ShouldBeNil)
-				aVal, err := hallA.Value(context.Background())
-				test.That(t, err, test.ShouldBeNil)
-				bVal, err := hallB.Value(context.Background())
-				test.That(t, err, test.ShouldBeNil)
-				t.Fatalf("motor didn't move enough, a: %v b: %v pos: %v",
-					aVal,
-					bVal,
-					pos,
-				)
-			}
-		}
-	})
-
-	t.Run("motor backward", func(t *testing.T) {
-		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
-		err := motor1.GoFor(ctx, -15, 2)
-		test.That(t, err, test.ShouldBeNil)
-
-		on, err := motor1.IsPowered(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldBeTrue)
-
-		hallA, ok := p.DigitalInterruptByName("hall-a")
-		test.That(t, ok, test.ShouldBeTrue)
-		hallB, ok := p.DigitalInterruptByName("hall-b")
-		test.That(t, ok, test.ShouldBeTrue)
-
-		loops := 0
-		for {
-			on, err := motor1.IsPowered(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			if !on {
-				break
-			}
-
-			time.Sleep(100 * time.Millisecond)
-			loops++
-			aVal, err := hallA.Value(context.Background())
-			test.That(t, err, test.ShouldBeNil)
-			bVal, err := hallB.Value(context.Background())
-			test.That(t, err, test.ShouldBeNil)
-			if loops > 100 {
-				t.Fatalf("motor didn't move enough, a: %v b: %v",
-					aVal,
-					bVal,
-				)
-			}
-		}
-	})
-}
-
-type Robot struct {
-	robot.Robot
-	ResourceByNameFunc func(name resource.Name) (interface{}, error)
-}
-
-// ResourceByName calls the injected ResourceByName or the real version.
-func (r *Robot) ResourceByName(name resource.Name) (interface{}, error) {
-	if r.ResourceByNameFunc == nil {
-		return r.Robot.ResourceByName(name)
-	}
-	return r.ResourceByNameFunc(name)
 }

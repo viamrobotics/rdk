@@ -35,6 +35,7 @@ func init() {
 				pb.RegisterGantryServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.GantryService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -85,6 +86,20 @@ type Gantry interface {
 	referenceframe.InputEnabled
 }
 
+// FromDependencies is a helper for getting the named gantry from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Gantry)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Gantry", res)
+	}
+	return part, nil
+}
+
 // A LocalGantry represents a Gantry that can report whether it is moving or not.
 type LocalGantry interface {
 	Gantry
@@ -100,7 +115,7 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	}
 	part, ok := res.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", res)
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
 	}
 	return part, nil
 }
@@ -140,6 +155,11 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	}
 	return &reconfigurableGantry{actual: g}, nil
 }
+
+var (
+	_ = LocalGantry(&reconfigurableGantry{})
+	_ = resource.Reconfigurable(&reconfigurableGantry{})
+)
 
 type reconfigurableGantry struct {
 	mu     sync.RWMutex

@@ -103,13 +103,14 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = motor.NewClient(cancelCtx, testMotorName, listener1.Addr().String(), logger)
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	workingMotorClient, err := motor.NewClient(context.Background(), testMotorName, listener1.Addr().String(), logger)
+	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	workingMotorClient := motor.NewClientFromConn(context.Background(), conn, testMotorName, logger)
 
 	t.Run("client tests for working motor", func(t *testing.T) {
 		// Do
@@ -146,10 +147,13 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), workingMotorClient), test.ShouldBeNil)
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	failingMotorClient, err := motor.NewClient(context.Background(), failMotorName, listener1.Addr().String(), logger)
+	conn, err = viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	failingMotorClient := motor.NewClientFromConn(context.Background(), conn, failMotorName, logger)
 
 	t.Run("client tests for failing motor", func(t *testing.T) {
 		err := failingMotorClient.GoTo(context.Background(), 42.0, 42.0)
@@ -209,6 +213,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), workingMotorDialedClient), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for failing motor", func(t *testing.T) {
@@ -228,7 +233,9 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), failingMotorDialedClient), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestClientDialerOption(t *testing.T) {
@@ -247,15 +254,19 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := motor.NewClient(ctx, testMotorName, listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := motor.NewClientFromConn(ctx, conn1, testMotorName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := motor.NewClient(ctx, testMotorName, listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := motor.NewClientFromConn(ctx, conn2, testMotorName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

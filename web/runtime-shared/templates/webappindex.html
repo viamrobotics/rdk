@@ -158,7 +158,7 @@
       }
 
       function fixServoStatus(old) {
-        return { positionDeg: old["position_deg"] || 0 };
+        return { positionDeg: old["position_deg"] || 0, is_moving: old["is_moving"] || false };
       }
 
       function fixRawStatus(name, status) {
@@ -231,10 +231,11 @@
           value: 0,
           imuData: {},
           currentOps: [],
-          baseRunStatus: false,
           setPin: "",
           getPin: "",
-          locationValue: "40.745297,-74.010916"
+          locationValue: "40.745297,-74.010916",
+          imageMapTemp: "",
+          pcdMapTemp: null
         };
         theApp = new Vue({
           el: "#app",
@@ -506,107 +507,56 @@
               req.setId(id);
               robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            baseKeyboardCtl: function(keys) {
-              const {baseName, ...controls} = keys;
-              console.log('Keyboard state: %o', controls);
-
+            baseKeyboardCtl: function(name, controls) {
               if (Object.values(controls).every((item) => item === false)) {
                 console.log("All keyboard inputs false, stopping base.");
-                this.handleBaseActionStop(baseName);
+                this.handleBaseActionStop(name);
                 return;
               } 
 
               const inputs = window.computeKeyboardBaseControls(controls);
-              console.log("Inputs: %o", inputs);
               var linear = new commonApi.Vector3();
               var angular = new commonApi.Vector3();
               linear.setY(inputs.linear)
               angular.setZ(inputs.angular)
-              BaseControlHelper.setPower(baseName,
+              BaseControlHelper.setPower(name,
                                          linear,
                                          angular,
                                          (err, resp) => {
                                            return grpcCallback(err, resp)
                     });
             },
-            handleBaseActionStop : function(name) {
-              console.log('baseActionHandlerStop');
+            handleBaseActionStop: function(name) {
               let req = new baseApi.StopRequest();
               req.setName(name);
               baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            handleBaseAction : function(movementMode, movementType, spinType, direction) {
-              this.baseRunStatus = true;
-              console.log('baseActionHandler');
-              console.log(movementMode);
-              console.log(movementType);
-              console.log(spinType);
-              console.log(direction);
-              let name = this.filterResources('rdk', 'component', 'base')[0].name;
-              let req;
-              if (
-                  movementMode === "Straight" &&
-                  movementType === "Continous" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveStraight(name, 
-                    document.getElementById("distance").value * 1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                    });
-              } else if (
-                  movementMode === "Straight" &&
-                  movementType === "Discrete" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveStraight(name, 
-                    document.getElementById("distance").value * 1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                    });
-              } else if (
-                  movementMode === "Straight" &&
-                  movementType === "Continous" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveStraight(name, 
-                    document.getElementById("distance").value * -1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                    });
-              } else if (
-                  movementMode === "Straight" &&
-                  movementType === "Discrete" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveStraight(name, 
-                    document.getElementById("distance").value * -1, 
-                    document.getElementById("speed").value, 
+            handleBaseSpin: function(name, event) {
+                  BaseControlHelper.spin(name, 
+                    event.angle * event.direction,
+                    event.speed,
                     (err, resp) => {
                       return grpcCallback(err, resp)
                   });
-              } else if (
-                  movementMode === "Spin" &&
-                  spinType === "Clockwise"
-              ) {
-                  BaseControlHelper.spin(name, 
-                    document.getElementById("angle").value * 1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
+            },
+            handleBaseStraight: function(name, event) {
+              if (event.movementType === "Continuous") {
+                let linear = new commonApi.Vector3();
+                linear.setY(event.speed * event.direction);
+
+                BaseControlHelper.setVelocity(
+                  name, 
+                  linear, // linear
+                  new commonApi.Vector3(), // angular
+                  (err, resp) => {
+                    return grpcCallback(err, resp)
                   });
-              } else if (
-                  movementMode === "Spin" &&
-                  spinType === "Counterclockwise"
-              ) {
-                  BaseControlHelper.spin(name, 
-                    document.getElementById("angle").value * -1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
+              } else {
+                BaseControlHelper.moveStraight(name,
+                  event.distance, 
+                  event.speed * event.direction, 
+                  (err, resp) => {
+                    return grpcCallback(err, resp)
                   });
               }
             },
@@ -703,6 +653,38 @@
                     theData.fullcloud = resp.getPointCloud_asB64();
                     pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
                   });
+              });
+            },
+            viewSLAMImageMap: function () {
+              req = new slamApi.GetMapRequest();
+              req.setName("UI");
+              const mimeType = "image/jpeg";
+              req.setMimeType(mimeType);
+              slamService.getMap(req, {}, (err, resp) => {
+                grpcCallback(err, resp, false);
+                if (err) {
+                  return;
+                }
+                console.log("loading image map");
+                let blob = new Blob([resp.getImage_asU8()], { type: mimeType });
+                this.imageMapTemp = URL.createObjectURL(blob);
+              });
+            },
+            viewSLAMPCDMap: function () {
+              req = new slamApi.GetMapRequest();
+              req.setName("UI");
+              const mimeType = "pointcloud/pcd";
+              req.setMimeType(mimeType);
+              initPCDIfNeeded();
+              slamService.getMap(req, {}, (err, resp) => {
+                grpcCallback(err, resp, false);
+                if (err) {
+                  return;
+                }
+                console.log("loading pcd map");
+                pcObject = resp.getPointCloud();
+                theData.fullcloud = pcObject.getPointCloud_asB64();
+                pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
               });
             },
             getReadings: function (sensorNames) {
@@ -1528,9 +1510,9 @@
                         :base-name="base.name"
                         :connected-camera="false"
                         :crumbs="['base', base.name]"
-                        :base-status="baseRunStatus"
-                        @keyboard-ctl="baseKeyboardCtl"
-                        @base-run="handleBaseAction"
+                        @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
+                        @base-spin="handleBaseSpin(base.name, $event)"
+                        @base-straight="handleBaseStraight(base.name, $event)"
                         @base-stop="handleBaseActionStop(base.name)"
                     ></viam-base>
                   </div>
@@ -1541,10 +1523,11 @@
                         :base-name="base.name"
                         :stream-name="streamName"
                         :crumbs="['base', base.name]"
-                        :base-status="baseRunStatus"
                         @base-change-tab="viewPreviewCamera(streamName)"
                         @keyboard-ctl="baseKeyboardCtl"
                         @base-run="handleBaseAction"
+                        @base-spin="handleBaseSpin(base.name, $event)"
+                        @base-straight="handleBaseStraight(base.name, $event)"
                         @base-stop="handleBaseActionStop(base.name)"
                         @show-base-camera="viewPreviewCamera(streamName)"
                     ></viam-base>
@@ -1842,36 +1825,45 @@
           <!-- ******* CAMERAS *******  -->
           <div class="camera pb-4" v-for="streamName in streamNames" :key="streamName">
               <camera
-                      :stream-name="streamName"
-                      :crumbs="[streamName]"
-                      :x="pcdClick.x"
-                      :y="pcdClick.y"
-                      :z="pcdClick.z"
-                      :pcd-click="pcdClick"
-                      :segmenter-names="segmenterNames"
-                      :segmenter-parameters="segmenterParameters"
-                      :segmenter-parameter-names="segmenterParameterNames"
-                      :parameter-type="parameterType"
-                      :segment-algo="segmentAlgo"
-                      :segment-objects="objects"
-                      :find-status="pcdClick.calculatingSegments"
-                      @full-image="doPCDLoad(fullcloud)"
-                      @center-pcd="doCenterPCDLoad(fullcloud)"
-                      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
-                      @change-segmenter="getSegmenterParameters"
-                      @toggle-camera="viewCamera(streamName)"
-                      @refresh-camera="viewCameraFrame"
-                      @selected-camera-view="viewCameraFrame"
-                      @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
-                      @pcd-click="grabClick"
-                      @pcd-move="doPCDMove"
-                      @point-load="doPointLoad"
-                      @segment-load="doSegmentLoad"
-                      @bounding-box-load="doBoundingBoxLoad"
-                      @download-screenshot="renderFrame(streamName)"
-                      @download-raw-data="doPCDDownload(fullcloud)"
-                      @select-object="doSelectObject"
+                :stream-name="streamName"
+                :crumbs="[streamName]"
+                :x="pcdClick.x"
+                :y="pcdClick.y"
+                :z="pcdClick.z"
+                :pcd-click="pcdClick"
+                :segmenter-names="segmenterNames"
+                :segmenter-parameters="segmenterParameters"
+                :segmenter-parameter-names="segmenterParameterNames"
+                :parameter-type="parameterType"
+                :segment-algo="segmentAlgo"
+                :segment-objects="objects"
+                :find-status="pcdClick.calculatingSegments"
+                @full-image="doPCDLoad(fullcloud)"
+                @center-pcd="doCenterPCDLoad(fullcloud)"
+                @find-segments="findSegments(segmentAlgo, segmenterParameters)"
+                @change-segmenter="getSegmenterParameters"
+                @toggle-camera="viewCamera(streamName)"
+                @refresh-camera="viewCameraFrame"
+                @selected-camera-view="viewCameraFrame"
+                @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
+                @pcd-click="grabClick"
+                @pcd-move="doPCDMove"
+                @point-load="doPointLoad"
+                @segment-load="doSegmentLoad"
+                @bounding-box-load="doBoundingBoxLoad"
+                @download-screenshot="renderFrame(streamName)"
+                @download-raw-data="doPCDDownload(fullcloud)"
+                @select-object="doSelectObject"
               ></camera>
+          </div>
+          <!-- ******* SLAM *******  -->
+          <div class="slam pb-4" v-if="filterResources('rdk', 'service', 'slam').length !== 0">
+            <slam
+              :image-map="imageMapTemp"
+              :pcd-map="pcdMapTemp"
+              @refresh-image-map="viewSLAMImageMap"
+              @refresh-pcd-map="viewSLAMPCDMap"
+            ></slam>
           </div>
         </div>
     </div>

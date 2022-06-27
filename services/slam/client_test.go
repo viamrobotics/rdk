@@ -47,10 +47,6 @@ func TestClientWorkingService(t *testing.T) {
 
 	workingSLAMService := &inject.SLAMService{}
 
-	workingSLAMService.CloseFunc = func() error {
-		return nil
-	}
-
 	workingSLAMService.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 		return pSucc, nil
 	}
@@ -78,18 +74,16 @@ func TestClientWorkingService(t *testing.T) {
 	t.Run("test that context canceled stops client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = slam.NewClient(cancelCtx, slam.Name.String(), listener.Addr().String(), logger)
+		_, err = viamgrpc.Dial(cancelCtx, listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("client tests for using working SLAM client connection", func(t *testing.T) {
-		workingSLAMClient, err := slam.NewClient(
-			context.Background(), slam.Name.String(),
-			listener.Addr().String(), logger,
-		)
+		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
+		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Name.String(), logger)
 		// test get position
 		pInFrame, err := workingSLAMClient.GetPosition(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
@@ -108,9 +102,7 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, im, test.ShouldNotBeNil)
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 
-		// test close
-		err = workingSLAMClient.Close()
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("client tests using working GRPC dial connection", func(t *testing.T) {
@@ -130,9 +122,7 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc, test.ShouldNotBeNil)
 
-		// test close
-		err = workingDialedClient.Close()
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("client tests using working GRPC dial connection converted to SLAM client", func(t *testing.T) {
@@ -146,6 +136,7 @@ func TestClientWorkingService(t *testing.T) {
 		p, err := workingDialedClient.GetPosition(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, p.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -166,10 +157,6 @@ func TestClientFailingService(t *testing.T) {
 	imFail := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 	failingSLAMService := &inject.SLAMService{}
-
-	failingSLAMService.CloseFunc = func() error {
-		return errors.New("failure to close")
-	}
 
 	failingSLAMService.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 		return pFail, errors.New("failure to get position")
@@ -193,10 +180,10 @@ func TestClientFailingService(t *testing.T) {
 	nameFail := "maiv"
 
 	t.Run("client test using bad SLAM client connection", func(t *testing.T) {
-		failingSLAMClient, err := slam.NewClient(
-			context.Background(), slam.Name.String(),
-			listener.Addr().String(), logger,
-		)
+		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Name.String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// test get position
@@ -211,8 +198,6 @@ func TestClientFailingService(t *testing.T) {
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 
-		// test close
-		err = failingSLAMClient.Close()
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -23,6 +24,15 @@ const (
 	fakeGPSName    = "gps4"
 	missingGPSName = "gps5"
 )
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[gps.Named(testGPSName)] = &mock{Name: testGPSName}
+	deps[gps.Named(fakeGPSName)] = "not an gps"
+	return deps
+}
 
 func setupInjectRobot() *inject.Robot {
 	gps1 := &mock{Name: testGPSName}
@@ -54,6 +64,26 @@ func TestGenericDo(t *testing.T) {
 	ret, err := g.Do(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	s, err := gps.FromDependencies(deps, testGPSName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s, test.ShouldNotBeNil)
+
+	result, err := s.ReadLocation(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, loc)
+
+	s, err = gps.FromDependencies(deps, fakeGPSName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeGPSName, "GPS", "string"))
+	test.That(t, s, test.ShouldBeNil)
+
+	s, err = gps.FromDependencies(deps, missingGPSName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingGPSName))
+	test.That(t, s, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {
@@ -233,8 +263,9 @@ func TestGetReadings(t *testing.T) {
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	readings1, err := gps.GetReadings(context.Background(), actualGPS1)
+	allReadings := []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid}
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings1, test.ShouldResemble, []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid})
+	test.That(t, readings1, test.ShouldResemble, allReadings)
 
 	result, err := reconfGPS1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)

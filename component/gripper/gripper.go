@@ -36,6 +36,7 @@ func init() {
 				pb.RegisterGripperServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.GripperService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -95,7 +96,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 }
 
 var (
-	_ = Gripper(&reconfigurableGripper{})
+	_ = LocalGripper(&reconfigurableGripper{})
 	_ = resource.Reconfigurable(&reconfigurableGripper{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
@@ -110,7 +111,7 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	}
 	part, ok := res.(Gripper)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGripper", res)
+		return nil, utils.NewUnimplementedInterfaceError("Gripper", res)
 	}
 	return part, nil
 }

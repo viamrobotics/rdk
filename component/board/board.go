@@ -42,6 +42,7 @@ func init() {
 				pb.RegisterBoardServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.BoardService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -160,6 +161,20 @@ var (
 	_ = LocalBoard(&reconfigurableBoard{})
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
 )
+
+// FromDependencies is a helper for getting the named board from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Board, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Board)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Board", res)
+	}
+	return part, nil
+}
 
 // FromRobot is a helper for getting the named board from the given Robot.
 func FromRobot(r robot.Robot, name string) (Board, error) {

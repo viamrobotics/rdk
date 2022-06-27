@@ -4,7 +4,6 @@ package board
 import (
 	"context"
 	"math"
-	"runtime/debug"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -12,7 +11,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/board/v1"
 )
@@ -28,16 +26,6 @@ type serviceClient struct {
 	logger golog.Logger
 }
 
-// newServiceClient constructs a new serviceClient that is served at the given address.
-func newServiceClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*serviceClient, error) {
-	conn, err := grpc.Dial(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	sc := newSvcClientFromConn(conn, logger)
-	return sc, nil
-}
-
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
 	client := pb.NewBoardServiceClient(conn)
@@ -47,11 +35,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 		logger: logger,
 	}
 	return sc
-}
-
-// Close cleanly closes the underlying connections.
-func (sc *serviceClient) Close() error {
-	return sc.conn.Close()
 }
 
 // client is an Board client.
@@ -70,15 +53,6 @@ type boardInfo struct {
 	analogReaderNames     []string
 	digitalInterruptNames []string
 	gpioPinNames          []string
-}
-
-// NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Board, error) {
-	sc, err := newServiceClient(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return clientFromSvcClient(ctx, sc, name), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -261,17 +235,14 @@ func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
 }
 
 func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos uint64) error {
-	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
 func (dic *digitalInterruptClient) AddCallback(c chan bool) {
-	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
 func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
-	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
@@ -341,12 +312,6 @@ func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint) error {
 		FrequencyHz: uint64(freqHz),
 	})
 	return err
-}
-
-// Close cleanly closes the underlying connections. No methods should be called on the
-// board after this.
-func (c *client) Close() error {
-	return c.serviceClient.Close()
 }
 
 // copyStringSlice is a helper to simply copy a string slice

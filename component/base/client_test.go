@@ -112,15 +112,16 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = base.NewClient(cancelCtx, testBaseName, listener1.Addr().String(), logger)
+		_, err = viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
-
-	workingBaseClient, err := base.NewClient(context.Background(), testBaseName, listener1.Addr().String(), logger)
+	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	workingBaseClient := base.NewClientFromConn(context.Background(), conn, testBaseName, logger)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), workingBaseClient), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	}()
 
 	t.Run("working base client", func(t *testing.T) {
@@ -160,7 +161,9 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("failing base client", func(t *testing.T) {
-		failingBaseClient, err := base.NewClient(context.Background(), failBaseName, listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		failingBaseClient := base.NewClientFromConn(context.Background(), conn, failBaseName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = failingBaseClient.MoveStraight(context.Background(), 42, 42.0)
@@ -173,6 +176,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
 		test.That(t, utils.TryClose(context.Background(), failingBaseClient), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -192,15 +196,19 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := base.NewClient(ctx, testBaseName, listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := base.NewClientFromConn(ctx, conn1, testBaseName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := base.NewClient(ctx, testBaseName, listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := base.NewClientFromConn(ctx, conn2, testBaseName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }
