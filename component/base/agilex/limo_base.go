@@ -134,6 +134,7 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 		logger.Debug("creating controller")
 		newCtrl, err := newController(sDevice, config.TestChan, logger)
 		if err != nil {
+			globalMu.Unlock()
 			return nil, err
 		}
 
@@ -156,6 +157,7 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 		logger.Debug("Will send init frame")
 		err = ctrl.sendFrame(frame)
 		if err != nil && !strings.HasPrefix(err.Error(), "error enabling commanded mode") {
+			globalMu.Unlock()
 			return nil, err
 		}
 	}
