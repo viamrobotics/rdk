@@ -370,46 +370,48 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		return err
 	}
 
-	utils.PanicCapturingGo(func() {
-		var client http.Client
-		defer client.CloseIdleConnections()
-		for {
-			if !utils.SelectContextOrWait(ctx, time.Second) {
-				return
-			}
-			req, err := config.CreateCloudRequest(ctx, processedConfig.Cloud)
-			if err != nil {
-				logger.Debugw("error creating cloud request", "error", err)
-				continue
-			}
-			req.URL.Path = "/api/json1/needs_restart"
-			resp, err := client.Do(req)
-			if err != nil {
-				logger.Debugw("error querying cloud request", "error", err)
-				continue
-			}
-			checkNeedsRestart := func() bool {
-				defer utils.UncheckedErrorFunc(resp.Body.Close)
-
-				if resp.StatusCode != http.StatusOK {
-					logger.Debugw("bad status code", "status_code", resp.StatusCode)
-					return false
+	if processedConfig.Cloud != nil {
+		utils.PanicCapturingGo(func() {
+			var client http.Client
+			defer client.CloseIdleConnections()
+			for {
+				if !utils.SelectContextOrWait(ctx, time.Second) {
+					return
 				}
-
-				read, err := ioutil.ReadAll(resp.Body)
+				req, err := config.CreateCloudRequest(ctx, processedConfig.Cloud)
 				if err != nil {
-					logger.Debugw("error reading response", "error", err)
-					return false
+					logger.Debugw("error creating cloud request", "error", err)
+					continue
 				}
+				req.URL.Path = "/api/json1/needs_restart"
+				resp, err := client.Do(req)
+				if err != nil {
+					logger.Debugw("error querying cloud request", "error", err)
+					continue
+				}
+				checkNeedsRestart := func() bool {
+					defer utils.UncheckedErrorFunc(resp.Body.Close)
 
-				return bytes.Equal(read, []byte("true"))
+					if resp.StatusCode != http.StatusOK {
+						logger.Debugw("bad status code", "status_code", resp.StatusCode)
+						return false
+					}
+
+					read, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						logger.Debugw("error reading response", "error", err)
+						return false
+					}
+
+					return bytes.Equal(read, []byte("true"))
+				}
+				if checkNeedsRestart() {
+					cancel()
+					return
+				}
 			}
-			if checkNeedsRestart() {
-				cancel()
-				return
-			}
-		}
-	})
+		})
+	}
 
 	myRobot, err := robotimpl.New(ctx, processedConfig, logger)
 	if err != nil {

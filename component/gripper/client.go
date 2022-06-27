@@ -30,11 +30,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (sc *serviceClient) Close() error {
-	return nil
-}
-
 // client is an gripper client.
 type client struct {
 	*serviceClient
@@ -78,11 +73,6 @@ func (c *client) Stop(ctx context.Context) error {
 func (c *client) ModelFrame() referenceframe.Model {
 	// TODO(erh): this feels wrong
 	return nil
-}
-
-// Close cleanly closes the underlying connections.
-func (c *client) Close() error {
-	return c.serviceClient.Close()
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

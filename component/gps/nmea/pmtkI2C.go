@@ -39,20 +39,14 @@ type pmtkI2CNMEAGPS struct {
 	addr   byte
 	logger golog.Logger
 
-	data        gpsData
-	ntripClient ntripInfo
+	data gpsData
 
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newPmtkI2CNMEAGPS(
-	ctx context.Context,
-	deps registry.Dependencies,
-	config config.Component,
-	logger golog.Logger,
-) (gps.LocalGPS, error) {
+func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (nmeaGPS, error) {
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
@@ -74,7 +68,6 @@ func newPmtkI2CNMEAGPS(
 
 	g := &pmtkI2CNMEAGPS{
 		bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
-		ntripClient: ntripInfo{sendNMEA: false},
 	}
 	g.Start(ctx)
 
@@ -142,7 +135,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 				if b == 0x0D {
 					if strBuf != "" {
 						g.mu.Lock()
-						err = g.data.parseAndUpdate(strBuf, g.ntripClient)
+						err = g.data.parseAndUpdate(strBuf)
 						g.mu.Unlock()
 						if err != nil {
 							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
@@ -193,9 +186,16 @@ func (g *pmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.data.valid, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Close() {
+func (g *pmtkI2CNMEAGPS) ReadFix(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.fixQuality, nil
+}
+
+func (g *pmtkI2CNMEAGPS) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // PMTK checksums commands by XORing together each byte.
