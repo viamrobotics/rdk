@@ -59,7 +59,7 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
 	}
-	addr := config.Attributes.Int("address", -1)
+	addr := config.Attributes.Int("i2c_addr", -1)
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
@@ -81,9 +81,14 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 		return
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
-	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
+	cmd251 := addChk([]byte("PMTK251,115200")) //set baud rate
+	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
+	err = handle.Write(ctx, cmd251)
+	if err != nil {
+		g.logger.Debug("Failed to set baud rate")
+	}
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
 		g.logger.Fatalf("i2c handle write failed %s", err)
@@ -139,10 +144,14 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 						g.mu.Unlock()
 						if err != nil {
 							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
+							continue
+						// }
+						} else {
+							g.logger.Info(g.ReadLocation(ctx))
 						}
 					}
 					strBuf = ""
-				} else if b != 0x0A {
+				} else if b!=0xFF{
 					strBuf += string(b)
 				}
 			}
