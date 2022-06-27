@@ -33,7 +33,7 @@ type CompononentUpdate interface {
 }
 
 type dependencyValidator interface {
-	Validate(path string) (interface{}, error)
+	Validate(path string) ([]string, error)
 }
 
 type validator interface {
@@ -87,7 +87,7 @@ func (config *Component) ResourceName() resource.Name {
 }
 
 // Validate ensures all parts of the config are valid and returns dependencies.
-func (config *Component) Validate(path string) (interface{}, error) {
+func (config *Component) Validate(path string) ([]string, error) {
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
