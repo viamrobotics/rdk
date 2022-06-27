@@ -96,6 +96,20 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableBase{})
 )
 
+// FromDependencies is a helper for getting the named base from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Base, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Base)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Base", res)
+	}
+	return part, nil
+}
+
 // FromRobot is a helper for getting the named base from the given Robot.
 func FromRobot(r robot.Robot, name string) (Base, error) {
 	res, err := r.ResourceByName(Named(name))
