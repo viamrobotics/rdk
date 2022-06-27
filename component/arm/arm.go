@@ -283,12 +283,7 @@ func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resourc
 	}
 
 	r.actual = arm.actual
-	err := r.reconfigurableArm.reconfigure(ctx, arm.reconfigurableArm)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return r.reconfigurableArm.reconfigure(ctx, arm.reconfigurableArm)
 }
 
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm
