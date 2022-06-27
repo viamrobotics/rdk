@@ -37,6 +37,7 @@ type pmtkI2CNMEAGPS struct {
 	mu     sync.RWMutex
 	bus    board.I2C
 	addr   byte
+	wbaud  int
 	logger golog.Logger
 
 	data gpsData
@@ -60,15 +61,15 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
 	}
 	addr := config.Attributes.Int("i2c_addr", -1)
-	fmt.Println(addr)
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
+	wbaud := config.Attributes.Int("ntrip_baud", 38400)
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &pmtkI2CNMEAGPS{
-		bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
+		bus: i2cbus, addr: byte(addr), wbaud: wbaud, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
 	}
 	g.Start(ctx, config)
 
@@ -82,7 +83,8 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context, config config.Component) {
 		return
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
-	cmd251 := addChk([]byte("PMTK251,115200")) // set baud rate
+	cmd251 := addChk([]byte("PMTK251,")) // set baud rate
+	cmd251 = append(cmd251, byte(g.wbaud))
 	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
@@ -90,6 +92,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context, config config.Component) {
 	if err != nil {
 		g.logger.Debug("Failed to set baud rate")
 	}
+
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
 		g.logger.Fatalf("i2c handle write failed %s", err)
@@ -148,7 +151,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context, config config.Component) {
 						}
 					}
 					strBuf = ""
-				} else if b != 0x0A && b != 0xFF { //adds only valid bytes
+				} else if b != 0x0A && b != 0xFF { // adds only valid bytes
 					strBuf += string(b)
 				}
 			}
