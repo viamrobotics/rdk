@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	//~ "time"
 	"fmt"
 
 	"github.com/edaniels/golog"
@@ -35,11 +34,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	flag.Parse()
 
 	// setup planning problem - the idea is to move from one position to the other while avoiding obstalces
-	position1 := r3.Vector{0, -600, 200}
-	//position2 := r3.Vector{0, -600, 400}
-	position2 := r3.Vector{-600, -300, 200}
+	position1 := r3.Vector{0, -600, 100}
+	position2 := r3.Vector{-600, -300, 100}
 	box, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{-400, -550, 150}), r3.Vector{300, 300, 300})
-	table, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, -225}), r3.Vector{1500, 1500, 50})
+	table, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 50})
 
 	// construct world state message
 	obstacles := make(map[string]math.Geometry)
@@ -73,16 +71,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	delta2 := eePosition.Sub(position2).Norm()
 	start := math.PoseToProtobuf(math.NewPoseFromPoint(position1))
 	goal := math.PoseToProtobuf(math.NewPoseFromPoint(position2))
-	
 	start.OZ = -1
 	goal.OZ = -1
-	
 	if delta1 > delta2 {
 		start, goal = goal, start
 	}
 
 	// ensure that the arm starts in the correct position
-	//~ move(ctx, xArm, start, &pb.WorldState{})
+	move(ctx, xArm, start, worldState)
 
 	// visualize plan to move it to the goal
 	joints, err := xArm.GetJointPositions(ctx)
@@ -96,18 +92,17 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	visualization.VisualizePlan(ctx, logger, model, joints, goal, worldState)
 
 	// move it to the goal
-	//~ move(ctx, xArm, goal, &pb.WorldState{})
+	move(ctx, xArm, goal, worldState)
 	return nil
 }
 
-//~ func move(ctx context.Context, a arm.Arm, toPose *pb.Pose, worldState *pb.WorldState) {
-	//~ fmt.Println("goal", toPose)
-	//~ if err := a.MoveToPosition(ctx, toPose, worldState); err != nil {
-		//~ fmt.Println("err", err)
-		//~ logger.Fatal(err)
-	//~ }
-	//~ time.Sleep(10 * time.Second) // TODO remove this when XArm move calls are blocking by default
-//~ }
+func move(ctx context.Context, a arm.Arm, toPose *pb.Pose, worldState *pb.WorldState) {
+	fmt.Println("goal", toPose)
+	if err := a.MoveToPosition(ctx, toPose, worldState); err != nil {
+		fmt.Println("err", err)
+		logger.Fatal(err)
+	}
+}
 
 func connect() robot.Robot {
 	robot, err := client.New(

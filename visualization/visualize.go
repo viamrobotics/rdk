@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -32,22 +31,20 @@ func VisualizePlan(
 ) {
 	fs := referenceframe.NewEmptySimpleFrameSystem("test")
 	err := fs.AddFrame(model, fs.World())
-	
-	fmt.Println("err", err)
-	
+
 	from, _ := model.Transform(referenceframe.JointPosToInputs(start))
 	to := spatialmath.NewPoseFromProtobuf(goal)
-	
+
 	opt := motionplan.NewDefaultPlannerOptions()
 	opt = motionplan.DefaultConstraint(from, to, model, opt)
 	opt.RemoveConstraint("self-collision")
-	
+
 	startPos := map[string][]referenceframe.Input{}
 	startPos["xArm6"] = referenceframe.JointPosToInputs(start)
-	
+
 	constraint := motionplan.NewCollisionConstraintFromWorldState(model, fs, worldState, startPos)
 	opt.AddConstraint("collision", constraint)
-	
+
 	nCPU := runtime.NumCPU()
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
 	if err != nil {
@@ -104,10 +101,10 @@ func visualize(plan []stepData) {
 	}
 
 	// clean up
-	// _, err = exec.Command("rm", tempFile).Output()
-	// if err != nil {
-	// 	log.Fatal(err.Error())
-	// }
+	_, err = exec.Command("rm", tempFile).Output()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }
 
 func getVertices(geometries *referenceframe.GeometriesInFrame) [][]r3.Vector {
