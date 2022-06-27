@@ -72,15 +72,16 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = imu.NewClient(cancelCtx, testIMUName, listener1.Addr().String(), logger)
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("IMU client 1", func(t *testing.T) {
 		// working
-		imu1Client, err := imu.NewClient(context.Background(), testIMUName, listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+		imu1Client := imu.NewClientFromConn(context.Background(), conn, testIMUName, logger)
 
 		// Do
 		resp, err := imu1Client.Do(context.Background(), generic.TestCommand)
@@ -109,6 +110,7 @@ func TestClient(t *testing.T) {
 		test.That(t, rs1, test.ShouldResemble, rs)
 
 		test.That(t, utils.TryClose(context.Background(), imu1Client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("IMU client 2", func(t *testing.T) {
@@ -181,7 +183,9 @@ func TestClientZeroValues(t *testing.T) {
 	defer gServer.Stop()
 
 	t.Run("IMU client", func(t *testing.T) {
-		imu1Client, err := imu.NewClient(context.Background(), testIMUName, listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		imu1Client := imu.NewClientFromConn(context.Background(), conn, testIMUName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		av1, err := imu1Client.ReadAngularVelocity(context.Background())
@@ -205,6 +209,7 @@ func TestClientZeroValues(t *testing.T) {
 		test.That(t, rs1, test.ShouldResemble, rs)
 
 		test.That(t, utils.TryClose(context.Background(), imu1Client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -224,15 +229,20 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := imu.NewClient(ctx, testIMUName, listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := imu.NewClientFromConn(ctx, conn1, testIMUName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := imu.NewClient(ctx, testIMUName, listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := imu.NewClientFromConn(ctx, conn2, testIMUName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

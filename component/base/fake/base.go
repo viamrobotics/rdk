@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -21,7 +20,7 @@ func init() {
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,
-				r robot.Robot,
+				_ registry.Dependencies,
 				config config.Component,
 				logger golog.Logger,
 			) (interface{}, error) {

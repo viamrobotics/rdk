@@ -53,6 +53,7 @@ func init() {
 				pb.RegisterSLAMServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.SLAMService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -189,16 +190,16 @@ type AttrConfig struct {
 type Service interface {
 	GetPosition(context.Context, string) (*referenceframe.PoseInFrame, error)
 	GetMap(context.Context, string, string, *referenceframe.PoseInFrame, bool) (string, image.Image, *vision.Object, error)
-	Close() error
 }
 
 // SlamService is the structure of the slam service.
 type slamService struct {
-	cameraName  string
-	slamLib     LibraryMetadata
-	slamMode    mode
-	slamProcess pexec.ProcessManager
-	clientAlgo  pb.SLAMServiceClient
+	cameraName      string
+	slamLib         LibraryMetadata
+	slamMode        mode
+	slamProcess     pexec.ProcessManager
+	clientAlgo      pb.SLAMServiceClient
+	clientAlgoClose func() error
 
 	configParams     map[string]string
 	dataDirectory    string
@@ -210,7 +211,7 @@ type slamService struct {
 
 	cancelFunc              func()
 	logger                  golog.Logger
-	activeBackgroundWorkers *sync.WaitGroup
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 // configureCamera will check the config to see if a camera is desired and if so, grab the camera from
@@ -243,15 +244,15 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 }
 
 // setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
-func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, error) {
+func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, func() error, error) {
 	dialOptions := rpc.WithInsecure()
 
 	connLib, err := grpc.Dial(ctx, "localhost:"+port, logger, dialOptions)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return pb.NewSLAMServiceClient(connLib), nil
+	return pb.NewSLAMServiceClient(connLib), connLib.Close, nil
 }
 
 // GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
@@ -358,48 +359,57 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	// SLAM Service Object
 	slamSvc := &slamService{
-		cameraName:              cameraName,
-		slamLib:                 SLAMLibraries[svcConfig.Algorithm],
-		slamMode:                slamMode,
-		slamProcess:             pexec.NewProcessManager(logger),
-		configParams:            svcConfig.ConfigParams,
-		dataDirectory:           svcConfig.DataDirectory,
-		inputFilePattern:        svcConfig.InputFilePattern,
-		port:                    port,
-		dataRateMs:              dataRate,
-		mapRateSec:              mapRate,
-		cancelFunc:              cancelFunc,
-		logger:                  logger,
-		activeBackgroundWorkers: &sync.WaitGroup{},
+		cameraName:       cameraName,
+		slamLib:          SLAMLibraries[svcConfig.Algorithm],
+		slamMode:         slamMode,
+		slamProcess:      pexec.NewProcessManager(logger),
+		configParams:     svcConfig.ConfigParams,
+		dataDirectory:    svcConfig.DataDirectory,
+		inputFilePattern: svcConfig.InputFilePattern,
+		port:             port,
+		dataRateMs:       dataRate,
+		mapRateSec:       mapRate,
+		cancelFunc:       cancelFunc,
+		logger:           logger,
 	}
 
-	if err := runtimeServiceValidation(cancelCtx, cam, slamSvc); err != nil {
-		if err := slamSvc.Close(); err != nil {
-			return nil, errors.Errorf("error closing out after slam service error: %v", err)
+	var success bool
+	defer func() {
+		if !success {
+			if err := slamSvc.Close(); err != nil {
+				logger.Errorw("error closing out after error", "error", err)
+			}
 		}
+	}()
+
+	if err := runtimeServiceValidation(cancelCtx, cam, slamSvc); err != nil {
 		return nil, errors.Errorf("runtime slam service error: %v", err)
 	}
 
 	slamSvc.StartDataProcess(cancelCtx, cam)
 
 	if _, err := slamSvc.StartSLAMProcess(ctx); err != nil {
-		if err := slamSvc.Close(); err != nil {
-			return nil, errors.Errorf("error closing out after slam process error: %v", err)
-		}
 		return nil, errors.Errorf("error with slam service slam process: %v", err)
 	}
 
-	client, err := setupGRPCConnection(ctx, port, logger)
+	client, clientClose, err := setupGRPCConnection(ctx, port, logger)
 	if err != nil {
 		return nil, errors.Errorf("error with initial grpc client to slam algorithm: %v", err)
 	}
 	slamSvc.clientAlgo = client
+	slamSvc.clientAlgoClose = clientClose
 
+	success = true
 	return slamSvc, nil
 }
 
 // Close out of all slam related processes.
 func (slamSvc *slamService) Close() error {
+	defer func() {
+		if slamSvc.clientAlgoClose != nil {
+			goutils.UncheckedErrorFunc(slamSvc.clientAlgoClose)
+		}
+	}()
 	slamSvc.cancelFunc()
 	if err := slamSvc.StopSLAMProcess(); err != nil {
 		return errors.Errorf("error occurred during closeout of process: %v", err)
@@ -421,7 +431,7 @@ func (slamSvc *slamService) StartDataProcess(cancelCtx context.Context, cam came
 		defer ticker.Stop()
 		defer slamSvc.activeBackgroundWorkers.Done()
 
-		dataWorker := &sync.WaitGroup{}
+		var dataWorker sync.WaitGroup
 
 		for {
 			if err := cancelCtx.Err(); err != nil {

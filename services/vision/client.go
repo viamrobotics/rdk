@@ -12,7 +12,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
@@ -37,21 +36,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 		logger: logger,
 	}
 	return sc
-}
-
-// Close cleanly closes the underlying connections.
-func (c *client) Close() error {
-	return c.conn.Close()
-}
-
-// NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Service, error) {
-	conn, err := grpc.Dial(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	sc := newSvcClientFromConn(conn, logger)
-	return sc, nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.

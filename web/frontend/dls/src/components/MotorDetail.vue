@@ -130,7 +130,7 @@
                   <viam-info-button
                     class="pb-2"
                     :iconPath="mdiInformation"
-                    :infoRows="['Continously moves']"
+                    :infoRows="['Continuously moves']"
                   >
                   </viam-info-button>
                 </div>
@@ -227,7 +227,7 @@ export default class MotorDetail extends Vue {
   direction: -1 | 1 = 1;
   position = 0;
   rpm = 0;
-  power = 0;
+  power = 25;
   type = "go";
   speed = 0;
   revolutions = 0;

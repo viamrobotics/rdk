@@ -34,6 +34,7 @@ func init() {
 				pb.RegisterMotorServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.MotorService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -110,6 +111,20 @@ var (
 	_ = LocalMotor(&reconfigurableMotor{})
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
 )
+
+// FromDependencies is a helper for getting the named motor from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Motor, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Motor)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Motor", res)
+	}
+	return part, nil
+}
 
 // FromRobot is a helper for getting the named motor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Motor, error) {
