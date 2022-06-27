@@ -231,7 +231,6 @@
           value: 0,
           imuData: {},
           currentOps: [],
-          baseRunStatus: false,
           setPin: 1,
           getPin: 1,
           getPWMPin: 1,
@@ -510,107 +509,56 @@
               req.setId(id);
               robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            baseKeyboardCtl: function(keys) {
-              const {baseName, ...controls} = keys;
-              console.log('Keyboard state: %o', controls);
-
+            baseKeyboardCtl: function(name, controls) {
               if (Object.values(controls).every((item) => item === false)) {
                 console.log("All keyboard inputs false, stopping base.");
-                this.handleBaseActionStop(baseName);
+                this.handleBaseActionStop(name);
                 return;
               } 
 
               const inputs = window.computeKeyboardBaseControls(controls);
-              console.log("Inputs: %o", inputs);
               var linear = new commonApi.Vector3();
               var angular = new commonApi.Vector3();
               linear.setY(inputs.linear)
               angular.setZ(inputs.angular)
-              BaseControlHelper.setPower(baseName,
+              BaseControlHelper.setPower(name,
                                          linear,
                                          angular,
                                          (err, resp) => {
                                            return grpcCallback(err, resp)
                     });
             },
-            handleBaseActionStop : function(name) {
-              console.log('baseActionHandlerStop');
+            handleBaseActionStop: function(name) {
               let req = new baseApi.StopRequest();
               req.setName(name);
               baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
             },
-            handleBaseAction : function(movementMode, movementType, spinType, direction) {
-              this.baseRunStatus = true;
-              console.log('baseActionHandler');
-              console.log(movementMode);
-              console.log(movementType);
-              console.log(spinType);
-              console.log(direction);
-              let name = this.filterResources('rdk', 'component', 'base')[0].name;
-              let req;
-              if (
-                  movementMode === "Straight" &&
-                  movementType === "Continuous" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveStraight(name, 
-                    document.getElementById("distance").value * 1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                    });
-              } else if (
-                  movementMode === "Straight" &&
-                  movementType === "Discrete" &&
-                  direction === "Forwards"
-              ) {
-                  BaseControlHelper.moveStraight(name, 
-                    document.getElementById("distance").value * 1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                    });
-              } else if (
-                  movementMode === "Straight" &&
-                  movementType === "Continuous" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveStraight(name, 
-                    document.getElementById("distance").value * -1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
-                    });
-              } else if (
-                  movementMode === "Straight" &&
-                  movementType === "Discrete" &&
-                  direction === "Backwards"
-              ) {
-                  BaseControlHelper.moveStraight(name, 
-                    document.getElementById("distance").value * -1, 
-                    document.getElementById("speed").value, 
+            handleBaseSpin: function(name, event) {
+                  BaseControlHelper.spin(name, 
+                    event.angle * event.direction,
+                    event.speed,
                     (err, resp) => {
                       return grpcCallback(err, resp)
                   });
-              } else if (
-                  movementMode === "Spin" &&
-                  spinType === "Clockwise"
-              ) {
-                  BaseControlHelper.spin(name, 
-                    document.getElementById("angle").value * 1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
+            },
+            handleBaseStraight: function(name, event) {
+              if (event.movementType === "Continuous") {
+                let linear = new commonApi.Vector3();
+                linear.setY(event.speed * event.direction);
+
+                BaseControlHelper.setVelocity(
+                  name, 
+                  linear, // linear
+                  new commonApi.Vector3(), // angular
+                  (err, resp) => {
+                    return grpcCallback(err, resp)
                   });
-              } else if (
-                  movementMode === "Spin" &&
-                  spinType === "Counterclockwise"
-              ) {
-                  BaseControlHelper.spin(name, 
-                    document.getElementById("angle").value * -1, 
-                    document.getElementById("speed").value, 
-                    (err, resp) => {
-                      return grpcCallback(err, resp)
+              } else {
+                BaseControlHelper.moveStraight(name,
+                  event.distance, 
+                  event.speed * event.direction, 
+                  (err, resp) => {
+                    return grpcCallback(err, resp)
                   });
               }
             },
@@ -1580,9 +1528,9 @@
                         :base-name="base.name"
                         :connected-camera="false"
                         :crumbs="['base', base.name]"
-                        :base-status="baseRunStatus"
-                        @keyboard-ctl="baseKeyboardCtl"
-                        @base-run="handleBaseAction"
+                        @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
+                        @base-spin="handleBaseSpin(base.name, $event)"
+                        @base-straight="handleBaseStraight(base.name, $event)"
                         @base-stop="handleBaseActionStop(base.name)"
                     ></viam-base>
                   </div>
@@ -1593,10 +1541,10 @@
                         :base-name="base.name"
                         :stream-name="streamName"
                         :crumbs="['base', base.name]"
-                        :base-status="baseRunStatus"
                         @base-change-tab="viewPreviewCamera(streamName)"
-                        @keyboard-ctl="baseKeyboardCtl"
-                        @base-run="handleBaseAction"
+                        @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
+                        @base-spin="handleBaseSpin(base.name, $event)"
+                        @base-straight="handleBaseStraight(base.name, $event)"
                         @base-stop="handleBaseActionStop(base.name)"
                         @show-base-camera="viewPreviewCamera(streamName)"
                     ></viam-base>

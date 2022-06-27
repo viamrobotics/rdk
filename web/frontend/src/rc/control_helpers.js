@@ -36,6 +36,15 @@ window.BaseControlHelper = {
       baseService.setPower(req, {}, cb);
   },
 
+  setVelocity: function(name, linearVector, angularVector, cb) {
+    const req = new baseApi.SetVelocityRequest();
+    req.setName(name);
+    req.setLinear(linearVector);
+    req.setAngular(angularVector);
+
+    rcLogConditionally(req);
+    baseService.setVelocity(req, {}, cb);
+  },
 };
 
 /*

@@ -63,12 +63,13 @@ func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 
 	// This function to be returned is the detector.
 	return func(img image.Image) ([]objectdetection.Detection, error) {
+		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
 		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
 		outTensors, err := tfliteInfer(model, resizedImg)
 		if err != nil {
 			return nil, err
 		}
-		detections := unpackTensors(outTensors, model, labelMap, logger)
+		detections := unpackTensors(outTensors, model, labelMap, logger, origW, origH)
 		return detections, nil
 	}, model, nil
 }
@@ -140,7 +141,9 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
 }
 
 // unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
-func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []string, logger golog.Logger) []objectdetection.Detection {
+func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
+	logger golog.Logger, origW, origH int,
+) []objectdetection.Detection {
 	// Gather slices for the bboxes, scores, and labels, using TensorOrder
 	var labels []int
 	var bboxes []float64
@@ -149,7 +152,6 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 	var hasMetadata bool
 	var tensorOrder []int
 	var boxOrder []int
-	w, h := model.Info.InputWidth, model.Info.InputHeight
 
 	m, err := model.GetMetadata()
 	if err != nil {
@@ -202,8 +204,11 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 	detections := make([]objectdetection.Detection, len(scores))
 	for i := 0; i < len(scores); i++ {
 		// Gather box
-		xmin, ymin, xmax, ymax := bboxes[4*i+getIndex(boxOrder, 0)]*float64(w), bboxes[4*i+getIndex(boxOrder, 1)]*float64(w),
-			bboxes[4*i+getIndex(boxOrder, 2)]*float64(h), bboxes[4*i+getIndex(boxOrder, 3)]*float64(h)
+		xmin, ymin, xmax, ymax := utils.Clamp(bboxes[4*i+getIndex(boxOrder, 0)], 0.0, 1.0)*float64(origW),
+			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 1)], 0.0, 1.0)*float64(origH),
+			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 2)], 0.0, 1.0)*float64(origW),
+			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 3)], 0.0, 1.0)*float64(origH)
+
 		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 
 		// Gather label
