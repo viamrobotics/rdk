@@ -250,7 +250,7 @@ func TestArmName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualArm1 arm.Arm = &mockLocal{Name: testArmName}
+	var actualArm1 arm.Arm = &mock{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
