@@ -8,23 +8,30 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/testutils/inject"
 )
+
+func fakeDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[motor.Named("fl-m")] = &fake.Motor{}
+	deps[motor.Named("fr-m")] = &fake.Motor{}
+	deps[motor.Named("bl-m")] = &fake.Motor{}
+	deps[motor.Named("br-m")] = &fake.Motor{}
+	return deps
+}
 
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
 
-	fakeRobot := &inject.Robot{}
+	deps := fakeDependencies(t)
 
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return &fake.Motor{}, nil
-	}
-
-	_, err := CreateFourWheelBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
+	_, err := CreateFourWheelBase(context.Background(), deps, config.Component{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := config.Component{
@@ -37,7 +44,7 @@ func TestFourWheelBase1(t *testing.T) {
 			"back_left":              "bl-m",
 		},
 	}
-	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
+	baseBase, err := CreateFourWheelBase(context.Background(), deps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -234,13 +241,9 @@ func TestFourWheelBase1(t *testing.T) {
 
 func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
+	deps := fakeDependencies(t)
 
-	fakeRobot := &inject.Robot{}
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return &fake.Motor{}, nil
-	}
-
-	_, err := CreateWheeledBase(context.Background(), fakeRobot, &Config{}, rlog.Logger)
+	_, err := CreateWheeledBase(context.Background(), deps, &Config{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := &Config{
@@ -249,7 +252,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m"},
 	}
-	_, err = CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
+	_, err = CreateWheeledBase(ctx, deps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg = &Config{
@@ -258,7 +261,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m", "br-m"},
 	}
-	baseBase, err := CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
+	baseBase, err := CreateWheeledBase(ctx, deps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)

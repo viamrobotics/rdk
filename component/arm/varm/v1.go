@@ -49,7 +49,7 @@ var v1modeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "varm1", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newArmV1(ctx, r, logger)
 		},
 	})

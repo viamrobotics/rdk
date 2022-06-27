@@ -183,6 +183,7 @@ func TestClient(t *testing.T) {
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 

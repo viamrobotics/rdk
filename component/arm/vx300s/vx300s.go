@@ -36,7 +36,7 @@ var vx300smodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "vx300s", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newArm(r, config.Attributes, logger)
 		},
 	})

@@ -68,7 +68,7 @@ func (jc jointConfig) toHw(degrees float64) int {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "yahboom-dofbot", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newDofBot(ctx, r, config, logger)
 		},
 	})
