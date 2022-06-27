@@ -32,7 +32,7 @@ func init() {
 }
 
 // This allows the use of any GPS chip that communicates over I2C using the PMTK protocol.
-type pmtkI2CNMEAGPS struct {
+type PmtkI2CNMEAGPS struct {
 	generic.Unimplemented
 	mu     sync.RWMutex
 	bus    board.I2C
@@ -66,7 +66,7 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	g := &pmtkI2CNMEAGPS{
+	g := &PmtkI2CNMEAGPS{
 		bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
 	}
 	g.Start(ctx)
@@ -74,7 +74,7 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 	return g, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
+func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
@@ -159,49 +159,53 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 	})
 }
 
-func (g *pmtkI2CNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
+func (g *PmtkI2CNMEAGPS) GetBusAddr() (board.I2c, addr) {
+	return g.bus, g.addr
+}
+
+func (g *PmtkI2CNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, nil
 }
 
-func (g *pmtkI2CNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
+func (g *PmtkI2CNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.alt, nil
 }
 
-func (g *pmtkI2CNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
+func (g *PmtkI2CNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.speed, nil
 }
 
-func (g *pmtkI2CNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
+func (g *PmtkI2CNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.satsInUse, g.data.satsInView, nil
 }
 
-func (g *pmtkI2CNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+func (g *PmtkI2CNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.hDOP, g.data.vDOP, nil
 }
 
-func (g *pmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
+func (g *PmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.valid, nil
 }
 
-func (g *pmtkI2CNMEAGPS) ReadFix(ctx context.Context) (int, error) {
+func (g *PmtkI2CNMEAGPS) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.fixQuality, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Close() error {
+func (g *PmtkI2CNMEAGPS) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 	return nil
