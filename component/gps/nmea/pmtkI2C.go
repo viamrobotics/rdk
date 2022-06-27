@@ -71,20 +71,20 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 	g := &pmtkI2CNMEAGPS{
 		bus: i2cbus, addr: byte(addr), wbaud: wbaud, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
 	}
-	g.Start(ctx, config)
+	g.Start(ctx)
 
 	return g, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Start(ctx context.Context, config config.Component) {
+func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
 		return
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
-	cmd251 := addChk([]byte("PMTK251,")) // set baud rate
-	cmd251 = append(cmd251, byte(g.wbaud))
+	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
+	cmd251 := addChk([]byte(baudcmd))
 	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
