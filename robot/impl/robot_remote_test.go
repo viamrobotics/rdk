@@ -2,7 +2,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -37,45 +36,43 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// TODO(npmenard) fix the nolint
-// nolint:unparam
-func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.RemoteRobot {
+func setupInjectRobot(logger golog.Logger) *inject.RemoteRobot {
 	injectRobot := &inject.RemoteRobot{}
 	armNames := []resource.Name{
-		arm.Named(fmt.Sprintf("arm1%s", suffix)),
-		arm.Named(fmt.Sprintf("arm2%s", suffix)),
+		arm.Named("arm1"),
+		arm.Named("arm2"),
 	}
 	baseNames := []resource.Name{
-		base.Named(fmt.Sprintf("base1%s", suffix)),
-		base.Named(fmt.Sprintf("base2%s", suffix)),
+		base.Named("base1"),
+		base.Named("base2"),
 	}
 	boardNames := []resource.Name{
-		board.Named(fmt.Sprintf("board1%s", suffix)),
-		board.Named(fmt.Sprintf("board2%s", suffix)),
+		board.Named("board1"),
+		board.Named("board2"),
 	}
 	cameraNames := []resource.Name{
-		camera.Named(fmt.Sprintf("camera1%s", suffix)),
-		camera.Named(fmt.Sprintf("camera2%s", suffix)),
+		camera.Named("camera1"),
+		camera.Named("camera2"),
 	}
 	gripperNames := []resource.Name{
-		gripper.Named(fmt.Sprintf("gripper1%s", suffix)),
-		gripper.Named(fmt.Sprintf("gripper2%s", suffix)),
+		gripper.Named("gripper1"),
+		gripper.Named("gripper2"),
 	}
 	inputNames := []resource.Name{
-		input.Named(fmt.Sprintf("inputController1%s", suffix)),
-		input.Named(fmt.Sprintf("inputController2%s", suffix)),
+		input.Named("inputController1"),
+		input.Named("inputController2"),
 	}
 	motorNames := []resource.Name{
-		motor.Named(fmt.Sprintf("motor1%s", suffix)),
-		motor.Named(fmt.Sprintf("motor2%s", suffix)),
+		motor.Named("motor1"),
+		motor.Named("motor2"),
 	}
 	servoNames := []resource.Name{
-		servo.Named(fmt.Sprintf("servo1%s", suffix)),
-		servo.Named(fmt.Sprintf("servo2%s", suffix)),
+		servo.Named("servo1"),
+		servo.Named("servo2"),
 	}
 
 	injectRobot.RemoteNamesFunc = func() []string {
-		return []string{fmt.Sprintf("remote1%s", suffix), fmt.Sprintf("remote2%s", suffix)}
+		return []string{"remote1%s", "remote2"}
 	}
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
@@ -148,10 +145,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Remot
 	}
 
 	return injectRobot
-}
-
-func setupInjectRobot(logger golog.Logger) *inject.RemoteRobot {
-	return setupInjectRobotWithSuffx(logger, "")
 }
 
 func TestRemoteRobot(t *testing.T) {
