@@ -347,12 +347,14 @@ func Move(
 		return err
 	}
 	opt := motionplan.NewDefaultPlannerOptions()
+	opt.RemoveConstraint("self-collision")
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraintFromWorldState(arm.ModelFrame(), fs, worldState, inputs))
 	joints, err := arm.GetJointPositions(ctx) // TODO(rb) should be able to get this from the input map
 	if err != nil {
 		return err
 	}
 	solution, err := mp.Plan(ctx, dst, referenceframe.JointPosToInputs(joints), opt)
+	fmt.Println(len(solution))
 	if err != nil {
 		return err
 	}
