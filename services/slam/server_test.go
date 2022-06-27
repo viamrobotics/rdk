@@ -36,10 +36,6 @@ func TestServer(t *testing.T) {
 		pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
 
-		injectSvc.CloseFunc = func() error {
-			return nil
-		}
-
 		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 			return pSucc, nil
 		}
@@ -60,10 +56,6 @@ func TestServer(t *testing.T) {
 		err = pcSucc.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
 		test.That(t, err, test.ShouldBeNil)
 		imSucc := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-
-		injectSvc.CloseFunc = func() error {
-			return nil
-		}
 
 		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
 			include bool,
@@ -93,10 +85,6 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing get position function", func(t *testing.T) {
-		injectSvc.CloseFunc = func() error {
-			return errors.New("failure to close")
-		}
-
 		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 			return nil, errors.New("failure to get position")
 		}
@@ -111,10 +99,6 @@ func TestServer(t *testing.T) {
 
 	t.Run("failing get map function", func(t *testing.T) {
 		pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
-
-		injectSvc.CloseFunc = func() error {
-			return errors.New("failure to close")
-		}
 
 		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
 			include bool,
