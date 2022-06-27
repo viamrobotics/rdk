@@ -35,7 +35,7 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("no source camera (%s): %w", sourceName, err)
 			}
-			confFilter := objectdetection.NewScoreFilter(attrs.Confidence)
+			confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
 			detector := &detectorSource{cam, sourceName, attrs.DetectorName, confFilter, r, logger}
 			return camera.New(detector, attrs.AttrConfig, cam)
 		}})
@@ -67,8 +67,8 @@ func init() {
 // detectorAttrs is the attribute struct for detectors (their name as found in the vision service).
 type detectorAttrs struct {
 	*camera.AttrConfig
-	DetectorName string  `json:"detector_name"`
-	Confidence   float64 `json:"confidence"`
+	DetectorName        string  `json:"detector_name"`
+	ConfidenceThreshold float64 `json:"confidence_threshold"`
 }
 
 // detectorSource takes an image from the camera, and overlays the detections from the detector.

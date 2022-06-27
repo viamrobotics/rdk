@@ -75,9 +75,9 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Type:  camera.SubtypeName,
 		Model: "detector",
 		Attributes: config.AttributeMap{
-			"source":        "fake_cam",
-			"detector_name": "detector_tflite",
-			"confidence":    0.35,
+			"source":               "fake_cam",
+			"detector_name":        "detector_tflite",
+			"confidence_threshold": 0.35,
 		},
 	}
 	cfg.Components = append(cfg.Components, tfliteComp)
