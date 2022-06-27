@@ -399,7 +399,7 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 	for _, c := range components {
 		err := manager.newComponent(ctx, c, robot)
 		if err != nil {
-			manager.logger.Errorw("failed to add new component", "component", c.Name, "error", err)
+			manager.logger.Errorw("failed to add new component", "component", c.ResourceName(), "error", err)
 		}
 	}
 }
@@ -437,10 +437,10 @@ func (manager *resourceManager) newComponentDependency(dep string, robot *localR
 
 // newServices constructs all services defined.
 func (manager *resourceManager) newServices(ctx context.Context, services []config.Service, r *localRobot) {
-	for _, cs := range services {
-		err := manager.newService(ctx, cs, r)
+	for _, c := range services {
+		err := manager.newService(ctx, c, r)
 		if err != nil {
-			manager.logger.Errorw("failed to add new service", "service", cs.Name, "error", err)
+			manager.logger.Errorw("failed to add new service", "service", c.ResourceName(), "error", err)
 		}
 	}
 }
@@ -753,7 +753,6 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 				isModified: false,
 				config:     modif,
 			})
-			// return errors.Errorf("cannot modify non-existent component %q", rName)
 		} else {
 			wrapper := &resourceUpdateWrapper{
 				real:       manager.resources.Nodes[rName],

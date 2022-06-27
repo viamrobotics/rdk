@@ -1063,8 +1063,6 @@ func TestGetStatusRemote(t *testing.T) {
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {
-	// 1. robot should start, but resource should fail because of bad config -> check for both components and services
-	// 2. upon an update in configs, the robot should now have the updated resources
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
