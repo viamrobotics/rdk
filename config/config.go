@@ -29,7 +29,8 @@ func SortComponents(components []Component) ([]Component, error) {
 			return nil, errors.Errorf("component name %q is not unique", config.Name)
 		}
 		componentToConfig[config.Name] = config
-		dependencies[config.Name] = config.DependsOn
+		// TODO: do we need to consider both implicit and user-defined dependencies?
+		dependencies[config.Name] = config.ImplicitDependsOn
 	}
 
 	// TODO(RSDK-427): this check just raises a warning if a dependency is missing. We
@@ -132,9 +133,12 @@ func (c *Config) Ensure(fromCloud bool) error {
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
-		if _, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx)); err != nil {
+		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx))
+		if err != nil {
 			return err
 		}
+		// TODO: do we need to track user-defined `DependsOn` at all?
+		c.Components[idx].ImplicitDependsOn = dependsOn
 	}
 
 	if len(c.Components) > 0 {

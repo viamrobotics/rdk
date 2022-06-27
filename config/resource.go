@@ -70,6 +70,7 @@ type Component struct {
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`
+	ImplicitDependsOn   []string     `json:"-"`
 }
 
 // Ensure Component conforms to flag.Value.
