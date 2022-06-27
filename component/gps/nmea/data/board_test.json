@@ -25,10 +25,10 @@
         "ntrip_connect_attempts": 10,
         "ntrip_input_protocol": "I2C",
         "ntrip_mountpoint": "NJI2",
-        "ntrip_password": "plswork",
+        "ntrip_password": "",
         "ntrip_path": "",
         "ntrip_send_nmea": true,
-        "ntrip_username": "skarpoor"
+        "ntrip_username": ""
       },
       "depends_on": [
         "local"
