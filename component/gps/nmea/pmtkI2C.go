@@ -70,12 +70,12 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 	g := &pmtkI2CNMEAGPS{
 		bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
 	}
-	g.Start(ctx)
+	g.Start(ctx, config)
 
 	return g, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
+func (g *pmtkI2CNMEAGPS) Start(ctx context.Context, config config.Component) {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
@@ -148,7 +148,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 						}
 					}
 					strBuf = ""
-				} else if b != 0x0A && b != 0xFF {
+				} else if b != 0x0A && b != 0xFF { //adds only valid bytes
 					strBuf += string(b)
 				}
 			}
