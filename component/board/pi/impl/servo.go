@@ -11,7 +11,6 @@ import "C"
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -22,7 +21,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // init registers a pi servo based on pigpio.
@@ -57,18 +55,14 @@ func init() {
 				getPos := C.gpioGetServoPulsewidth(theServo.pin)
 				fmt.Println(int(theServo.pin), "init pin is at", getPos)
 
-				// start := time.Now()
 				setPos := C.gpioServo(theServo.pin, C.uint(0))
 				if setPos != 0 {
 					return nil, errors.Errorf("gpioServo failed with %d", setPos)
 				}
 
 				getPos = C.gpioGetServoPulsewidth(theServo.pin)
-				fmt.Println(int(theServo.pin),  "set pin is at", getPos)
-				// elapsed := start.Sub(start)
-				// if elapsed > (time.Millisecond * 500) {
-				// 	C.gpioServo(theServo.pin, 0)
-				// }
+
+				fmt.Println(int(theServo.pin), "set pin is at", getPos)
 
 				return theServo, nil
 			},
@@ -97,35 +91,36 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 		angle = s.max
 	}
 
-
-	start := time.Now()
-	movePos := angleToVal(angle)
-	res := C.gpioServo(s.pin, C.uint(movePos))
-	fmt.Println(int(s.pin), " val is ", movePos)
-	if res != 0 {
-		return errors.Errorf("gpioServo failed with %d", res)
-	}
 	getPos, err := s.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Println("res is", getPos)
-	
+	fmt.Println("init pos is", getPos)
+
+	movePos := angleToVal(angle)
+	moveVal := C.gpioServo(s.pin, C.uint(movePos))
+	fmt.Println(int(s.pin), " val is ", moveVal)
+	if moveVal != 0 {
+		return errors.Errorf("gpioServo failed with %d", moveVal)
 	}
 
-	elapsed := start.Sub(start)
-	fmt.Println("elapsed is ", elapsed)
-	if elapsed > (time.Millisecond * 5) {
-		C.gpioServo(s.pin, 0)
-		return nil
-			
+	// setPos := C.gpioServo(s.pin, C.uint(0))
+	// if setPos != 0 {
+	// return errors.Errorf("gpioServo failed with %d", setPos)
+	// }
+
+	// fmt.Println("write pin to low")
+
+	getPos, err = s.GetPosition(ctx)
+	if err != nil {
+		return err
+	}
+	fmt.Println("final pos is", getPos)
+
+	// s.Stop(ctx)
+
 	return nil
 }
-
-
-func 
-
-
 
 func angleToVal(angle uint8) float64 {
 	val := 500 + (2000.0 * float64(angle) / 180.0)
