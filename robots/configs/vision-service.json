@@ -1,0 +1,27 @@
+{
+    "components": [
+        {
+            "name": "cam",
+            "type": "camera",
+            "model": "webcam"
+        }
+    ],
+    "services": [
+        {
+            "type": "vision",
+            "attributes": {
+                "register_detectors": [
+                    {
+                        "name": "my_color_detector",
+                        "type": "color",
+                        "parameters": {
+                            "detect_color": "#A3E2FF",
+                            "tolerance": 1.0,
+                            "segment_size": 1000
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}
