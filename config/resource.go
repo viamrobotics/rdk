@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 )
 
 // UpdateActionType help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
@@ -31,9 +32,12 @@ type CompononentUpdate interface {
 	UpdateAction(config *Component) UpdateActionType
 }
 
-type validator interface {
-	// TODO: return dependencies
+type dependencyValidator interface {
 	Validate(path string) (interface{}, error)
+}
+
+type validator interface {
+	Validate(path string) error
 }
 
 // A ResourceConfig represents an implmentation of a config for any type of resource.
@@ -82,31 +86,49 @@ func (config *Component) ResourceName() resource.Name {
 	return resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
-// Validate ensures all parts of the config are valid.
-func (config *Component) Validate(path string) error {
+// Validate ensures all parts of the config are valid and returns dependencies.
+func (config *Component) Validate(path string) (interface{}, error) {
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
 	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	for key, value := range config.Attributes {
-		v, ok := value.(validator)
-		if !ok {
+		fieldPath := fmt.Sprintf("%s.%s", path, key)
+		switch v := value.(type) {
+		case validator:
+			if err := v.Validate(fieldPath); err != nil {
+				return nil, err
+			}
+		case dependencyValidator:
+			deps, err := v.Validate(fieldPath)
+			if err != nil {
+				return nil, err
+			}
+			return deps, nil
+		default:
+			rlog.Logger.Warnw("no validator defined", "path", fieldPath)
 			continue
 		}
-		if err := v.Validate(fmt.Sprintf("%s.%s", path, key)); err != nil {
-			return err
-		}
 	}
-	if v, ok := config.ConvertedAttributes.(validator); ok {
+	switch v := config.ConvertedAttributes.(type) {
+	case validator:
 		if err := v.Validate(path); err != nil {
-			return err
+			return nil, err
 		}
+	case dependencyValidator:
+		deps, err := v.Validate(path)
+		if err != nil {
+			return nil, err
+		}
+		return deps, nil
+	default:
+		rlog.Logger.Warnw("no validator defined", "path", path)
 	}
-	return nil
+	return nil, nil
 }
 
 // Set hydrates a config based on a flag like value.

@@ -132,7 +132,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
-		if err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx)); err != nil {
+		if _, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx)); err != nil {
 			return err
 		}
 	}
