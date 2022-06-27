@@ -250,7 +250,7 @@ func TestArmName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualArm1 arm.Arm = &mockLocal{Name: testArmName}
+	var actualArm1 arm.Arm = &mock{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -300,7 +300,6 @@ func TestReconfigurableArm(t *testing.T) {
 
 	err = reconfArm1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-<<<<<<< HEAD
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm1, nil))
 
 	actualArm3 := &mock{Name: failArmName}
@@ -325,25 +324,6 @@ func TestReconfigurableArm(t *testing.T) {
 	err = reconfArm3.Reconfigure(context.Background(), reconfArm4)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm3, test.ShouldResemble, reconfArm4)
-=======
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableLocalArm")
-<<<<<<< HEAD
->>>>>>> 8e402eb1 (yay all old test pass)
-=======
-
-	actualArm3 := &mock{Name: failArmName}
-	reconfArm3, err := arm.WrapWithReconfigurable(actualArm3)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfArm3, test.ShouldNotBeNil)
-
-	err = reconfArm1.Reconfigure(context.Background(), reconfArm3)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableLocalArm")
-
-	err = reconfArm3.Reconfigure(context.Background(), reconfArm1)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableArm")
->>>>>>> 03f7ea22 (add test and lint)
 }
 
 func TestStop(t *testing.T) {
@@ -403,7 +383,6 @@ func TestExtraOptions(t *testing.T) {
 
 var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
-<<<<<<< HEAD
 type mock struct {
 	arm.Arm
 	Name        string
@@ -415,8 +394,6 @@ func (m *mock) Close(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
-=======
->>>>>>> 03f7ea22 (add test and lint)
 type mockLocal struct {
 	arm.LocalArm
 	Name        string
@@ -426,7 +403,6 @@ type mockLocal struct {
 	extra       map[string]interface{}
 }
 
-<<<<<<< HEAD
 func (m *mockLocal) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	m.endPosCount++
 	m.extra = extra
@@ -434,19 +410,6 @@ func (m *mockLocal) GetEndPosition(ctx context.Context, extra map[string]interfa
 }
 
 func (m *mockLocal) Stop(ctx context.Context, extra map[string]interface{}) error {
-=======
-type mock struct {
-	arm.Arm
-	Name string
-}
-
-func (m *mockLocal) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	m.endPosCount++
-	return pose, nil
-}
-
-func (m *mockLocal) Stop(ctx context.Context) error {
->>>>>>> 03f7ea22 (add test and lint)
 	m.stopCount++
 	m.extra = extra
 	return nil
