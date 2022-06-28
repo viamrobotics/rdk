@@ -1,7 +1,6 @@
 package rtk
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
