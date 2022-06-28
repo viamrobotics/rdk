@@ -28,7 +28,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var CPUs int = 4
+var numCPUs = 4
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
@@ -358,7 +358,7 @@ func Move(
 	logger.Debugf("frame system inputs: %v", inputs)
 
 	// conduct planning query
-	mp, err := motionplan.NewCBiRRTMotionPlanner(arm.ModelFrame(), CPUs, logger)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(arm.ModelFrame(), numCPUs, logger)
 	if err != nil {
 		return err
 	}

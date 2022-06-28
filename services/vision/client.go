@@ -83,7 +83,10 @@ func (c *client) GetDetections(ctx context.Context, cameraName, detectorName str
 	}
 	detections := make([]objdet.Detection, 0, len(resp.Detections))
 	for _, d := range resp.Detections {
-		box := image.Rect(int(d.XMin), int(d.YMin), int(d.XMax), int(d.YMax))
+		if d.XMin == nil || d.XMax == nil || d.YMin == nil || d.YMax == nil {
+			return nil, fmt.Errorf("invalid detection %+v", d)
+		}
+		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
 		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
 		detections = append(detections, det)
 	}
