@@ -1,4 +1,0 @@
-proto.api.v1.Status.sensors         max_count:1
-proto.api.v1.Status.SensorsEntry.key max_size:16
-proto.api.v1.SensorStatus.type max_size:16
-proto.api.v1.CompassHeadingRequest.name max_size:16

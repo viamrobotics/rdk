@@ -3,7 +3,6 @@ package varm
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"math"
@@ -50,13 +49,8 @@ var v1modeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "varm1", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			raw, err := newArmV1(ctx, r, logger)
-			if err != nil {
-				return nil, err
-			}
-
-			return raw, nil
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return newArmV1(ctx, r, logger)
 		},
 	})
 }
@@ -161,15 +155,12 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 	return math.NaN(), motorOffError(ctx, m, errors.New("testing joint limit timed out"))
 }
 
-func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm, error) {
+func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 	newArm := &armV1{}
+	newArm.robot = r
 
 	newArm.model, err = referenceframe.UnmarshalModelJSON(v1modeljson, "")
-	if err != nil {
-		return nil, err
-	}
-	newArm.mp, err = motionplan.NewCBiRRTMotionPlanner(newArm.model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -217,8 +208,8 @@ type armV1 struct {
 	j0Motor, j1Motor motor.Motor
 
 	j0, j1 joint
-	mp     motionplan.MotionPlanner
 	model  referenceframe.Model
+	robot  robot.Robot
 
 	opMgr operation.SingleOperationManager
 }
@@ -229,25 +220,14 @@ func (a *armV1) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-
-	joints, err := a.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), opt)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, curDegrees, gotoDegrees float64) error {
@@ -334,6 +314,10 @@ func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.JointPositi
 func (a *armV1) Stop(ctx context.Context) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
+}
+
+func (a *armV1) IsMoving() bool {
+	return a.opMgr.OpRunning()
 }
 
 func (a *armV1) ModelFrame() referenceframe.Model {

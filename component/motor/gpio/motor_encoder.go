@@ -452,6 +452,7 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 	newPower = math.Min(newPower, 1.0)
 	newPower = math.Max(newPower, -1.0)
 
+	//nolint:ifshort // erd: no clue why this fails
 	delta := newPower - oldPower
 	if math.Abs(delta) <= 1.1/255.0 {
 		return m.fixPowerPct(newPower)
@@ -580,7 +581,7 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	if err := m.GoFor(ctx, rpm, 0); err != nil {
+	if err := m.goForInternal(ctx, rpm, 0); err != nil {
 		return err
 	}
 	defer func() {

@@ -4,18 +4,19 @@ package fake
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -25,7 +26,7 @@ func init() {
 		"fake",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -37,11 +38,12 @@ func init() {
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,
-				r robot.Robot,
+				deps registry.Dependencies,
 				config config.Component,
 				logger golog.Logger,
 			) (interface{}, error) {
-				return newInterceptingGPSBase(r, config)
+				//nolint:contextcheck
+				return newInterceptingGPSBase(deps, config)
 			},
 		},
 	)
@@ -132,12 +134,17 @@ func (g *GPS) Do(ctx context.Context, args map[string]interface{}) (map[string]i
 
 type interceptingGPSBase struct {
 	generic.Unimplemented
-	b       base.Base
-	g       *GPS
-	bearing float64 // [0-360)
+	mu                        sync.Mutex
+	b                         base.Base
+	g                         *GPS
+	bearing                   float64 // [0-360)
+	linearPower, angularPower r3.Vector
+
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newInterceptingGPSBase(r robot.Robot, c config.Component) (base.LocalBase, error) {
+func newInterceptingGPSBase(deps registry.Dependencies, c config.Component) (base.LocalBase, error) {
 	baseName := c.Attributes.String("base")
 	if baseName == "" {
 		return nil, errors.New("'base' name must be set")
@@ -146,11 +153,11 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (base.LocalBase, 
 	if gpsName == "" {
 		return nil, errors.New("'gps' name must be set")
 	}
-	b, err := base.FromRobot(r, baseName)
+	b, err := base.FromDependencies(deps, baseName)
 	if err != nil {
 		return nil, err
 	}
-	gpsDevice, err := gps.FromRobot(r, gpsName)
+	gpsDevice, err := gps.FromDependencies(deps, gpsName)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +171,53 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (base.LocalBase, 
 
 	fakeG.Latitude = lat
 	fakeG.Longitude = lng
-	return &interceptingGPSBase{b: b, g: fakeG}, nil
+
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	intBase := &interceptingGPSBase{b: b, g: fakeG, cancelFunc: cancelFunc}
+	intBase.activeBackgroundWorkers.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer intBase.activeBackgroundWorkers.Done()
+		lastT := time.Now()
+		for {
+			if !goutils.SelectContextOrWait(cancelCtx, 200*time.Millisecond) {
+				return
+			}
+
+			loc, err := intBase.g.ReadLocation(cancelCtx)
+			if err != nil {
+				continue
+			}
+
+			nextT := time.Now()
+			delta := nextT.Sub(lastT)
+			lastT = nextT
+
+			intBase.mu.Lock()
+			fixedAngular := r3.Vector{intBase.angularPower.Z, 0, 0}
+			bearingVec := intBase.linearPower.Add(fixedAngular)
+			intBase.mu.Unlock()
+			power := bearingVec.Norm()
+			angle1 := bearingVec.Angle(r3.Vector{1, 0, 0}).Degrees()
+			angle2 := bearingVec.Angle(r3.Vector{0, 1, 0}).Degrees()
+			angle := angle1 + 180
+
+			if angle2 <= 90 {
+				angle = utils.AntiCWDeg(angle)
+			}
+
+			distKilos := (maxMmPerSec * power * delta.Seconds()) / 1000 / 1000
+
+			newLoc := loc.PointAtDistanceAndBearing(distKilos, angle)
+			// set new location to be where we "perfectly" move to based on bearing
+			intBase.g.mu.Lock()
+			intBase.g.Latitude = newLoc.Lat()
+			intBase.g.Longitude = newLoc.Lng()
+			intBase.g.mu.Unlock()
+		}
+	})
+
+	return intBase, nil
 }
 
 func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
@@ -201,10 +254,26 @@ func (b *interceptingGPSBase) Stop(ctx context.Context) error {
 	return nil
 }
 
+const maxMmPerSec = 300
+
+// SetPower sets power based on the linear and angular components. However, due to being fake and not
+// wanting to support trajectory planning, we will use the Y component from linear and Z component
+// from angular to represent X, Y unit vectors, respectively, from a joystick control. Using the result of
+// the sum of these two vectors: the angle represents bearing and the magnitude represents power.
+// You can think of this as using a joystick to control a base from a birds eye view on a map.
 func (b *interceptingGPSBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	b.mu.Lock()
+	b.linearPower = linear
+	b.angularPower = angular
+	b.mu.Unlock()
 	return nil
 }
 
 func (b *interceptingGPSBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
 	return nil
+}
+
+func (b *interceptingGPSBase) Close() {
+	b.cancelFunc()
+	b.activeBackgroundWorkers.Wait()
 }

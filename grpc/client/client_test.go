@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/google/go-cmp/cmp"
+	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -19,6 +21,8 @@ import (
 	"go.viam.com/utils/rpc"
 	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
@@ -32,6 +36,8 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -91,8 +97,14 @@ func TestStatusClient(t *testing.T) {
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
 	resourcesFunc := func() []resource.Name { return []resource.Name{} }
-	injectRobot1 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
-	injectRobot2 := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	injectRobot1 := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+	injectRobot2 := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
@@ -148,7 +160,7 @@ func TestStatusClient(t *testing.T) {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return 5, nil
 	}
 
@@ -436,6 +448,7 @@ func TestClientRefresh(t *testing.T) {
 	var callCount int
 	calledEnough := make(chan struct{})
 
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		if callCount == 5 {
 			close(calledEnough)
@@ -528,6 +541,7 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
 	client, err = New(
 		context.Background(),
@@ -588,6 +602,7 @@ func TestClientRefresh(t *testing.T) {
 			gripperNames,
 		)...))
 
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
@@ -659,6 +674,7 @@ func TestClientDisconnect(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("arm1")}
 	}
@@ -709,6 +725,7 @@ func TestClientReconnect(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("arm1")}
 	}
@@ -776,7 +793,89 @@ func TestClientDialerOption(t *testing.T) {
 
 func TestClientResources(t *testing.T) {
 	injectRobot := &inject.Robot{}
+
+	desc1, err := grpcreflect.LoadServiceDescriptor(&pb.RobotService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	desc2, err := grpcreflect.LoadServiceDescriptor(&armpb.ArmService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	respWith := []resource.RPCSubtype{
+		{
+			Subtype: resource.NewSubtype("acme", resource.ResourceTypeComponent, "huwat"),
+			Desc:    desc1,
+		},
+		{
+			Subtype: resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat"),
+			Desc:    desc2,
+		},
+	}
+
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return respWith }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	logger := golog.NewTestLogger(t)
+
+	go gServer.Serve(listener)
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// no reflection
+	resources, rpcSubtypes, err := client.resources(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resources, test.ShouldResemble, finalResources)
+	test.That(t, rpcSubtypes, test.ShouldBeEmpty)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	gServer.Stop()
+
+	// with reflection
+	gServer = grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	reflection.Register(gServer)
+	test.That(t, err, test.ShouldBeNil)
+	listener, err = net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err = New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	resources, rpcSubtypes, err = client.resources(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resources, test.ShouldResemble, finalResources)
+
+	test.That(t, rpcSubtypes, test.ShouldHaveLength, len(respWith))
+	for idx, rpcType := range rpcSubtypes {
+		otherT := respWith[idx]
+		test.That(t, rpcType.Subtype, test.ShouldResemble, otherT.Subtype)
+		test.That(t, cmp.Equal(rpcType.Desc.AsProto(), otherT.Desc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+	}
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientDiscovery(t *testing.T) {
+	injectRobot := &inject.Robot{}
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return finalResources
+	}
+	q := discovery.Query{imu.Named("imu").ResourceSubtype, "some imu"}
+	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+		return []discovery.Discovery{{
+			Query:   q,
+			Results: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}},
+		}}, nil
+	}
 
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
@@ -790,9 +889,11 @@ func TestClientResources(t *testing.T) {
 	client, err := New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resources, err := client.resources(context.Background())
+	resp, err := client.DiscoverComponents(context.Background(), []discovery.Query{q})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resources, test.ShouldResemble, finalResources)
+	test.That(t, len(resp), test.ShouldEqual, 1)
+	test.That(t, resp[0].Query, test.ShouldResemble, q)
+	test.That(t, resp[0].Results, test.ShouldResemble, map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}})
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -843,8 +944,14 @@ func TestClientConfig(t *testing.T) {
 	failingServer := grpc.NewServer()
 
 	resourcesFunc := func() []resource.Name { return []resource.Name{} }
-	workingRobot := &inject.Robot{ResourceNamesFunc: resourcesFunc}
-	failingRobot := &inject.Robot{ResourceNamesFunc: resourcesFunc}
+	workingRobot := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+	failingRobot := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
 
 	fsConfigs := []*config.FrameSystemPart{
 		{
@@ -958,8 +1065,14 @@ func TestClientStatus(t *testing.T) {
 	gServer := grpc.NewServer()
 	gServer2 := grpc.NewServer()
 
-	injectRobot := &inject.Robot{ResourceNamesFunc: func() []resource.Name { return []resource.Name{} }}
-	injectRobot2 := &inject.Robot{ResourceNamesFunc: func() []resource.Name { return []resource.Name{} }}
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return []resource.Name{} },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+	injectRobot2 := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return []resource.Name{} },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
@@ -1041,4 +1154,116 @@ func TestClientStatus(t *testing.T) {
 
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
 	})
+}
+
+func TestForeignResource(t *testing.T) {
+	injectRobot := &inject.Robot{}
+
+	desc1, err := grpcreflect.LoadServiceDescriptor(&pb.RobotService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	desc2, err := grpcreflect.LoadServiceDescriptor(&armpb.ArmService_ServiceDesc)
+	test.That(t, err, test.ShouldBeNil)
+
+	subtype1 := resource.NewSubtype("acme", resource.ResourceTypeComponent, "huwat")
+	subtype2 := resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat")
+	respWith := []resource.RPCSubtype{
+		{
+			Subtype: resource.NewSubtype("acme", resource.ResourceTypeComponent, "huwat"),
+			Desc:    desc1,
+		},
+		{
+			Subtype: resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat"),
+			Desc:    desc2,
+		},
+	}
+
+	respWithResources := []resource.Name{
+		arm.Named("arm1"),
+		resource.NameFromSubtype(subtype1, "thing1"),
+		resource.NameFromSubtype(subtype2, "thing2"),
+	}
+
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return respWith }
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return respWithResources }
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	reflection.Register(gServer)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	logger := golog.NewTestLogger(t)
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	res1, err := client.ResourceByName(respWithResources[0])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res1, test.ShouldImplement, (*arm.Arm)(nil))
+
+	res2, err := client.ResourceByName(respWithResources[1])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res2, test.ShouldHaveSameTypeAs, (*rgrpc.ForeignResource)(nil))
+	test.That(t, res2.(*rgrpc.ForeignResource).Name(), test.ShouldResemble, respWithResources[1])
+
+	res3, err := client.ResourceByName(respWithResources[2])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res3, test.ShouldHaveSameTypeAs, (*rgrpc.ForeignResource)(nil))
+	test.That(t, res3.(*rgrpc.ForeignResource).Name(), test.ShouldResemble, respWithResources[2])
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestNewRobotClientRefresh(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+	var callCount int
+
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		callCount++
+		return emptyResources
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	dur := -100 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithRefreshEvery(dur),
+	)
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, client, test.ShouldNotBeNil)
+	test.That(t, callCount, test.ShouldEqual, 1)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	callCount = 0
+	dur = 0
+	client, err = New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithRefreshEvery(dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, client, test.ShouldNotBeNil)
+	test.That(t, callCount, test.ShouldEqual, 1)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 }

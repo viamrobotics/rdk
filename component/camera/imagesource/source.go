@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-
 	// for embedding camera parameters.
 	_ "embed"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"net/http"
 
 	"github.com/edaniels/golog"
-
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
@@ -28,13 +26,12 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, "single_stream",
-		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
+		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*ServerAttrs)
@@ -65,7 +62,7 @@ func init() {
 		&ServerAttrs{})
 
 	registry.RegisterComponent(camera.Subtype, "dual_stream",
-		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
+		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*dualServerAttrs)
@@ -96,7 +93,7 @@ func init() {
 		&dualServerAttrs{})
 
 	registry.RegisterComponent(camera.Subtype, "file",
-		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
+		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*fileSourceAttrs)

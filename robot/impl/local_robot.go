@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -111,6 +112,11 @@ func (r *localRobot) ResourceNames() []resource.Name {
 	return r.manager.ResourceNames()
 }
 
+// ResourceRPCSubtypes returns all known resource RPC subtypes in use.
+func (r *localRobot) ResourceRPCSubtypes() []resource.RPCSubtype {
+	return r.manager.ResourceRPCSubtypes()
+}
+
 // ProcessManager returns the process manager for the robot.
 func (r *localRobot) ProcessManager() pexec.ProcessManager {
 	return r.manager.processManager
@@ -164,6 +170,12 @@ func (r *localRobot) StopWeb() error {
 	return webSvc.Close()
 }
 
+// remoteNameByResource returns the remote the resource is pulled from, if found.
+// False can mean either the resource doesn't exist or is local to the robot.
+func (r *localRobot) remoteNameByResource(resourceName resource.Name) (string, bool) {
+	return r.manager.remoteNameByResource(resourceName)
+}
+
 func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.mu.Lock()
 	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Nodes))
@@ -191,24 +203,88 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 		deduped[name] = struct{}{}
 	}
 
+	// group each resource name by remote and also get its corresponding name on the remote
+	groupedResources := make(map[string]map[resource.Name]resource.Name)
+	for name := range deduped {
+		remoteName, ok := r.remoteNameByResource(name)
+		if !ok {
+			continue
+		}
+		remote, ok := r.RemoteByName(remoteName)
+		if !ok {
+			// should never happen
+			r.Logger().Errorw("remote robot not found while creating status", "remote", remoteName)
+			continue
+		}
+		rRobot, ok := remote.(*remoteRobot)
+		if !ok {
+			// should never happen
+			r.Logger().Errorw("remote robot not a *remoteRobot while creating status", "remote", remoteName)
+			continue
+		}
+		unprefixed := rRobot.unprefixResourceName(name)
+
+		mappings, ok := groupedResources[remoteName]
+		if !ok {
+			mappings = make(map[resource.Name]resource.Name)
+		}
+		mappings[unprefixed] = name
+		groupedResources[remoteName] = mappings
+	}
+	// make requests and map it back to the local resource name
+	remoteStatuses := make(map[resource.Name]robot.Status)
+	for remoteName, resourceNamesMappings := range groupedResources {
+		remote, ok := r.RemoteByName(remoteName)
+		if !ok {
+			// should never happen
+			r.Logger().Errorw("remote robot not found while creating status", "remote", remoteName)
+			continue
+		}
+		remoteRNames := make([]resource.Name, 0, len(resourceNamesMappings))
+		for n := range resourceNamesMappings {
+			remoteRNames = append(remoteRNames, n)
+		}
+
+		s, err := remote.GetStatus(ctx, remoteRNames)
+		if err != nil {
+			return nil, err
+		}
+		for _, stat := range s {
+			mappedName, ok := resourceNamesMappings[stat.Name]
+			if !ok {
+				// should never happen
+				r.Logger().Errorw(
+					"failed to find corresponding resource name for remote resource name while creating status",
+					"resource", stat.Name,
+				)
+				continue
+			}
+			stat.Name = mappedName
+			remoteStatuses[mappedName] = stat
+		}
+	}
 	statuses := make([]robot.Status, 0, len(deduped))
 	for name := range deduped {
-		resource, ok := resources[name]
+		resourceStatus, ok := remoteStatuses[name]
 		if !ok {
-			return nil, utils.NewResourceNotFoundError(name)
-		}
-		// if resource subtype has an associated CreateStatus method, use that
-		// otherwise return an empty status
-		var status interface{} = struct{}{}
-		var err error
-		subtype := registry.ResourceSubtypeLookup(name.Subtype)
-		if subtype != nil && subtype.Status != nil {
-			status, err = subtype.Status(ctx, resource)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get status from %q", name)
+			resource, ok := resources[name]
+			if !ok {
+				return nil, utils.NewResourceNotFoundError(name)
 			}
+			// if resource subtype has an associated CreateStatus method, use that
+			// otherwise return an empty status
+			var status interface{} = map[string]interface{}{}
+			var err error
+			subtype := registry.ResourceSubtypeLookup(name.Subtype)
+			if subtype != nil && subtype.Status != nil {
+				status, err = subtype.Status(ctx, resource)
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to get status from %q", name)
+				}
+			}
+			resourceStatus = robot.Status{Name: name, Status: status}
 		}
-		statuses = append(statuses, robot.Status{Name: name, Status: status})
+		statuses = append(statuses, resourceStatus)
 	}
 	return statuses, nil
 }
@@ -245,7 +321,10 @@ func newWithResources(
 
 	// default services
 	for _, name := range defaultSvc {
-		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
+		cfg := config.Service{
+			Namespace: name.Namespace,
+			Type:      config.ServiceType(name.ResourceSubtype),
+		}
 		svc, err := r.newService(ctx, cfg)
 		if err != nil {
 			return nil, err
@@ -269,7 +348,7 @@ func newWithResources(
 	if err := r.updateDefaultServices(ctx); err != nil {
 		return nil, err
 	}
-
+	r.manager.updateResourceRemoteNames()
 	successful = true
 	return r, nil
 }
@@ -288,13 +367,44 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
+// getDependencies derives a collection of dependencies from a robot for a given
+// component configuration. We don't use the resource manager for this information since it
+// is not be constructed at this point.
+func (r *localRobot) getDependencies(config config.Component) (registry.Dependencies, error) {
+	deps := make(registry.Dependencies)
+	for _, dep := range config.DependsOn {
+		if c := r.config.FindComponent(dep); c != nil {
+			res, err := r.ResourceByName(c.ResourceName())
+			if err != nil {
+				return nil, &registry.DependencyNotReadyError{Name: dep}
+			}
+			deps[c.ResourceName()] = res
+		}
+	}
+
+	return deps, nil
+}
+
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
-	newResource, err := f.Constructor(ctx, r, config, r.logger)
+
+	deps, err := r.getDependencies(config)
+	if err != nil {
+		return nil, err
+	}
+
+	var newResource interface{}
+	if f.Constructor != nil {
+		newResource, err = f.Constructor(ctx, deps, config, r.logger)
+	} else {
+		r.logger.Warnw("using legacy constructor", "subtype", rName.Subtype, "model", config.Model)
+		newResource, err = f.RobotConstructor(ctx, r, config, r.logger)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +426,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	resources := map[resource.Name]interface{}{}
 
 	for _, n := range r.ResourceNames() {
-		// TODO(RSDK-22) if not found, could mean a name clash or a remote service
+		// TODO(RSDK-333) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
@@ -406,4 +516,32 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 // to support more streamlined reconfiguration functionality.
 func RobotFromResources(ctx context.Context, resources map[resource.Name]interface{}, logger golog.Logger) (robot.LocalRobot, error) {
 	return newWithResources(ctx, &config.Config{}, resources, logger)
+}
+
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+	// dedupe queries
+	deduped := make(map[discovery.Query]struct{}, len(qs))
+	for _, q := range qs {
+		deduped[q] = struct{}{}
+	}
+
+	discoveries := make([]discovery.Discovery, 0, len(deduped))
+	for q := range deduped {
+		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q)
+		if !ok {
+			r.logger.Warnw("no discovery function registered", "subtype", q.SubtypeName, "model", q.Model)
+			continue
+		}
+
+		if discoveryFunction != nil {
+			discovered, err := discoveryFunction(ctx)
+			if err != nil {
+				return nil, &discovery.DiscoverError{q}
+			}
+			discoveries = append(discoveries, discovery.Discovery{Query: q, Results: discovered})
+		}
+	}
+	return discoveries, nil
 }

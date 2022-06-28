@@ -10,17 +10,19 @@ import (
 
 // Gripper is an injected gripper.
 type Gripper struct {
-	gripper.Gripper
-	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	OpenFunc  func(ctx context.Context) error
-	GrabFunc  func(ctx context.Context) (bool, error)
-	CloseFunc func(ctx context.Context) error
+	gripper.LocalGripper
+	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	OpenFunc     func(ctx context.Context) error
+	GrabFunc     func(ctx context.Context) (bool, error)
+	StopFunc     func(ctx context.Context) error
+	IsMovingFunc func() bool
+	CloseFunc    func(ctx context.Context) error
 }
 
 // Open calls the injected Open or the real version.
 func (g *Gripper) Open(ctx context.Context) error {
 	if g.OpenFunc == nil {
-		return g.Gripper.Open(ctx)
+		return g.LocalGripper.Open(ctx)
 	}
 	return g.OpenFunc(ctx)
 }
@@ -28,15 +30,31 @@ func (g *Gripper) Open(ctx context.Context) error {
 // Grab calls the injected Grab or the real version.
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	if g.GrabFunc == nil {
-		return g.Gripper.Grab(ctx)
+		return g.LocalGripper.Grab(ctx)
 	}
 	return g.GrabFunc(ctx)
+}
+
+// Stop calls the injected Stop or the real version.
+func (g *Gripper) Stop(ctx context.Context) error {
+	if g.StopFunc == nil {
+		return g.LocalGripper.Stop(ctx)
+	}
+	return g.StopFunc(ctx)
+}
+
+// IsMoving calls the injected IsMoving or the real version.
+func (g *Gripper) IsMoving() bool {
+	if g.IsMovingFunc == nil {
+		return g.LocalGripper.IsMoving()
+	}
+	return g.IsMovingFunc()
 }
 
 // Close calls the injected Close or the real version.
 func (g *Gripper) Close(ctx context.Context) error {
 	if g.CloseFunc == nil {
-		return utils.TryClose(ctx, g.Gripper)
+		return utils.TryClose(ctx, g.LocalGripper)
 	}
 	return g.CloseFunc(ctx)
 }
@@ -44,7 +62,7 @@ func (g *Gripper) Close(ctx context.Context) error {
 // Do calls the injected Do or the real version.
 func (g *Gripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if g.DoFunc == nil {
-		return g.Gripper.Do(ctx, cmd)
+		return g.LocalGripper.Do(ctx, cmd)
 	}
 	return g.DoFunc(ctx, cmd)
 }

@@ -140,10 +140,10 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, resp.Detections, test.ShouldHaveLength, 1)
 	test.That(t, resp.Detections[0].Confidence, test.ShouldEqual, 1.0)
 	test.That(t, resp.Detections[0].ClassName, test.ShouldEqual, "red")
-	test.That(t, resp.Detections[0].XMin, test.ShouldEqual, 110)
-	test.That(t, resp.Detections[0].YMin, test.ShouldEqual, 288)
-	test.That(t, resp.Detections[0].XMax, test.ShouldEqual, 183)
-	test.That(t, resp.Detections[0].YMax, test.ShouldEqual, 349)
+	test.That(t, *(resp.Detections[0].XMin), test.ShouldEqual, 110)
+	test.That(t, *(resp.Detections[0].YMin), test.ShouldEqual, 288)
+	test.That(t, *(resp.Detections[0].XMax), test.ShouldEqual, 183)
+	test.That(t, *(resp.Detections[0].YMax), test.ShouldEqual, 349)
 	// failure - empty request
 	_, err = server.GetDetections(context.Background(), &pb.GetDetectionsRequest{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
@@ -157,7 +157,8 @@ func TestServerObjectSegmentation(t *testing.T) {
 	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
 		cameraName string,
 		segmenterName string,
-		params config.AttributeMap) ([]*viz.Object, error) {
+		params config.AttributeMap,
+	) ([]*viz.Object, error) {
 		switch segmenterName {
 		case vision.RadiusClusteringSegmenter:
 			segments, err := segmentation.RadiusClustering(ctx, injCam, params)

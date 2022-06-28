@@ -14,12 +14,12 @@ import (
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/gripper"
-
 	// register.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -273,17 +273,19 @@ func TestServiceWithRemote(t *testing.T) {
 	localConfig := &config.Config{
 		Components: []config.Component{
 			{
-				Name:  "foo",
-				Type:  base.SubtypeName,
-				Model: "fake",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      base.SubtypeName,
+				Model:     "fake",
 				Frame: &config.Frame{
 					Parent: referenceframe.World,
 				},
 			},
 			{
-				Name:  "myParentIsRemote",
-				Type:  gripper.SubtypeName,
-				Model: "fake",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "myParentIsRemote",
+				Type:      gripper.SubtypeName,
+				Model:     "fake",
 				Frame: &config.Frame{
 					Parent: "bar.pieceArm",
 				},

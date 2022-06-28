@@ -68,6 +68,7 @@ func WriteBothToFile(i *ImageWithDepth, fn string) (err error) {
 		return errors.New("vision.ImageWithDepth WriteTo only supports both.gz")
 	}
 
+	//nolint:gosec
 	f, err := os.Create(fn)
 	if err != nil {
 		return err

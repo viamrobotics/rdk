@@ -17,8 +17,8 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -32,7 +32,7 @@ type AttrConfig struct {
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
 		},
 	})
@@ -57,7 +57,7 @@ type robotiqGripper struct {
 }
 
 // newGripper TODO.
-func newGripper(ctx context.Context, host string, logger golog.Logger) (*robotiqGripper, error) {
+func newGripper(ctx context.Context, host string, logger golog.Logger) (gripper.LocalGripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err
@@ -253,5 +253,21 @@ func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 	g.closeLimit = x[4:]
 
 	g.logger.Debugf("limits %s %s", g.openLimit, g.closeLimit)
+	return nil
+}
+
+// Stop is unimplemented for robotiqGripper.
+func (g *robotiqGripper) Stop(ctx context.Context) error {
+	// RSDK-388: Implement Stop
+	return gripper.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the gripper is moving.
+func (g *robotiqGripper) IsMoving() bool {
+	return g.opMgr.OpRunning()
+}
+
+// ModelFrame is unimplemented for robotiqGripper.
+func (g *robotiqGripper) ModelFrame() referenceframe.Model {
 	return nil
 }

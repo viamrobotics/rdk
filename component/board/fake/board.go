@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 var _ = board.LocalBoard(&Board{})
@@ -28,7 +27,7 @@ func init() {
 		modelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			_ registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -77,6 +76,16 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 	}
 
 	return b, nil
+}
+
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (b *Board) UpdateAction(c *config.Component) config.UpdateActionType {
+	_, ok := c.ConvertedAttributes.(*board.Config)
+	if !ok {
+		return config.Rebuild
+	}
+	return config.Reconfigure
 }
 
 // A Board provides dummy data from fake parts in order to implement a Board.

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jhump/protoreflect/grpcreflect"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -16,8 +17,10 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -52,6 +55,7 @@ var serverOneResourceResponse = []*commonpb.ResourceName{
 func TestServer(t *testing.T) {
 	t.Run("Metadata", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 
@@ -59,11 +63,93 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp, test.ShouldResemble, emptyResources)
 
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{serverNewResource} }
 
 		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
+	})
+
+	t.Run("Discovery", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
+		server := server.New(injectRobot)
+		q := discovery.Query{arm.Named("arm").ResourceSubtype, "some arm"}
+		disc := discovery.Discovery{Query: q, Results: struct{}{}}
+		discoveries := []discovery.Discovery{disc}
+		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+			return discoveries, nil
+		}
+		req := &pb.DiscoverComponentsRequest{
+			Queries: []*pb.DiscoveryQuery{{Subtype: string(q.SubtypeName), Model: q.Model}},
+		}
+
+		resp, err := server.DiscoverComponents(context.Background(), req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+
+		observed := resp.Discovery[0].Results.AsMap()
+		expected := map[string]interface{}{}
+		test.That(t, observed, test.ShouldResemble, expected)
+	})
+
+	t.Run("ResourceRPCSubtypes", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+		server := server.New(injectRobot)
+
+		typesResp, err := server.ResourceRPCSubtypes(context.Background(), &pb.ResourceRPCSubtypesRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, typesResp, test.ShouldResemble, &pb.ResourceRPCSubtypesResponse{
+			ResourceRpcSubtypes: []*pb.ResourceRPCSubtype{},
+		})
+
+		desc1, err := grpcreflect.LoadServiceDescriptor(&pb.RobotService_ServiceDesc)
+		test.That(t, err, test.ShouldBeNil)
+
+		desc2, err := grpcreflect.LoadServiceDescriptor(&armpb.ArmService_ServiceDesc)
+		test.That(t, err, test.ShouldBeNil)
+
+		otherSubType := resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat")
+		respWith := []resource.RPCSubtype{
+			{
+				Subtype: serverNewResource.Subtype,
+				Desc:    desc1,
+			},
+			{
+				Subtype: resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat"),
+				Desc:    desc2,
+			},
+		}
+
+		expectedResp := []*pb.ResourceRPCSubtype{
+			{
+				Subtype: &commonpb.ResourceName{
+					Namespace: string(serverNewResource.Namespace),
+					Type:      string(serverNewResource.ResourceType),
+					Subtype:   string(serverNewResource.ResourceSubtype),
+				},
+				ProtoService: desc1.GetFullyQualifiedName(),
+			},
+			{
+				Subtype: &commonpb.ResourceName{
+					Namespace: string(otherSubType.Namespace),
+					Type:      string(otherSubType.ResourceType),
+					Subtype:   string(otherSubType.ResourceSubtype),
+				},
+				ProtoService: desc2.GetFullyQualifiedName(),
+			},
+		}
+
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return respWith }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+
+		typesResp, err = server.ResourceRPCSubtypes(context.Background(), &pb.ResourceRPCSubtypesRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, typesResp.ResourceRpcSubtypes, test.ShouldResemble, expectedResp)
 	})
 }
 

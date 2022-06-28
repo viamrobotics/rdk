@@ -1,12 +1,13 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/camera/v1";
-option java_package = "com.viam.rdk.proto.api.component.camera.v1";
 
 package proto.api.component.camera.v1;
 
 import "google/api/annotations.proto";
 import "google/api/httpbody.proto";
 import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/camera/v1";
+option java_package = "com.viam.rdk.proto.api.component.camera.v1";
 
 // A CameraService services all cameras associated with a robot
 service CameraService {
@@ -33,7 +34,6 @@ service CameraService {
       get: "/viam/api/v1/component/camera/{name}/point_cloud"
     };
   }
-
 }
 
 message GetFrameRequest {
@@ -73,4 +73,31 @@ message GetPointCloudResponse {
   string mime_type = 1;
   // Frame in bytes
   bytes point_cloud = 2;
+}
+
+message Webcams {
+  repeated Webcam webcams = 1;
+}
+
+message Webcam {
+  // Camera driver label
+  string label = 1;
+  // Camera driver status
+  string status = 2;
+  // Camera properties
+  repeated Property properties = 3;
+}
+
+message Property {
+  // Camera video properties
+  Video video = 1;
+}
+
+message Video {
+  // Video resolution width
+  int32 width = 1;
+  // Video resolution height
+  int32 height = 2;
+  // Video frame format
+  string frame_format = 3;
 }

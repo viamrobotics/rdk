@@ -18,8 +18,6 @@ import (
 	"go.viam.com/rdk/component/input/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestGPIOInput(t *testing.T) {
@@ -41,27 +39,25 @@ func TestGPIOInput(t *testing.T) {
 	b.Digitals["interrupt2"], err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{})
 	test.That(t, err, test.ShouldBeNil)
 
-	r := inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return b, nil
-	}
+	deps := make(registry.Dependencies)
+	deps[board.Named("main")] = b
 
 	ic := gpio.Config{
 		Board: "main",
 		Buttons: map[string]gpio.ButtonConfig{
-			"interrupt1": gpio.ButtonConfig{
+			"interrupt1": {
 				Control:    input.ButtonNorth,
 				Invert:     false,
 				DebounceMs: 0,
 			},
-			"interrupt2": gpio.ButtonConfig{
+			"interrupt2": {
 				Control:    input.ButtonSouth,
 				Invert:     true,
 				DebounceMs: -1,
 			},
 		},
 		Axes: map[string]gpio.AxisConfig{
-			"analog1": gpio.AxisConfig{
+			"analog1": {
 				Control:       input.AbsoluteX,
 				Min:           0,
 				Max:           1023,
@@ -71,7 +67,7 @@ func TestGPIOInput(t *testing.T) {
 				PollHz:        0,
 				Invert:        false,
 			},
-			"analog2": gpio.AxisConfig{
+			"analog2": {
 				Control:       input.AbsoluteY,
 				Min:           0,
 				Max:           1023,
@@ -81,7 +77,7 @@ func TestGPIOInput(t *testing.T) {
 				PollHz:        50,
 				Invert:        false,
 			},
-			"analog3": gpio.AxisConfig{
+			"analog3": {
 				Control:       input.AbsoluteRX,
 				Min:           -5000,
 				Max:           5000,
@@ -97,7 +93,7 @@ func TestGPIOInput(t *testing.T) {
 	inputReg := registry.ComponentLookup(input.Subtype, "gpio")
 	test.That(t, inputReg, test.ShouldNotBeNil)
 
-	res, err := inputReg.Constructor(context.Background(), &r, config.Component{Name: "input1", ConvertedAttributes: &ic}, logger)
+	res, err := inputReg.Constructor(context.Background(), deps, config.Component{Name: "input1", ConvertedAttributes: &ic}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	dev, ok := res.(input.Controller)
 	test.That(t, ok, test.ShouldBeTrue)

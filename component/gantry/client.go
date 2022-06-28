@@ -8,7 +8,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -19,16 +18,6 @@ type serviceClient struct {
 	conn   rpc.ClientConn
 	client pb.GantryServiceClient
 	logger golog.Logger
-}
-
-// newServiceClient constructs a new serviceClient that is served at the given address.
-func newServiceClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*serviceClient, error) {
-	conn, err := grpc.Dial(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	sc := newSvcClientFromConn(conn, logger)
-	return sc, nil
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
@@ -42,24 +31,10 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (sc *serviceClient) Close() error {
-	return sc.conn.Close()
-}
-
 // client is an gantry client.
 type client struct {
 	*serviceClient
 	name string
-}
-
-// NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Gantry, error) {
-	sc, err := newServiceClient(ctx, address, logger, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return clientFromSvcClient(sc, name), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -121,11 +96,6 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{})
-}
-
-// Close cleanly closes the underlying connections.
-func (c *client) Close() error {
-	return c.serviceClient.Close()
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

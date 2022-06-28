@@ -3,7 +3,6 @@ package vgripper
 
 import (
 	"context"
-
 	// used to import model referenceframe.
 	_ "embed"
 	"math"
@@ -15,14 +14,12 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 //go:embed vgripper_model.json
@@ -33,13 +30,13 @@ const modelName = "viam-v1"
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			const boardName = "local"
-			b, err := board.FromRobot(r, boardName)
+			b, err := board.FromDependencies(deps, boardName)
 			if err != nil {
 				return nil, err
 			}
-			return newGripperV1(ctx, r, b, config, logger)
+			return newGripperV1(ctx, deps, b, config, logger)
 		},
 	})
 }
@@ -47,11 +44,12 @@ func init() {
 // TODO.
 const (
 	TargetRPM               = 200
-	MaxCurrent              = 500
+	MaxCurrent              = 700
 	CurrentBadReadingCounts = 50
 	MinRotationGap          = 4.0
 	MaxRotationGap          = 5.0
 	OpenPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
+	ClosePosOffset          = 0.1 // Prevent false "grabs"
 )
 
 // gripperV1 represents a Viam gripper with a single force sensor cell.
@@ -72,13 +70,18 @@ type gripperV1 struct {
 
 	model                 referenceframe.Model
 	numBadCurrentReadings int
-	generic.Unimplemented
 }
 
 // newGripperV1 Returns a gripperV1.
-func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg config.Component, logger golog.Logger) (*gripperV1, error) {
+func newGripperV1(
+	ctx context.Context,
+	deps registry.Dependencies,
+	theBoard board.Board,
+	cfg config.Component,
+	logger golog.Logger,
+) (gripper.LocalGripper, error) {
 	pressureLimit := cfg.Attributes.Int("pressure_limit", 800)
-	_motor, err := motor.FromRobot(r, "g")
+	_motor, err := motor.FromDependencies(deps, "g")
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +129,14 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		return nil, errors.New("gripper needs a current and a pressure reader")
 	}
 
+	err = vg.Home(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return vg, nil
+}
+
+func (vg *gripperV1) Home(ctx context.Context) error {
 	// Variables for the overall init process
 	var posA, posB float64
 	var hasPressureA, hasPressureB bool
@@ -142,20 +153,20 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	stopFunc := func(ctx context.Context) bool {
 		current, err := vg.readCurrent(ctx)
 		if err != nil {
-			logger.Error(err)
+			vg.logger.Error(err)
 			return true
 		}
 		err = vg.processCurrentReading(current, "init")
 		if err != nil {
-			logger.Error(err)
+			vg.logger.Error(err)
 			return true
 		}
 		pressure, err := vg.readPressure(ctx)
 		if err != nil {
-			logger.Error(err)
+			vg.logger.Error(err)
 			return true
 		}
-		if pressure < pressureLimit {
+		if pressure < vg.pressureLimit {
 			if localTest.nonPressureSeen {
 				localTest.pressureCount++
 			}
@@ -164,16 +175,16 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 			// Capture the last position BEFORE pressure is detected
 			localTest.pressurePos, err = vg.motor.GetPosition(ctx)
 			if err != nil {
-				logger.Error(err)
+				vg.logger.Error(err)
 				return true
 			}
 		}
 		if localTest.nonPressureCount == 15 {
 			localTest.nonPressureSeen = true
-			logger.Debug("init: non-pressure range found")
+			vg.logger.Debug("init: non-pressure range found")
 		}
 		if localTest.pressureCount >= 5 {
-			logger.Debug("init: pressure sensing (closed) direction found")
+			vg.logger.Debug("init: pressure sensing (closed) direction found")
 			localTest.pressureSeen = true
 			return true
 		}
@@ -181,10 +192,10 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	}
 
 	// Test forward motion for pressure/endpoint
-	logger.Debug("init: moving forward")
-	err = vg.motor.GoTillStop(ctx, TargetRPM/2, stopFunc)
+	vg.logger.Debug("init: moving forward")
+	err := vg.motor.GoTillStop(ctx, TargetRPM/2, stopFunc)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if localTest.pressureSeen {
 		hasPressureA = true
@@ -192,15 +203,15 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	} else {
 		posA, err = vg.motor.GetPosition(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	// Test backward motion for pressure/endpoint
 	localTest = &movementTest{}
-	logger.Debug("init: moving backward")
+	vg.logger.Debug("init: moving backward")
 	err = vg.motor.GoTillStop(ctx, -1*TargetRPM/2, stopFunc)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if localTest.pressureSeen {
 		hasPressureB = true
@@ -208,17 +219,17 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	} else {
 		posB, err = vg.motor.GetPosition(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	// One final movement, in the case that we start closed AND the first movement was also toward closed (no non-pressure range seen)
 	if !hasPressureA && !hasPressureB {
 		localTest = &movementTest{}
-		logger.Debug("init: moving forward (2nd try)")
+		vg.logger.Debug("init: moving forward (2nd try)")
 		err = vg.motor.GoTillStop(ctx, TargetRPM/2, stopFunc)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if localTest.pressureSeen {
 			hasPressureA = true
@@ -226,20 +237,19 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		} else {
 			posA, err = vg.motor.GetPosition(ctx)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil,
-			errors.Errorf(
-				"init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t",
-				posA,
-				posB,
-				hasPressureA,
-				hasPressureB,
-			)
+		return errors.Errorf(
+			"init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t",
+			posA,
+			posB,
+			hasPressureA,
+			hasPressureB,
+		)
 	}
 
 	if hasPressureA {
@@ -256,27 +266,29 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 
 	if math.Signbit(vg.openPos - vg.closePos) {
 		vg.openPos += OpenPosOffset
+		vg.closePos -= ClosePosOffset
 	} else {
 		vg.openPos -= OpenPosOffset
+		vg.closePos += ClosePosOffset
 	}
 
-	logger.Debugf("init: orig openPos: %f, closePos: %f", vg.openPos, vg.closePos)
+	vg.logger.Debugf("init: orig openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	// Zero to closed position
 	curPos, err := vg.motor.GetPosition(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = vg.motor.ResetZeroPosition(ctx, curPos-vg.closePos)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	vg.openPos -= vg.closePos
 	vg.closePos = 0
 
-	logger.Debugf("init: final openPos: %f, closePos: %f", vg.openPos, vg.closePos)
+	vg.logger.Debugf("init: final openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
 	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
-		return nil, errors.Errorf(
+		return errors.Errorf(
 			"init: rotationGap not in expected range got: %v range %v -> %v",
 			rotationGap,
 			MinRotationGap,
@@ -284,7 +296,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		)
 	}
 
-	return vg, vg.Open(ctx)
+	return vg.Open(ctx)
 }
 
 // ModelFrame returns the dynamic frame of the model.
@@ -302,10 +314,21 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 		return err
 	}
 
-	err = vg.motor.GoTo(ctx, TargetRPM, vg.openPos)
+	pos, err := vg.motor.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
+
+	if math.Abs(pos-vg.openPos) < 0.1 {
+		return nil
+	}
+
+	utils.PanicCapturingGo(func() {
+		err := vg.motor.GoTo(ctx, TargetRPM, vg.openPos)
+		if err != nil {
+			vg.logger.Error(err)
+		}
+	})
 
 	msPer := 10
 	total := 0
@@ -347,10 +370,22 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = vg.motor.GoTo(ctx, TargetRPM, vg.closePos)
+
+	pos, err := vg.motor.GetPosition(ctx)
 	if err != nil {
 		return false, err
 	}
+
+	if math.Abs(pos-vg.closePos) < 0.1 {
+		return false, nil
+	}
+
+	utils.PanicCapturingGo(func() {
+		err := vg.motor.GoTo(ctx, TargetRPM, vg.closePos)
+		if err != nil {
+			vg.logger.Error(err)
+		}
+	})
 
 	msPer := 10
 	total := 0
@@ -427,7 +462,14 @@ func (vg *gripperV1) stopAfterError(ctx context.Context, other error) error {
 
 // Stop stops the motors.
 func (vg *gripperV1) Stop(ctx context.Context) error {
+	ctx, done := vg.opMgr.New(ctx)
+	defer done()
 	return vg.motor.Stop(ctx)
+}
+
+// IsMoving returns whether the gripper is moving.
+func (vg *gripperV1) IsMoving() bool {
+	return vg.opMgr.OpRunning()
 }
 
 func (vg *gripperV1) readCurrent(ctx context.Context) (int, error) {
@@ -456,3 +498,34 @@ func (vg *gripperV1) analogs(ctx context.Context) (hasPressure bool, pressure, c
 
 	return
 }
+
+// Do() related constants.
+const (
+	Command           = "command"
+	GetPressure       = "get_pressure"
+	GetCurrent        = "get_current"
+	Home              = "home"
+	ReturnCurrent     = "current"
+	ReturnPressure    = "pressure"
+	ReturnHasPressure = "has_pressure"
+)
+
+func (vg *gripperV1) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	name, ok := cmd[Command]
+	if !ok {
+		return nil, errors.Errorf("missing %s value", Command)
+	}
+	switch name {
+	case GetPressure:
+		hasPressure, pressure, err := vg.hasPressure(ctx)
+		return map[string]interface{}{ReturnHasPressure: hasPressure, ReturnPressure: pressure}, err
+	case GetCurrent:
+		current, err := vg.readCurrent(ctx)
+		return map[string]interface{}{ReturnCurrent: current}, err
+	case Home:
+		return nil, vg.Home(ctx)
+	default:
+		return nil, errors.Errorf("no such command: %s", name)
+	}
+}
+

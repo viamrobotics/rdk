@@ -27,7 +27,7 @@ do_bullseye(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_16.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev protobuf-compiler protoc-gen-grpc-web && apt-get clean
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web && apt-get clean
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
@@ -78,6 +78,8 @@ do_linux(){
 		export VIAM_DEV_ENV=1
 		eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 		export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
+		export CGO_LDFLAGS=-L/home/linuxbrew/.linuxbrew/lib
+		export CGO_CFLAGS=-I/home/linuxbrew/.linuxbrew/include
 		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		export CC=gcc-11
 		export CXX=g++-11
@@ -103,6 +105,8 @@ do_darwin(){
 			export VIAM_DEV_ENV=1
 			eval "\$(/opt/homebrew/bin/brew shellenv)"
 			export LIBRARY_PATH=/opt/homebrew/lib
+			export CGO_LDFLAGS=-L/opt/homebrew/lib
+			export CGO_CFLAGS=-I/opt/homebrew/include
 			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		fi
 		EOS
@@ -148,19 +152,20 @@ do_brew(){
 	source ~/.viamdevrc
 
 	brew bundle --file=- <<-EOS
+	# viam tap
+	tap  "viamrobotics/brews"
 
 	# unpinned
 	brew "nlopt"
 	brew "x264"
 	brew "protoc-gen-grpc-web"
 	brew "pkg-config"
+	brew "tensorflowlite"
 	# pinned
 	brew "gcc@11"
 	brew "go@1.17"
 	brew "node@16"
 	brew "protobuf@3.19"
-	# viam tap
-	tap  "viamrobotics/brews"
 
 	EOS
 

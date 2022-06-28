@@ -2,7 +2,6 @@ package fake
 
 import (
 	"context"
-
 	// for arm model.
 	_ "embed"
 
@@ -17,7 +16,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 //go:embed arm_model.json
@@ -25,7 +23,7 @@ var armikModelJSON []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")
 			}
@@ -40,7 +38,7 @@ func fakeModel() (referenceframe.Model, error) {
 }
 
 // NewArmIK returns a new fake arm.
-func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	name := cfg.Name
 	model, err := fakeModel()
 	if err != nil {
@@ -112,6 +110,11 @@ func (a *ArmIK) GetJointPositions(ctx context.Context) (*pb.JointPositions, erro
 // Stop doesn't do anything for a fake arm.
 func (a *ArmIK) Stop(ctx context.Context) error {
 	return nil
+}
+
+// IsMoving is always false for a fake arm.
+func (a *ArmIK) IsMoving() bool {
+	return false
 }
 
 // CurrentInputs TODO.

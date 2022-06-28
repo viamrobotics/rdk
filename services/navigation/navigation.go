@@ -37,6 +37,7 @@ func init() {
 				servicepb.RegisterNavigationServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &servicepb.NavigationService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -74,7 +75,6 @@ const (
 type Service interface {
 	GetMode(ctx context.Context) (Mode, error)
 	SetMode(ctx context.Context, mode Mode) error
-	Close(ctx context.Context) error
 
 	GetLocation(ctx context.Context) (*geo.Point, error)
 
