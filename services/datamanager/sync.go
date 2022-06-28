@@ -2,7 +2,6 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	goutils "go.viam.com/utils"
@@ -178,19 +176,6 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func getSyncMetadata(f *os.File) (*v1.SyncMetadata, error) {
-	if _, err := f.Seek(0, 0); err != nil {
-		return nil, err
-	}
-
-	r := &v1.SyncMetadata{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read SyncMetadata from %s", f.Name()))
-	}
-
-	return r, nil
-}
-
 func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 	//nolint
 	f, err := os.Open(path)
@@ -204,7 +189,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 
 	var md *v1.UploadMetadata
 	if isDataCaptureFile(f) {
-		syncMD, err := getSyncMetadata(f)
+		syncMD, err := readSyncMetadata(f)
 		if err != nil {
 			return err
 		}
@@ -320,26 +305,6 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 	}
 }
 
-func readNextSensorData(f *os.File) (*v1.SensorData, error) {
-	if _, err := f.Seek(0, 1); err != nil {
-		return nil, err
-	}
-	r := &v1.SensorData{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, err
-	}
-
-	// Ensure we construct and return a SensorData value for tabular data when the tabular data's fields and
-	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
-	if r.GetBinary() == nil {
-		if r.GetStruct() == nil {
-			return r, emptyReadingErr(filepath.Base(f.Name()))
-		}
-		return r, nil
-	}
-	return r, nil
-}
-
 func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 	if _, err := f.Seek(0, 1); err != nil {
 		return nil, err
@@ -353,8 +318,4 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 		return nil, err
 	}
 	return &v1.FileData{Data: byteArr}, nil
-}
-
-func isDataCaptureFile(f *os.File) bool {
-	return filepath.Ext(f.Name()) == dataCaptureFileExt
 }
