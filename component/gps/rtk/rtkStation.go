@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 	"errors"
+	"bytes"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -105,14 +106,17 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 		}
 
 		switch gps.(type) {
-		case nmea.SerialNMEAGPS:
-			gps = gps.(nmea.SerialNMEAGPS)
-			port, err := serial.Open(gps.GetCorrectionPath())
+		case *nmea.SerialNMEAGPS:
+			serialgps := gps.(*nmea.SerialNMEAGPS)
+			port, err := serial.Open(serialgps.GetCorrectionPath())
+			if err != nil {
+				return nil, err
+			}
 
 			r.serialPorts = append(r.serialPorts, port)
-		case nmea.PmtkI2CNMEAGPS:
-			gps = gps.(nmea.PmtkI2CNMEAGPS)
-			bus, addr := gps.GetBusAddr()
+		case *nmea.PmtkI2CNMEAGPS:
+			i2cgps := gps.(*nmea.PmtkI2CNMEAGPS)
+			bus, addr := i2cgps.GetBusAddr()
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
 
 			r.i2cPaths = append(r.i2cPaths, busAddr)
@@ -134,11 +138,15 @@ func (r *RTKStation) Start(ctx context.Context) {
 
 	<-ready
 	stream, err := r.correction.GetReader()
+	if err != nil {
+		r.logger.Fatalf("Unable to get reader: %s", err)
+	}
+
 	w := &bytes.Buffer{}
 	reader := io.TeeReader(stream, w)
 
 	if r.correctionType == "ntrip" {
-		r.correction.ntripStatus = true
+		r.correction.(*ntripCorrectionSource).ntripStatus = true
 	}
 
 	// write corrections to all open ports and i2c handles
@@ -150,7 +158,10 @@ func (r *RTKStation) Start(ctx context.Context) {
 		}
 
 		buf := make([]byte, 1100)
-		n, err := reader.Read(buf)
+		_, err := reader.Read(buf)
+		if err != nil {
+			r.logger.Fatalf("Unable to read stream: %s", err)
+		}
 
 		// write buf to all i2c handles
 	}
@@ -182,21 +193,21 @@ func (g *RTKStation) ReadLocation(ctx context.Context) (*geo.Point, error) {
 }
 
 func (g *RTKStation) ReadAltitude(ctx context.Context) (float64, error) {
-	return nil, nil
+	return 0, nil
 }
 
 func (g *RTKStation) ReadSpeed(ctx context.Context) (float64, error) {
-	return nil, nil
+	return 0, nil
 }
 
 func (g *RTKStation) ReadSatellites(ctx context.Context) (int, int, error) {
-	return nil, nil
+	return 0, 0, nil
 }
 
 func (g *RTKStation) ReadAccuracy(ctx context.Context) (float64, float64, error) {
-	return nil, nil, nil
+	return 0, 0, nil
 }
 
 func (g *RTKStation) ReadValid(ctx context.Context) (bool, error) {
-	return nil, nil
+	return false, nil
 }
