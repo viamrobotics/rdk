@@ -36,7 +36,7 @@ const (
 	correctionPathName = "correction_path"
 )
 
-func newSerialCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (serialCorrectionSource, error) {
+func newSerialCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	s := &serialCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}

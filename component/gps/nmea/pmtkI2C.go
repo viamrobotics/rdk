@@ -159,7 +159,7 @@ func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 	})
 }
 
-func (g *PmtkI2CNMEAGPS) GetBusAddr() (board.I2c, addr) {
+func (g *PmtkI2CNMEAGPS) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
