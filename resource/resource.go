@@ -215,5 +215,5 @@ type Updateable interface {
 // MovingCheckable is implemented when a resource of a robot returns whether it is moving or not.
 type MovingCheckable interface {
 	// IsMoving returns whether the resource is moving or not
-	IsMoving() bool
+	IsMoving(context.Context) (bool, error)
 }

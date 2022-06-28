@@ -101,11 +101,15 @@ func (server *subtypeServer) GetDetections(
 		if box == nil {
 			return nil, errors.New("detection has no bounding box, must return a bounding box")
 		}
+		xMin := int64(box.Min.X)
+		yMin := int64(box.Min.Y)
+		xMax := int64(box.Max.X)
+		yMax := int64(box.Max.Y)
 		d := &pb.Detection{
-			XMin:       int64(box.Min.X),
-			YMin:       int64(box.Min.Y),
-			XMax:       int64(box.Max.X),
-			YMax:       int64(box.Max.Y),
+			XMin:       &xMin,
+			YMin:       &yMin,
+			XMax:       &xMax,
+			YMax:       &yMax,
 			Confidence: det.Score(),
 			ClassName:  det.Label(),
 		}

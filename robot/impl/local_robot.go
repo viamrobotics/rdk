@@ -332,7 +332,8 @@ func newWithResources(
 		}
 		svc, err := r.newService(ctx, cfg)
 		if err != nil {
-			return nil, err
+			logger.Errorw("failed to add default service", "error", err, "service", name)
+			continue
 		}
 		r.manager.addResource(name, svc)
 	}
@@ -361,18 +362,13 @@ func newWithResources(
 	r.internalServices[webName] = web.New(ctx, r, logger)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 
-	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
-		return nil, err
-	}
+	r.manager.processConfig(ctx, cfg, r)
 
 	for name, res := range resources {
 		r.manager.addResource(name, res)
 	}
 
-	// update default services - done here so that all resources have been created and can be addressed.
-	if err := r.updateDefaultServices(ctx); err != nil {
-		return nil, err
-	}
+	r.updateDefaultServices(ctx)
 	successful = true
 	return r, nil
 }
@@ -445,10 +441,8 @@ type ConfigUpdateable interface {
 	Update(context.Context, *config.Config) error
 }
 
-func (r *localRobot) updateDefaultServices(ctx context.Context) error {
-	// grab all resources
+func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	resources := map[resource.Name]interface{}{}
-
 	for _, n := range r.ResourceNames() {
 		// TODO(RSDK-333) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
@@ -461,16 +455,19 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	for _, name := range defaultSvc {
 		svc, err := r.ResourceByName(name)
 		if err != nil {
-			return utils.NewResourceNotFoundError(name)
+			r.Logger().Errorw("resource not found", "error", utils.NewResourceNotFoundError(name))
+			continue
 		}
 		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
-				return err
+				r.Logger().Errorw("failed to update resource", "resource", name, "error", err)
+				continue
 			}
 		}
 		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
 			if err := configUpdateable.Update(ctx, r.config); err != nil {
-				return err
+				r.Logger().Errorw("config for service failed to update", "resource", name, "error", err)
+				continue
 			}
 		}
 	}
@@ -478,12 +475,11 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	for _, svc := range r.internalServices {
 		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
-				return err
+				r.Logger().Errorw("failed to update internal service", "resource", svc, "error", err)
+				continue
 			}
 		}
 	}
-
-	return nil
 }
 
 // Refresh does nothing for now.
