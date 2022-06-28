@@ -263,8 +263,9 @@ func TestGetReadings(t *testing.T) {
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	readings1, err := gps.GetReadings(context.Background(), actualGPS1)
+	allReadings := []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid}
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings1, test.ShouldResemble, []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid})
+	test.That(t, readings1, test.ShouldResemble, allReadings)
 
 	result, err := reconfGPS1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
