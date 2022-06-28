@@ -116,7 +116,7 @@ func TestPiHardware(t *testing.T) {
 			nil,
 			config.Component{
 				Name:                "servo",
-				ConvertedAttributes: config.AttributeMap{"pin": "18"},
+				ConvertedAttributes: &picommon.ServoConfig{Pin: "18"},
 			},
 			logger,
 		)

@@ -126,7 +126,7 @@ func TestPiPigpio(t *testing.T) {
 			nil,
 			config.Component{
 				Name:                "servo",
-				ConvertedAttributes: config.AttributeMap{"pin": "22"},
+				ConvertedAttributes: &picommon.ServoConfig{Pin: "22"},
 			},
 			logger,
 		)
