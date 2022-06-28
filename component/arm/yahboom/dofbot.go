@@ -292,8 +292,8 @@ func (a *Dofbot) GripperStop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the arm is moving.
-func (a *Dofbot) IsMoving() bool {
-	return a.opMgr.OpRunning()
+func (a *Dofbot) IsMoving(ctx context.Context) (bool, error) {
+	return a.opMgr.OpRunning(), nil
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
