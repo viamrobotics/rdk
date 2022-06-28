@@ -2,5 +2,7 @@
 
 package pi
 
-// for easily importing implementation.
-import _ "go.viam.com/rdk/component/board/pi/impl"
+import (
+	// for easily importing implementation.
+	_ "go.viam.com/rdk/component/board/pi/impl"
+)
