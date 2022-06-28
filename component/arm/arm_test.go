@@ -299,6 +299,7 @@ func TestReconfigurableArm(t *testing.T) {
 	err = reconfArm1.Reconfigure(context.Background(), reconfArm3)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm1, reconfArm3))
+	test.That(t, actualArm3.reconfCount, test.ShouldEqual, 0)
 
 	err = reconfArm3.Reconfigure(context.Background(), reconfArm1)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -353,8 +354,12 @@ var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
 type mock struct {
 	arm.Arm
-	Name string
+	Name        string
+	reconfCount int
 }
+
+func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }
+
 type mockLocal struct {
 	arm.LocalArm
 	Name        string
