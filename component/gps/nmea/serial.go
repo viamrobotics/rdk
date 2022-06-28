@@ -60,7 +60,7 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	}
 	correctionPath := config.Attributes.String(correctionAttrName)
 	if correctionPath == "" {
-		correction_path = serialPath
+		correctionPath = serialPath
 	}
 	dev, err := serial.Open(serialPath)
 	if err != nil {

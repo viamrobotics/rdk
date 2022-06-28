@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"errors"
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
@@ -16,7 +17,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/nmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -52,8 +52,8 @@ type RTKStation struct {
 }
 
 type correctionSource interface {
-	GetReader() (io.ReadWriteCloser, error)
-	Start(ctx context.Context)
+	GetReader() (io.ReadCloser, error)
+	Start(ctx context.Context, ready chan<- bool)
 	Close() error
 }
 
@@ -67,7 +67,7 @@ const (
 	childrenName				= "children"
 )
 
-func newRTKStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (RTKStation, error) {
+func newRTKStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	r := &RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
@@ -75,14 +75,15 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 	r.correctionType = config.Attributes.String(correctionSourceName)
 
 	// Init correction source
+	var err error
 	switch r.correctionType {
 	case "ntrip":
-		r.correction, err := newNtripCorrectionSource(ctx, config, logger)
+		r.correction, err = newNtripCorrectionSource(ctx, config, logger)
 		if err != nil {
 			return nil, err
 		}
 	case "serial":
-		r.correction, err := newSerialCorrectionSource(ctx, config, logger)
+		r.correction, err = newSerialCorrectionSource(ctx, config, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +91,7 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 		return nil, errors.New("I2C not implemented")
 	default:
 		// Invalid source
-		return nil, fmt.Errorf("%s is not a valid correction source", correctionSource)
+		return nil, fmt.Errorf("%s is not a valid correction source", r.correctionType)
 	}
 
 	r.gpsNames = config.Attributes.StringSlice(childrenName)
@@ -175,26 +176,26 @@ func (r *RTKStation) Close() error {
 }
 
 // These are all necessary for this to be a gps... not sure of a better option right now
-func (g *SerialNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
+func (g *RTKStation) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	return nil, nil
 }
 
-func (g *SerialNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
+func (g *RTKStation) ReadAltitude(ctx context.Context) (float64, error) {
 	return nil, nil
 }
 
-func (g *SerialNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
+func (g *RTKStation) ReadSpeed(ctx context.Context) (float64, error) {
 	return nil, nil
 }
 
-func (g *SerialNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
+func (g *RTKStation) ReadSatellites(ctx context.Context) (int, int, error) {
 	return nil, nil
 }
 
-func (g *SerialNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+func (g *RTKStation) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	return nil, nil, nil
 }
 
-func (g *SerialNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
+func (g *RTKStation) ReadValid(ctx context.Context) (bool, error) {
 	return nil, nil
 }
