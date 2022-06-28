@@ -310,6 +310,30 @@ func TestStructToStructPb(t *testing.T) {
 	}
 }
 
+func TestToInterfaceWeirdBugUint(t *testing.T) {
+	a := uint(5)
+	x, err := toInterface(a)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, x, test.ShouldEqual, a)
+
+	x, err = toInterface(&a)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, x, test.ShouldEqual, a)
+
+}
+
+func TestToInterfaceWeirdBugUint8(t *testing.T) {
+	a := uint8(5)
+	x, err := toInterface(a)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, x, test.ShouldEqual, a)
+
+	x, err = toInterface(&a)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, x, test.ShouldEqual, a)
+
+}
+
 type TypedString string
 
 type SimpleStruct struct {
