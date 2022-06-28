@@ -395,12 +395,7 @@ func Move(
 	opt := DefaultArmPlannerOptions(from, goalPos, a.ModelFrame(), collisionConst)
 	opts = append(opts, opt)
 	
-	
-	
-	if err != nil {
-		return err
-	}
-	solution, err := mp.Plan(ctx, dst, referenceframe.JointPosToInputs(seed), opt)
+	solution, err := motionplan.PlannerRunner(ctx, mp, goals, referenceframe.JointPosToInputs(seed), opts, 0)
 	if err != nil {
 		return err
 	}
