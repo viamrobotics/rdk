@@ -273,8 +273,8 @@ func (ua *URArm) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the arm is moving.
-func (ua *URArm) IsMoving() bool {
-	return ua.opMgr.OpRunning()
+func (ua *URArm) IsMoving(ctx context.Context) (bool, error) {
+	return ua.opMgr.OpRunning(), nil
 }
 
 // MoveToJointPositionRadians TODO.
