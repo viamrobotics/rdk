@@ -19,6 +19,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"google.golang.org/grpc"
 
@@ -145,11 +146,11 @@ func createSLAMService(t *testing.T, attrCfg *slam.AttrConfig, logger golog.Logg
 
 	if success {
 		test.That(t, svc, test.ShouldNotBeNil)
-	} else {
-		test.That(t, svc, test.ShouldBeNil)
+		return svc, nil
 	}
 
-	return svc, err
+	test.That(t, svc, test.ShouldBeNil)
+	return nil, err
 }
 
 func TestGeneralNew(t *testing.T) {
@@ -183,9 +184,7 @@ func TestGeneralNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		if svc != nil {
-			svc.Close()
-		}
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
 
 	t.Run("New slam service with bad camera", func(t *testing.T) {
@@ -199,14 +198,10 @@ func TestGeneralNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		svc, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("configuring camera error: error getting camera for slam service: "+
 				"\"resource \\\"rdk:component:camera/%v\\\" not found\"", attrCfg.Sensors[0]))
-
-		if svc != nil {
-			svc.Close()
-		}
 	})
 
 	//////
@@ -228,12 +223,8 @@ func TestGeneralNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		svc, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false)
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
-
-		if svc != nil {
-			svc.Close()
-		}
 
 		delete(slam.SLAMLibraries, "test")
 	})
@@ -250,12 +241,8 @@ func TestGeneralNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		svc, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false)
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
-
-		if svc != nil {
-			svc.Close()
-		}
 	})
 	////////
 
@@ -285,9 +272,7 @@ func TestCartographerNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		if svc != nil {
-			svc.Close()
-		}
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
 
 	t.Run("New cartographer service with lidar that errors during call to NextPointCloud", func(t *testing.T) {
@@ -302,13 +287,9 @@ func TestCartographerNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		svc, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: error getting data in desired mode: %v", attrCfg.Sensors[0]))
-
-		if svc != nil {
-			svc.Close()
-		}
 	})
 
 	t.Run("New cartographer service with camera without NextPointCloud implementation", func(t *testing.T) {
@@ -323,14 +304,10 @@ func TestCartographerNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		svc, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false)
 
 		test.That(t, err, test.ShouldBeError,
 			errors.New("runtime slam service error: error getting data in desired mode: camera not lidar"))
-
-		if svc != nil {
-			svc.Close()
-		}
 	})
 	closeOutSLAMService(t, name)
 }
@@ -358,9 +335,7 @@ func TestORBSLAMNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		if svc != nil {
-			svc.Close()
-		}
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
 
 	t.Run("New orbslamv3 service with good camera in slam mode mono", func(t *testing.T) {
@@ -380,9 +355,7 @@ func TestORBSLAMNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		if svc != nil {
-			svc.Close()
-		}
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
 
 	t.Run("New orbslamv3 service with camera that errors during call to Next", func(t *testing.T) {
@@ -396,14 +369,10 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		svc, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: "+
 				"error getting data in desired mode: %v", attrCfg.Sensors[0]))
-
-		if svc != nil {
-			svc.Close()
-		}
 	})
 
 	t.Run("New orbslamv3 service with lidar without Next implementation", func(t *testing.T) {
@@ -417,13 +386,9 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		svc, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.New("runtime slam service error: error getting data in desired mode: lidar not camera"))
-
-		if svc != nil {
-			svc.Close()
-		}
 	})
 	closeOutSLAMService(t, name)
 }
@@ -451,9 +416,7 @@ func TestCartographerDataProcess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grpcServer.Stop()
-	if svc != nil {
-		svc.Close()
-	}
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	slamSvc := svc.(internal.Service)
 
@@ -518,9 +481,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grpcServer.Stop()
-	if svc != nil {
-		svc.Close()
-	}
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	slamSvc := svc.(internal.Service)
 
@@ -559,9 +520,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_camera")
 	})
 
-	if slamSvc != nil {
-		slamSvc.Close()
-	}
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
 }
@@ -603,9 +562,7 @@ func TestGetMapAndPosition(t *testing.T) {
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM map")
 
 	grpcServer.Stop()
-	if svc != nil {
-		svc.Close()
-	}
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
 }
@@ -663,10 +620,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 	})
 
 	grpcServer.Stop()
-	if svc != nil {
-		svc.Close()
-		slamSvc.Close()
-	}
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
 }
@@ -722,10 +676,7 @@ func TestSLAMProcessFail(t *testing.T) {
 	})
 
 	grpcServer.Stop()
-	if svc != nil {
-		slamSvc.Close()
-		svc.Close()
-	}
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
 }
@@ -749,12 +700,8 @@ func TestGRPCConnection(t *testing.T) {
 
 	// Create slam service
 	logger := golog.NewTestLogger(t)
-	svc, err := createSLAMService(t, attrCfg, logger, false)
+	_, err = createSLAMService(t, attrCfg, logger, false)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with initial grpc client to slam algorithm")
-
-	if svc != nil {
-		svc.Close()
-	}
 
 	closeOutSLAMService(t, name)
 }

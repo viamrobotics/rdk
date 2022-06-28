@@ -38,11 +38,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (c *client) Close() error {
-	return nil
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	return newSvcClientFromConn(conn, logger)
@@ -88,7 +83,10 @@ func (c *client) GetDetections(ctx context.Context, cameraName, detectorName str
 	}
 	detections := make([]objdet.Detection, 0, len(resp.Detections))
 	for _, d := range resp.Detections {
-		box := image.Rect(int(d.XMin), int(d.YMin), int(d.XMax), int(d.YMax))
+		if d.XMin == nil || d.XMax == nil || d.YMin == nil || d.YMax == nil {
+			return nil, fmt.Errorf("invalid detection %+v", d)
+		}
+		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
 		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
 		detections = append(detections, det)
 	}

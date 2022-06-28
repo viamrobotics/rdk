@@ -10,6 +10,8 @@ on:
         required: true
       REPO_READ_TOKEN:
         required: true
+      GIT_ACCESS_TOKEN:
+        required: true
 
 jobs:
   build_and_test:
@@ -66,11 +68,12 @@ jobs:
         thresholds: '50 70'
 
     - name: Add Coverage PR Comment
-      uses: marocchino/sticky-pull-request-comment@v2
+      uses: marocchino/sticky-pull-request-comment@v2.2.0
       if: github.event_name == 'pull_request'
       with:
         recreate: true
         path: code-coverage-results.md
+        GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
 
   test_pi:
     name: Test Raspberry Pi Code
