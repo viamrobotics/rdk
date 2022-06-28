@@ -32,20 +32,9 @@ func InputsToFloats(inputs []Input) []float64 {
 	return floats
 }
 
-// InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
-func InputsToJointPos(inputs []Input) *pb.JointPositions {
-	return JointPositionsFromRadians(InputsToFloats(inputs))
-}
-
-// JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs.
-func JointPosToInputs(jp *pb.JointPositions, f Frame) []Input {
-	floats := JointPositionsToRadians(jp, f)
-	return FloatsToInputs(floats)
-}
-
 // JointPositionsToRadians converts the given positions into a slice
 // of radians.
-func JointPositionsToRadians(jp *pb.JointPositions, f Frame) []float64 {
+func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
 	n := make([]float64, len(jp.Degrees))
 	for idx, d := range jp.Degrees {
 		n[idx] = utils.DegToRad(d)
@@ -55,7 +44,7 @@ func JointPositionsToRadians(jp *pb.JointPositions, f Frame) []float64 {
 
 // JointPositionsFromRadians converts the given slice of radians into
 // joint positions (represented in degrees).
-func JointPositionsFromRadians(radians []float64, f Frame) *pb.JointPositions {
+func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 	n := make([]float64, len(radians))
 	for idx, a := range radians {
 		n[idx] = utils.RadToDeg(a)
