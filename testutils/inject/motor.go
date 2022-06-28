@@ -97,6 +97,7 @@ func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]
 type LocalMotor struct {
 	Motor
 	GoTillStopFunc func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
+	IsMovingFunc   func(context.Context) (bool, error)
 }
 
 // GoTillStop calls the injected GoTillStop or the real version.
@@ -112,4 +113,12 @@ func (m *LocalMotor) GoTillStop(
 		return stoppableMotor.GoTillStop(ctx, rpm, stopFunc)
 	}
 	return m.GoTillStopFunc(ctx, rpm, stopFunc)
+}
+
+// IsMoving calls the injected IsMoving or the real version.
+func (m *LocalMotor) IsMoving(ctx context.Context) (bool, error) {
+	if m.IsMovingFunc == nil {
+		return m.Motor.Motor.(motor.LocalMotor).IsMoving(ctx)
+	}
+	return m.IsMovingFunc(ctx)
 }
