@@ -13,18 +13,6 @@
       [v-cloak] {
         display: none;
       }
-      #pre-app.connected {
-        display: none;
-      }
-      #connecting {
-        display: none;
-      }
-      #connecting.connecting {
-        display: block;
-      }
-      #connecting-error {
-        color: red;
-      }
       h3 {
         margin: 0.1em;
         margin-block-end: 0.1em;
@@ -1273,22 +1261,22 @@
 
       async function doConnect(authEntity, creds, onError) {
         console.debug("connecting");
-        document.getElementById("connecting-error").innerHTML = "";
-        document.getElementById("connecting").classList.add("connecting");
+        const alertError = document.getElementById("connecting-error");
+        alertError.innerHTML = "";
+        document.getElementById("connecting").classList.remove("hidden");
         try {
           await window.connect(authEntity, creds);
         } catch (e) {
           const msg = `failed to connect: ${e}`;
           console.error(msg);
-          document.getElementById("connecting-error").innerHTML = msg;
-          document.getElementById("connecting").classList.remove("connecting");
+          alertError.classList.remove('hidden').innerHTML = msg;
           if (onError) {
             setTimeout(onError, 1000);
           }
           return;
         }
         console.debug("connected");
-        document.getElementById("pre-app").classList.add("connected");
+        document.getElementById("pre-app").classList.add("hidden");
         await startup();
       }
 
@@ -1487,10 +1475,10 @@
       imuRefresh();
     </script>
   </head>
-  <body onLoad="waitForClientAndStart()">
+  <body class="margin-2" onLoad="waitForClientAndStart()">
     <div id="pre-app">
-      <div id="connecting-error"></div>
-      <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
+      <div id="connecting-error" class="hidden border-l-4 border-danger-500 bg-gray-100 px-4 py-3" role="alert"></div>
+      <div id="connecting" class="hidden border-l-4 border-greendark bg-gray-100 px-4 py-3">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
       {{range $authType := .SupportedAuthTypes }}
       <span>{{ $authType }}: </span>
       <div id="auth-{{ $authType }}" class="w-96">
