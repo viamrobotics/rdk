@@ -158,7 +158,11 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: arm.IsMoving()}, nil
+	isMoving, err := arm.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 type reconfigurableArm struct {
