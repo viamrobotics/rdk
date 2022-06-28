@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package proto.api.service.shell.v1;
+
+option go_package = "go.viam.com/rdk/proto/api/service/shell/v1";
+option java_package = "com.viam.rdk.proto.api.service.shell.v1";
+
+// A ShellService service allows access to an interactive shell experience.
+service ShellService {
+  // Shell starts a shell with an input and output pipe.
+  rpc Shell(stream ShellRequest) returns (stream ShellResponse);
+}
+
+message ShellRequest {
+  string data_in = 1;
+}
+
+message ShellResponse {
+  string data_out = 1;
+  string data_err = 2;
+  bool eof = 3;
+}

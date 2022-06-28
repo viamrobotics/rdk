@@ -34,11 +34,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (c *client) Close() error {
-	return nil
-}
-
 // NewClientFromConn constructs a new Client from the connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	return newSvcClientFromConn(conn, logger)

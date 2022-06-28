@@ -29,11 +29,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (sc *serviceClient) Close() error {
-	return nil
-}
-
 // client is a Sensor client.
 type client struct {
 	*serviceClient
@@ -62,11 +57,6 @@ func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 		readings = append(readings, r.AsInterface())
 	}
 	return readings, nil
-}
-
-// Close cleanly closes the underlying connections.
-func (c *client) Close() error {
-	return c.serviceClient.Close()
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

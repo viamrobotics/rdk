@@ -157,10 +157,12 @@ message GetFeaturesResponse {
 }
 
 message Status {
-  // To D0 (FA): Delete this field
-  bool is_on = 1;
+  // Returns true if the motor is powered
+  bool is_powered = 1;
   // Returns true if the motor has position support
   bool position_reporting = 2;
   // Returns current position of the motor relative to its home
   double position = 3;
+  // Returns true if the motor is moving
+  bool is_moving = 4;
 }
