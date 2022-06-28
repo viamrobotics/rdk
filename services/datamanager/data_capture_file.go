@@ -76,9 +76,6 @@ func readSyncMetadata(f *os.File) (*v1.SyncMetadata, error) {
 // pointing at the beginning of series of SensorData in the file. This is accomplished by first calling
 // readSyncMetadata.
 func readNextSensorData(f *os.File) (*v1.SensorData, error) {
-	if _, err := f.Seek(0, 1); err != nil {
-		return nil, err
-	}
 	r := &v1.SensorData{}
 	if _, err := pbutil.ReadDelimited(f, r); err != nil {
 		return nil, err
