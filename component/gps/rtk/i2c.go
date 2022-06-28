@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 	"errors"
+	"bytes"
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/go-gnss/rtcm/rtcm3"
@@ -16,6 +17,7 @@ import (
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -34,11 +36,7 @@ type I2CCorrectionSource struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-const (
-	correctionPathName = "correction_path"
-)
-
-func newI2CCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (I2CCorrectionSource, error) {
+func newI2CCorrectionSource(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (correctionSource, error) {
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
@@ -64,24 +62,29 @@ func newI2CCorrectionSource(ctx context.Context, config config.Component, logger
 }
 
 func (s *I2CCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
-	ntrip.correctionReader, w := io.Pipe()
+//currently not checking if rtcm message is valid, need to figure out how to integrate constant I2C byte message with rtcm3 scanner
+	var w *io.PipeWriter
+	s.correctionReader, w = io.Pipe()
 	ready <- true
 
 	// open I2C handle every time
-	handle, err := g.bus.OpenHandle(g.addr)
+	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
-		g.logger.Fatalf("can't open gps i2c handle: %s", err)
+		s.logger.Fatalf("can't open gps i2c handle: %s", err)
 		return
 	}
-	buffer, err := handle.Read(context.Background(), 1024)
 
-	//read from handle and check if it's a proper RTCM message
-	scanner := rtcm3.NewScanner(buffer)
+	//read from handle and pipe to correctionSource
+	buffer, err := handle.Read(context.Background(), 1024)
+	_, err = w.Write(buffer)
+	if err != nil {
+		s.logger.Fatalf("Error writing RTCM message: %s", err)
+	}
 
 	//close I2C handle
 	err = handle.Close()
 	if err != nil {
-		g.logger.Debug("failed to close handle: %s", err)
+		s.logger.Debug("failed to close handle: %s", err)
 		return
 	}
 
@@ -93,38 +96,23 @@ func (s *I2CCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 		}
 
 		// Open I2C handle every time
-		handle, err := g.bus.OpenHandle(g.addr)
+		handle, err := s.bus.OpenHandle(s.addr)
 		if err != nil {
-			g.logger.Fatalf("can't open gps i2c handle: %s", err)
+			s.logger.Fatalf("can't open gps i2c handle: %s", err)
 			return
 		}
 
+		//read from handle and pipe to correctionSource
 		buffer, err := handle.Read(context.Background(), 1024)
-		hErr := handle.Close()
-		if hErr != nil {
-			g.logger.Fatalf("failed to close handle: %s", hErr)
-			return
-		}
+		_, err = w.Write(buffer)
 		if err != nil {
-			g.logger.Error(err)
-			continue
+			s.logger.Fatalf("Error writing RTCM message: %s", err)
 		}
 
-		buffer, err := handle.Read(context.Background(), 1024)
-		if err != nil {
-			g.logger.Fatalf("Error reading RTCM message: %s", err)
-		}
-		fmt.Println(msg.Number())
-
-		n, err := w.Write(buffer.Serialize())
-		if err != nil {
-			g.logger.Fatalf("Error writing RTCM message: %s", err)
-		}
-
-		//close i2c
+		//close I2C handle
 		err = handle.Close()
 		if err != nil {
-			g.logger.Debug("failed to close handle: %s", err)
+			s.logger.Debug("failed to close handle: %s", err)
 			return
 		}
 	}
