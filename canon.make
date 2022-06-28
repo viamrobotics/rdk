@@ -5,8 +5,11 @@ DOCKER_MIN_DATE=2022-06-08T00:35:24.791434424Z
 
 DOCKER_CMD = docker run $(DOCKER_SSH_AGENT) $(DOCKER_NETRC_RUN) -v$(HOME)/.ssh:/home/testbot/.ssh:ro -v$(shell pwd):/host --workdir /host --rm -ti $(DOCKER_PLATFORM) ghcr.io/viamrobotics/canon:$(DOCKER_TAG) --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
 
-ifneq ("$(SSH_AUTH_SOCK)x", "x")
-	DOCKER_SSH_AGENT = -v$(shell dirname $(SSH_AUTH_SOCK)):$(shell dirname $(SSH_AUTH_SOCK)) -e SSH_AUTH_SOCK=$(SSH_AUTH_SOCK)
+ifeq ("Darwin", "$(shell uname -s)")
+	# Docker has magic paths for OSX
+	DOCKER_SSH_AGENT = -v /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock -e SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock"
+else ifneq ("$(SSH_AUTH_SOCK)x", "x")
+	DOCKER_SSH_AGENT = -v "$(SSH_AUTH_SOCK):$(SSH_AUTH_SOCK)" -e SSH_AUTH_SOCK="$(SSH_AUTH_SOCK)"
 endif
 
 ifeq ("aarch64", "$(shell uname -m)")
@@ -15,11 +18,11 @@ ifeq ("aarch64", "$(shell uname -m)")
 	DOCKER_NATIVE_TAG_CACHE = arm64-cache
 else ifeq ("arm64", "$(shell uname -m)")
 	DOCKER_NATIVE_PLATFORM = --platform linux/arm64
-	DOCKER_NATIVE_TAG = arm64
+	DOCKER_NATIVE_TAG = arm64_test
 	DOCKER_NATIVE_TAG_CACHE = arm64-cache
 else ifeq ("x86_64", "$(shell uname -m)")
 	DOCKER_NATIVE_PLATFORM = --platform linux/amd64
-	DOCKER_NATIVE_TAG = amd64
+	DOCKER_NATIVE_TAG = amd64_test
 	DOCKER_NATIVE_TAG_CACHE = amd64-cache
 else
 	DOCKER_NATIVE_TAG = latest
@@ -56,12 +59,12 @@ canon-shell: canon-update
 	$(DOCKER_CMD) bash
 
 canon-shell-amd64: DOCKER_PLATFORM = --platform linux/amd64
-canon-shell-amd64: DOCKER_TAG = amd64
+canon-shell-amd64: DOCKER_TAG = amd64_test
 canon-shell-amd64: canon-update
 	$(DOCKER_CMD) bash
 
 canon-shell-arm64: DOCKER_PLATFORM = --platform linux/arm64
-canon-shell-arm64: DOCKER_TAG = arm64
+canon-shell-arm64: DOCKER_TAG = arm64_test
 canon-shell-arm64: canon-update
 	$(DOCKER_CMD) bash
 

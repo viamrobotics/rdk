@@ -4,8 +4,8 @@ TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
-VERSION := $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)
-GIT_REVISION := $(shell git rev-parse HEAD | tr -d '\n')
+VERSION = $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)
+GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 LDFLAGS = -ldflags "-X 'go.viam.com/rdk/config.Version=${VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
 
 default: build lint server
