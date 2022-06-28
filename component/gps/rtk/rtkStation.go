@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/component/gps/nmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -99,13 +100,14 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 	r.serialPorts = make([]io.Writer, 0)
 	for _, gpsName := range r.gpsNames {
 		gps, err := gps.FromDependencies(deps, gpsName)
+		localgps := utils.UnwrapProxy(gps)
 		if err != nil {
 			return nil, err
 		}
 
-		switch gps.(type) {
+		switch localgps.(type) {
 		case *nmea.SerialNMEAGPS:
-			serialgps := gps.(*nmea.SerialNMEAGPS)
+			serialgps := localgps.(*nmea.SerialNMEAGPS)
 			port, err := serial.Open(serialgps.GetCorrectionPath())
 			if err != nil {
 				return nil, err
@@ -113,7 +115,7 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 
 			r.serialPorts = append(r.serialPorts, port)
 		case *nmea.PmtkI2CNMEAGPS:
-			i2cgps := gps.(*nmea.PmtkI2CNMEAGPS)
+			i2cgps := localgps.(*nmea.PmtkI2CNMEAGPS)
 			bus, addr := i2cgps.GetBusAddr()
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
 
