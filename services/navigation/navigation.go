@@ -75,7 +75,6 @@ const (
 type Service interface {
 	GetMode(ctx context.Context) (Mode, error)
 	SetMode(ctx context.Context, mode Mode) error
-	Close(ctx context.Context) error
 
 	GetLocation(ctx context.Context) (*geo.Point, error)
 
