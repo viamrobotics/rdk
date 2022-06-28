@@ -139,9 +139,10 @@
 
       function fixMotorStatus(old) {
         return {
-          isOn: old["is_on"] || false,
+          isPowered: old["is_powered"] || false,
           positionReporting: old["position_reporting"] || false,
           position: old["position"] || 0,
+          isMoving: old["is_moving"] || false,
         };
       }
 
