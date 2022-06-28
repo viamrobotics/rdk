@@ -198,7 +198,6 @@ func TestReconfigurableBoard(t *testing.T) {
 
 		err = reconfBoard3.Reconfigure(context.Background(), reconfBoard2)
 		test.That(t, err, test.ShouldBeError)
-
 	}
 
 	actualBoard1 := &mock{Name: testBoardName}
