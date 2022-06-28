@@ -9,7 +9,8 @@ import (
 
 // SetUploadFn sets the upload function for the syncer to use when initialized/changed in Service.Update.
 func (svc *dataManagerService) SetUploadFn(fn func(ctx context.Context, client v1.DataSyncService_UploadClient,
-	path string, partID string) error) {
+	path string, partID string) error,
+) {
 	svc.uploadFunc = fn
 }
 
