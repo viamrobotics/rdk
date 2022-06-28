@@ -88,7 +88,10 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 			return nil, err
 		}
 	case "I2C":
-		return nil, errors.New("I2C not implemented")
+		r.correction, err = newI2CCorrectionSource(ctx, deps, config, logger)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		// Invalid source
 		return nil, fmt.Errorf("%s is not a valid correction source", r.correctionType)
@@ -164,6 +167,26 @@ func (r *RTKStation) Start(ctx context.Context) {
 		}
 
 		// write buf to all i2c handles
+		for _, busAddr := range r.i2cPaths {
+			//open handle
+			handle, err := busAddr.bus.OpenHandle(busAddr.addr)
+			if err != nil {
+				r.logger.Fatalf("can't open gps i2c handle: %s", err)
+				return
+			}
+			//write to i2c handle
+			err = handle.Write(ctx, buf)
+			if err != nil {
+				r.logger.Fatalf("i2c handle write failed %s", err)
+				return
+			}
+			//close i2c handle
+			err = handle.Close()
+			if err != nil {
+				r.logger.Fatalf("failed to close handle: %s", err)
+				return
+			}
+		}
 	}
 }
 
