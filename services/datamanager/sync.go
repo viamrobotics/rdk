@@ -306,9 +306,6 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 }
 
 func readNextFileChunk(f *os.File) (*v1.FileData, error) {
-	if _, err := f.Seek(0, 1); err != nil {
-		return nil, err
-	}
 	byteArr := make([]byte, uploadChunkSize)
 	numBytesRead, err := f.Read(byteArr)
 	if numBytesRead < uploadChunkSize {
