@@ -3,6 +3,7 @@ package arm
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"fmt"
 	"sync"
@@ -13,7 +14,9 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/motionplan"
@@ -23,9 +26,12 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
+
+var numCPUs = 4
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
@@ -41,6 +47,7 @@ func init() {
 				pb.RegisterArmServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.ArmService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -100,13 +107,34 @@ type Arm interface {
 	referenceframe.InputEnabled
 }
 
+// A LocalArm represents an Arm that can report whether it is moving or not.
+type LocalArm interface {
+	Arm
+
+	resource.MovingCheckable
+}
+
 var (
-	_ = Arm(&reconfigurableArm{})
+	_ = LocalArm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
+
+// FromDependencies is a helper for getting the named arm from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Arm)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Arm", res)
+	}
+	return part, nil
+}
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
 func FromRobot(r robot.Robot, name string) (Arm, error) {
@@ -128,9 +156,9 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the arm.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	arm, ok := resource.(Arm)
+	arm, ok := resource.(LocalArm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", resource)
+		return nil, utils.NewUnimplementedInterfaceError("LocalArm", resource)
 	}
 	endPosition, err := arm.GetEndPosition(ctx)
 	if err != nil {
@@ -140,13 +168,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions}, nil
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: arm.IsMoving()}, nil
 }
 
 type reconfigurableArm struct {
 	mu     sync.RWMutex
-	actual Arm
+	actual LocalArm
 }
 
 func (r *reconfigurableArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -209,6 +236,12 @@ func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referencefram
 	return r.actual.GoToInputs(ctx, goal)
 }
 
+func (r *reconfigurableArm) IsMoving() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving()
+}
+
 func (r *reconfigurableArm) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -229,12 +262,22 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	return nil
 }
 
+// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
+// See config.ShouldUpdateAction for more information.
+func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActionType {
+	obj, canUpdate := r.actual.(config.CompononentUpdate)
+	if canUpdate {
+		return obj.UpdateAction(c)
+	}
+	return config.Reconfigure
+}
+
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
 // If arm is already a reconfigurableArm, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	arm, ok := r.(Arm)
+	arm, ok := r.(LocalArm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalArm", r)
 	}
 	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
 		return reconfigurable, nil
@@ -275,6 +318,70 @@ func PositionRotationDiff(a, b *commonpb.Pose) float64 {
 		utils.Square(a.OX-b.OX) +
 		utils.Square(a.OY-b.OY) +
 		utils.Square(a.OZ-b.OZ)
+}
+
+// Move is a helper function to be called by arm implementations to abstract away the default procedure for using the
+// motion planning library with arms.
+func Move(
+	ctx context.Context,
+	r robot.Robot,
+	arm Arm,
+	dst *commonpb.Pose,
+	worldState *commonpb.WorldState,
+) error {
+	logger := r.Logger()
+
+	// build the framesystem
+	fs, err := framesystem.RobotFrameSystem(ctx, r, worldState.GetTransforms())
+	if err != nil {
+		return err
+	}
+
+	// get the initial inputs
+	inputs := referenceframe.StartPositions(fs)
+	for name, original := range inputs {
+		// skip frames with no input
+		if len(original) == 0 {
+			continue
+		}
+
+		// add component to map
+		components := robot.AllResourcesByName(r, name)
+		if len(components) != 1 {
+			return fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
+		}
+		component, ok := components[0].(referenceframe.InputEnabled)
+		if !ok {
+			return fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
+		}
+
+		// add input to map
+		input, err := component.CurrentInputs(ctx)
+		if err != nil {
+			return err
+		}
+		inputs[name] = input
+	}
+	logger.Debugf("frame system inputs: %v", inputs)
+
+	// conduct planning query
+	mp, err := motionplan.NewCBiRRTMotionPlanner(arm.ModelFrame(), numCPUs, logger)
+	if err != nil {
+		return err
+	}
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt.AddConstraint("collision", motionplan.NewCollisionConstraintFromWorldState(arm.ModelFrame(), fs, worldState, inputs))
+	joints, err := arm.GetJointPositions(ctx) // TODO(rb) should be able to get this from the input map
+	if err != nil {
+		return err
+	}
+	solution, err := mp.Plan(ctx, dst, referenceframe.JointPosToInputs(joints), opt)
+	if err != nil {
+		return err
+	}
+
+	// move arm
+	return GoToWaypoints(ctx, arm, solution)
 }
 
 // GoToWaypoints will visit in turn each of the joint position waypoints generated by a motion planner.

@@ -15,14 +15,14 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "softrobotics", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			b, err := board.FromRobot(r, "local")
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			b, err := board.FromDependencies(deps, "local")
 			if err != nil {
 				return nil, err
 			}
@@ -48,7 +48,7 @@ type softGripper struct {
 }
 
 // newGripper TODO.
-func newGripper(b board.Board, config config.Component, logger golog.Logger) (*softGripper, error) {
+func newGripper(b board.Board, config config.Component, logger golog.Logger) (gripper.LocalGripper, error) {
 	psi, ok := b.AnalogReaderByName("psi")
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'psi'")
@@ -84,6 +84,8 @@ func newGripper(b board.Board, config config.Component, logger golog.Logger) (*s
 
 // Stop TODO.
 func (g *softGripper) Stop(ctx context.Context) error {
+	ctx, done := g.opMgr.New(ctx)
+	defer done()
 	return multierr.Combine(
 		g.pinOpen.Set(ctx, false),
 		g.pinClose.Set(ctx, false),
@@ -159,4 +161,14 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	}
 
 	return false, g.Stop(ctx)
+}
+
+// IsMoving returns whether the gripper is moving.
+func (g *softGripper) IsMoving() bool {
+	return g.opMgr.OpRunning()
+}
+
+// ModelFrame is unimplemented for softGripper.
+func (g *softGripper) ModelFrame() referenceframe.Model {
+	return nil
 }

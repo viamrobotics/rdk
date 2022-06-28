@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/input"
 	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -28,6 +29,15 @@ const (
 	fakeInputControllerName    = "inputController4"
 	missingInputControllerName = "inputController5"
 )
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[input.Named(testInputControllerName)] = &mock{Name: testInputControllerName}
+	deps[input.Named(fakeInputControllerName)] = "not an input controller"
+	return deps
+}
 
 func setupInjectRobot() *inject.Robot {
 	inputController1 := &mock{Name: testInputControllerName}
@@ -59,6 +69,26 @@ func TestGenericDo(t *testing.T) {
 	ret, err := i.Do(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := input.FromDependencies(deps, testInputControllerName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	result, err := res.GetControls(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, controls)
+
+	res, err = input.FromDependencies(deps, fakeInputControllerName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeInputControllerName, "input.Controller", "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = input.FromDependencies(deps, missingInputControllerName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingInputControllerName))
+	test.That(t, res, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {
@@ -128,7 +158,9 @@ func TestCreateStatus(t *testing.T) {
 	timestamp := time.Now()
 	event := input.Event{Time: timestamp, Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
 	status := &pb.Status{
-		Events: []*pb.Event{{Time: timestamppb.New(timestamp), Event: string(event.Event), Control: string(event.Control), Value: event.Value}},
+		Events: []*pb.Event{
+			{Time: timestamppb.New(timestamp), Event: string(event.Event), Control: string(event.Control), Value: event.Value},
+		},
 	}
 	injectInputController := &inject.InputController{}
 	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {

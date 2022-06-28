@@ -49,9 +49,6 @@ func TestClient(t *testing.T) {
 		receivedMode = mode
 		return nil
 	}
-	workingNavigationService.CloseFunc = func(ctx context.Context) error {
-		return nil
-	}
 	expectedLoc := geo.NewPoint(80, 1)
 	workingNavigationService.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 		return expectedLoc, nil
@@ -85,9 +82,6 @@ func TestClient(t *testing.T) {
 	failingNavigationService.SetModeFunc = func(ctx context.Context, mode navigation.Mode) error {
 		receivedFailingMode = mode
 		return errors.New("failure to set mode")
-	}
-	failingNavigationService.CloseFunc = func(ctx context.Context) error {
-		return errors.New("failure to close")
 	}
 	failingNavigationService.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 		return nil, errors.New("failure to retrieve location")
@@ -125,16 +119,14 @@ func TestClient(t *testing.T) {
 	t.Run("context canceled", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = navigation.NewClient(cancelCtx, navigation.Name.String(), listener1.Addr().String(), logger)
+		_, err = viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	workingNavClient, err := navigation.NewClient(
-		context.Background(), navigation.Name.String(),
-		listener1.Addr().String(), logger,
-	)
+	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	workingNavClient := navigation.NewClientFromConn(context.Background(), conn, navigation.Name.String(), logger)
 
 	t.Run("client tests for working navigation service", func(t *testing.T) {
 		// test mode
@@ -155,6 +147,7 @@ func TestClient(t *testing.T) {
 		err = workingNavClient.AddWaypoint(context.Background(), point)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedPoint, test.ShouldResemble, point)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for working navigation service", func(t *testing.T) {
@@ -172,6 +165,7 @@ func TestClient(t *testing.T) {
 		err = workingDialedClient.RemoveWaypoint(context.Background(), wptID)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, wptID, test.ShouldEqual, receivedID)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client test 2 for working navigation service", func(t *testing.T) {
@@ -185,18 +179,17 @@ func TestClient(t *testing.T) {
 		receivedWpts, err := workingDialedClient.GetWaypoints(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedWpts, test.ShouldResemble, waypoints)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	go failingServer.Serve(listener2)
 	defer failingServer.Stop()
 
-	failingNavClient, err := navigation.NewClient(
-		context.Background(), navigation.Name.String(),
-		listener2.Addr().String(), logger,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
 	t.Run("client tests for failing navigation service", func(t *testing.T) {
+		conn, err = viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		failingNavClient := navigation.NewClientFromConn(context.Background(), conn, navigation.Name.String(), logger)
+
 		// test mode
 		_, err := failingNavClient.GetMode(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -213,6 +206,7 @@ func TestClient(t *testing.T) {
 		err = failingNavClient.AddWaypoint(context.Background(), point)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, receivedFailingPoint, test.ShouldResemble, point)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client test for failing navigation service", func(t *testing.T) {
@@ -236,5 +230,6 @@ func TestClient(t *testing.T) {
 		err = failingDialedClient.RemoveWaypoint(context.Background(), wptID)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, wptID, test.ShouldEqual, receivedFailingID)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

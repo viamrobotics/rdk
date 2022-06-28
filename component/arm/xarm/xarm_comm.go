@@ -406,16 +406,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldStat
 			return err
 		}
 	}
-	joints, err := x.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	solution, err := arm.PlanArmLinearMotionWaypoints(ctx, x.mp, pos, referenceframe.JointPosToInputs(joints), worldState)
-	if err != nil {
-		return err
-	}
-	err = arm.GoToWaypoints(ctx, x, solution)
-	if err != nil {
+	if err := arm.Move(ctx, x.robot, x, pos, worldState); err != nil {
 		return err
 	}
 	return x.opMgr.WaitForSuccess(
@@ -444,12 +435,18 @@ func (x *xArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error
 
 // Stop stops the xArm but also reinitializes the arm so it can take commands again.
 func (x *xArm) Stop(ctx context.Context) error {
-	x.opMgr.CancelRunning(ctx)
+	ctx, done := x.opMgr.New(ctx)
+	defer done()
 	x.started = false
 	if err := x.setMotionState(ctx, 3); err != nil {
 		return err
 	}
 	return x.start(ctx)
+}
+
+// IsMoving returns whether the arm is moving.
+func (x *xArm) IsMoving() bool {
+	return x.opMgr.OpRunning()
 }
 
 func getMaxDiff(from, to []referenceframe.Input) float64 {

@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -28,6 +29,15 @@ const (
 	fakeCameraName    = "camera4"
 	missingCameraName = "camera5"
 )
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[camera.Named(testCameraName)] = &mock{Name: testCameraName}
+	deps[camera.Named(fakeCameraName)] = "not a camera"
+	return deps
+}
 
 func setupInjectRobot() *inject.Robot {
 	camera1 := &mock{Name: testCameraName}
@@ -59,6 +69,28 @@ func TestGenericDo(t *testing.T) {
 	ret, err := c.Do(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := camera.FromDependencies(deps, testCameraName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	img1, _, err := res.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	compVal, _, err := rimage.CompareImages(img, img1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, compVal, test.ShouldEqual, 0)
+
+	res, err = camera.FromDependencies(deps, fakeCameraName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeCameraName, "Camera", "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = camera.FromDependencies(deps, missingCameraName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingCameraName))
+	test.That(t, res, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {

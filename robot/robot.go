@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -19,6 +20,9 @@ import (
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 type Robot interface {
+	// DiscoverComponents returns discovered component configurations.
+	DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error)
+
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 
@@ -28,8 +32,11 @@ type Robot interface {
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
-	// ResourceNames returns a list of all known resource names
+	// ResourceNames returns a list of all known resource names.
 	ResourceNames() []resource.Name
+
+	// ResourceRPCSubtypes returns a list of all known resource RPC subtypes.
+	ResourceRPCSubtypes() []resource.RPCSubtype
 
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager

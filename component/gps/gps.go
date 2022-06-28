@@ -33,6 +33,7 @@ func init() {
 				pb.RegisterGPSServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.GPSService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -76,6 +77,20 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
 )
 
+// FromDependencies is a helper for getting the named gps from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (GPS, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(GPS)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "GPS", res)
+	}
+	return part, nil
+}
+
 // FromRobot is a helper for getting the named GPS from the given Robot.
 func FromRobot(r robot.Robot, name string) (GPS, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -109,7 +124,14 @@ func GetReadings(ctx context.Context, g GPS) ([]interface{}, error) {
 		return nil, err
 	}
 
-	readings := []interface{}{loc.Lat(), loc.Lng(), alt, speed}
+	readings := []interface{}{}
+	if loc == nil {
+		readings = append(readings, 0, 0)
+	} else {
+		readings = append(readings, loc.Lat(), loc.Lng())
+	}
+
+	readings = append(readings, alt, speed)
 
 	localG, ok := g.(LocalGPS)
 	if !ok {

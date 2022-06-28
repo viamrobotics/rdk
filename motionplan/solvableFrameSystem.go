@@ -97,7 +97,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
 
-	// Build planner and solve
+	// Build planner
 	var planner MotionPlanner
 	if fss.mpFunc != nil {
 		planner, err = fss.mpFunc(sf, runtime.NumCPU()/2, fss.logger)
@@ -108,38 +108,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 		return nil, err
 	}
 
-	// Add collision constraint
-	transformGeometriesToWorldFrame := func(gfs []*commonpb.GeometriesInFrame) (*frame.GeometriesInFrame, error) {
-		allGeometries := make(map[string]spatial.Geometry)
-		for _, gf := range gfs {
-			obstacles, err := frame.ProtobufToGeometriesInFrame(gf)
-			if err != nil {
-				return nil, err
-			}
-			// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
-			// the state that observed the worldState should ultimately be included as part of the worldState message
-			tf, err := fss.Transform(seedMap, obstacles, frame.World)
-			if err != nil {
-				return nil, err
-			}
-			for name, g := range tf.(*frame.GeometriesInFrame).Geometries() {
-				if _, present := allGeometries[name]; present {
-					return nil, fmt.Errorf("multiple geometries named %s, cannot merge into single map", name)
-				}
-				allGeometries[name] = g
-			}
-		}
-		return frame.NewGeometriesInFrame(frame.World, allGeometries), nil
-	}
-	obstacles, err := transformGeometriesToWorldFrame(worldState.GetObstacles())
-	if err != nil {
-		return nil, err
-	}
-	interactionSpaces, err := transformGeometriesToWorldFrame(worldState.GetInteractionSpaces())
-	if err != nil {
-		return nil, err
-	}
-	collisionConstraint := NewCollisionConstraint(sf, obstacles.Geometries(), interactionSpaces.Geometries())
+	collisionConstraint := NewCollisionConstraintFromWorldState(sf, fss, worldState, seedMap)
 
 	// setup opts
 	if len(opts) == 0 {

@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 
@@ -14,7 +13,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 //go:embed gripper_model.json
@@ -22,13 +20,15 @@ var gripperjson []byte
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "fake", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			model, err := referenceframe.UnmarshalModelJSON(gripperjson, "")
 			if err != nil {
 				return nil, err
 			}
 
-			return &Gripper{Name: config.Name, model: model}, nil
+			var g gripper.LocalGripper = &Gripper{Name: config.Name, model: model}
+
+			return g, nil
 		},
 	})
 }
@@ -53,4 +53,14 @@ func (g *Gripper) Open(ctx context.Context) error {
 // Grab does nothing.
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return false, nil
+}
+
+// Stop doesn't do anything for a fake gripper.
+func (g *Gripper) Stop(ctx context.Context) error {
+	return nil
+}
+
+// IsMoving is always false for a fake gripper.
+func (g *Gripper) IsMoving() bool {
+	return false
 }

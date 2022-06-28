@@ -95,6 +95,142 @@ func TestGraphConstruct(t *testing.T) {
 	}
 }
 
+func TestGetParentsAndChildren(t *testing.T) {
+	cfg := []fakeComponent{
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "A"),
+			DependsOn: []Name{},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "B"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "C"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		},
+		{
+			Name: NewName("namespace", "atype", "asubtype", "D"),
+			DependsOn: []Name{
+				NewName("namespace", "atype", "asubtype", "B"),
+				NewName("namespace", "atype", "asubtype", "E"),
+			},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "E"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		},
+		{
+			Name: NewName("namespace", "atype", "asubtype", "F"),
+			DependsOn: []Name{
+				NewName("namespace", "atype", "asubtype", "A"),
+				NewName("namespace", "atype", "asubtype", "C"),
+			},
+		},
+	}
+	g := NewGraph()
+	test.That(t, g, test.ShouldNotBeNil)
+	for _, component := range cfg {
+		g.AddNode(component.Name, struct{}{})
+		for _, dep := range component.DependsOn {
+			test.That(t, g.AddChildren(component.Name, dep), test.ShouldBeNil)
+		}
+	}
+	out := g.GetAllChildrenOf(NewName("namespace", "atype", "asubtype", "A"))
+	test.That(t, len(out), test.ShouldEqual, 2)
+	test.That(t, out, test.ShouldContain,
+		NewName("namespace", "atype", "asubtype", "F"),
+	)
+	test.That(t, out, test.ShouldContain,
+		NewName("namespace", "atype", "asubtype", "B"),
+	)
+	out = g.GetAllParentsOf(NewName("namespace", "atype", "asubtype", "F"))
+	test.That(t, len(out), test.ShouldEqual, 2)
+	test.That(t, out, test.ShouldContain,
+		NewName("namespace", "atype", "asubtype", "C"),
+	)
+	test.That(t, out, test.ShouldContain,
+		NewName("namespace", "atype", "asubtype", "A"),
+	)
+	out = g.GetAllChildrenOf(NewName("namespace", "atype", "asubtype", "C"))
+	test.That(t, len(out), test.ShouldEqual, 1)
+	test.That(t, out, test.ShouldContain,
+		NewName("namespace", "atype", "asubtype", "F"),
+	)
+	g.RemoveChildren(NewName("namespace", "atype", "asubtype", "F"),
+		NewName("namespace", "atype", "asubtype", "C"))
+	out = g.GetAllChildrenOf(NewName("namespace", "atype", "asubtype", "C"))
+	test.That(t, len(out), test.ShouldEqual, 0)
+
+	test.That(t, g.GetAllParentsOf(NewName("namespace", "atype", "asubtype", "Z")),
+		test.ShouldBeEmpty)
+
+	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "A"),
+		NewName("namespace", "atype", "asubtype", "F")), test.ShouldBeTrue)
+	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "F"),
+		NewName("namespace", "atype", "asubtype", "A")), test.ShouldBeFalse)
+	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "Z"),
+		NewName("namespace", "atype", "asubtype", "F")), test.ShouldBeFalse)
+	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "A"),
+		NewName("namespace", "atype", "asubtype", "Z")), test.ShouldBeFalse)
+}
+
+func TestGraphSubGraph(t *testing.T) {
+	cfg := []fakeComponent{
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "A"),
+			DependsOn: []Name{},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "B"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "C"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		},
+		{
+			Name: NewName("namespace", "atype", "asubtype", "D"),
+			DependsOn: []Name{
+				NewName("namespace", "atype", "asubtype", "B"),
+				NewName("namespace", "atype", "asubtype", "C"),
+			},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "E"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		},
+		{
+			Name: NewName("namespace", "atype", "asubtype", "F"),
+			DependsOn: []Name{
+				NewName("namespace", "atype", "asubtype", "A"),
+				NewName("namespace", "atype", "asubtype", "C"),
+			},
+		},
+	}
+	g := NewGraph()
+	test.That(t, g, test.ShouldNotBeNil)
+	for _, component := range cfg {
+		g.AddNode(component.Name, struct{}{})
+		for _, dep := range component.DependsOn {
+			test.That(t, g.AddChildren(component.Name, dep), test.ShouldBeNil)
+		}
+	}
+	sg, err := g.SubGraphFrom(NewName("namespace", "atype", "asubtype", "W"))
+	test.That(t, sg, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldResemble,
+		"cannot create sub-graph from non existing node \"W\" ")
+	sg, err = g.SubGraphFrom(NewName("namespace", "atype", "asubtype", "C"))
+	test.That(t, sg, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	out := sg.TopologicalSort()
+	test.That(t, newResourceNameSet(out...), test.ShouldResemble, newResourceNameSet([]Name{
+		NewName("namespace", "atype", "asubtype", "D"),
+		NewName("namespace", "atype", "asubtype", "F"),
+		NewName("namespace", "atype", "asubtype", "C"),
+	}...))
+}
+
 func TestGraphDepTree(t *testing.T) {
 	cfg := []fakeComponent{
 		{

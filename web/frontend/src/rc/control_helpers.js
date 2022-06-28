@@ -1,6 +1,10 @@
 /*
-Simple base control helpers. Should be replaced by a proper SDK once available.
+* This file contains gRPC helper functions for the Remote Control page.
+* These helpers will be deprecated by a future node SDK.
+* Feel free to add any missing gRPC method wrappers.
 */
+
+// Base control helpers
 window.BaseControlHelper = {
   moveStraight: function(name, distance_mm, speed_mm_s, cb) {
     const req = new baseApi.MoveStraightRequest();
@@ -32,11 +36,21 @@ window.BaseControlHelper = {
       baseService.setPower(req, {}, cb);
   },
 
+  setVelocity: function(name, linearVector, angularVector, cb) {
+    const req = new baseApi.SetVelocityRequest();
+    req.setName(name);
+    req.setLinear(linearVector);
+    req.setAngular(angularVector);
+
+    rcLogConditionally(req);
+    baseService.setVelocity(req, {}, cb);
+  },
 };
 
 /*
-  Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
-  Output: linearY and angularZ throttle
+* Base keyboard control calculations.
+* Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
+* Output: linearY and angularZ throttle
 */
 window.computeKeyboardBaseControls = function(keysPressed) {
     let linear = 0;
@@ -57,3 +71,66 @@ window.computeKeyboardBaseControls = function(keysPressed) {
     return {linear, angular};
 };
 
+// Simple motor control helpers
+window.MotorControlHelper = {
+  setPower: function(name, powerPct, cb) {
+    const req = new motorApi.SetPowerRequest();
+    req.setName(name);
+    req.setPowerPct(powerPct);
+
+    rcLogConditionally(req);
+    motorService.setPower(req, {}, cb);
+  },
+  
+  goFor: function(name, rpm, revolutions, cb) {
+    const req = new motorApi.GoForRequest();
+    req.setName(name);
+    req.setRpm(rpm);
+    req.setRevolutions(revolutions);
+
+    rcLogConditionally(req);
+    motorService.goFor(req, {}, cb);
+  },
+
+  goTo: function(name, rpm, positionRevolutions, cb) {
+    const req = new motorApi.GoToRequest();
+    req.setName(name);
+    req.setRpm(rpm);
+    req.setPositionRevolutions(positionRevolutions);
+
+    rcLogConditionally(req);
+    motorService.goTo(req, {}, cb);
+  },
+
+  stop: function(name, cb) {
+    const req = new motorApi.StopRequest();
+    req.setName(name);
+
+    rcLogConditionally(req);
+    motorService.stop(req, {}, cb);
+  },
+};
+
+// Simple motor control helpers
+window.BoardControlHelper = {
+  getGPIO: function (name, pin, cb) {
+    const req = new boardApi.GetGPIORequest();
+    req.setName(name);
+    req.setPin(pin);
+
+    rcLogConditionally(req);
+    boardService.getGPIO(req, {}, cb);
+  },
+
+  setGPIO: function (name, pin, value, cb) {
+    const req = new boardApi.SetGPIORequest();
+    req.setName(name);
+    req.setPin(pin);
+    req.setHigh(value);
+
+    rcLogConditionally(req);
+    boardService.setGPIO(req, {}, cb);
+  },
+
+  // TODO: Add PWM
+};

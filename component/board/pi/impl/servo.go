@@ -17,10 +17,9 @@ import (
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/servo"
-	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // init registers a pi servo based on pigpio.
@@ -29,8 +28,11 @@ func init() {
 		servo.Subtype,
 		picommon.ModelName,
 		registry.Component{
-			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-				attr := config.ConvertedAttributes.(*picommon.ServoConfig)
+			Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+				attr, ok := config.ConvertedAttributes.(*picommon.ServoConfig)
+				if !ok {
+					return nil, errors.New("need servo configuration")
+				}
 
 				if attr.Pin == "" {
 					return nil, errors.New("need pin for pi servo")
@@ -54,18 +56,20 @@ func init() {
 	)
 }
 
+var _ = servo.LocalServo(&piPigpioServo{})
+
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
-	generic.Unimplemented	
+	generic.Unimplemented
 	pin      C.uint
 	min, max uint8
 	opMgr    operation.SingleOperationManager
 }
 
 func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
-	ctx, done := s.opMgr.New(ctx)
+	_, done := s.opMgr.New(ctx)
 	defer done()
-	
+
 	if s.min > 0 && angle < s.min {
 		angle = s.min
 	}
@@ -87,4 +91,18 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 		return 0, nil
 	}
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
+}
+
+func (s *piPigpioServo) Stop(ctx context.Context) error {
+	ctx, done := s.opMgr.New(ctx)
+	defer done()
+	res := C.gpioServo(s.pin, C.uint(0))
+	if res != 0 {
+		return errors.Errorf("gpioServo failed with %d", res)
+	}
+	return nil
+}
+
+func (s *piPigpioServo) IsMoving() bool {
+	return s.opMgr.OpRunning()
 }
