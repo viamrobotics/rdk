@@ -19,11 +19,11 @@ func TestJointPositions(t *testing.T) {
 
 func TestBasicConversions(t *testing.T) {
 	jp := &pb.JointPositions{Degrees: []float64{45, 55}}
-	inputs := JointPosToInputs(jp)
-	test.That(t, jp, test.ShouldResemble, InputsToJointPos(inputs))
+	radians := JointPositionsToRadians(jp)
+	test.That(t, jp, test.ShouldResemble, JointPositionsFromRadians(radians))
 
 	floats := []float64{45, 55, 27}
-	inputs = FloatsToInputs(floats)
+	inputs := FloatsToInputs(floats)
 	test.That(t, floats, test.ShouldResemble, InputsToFloats(inputs))
 }
 

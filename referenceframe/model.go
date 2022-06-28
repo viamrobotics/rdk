@@ -94,20 +94,15 @@ func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 
 // ProtobufFromInput converts inputs to pb.JointPosition
 func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
-	n := make([]float64, 0, len(input))
+	jPos := &pb.JointPositions{}
 	posIdx := 0
 	for _, transform := range m.OrdTransforms {
 		dof := len(transform.DoF()) + posIdx
-		jPos := jp.Degrees[posIdx:dof]
+		jPos.Degrees = append(jPos.Degrees, transform.ProtobufFromInput(input[posIdx:dof]).Degrees...)
 		posIdx = dof
-		
-		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Degrees: jPos})...)
 	}
 	
-	for idx, a := range input {
-		n[idx] = a.Value
-	}
-	return &pb.JointPositions{Degrees: n}
+	return jPos
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.

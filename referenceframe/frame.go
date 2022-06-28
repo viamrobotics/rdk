@@ -195,20 +195,12 @@ func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // InputFromProtobuf converts pb.JointPosition to inputs
 func (sf *staticFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Degrees))
-	for idx, d := range jp.Degrees {
-		n[idx] = Input{d}
-	}
-	return n
+	return []Input{}
 }
 
 // ProtobufFromInput converts inputs to pb.JointPosition
 func (sf *staticFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a.Value
-	}
-	return &pb.JointPositions{Degrees: n}
+	return &pb.JointPositions{}
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
@@ -458,6 +450,24 @@ func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 		}
 	}
 	return spatial.NewPoseFromPoint(r3.Vector{input[0].Value, input[1].Value, 0}), errAll
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs
+func (mf *mobile2DFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	n := make([]Input, len(jp.Degrees))
+	for idx, d := range jp.Degrees {
+		n[idx] = Input{d}
+	}
+	return n
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition
+func (mf *mobile2DFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	n := make([]float64, len(input))
+	for idx, a := range input {
+		n[idx] = a.Value
+	}
+	return &pb.JointPositions{Degrees: n}
 }
 
 func (mf *mobile2DFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
