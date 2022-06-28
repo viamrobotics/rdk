@@ -117,10 +117,19 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, after-before, test.ShouldEqual, int64(1))
 	})
 
+	//nolint:dupl
 	t.Run("servo in/out", func(t *testing.T) {
 		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
 		test.That(t, servoReg, test.ShouldNotBeNil)
-		servoInt, err := servoReg.Constructor(ctx, nil, config.Component{Name: "servo", ConvertedAttributes: &picommon.ServoConfig{Pin: "22"}}, logger)
+		servoInt, err := servoReg.Constructor(
+			ctx,
+			nil,
+			config.Component{
+				Name:                "servo",
+				ConvertedAttributes: config.AttributeMap{"pin": "22"},
+			},
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		servo1 := servoInt.(servo.Servo)
 
