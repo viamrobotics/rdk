@@ -14,7 +14,6 @@ type NavigationService struct {
 	navigation.Service
 	GetModeFunc func(ctx context.Context) (navigation.Mode, error)
 	SetModeFunc func(ctx context.Context, mode navigation.Mode) error
-	CloseFunc   func(ctx context.Context) error
 
 	GetLocationFunc func(ctx context.Context) (*geo.Point, error)
 
@@ -29,14 +28,6 @@ func (ns *NavigationService) GetMode(ctx context.Context) (navigation.Mode, erro
 		return ns.Service.GetMode(ctx)
 	}
 	return ns.GetModeFunc(ctx)
-}
-
-// Close calls the injected CloseFunc or the real version.
-func (ns *NavigationService) Close(ctx context.Context) error {
-	if ns.CloseFunc == nil {
-		return ns.Service.Close(ctx)
-	}
-	return ns.CloseFunc(ctx)
 }
 
 // SetMode calls the injected SetModeFunc or the real version.

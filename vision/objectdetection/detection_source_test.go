@@ -24,7 +24,7 @@ func TestDetectionSource(t *testing.T) {
 	// make the detector
 	detCfg := &objectdetection.ColorDetectorConfig{
 		SegmentSize:       15000,
-		Tolerance:         0.0444444444,
+		Tolerance:         0.0444444,
 		DetectColorString: "#4f3815",
 	}
 	d, err := objectdetection.NewColorDetector(detCfg)
@@ -50,7 +50,7 @@ func TestDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(img)
 	test.That(t, ovImg.GetXY(848, 424), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(999, 565), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(998, 564), test.ShouldResemble, rimage.Red)
 }
 
 func TestEmptyDetection(t *testing.T) {
