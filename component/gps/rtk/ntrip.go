@@ -1,7 +1,6 @@
 package rtk
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -11,13 +10,8 @@ import (
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/edaniels/golog"
-	"go.viam.com/utils"
-	"go.viam.com/utils/serial"
 
-	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 )
 
 type ntripCorrectionSource struct {
