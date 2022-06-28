@@ -8,7 +8,6 @@ import (
 	"sync"
 	"errors"
 
-	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/gps/nmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -42,8 +42,8 @@ type RTKStation struct {
 	correction				correctionSource
 	correctionType			string
 	i2cPaths				[]i2cBusAddr
-	serialPorts				[]io.ReadWriteCloser
-	serialWriter			io.ReadWriteCloser
+	serialPorts				[]io.Writer
+	serialWriter			io.Writer
 	gpsNames				[]string
 
 	cancelCtx               context.Context
@@ -97,7 +97,7 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 	r.gpsNames = config.Attributes.StringSlice(childrenName)
 
 	// Init gps correction input addresses
-	r.serialPorts = make([]io.ReadWriteCloser, 0)
+	r.serialPorts = make([]io.Writer, 0)
 	for _, gpsName := range r.gpsNames {
 		gps, err := gps.FromDependencies(deps, gpsName)
 		if err != nil {
@@ -124,15 +124,17 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 	r.serialWriter = io.MultiWriter(r.serialPorts...)
 
 	r.Start(ctx)
+	return r, nil
 }
 
 func (r *RTKStation) Start(ctx context.Context) {
 	// read from correction source
-    ready := make(chan bool, false)
+    ready := make(chan bool)
 	go r.correction.Start(ctx, ready)
 
 	<-ready
-	stream, err := r.GetReader()
+	stream, err := r.correction.GetReader()
+	w := &bytes.Buffer{}
 	reader := io.TeeReader(stream, w)
 
 	if r.correctionType == "ntrip" {
@@ -166,9 +168,8 @@ func (r *RTKStation) Close() error {
 
 	// close all ports in slice
 	for _, port := range r.serialPorts {
-		port.Close()
+		port.(io.ReadWriteCloser).Close()
 	}
-	r.serialWriter.Close()
 
 	// close i2c handles?
 
