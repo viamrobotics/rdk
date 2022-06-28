@@ -477,7 +477,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if !ok {
 		return &rb, nil
 	}
-	if reconfigurable, ok := board.(*reconfigurableBoard); ok {
+	if reconfigurable, ok := localBoard.(*reconfigurableLocalBoard); ok {
 		return reconfigurable, nil
 	}
 
