@@ -1,7 +1,6 @@
 package rtk
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/board"
