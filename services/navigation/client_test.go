@@ -49,9 +49,6 @@ func TestClient(t *testing.T) {
 		receivedMode = mode
 		return nil
 	}
-	workingNavigationService.CloseFunc = func(ctx context.Context) error {
-		return nil
-	}
 	expectedLoc := geo.NewPoint(80, 1)
 	workingNavigationService.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 		return expectedLoc, nil
@@ -85,9 +82,6 @@ func TestClient(t *testing.T) {
 	failingNavigationService.SetModeFunc = func(ctx context.Context, mode navigation.Mode) error {
 		receivedFailingMode = mode
 		return errors.New("failure to set mode")
-	}
-	failingNavigationService.CloseFunc = func(ctx context.Context) error {
-		return errors.New("failure to close")
 	}
 	failingNavigationService.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 		return nil, errors.New("failure to retrieve location")
