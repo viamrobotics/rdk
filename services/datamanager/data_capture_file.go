@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+	"github.com/pkg/errors"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 )
 
 const dataCaptureFileExt = ".sd"
