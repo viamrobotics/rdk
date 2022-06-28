@@ -33,7 +33,7 @@ DOCKER_PLATFORM = $(DOCKER_NATIVE_PLATFORM)
 DOCKER_TAG = $(DOCKER_NATIVE_TAG)
 
 # If there's a netrc file, use it.
-ifeq ($(shell grep -qs github.com ~/.netrc && echo -n yes), yes)
+ifeq ($(shell grep -qs github.com ~/.netrc && `which echo` -n yes), yes)
 	DOCKER_NETRC_BUILD = --secret id=netrc,src=$(HOME)/.netrc
 	DOCKER_NETRC_RUN = -v$(HOME)/.netrc:/home/testbot/.netrc:ro
 endif
