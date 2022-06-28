@@ -100,6 +100,8 @@ type LocalMotor interface {
 	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
 	GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
+
+	resource.MovingCheckable
 }
 
 // Named is a helper for getting the named Motor's typed resource name.
@@ -146,11 +148,11 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the motor.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	motor, ok := resource.(Motor)
+	motor, ok := resource.(LocalMotor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Motor", resource)
+		return nil, utils.NewUnimplementedInterfaceError("LocalMotor", resource)
 	}
-	on, err := motor.IsPowered(ctx)
+	isPowered, err := motor.IsPowered(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -165,10 +167,15 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 			return nil, err
 		}
 	}
+	isMoving, err := motor.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.Status{
-		IsOn:              on,
+		IsPowered:         isPowered,
 		PositionReporting: features[PositionReporting],
 		Position:          position,
+		IsMoving:          isMoving,
 	}, nil
 }
 
@@ -229,6 +236,16 @@ func (r *reconfigurableMotor) Stop(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Stop(ctx)
+}
+
+func (r *reconfigurableMotor) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	localMotor, ok := r.actual.(LocalMotor)
+	if !ok {
+		return false, utils.NewUnimplementedInterfaceError("LocalMotor", r)
+	}
+	return localMotor.IsMoving(ctx)
 }
 
 func (r *reconfigurableMotor) IsPowered(ctx context.Context) (bool, error) {
