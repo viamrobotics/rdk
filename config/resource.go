@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 )
 
 // UpdateActionType help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
@@ -111,7 +110,6 @@ func (config *Component) Validate(path string) ([]string, error) {
 			}
 			return deps, nil
 		default:
-			rlog.Logger.Warnw("no validator defined", "path", fieldPath)
 			continue
 		}
 	}
@@ -126,8 +124,6 @@ func (config *Component) Validate(path string) ([]string, error) {
 			return nil, err
 		}
 		return deps, nil
-	default:
-		rlog.Logger.Warnw("no validator defined", "path", path)
 	}
 	return nil, nil
 }
