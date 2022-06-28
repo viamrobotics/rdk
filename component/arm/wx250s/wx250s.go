@@ -188,8 +188,8 @@ func (a *Arm) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the arm is moving.
-func (a *Arm) IsMoving() bool {
-	return a.opMgr.OpRunning()
+func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
+	return a.opMgr.OpRunning(), nil
 }
 
 // Close will get the arm ready to be turned off.

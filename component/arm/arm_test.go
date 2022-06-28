@@ -164,8 +164,8 @@ func TestCreateStatus(t *testing.T) {
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
 		return &pb.JointPositions{Degrees: status.JointPositions.Degrees}, nil
 	}
-	injectArm.IsMovingFunc = func() bool {
-		return true
+	injectArm.IsMovingFunc = func(context.Context) (bool, error) {
+		return true, nil
 	}
 
 	t.Run("working", func(t *testing.T) {
@@ -180,8 +180,8 @@ func TestCreateStatus(t *testing.T) {
 	})
 
 	t.Run("not moving", func(t *testing.T) {
-		injectArm.IsMovingFunc = func() bool {
-			return false
+		injectArm.IsMovingFunc = func(context.Context) (bool, error) {
+			return false, nil
 		}
 
 		status2 := &pb.Status{
