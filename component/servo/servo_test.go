@@ -113,8 +113,8 @@ func TestCreateStatus(t *testing.T) {
 	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return uint8(status.PositionDeg), nil
 	}
-	injectServo.IsMovingFunc = func() bool {
-		return true
+	injectServo.IsMovingFunc = func(context.Context) (bool, error) {
+		return true, nil
 	}
 
 	t.Run("working", func(t *testing.T) {
@@ -129,8 +129,8 @@ func TestCreateStatus(t *testing.T) {
 	})
 
 	t.Run("not moving", func(t *testing.T) {
-		injectServo.IsMovingFunc = func() bool {
-			return false
+		injectServo.IsMovingFunc = func(context.Context) (bool, error) {
+			return false, nil
 		}
 
 		status2 := &pb.Status{PositionDeg: uint32(8), IsMoving: false}

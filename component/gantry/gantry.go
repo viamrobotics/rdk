@@ -140,8 +140,11 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.Status{PositionsMm: positions, LengthsMm: lengths, IsMoving: gantry.IsMoving()}, nil
+	isMoving, err := gantry.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Status{PositionsMm: positions, LengthsMm: lengths, IsMoving: isMoving}, nil
 }
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
@@ -209,10 +212,10 @@ func (g *reconfigurableGantry) Stop(ctx context.Context) error {
 	return g.actual.Stop(ctx)
 }
 
-func (g *reconfigurableGantry) IsMoving() bool {
+func (g *reconfigurableGantry) IsMoving(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.actual.IsMoving()
+	return g.actual.IsMoving(ctx)
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {
