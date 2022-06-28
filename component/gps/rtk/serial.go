@@ -1,24 +1,17 @@
 package rtk
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"sync"
 	"errors"
 
-	"github.com/adrianmo/go-nmea"
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
-	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 )
 
 type serialCorrectionSource struct {
@@ -41,18 +34,23 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 
 	s := &serialCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
-	serialPath = config.Attributes.String(correctionPortName)
+	serialPath := config.Attributes.String(correctionPathName)
 	if serialPath == "" {
-		return nil, fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPortName)
+		return nil, fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
 	}
 
-	s.port, err := serial.Open(serialPath)
+	var err error
+	s.port, err = serial.Open(serialPath)
+	if err != nil {
+		return nil, err
+	}
 
 	return s, nil
 }
 
 func (s *serialCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
-	ntrip.correctionReader, w := io.Pipe()
+	var w io.Writer
+	s.correctionReader, w = io.Pipe()
 	ready <- true
 
 	// read from s.port and write rctm messages into w, discard other messages in loop
@@ -68,13 +66,13 @@ func (s *serialCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			g.logger.Fatalf("Error reading RTCM message: %s", err)
+			s.logger.Fatalf("Error reading RTCM message: %s", err)
 		}
 		fmt.Println(msg.Number())
 
-		n, err := w.Write(msg.Serialize())
+		_, err = w.Write(msg.Serialize())
 		if err != nil {
-			g.logger.Fatalf("Error writing RTCM message: %s", err)
+			s.logger.Fatalf("Error writing RTCM message: %s", err)
 		}
 	}
 }
