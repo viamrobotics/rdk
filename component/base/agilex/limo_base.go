@@ -205,7 +205,7 @@ func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (
 
 		port, err := serial.Open(serialOptions)
 		if err != nil {
-			logger.Error(err)
+			logger.Errorf("error creating new controller: %v", err)
 			return nil, err
 		}
 		ctrl.port = port
@@ -247,6 +247,8 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 	case ACKERMANN.String():
 		r := base.state.velocityLinearGoal.Y / base.state.velocityAngularGoal.Z
 		if math.Abs(r) < float64(base.width)/2.0 {
+			// Note: Do we need a tolerance comparison here? Don't think so, as velocityLinearGoal.Y should always be exactly zero
+			// when we expect it to be.
 			if r == 0 {
 				r = base.state.velocityAngularGoal.Z / math.Abs(base.state.velocityAngularGoal.Z) * (float64(base.width)/2.0 + 10)
 			} else {
@@ -277,7 +279,7 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 	return err
 }
 
-// Must be run inside a lock.
+// Sends the serial frame. Must be run inside a lock.
 func (c *controller) sendFrame(frame *limoFrame) error {
 	var checksum uint32
 	var frameLen uint8 = 0x0e
