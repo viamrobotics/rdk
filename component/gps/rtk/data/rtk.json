@@ -4,8 +4,8 @@
         "attributes": {
           "correction_source": "ntrip",
           "ntrip_addr": "http://rtn.dot.ny.gov:8082",
-          "ntrip_username": "username",
-          "ntrip_password": "password",
+          "ntrip_username": "evelyn",
+          "ntrip_password": "checkmate",
           "ntrip_mountpoint": "NJI2",
           "ntrip_connect_attempts": 10,
           "children": [
