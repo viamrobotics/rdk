@@ -155,7 +155,7 @@ func (svc *frameSystemService) TransformPose(
 		input[name] = pos
 	}
 
-	tf, err := fs.Transform(input, referenceframe.NewPoseInFrame(pose.FrameName(), pose.Pose()), dst)
+	tf, err := fs.Transform(input, pose, dst)
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +181,9 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 	for _, c := range cfg.Components {
 		if c.Frame == nil { // no Frame means dont include in frame system.
 			continue
+		}
+		if _, ok := seen[c.Name]; ok {
+			return errors.Errorf("more than one component with name %q in config file", c.Name)
 		}
 		if c.Name == referenceframe.World {
 			return errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
