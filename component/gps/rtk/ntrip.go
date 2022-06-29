@@ -145,6 +145,7 @@ func (n *ntripCorrectionSource) GetStream() error {
 	return nil
 }
 
+// Start connects to the ntrip caster and stream and sends filtered correction data into the correctionReader
 func (n *ntripCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 	n.activeBackgroundWorkers.Add(1)
 	defer n.activeBackgroundWorkers.Done()
@@ -197,6 +198,7 @@ func (n *ntripCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 	}
 }
 
+// GetReader returns the ntripCorrectionSource's correctionReader if it exists
 func (n *ntripCorrectionSource) GetReader() (io.ReadCloser, error) {
 	if n.correctionReader == nil {
 		return nil, errors.New("No Stream")
@@ -205,6 +207,7 @@ func (n *ntripCorrectionSource) GetReader() (io.ReadCloser, error) {
 	return n.correctionReader, nil
 }
 
+// Close shuts down the ntripCorrectionSource and closes all connections to the caster
 func (n *ntripCorrectionSource) Close() error {
 	n.cancelFunc()
 	n.activeBackgroundWorkers.Wait()

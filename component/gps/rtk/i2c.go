@@ -14,9 +14,8 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-type I2CCorrectionSource struct {
+type i2CCorrectionSource struct {
 	correctionReader    	io.ReadCloser // reader for rctm corrections only
-	port					io.ReadCloser // reads all messages from port
 	logger             		golog.Logger
 	ntripStatus        		bool
 	bus    board.I2C
@@ -47,12 +46,13 @@ func newI2CCorrectionSource(ctx context.Context, deps registry.Dependencies, con
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	s := &I2CCorrectionSource{bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	s := &i2CCorrectionSource{bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	return s, nil
 }
 
-func (s *I2CCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
+// Start reads correction data from the i2c address and sends it into the correctionReader
+func (s *i2CCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 	//currently not checking if rtcm message is valid, need to figure out how to integrate constant I2C byte message with rtcm3 scanner
 	s.activeBackgroundWorkers.Add(1)
 	defer s.activeBackgroundWorkers.Done()	
@@ -112,7 +112,8 @@ func (s *I2CCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 	}
 }
 
-func (s *I2CCorrectionSource) GetReader() (io.ReadCloser, error) {
+// GetReader returns the i2CCorrectionSource's correctionReader if it exists
+func (s *i2CCorrectionSource) GetReader() (io.ReadCloser, error) {
 	if s.correctionReader == nil {
 		return nil, errors.New("No Stream")
 	}
@@ -120,17 +121,10 @@ func (s *I2CCorrectionSource) GetReader() (io.ReadCloser, error) {
 	return s.correctionReader, nil
 }
 
-func (s *I2CCorrectionSource) Close() error {
+// Close shuts down the i2CCorrectionSource
+func (s *i2CCorrectionSource) Close() error {
 	s.cancelFunc()
 	s.activeBackgroundWorkers.Wait()
-
-	// close port reader
-	if s.port != nil {
-		if err := s.port.Close(); err != nil {
-			return err
-		}
-		s.port = nil
-	}
 
 	// close correction reader
 	if s.correctionReader != nil {

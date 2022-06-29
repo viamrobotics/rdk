@@ -48,6 +48,7 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 	return s, nil
 }
 
+// Start reads correction data from the serial port and sends it into the correctionReader
 func (s *serialCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 	s.activeBackgroundWorkers.Add(1)
 	defer s.activeBackgroundWorkers.Done()
@@ -84,6 +85,7 @@ func (s *serialCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 	}
 }
 
+// GetReader returns the serialCorrectionSource's correctionReader if it exists
 func (s *serialCorrectionSource) GetReader() (io.ReadCloser, error) {
 	if s.correctionReader == nil {
 		return nil, errors.New("No Stream")
@@ -92,6 +94,7 @@ func (s *serialCorrectionSource) GetReader() (io.ReadCloser, error) {
 	return s.correctionReader, nil
 }
 
+// Close shuts down the serialCorrectionSource and closes s.port
 func (s *serialCorrectionSource) Close() error {
 	s.cancelFunc()
 	s.activeBackgroundWorkers.Wait()
