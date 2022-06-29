@@ -151,8 +151,7 @@ func (r *RTKStation) Start(ctx context.Context) {
 		r.logger.Fatalf("Unable to get reader: %s", err)
 	}
 
-	w := &bytes.Buffer{}
-	reader := io.TeeReader(stream, w)
+	reader := io.TeeReader(stream, r.serialWriter)
 
 	if r.correctionType == "ntrip" {
 		r.correction.(*ntripCorrectionSource).ntripStatus = true
