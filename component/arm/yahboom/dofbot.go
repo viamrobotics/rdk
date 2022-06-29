@@ -101,6 +101,7 @@ func newDofBot(ctx context.Context, deps registry.Dependencies, config config.Co
 	var err error
 
 	a := Dofbot{}
+	a.logger = logger
 
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
@@ -126,10 +127,8 @@ func newDofBot(ctx context.Context, deps registry.Dependencies, config config.Co
 	}
 	_, err = a.GetEndPosition(ctx)
 	if err != nil {
-		return nil, errors.New("issue pinging yahboom motors, check connection to motors")
+		return nil, fmt.Errorf("unable to get end position: %w", err)
 	}
-
-	a.logger = logger
 
 	return &a, nil
 }
@@ -138,7 +137,7 @@ func newDofBot(ctx context.Context, deps registry.Dependencies, config config.Co
 func (a *Dofbot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
 	return motionplan.ComputePosition(a.mp.Frame(), joints)
 }
