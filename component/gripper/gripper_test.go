@@ -120,8 +120,8 @@ func TestCreateStatus(t *testing.T) {
 		}
 
 		injectGripper := &inject.Gripper{}
-		injectGripper.IsMovingFunc = func() bool {
-			return true
+		injectGripper.IsMovingFunc = func(context.Context) (bool, error) {
+			return true, nil
 		}
 		status1, err := gripper.CreateStatus(context.Background(), injectGripper)
 		test.That(t, err, test.ShouldBeNil)
@@ -139,8 +139,8 @@ func TestCreateStatus(t *testing.T) {
 		}
 
 		injectGripper := &inject.Gripper{}
-		injectGripper.IsMovingFunc = func() bool {
-			return false
+		injectGripper.IsMovingFunc = func(context.Context) (bool, error) {
+			return false, nil
 		}
 		status1, err := gripper.CreateStatus(context.Background(), injectGripper)
 		test.That(t, err, test.ShouldBeNil)
