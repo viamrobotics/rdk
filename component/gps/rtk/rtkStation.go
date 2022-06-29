@@ -100,6 +100,7 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 	r.gpsNames = config.Attributes.StringSlice(childrenName)
 
 	// Init gps correction input addresses
+	r.logger.Debug("Init gps")
 	r.serialPorts = make([]io.Writer, 0)
 	for _, gpsName := range r.gpsNames {
 		gps, err := gps.FromDependencies(deps, gpsName)
@@ -128,13 +129,18 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 		}
 	}
 
+	r.logger.Debug("Init multiwriter")
 	r.serialWriter = io.MultiWriter(r.serialPorts...)
+	r.logger.Debug("Starting")
 
 	r.Start(ctx)
 	return r, nil
 }
 
 func (r *RTKStation) Start(ctx context.Context) {
+	r.activeBackgroundWorkers.Add(1)
+	defer r.activeBackgroundWorkers.Done()
+
 	// read from correction source
     ready := make(chan bool)
 	go r.correction.Start(ctx, ready)

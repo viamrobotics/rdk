@@ -49,6 +49,9 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 }
 
 func (s *serialCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
+	s.activeBackgroundWorkers.Add(1)
+	defer s.activeBackgroundWorkers.Done()
+
 	var w io.Writer
 	s.correctionReader, w = io.Pipe()
 	ready <- true

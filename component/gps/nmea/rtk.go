@@ -2,12 +2,12 @@ package nmea
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
-	"bytes"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
@@ -15,8 +15,8 @@ import (
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
 
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -54,8 +54,7 @@ type RTKGPS struct {
 	correctionWriter   io.ReadWriteCloser
 	ntripStatus        bool
 
-	bus    board.I2C
-	addr   byte
+	bus board.I2C
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -69,6 +68,7 @@ type ntripInfo struct {
 	mountPoint         string
 	writepath          string
 	wbaud              int
+	addr               byte // for i2c only
 	sendNMEA           bool
 	client             *ntrip.Client
 	stream             io.ReadCloser
@@ -107,27 +107,6 @@ func newRTKGPS(ctx context.Context, deps registry.Dependencies, config config.Co
 		g.nmeagps, err = newPmtkI2CNMEAGPS(ctx, deps, config, logger)
 		if err != nil {
 			return nil, err
-		}
-		b, err := board.FromDependencies(deps, config.Attributes.String("board"))
-		if err != nil {
-			return nil, fmt.Errorf("gps init: failed to find board: %w", err)
-		}
-		localB, ok := b.(board.LocalBoard)
-		if !ok {
-			return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
-		}
-		i2cbus, ok := localB.I2CByName(config.Attributes.String("bus"))
-		if !ok {
-			return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
-		} else {
-			g.bus = i2cbus
-		}
-
-		addr := config.Attributes.Int("i2c_addr", -1)
-		if addr == -1 {
-			return nil, errors.New("must specify gps i2c address")
-		} else {
-			g.addr = byte(addr)
 		}
 	default:
 		// Invalid protocol
@@ -168,7 +147,10 @@ func newRTKGPS(ctx context.Context, deps registry.Dependencies, config config.Co
 	if g.ntripClient.maxConnectAttempts == 10 {
 		g.logger.Info("ntrip_connect_attempts using default 10")
 	}
-	g.logger.Info("Starting rtk START")
+
+	// I2C address only, assumes address is correct since this was checked when gps was initialized
+	g.ntripClient.addr = byte(config.Attributes.Int("i2c_addr", -1))
+
 	g.Start(ctx)
 
 	return g, nil
@@ -180,7 +162,7 @@ func (g *RTKGPS) Start(ctx context.Context) {
 	case "serial":
 		go g.ReceiveAndWriteSerial()
 	case "I2C":
-		g.ReceiveAndWriteI2C(ctx)
+		go g.ReceiveAndWriteI2C(ctx)
 	}
 	g.nmeagps.Start(ctx)
 	
@@ -257,6 +239,7 @@ func (g *RTKGPS) GetStream(mountPoint string, maxAttempts int) error {
 	return nil
 }
 
+// ReceiveAndWriteI2C connects to NTRIP receiver and sends correction stream to the GPS through I2C protocol.
 func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 	g.activeBackgroundWorkers.Add(1)
 	defer g.activeBackgroundWorkers.Done()
@@ -269,14 +252,15 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.url)
 	}
 
-	//establish I2C connection
-	handle, err := g.bus.OpenHandle(g.addr)
+	// establish I2C connection
+	handle, err := g.bus.OpenHandle(g.ntripClient.addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
 		return
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
-	cmd251 := addChk([]byte("PMTK251,115200")) //set baud rate
+	baudcmd := fmt.Sprintf("PMTK251,%d", g.ntripClient.wbaud)
+	cmd251 := addChk([]byte(baudcmd))
 	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
@@ -295,7 +279,6 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 		return
 	}
 
-	
 	err = g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
 	if err != nil {
 		return
@@ -304,32 +287,44 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 	// create a buffer
 	w := &bytes.Buffer{}
 	r := io.TeeReader(g.ntripClient.stream, w)
-	
+
 	buf := make([]byte, 1100)
 	n, err := g.ntripClient.stream.Read(buf)
-	w_i2c := addChk(buf[:n])
-
-	//port still open
-	// g.logger.Infof("writing: %s", w_i2c)
-	err = handle.Write(ctx, w_i2c)
 	if err != nil {
-		g.logger.Fatalf("uh oh, i2c handle write failed %s", err)
+		return
+	}
+	wI2C := addChk(buf[:n])
+
+	// port still open
+	err = handle.Write(ctx, wI2C)
+	if err != nil {
+		g.logger.Fatalf("i2c handle write failed %s", err)
 		return
 	}
 
 	scanner := rtcm3.NewScanner(r)
 
-	for err == nil {
-		msg, err := scanner.NextMessage()
-		//establish I2C connection
-		handle, err := g.bus.OpenHandle(g.addr)
+	g.ntripStatus = true
+
+	for g.ntripStatus {
+		select {
+		case <-g.cancelCtx.Done():
+			return
+		default:
+		}
+
+		// establish I2C connection
+		handle, err := g.bus.OpenHandle(g.ntripClient.addr)
 		if err != nil {
 			g.logger.Fatalf("can't open gps i2c %s", err)
 			return
 		}
+
+		msg, err := scanner.NextMessage()
 		if err != nil {
+			g.ntripStatus = false
 			if msg == nil {
-				fmt.Println("No message... reconnecting to stream...")
+				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.GetStream(g.ntripClient.mountPoint, g.ntripClient.maxConnectAttempts)
 				if err != nil {
 					return
@@ -337,23 +332,27 @@ func (g *RTKGPS) ReceiveAndWriteI2C(ctx context.Context) {
 
 				w = &bytes.Buffer{}
 				r = io.TeeReader(g.ntripClient.stream, w)
-				
+
 				buf = make([]byte, 1100)
 				n, err := g.ntripClient.stream.Read(buf)
-				w_i2c := addChk(buf[:n])
-							
-				err = handle.Write(ctx, w_i2c)
+				if err != nil {
+					return
+				}
+				wI2C := addChk(buf[:n])
+
+				err = handle.Write(ctx, wI2C)
 
 				if err != nil {
-					g.logger.Debug("i2c handle write failed %s", err)
+					g.logger.Fatalf("i2c handle write failed %s", err)
 					return
 				}
 
 				scanner = rtcm3.NewScanner(r)
+				g.ntripStatus = true
 				continue
 			}
-			g.logger.Fatal(err, msg)
 		}
+		// close I2C
 		err = handle.Close()
 		if err != nil {
 			g.logger.Debug("failed to close handle: %s", err)

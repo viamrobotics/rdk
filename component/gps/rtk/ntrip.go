@@ -70,6 +70,7 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 		n.logger.Info("ntrip_connect_attempts using default 10")
 	}
 
+	n.logger.Debug("Returning n")
 	return n, nil
 }
 

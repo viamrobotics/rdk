@@ -12,6 +12,7 @@ require (
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/bep/debounce v1.2.0
 	github.com/bufbuild/buf v1.4.0
+	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
 	github.com/de-bkg/gognss v0.0.0-20220601150219-24ccfdcdbb5d
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
@@ -57,7 +58,7 @@ require (
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
-	github.com/urfave/cli/v2 v2.6.0
+	github.com/urfave/cli/v2 v2.10.2
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.28.5
@@ -301,6 +302,7 @@ require (
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.0.2 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
+	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	github.com/yagipy/maintidx v1.0.0 // indirect
 	github.com/yeya24/promlinter v0.2.0 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
