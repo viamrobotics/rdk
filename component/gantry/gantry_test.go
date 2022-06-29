@@ -162,8 +162,8 @@ func TestCreateStatus(t *testing.T) {
 	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return status.LengthsMm, nil
 	}
-	injectGantry.IsMovingFunc = func() bool {
-		return true
+	injectGantry.IsMovingFunc = func(context.Context) (bool, error) {
+		return true, nil
 	}
 
 	t.Run("working", func(t *testing.T) {
@@ -178,8 +178,8 @@ func TestCreateStatus(t *testing.T) {
 	})
 
 	t.Run("not moving", func(t *testing.T) {
-		injectGantry.IsMovingFunc = func() bool {
-			return false
+		injectGantry.IsMovingFunc = func(context.Context) (bool, error) {
+			return false, nil
 		}
 
 		status2 := &pb.Status{
