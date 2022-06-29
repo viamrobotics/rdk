@@ -11,7 +11,7 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 )
 
-const dataCaptureFileExt = ".sd"
+const dataCaptureFileExt = ".capture"
 
 // Create a timestamped file within the given capture directory.
 func createDataCaptureFile(captureDir string, md *v1.SyncMetadata) (*os.File, error) {
@@ -40,7 +40,7 @@ func getFileTimestampName() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
-// TODO: Implement this in some more robust way. Probably by making the DataType a field of the collector.
+// TODO DATA-246: Implement this in some more robust, programmatic way.
 //nolint:unparam
 func getDataType(componentType string, methodName string) v1.DataType {
 	if methodName == "NextPointCloud" {
@@ -84,11 +84,8 @@ func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 
 	// Ensure we construct and return a SensorData value for tabular data when the tabular data's fields and
 	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
-	if r.GetBinary() == nil {
-		if r.GetStruct() == nil {
-			return r, emptyReadingErr(filepath.Base(f.Name()))
-		}
-		return r, nil
+	if r.GetBinary() == nil && r.GetStruct() == nil {
+		return r, emptyReadingErr(filepath.Base(f.Name()))
 	}
 	return r, nil
 }

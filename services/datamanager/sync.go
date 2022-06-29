@@ -23,7 +23,7 @@ var (
 )
 
 func emptyReadingErr(fileName string) error {
-	return errors.Errorf("%s is empty", fileName)
+	return errors.Errorf("%s contains SensorData containing no data", fileName)
 }
 
 // syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
@@ -46,9 +46,13 @@ type syncer struct {
 
 type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error
 
-// newSyncer returns a new syncer. If no uploadFunc is passed, the default viamUpload is used.
+// TODO DATA-206: instantiate a client
+// newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
 func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	if uploadFunc == nil {
+		uploadFunc = viamUpload
+	}
 	ret := syncer{
 		logger: logger,
 		progressTracker: progressTracker{
@@ -59,12 +63,7 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer 
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
-	}
-
-	if uploadFunc == nil {
-		ret.uploadFn = viamUpload
-	} else {
-		ret.uploadFn = uploadFunc
+		uploadFn:          uploadFunc,
 	}
 
 	return &ret
