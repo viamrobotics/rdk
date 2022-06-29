@@ -10,7 +10,7 @@ import "C"
 
 import (
 	"context"
-	"fmt"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -22,6 +22,13 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 )
+
+// type AttrConfig {
+// 	max
+// 	minterface
+// }
+
+// func confgi Validate() {}
 
 // init registers a pi servo based on pigpio.
 func init() {
@@ -52,17 +59,14 @@ func init() {
 					theServo.max = uint8(attr.Max)
 				}
 
-				getPos := C.gpioGetServoPulsewidth(theServo.pin)
-				fmt.Println(int(theServo.pin), "init pin is at", getPos)
+				theServo.res = C.int(0)
 
-				setPos := C.gpioServo(theServo.pin, C.uint(0))
+				setPos := C.gpioServo(theServo.pin, C.uint(1500))
 				if setPos != 0 {
 					return nil, errors.Errorf("gpioServo failed with %d", setPos)
 				}
 
-				getPos = C.gpioGetServoPulsewidth(theServo.pin)
-
-				fmt.Println(int(theServo.pin), "set pin is at", getPos)
+				theServo.res = C.int(0)
 
 				return theServo, nil
 			},
@@ -72,12 +76,16 @@ func init() {
 
 var _ = servo.LocalServo(&piPigpioServo{})
 
+const pulseErr = -93
+
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
 	generic.Unimplemented
 	pin      C.uint
 	min, max uint8
 	opMgr    operation.SingleOperationManager
+	res      C.int
+	relaxPos bool
 }
 
 func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
@@ -87,37 +95,32 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	if s.min > 0 && angle < s.min {
 		angle = s.min
 	}
+
 	if s.max > 0 && angle > s.max {
 		angle = s.max
+
 	}
 
-	getPos, err := s.GetPosition(ctx)
-	if err != nil {
-		return err
+	initVal := C.gpioServo(s.pin, C.uint(s.res))
+	if initVal != 0 {
+		return errors.Errorf("gpioServo failed with %d", initVal)
 	}
-	fmt.Println("init pos is", getPos)
 
 	movePos := angleToVal(angle)
 	moveVal := C.gpioServo(s.pin, C.uint(movePos))
-	fmt.Println(int(s.pin), " val is ", moveVal)
-	if moveVal != 0 {
-		return errors.Errorf("gpioServo failed with %d", moveVal)
+	if moveVal == C.int(pulseErr) {
+		return errors.Errorf("gpioServo pin not set up for Pulsewidths")
 	}
 
-	// setPos := C.gpioServo(s.pin, C.uint(0))
-	// if setPos != 0 {
-	// return errors.Errorf("gpioServo failed with %d", setPos)
-	// }
+	s.res = C.gpioGetServoPulsewidth(s.pin)
 
-	// fmt.Println("write pin to low")
-
-	getPos, err = s.GetPosition(ctx)
-	if err != nil {
-		return err
+	if s.relaxPos {
+		time.Sleep(500 * time.Millisecond)
+		setPos := C.gpioServo(s.pin, C.uint(0))
+		if setPos == C.int(pulseErr) {
+			return errors.Errorf("gpioServo failed with %d", setPos)
+		}
 	}
-	fmt.Println("final pos is", getPos)
-
-	// s.Stop(ctx)
 
 	return nil
 }
@@ -128,13 +131,14 @@ func angleToVal(angle uint8) float64 {
 }
 
 func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
-	res := C.gpioGetServoPulsewidth(s.pin)
-	fmt.Println(int(s.pin), " res is", res)
-	if res <= 0 {
-		// this includes, errors, we'll ignore
+	s.res = C.gpioGetServoPulsewidth(s.pin)
+	if s.res <= 0 {
+		// ignores errors where res is -7 (bad pulsewidth, servo position out of bounds) or -93 (gpio not set up for pulsewidths by user)
 		return 0, nil
 	}
-	return valToAngle(float64(res)), nil
+	return uint8(s.res), nil
+
+	// return valToAngle(float64(s.res)), nil
 }
 
 func valToAngle(val float64) uint8 {
@@ -145,9 +149,9 @@ func valToAngle(val float64) uint8 {
 func (s *piPigpioServo) Stop(ctx context.Context) error {
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
-	res := C.gpioServo(s.pin, C.uint(0))
-	if res != 0 {
-		return errors.Errorf("gpioServo failed with %d", res)
+	getPos := C.gpioServo(s.pin, C.uint(0))
+	if getPos != 0 {
+		return errors.Errorf("gpioServo failed with %d", getPos)
 	}
 	return nil
 }

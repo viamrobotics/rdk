@@ -6,11 +6,12 @@ import (
 	"strconv"
 
 	"github.com/edaniels/golog"
+	util "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/utils"
-	util "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 )
 
 var logger = golog.NewDevelopmentLogger("client")
@@ -20,7 +21,6 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
-
 	flag.Parse()
 	angle, err := strconv.Atoi(flag.Arg(0))
 	if err != nil {
@@ -36,9 +36,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			Payload: "c0x4zf0px5447cia5hk8lnz7s3o2fbu1ocubpjbo75arwsyz",
 		})),
 	)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	defer robot.Close(ctx)
 
 	if err != nil {
 		logger.Fatal(err)
