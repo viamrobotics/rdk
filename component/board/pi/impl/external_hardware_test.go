@@ -107,10 +107,19 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, after-before, test.ShouldEqual, int64(1))
 	})
 
+	//nolint:dupl
 	t.Run("servo in/out", func(t *testing.T) {
 		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
 		test.That(t, servoReg, test.ShouldNotBeNil)
-		servoInt, err := servoReg.Constructor(ctx, nil, config.Component{Name: "servo", ConvertedAttributes: config.AttributeMap{"pin": "18"}}, logger)
+		servoInt, err := servoReg.Constructor(
+			ctx,
+			nil,
+			config.Component{
+				Name:                "servo",
+				ConvertedAttributes: &picommon.ServoConfig{Pin: "18"},
+			},
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		servo1 := servoInt.(servo.Servo)
 
@@ -157,6 +166,7 @@ func TestPiHardware(t *testing.T) {
 
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
 		err = motor1.GoFor(ctx, 15, 2)
+		test.That(t, err, test.ShouldBeNil)
 		on, err := motor1.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
