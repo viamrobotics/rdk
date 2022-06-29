@@ -4,8 +4,8 @@ TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
-VERSION := $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)
-GIT_REVISION := $(shell git rev-parse HEAD | tr -d '\n')
+VERSION = $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)
+GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 LDFLAGS = -ldflags "-X 'go.viam.com/rdk/config.Version=${VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
 
 default: build lint server
@@ -19,8 +19,9 @@ build-go: buf-go
 	go build ./...
 
 build-web: buf-web
-	cd web/frontend/dls && npm ci && npm run build:prod
-	cd web/frontend && npm ci && npx webpack build --config ./webpack.prod.js
+	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
+	cd web/frontend/dls && npm ci && npm run build:prod && \
+	cd .. && npm ci && npx webpack build --config ./webpack.prod.js
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -76,7 +77,7 @@ test-web: build-web
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
-	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short
+	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 server:
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
