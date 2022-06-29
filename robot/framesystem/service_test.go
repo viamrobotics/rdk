@@ -25,6 +25,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -184,7 +185,26 @@ func TestWrongFrameSystems(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig2.json"), logger) // no world node
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robotimpl.New(context.Background(), cfg, logger)
+
+	injectRobot := &inject.Robot{}
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+		return cfg, nil
+	}
+
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return struct{}{}, nil
+	}
+
+	injectRobot.RemoteNamesFunc = func() []string {
+		return []string{}
+	}
+
+	var resources map[resource.Name]interface{}
+	ctx := context.Background()
+	service := framesystem.New(ctx, injectRobot, logger)
+	serviceUpdateable, ok := service.(resource.Updateable)
+	test.That(t, ok, test.ShouldBeTrue)
+	err = serviceUpdateable.Update(ctx, resources)
 	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("pieceArm", "base"))
 	cfg, err = config.Read(
 		context.Background(),
@@ -192,7 +212,11 @@ func TestWrongFrameSystems(t *testing.T) {
 		logger,
 	) // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robotimpl.New(context.Background(), cfg, logger)
+
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+		return cfg, nil
+	}
+	err = serviceUpdateable.Update(ctx, resources)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("cannot give frame system part the name %s", referenceframe.World))
 
 	cfg, err = config.Read(
@@ -201,7 +225,11 @@ func TestWrongFrameSystems(t *testing.T) {
 		logger,
 	) // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robotimpl.New(context.Background(), cfg, logger)
+
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+		return cfg, nil
+	}
+	err = serviceUpdateable.Update(ctx, resources)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 
 	testPose := spatialmath.NewPoseFromAxisAngle(
