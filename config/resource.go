@@ -75,15 +75,18 @@ type Component struct {
 // Dependencies returns the deduplicated union of user-defined and implicit dependencies.
 func (config *Component) Dependencies() []string {
 	result := make([]string, 0, len(config.DependsOn)+len(config.ImplicitDependsOn))
-	uniq := make(map[string]struct{})
+	seen := make(map[string]struct{})
+	appendUniq := func(dep string) {
+		if _, ok := seen[dep]; !ok {
+			seen[dep] = struct{}{}
+			result = append(result, dep)
+		}
+	}
 	for _, dep := range config.DependsOn {
-		uniq[dep] = struct{}{}
+		appendUniq(dep)
 	}
 	for _, dep := range config.ImplicitDependsOn {
-		uniq[dep] = struct{}{}
-	}
-	for dep := range uniq {
-		result = append(result, dep)
+		appendUniq(dep)
 	}
 	return result
 }
