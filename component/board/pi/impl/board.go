@@ -493,13 +493,19 @@ func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
 
 // Close attempts to close all parts of the board cleanly.
 func (pi *piPigpio) Close(ctx context.Context) error {
+	var terminate bool
 	instanceMu.Lock()
 	if len(instances) == 1 {
-		C.gpioTerminate()
-		pi.logger.Debug("Pi GPIO terminated properly.")
+		terminate = true
 	}
 	delete(instances, pi)
 	instanceMu.Unlock()
+
+	if terminate {
+		// This has to happen outside of the lock to avoid a deadlock with interrupts.
+		C.gpioTerminate()
+		pi.logger.Debug("Pi GPIO terminated properly.")
+	}
 
 	var err error
 	for _, spi := range pi.spis {
