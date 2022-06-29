@@ -29,6 +29,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -680,28 +681,51 @@ func (c *AppClient) StartRobotPartShell(
 		return err
 	}
 
+	fmt.Fprintln(c.c.App.Writer, "establishing connection...")
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
-		return err
+		fmt.Fprintln(c.c.App.ErrWriter, err)
+		cli.OsExiter(1)
+		return nil
 	}
 
 	defer func() {
 		utils.UncheckedError(robotClient.Close(c.c.Context))
 	}()
 
-	shellRes, err := robotClient.ResourceByName(shell.Name)
+	var found *resource.Name
+	for _, name := range robotClient.ResourceNames() {
+		if name == shell.Name {
+			nameCopy := name
+			found = &nameCopy
+			break
+		}
+	}
+	if found == nil {
+		fmt.Fprintln(c.c.App.ErrWriter, "shell service is not enabled")
+		cli.OsExiter(1)
+		return nil
+	}
+
+	shellRes, err := robotClient.ResourceByName(*found)
 	if err != nil {
-		return err
+		fmt.Fprintln(c.c.App.ErrWriter, err)
+		cli.OsExiter(1)
+		return nil
 	}
 
 	shellSvc, ok := shellRes.(shell.Service)
 	if !ok {
-		return errors.New("shell service is not a shell service")
+		fmt.Fprintln(c.c.App.ErrWriter, "shell service is not a shell service")
+		cli.OsExiter(1)
+		return nil
 	}
 
 	input, output, err := shellSvc.Shell(c.c.Context)
 	if err != nil {
-		return err
+		fmt.Fprintln(c.c.App.ErrWriter, err)
+		cli.OsExiter(1)
+		return nil
 	}
 
 	setRaw := func(isRaw bool) error {
@@ -715,8 +739,13 @@ func (c *AppClient) StartRobotPartShell(
 		return rawMode.Run()
 	}
 	if err := setRaw(true); err != nil {
-		return err
+		fmt.Fprintln(c.c.App.ErrWriter, err)
+		cli.OsExiter(1)
+		return nil
 	}
+	defer func() {
+		utils.UncheckedError(setRaw(false))
+	}()
 
 	utils.PanicCapturingGo(func() {
 		var data [64]byte
@@ -771,5 +800,5 @@ func (c *AppClient) StartRobotPartShell(
 	}
 
 	outputLoop()
-	return setRaw(false)
+	return nil
 }
