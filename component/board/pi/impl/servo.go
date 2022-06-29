@@ -103,6 +103,7 @@ func (s *piPigpioServo) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (s *piPigpioServo) IsMoving() bool {
-	return s.opMgr.OpRunning()
+func (s *piPigpioServo) IsMoving(ctx context.Context) (bool, error) {
+	// RSDK-434: Refine implementation
+	return s.opMgr.OpRunning(), nil
 }
