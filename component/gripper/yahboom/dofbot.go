@@ -75,8 +75,8 @@ func (g *dofGripper) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gripper is moving.
-func (g *dofGripper) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *dofGripper) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 func (g *dofGripper) ModelFrame() referenceframe.Model {
