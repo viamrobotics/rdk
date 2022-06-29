@@ -411,7 +411,7 @@ func (manager *resourceManager) newComponent(ctx context.Context, c config.Compo
 	}
 	rName := c.ResourceName()
 	manager.addResource(rName, r)
-	for _, dep := range c.ImplicitDependsOn {
+	for _, dep := range c.Dependencies() {
 		err := manager.newComponentDependency(dep, robot, rName)
 		if err != nil {
 			return err

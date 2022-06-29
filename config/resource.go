@@ -72,6 +72,22 @@ type Component struct {
 	ImplicitDependsOn   []string     `json:"-"`
 }
 
+// Dependencies returns the deduplicated union of user-defined and implicit dependencies.
+func (c *Component) Dependencies() []string {
+	result := make([]string, 0, len(c.DependsOn)+len(c.ImplicitDependsOn))
+	uniq := make(map[string]struct{})
+	for _, dep := range c.DependsOn {
+		uniq[dep] = struct{}{}
+	}
+	for _, dep := range c.ImplicitDependsOn {
+		uniq[dep] = struct{}{}
+	}
+	for dep := range uniq {
+		result = append(result, dep)
+	}
+	return result
+}
+
 // Ensure Component conforms to flag.Value.
 var _ = flag.Value(&Component{})
 
