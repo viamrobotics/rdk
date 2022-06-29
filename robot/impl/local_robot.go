@@ -341,10 +341,8 @@ func newWithResources(
 	r.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
-			select {
-			case <-closeCtx.Done():
+			if closeCtx.Err() != nil {
 				return
-			default:
 			}
 			select {
 			case <-closeCtx.Done():

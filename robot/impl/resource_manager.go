@@ -22,6 +22,12 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+const remoteTypeName = resource.TypeName("remote")
+
+var remoteSubtype = resource.NewSubtype(resource.ResourceNamespaceRDK,
+	remoteTypeName,
+	resource.SubtypeName(""))
+
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
 	resources      *resource.Graph
@@ -65,7 +71,7 @@ func newResourceManager(
 }
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
-	return resource.NewName(resource.ResourceNamespaceRDK, resource.TypeName("remote"), resource.SubtypeName(""), name)
+	return resource.NameFromSubtype(remoteSubtype, name)
 }
 
 // addRemote adds a remote to the manager.
@@ -76,9 +82,9 @@ func (manager *resourceManager) addRemote(ctx context.Context, r robot.Robot, c 
 }
 
 func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []resource.Name {
-	filtered := []resource.Name{}
+	var filtered []resource.Name
 	if _, ok := manager.resources.Nodes[remoteName]; !ok {
-		manager.logger.Errorf("trying to get remote resources of a non existinmg remote %q", remoteName)
+		manager.logger.Errorw("trying to get remote resources of a non existinmg remote", "remote", remoteName)
 	}
 	children := manager.resources.GetAllChildrenOf(remoteName)
 	for _, child := range children {
@@ -90,30 +96,25 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 }
 
 func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, remoteName resource.Name, r robot.Robot) {
-	visited := make(map[resource.Name]bool)
+	visited := map[resource.Name]bool{}
 	newResources := r.ResourceNames()
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		visited[res] = false
 	}
 	for _, res := range newResources {
-		// skip datamanager since we know it doesn't have a client
-		// TODO: remove after we add corresponding datamanager client
-		if res == datamanager.Name {
-			continue
-		}
 		rrName := res
 		res = res.PrependRemote(resource.RemoteName(remoteName.Name))
 		if _, ok := visited[res]; ok {
 			visited[res] = true
 			continue
 		}
-		// TODO(npmenard)
 		iface, err := r.ResourceByName(rrName)
 		if err != nil {
 			manager.logger.Errorw("couldn't obtain remote resource interface",
 				"name", rrName,
 				"reason", err)
+			continue
 		}
 		manager.addResource(res, iface)
 		err = manager.resources.AddChildren(res, remoteName)
@@ -123,10 +124,11 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 	}
 	for res, visit := range visited {
 		if !visit {
-			// TODO(npmenard) Add test case
+			// TODO(npmenard) Add test case when implementing RSDK-435
 			sg, err := manager.resources.SubGraphFrom(res)
 			if err != nil {
-				manager.logger.Errorf("tried to remove remote resource %q but it doesn't exist", res)
+				manager.logger.Errorw("failed to generate a subgraph from the resource", "resource", res, "reason", err)
+				continue
 			}
 			sorted := sg.TopologicalSort()
 			for _, child := range sorted {
@@ -144,7 +146,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 
 func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) {
 	for name, iface := range manager.resources.Nodes {
-		if name.ResourceType == resource.TypeName("remote") {
+		if name.ResourceType == remoteTypeName {
 			if r, ok := iface.(robot.Robot); ok {
 				manager.updateRemoteResourceNames(ctx, name, r)
 			}
@@ -161,7 +163,7 @@ func (manager *resourceManager) addResource(name resource.Name, r interface{}) {
 func (manager *resourceManager) RemoteNames() []string {
 	names := []string{}
 	for k := range manager.resources.Nodes {
-		if k.ResourceType == resource.TypeName("remote") {
+		if k.ResourceType == remoteTypeName {
 			names = append(names, k.Name)
 		}
 	}
@@ -172,7 +174,7 @@ func (manager *resourceManager) RemoteNames() []string {
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for k := range manager.resources.Nodes {
-		if k.ResourceType == resource.TypeName("remote") {
+		if k.ResourceType == remoteTypeName {
 			continue
 		}
 		names = append(names, k)
@@ -186,7 +188,7 @@ func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
 
 	types := map[resource.Subtype]*desc.ServiceDescriptor{}
 	for k := range manager.resources.Nodes {
-		if k.ResourceType == resource.TypeName("remote") {
+		if k.ResourceType == remoteTypeName {
 			rr, ok := manager.resources.Nodes[k].(robot.Robot)
 			if !ok {
 				manager.logger.Errorw("remote robot is not a robot interface",
@@ -286,7 +288,7 @@ func (manager *resourceManager) processConfig(
 ) {
 	manager.newProcesses(ctx, config.Processes)
 
-	manager.newRemotes(ctx, config.Remotes, robot.remotesChanged)
+	manager.newRemotes(ctx, config.Remotes, robot)
 
 	manager.newComponents(ctx, config.Components, robot)
 
@@ -394,10 +396,10 @@ func (manager *resourceManager) newProcess(ctx context.Context, procConf pexec.P
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (manager *resourceManager) newRemotes(ctx context.Context,
 	remotes []config.Remote,
-	notifyChannel chan<- resource.Name,
+	robot *localRobot,
 ) {
 	for _, config := range remotes {
-		err := manager.newRemote(ctx, config, notifyChannel)
+		err := manager.newRemote(ctx, config, robot)
 		if err != nil {
 			manager.logger.Errorw("couldn't connect to remote", "name", config.Name, "error", err)
 		}
@@ -407,7 +409,7 @@ func (manager *resourceManager) newRemotes(ctx context.Context,
 // newRemote construct a single remote and integerates its parts in.
 func (manager *resourceManager) newRemote(ctx context.Context,
 	config config.Remote,
-	notifyChannel chan<- resource.Name,
+	robot *localRobot,
 ) error {
 	dialOpts := remoteDialOptions(config, manager.opts)
 	robotClient, err := dialRobotClient(ctx, config, manager.logger, dialOpts...)
@@ -426,7 +428,14 @@ func (manager *resourceManager) newRemote(ctx context.Context,
 	manager.addRemote(ctx, robotClient, configCopy)
 	robotClient.SetParentNotifier(func() {
 		rName := fromRemoteNameToRemoteNodeName(configCopy.Name)
-		notifyChannel <- rName
+		if robot.closeContext.Err() != nil {
+			return
+		}
+		select {
+		case <-robot.closeContext.Done():
+			return
+		case robot.remotesChanged <- rName:
+		}
 	})
 	return nil
 }
@@ -499,7 +508,7 @@ func (manager *resourceManager) newService(ctx context.Context, cs config.Servic
 // RemoteByName returns the given remote robot by name, if it exists;
 // returns nil otherwise.
 func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
-	rName := resource.NewName(resource.ResourceNamespaceRDK, resource.TypeName("remote"), resource.SubtypeName(""), name)
+	rName := resource.NameFromSubtype(remoteSubtype, name)
 	if iface, ok := manager.resources.Nodes[rName]; ok {
 		part, ok := iface.(robot.Robot)
 		if !ok {
@@ -517,7 +526,7 @@ func (manager *resourceManager) UpdateConfig(ctx context.Context,
 	robot *draftRobot,
 ) (PartsMergeResult, error) {
 	var leftovers PartsMergeResult
-	manager.updateRemotes(ctx, added.Remotes, modified.Remotes, robot.original.remotesChanged)
+	manager.updateRemotes(ctx, added.Remotes, modified.Remotes, robot.original)
 
 	replacedProcesses, err := manager.updateProcesses(ctx, added.Processes, modified.Processes)
 	leftovers.ReplacedProcesses = replacedProcesses
@@ -556,11 +565,11 @@ func (manager *resourceManager) updateProcesses(ctx context.Context,
 func (manager *resourceManager) updateRemotes(ctx context.Context,
 	addedRemotes []config.Remote,
 	modifiedRemotes []config.Remote,
-	notifyChannel chan<- resource.Name,
+	robot *localRobot,
 ) {
-	manager.newRemotes(ctx, addedRemotes, notifyChannel)
+	manager.newRemotes(ctx, addedRemotes, robot)
 	for _, r := range modifiedRemotes {
-		manager.newRemotes(ctx, []config.Remote{r}, notifyChannel)
+		manager.newRemotes(ctx, []config.Remote{r}, robot)
 	}
 }
 
