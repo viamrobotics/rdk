@@ -109,8 +109,11 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.Status{PositionDeg: uint32(position), IsMoving: servo.IsMoving()}, nil
+	isMoving, err := servo.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Status{PositionDeg: uint32(position), IsMoving: isMoving}, nil
 }
 
 type reconfigurableServo struct {
@@ -149,10 +152,10 @@ func (r *reconfigurableServo) Stop(ctx context.Context) error {
 	return r.actual.Stop(ctx)
 }
 
-func (r *reconfigurableServo) IsMoving() bool {
+func (r *reconfigurableServo) IsMoving(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.IsMoving()
+	return r.actual.IsMoving(ctx)
 }
 
 func (r *reconfigurableServo) Close(ctx context.Context) error {
