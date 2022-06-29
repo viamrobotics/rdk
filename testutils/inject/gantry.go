@@ -18,7 +18,7 @@ type Gantry struct {
 	MoveToPositionFunc func(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error
 	GetLengthsFunc     func(ctx context.Context) ([]float64, error)
 	StopFunc           func(ctx context.Context) error
-	IsMovingFunc       func() bool
+	IsMovingFunc       func(context.Context) (bool, error)
 	CloseFunc          func(ctx context.Context) error
 	ModelFrameFunc     func() referenceframe.Model
 }
@@ -56,11 +56,11 @@ func (g *Gantry) Stop(ctx context.Context) error {
 }
 
 // IsMoving calls the injected IsMoving or the real version.
-func (g *Gantry) IsMoving() bool {
+func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	if g.IsMovingFunc == nil {
-		return g.LocalGantry.IsMoving()
+		return g.LocalGantry.IsMoving(ctx)
 	}
-	return g.IsMovingFunc()
+	return g.IsMovingFunc(ctx)
 }
 
 // ModelFrame returns a Gantry ModelFrame.

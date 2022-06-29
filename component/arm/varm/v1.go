@@ -329,8 +329,8 @@ func (a *armV1) Stop(ctx context.Context) error {
 	return arm.ErrStopUnimplemented
 }
 
-func (a *armV1) IsMoving() bool {
-	return a.opMgr.OpRunning()
+func (a *armV1) IsMoving(ctx context.Context) (bool, error) {
+	return a.opMgr.OpRunning(), nil
 }
 
 func (a *armV1) ModelFrame() referenceframe.Model {
