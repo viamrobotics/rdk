@@ -1,9 +1,16 @@
 # Force updates if images are older than this. Should be updated for breaking changes to images.
 # Obtain from the OLDEST of either amd64 or arm64 (usually amd64) with the following:
 # docker inspect -f '{{ .Created }}' ghcr.io/viamrobotics/canon:amd64
-DOCKER_MIN_DATE=2022-06-08T00:35:24.791434424Z
+DOCKER_MIN_DATE=2022-06-29T21:15:42.180282006Z
 
-DOCKER_CMD = docker run $(DOCKER_NETRC_RUN) -v$(HOME)/.ssh:/home/testbot/.ssh:ro -v$(shell pwd):/host --workdir /host --rm -ti $(DOCKER_PLATFORM) ghcr.io/viamrobotics/canon:$(DOCKER_TAG) --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
+DOCKER_CMD = docker run $(DOCKER_SSH_AGENT) $(DOCKER_NETRC_RUN) -v$(HOME)/.ssh:/home/testbot/.ssh:ro -v$(shell pwd):/host --workdir /host --rm -ti $(DOCKER_PLATFORM) ghcr.io/viamrobotics/canon:$(DOCKER_TAG) --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
+
+ifeq ("Darwin", "$(shell uname -s)")
+	# Docker has magic paths for OSX
+	DOCKER_SSH_AGENT = -v /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock -e SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock"
+else ifneq ("$(SSH_AUTH_SOCK)x", "x")
+	DOCKER_SSH_AGENT = -v "$(SSH_AUTH_SOCK):$(SSH_AUTH_SOCK)" -e SSH_AUTH_SOCK="$(SSH_AUTH_SOCK)"
+endif
 
 ifeq ("aarch64", "$(shell uname -m)")
 	DOCKER_NATIVE_PLATFORM = --platform linux/arm64
@@ -26,7 +33,7 @@ DOCKER_PLATFORM = $(DOCKER_NATIVE_PLATFORM)
 DOCKER_TAG = $(DOCKER_NATIVE_TAG)
 
 # If there's a netrc file, use it.
-ifeq ($(shell grep -qs github.com ~/.netrc && echo -n yes), yes)
+ifeq ($(shell grep -qs github.com ~/.netrc && `which echo` -n yes), yes)
 	DOCKER_NETRC_BUILD = --secret id=netrc,src=$(HOME)/.netrc
 	DOCKER_NETRC_RUN = -v$(HOME)/.netrc:/home/testbot/.netrc:ro
 endif
