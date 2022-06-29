@@ -368,7 +368,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 // it is not be constructed at this point.
 func (r *localRobot) getDependencies(config config.Component) (registry.Dependencies, error) {
 	deps := make(registry.Dependencies)
-	for _, dep := range config.ImplicitDependsOn {
+	for _, dep := range config.Dependencies() {
 		if c := r.config.FindComponent(dep); c != nil {
 			res, err := r.ResourceByName(c.ResourceName())
 			if err != nil {

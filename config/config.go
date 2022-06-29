@@ -29,8 +29,7 @@ func SortComponents(components []Component) ([]Component, error) {
 			return nil, errors.Errorf("component name %q is not unique", config.Name)
 		}
 		componentToConfig[config.Name] = config
-		// TODO: do we need to consider both implicit and user-defined dependencies?
-		dependencies[config.Name] = config.ImplicitDependsOn
+		dependencies[config.Name] = config.Dependencies()
 	}
 
 	// TODO(RSDK-427): this check just raises a warning if a dependency is missing. We
