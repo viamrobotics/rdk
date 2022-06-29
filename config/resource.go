@@ -73,13 +73,13 @@ type Component struct {
 }
 
 // Dependencies returns the deduplicated union of user-defined and implicit dependencies.
-func (c *Component) Dependencies() []string {
-	result := make([]string, 0, len(c.DependsOn)+len(c.ImplicitDependsOn))
+func (config *Component) Dependencies() []string {
+	result := make([]string, 0, len(config.DependsOn)+len(config.ImplicitDependsOn))
 	uniq := make(map[string]struct{})
-	for _, dep := range c.DependsOn {
+	for _, dep := range config.DependsOn {
 		uniq[dep] = struct{}{}
 	}
-	for _, dep := range c.ImplicitDependsOn {
+	for _, dep := range config.ImplicitDependsOn {
 		uniq[dep] = struct{}{}
 	}
 	for dep := range uniq {
