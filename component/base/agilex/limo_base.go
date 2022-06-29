@@ -176,7 +176,6 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 
 	base.stateMutex.Lock()
 	if !base.state.controlThreadStarted {
-		// nolint:contextcheck
 		base.startControlThread()
 		base.state.controlThreadStarted = true
 	}
