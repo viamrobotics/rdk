@@ -26,7 +26,7 @@ func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.
 	optsCopy[1] = rpc.WithAllowInsecureDowngrade()
 	copy(optsCopy[2:], opts)
 
-	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer timeoutCancel()
 
 	return rpc.Dial(ctx, address, logger, optsCopy...)

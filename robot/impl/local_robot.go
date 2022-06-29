@@ -6,11 +6,13 @@ package robotimpl
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -67,8 +69,10 @@ type localRobot struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
 
-	remotesChanged chan resource.Name
+	remotesChanged chan string
 	closeContext   context.Context
+	configChanged  chan struct{}
+	configTimer    *time.Ticker
 }
 
 // webService returns the localRobot's web service. Raises if the service has not been initialized.
@@ -148,6 +152,10 @@ func (r *localRobot) Close(ctx context.Context) error {
 		close(r.remotesChanged)
 		r.cancelBackgroundWorkers()
 		r.cancelBackgroundWorkers = nil
+		if r.configTimer != nil {
+			r.configTimer.Stop()
+		}
+		close(r.configChanged)
 	}
 	r.activeBackgroundWorkers.Wait()
 	return r.manager.Close(ctx)
@@ -187,13 +195,17 @@ func (r *localRobot) StopWeb() error {
 
 // remoteNameByResource returns the remote the resource is pulled from, if found.
 // False can mean either the resource doesn't exist or is local to the robot.
-func (r *localRobot) remoteNameByResource(resourceName resource.Name) (string, bool) {
-	return r.manager.remoteNameByResource(resourceName)
+func remoteNameByResource(resourceName resource.Name) (string, bool) {
+	if !resourceName.IsRemoteResource() {
+		return "", false
+	}
+	remote := strings.Split(string(resourceName.Remote.Remote), ":")
+	return remote[0], true
 }
 
 func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.mu.Lock()
-	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Nodes))
+	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Names()))
 	for _, name := range r.ResourceNames() {
 		resource, err := r.ResourceByName(name)
 		if err != nil {
@@ -221,7 +233,7 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 	// group each resource name by remote and also get its corresponding name on the remote
 	groupedResources := make(map[string]map[resource.Name]resource.Name)
 	for name := range deduped {
-		remoteName, ok := r.remoteNameByResource(name)
+		remoteName, ok := remoteNameByResource(name)
 		if !ok {
 			continue
 		}
@@ -309,10 +321,12 @@ func newWithResources(
 		),
 		operations:              operation.NewManager(),
 		logger:                  logger,
-		remotesChanged:          make(chan resource.Name),
+		remotesChanged:          make(chan string),
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		closeContext:            closeCtx,
 		cancelBackgroundWorkers: cancel,
+		configChanged:           make(chan struct{}),
+		configTimer:             nil,
 	}
 
 	var successful bool
@@ -323,7 +337,6 @@ func newWithResources(
 			}
 		}
 	}()
-	r.config = cfg
 	// default services
 	for _, name := range defaultSvc {
 		cfg := config.Service{
@@ -351,7 +364,31 @@ func newWithResources(
 				if !ok {
 					return
 				}
-				r.manager.updateRemoteResourceNames(ctx, n, r)
+				rr, ok := r.manager.RemoteByName(n)
+				rn := fromRemoteNameToRemoteNodeName(n)
+				if ok {
+					r.manager.updateRemoteResourceNames(ctx, rn, rr, r)
+					r.updateDefaultServices(ctx)
+				}
+			}
+		}
+	}, r.activeBackgroundWorkers.Done)
+
+	r.activeBackgroundWorkers.Add(1)
+	r.configTimer = time.NewTicker(25 * time.Second)
+	goutils.ManagedGo(func() {
+		for {
+			if closeCtx.Err() != nil {
+				return
+			}
+			select {
+			case <-closeCtx.Done():
+				return
+			case <-r.configChanged:
+			case <-r.configTimer.C:
+			}
+			if r.manager.anyResourcesNotConfigured() {
+				r.manager.completeConfig(closeCtx, r)
 				r.updateDefaultServices(ctx)
 			}
 		}
@@ -361,13 +398,15 @@ func newWithResources(
 	r.internalServices[webName] = web.New(ctx, r, logger)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 
-	r.manager.processConfig(ctx, cfg, r)
+	r.config = &config.Config{}
+
+	r.manager.processConfig(ctx, cfg)
+	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
 		r.manager.addResource(name, res)
 	}
 
-	r.updateDefaultServices(ctx)
 	successful = true
 	return r, nil
 }
@@ -387,18 +426,16 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
-// component configuration. We don't use the resource manager for this information since
+// component's name. We don't use the resource manager for this information since
 // it is not be constructed at this point.
-func (r *localRobot) getDependencies(config config.Component) (registry.Dependencies, error) {
+func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies, error) {
 	deps := make(registry.Dependencies)
-	for _, dep := range config.Dependencies() {
-		if c := r.config.FindComponent(dep); c != nil {
-			res, err := r.ResourceByName(c.ResourceName())
-			if err != nil {
-				return nil, &registry.DependencyNotReadyError{Name: dep}
-			}
-			deps[c.ResourceName()] = res
+	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
+		r, err := r.ResourceByName(dep)
+		if err != nil {
+			return nil, &registry.DependencyNotReadyError{Name: dep.Name}
 		}
+		deps[dep] = r
 	}
 
 	return deps, nil
@@ -411,7 +448,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 
-	deps, err := r.getDependencies(config)
+	deps, err := r.getDependencies(rName)
 	if err != nil {
 		return nil, err
 	}
@@ -441,6 +478,8 @@ type ConfigUpdateable interface {
 }
 
 func (r *localRobot) updateDefaultServices(ctx context.Context) {
+	// TODO(npemard) this function uses config should only provide relevant objects
+	// grab all resources
 	resources := map[resource.Name]interface{}{}
 	for _, n := range r.ResourceNames() {
 		// TODO(RSDK-333) if not found, could mean a name clash or a remote service
@@ -570,7 +609,6 @@ func dialRobotClient(ctx context.Context,
 	logger golog.Logger,
 	dialOpts ...rpc.DialOption,
 ) (*client.RobotClient, error) {
-	var outerError error
 	connectionCheckInterval := config.ConnectionCheckInterval
 	if connectionCheckInterval == 0 {
 		connectionCheckInterval = 10 * time.Second
@@ -579,20 +617,72 @@ func dialRobotClient(ctx context.Context,
 	if reconnectInterval == 0 {
 		reconnectInterval = 1 * time.Second
 	}
-	for attempt := 0; attempt < 3; attempt++ {
-		robotClient, err := client.New(
-			ctx,
-			config.Address,
-			logger,
-			client.WithDialOptions(dialOpts...),
-			client.WithCheckConnectedEvery(connectionCheckInterval),
-			client.WithReconnectEvery(reconnectInterval),
-		)
-		if err != nil {
-			outerError = err
-			continue
-		}
-		return robotClient, nil
+
+	robotClient, err := client.New(
+		ctx,
+		config.Address,
+		logger,
+		client.WithDialOptions(dialOpts...),
+		client.WithCheckConnectedEvery(connectionCheckInterval),
+		client.WithReconnectEvery(reconnectInterval),
+	)
+	if err != nil {
+		return nil, err
 	}
-	return nil, outerError
+	return robotClient, nil
+}
+
+// Reconfigure will safely reconfigure a robot based on the given config. It will make
+// a best effort to remove no longer in use parts, but if it fails to do so, they could
+// possibly leak resources.
+func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	var allErrs error
+	diff, err := config.DiffConfigs(r.config, newConfig)
+	if err != nil {
+		r.logger.Errorw("error diffing the configs", "error", err)
+		return
+	}
+	if diff.ResourcesEqual {
+		return
+	}
+
+	filtered, err := r.manager.FilterFromConfig(ctx, diff.Removed, r.logger)
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+	leftovers, err := r.manager.UpdateConfig(ctx, diff.Added, diff.Modified)
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+	err = r.manager.updateResourceGraph(diff, func(name string) (resource.Name, bool) {
+		for _, c := range r.config.Components {
+			if c.Name == name {
+				return c.ResourceName(), true
+			}
+		}
+		for _, c := range diff.Added.Components {
+			if c.Name == name {
+				return c.ResourceName(), true
+			}
+		}
+		// we don't know what this is :(
+		r.logger.Warnf("processing unknown  resource %q", name)
+		return resource.NameFromSubtype(unknownSubtype, name), true
+	})
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+	r.config = newConfig
+	allErrs = multierr.Combine(allErrs, filtered.Close(ctx))
+	for _, p := range leftovers.ReplacedProcesses {
+		allErrs = multierr.Combine(allErrs, p.Stop())
+	}
+	if allErrs != nil {
+		r.logger.Errorw("some errors were encountered while reconfiguring", "errors", allErrs)
+	}
+	r.manager.completeConfig(ctx, r)
+	r.updateDefaultServices(ctx)
+	if allErrs != nil {
+		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
+	}
 }

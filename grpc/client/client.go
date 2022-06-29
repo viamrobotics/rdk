@@ -232,6 +232,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 					rc.changeChan <- true
 				}
 				if rc.notifyParent != nil {
+					rc.Logger().Debugf("connection was lost for remote %q", rc.address)
 					rc.notifyParent()
 				}
 				rc.mu.Unlock()

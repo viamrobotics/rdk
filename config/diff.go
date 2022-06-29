@@ -314,6 +314,7 @@ func diffTLS(leftTLS, rightTLS *tls.Config) bool {
 	case leftTLS == nil && rightTLS == nil:
 		return false
 	case leftTLS == nil && rightTLS != nil:
+		fallthrough
 	case leftTLS != nil && rightTLS == nil:
 		return true
 	}
