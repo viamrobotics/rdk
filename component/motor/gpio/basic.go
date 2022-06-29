@@ -88,7 +88,7 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 	return m, nil
 }
 
-var _ = motor.Motor(&Motor{})
+var _ = motor.LocalMotor(&Motor{})
 
 // A Motor is a GPIO based Motor that resides on a GPIO Board.
 type Motor struct {
@@ -282,6 +282,11 @@ func (m *Motor) Stop(ctx context.Context) error {
 	return m.setPWM(ctx, 0)
 }
 
+// IsMoving returns if the motor is currently on or off.
+func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
+	return m.on, nil
+}
+
 // GoTo is not supported.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	return errors.New("not supported")
@@ -290,4 +295,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
+}
+
+// GoTillStop is not supported.
+func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	return motor.NewGoTillStopUnsupportedError("(name unavailable)")
 }

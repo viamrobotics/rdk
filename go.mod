@@ -60,7 +60,7 @@ require (
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
-	github.com/urfave/cli/v2 v2.6.0
+	github.com/urfave/cli/v2 v2.10.2
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.28.5
@@ -304,6 +304,7 @@ require (
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.0.2 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
+	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	github.com/yagipy/maintidx v1.0.0 // indirect
 	github.com/yeya24/promlinter v0.2.0 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
