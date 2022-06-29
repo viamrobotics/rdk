@@ -77,6 +77,7 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	logger := golog.NewTestLogger(t)
 	testCfg, err := config.Read(context.Background(), rutils.ResolveFile(relativePath), logger)
 	test.That(t, err, test.ShouldBeNil)
+	testCfg.Cloud = &config.Cloud{ID: "part_id"}
 	return testCfg
 }
 
