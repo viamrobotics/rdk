@@ -18,7 +18,8 @@ import (
 func TestComponentValidate(t *testing.T) {
 	t.Run("config invalid", func(t *testing.T) {
 		var emptyConfig config.Component
-		_, err := emptyConfig.Validate("path")
+		deps, err := emptyConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	})
@@ -29,7 +30,8 @@ func TestComponentValidate(t *testing.T) {
 			Name:      "foo",
 			Type:      "arm",
 		}
-		_, err := validConfig.Validate("path")
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -40,7 +42,8 @@ func TestComponentValidate(t *testing.T) {
 				Name:                "foo",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
-			_, err := invalidConfig.Validate("path")
+			deps, err := invalidConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
 		})
@@ -53,7 +56,8 @@ func TestComponentValidate(t *testing.T) {
 					Thing: "i am a thing!",
 				},
 			}
-			_, err := invalidConfig.Validate("path")
+			deps, err := invalidConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 		})
 	})
@@ -63,7 +67,8 @@ func TestComponentValidate(t *testing.T) {
 			Name: "foo",
 			Type: "arm",
 		}
-		_, err := validConfig.Validate("path")
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConfig.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
 	})
@@ -74,7 +79,8 @@ func TestComponentValidate(t *testing.T) {
 			Name:      "foo",
 			Type:      "arm",
 		}
-		_, err := validConfig.Validate("path")
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConfig.Namespace, test.ShouldEqual, "acme")
 	})
