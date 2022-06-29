@@ -147,26 +147,38 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	return &pb.Status{PositionsMm: positions, LengthsMm: lengths, IsMoving: isMoving}, nil
 }
 
-// WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
+// WrapWithReconfigurable wraps a gantry or localGantry with a reconfigurable
+// and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	g, ok := r.(LocalGantry)
+	g, ok := r.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", r)
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", r)
 	}
-	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
+	if reconfigurable, ok := g.(*reconfigurableLocalGantry); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableGantry{actual: g}, nil
+
+	rGantry := &reconfigurableGantry{actual: g}
+	gLocal, ok := r.(LocalGantry)
+	if !ok {
+		return rGantry, nil
+	}
+	if reconfigurable, ok := gLocal.(*reconfigurableLocalGantry); ok {
+		return reconfigurable, nil
+	}
+	return &reconfigurableLocalGantry{actual: gLocal, reconfigurableGantry: rGantry}, nil
 }
 
 var (
-	_ = LocalGantry(&reconfigurableGantry{})
+	_ = Gantry(&reconfigurableGantry{})
+	_ = LocalGantry(&reconfigurableLocalGantry{})
 	_ = resource.Reconfigurable(&reconfigurableGantry{})
+	_ = resource.Reconfigurable(&reconfigurableLocalGantry{})
 )
 
 type reconfigurableGantry struct {
 	mu     sync.RWMutex
-	actual LocalGantry
+	actual Gantry
 }
 
 func (g *reconfigurableGantry) ProxyFor() interface{} {
@@ -212,12 +224,6 @@ func (g *reconfigurableGantry) Stop(ctx context.Context) error {
 	return g.actual.Stop(ctx)
 }
 
-func (g *reconfigurableGantry) IsMoving(ctx context.Context) (bool, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.actual.IsMoving(ctx)
-}
-
 func (g *reconfigurableGantry) Close(ctx context.Context) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -228,6 +234,10 @@ func (g *reconfigurableGantry) Close(ctx context.Context) error {
 func (g *reconfigurableGantry) Reconfigure(ctx context.Context, newGantry resource.Reconfigurable) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return g.reconfigure(ctx, newGantry)
+}
+
+func (g *reconfigurableGantry) reconfigure(ctx context.Context, newGantry resource.Reconfigurable) error {
 	actual, ok := newGantry.(*reconfigurableGantry)
 	if !ok {
 		return utils.NewUnexpectedTypeError(g, newGantry)
@@ -255,4 +265,30 @@ func (g *reconfigurableGantry) GoToInputs(ctx context.Context, goal []referencef
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.GoToInputs(ctx, goal)
+}
+
+type reconfigurableLocalGantry struct {
+	*reconfigurableGantry
+	actual LocalGantry
+}
+
+func (g *reconfigurableLocalGantry) IsMoving(ctx context.Context) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.IsMoving(ctx)
+}
+
+func (g *reconfigurableLocalGantry) Reconfigure(ctx context.Context, newGantry resource.Reconfigurable) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	gantry, ok := newGantry.(*reconfigurableLocalGantry)
+	if !ok {
+		return utils.NewUnexpectedTypeError(g, newGantry)
+	}
+	if err := viamutils.TryClose(ctx, g.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	g.actual = gantry.actual
+	return g.reconfigurableGantry.reconfigure(ctx, gantry.reconfigurableGantry)
 }
