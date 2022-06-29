@@ -39,9 +39,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// update default services
-	if err := r.updateDefaultServices(ctx); err != nil {
-		return err
-	}
+	r.updateDefaultServices(ctx)
+
 	r.manager.updateResourceRemoteNames()
 	return nil
 }
@@ -130,13 +129,41 @@ func (draft *draftRobot) newService(ctx context.Context, config config.Service) 
 	return draft.original.newService(ctx, config)
 }
 
+// getDependencies derives a collection of dependencies from the resource manager of a
+// draft robot for a given component configuration.
+func (draft *draftRobot) getDependencies(config config.Component) (registry.Dependencies, error) {
+	deps := make(registry.Dependencies)
+	for _, dep := range draft.manager.resources.GetAllParentsOf(config.ResourceName()) {
+		res, err := draft.manager.ResourceByName(dep)
+		if err != nil {
+			return nil, &registry.DependencyNotReadyError{Name: dep.Name}
+		}
+		deps[dep] = res
+	}
+
+	return deps, nil
+}
+
 func (draft *draftRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %q and/or model: %q", rName.Subtype, config.Model)
 	}
-	newResource, err := f.Constructor(ctx, draft, config, draft.original.logger)
+
+	deps, err := draft.getDependencies(config)
+	if err != nil {
+		return nil, err
+	}
+
+	var newResource interface{}
+	if f.Constructor != nil {
+		newResource, err = f.Constructor(ctx, deps, config, draft.original.logger)
+	} else {
+		draft.original.logger.Warnw("using legacy constructor", "subtype", rName.Subtype, "model", config.Model)
+		newResource, err = f.RobotConstructor(ctx, draft, config, draft.original.logger)
+	}
+
 	if err != nil {
 		return nil, err
 	}

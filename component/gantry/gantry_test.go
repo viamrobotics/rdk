@@ -28,6 +28,15 @@ const (
 	missingGantryName = "gantry5"
 )
 
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[gantry.Named(testGantryName)] = &mock{Name: testGantryName}
+	deps[gantry.Named(fakeGantryName)] = "not a gantry"
+	return deps
+}
+
 func setupInjectRobot() *inject.Robot {
 	gantry1 := &mock{Name: testGantryName}
 	r := &inject.Robot{}
@@ -58,6 +67,26 @@ func TestGenericDo(t *testing.T) {
 	ret, err := g.Do(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := gantry.FromDependencies(deps, testGantryName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	lengths1, err := res.GetLengths(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, lengths1, test.ShouldResemble, lengths)
+
+	res, err = gantry.FromDependencies(deps, fakeGantryName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeGantryName, "Gantry", "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = gantry.FromDependencies(deps, missingGantryName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingGantryName))
+	test.That(t, res, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {

@@ -1,44 +1,47 @@
 <template>
   <div class="flex flex-col">
-    <span class="text-xs">{{ label }}</span>
-    <div class="flex h-8">
-      <input
-        ref="input"
-        class="viam-number-input border-black outline-none h-full w-8"
-        type="tel"
-        :id="inputId"
-        :value="innerValue"
-        :placeholder="placeholder"
-        :readonly="!canBeEditted"
-        @keydown="handleKeyboardArrowKeys"
-        @input="inputEventHandler"
-        @paste="pasteEventHandler"
-        :class="{
-          'border-r': readonly,
-          'text-center': readonly,
-          'text-xs': small,
-          'bg-gray-200 text-gray-400 border-gray-400': disabled,
-        }"
-      />
-      <div
-        v-show="!readonly"
-        :class="{
-          'bg-gray-200 text-gray-400 border-gray-400': disabled,
-        }"
-        class="flex justify-between flex-col h-full items-stretch border border-black"
-      >
-        <ViamIcon
-          @click.native="arrowClicked(increase)"
-          class="arrow-icon cursor-pointer"
-          :color="iconColor"
-          :path="mdiChevronUp"
-        ></ViamIcon>
-        <ViamIcon
-          @click.native="arrowClicked(decrease)"
-          class="arrow-icon cursor-pointer"
-          :color="iconColor"
-          :path="mdiChevronDown"
-        ></ViamIcon>
+    <p class="text-xs">{{ label }}</p>
+    <div>
+      <div class="flex">
+        <input
+          ref="input"
+          class="border border-black border-r-0 w-32 pl-2"
+          type="tel"
+          :id="inputId"
+          :value="innerValue"
+          :placeholder="placeholder"
+          :readonly="!canBeEditted"
+          @keydown="handleKeyboardArrowKeys"
+          @input="inputEventHandler"
+          @paste="pasteEventHandler"
+          :class="{
+            'border-r': readonly,
+            'text-center': readonly,
+            'text-xs': small,
+            'bg-gray-200 text-gray-400 border-gray-400': disabled,
+          }"
+          style="height: 38px"
+        />
+        <div
+          v-show="!readonly"
+          :class="{
+            'bg-gray-200 text-gray-400 border-gray-400': disabled,
+          }"
+          class="flex justify-between flex-col items-stretch border border-black"
+        >
+          <ViamIcon
+            @click.native="arrowClicked(increase)"
+            class="arrow-icon cursor-pointer"
+            :color="iconColor"
+            :path="mdiChevronUp"
+          ></ViamIcon>
+          <ViamIcon
+            @click.native="arrowClicked(decrease)"
+            class="arrow-icon cursor-pointer"
+            :color="iconColor"
+            :path="mdiChevronDown"
+          ></ViamIcon>
+        </div>
       </div>
     </div>
   </div>
@@ -166,12 +169,3 @@ export default class NumberInput extends Vue {
   }
 }
 </script>
-
-<style scoped>
-.viam-number-input {
-  padding: 6px 4px;
-  border-left-width: 1px;
-  border-top-width: 1px;
-  border-bottom-width: 1px;
-}
-</style>

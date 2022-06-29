@@ -6,6 +6,8 @@ package tools
 
 import (
 	// for importing tools.
+	_ "github.com/AlekSi/gocov-xml"
+	_ "github.com/axw/gocov/gocov"
 	_ "github.com/bufbuild/buf/cmd/buf"
 	_ "github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking"
 	_ "github.com/bufbuild/buf/cmd/protoc-gen-buf-lint"

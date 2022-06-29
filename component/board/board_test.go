@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -22,6 +23,15 @@ const (
 	fakeBoardName    = "board3"
 	missingBoardName = "board4"
 )
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[board.Named(testBoardName)] = newBoard(testBoardName)
+	deps[board.Named(fakeBoardName)] = "not a board"
+	return deps
+}
 
 func setupInjectRobot() *inject.Robot {
 	board1 := newBoard(testBoardName)
@@ -53,6 +63,28 @@ func TestGenericDo(t *testing.T) {
 	ret, err := b.Do(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := board.FromDependencies(deps, testBoardName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	p, err := res.(board.LocalBoard).GPIOPinByName("1")
+	test.That(t, err, test.ShouldBeNil)
+	result, err := p.Get(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, mockGPIO)
+
+	res, err = board.FromDependencies(deps, fakeBoardName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeBoardName, "Board", "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = board.FromDependencies(deps, missingBoardName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingBoardName))
+	test.That(t, res, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {

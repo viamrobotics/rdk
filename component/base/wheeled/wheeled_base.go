@@ -19,25 +19,24 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
 	fourWheelComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
+			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateFourWheelBase(ctx, r, config, logger)
+			return CreateFourWheelBase(ctx, deps, config, logger)
 		},
 	}
 	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
 
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
+			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateWheeledBase(ctx, r, config.ConvertedAttributes.(*Config), logger)
+			return CreateWheeledBase(ctx, deps, config.ConvertedAttributes.(*Config), logger)
 		},
 	}
 
@@ -262,20 +261,25 @@ func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 }
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
-func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
-	frontLeft, err := motor.FromRobot(r, config.Attributes.String("front_left"))
+func CreateFourWheelBase(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (base.LocalBase, error) {
+	frontLeft, err := motor.FromDependencies(deps, config.Attributes.String("front_left"))
 	if err != nil {
 		return nil, errors.Wrap(err, "front_left motor not found")
 	}
-	frontRight, err := motor.FromRobot(r, config.Attributes.String("front_right"))
+	frontRight, err := motor.FromDependencies(deps, config.Attributes.String("front_right"))
 	if err != nil {
 		return nil, errors.Wrap(err, "front_right motor not found")
 	}
-	backLeft, err := motor.FromRobot(r, config.Attributes.String("back_left"))
+	backLeft, err := motor.FromDependencies(deps, config.Attributes.String("back_left"))
 	if err != nil {
 		return nil, errors.Wrap(err, "back_left motor not found")
 	}
-	backRight, err := motor.FromRobot(r, config.Attributes.String("back_right"))
+	backRight, err := motor.FromDependencies(deps, config.Attributes.String("back_right"))
 	if err != nil {
 		return nil, errors.Wrap(err, "back_right motor not found")
 	}
@@ -312,7 +316,7 @@ type Config struct {
 }
 
 // CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(ctx context.Context, r robot.Robot, config *Config, logger golog.Logger) (base.LocalBase, error) {
+func CreateWheeledBase(ctx context.Context, deps registry.Dependencies, config *Config, logger golog.Logger) (base.LocalBase, error) {
 	base := &wheeledBase{
 		widthMm:              config.WidthMM,
 		wheelCircumferenceMm: config.WheelCircumferenceMM,
@@ -332,7 +336,7 @@ func CreateWheeledBase(ctx context.Context, r robot.Robot, config *Config, logge
 	}
 
 	for _, name := range config.Left {
-		m, err := motor.FromRobot(r, name)
+		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
 		}
@@ -340,7 +344,7 @@ func CreateWheeledBase(ctx context.Context, r robot.Robot, config *Config, logge
 	}
 
 	for _, name := range config.Right {
-		m, err := motor.FromRobot(r, name)
+		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
 		}

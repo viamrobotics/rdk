@@ -29,7 +29,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -42,7 +41,7 @@ func init() {
 		picommon.ModelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			_ registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {

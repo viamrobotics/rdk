@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -26,7 +25,7 @@ func init() {
 		"identity",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -35,7 +34,7 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, err := camera.FromRobot(r, sourceName)
+			source, err := camera.FromDependencies(deps, sourceName)
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for identity (%s): %w", sourceName, err)
 			}
@@ -54,7 +53,7 @@ func init() {
 		"rotate",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -63,7 +62,7 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, err := camera.FromRobot(r, sourceName)
+			source, err := camera.FromDependencies(deps, sourceName)
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for rotate (%s): %w", sourceName, err)
 			}
@@ -83,7 +82,7 @@ func init() {
 		"resize",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -92,7 +91,7 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, err := camera.FromRobot(r, sourceName)
+			source, err := camera.FromDependencies(deps, sourceName)
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for resize (%s): %w", sourceName, err)
 			}
