@@ -101,7 +101,12 @@ func (config *Component) String() string {
 
 // ResourceName returns the  ResourceName for the component.
 func (config *Component) ResourceName() resource.Name {
+	remotes := strings.Split(config.Name, ":")
 	cType := string(config.Type)
+	if len(remotes) > 1 {
+		rName := resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), remotes[len(remotes)-1])
+		return rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+	}
 	return resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
@@ -230,13 +235,16 @@ func (config *Service) String() string {
 
 // ResourceName returns the  ResourceName for the component.
 func (config *Service) ResourceName() resource.Name {
+	remotes := strings.Split(config.Name, ":")
 	cType := string(config.Type)
-	return resource.NewName(
-		config.Namespace,
+	rName := resource.NewName(config.Namespace,
 		resource.ResourceTypeService,
 		resource.SubtypeName(cType),
-		cType,
-	)
+		cType)
+	if len(remotes) > 1 {
+		return rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+	}
+	return rName
 }
 
 // ResourceName returns the  ResourceName for the component within a service_config.

@@ -15,7 +15,7 @@ type transitiveClosureMatrix map[Name]map[Name]int
 // Graph The Graph maintains a collection of resources and their dependencies between each other.
 type Graph struct {
 	mu                      sync.Mutex
-	Nodes                   resourceNode // list of nodes
+	nodes                   resourceNode // list of nodes
 	children                resourceDependencies
 	parents                 resourceDependencies
 	transitiveClosureMatrix transitiveClosureMatrix
@@ -26,13 +26,13 @@ func NewGraph() *Graph {
 	return &Graph{
 		children:                resourceDependencies{},
 		parents:                 resourceDependencies{},
-		Nodes:                   resourceNode{},
+		nodes:                   resourceNode{},
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 	}
 }
 
 func (g *Graph) getAllChildrenOf(node Name) resourceNode {
-	if _, ok := g.Nodes[node]; !ok {
+	if _, ok := g.nodes[node]; !ok {
 		return nil
 	}
 	out := resourceNode{}
@@ -45,7 +45,7 @@ func (g *Graph) getAllChildrenOf(node Name) resourceNode {
 }
 
 func (g *Graph) getAllParentOf(node Name) resourceNode {
-	if _, ok := g.Nodes[node]; !ok {
+	if _, ok := g.nodes[node]; !ok {
 		return nil
 	}
 	out := resourceNode{}
@@ -57,7 +57,7 @@ func (g *Graph) getAllParentOf(node Name) resourceNode {
 	return out
 }
 
-func copyNodes(s resourceNode) resourceNode {
+func copynodes(s resourceNode) resourceNode {
 	out := make(resourceNode, len(s))
 	for k, v := range s {
 		out[k] = v
@@ -68,7 +68,7 @@ func copyNodes(s resourceNode) resourceNode {
 func copyNodeMap(m resourceDependencies) resourceDependencies {
 	out := make(resourceDependencies, len(m))
 	for k, v := range m {
-		out[k] = copyNodes(v)
+		out[k] = copynodes(v)
 	}
 	return out
 }
@@ -95,7 +95,7 @@ func removeNodeFromNodeMap(dm resourceDependencies, key, node Name) {
 func (g *Graph) leaves() []Name {
 	leaves := make([]Name, 0)
 
-	for node := range g.Nodes {
+	for node := range g.nodes {
 		if _, ok := g.children[node]; !ok {
 			leaves = append(leaves, node)
 		}
@@ -108,9 +108,13 @@ func (g *Graph) leaves() []Name {
 func (g *Graph) Clone() *Graph {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return g.clone()
+}
+
+func (g *Graph) clone() *Graph {
 	return &Graph{
 		children:                copyNodeMap(g.children),
-		Nodes:                   copyNodes(g.Nodes),
+		nodes:                   copynodes(g.nodes),
 		parents:                 copyNodeMap(g.parents),
 		transitiveClosureMatrix: copyTransitiveClosureMatrix(g.transitiveClosureMatrix),
 	}
@@ -127,9 +131,11 @@ func addResToSet(rd resourceDependencies, key, node Name) {
 }
 
 func removeResFromSet(rd resourceDependencies, key, node Name) {
-	// check if a resourceNode exists for a key, otherwise create one
 	if nodes, ok := rd[key]; ok {
 		delete(nodes, node)
+		if len(nodes) == 0 {
+			delete(rd, key)
+		}
 	}
 }
 
@@ -145,6 +151,27 @@ func (g *Graph) AddNode(node Name, iface interface{}) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.addNode(node, iface)
+}
+
+// Node returns the node named name.
+func (g *Graph) Node(node Name) (interface{}, bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	iface, ok := g.nodes[node]
+	return iface, ok
+}
+
+// Names returns the all reosurce graph names.
+func (g *Graph) Names() []Name {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	names := make([]Name, len(g.nodes))
+	i := 0
+	for k := range g.nodes {
+		names[i] = k
+		i++
+	}
+	return names
 }
 
 // GetAllChildrenOf returns all direct childrend of a node.
@@ -172,12 +199,12 @@ func (g *Graph) GetAllParentsOf(node Name) []Name {
 }
 
 func (g *Graph) addNode(node Name, iface interface{}) {
-	g.Nodes[node] = iface
+	g.nodes[node] = iface
 
 	if _, ok := g.transitiveClosureMatrix[node]; !ok {
 		g.transitiveClosureMatrix[node] = map[Name]int{}
 	}
-	for n := range g.Nodes {
+	for n := range g.nodes {
 		for v := range g.transitiveClosureMatrix {
 			if _, ok := g.transitiveClosureMatrix[n][v]; !ok {
 				g.transitiveClosureMatrix[n][v] = 0
@@ -185,6 +212,40 @@ func (g *Graph) addNode(node Name, iface interface{}) {
 		}
 	}
 	g.transitiveClosureMatrix[node][node] = 1
+}
+
+// RenameNode rename a node from old to new keeping dependencies alive.
+func (g *Graph) RenameNode(old, _new Name) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.renameNode(old, _new)
+}
+
+func (g *Graph) renameNode(old, _new Name) error {
+	if _, ok := g.nodes[old]; !ok {
+		return errors.Errorf("old node %q doesn't exists", old)
+	}
+	if _, ok := g.nodes[_new]; ok {
+		return errors.Errorf("new node %q already exists", _new)
+	}
+	oldParents := g.getAllParentOf(old)
+	oldChildren := g.getAllChildrenOf(old)
+
+	g.addNode(_new, g.nodes[old])
+	for p := range oldParents {
+		g.removeChildren(old, p)
+		if err := g.addChildren(_new, p); err != nil {
+			return err
+		}
+	}
+	for c := range oldChildren {
+		g.removeChildren(c, old)
+		if err := g.addChildren(c, _new); err != nil {
+			return err
+		}
+	}
+	g.remove(old)
+	return nil
 }
 
 // AddChildren add a dependency to a parent, create the parent if it doesn't exists yet.
@@ -195,10 +256,10 @@ func (g *Graph) AddChildren(child, parent Name) error {
 }
 
 // RemoveChildren unlink a child from its parent.
-func (g *Graph) RemoveChildren(child, parent Name) error {
+func (g *Graph) RemoveChildren(child, parent Name) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.removeChildren(child, parent)
+	g.removeChildren(child, parent)
 }
 
 func (g *Graph) addChildren(child, parent Name) error {
@@ -206,10 +267,13 @@ func (g *Graph) addChildren(child, parent Name) error {
 		return errors.Errorf("%q cannot depend on itself", child.Name)
 	}
 	// Maybe we haven't encountered yet the parent so let's add it here and assign a nil interface
-	if _, ok := g.Nodes[parent]; !ok {
+	if _, ok := g.nodes[parent]; !ok {
 		g.addNode(parent, nil)
 	} else if g.transitiveClosureMatrix[parent][child] != 0 {
 		return errors.Errorf("circular dependency - %q already depends on %q", parent.Name, child.Name)
+	}
+	if _, ok := g.parents[child][parent]; ok {
+		return nil
 	}
 	// Link nodes
 	addResToSet(g.children, parent, child)
@@ -218,12 +282,11 @@ func (g *Graph) addChildren(child, parent Name) error {
 	return nil
 }
 
-func (g *Graph) removeChildren(child, parent Name) error {
+func (g *Graph) removeChildren(child, parent Name) {
 	// Link nodes
 	removeResFromSet(g.children, parent, child)
 	removeResFromSet(g.parents, child, parent)
 	g.removeTransitiveClosure(child, parent)
-	return nil
 }
 
 func (g *Graph) addTransitiveClosure(child Name, parent Name) {
@@ -262,7 +325,7 @@ func (g *Graph) remove(node Name) {
 	delete(g.transitiveClosureMatrix, node)
 	delete(g.parents, node)
 	delete(g.children, node)
-	delete(g.Nodes, node)
+	delete(g.nodes, node)
 }
 
 // Remove remove a given node and all it's dependencies.
@@ -279,7 +342,7 @@ func (g *Graph) MergeRemove(toRemove *Graph) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	for k := range toRemove.Nodes {
+	for k := range toRemove.nodes {
 		g.remove(k)
 	}
 }
@@ -292,10 +355,10 @@ func (g *Graph) MergeAdd(toAdd *Graph) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	for _, node := range sorted {
-		if i, ok := g.Nodes[node]; ok && i != nil {
+		if i, ok := g.nodes[node]; ok && i != nil {
 			g.remove(node)
 		}
-		g.addNode(node, toAdd.Nodes[node])
+		g.addNode(node, toAdd.nodes[node])
 		parents := toAdd.getAllChildrenOf(node)
 		for parent := range parents {
 			if err := g.addChildren(parent, node); err != nil {
@@ -312,7 +375,7 @@ func (g *Graph) ReplaceNodesParents(node Name, other *Graph) error {
 	defer other.mu.Unlock()
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if _, ok := g.Nodes[node]; !ok {
+	if _, ok := g.nodes[node]; !ok {
 		return errors.Errorf("cannot copy parents to non existing node %q", node.Name)
 	}
 	for k := range g.parents[node] {
@@ -338,11 +401,11 @@ func (g *Graph) CopyNodeAndChildren(node Name, origin *Graph) error {
 	defer origin.mu.Unlock()
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if r, ok := origin.Nodes[node]; ok {
+	if r, ok := origin.nodes[node]; ok {
 		g.addNode(node, r)
 		children := origin.getAllChildrenOf(node)
 		for child := range children {
-			if _, ok := g.Nodes[child]; !ok {
+			if _, ok := g.nodes[child]; !ok {
 				g.addNode(child, nil)
 			}
 			if err := g.addChildren(child, node); err != nil {
@@ -381,8 +444,8 @@ func (g *Graph) ReverseTopologicalSort() []Name {
 
 // FindNodeByName returns a full resource name based on name, note if name is a duplicate the first one found will be returned.
 func (g *Graph) FindNodeByName(name string) (*Name, bool) {
-	for nodeName := range g.Nodes {
-		if nodeName.Name == name {
+	for nodeName := range g.nodes {
+		if nodeName.Name == name && !nodeName.IsRemoteResource() {
 			return &nodeName, true
 		}
 	}
@@ -390,10 +453,10 @@ func (g *Graph) FindNodeByName(name string) (*Name, bool) {
 }
 
 func (g *Graph) isNodeDependingOn(node, child Name) bool {
-	if _, ok := g.Nodes[node]; !ok {
+	if _, ok := g.nodes[node]; !ok {
 		return false
 	}
-	if _, ok := g.Nodes[child]; !ok {
+	if _, ok := g.nodes[child]; !ok {
 		return false
 	}
 	return g.transitiveClosureMatrix[child][node] != 0
@@ -401,10 +464,12 @@ func (g *Graph) isNodeDependingOn(node, child Name) bool {
 
 // SubGraphFrom returns a Sub-Graph containing all linked dependencies starting with node Name.
 func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
-	if _, ok := g.Nodes[node]; !ok {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if _, ok := g.nodes[node]; !ok {
 		return nil, errors.Errorf("cannot create sub-graph from non existing node %q ", node.Name)
 	}
-	subGraph := g.Clone()
+	subGraph := g.clone()
 	sorted := subGraph.ReverseTopologicalSort()
 	for _, n := range sorted {
 		if !subGraph.isNodeDependingOn(node, n) {

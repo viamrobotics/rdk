@@ -45,12 +45,20 @@
       }
     },
     {
+      "model": "fake",
+      "name" : "armFake",
+      "type" : "arm",
+      "depends_on" : ["mock5", "mock6"]
+    },
+    {
       "model": "${TEST_MODEL_NAME_1-fake}",
       "name": "mock1",
       "type": "mock",
       "attributes":
       {
-      }
+        "blah":10
+      },
+      "depends_on" : ["mock4"]
     },
     {
       "model": "${TEST_MODEL_NAME_1-fake}",
@@ -58,6 +66,7 @@
       "type": "mock",
       "attributes":
       {
+        "blah":10
       }
     },
     {
@@ -84,10 +93,20 @@
       "model": "${TEST_MODEL_NAME_1-fake}",
       "name": "mock5",
       "type": "mock",
-      "depends_on" : ["mock2"],
+      "depends_on" : ["mock1"],
       "attributes":
       {
         "blo":10
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_2-fake2}",
+      "name": "mock6",
+      "type": "mock",
+      "depends_on" :[],
+      "attributes":
+      {
+        "one": 6
       }
     }
   ],
