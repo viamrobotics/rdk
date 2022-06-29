@@ -14,15 +14,15 @@ endif
 
 ifeq ("aarch64", "$(shell uname -m)")
 	DOCKER_NATIVE_PLATFORM = --platform linux/arm64
-	DOCKER_NATIVE_TAG = arm64_test
+	DOCKER_NATIVE_TAG = arm64
 	DOCKER_NATIVE_TAG_CACHE = arm64-cache
 else ifeq ("arm64", "$(shell uname -m)")
 	DOCKER_NATIVE_PLATFORM = --platform linux/arm64
-	DOCKER_NATIVE_TAG = arm64_test
+	DOCKER_NATIVE_TAG = arm64
 	DOCKER_NATIVE_TAG_CACHE = arm64-cache
 else ifeq ("x86_64", "$(shell uname -m)")
 	DOCKER_NATIVE_PLATFORM = --platform linux/amd64
-	DOCKER_NATIVE_TAG = amd64_test
+	DOCKER_NATIVE_TAG = amd64
 	DOCKER_NATIVE_TAG_CACHE = amd64-cache
 else
 	DOCKER_NATIVE_TAG = latest
@@ -59,12 +59,12 @@ canon-shell: canon-update
 	$(DOCKER_CMD) bash
 
 canon-shell-amd64: DOCKER_PLATFORM = --platform linux/amd64
-canon-shell-amd64: DOCKER_TAG = amd64_test
+canon-shell-amd64: DOCKER_TAG = amd64
 canon-shell-amd64: canon-update
 	$(DOCKER_CMD) bash
 
 canon-shell-arm64: DOCKER_PLATFORM = --platform linux/arm64
-canon-shell-arm64: DOCKER_TAG = arm64_test
+canon-shell-arm64: DOCKER_TAG = arm64
 canon-shell-arm64: canon-update
 	$(DOCKER_CMD) bash
 
