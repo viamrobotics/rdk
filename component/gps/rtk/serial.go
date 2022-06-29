@@ -71,11 +71,15 @@ func (s *serialCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
 		if err != nil {
 			s.logger.Fatalf("Error reading RTCM message: %s", err)
 		}
-		fmt.Println(msg.Number())
 
-		_, err = w.Write(msg.Serialize())
-		if err != nil {
-			s.logger.Fatalf("Error writing RTCM message: %s", err)
+		switch msg.(type) {
+		case rtcm3.MessageUnknown:
+			continue
+		default:
+			_, err = w.Write(msg.Serialize())
+			if err != nil {
+				s.logger.Fatalf("Error writing RTCM message: %s", err)
+			}
 		}
 	}
 }
