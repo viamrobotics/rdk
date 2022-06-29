@@ -90,6 +90,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 	var err error
 
 	a := Dofbot{}
+	a.logger = logger
 
 	b, err := board.FromRobot(r, config.Attributes.String("board"))
 	if err != nil {
@@ -116,10 +117,8 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 
 	_, err = a.GetEndPosition(ctx)
 	if err != nil {
-		return nil, errors.New("issue pinging yahboom motors, check connection to motors")
+		return nil, fmt.Errorf("unable to get end position: %w", err)
 	}
-
-	a.logger = logger
 
 	return &a, nil
 }
@@ -128,7 +127,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 func (a *Dofbot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
 	return motionplan.ComputePosition(a.model, joints)
 }
@@ -270,8 +269,8 @@ func (a *Dofbot) GripperStop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the arm is moving.
-func (a *Dofbot) IsMoving() bool {
-	return a.opMgr.OpRunning()
+func (a *Dofbot) IsMoving(ctx context.Context) (bool, error) {
+	return a.opMgr.OpRunning(), nil
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.

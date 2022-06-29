@@ -282,8 +282,8 @@ func (e *eva) Stop(ctx context.Context) error {
 	return arm.ErrStopUnimplemented
 }
 
-func (e *eva) IsMoving() bool {
-	return e.opMgr.OpRunning()
+func (e *eva) IsMoving(ctx context.Context) (bool, error) {
+	return e.opMgr.OpRunning(), nil
 }
 
 func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
