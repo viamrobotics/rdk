@@ -74,7 +74,7 @@ jobs:
         path: code-coverage-results.md
         GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
 
-build_and_lint_arm64:
+  build_and_lint_arm64:
     name: Build and Lint (arm64)
     runs-on: [qemu-host, arm64]
     container:
