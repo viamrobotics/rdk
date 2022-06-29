@@ -158,7 +158,11 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: arm.IsMoving()}, nil
+	isMoving, err := arm.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 type reconfigurableArm struct {
@@ -265,10 +269,10 @@ type reconfigurableLocalArm struct {
 	actual LocalArm
 }
 
-func (r *reconfigurableLocalArm) IsMoving() bool {
+func (r *reconfigurableLocalArm) IsMoving(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.IsMoving()
+	return r.actual.IsMoving(ctx)
 }
 
 func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {

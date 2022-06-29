@@ -40,11 +40,7 @@ const (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			m, err := NewMotor(ctx, deps, *config.ConvertedAttributes.(*TMC5072Config), logger)
-			if err != nil {
-				return nil, err
-			}
-			return m, nil
+			return NewMotor(ctx, deps, *config.ConvertedAttributes.(*TMC5072Config), logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelname, _motor)
@@ -123,7 +119,7 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, logger golog.Logger) (*Motor, error) {
+func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, logger golog.Logger) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, errors.Errorf("%q is not a board", c.BoardName)
@@ -465,8 +461,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float
 
 // IsPowered returns true if the motor is currently moving.
 func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
-	stop, err := m.IsStopped(ctx)
-	return !stop, err
+	return m.IsMoving(ctx)
 }
 
 // IsStopped returns true if the motor is NOT moving.
@@ -501,6 +496,12 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 func (m *Motor) Stop(ctx context.Context) error {
 	m.opMgr.CancelRunning(ctx)
 	return m.doJog(ctx, 0)
+}
+
+// IsMoving returns true if the motor is currently moving.
+func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
+	stop, err := m.IsStopped(ctx)
+	return !stop, err
 }
 
 // Home homes the motor using stallguard.

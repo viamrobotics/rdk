@@ -59,7 +59,7 @@ func configureMotorForBoard(
 	b *arduinoBoard,
 	config config.Component,
 	motorConfig *motor.Config,
-) (motor.Motor, error) {
+) (motor.LocalMotor, error) {
 	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
@@ -209,6 +209,11 @@ func (m *arduinoMotor) Stop(ctx context.Context) error {
 
 // IsPowered returns whether or not the motor is currently on.
 func (m *arduinoMotor) IsPowered(ctx context.Context) (bool, error) {
+	return m.IsMoving(ctx)
+}
+
+// IsMoving returns whether or not the motor is currently moving.
+func (m *arduinoMotor) IsMoving(ctx context.Context) (bool, error) {
 	res, err := m.b.runCommand("motor-ison " + m.name)
 	if err != nil {
 		return false, err

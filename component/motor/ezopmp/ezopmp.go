@@ -78,7 +78,7 @@ const (
 )
 
 // NewMotor returns a motor(Ezopmp) with I2C protocol.
-func NewMotor(ctx context.Context, deps registry.Dependencies, c *Config, logger golog.Logger) (*Ezopmp, error) {
+func NewMotor(ctx context.Context, deps registry.Dependencies, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, err
@@ -318,6 +318,11 @@ func (m *Ezopmp) Stop(ctx context.Context) error {
 	return m.writeRegWithCheck(ctx, command)
 }
 
+// IsMoving returns whether or not the motor is currently moving.
+func (m *Ezopmp) IsMoving(ctx context.Context) (bool, error) {
+	return m.IsPowered(ctx)
+}
+
 // IsPowered returns whether or not the motor is currently on.
 func (m *Ezopmp) IsPowered(ctx context.Context) (bool, error) {
 	command := []byte(dispenseStatus)
@@ -341,4 +346,9 @@ func (m *Ezopmp) IsPowered(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// GoTillStop is unimplemented.
+func (m *Ezopmp) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	return motor.NewGoTillStopUnsupportedError("(name unavailable)")
 }

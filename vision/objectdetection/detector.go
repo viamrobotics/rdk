@@ -3,6 +3,7 @@
 package objectdetection
 
 import (
+	"fmt"
 	"image"
 
 	"github.com/pkg/errors"
@@ -64,4 +65,9 @@ func (d *detection2D) Score() float64 {
 // Label returns the class label of the object in the bounding box.
 func (d *detection2D) Label() string {
 	return d.label
+}
+
+// String turns the detection into a string.
+func (d *detection2D) String() string {
+	return fmt.Sprintf("Label: %s, Score: %.2f, Box: %v", d.label, d.score, d.boundingBox)
 }
