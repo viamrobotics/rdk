@@ -191,8 +191,8 @@ func (g *multiAxis) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gantry is moving.
-func (g *multiAxis) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *multiAxis) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 // CurrentInputs returns the current inputs of the Gantry frame.

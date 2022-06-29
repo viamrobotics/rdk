@@ -34,13 +34,13 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
 
 	deps := make(registry.Dependencies)
-	deps[arm.Named(testArmName)] = &mock{Name: testArmName}
+	deps[arm.Named(testArmName)] = &mockLocal{Name: testArmName}
 	deps[arm.Named(fakeArmName)] = "not an arm"
 	return deps
 }
 
 func setupInjectRobot() *inject.Robot {
-	arm1 := &mock{Name: testArmName}
+	arm1 := &mockLocal{Name: testArmName}
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
@@ -164,8 +164,8 @@ func TestCreateStatus(t *testing.T) {
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
 		return &pb.JointPositions{Degrees: status.JointPositions.Degrees}, nil
 	}
-	injectArm.IsMovingFunc = func() bool {
-		return true
+	injectArm.IsMovingFunc = func(context.Context) (bool, error) {
+		return true, nil
 	}
 
 	t.Run("working", func(t *testing.T) {
@@ -180,8 +180,8 @@ func TestCreateStatus(t *testing.T) {
 	})
 
 	t.Run("not moving", func(t *testing.T) {
-		injectArm.IsMovingFunc = func() bool {
-			return false
+		injectArm.IsMovingFunc = func(context.Context) (bool, error) {
+			return false, nil
 		}
 
 		status2 := &pb.Status{
@@ -255,7 +255,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = arm.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalArm", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", nil))
 
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)
@@ -263,19 +263,21 @@ func TestWrapWithReconfigurable(t *testing.T) {
 }
 
 func TestReconfigurableArm(t *testing.T) {
-	actualArm1 := &mock{Name: testArmName}
+	actualArm1 := &mockLocal{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfArm1, test.ShouldNotBeNil)
 
-	actualArm2 := &mock{Name: testArmName2}
+	actualArm2 := &mockLocal{Name: testArmName2}
 	reconfArm2, err := arm.WrapWithReconfigurable(actualArm2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfArm2, test.ShouldNotBeNil)
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
 
 	err = reconfArm1.Reconfigure(context.Background(), reconfArm2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm1, test.ShouldResemble, reconfArm2)
-	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 2)
 
 	test.That(t, actualArm1.endPosCount, test.ShouldEqual, 0)
 	test.That(t, actualArm2.endPosCount, test.ShouldEqual, 0)
@@ -287,11 +289,25 @@ func TestReconfigurableArm(t *testing.T) {
 
 	err = reconfArm1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableArm")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm1, nil))
+
+	actualArm3 := &mock{Name: failArmName}
+	reconfArm3, err := arm.WrapWithReconfigurable(actualArm3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfArm3, test.ShouldNotBeNil)
+
+	err = reconfArm1.Reconfigure(context.Background(), reconfArm3)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm1, reconfArm3))
+	test.That(t, actualArm3.reconfCount, test.ShouldEqual, 0)
+
+	err = reconfArm3.Reconfigure(context.Background(), reconfArm1)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm3, reconfArm1))
 }
 
 func TestStop(t *testing.T) {
-	actualArm1 := &mock{Name: testArmName}
+	actualArm1 := &mockLocal{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -301,7 +317,7 @@ func TestStop(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	actualArm1 := &mock{Name: testArmName}
+	actualArm1 := &mockLocal{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -337,6 +353,14 @@ func TestArmPositionDiff(t *testing.T) {
 var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
 type mock struct {
+	arm.Arm
+	Name        string
+	reconfCount int
+}
+
+func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }
+
+type mockLocal struct {
 	arm.LocalArm
 	Name        string
 	endPosCount int
@@ -344,18 +368,18 @@ type mock struct {
 	stopCount   int
 }
 
-func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+func (m *mockLocal) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	m.endPosCount++
 	return pose, nil
 }
 
-func (m *mock) Stop(ctx context.Context) error {
+func (m *mockLocal) Stop(ctx context.Context) error {
 	m.stopCount++
 	return nil
 }
 
-func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }
+func (m *mockLocal) Close(ctx context.Context) error { m.reconfCount++; return nil }
 
-func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }

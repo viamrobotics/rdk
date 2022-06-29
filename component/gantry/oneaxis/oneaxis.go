@@ -437,8 +437,8 @@ func (g *oneAxis) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gantry is moving.
-func (g *oneAxis) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *oneAxis) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 //  ModelFrame returns the frame model of the Gantry.
