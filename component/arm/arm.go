@@ -113,7 +113,7 @@ var (
 )
 
 // FromDependencies is a helper for getting the named arm from a collection of
-// dependencies.
+// dependencies. add something to change here
 func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
 	res, ok := deps[Named(name)]
 	if !ok {
