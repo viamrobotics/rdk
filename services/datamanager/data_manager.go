@@ -415,6 +415,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.closeCollectors()
 		return err
 	}
+	svc.partID = cfg.Cloud.ID
 
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svcConfig.Disabled {
