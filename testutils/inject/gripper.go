@@ -15,7 +15,7 @@ type Gripper struct {
 	OpenFunc     func(ctx context.Context) error
 	GrabFunc     func(ctx context.Context) (bool, error)
 	StopFunc     func(ctx context.Context) error
-	IsMovingFunc func() bool
+	IsMovingFunc func(context.Context) (bool, error)
 	CloseFunc    func(ctx context.Context) error
 }
 
@@ -44,11 +44,11 @@ func (g *Gripper) Stop(ctx context.Context) error {
 }
 
 // IsMoving calls the injected IsMoving or the real version.
-func (g *Gripper) IsMoving() bool {
+func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 	if g.IsMovingFunc == nil {
-		return g.LocalGripper.IsMoving()
+		return g.LocalGripper.IsMoving(ctx)
 	}
-	return g.IsMovingFunc()
+	return g.IsMovingFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

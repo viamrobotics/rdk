@@ -128,8 +128,8 @@ func (wrapper *Arm) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the arm is moving.
-func (wrapper *Arm) IsMoving() bool {
-	return wrapper.opMgr.OpRunning()
+func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
+	return wrapper.opMgr.OpRunning(), nil
 }
 
 // CurrentInputs returns the current inputs of the arm.

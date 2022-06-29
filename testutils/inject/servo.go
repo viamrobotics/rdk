@@ -13,7 +13,7 @@ type Servo struct {
 	MoveFunc        func(ctx context.Context, angleDeg uint8) error
 	GetPositionFunc func(ctx context.Context) (uint8, error)
 	StopFunc        func(ctx context.Context) error
-	IsMovingFunc    func() bool
+	IsMovingFunc    func(context.Context) (bool, error)
 }
 
 // Move calls the injected Move or the real version.
@@ -49,9 +49,9 @@ func (s *Servo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]
 }
 
 // IsMoving calls the injected IsMoving or the real version.
-func (s *Servo) IsMoving() bool {
+func (s *Servo) IsMoving(ctx context.Context) (bool, error) {
 	if s.IsMovingFunc == nil {
-		return s.LocalServo.IsMoving()
+		return s.LocalServo.IsMoving(ctx)
 	}
-	return s.IsMovingFunc()
+	return s.IsMovingFunc(ctx)
 }
