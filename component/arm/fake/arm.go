@@ -90,8 +90,8 @@ func (a *Arm) Stop(ctx context.Context) error {
 }
 
 // IsMoving is always false for a fake arm.
-func (a *Arm) IsMoving() bool {
-	return false
+func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
 // CurrentInputs TODO.
