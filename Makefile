@@ -77,7 +77,7 @@ test-web: build-web
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
-	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short
+	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 server:
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go

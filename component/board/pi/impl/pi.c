@@ -16,3 +16,7 @@ void setupInterrupt(int gpio) {
     gpioSetPullUpDown(gpio, PI_PUD_UP); // should this be configurable?
     gpioSetAlertFunc(gpio, interruptCallback);
 }
+
+void cancelInterrupt(int gpio) {
+    gpioSetAlertFunc(gpio, NULL);
+}
