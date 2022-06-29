@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -25,7 +24,7 @@ func init() {
 		"undistort",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -34,7 +33,7 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, err := camera.FromRobot(r, sourceName)
+			source, err := camera.FromDependencies(deps, sourceName)
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for undistort (%s): %w", sourceName, err)
 			}

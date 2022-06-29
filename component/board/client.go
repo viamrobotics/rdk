@@ -37,11 +37,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (sc *serviceClient) Close() error {
-	return nil
-}
-
 // client is an Board client.
 type client struct {
 	*serviceClient
@@ -317,12 +312,6 @@ func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint) error {
 		FrequencyHz: uint64(freqHz),
 	})
 	return err
-}
-
-// Close cleanly closes the underlying connections. No methods should be called on the
-// board after this.
-func (c *client) Close() error {
-	return c.serviceClient.Close()
 }
 
 // copyStringSlice is a helper to simply copy a string slice

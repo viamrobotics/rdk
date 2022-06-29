@@ -33,11 +33,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (sc *serviceClient) Close() error {
-	return nil
-}
-
 // client is an input controller client.
 type client struct {
 	*serviceClient
@@ -343,7 +338,7 @@ func (c *client) Close() error {
 		c.cancelBackgroundWorkers = nil
 	}
 	c.activeBackgroundWorkers.Wait()
-	return c.serviceClient.Close()
+	return nil
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

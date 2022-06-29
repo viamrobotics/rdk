@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -33,8 +32,8 @@ func init() {
 		motor.Subtype,
 		modelname,
 		registry.Component{
-			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-				return newRoboClaw(r, config, logger)
+			Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+				return newRoboClaw(deps, config, logger)
 			},
 		},
 	)
@@ -50,13 +49,9 @@ func init() {
 	)
 }
 
-func getOrCreateConnection(r robot.Robot, config *roboclawConfig) (*roboclaw.Roboclaw, error) {
-	for _, n := range r.ResourceNames() {
-		r, err := r.ResourceByName(n)
-		if err != nil {
-			continue
-		}
-		m, ok := utils.UnwrapProxy(r).(*roboclawMotor)
+func getOrCreateConnection(deps registry.Dependencies, config *roboclawConfig) (*roboclaw.Roboclaw, error) {
+	for _, res := range deps {
+		m, ok := utils.UnwrapProxy(res).(*roboclawMotor)
 		if !ok {
 			continue
 		}
@@ -76,7 +71,7 @@ func getOrCreateConnection(r robot.Robot, config *roboclawConfig) (*roboclaw.Rob
 	return roboclaw.Init(c)
 }
 
-func newRoboClaw(r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
+func newRoboClaw(deps registry.Dependencies, config config.Component, logger golog.Logger) (motor.Motor, error) {
 	motorConfig, ok := config.ConvertedAttributes.(*roboclawConfig)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
@@ -94,7 +89,7 @@ func newRoboClaw(r robot.Robot, config config.Component, logger golog.Logger) (m
 		motorConfig.TicksPerRotation = 1
 	}
 
-	c, err := getOrCreateConnection(r, motorConfig)
+	c, err := getOrCreateConnection(deps, motorConfig)
 	if err != nil {
 		return nil, err
 	}

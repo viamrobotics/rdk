@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -22,6 +23,15 @@ const (
 	fakeIMUName    = "imu3"
 	missingIMUName = "imu4"
 )
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[imu.Named(testIMUName)] = &mock{Name: testIMUName}
+	deps[imu.Named(fakeIMUName)] = "not an imu"
+	return deps
+}
 
 func setupInjectRobot() *inject.Robot {
 	imu1 := &mock{Name: testIMUName}
@@ -53,6 +63,26 @@ func TestGenericDo(t *testing.T) {
 	ret, err := i.Do(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	s, err := imu.FromDependencies(deps, testIMUName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s, test.ShouldNotBeNil)
+
+	result, err := s.ReadOrientation(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, ea)
+
+	s, err = imu.FromDependencies(deps, fakeIMUName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeIMUName, "IMU", "string"))
+	test.That(t, s, test.ShouldBeNil)
+
+	s, err = imu.FromDependencies(deps, missingIMUName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingIMUName))
+	test.That(t, s, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {
