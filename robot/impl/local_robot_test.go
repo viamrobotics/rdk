@@ -182,10 +182,13 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("bar:pieceGripper"),
 		vision.Named("squee:"),
 		sensors.Named("squee:"),
+		datamanager.Named("squee:"),
 		vision.Named("foo:"),
 		sensors.Named("foo:"),
+		datamanager.Named("foo:"),
 		vision.Named("bar:"),
 		sensors.Named("bar:"),
+		datamanager.Named("bar:"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -432,8 +435,10 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				gripper.Named("foo:pieceGripper"),
 				vision.Named("foo:"),
 				sensors.Named("foo:"),
+				datamanager.Named("foo:"),
 				vision.Named("bar:"),
 				sensors.Named("bar:"),
+				datamanager.Named("bar:"),
 			}
 
 			resources2 := r2.ResourceNames()
@@ -628,6 +633,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		gripper.Named("foo:pieceGripper"),
 		vision.Named("foo:"),
 		sensors.Named("foo:"),
+		datamanager.Named("foo:"),
 	}
 
 	resources2 := r2.ResourceNames()

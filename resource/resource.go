@@ -32,6 +32,8 @@ const (
 	ResourceTypeService   = TypeName("service")
 )
 
+var regex = regexp.MustCompile(`^(\w+:(?:\w+:)*)?(rdk:\w+:(?:\w+))\/?(.+)?$`)
+
 // Remote is set when the resource sits behind (a) Remote(s).
 type Remote struct {
 	Remote RemoteName
@@ -132,29 +134,32 @@ func NewRemoteName(remote RemoteName, namespace Namespace, rType TypeName, subty
 
 // NameFromSubtype creates a new Name based on a Subtype and name string passed in.
 func NameFromSubtype(subtype Subtype, name string) Name {
+	remotes := strings.Split(name, ":")
+	if len(remotes) > 1 {
+		rName := NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, remotes[len(remotes)-1])
+		return rName.PrependRemote(RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+	}
 	return NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, name)
 }
 
 // NewFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewFromString(resourceName string) (Name, error) {
-	r := regexp.MustCompile(`^(\w+:(?:\w+:)*)?(rdk:\w+:(?:\w+))\/?(.+)?$`)
-	if !r.MatchString(resourceName) {
-		return Name{}, errors.New("string is not a valid resource name")
+	if !regex.MatchString(resourceName) {
+		return Name{}, errors.Errorf("string %q is not a valid resource name", resourceName)
 	}
-	matches := r.FindStringSubmatch(resourceName)
+	matches := regex.FindStringSubmatch(resourceName)
 	rSubtypeParts := strings.Split(matches[2], ":")
 	remote := matches[1]
-	if len(remote) > 1 {
+	if len(remote) > 0 {
 		remote = remote[:len(remote)-1]
 	}
-	return NewRemoteName(RemoteName(remote),
-		Namespace(rSubtypeParts[0]), TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]),
-		matches[3]), nil
+	return NewRemoteName(RemoteName(remote), Namespace(rSubtypeParts[0]),
+		TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]), matches[3]), nil
 }
 
 // PrependRemote returns a Name with a remote prepended.
 func (n Name) PrependRemote(remote RemoteName) Name {
-	if len(n.Remote.Remote) > 1 {
+	if len(n.Remote.Remote) > 0 {
 		remote = RemoteName(strings.Join([]string{string(remote), string(n.Remote.Remote)}, ":"))
 	}
 	return NewRemoteName(
@@ -191,13 +196,14 @@ func (n Name) Validate() error {
 
 // String returns the fully qualified name for the resource.
 func (n Name) String() string {
-	if n.Name == "" || (n.ResourceType == ResourceTypeService) {
-		return n.Subtype.String()
-	}
+	name := n.Subtype.String()
 	if n.Remote.Remote != "" {
-		return fmt.Sprintf("%s:%s/%s", n.Remote, n.Subtype, n.Name)
+		name = fmt.Sprintf("%s:%s", n.Remote, name)
 	}
-	return fmt.Sprintf("%s/%s", n.Subtype, n.Name)
+	if n.Name != "" && (n.ResourceType != ResourceTypeService) {
+		name = fmt.Sprintf("%s/%s", name, n.Name)
+	}
+	return name
 }
 
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.

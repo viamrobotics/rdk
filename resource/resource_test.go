@@ -187,19 +187,19 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"malformed name",
 			"rdk/component/arm/arm1",
 			resource.Name{},
-			"string is not a valid resource name",
+			"string \"rdk/component/arm/arm1\" is not a valid resource name",
 		},
 		{
 			"too many colons",
 			"rdk::component::arm/arm1",
 			resource.Name{},
-			"string is not a valid resource name",
+			"string \"rdk::component::arm/arm1\" is not a valid resource name",
 		},
 		{
 			"too few colons",
 			"rdk.component.arm/arm1",
 			resource.Name{},
-			"string is not a valid resource name",
+			"string \"rdk.component.arm/arm1\" is not a valid resource name",
 		},
 		{
 			"missing name",
@@ -476,4 +476,22 @@ func TestRemoteResource(t *testing.T) {
 	test.That(t, n4.Remote.Remote, test.ShouldResemble, resource.RemoteName(""))
 	test.That(t, n4, test.ShouldResemble, n)
 	test.That(t, n4.String(), test.ShouldResemble, "rdk:component:gps/gps1")
+
+	resourceSubtype := resource.NewSubtype(
+		"test",
+		resource.ResourceTypeComponent,
+		resource.SubtypeName("mycomponent"),
+	)
+	n5 := resource.NameFromSubtype(resourceSubtype, "test")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/test")
+	n5 = resource.NameFromSubtype(resourceSubtype, "")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent")
+	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:test")
+	test.That(t, n5.String(), test.ShouldResemble, "remote1:test:component:mycomponent/test")
+	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:test")
+	test.That(t, n5.String(), test.ShouldResemble, "remote2:remote1:test:component:mycomponent/test")
+	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:")
+	test.That(t, n5.String(), test.ShouldResemble, "remote1:test:component:mycomponent")
+	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:")
+	test.That(t, n5.String(), test.ShouldResemble, "remote2:remote1:test:component:mycomponent")
 }

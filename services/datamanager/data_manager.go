@@ -77,6 +77,11 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
+// Named is a helper for getting the named datamanager's typed resource name.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
+
 // TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates
 // The Collector's queue should be big enough to ensure that .capture() is never blocked by the queue being
 // written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),

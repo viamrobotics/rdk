@@ -133,7 +133,7 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 		protoTypes = append(protoTypes, &pb.ResourceRPCSubtype{
 			Subtype: protoutils.ResourceNameToProto(resource.Name{
 				Subtype: rt.Subtype,
-				Remote:  resource.Remote{Remote: ""}, Name: "",
+				Name:    "",
 			}),
 			ProtoService: rt.Desc.GetFullyQualifiedName(),
 		})
