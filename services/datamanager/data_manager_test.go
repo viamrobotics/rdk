@@ -2,6 +2,7 @@ package datamanager_test
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"math/rand"
@@ -23,6 +24,15 @@ import (
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
+)
+
+var (
+	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
+	configSyncIntervalMins = 0.0041
+
+	// Make the captureDir where we're logging data for our arm.
+	captureDir = "/tmp/capture"
+	armDir     = captureDir + "/arm/arm1"
 )
 
 // readDir filters out folders from a slice of FileInfos.
@@ -111,138 +121,6 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, oldSize, test.ShouldEqual, newSize)
 }
 
-// Validates that manual syncing works for a datamanager.
-func TestManualSync(t *testing.T) {
-	var uploaded []string
-	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
-		lock.Lock()
-		uploaded = append(uploaded, path)
-		lock.Unlock()
-		return nil
-	}
-	configPath := "robots/configs/fake_data_manager.json"
-	testCfg := setupConfig(t, configPath)
-
-	// Make the captureDir where we're logging data for our arm.
-	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/"
-
-	// Clear the capture dir after we're done.
-	defer resetFolder(t, armDir)
-
-	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
-	defer dmsvc.Close(context.Background())
-	dmsvc.SetUploadFn(uploadFn)
-	dmsvc.Update(context.Background(), testCfg)
-
-	// Run and upload files.
-	dmsvc.Sync(context.Background())
-	time.Sleep(time.Millisecond * 100)
-
-	// Verify that the file was uploaded.
-	lock.Lock()
-	test.That(t, len(uploaded), test.ShouldEqual, 1)
-	lock.Unlock()
-
-	// Do it again and verify it synced the second file, but not the first again.
-	dmsvc.Sync(context.Background())
-	time.Sleep(time.Millisecond * 100)
-	_ = dmsvc.Close(context.TODO())
-	test.That(t, len(uploaded), test.ShouldEqual, 2)
-	test.That(t, uploaded[0], test.ShouldNotEqual, uploaded[1])
-}
-
-// Validates that scheduled syncing works for a datamanager.
-func TestScheduledSync(t *testing.T) {
-	uploaded := []string{}
-	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
-		lock.Lock()
-		uploaded = append(uploaded, path)
-		lock.Unlock()
-		return nil
-	}
-	configPath := "robots/configs/fake_data_manager.json"
-	testCfg := setupConfig(t, configPath)
-	svcConfig, ok, err := datamanager.GetServiceConfig(testCfg)
-	if !ok {
-		t.Error("malformed/missing datamanager service in config")
-	}
-	if err != nil {
-		t.Error(err)
-	}
-	svcConfig.SyncIntervalMins = 0.0041
-
-	// Make the captureDir where we're logging data for our arm.
-	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/"
-
-	// Clear the capture dir after we're done.
-	defer resetFolder(t, armDir)
-
-	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
-	dmsvc.SetUploadFn(uploadFn)
-	dmsvc.Update(context.TODO(), testCfg)
-
-	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms and ensure two files were uploaded.
-	time.Sleep(time.Millisecond * 600)
-	dmsvc.Close(context.TODO())
-	test.That(t, len(uploaded), test.ShouldEqual, 2)
-	test.That(t, uploaded[0], test.ShouldNotEqual, uploaded[1])
-}
-
-// Validates that we can attempt a scheduled and manual syncDataCaptureFiles at the same time without duplicating files
-// or running into errors.
-func TestManualAndScheduledSync(t *testing.T) {
-	var uploadedFiles []string
-	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
-		lock.Lock()
-		uploadedFiles = append(uploadedFiles, path)
-		lock.Unlock()
-		return nil
-	}
-	// Use config with 250ms sync interval.
-	configPath := "robots/configs/fake_data_manager.json"
-	testCfg := setupConfig(t, configPath)
-	err := setConfigIntervalMins(testCfg, 0.0041)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Make the captureDir where we're logging data for our arm.
-	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1"
-
-	// Clear the capture dir after we're done.
-	defer resetFolder(t, armDir)
-
-	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
-
-	// Make sure we close resources to prevent leaks.
-	dmsvc.SetUploadFn(uploadFn)
-	dmsvc.Update(context.TODO(), testCfg)
-
-	// Perform a manual and scheduled syncDataCaptureFiles at approximately the same time, then close the svc.
-	time.Sleep(time.Millisecond * 250)
-	dmsvc.Sync(context.TODO())
-	time.Sleep(time.Millisecond * 100)
-	_ = dmsvc.Close(context.TODO())
-
-	// Verify two files were uploaded, and that they're different.
-	test.That(t, len(uploadedFiles), test.ShouldEqual, 2)
-	test.That(t, uploadedFiles[0], test.ShouldNotEqual, uploadedFiles[1])
-
-	// We've uploaded the first two files and should now be collecting a single new one.
-	filesInArmDir, err := readDir(t, armDir)
-	if err != nil {
-		t.Fatalf("failed to list files in armDir")
-	}
-	test.That(t, len(filesInArmDir), test.ShouldEqual, 3)
-}
-
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
@@ -256,7 +134,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	}
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
-	err := setConfigIntervalMins(testCfg, 0.0041)
+	err := setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Make the captureDir where we're logging data for our arm.
@@ -291,7 +169,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	test.That(t, len(uploaded), test.ShouldEqual, 1)
 }
 
-func setConfigIntervalMins(config *config.Config, interval float64) error {
+func setconfigSyncIntervalMins(config *config.Config, interval float64) error {
 	svcConfig, ok, err := datamanager.GetServiceConfig(config)
 	if !ok {
 		return errors.New("failed to get service config")
@@ -320,7 +198,7 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPe
 
 	// Retrieve config from config filepath and
 	testCfg := setupConfig(t, configPath)
-	err := setConfigIntervalMins(testCfg, 0.0041)
+	err := setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
 	test.That(t, err, test.ShouldBeNil)
 
 	// bytesPerFile value doesn't really matter, but maybe it will in future testing?
@@ -330,7 +208,7 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPe
 	additionalSyncPaths := []string{}
 
 	// Number of total files to be synced.
-	numFilesToBeSynced := 0
+	numArbitraryFilesToSync := 0
 
 	// Begin generating additional_sync_paths "dummy" dirs & files.
 	for d := 0; d < numDirs; d++ {
@@ -363,7 +241,7 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPe
 				}
 
 				// Increment number of files to be synced.
-				numFilesToBeSynced++
+				numArbitraryFilesToSync++
 			}
 		}
 	}
@@ -372,7 +250,7 @@ func populateArbitraryFiles(t *testing.T, configPath string, numDirs, maxFilesPe
 	err = setConfigAdditionalSyncPaths(testCfg, additionalSyncPaths)
 	test.That(t, err, test.ShouldBeNil)
 
-	return additionalSyncPaths, testCfg, numFilesToBeSynced
+	return additionalSyncPaths, testCfg, numArbitraryFilesToSync
 }
 
 func noRepeatedElements(slice []string) bool {
@@ -386,19 +264,27 @@ func noRepeatedElements(slice []string) bool {
 	return true
 }
 
-func TestAdditionalSyncPathsManualSync(t *testing.T) {
+// Validates that manual syncing works for a datamanager.
+func TestManualSync(t *testing.T) {
+	// Empty file structure at beginning of testing to ensure no files from previous tests remain
+	resetFolder(t, captureDir)
+	resetFolder(t, armDir)
+
 	// Test Case Setup
-	configPath := "robots/configs/fake_dms.json"
+	configPath := "robots/configs/fake_data_manager.json"
 	numDirs := 2
 	maxFilesPerDir := 2
-	dirs, testCfg, numFilesToBeSynced := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
+	dirs, testCfg, numArbitraryFilesToSync := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
 
 	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
 	defer func() {
 		for _, dir := range dirs {
-			os.RemoveAll(dir)
+			resetFolder(t, dir)
 		}
 	}()
+	// Clear the capture dir after we're done.
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 
 	// Prepare list uploaded filepaths.
 	uploaded := []string{}
@@ -418,21 +304,36 @@ func TestAdditionalSyncPathsManualSync(t *testing.T) {
 	// Run and upload files.
 	dmsvc.Sync(context.Background())
 	time.Sleep(time.Millisecond * 100)
-	_ = dmsvc.Close(context.TODO())
 
-	// Verify that the file was uploaded.
+	// Verify that one data capture files was uploaded, two additional_sync_paths files were uploaded,
+	// and that no two uploaded files are the same.
 	lock.Lock()
-	test.That(t, len(uploaded), test.ShouldEqual, numFilesToBeSynced)
-	test.That(t, noRepeatedElements(uploaded), test.ShouldEqual, true)
+	for i, path := range uploaded {
+		fmt.Println("File", i, ":", path)
+	}
+	test.That(t, len(uploaded), test.ShouldEqual, (numArbitraryFilesToSync + 1))
+	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
 	lock.Unlock()
+
+	// Sync again and verify it synced the second file data capture file, but not the first again.
+	dmsvc.Sync(context.Background())
+	time.Sleep(time.Millisecond * 100)
+	_ = dmsvc.Close(context.TODO())
+	test.That(t, len(uploaded), test.ShouldEqual, (numArbitraryFilesToSync + 2))
+	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
 }
 
-func TestAdditionalSyncPathsScheduledSync(t *testing.T) {
+// Validates that scheduled syncing works for a datamanager.
+func TestScheduledSync(t *testing.T) {
+	// Empty file structure at beginning of testing to ensure no files from previous tests remain
+	resetFolder(t, captureDir)
+	resetFolder(t, armDir)
+
 	// Test Case Setup
-	configPath := "robots/configs/fake_dms.json"
+	configPath := "robots/configs/fake_data_manager.json"
 	numDirs := 2
 	maxFilesPerDir := 2
-	dirs, testCfg, numFilesToBeSynced := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
+	dirs, testCfg, numArbitraryFilesToSync := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
 
 	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
 	defer func() {
@@ -440,6 +341,9 @@ func TestAdditionalSyncPathsScheduledSync(t *testing.T) {
 			os.RemoveAll(dir)
 		}
 	}()
+	// Clear the capture dir after we're done.
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 
 	// Prepare list uploaded filepaths.
 	uploaded := []string{}
@@ -456,24 +360,34 @@ func TestAdditionalSyncPathsScheduledSync(t *testing.T) {
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
-	// We set sync_interval_mins to be about 250ms in the config, so wait more than 250ms (in this case 300ms)
-	// to ensure files are uploaded.
-	time.Sleep(time.Millisecond * 300)
+	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms (more than two iterations of syncing)
+	// for the additional_sync_paths files to sync AND for TWO data capture files to sync.
+	time.Sleep(time.Millisecond * 600)
 	_ = dmsvc.Close(context.TODO())
 
-	// Verify that the files were uploaded.
+	// Verify that the additional_sync_paths files AND the TWO data capture files were uploaded.
 	lock.Lock()
-	test.That(t, len(uploaded), test.ShouldEqual, numFilesToBeSynced)
+	test.That(t, len(uploaded), test.ShouldEqual, (numArbitraryFilesToSync + 2))
 	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
 	lock.Unlock()
 }
 
-func TestAdditionalSyncPathsManualAndScheduledSync(t *testing.T) {
+// Validates that we can attempt a scheduled and manual syncDataCaptureFiles at the same time without duplicating files
+// or running into errors.
+func TestManualAndScheduledSync(t *testing.T) {
+	// Empty file structure at beginning of testing to ensure no files from previous tests remain
+	resetFolder(t, captureDir)
+	resetFolder(t, armDir)
+
 	// Test Case Setup
-	configPath := "robots/configs/fake_dms.json"
+	configPath := "robots/configs/fake_data_manager.json"
 	numDirs := 2
 	maxFilesPerDir := 2
-	dirs, testCfg, numFilesToBeSynced := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
+	dirs, testCfg, numArbitraryFilesToSync := populateArbitraryFiles(t, configPath, numDirs, maxFilesPerDir)
+
+	// Clear the capture dir after we're done.
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 
 	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
 	defer func() {
@@ -503,13 +417,17 @@ func TestAdditionalSyncPathsManualAndScheduledSync(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 	_ = dmsvc.Close(context.TODO())
 
-	// Verify two files were uploaded, and that they're different.
-	test.That(t, len(uploaded), test.ShouldEqual, 2)
-	test.That(t, uploaded[0], test.ShouldNotEqual, uploaded[1])
-
-	// Verify that the files were uploaded.
+	// Verify that two data capture files were uploaded, two additional_sync_paths files were uploaded,
+	// and that no two uploaded files are the same.
 	lock.Lock()
-	test.That(t, len(uploaded), test.ShouldEqual, numFilesToBeSynced)
+	test.That(t, len(uploaded), test.ShouldEqual, (numArbitraryFilesToSync + 2))
 	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
 	lock.Unlock()
+
+	// We've uploaded the first two files and should now be collecting a single new one.
+	filesInArmDir, err := readDir(t, armDir)
+	if err != nil {
+		t.Fatalf("failed to list files in armDir")
+	}
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 3)
 }
