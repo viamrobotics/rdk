@@ -306,8 +306,9 @@ func (r *reconfigurableLocalGPS) ReadValid(ctx context.Context) (bool, error) {
 	return r.actual.ReadValid(ctx)
 }
 
-// WrapWithReconfigurable converts a regular LocalGPS implementation to a reconfigurableGPS.
-// If GPS is already a reconfigurableGPS, then nothing is done.
+// WrapWithReconfigurable converts a GPS to a reconfigurableGPS
+// and a LocalGPS implementation to a reconfigurableLocalGPS.
+// If GPS or LocalGPS is already a reconfigurableGPS, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	gps, ok := r.(GPS)
 	if !ok {
