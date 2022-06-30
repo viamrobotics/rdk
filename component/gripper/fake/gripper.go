@@ -61,6 +61,6 @@ func (g *Gripper) Stop(ctx context.Context) error {
 }
 
 // IsMoving is always false for a fake gripper.
-func (g *Gripper) IsMoving() bool {
-	return false
+func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }

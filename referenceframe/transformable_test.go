@@ -20,15 +20,17 @@ func TestPoseInFrame(t *testing.T) {
 	test.That(t, spatial.PoseAlmostEqual(pF.Pose(), convertedPF.Pose()), test.ShouldBeTrue)
 }
 
-func TestGeometryInFrame(t *testing.T) {
+func TestGeometriesInFrame(t *testing.T) {
 	pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 	geometry, err := spatial.NewBox(pose, r3.Vector{4, 5, 6})
+	geometryMap := make(map[string]spatial.Geometry)
+	geometryMap[""] = geometry
 	test.That(t, err, test.ShouldBeNil)
-	gF := NewGeometriesInFrame("frame", []spatial.Geometry{geometry})
+	gF := NewGeometriesInFrame("frame", geometryMap)
 	test.That(t, gF.FrameName(), test.ShouldEqual, "frame")
-	test.That(t, gF.Geometries()[0].AlmostEqual(geometry), test.ShouldBeTrue)
+	test.That(t, gF.Geometries()[""].AlmostEqual(geometry), test.ShouldBeTrue)
 	convertedGF, err := ProtobufToGeometriesInFrame(GeometriesInFrameToProtobuf(gF))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gF.FrameName(), test.ShouldEqual, convertedGF.FrameName())
-	test.That(t, gF.Geometries()[0].AlmostEqual(convertedGF.Geometries()[0]), test.ShouldBeTrue)
+	test.That(t, gF.Geometries()[""].AlmostEqual(convertedGF.Geometries()["0"]), test.ShouldBeTrue)
 }
