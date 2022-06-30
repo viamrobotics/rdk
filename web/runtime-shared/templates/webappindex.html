@@ -1804,10 +1804,10 @@
                       <th class="border border-black p-2">Get</th>
                       <td class="border border-black p-2">
                         <div class="flex">
-                          <label class="pr-2 py-1 text-right">Pin:</label>
+                          <label class="pr-2 py-2 text-right">Pin:</label>
                           <number-input class="mr-2" v-model="getPin" :input-id="'get_pin_' + board.name"></number-input>
                           <viam-button class="mr-2" group v-on:click="getGPIO(board.name)">Get</viam-button>
-                          <span :id="'get_pin_value_' + board.name" />
+                          <span class="py-2" :id="'get_pin_value_' + board.name" />
                         </div>
                       </td>
                     </tr>
@@ -1815,9 +1815,9 @@
                       <th class="border border-black p-2">Set</th>
                       <td class="p-2">
                         <div class="flex">
-                          <label class="pr-2 py-1 text-right">Pin:</label>
+                          <label class="pr-2 py-2  text-right">Pin:</label>
                           <number-input class="mr-2" v-model="setPin" :input-id="'set_pin_' + board.name"></number-input>
-                          <select class="mr-2" :id="'set_pin_v_' + board.name">
+                          <select class="bg-white border border-black mr-2" style="height: 38px" :id="'set_pin_v_' + board.name">
                             <option>low</option>
                             <option>high</option>
                           </select>
