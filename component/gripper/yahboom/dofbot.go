@@ -18,24 +18,23 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "yahboom-dofbot", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(r, config)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return newGripper(deps, config)
 		},
 	})
 }
 
-func newGripper(r robot.Robot, config config.Component) (gripper.LocalGripper, error) {
+func newGripper(deps registry.Dependencies, config config.Component) (gripper.LocalGripper, error) {
 	armName := config.Attributes.String("arm")
 	if armName == "" {
 		return nil, errors.New("yahboom-dofbot gripper needs an arm")
 	}
-	myArm, err := arm.FromRobot(r, armName)
+	myArm, err := arm.FromDependencies(deps, armName)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +75,8 @@ func (g *dofGripper) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gripper is moving.
-func (g *dofGripper) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *dofGripper) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 func (g *dofGripper) ModelFrame() referenceframe.Model {

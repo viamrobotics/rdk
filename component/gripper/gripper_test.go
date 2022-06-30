@@ -70,7 +70,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, grabbed)
 
 	res, err = gripper.FromRobot(r, fakeGripperName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGripper", "string"))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gripper.FromRobot(r, missingGripperName)
@@ -120,8 +120,8 @@ func TestCreateStatus(t *testing.T) {
 		}
 
 		injectGripper := &inject.Gripper{}
-		injectGripper.IsMovingFunc = func() bool {
-			return true
+		injectGripper.IsMovingFunc = func(context.Context) (bool, error) {
+			return true, nil
 		}
 		status1, err := gripper.CreateStatus(context.Background(), injectGripper)
 		test.That(t, err, test.ShouldBeNil)
@@ -139,8 +139,8 @@ func TestCreateStatus(t *testing.T) {
 		}
 
 		injectGripper := &inject.Gripper{}
-		injectGripper.IsMovingFunc = func() bool {
-			return false
+		injectGripper.IsMovingFunc = func(context.Context) (bool, error) {
+			return false, nil
 		}
 		status1, err := gripper.CreateStatus(context.Background(), injectGripper)
 		test.That(t, err, test.ShouldBeNil)

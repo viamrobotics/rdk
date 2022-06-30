@@ -28,6 +28,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+var numCPUs = 4
+
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
@@ -107,11 +109,27 @@ type LocalArm interface {
 
 var (
 	_ = Arm(&reconfigurableArm{})
+	_ = LocalArm(&reconfigurableLocalArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
+	_ = resource.Reconfigurable(&reconfigurableLocalArm{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
+
+// FromDependencies is a helper for getting the named arm from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Arm)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Arm", res)
+	}
+	return part, nil
+}
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
 func FromRobot(r robot.Robot, name string) (Arm, error) {
@@ -145,12 +163,16 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: arm.IsMoving()}, nil
+	isMoving, err := arm.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 type reconfigurableArm struct {
 	mu     sync.RWMutex
-	actual LocalArm
+	actual Arm
 }
 
 func (r *reconfigurableArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -213,12 +235,6 @@ func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referencefram
 	return r.actual.GoToInputs(ctx, goal)
 }
 
-func (r *reconfigurableArm) IsMoving() bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.IsMoving()
-}
-
 func (r *reconfigurableArm) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -228,14 +244,18 @@ func (r *reconfigurableArm) Close(ctx context.Context) error {
 func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	actual, ok := newArm.(*reconfigurableArm)
+	return r.reconfigure(ctx, newArm)
+}
+
+func (r *reconfigurableArm) reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
+	arm, ok := newArm.(*reconfigurableArm)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newArm)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	r.actual = actual.actual
+	r.actual = arm.actual
 	return nil
 }
 
@@ -249,17 +269,56 @@ func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActio
 	return config.Reconfigure
 }
 
-// WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
-// If arm is already a reconfigurableArm, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	arm, ok := r.(LocalArm)
+type reconfigurableLocalArm struct {
+	*reconfigurableArm
+	actual LocalArm
+}
+
+func (r *reconfigurableLocalArm) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving(ctx)
+}
+
+func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	arm, ok := newArm.(*reconfigurableLocalArm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalArm", r)
+		return utils.NewUnexpectedTypeError(r, newArm)
 	}
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	r.actual = arm.actual
+	return r.reconfigurableArm.reconfigure(ctx, arm.reconfigurableArm)
+}
+
+// WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm
+// and a localArm into a reconfigurableLocalArm
+// If arm is already a Reconfigurable, then nothing is done.
+func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+	arm, ok := r.(Arm)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
+	}
+
 	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableArm{actual: arm}, nil
+
+	rArm := &reconfigurableArm{actual: arm}
+	localArm, ok := r.(LocalArm)
+	if !ok {
+		// is an arm but is not a local arm
+		return rArm, nil
+	}
+
+	if reconfigurableLocal, ok := localArm.(*reconfigurableLocalArm); ok {
+		return reconfigurableLocal, nil
+	}
+	return &reconfigurableLocalArm{actual: localArm, reconfigurableArm: rArm}, nil
 }
 
 // NewPositionFromMetersAndOV returns a three-dimensional arm position
@@ -342,19 +401,17 @@ func Move(
 	logger.Debugf("frame system inputs: %v", inputs)
 
 	// conduct planning query
-	mp, err := motionplan.NewCBiRRTMotionPlanner(arm.ModelFrame(), 4, logger)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(arm.ModelFrame(), numCPUs, logger)
 	if err != nil {
 		return err
 	}
 	opt := motionplan.NewDefaultPlannerOptions()
-	opt.RemoveConstraint("self-collision")
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraintFromWorldState(arm.ModelFrame(), fs, worldState, inputs))
 	joints, err := arm.GetJointPositions(ctx) // TODO(rb) should be able to get this from the input map
 	if err != nil {
 		return err
 	}
 	solution, err := mp.Plan(ctx, dst, referenceframe.JointPosToInputs(joints), opt)
-	fmt.Println(len(solution))
 	if err != nil {
 		return err
 	}

@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -33,7 +32,7 @@ type AttrConfig struct {
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
 		},
 	})
@@ -264,8 +263,8 @@ func (g *robotiqGripper) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gripper is moving.
-func (g *robotiqGripper) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *robotiqGripper) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 // ModelFrame is unimplemented for robotiqGripper.

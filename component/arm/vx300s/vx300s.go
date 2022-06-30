@@ -36,7 +36,7 @@ var vx300smodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "vx300s", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newArm(r, config.Attributes, logger)
 		},
 	})
@@ -184,8 +184,8 @@ func (a *myArm) Stop(ctx context.Context) error {
 	return arm.ErrStopUnimplemented
 }
 
-func (a *myArm) IsMoving() bool {
-	return a.opMgr.OpRunning()
+func (a *myArm) IsMoving(ctx context.Context) (bool, error) {
+	return a.opMgr.OpRunning(), nil
 }
 
 // Close will get the arm ready to be turned off.

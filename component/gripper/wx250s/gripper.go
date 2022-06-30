@@ -20,12 +20,11 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "wx250s", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(config.Attributes, logger)
 		},
 	})
@@ -137,8 +136,8 @@ func (g *wx250s) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gripper is moving.
-func (g *wx250s) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *wx250s) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 // Close closes the connection, not the gripper.

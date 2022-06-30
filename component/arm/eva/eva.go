@@ -4,6 +4,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -47,7 +48,7 @@ var evamodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewEva(ctx, r, config, logger)
 		},
 	})
@@ -282,8 +283,8 @@ func (e *eva) Stop(ctx context.Context) error {
 	return arm.ErrStopUnimplemented
 }
 
-func (e *eva) IsMoving() bool {
-	return e.opMgr.OpRunning()
+func (e *eva) IsMoving(ctx context.Context) (bool, error) {
+	return e.opMgr.OpRunning(), nil
 }
 
 func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {

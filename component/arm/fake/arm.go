@@ -17,12 +17,11 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")
 			}
@@ -89,8 +88,8 @@ func (a *Arm) Stop(ctx context.Context) error {
 }
 
 // IsMoving is always false for a fake arm.
-func (a *Arm) IsMoving() bool {
-	return false
+func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
 // CurrentInputs TODO.

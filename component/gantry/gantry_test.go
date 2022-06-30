@@ -28,6 +28,15 @@ const (
 	missingGantryName = "gantry5"
 )
 
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[gantry.Named(testGantryName)] = &mock{Name: testGantryName}
+	deps[gantry.Named(fakeGantryName)] = "not a gantry"
+	return deps
+}
+
 func setupInjectRobot() *inject.Robot {
 	gantry1 := &mock{Name: testGantryName}
 	r := &inject.Robot{}
@@ -60,6 +69,26 @@ func TestGenericDo(t *testing.T) {
 	test.That(t, ret, test.ShouldEqual, command)
 }
 
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := gantry.FromDependencies(deps, testGantryName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	lengths1, err := res.GetLengths(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, lengths1, test.ShouldResemble, lengths)
+
+	res, err = gantry.FromDependencies(deps, fakeGantryName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeGantryName, "Gantry", "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = gantry.FromDependencies(deps, missingGantryName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingGantryName))
+	test.That(t, res, test.ShouldBeNil)
+}
+
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
@@ -72,7 +101,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
 	res, err = gantry.FromRobot(r, fakeGantryName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGantry", "string"))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gantry.FromRobot(r, missingGantryName)
@@ -133,8 +162,8 @@ func TestCreateStatus(t *testing.T) {
 	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return status.LengthsMm, nil
 	}
-	injectGantry.IsMovingFunc = func() bool {
-		return true
+	injectGantry.IsMovingFunc = func(context.Context) (bool, error) {
+		return true, nil
 	}
 
 	t.Run("working", func(t *testing.T) {
@@ -146,6 +175,21 @@ func TestCreateStatus(t *testing.T) {
 		status2, err := resourceSubtype.Status(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status2, test.ShouldResemble, status)
+	})
+
+	t.Run("not moving", func(t *testing.T) {
+		injectGantry.IsMovingFunc = func(context.Context) (bool, error) {
+			return false, nil
+		}
+
+		status2 := &pb.Status{
+			PositionsMm: []float64{1.1, 2.2, 3.3},
+			LengthsMm:   []float64{4.4, 5.5, 6.6},
+			IsMoving:    false,
+		}
+		status1, err := gantry.CreateStatus(context.Background(), injectGantry)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
 	t.Run("fail on GetLengths", func(t *testing.T) {

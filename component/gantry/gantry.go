@@ -86,6 +86,20 @@ type Gantry interface {
 	referenceframe.InputEnabled
 }
 
+// FromDependencies is a helper for getting the named gantry from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Gantry)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Gantry", res)
+	}
+	return part, nil
+}
+
 // A LocalGantry represents a Gantry that can report whether it is moving or not.
 type LocalGantry interface {
 	Gantry
@@ -101,7 +115,7 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	}
 	part, ok := res.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", res)
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
 	}
 	return part, nil
 }
@@ -126,8 +140,11 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.Status{PositionsMm: positions, LengthsMm: lengths, IsMoving: gantry.IsMoving()}, nil
+	isMoving, err := gantry.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Status{PositionsMm: positions, LengthsMm: lengths, IsMoving: isMoving}, nil
 }
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
@@ -141,6 +158,11 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	}
 	return &reconfigurableGantry{actual: g}, nil
 }
+
+var (
+	_ = LocalGantry(&reconfigurableGantry{})
+	_ = resource.Reconfigurable(&reconfigurableGantry{})
+)
 
 type reconfigurableGantry struct {
 	mu     sync.RWMutex
@@ -190,10 +212,10 @@ func (g *reconfigurableGantry) Stop(ctx context.Context) error {
 	return g.actual.Stop(ctx)
 }
 
-func (g *reconfigurableGantry) IsMoving() bool {
+func (g *reconfigurableGantry) IsMoving(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.actual.IsMoving()
+	return g.actual.IsMoving(ctx)
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {

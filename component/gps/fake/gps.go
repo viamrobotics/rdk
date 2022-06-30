@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -27,7 +26,7 @@ func init() {
 		"fake",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -39,12 +38,11 @@ func init() {
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,
-				r robot.Robot,
+				deps registry.Dependencies,
 				config config.Component,
 				logger golog.Logger,
 			) (interface{}, error) {
-				//nolint:contextcheck
-				return newInterceptingGPSBase(r, config)
+				return newInterceptingGPSBase(deps, config)
 			},
 		},
 	)
@@ -145,7 +143,7 @@ type interceptingGPSBase struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newInterceptingGPSBase(r robot.Robot, c config.Component) (base.LocalBase, error) {
+func newInterceptingGPSBase(deps registry.Dependencies, c config.Component) (base.LocalBase, error) {
 	baseName := c.Attributes.String("base")
 	if baseName == "" {
 		return nil, errors.New("'base' name must be set")
@@ -154,11 +152,11 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (base.LocalBase, 
 	if gpsName == "" {
 		return nil, errors.New("'gps' name must be set")
 	}
-	b, err := base.FromRobot(r, baseName)
+	b, err := base.FromDependencies(deps, baseName)
 	if err != nil {
 		return nil, err
 	}
-	gpsDevice, err := gps.FromRobot(r, gpsName)
+	gpsDevice, err := gps.FromDependencies(deps, gpsName)
 	if err != nil {
 		return nil, err
 	}

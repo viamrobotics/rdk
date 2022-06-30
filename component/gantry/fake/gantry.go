@@ -14,12 +14,11 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	registry.RegisterComponent(gantry.Subtype, "fake", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewGantry(config.Name), nil
 		},
 	})
@@ -62,8 +61,8 @@ func (g *Gantry) Stop(ctx context.Context) error {
 }
 
 // IsMoving is always false for a fake gantry.
-func (g *Gantry) IsMoving() bool {
-	return false
+func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
 // ModelFrame returns a Gantry frame.
