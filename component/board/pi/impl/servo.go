@@ -115,15 +115,23 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	s.val = val
 
 	if res != 0 {
-		return errors.Errorf("gpioServo failed with %d", res)
+		switch res {
+		case -93:
+			return errors.Errorf("gpioservo pin %d is not set up to send and receive pulsewidths")
+		case -7:
+			return errors.Errorf("gpioservo on pin %d trying to reach out of range position", s.pin)
+		default:
+			return errors.Errorf("gpioServo on pin %d failed with %d", s.pin, res)
+		}
+
 	}
 
 	if !s.holdPos { // the following logic disables a servo once it has reached a position or after a certain amount of time has been reached
 		time.Sleep(500 * time.Millisecond) // time before a stop is sent
 		setPos := C.gpioServo(s.pin, C.uint(0))
 		// if setPos == C.int(pulseErr) {
-		if setPos <= 0 {
-			return errors.Errorf("gpioServo failed with %d", setPos)
+		if setPos < 0 {
+			return errors.Errorf("servo on pin %d failed with code %d", s.pin, setPos)
 		}
 	}
 	return nil
@@ -132,8 +140,14 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
 	if res <= 0 {
-		// this includes, errors, we'll ignore
-		return 0, nil
+		switch res {
+		case -93:
+			return 0, errors.Errorf("gpioservo pin %d is not set up to send and receive pulsewidths")
+		case -7:
+			return 0, errors.Errorf("gpioservo on pin %d trying to reach out of range position", s.pin)
+		default:
+			return 0, errors.Errorf("gpioServo on pin %d failed with %d", s.pin, res)
+		}
 	}
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
@@ -152,7 +166,7 @@ func (s *piPigpioServo) Stop(ctx context.Context) error {
 	_, done := s.opMgr.New(ctx)
 	defer done()
 	getPos := C.gpioServo(s.pin, C.uint(0))
-	if getPos != 0 {
+	if int(getPos) != int(0) {
 		return errors.Errorf("gpioServo failed with %d", getPos)
 	}
 	return nil
