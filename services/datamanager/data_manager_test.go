@@ -2,7 +2,6 @@ package datamanager_test
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -14,14 +13,11 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
-	robotimpl "go.viam.com/rdk/robot/impl"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
@@ -51,7 +47,15 @@ func resetFolder(t *testing.T, path string) {
 	}
 }
 
-func injectedRobotWithArms(armKeyList []string) *inject.Robot {
+func newTestDataManager(t *testing.T, armKeyList []string) internal.DMService {
+	t.Helper()
+	dmCfg := &datamanager.Config{}
+	cfgService := config.Service{
+		Type:                "data_manager",
+		ConvertedAttributes: dmCfg,
+	}
+	logger := golog.NewTestLogger(t)
+
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 	for _, key := range armKeyList {
@@ -63,68 +67,12 @@ func injectedRobotWithArms(armKeyList []string) *inject.Robot {
 		rs[arm.Named(key)] = injectedArm
 	}
 	r.MockResourcesFromMap(rs)
-	return r
-}
 
-func newTestDataManager(t *testing.T) internal.DMService {
-	t.Helper()
-	dmCfg := &datamanager.Config{}
-	cfgService := config.Service{
-		Type:                "data_manager",
-		ConvertedAttributes: dmCfg,
-	}
-	logger := golog.NewTestLogger(t)
-	r := injectedRobotWithArms([]string{"arm1"})
 	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
 	if err != nil {
 		t.Log(err)
 	}
 	return svc.(internal.DMService)
-}
-
-func newTestDataManagerWithRemote(t *testing.T) (internal.DMService, string) {
-	t.Helper()
-	dmCfg := &datamanager.Config{}
-	cfgService := config.Service{
-		Type:                "data_manager",
-		ConvertedAttributes: dmCfg,
-	}
-	logger := golog.NewTestLogger(t)
-	remoteCfg := &config.Config{
-		Components: []config.Component{
-			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "remoteArm",
-				Type:      arm.SubtypeName,
-				Model:     "fake",
-			},
-		},
-	}
-
-	// Set up remote robot.
-	remoteRobot, err := robotimpl.New(context.Background(), remoteCfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
-	}()
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
-	err = remoteRobot.StartWeb(context.Background(), options)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Inject the robot with the local and remote arm resources.
-	remoteArmName := remoteCfg.Components[0].ResourceName().Name
-	r := injectedRobotWithArms([]string{"localArm", remoteArmName})
-
-	// Instantiate the Data Manager with the injected robot.
-	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
-	if err != nil {
-		t.Log(err)
-	}
-	return svc.(internal.DMService), addr
 }
 
 func setupConfig(t *testing.T, relativePath string) *config.Config {
@@ -139,7 +87,7 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 func TestNewDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
-	svc := newTestDataManager(t)
+	svc := newTestDataManager(t, []string{"arm1"})
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
 	svcConfig, ok, err := datamanager.GetServiceConfig(conf)
@@ -169,11 +117,11 @@ func TestNewDataManager(t *testing.T) {
 func TestNewRemoteDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
-	svc, remoteAddr := newTestDataManagerWithRemote(t)
+	svc := newTestDataManager(t, []string{"localArm", "remoteArm"})
 
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
-	conf.Remotes[0].Address = remoteAddr
+	// conf.Remotes[0].Address = remoteAddr
 	defer resetFolder(t, captureDir)
 	svc.Update(context.Background(), conf)
 	sleepTime := time.Millisecond * 100
@@ -184,13 +132,13 @@ func TestNewRemoteDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify that the local and remote collectors wrote to their files.
-	localArmDir := captureDir + "/arm/localArm"
+	localArmDir := captureDir + "/arm/localArm/GetEndPosition"
 	filesInLocalArmDir, err := readDir(t, localArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInLocalArmDir), test.ShouldEqual, 1)
 	test.That(t, filesInLocalArmDir[0].Size(), test.ShouldBeGreaterThan, 0)
 
-	remoteArmDir := captureDir + "/arm/remoteArm"
+	remoteArmDir := captureDir + "/arm/remoteArm/GetEndPosition"
 	filesInRemoteArmDir, err := readDir(t, remoteArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInRemoteArmDir), test.ShouldEqual, 1)
@@ -218,7 +166,7 @@ func TestManualSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, []string{"arm1"})
 	defer dmsvc.Close(context.Background())
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.Background(), testCfg)
@@ -269,7 +217,7 @@ func TestScheduledSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, []string{"arm1"})
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -305,7 +253,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, []string{"arm1"})
 
 	// Make sure we close resources to prevent leaks.
 	dmsvc.SetUploadFn(uploadFn)
@@ -332,7 +280,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
-	var uploaded []string
+	uploaded := []string{}
 	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
@@ -351,7 +299,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, []string{"arm1"})
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -366,7 +314,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	test.That(t, len(uploaded), test.ShouldEqual, 0)
 
 	// Turn the service back on.
-	dmsvc = newTestDataManager(t)
+	dmsvc = newTestDataManager(t, []string{"arm1"})
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -379,11 +327,11 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 func setConfigIntervalMins(config *config.Config, interval float64) error {
 	svcConfig, ok, err := datamanager.GetServiceConfig(config)
-	if err != nil {
-		return err
-	}
 	if !ok {
 		return errors.New("failed to get service config")
+	}
+	if err != nil {
+		return err
 	}
 	svcConfig.SyncIntervalMins = interval
 	return nil
