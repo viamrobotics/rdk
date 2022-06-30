@@ -6,7 +6,7 @@ import (
 	"io"
 	"sync"
 	"errors"
-	"bytes"
+	// "bytes"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -145,8 +145,8 @@ func (r *RTKStation) Start(ctx context.Context) {
 		r.logger.Fatalf("Unable to get reader: %s", err)
 	}
 
-	w := &bytes.Buffer{}
-	reader := io.TeeReader(stream, w)
+	// w := &bytes.Buffer{}
+	reader := io.TeeReader(stream, r.serialWriter)
 
 	if r.correctionType == "ntrip" {
 		r.correction.(*ntripCorrectionSource).ntripStatus = true
@@ -165,7 +165,7 @@ func (r *RTKStation) Start(ctx context.Context) {
 		if err != nil {
 			r.logger.Fatalf("Unable to read stream: %s", err)
 		}
-
+		
 		// write buf to all i2c handles
 		for _, busAddr := range r.i2cPaths {
 			//open handle

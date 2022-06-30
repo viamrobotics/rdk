@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"strings"
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
@@ -76,6 +77,14 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	return g, nil
 }
 
+func (g *SerialNMEAGPS) FilterNmea(line string) string {
+	ind := strings.Index(line, "$G")
+	if ind == -1 {
+		return "Garbage"
+	}
+	return line[ind:]
+}
+
 func (g *SerialNMEAGPS) Start(ctx context.Context) {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -94,6 +103,7 @@ func (g *SerialNMEAGPS) Start(ctx context.Context) {
 			}
 			// Update our struct's gps data in-place
 			g.mu.Lock()
+			line = g.FilterNmea(line)
 			err = g.data.parseAndUpdate(line)
 			g.mu.Unlock()
 			if err != nil {
