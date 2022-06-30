@@ -85,8 +85,8 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 	resp := &pb.GetMapResponse{}
 	switch mimeType {
 	case utils.MimeTypeJPEG:
-		_, span_encode := trace.StartSpan(ctx, "slam::server::GetMap:Encode::")
-		defer span_encode.End()
+		_, spanEncode := trace.StartSpan(ctx, "slam::server::GetMap:Encode")
+		defer spanEncode.End()
 
 		var buf bytes.Buffer
 		if err := jpeg.Encode(&buf, imageData, nil); err != nil {
@@ -99,8 +99,8 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 			Map:      mapData,
 		}
 	case utils.MimeTypePCD:
-		_, span_encode := trace.StartSpan(ctx, "slam::server::GetMap:ToPCD::")
-		defer span_encode.End()
+		_, spanToPCD := trace.StartSpan(ctx, "slam::server::GetMap:ToPCD")
+		defer spanToPCD.End()
 
 		var buf bytes.Buffer
 		if err := pointcloud.ToPCD(pcData.PointCloud, &buf, pointcloud.PCDBinary); err != nil {

@@ -242,7 +242,7 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 
 // setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, func() error, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::setupGRPCConnection")
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::setupGRPCConnection")
 	defer span.End()
 
 	dialOptions := rpc.WithInsecure()
@@ -258,7 +258,7 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 // GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
 // it is unpacked into a PoseInFrame.
 func (slamSvc *slamService) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::GetPosition")
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::GetPosition")
 	defer span.End()
 
 	req := &pb.GetPositionRequest{Name: name}
@@ -323,7 +323,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	ctx, span := trace.StartSpan(ctx, "slam::New")
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
 
 	cameraName, cam, err := configureCamera(svcConfig, r, logger)
@@ -481,7 +481,7 @@ func (slamSvc *slamService) StartDataProcess(cancelCtx context.Context, cam came
 
 // startSLAMProcess starts up the SLAM library process by calling the executable binary and giving it the necessary arguments.
 func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) ([]string, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::StartSLAMProcess")
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::StartSLAMProcess")
 	defer span.End()
 
 	var args []string
@@ -528,7 +528,7 @@ func (slamSvc *slamService) StopSLAMProcess() error {
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
 func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cam camera.Camera) (string, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::getAndSaveDataSparse")
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::getAndSaveDataSparse")
 	defer span.End()
 
 	img, _, err := cam.Next(ctx)
@@ -588,7 +588,7 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cam camera
 // getAndSaveDataDense implements the data extraction for dense algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
 func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context, cam camera.Camera) (string, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::getAndSaveDataDense")
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::getAndSaveDataDense")
 	defer span.End()
 
 	pointcloud, err := cam.NextPointCloud(ctx)

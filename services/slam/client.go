@@ -83,8 +83,8 @@ func (c *client) GetMap(ctx context.Context, name, mimeType string, cameraPositi
 
 	switch mimeType {
 	case utils.MimeTypeJPEG:
-		_, span_decode := trace.StartSpan(ctx, "slam::client::Decode::")
-		defer span_decode.End()
+		_, spanDecode := trace.StartSpan(ctx, "slam::client::GetMap::Decode")
+		defer spanDecode.End()
 
 		imData := resp.GetImage()
 		imageData, err = jpeg.Decode(bytes.NewReader(imData))
@@ -92,8 +92,8 @@ func (c *client) GetMap(ctx context.Context, name, mimeType string, cameraPositi
 			return "", imageData, vObject, err
 		}
 	case utils.MimeTypePCD:
-		_, span_decode := trace.StartSpan(ctx, "slam::client::GetPointCloud::")
-		defer span_decode.End()
+		_, spanGetPC := trace.StartSpan(ctx, "slam::client::GetMap::GetPointCloud")
+		defer spanGetPC.End()
 
 		pcData := resp.GetPointCloud()
 		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcData.PointCloud))
