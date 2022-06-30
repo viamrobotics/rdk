@@ -55,15 +55,6 @@ func request_ShellService_Shell_0(ctx context.Context, marshaler runtime.Marshal
 		}
 		return nil
 	}
-	if err := handleSend(); err != nil {
-		if cerr := stream.CloseSend(); cerr != nil {
-			grpclog.Infof("Failed to terminate client stream: %v", cerr)
-		}
-		if err == io.EOF {
-			return stream, metadata, nil
-		}
-		return nil, metadata, err
-	}
 	go func() {
 		for {
 			if err := handleSend(); err != nil {
@@ -141,12 +132,13 @@ func RegisterShellServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.shell.v1.ShellService/Shell", runtime.WithHTTPPathPattern("/proto.api.service.shell.v1.ShellService/Shell"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.shell.v1.ShellService/Shell", runtime.WithHTTPPathPattern("/proto.api.service.shell.v1.ShellService/Shell"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ShellService_Shell_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ShellService_Shell_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)

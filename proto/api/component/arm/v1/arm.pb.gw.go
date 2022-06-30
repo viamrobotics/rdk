@@ -339,12 +339,13 @@ func RegisterArmServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/GetEndPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/GetEndPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ArmService_GetEndPosition_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ArmService_GetEndPosition_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -362,12 +363,13 @@ func RegisterArmServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/MoveToPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/MoveToPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ArmService_MoveToPosition_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ArmService_MoveToPosition_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -385,12 +387,13 @@ func RegisterArmServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/GetJointPositions", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/joint_positions"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/GetJointPositions", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/joint_positions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ArmService_GetJointPositions_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ArmService_GetJointPositions_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -408,12 +411,13 @@ func RegisterArmServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/MoveToJointPositions", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/joint_positions"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/MoveToJointPositions", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/joint_positions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ArmService_MoveToJointPositions_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ArmService_MoveToJointPositions_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -431,12 +435,13 @@ func RegisterArmServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ArmService_Stop_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ArmService_Stop_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -493,12 +498,13 @@ func RegisterArmServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/GetEndPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/GetEndPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ArmService_GetEndPosition_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ArmService_GetEndPosition_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -513,12 +519,13 @@ func RegisterArmServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/MoveToPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/MoveToPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ArmService_MoveToPosition_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ArmService_MoveToPosition_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -533,12 +540,13 @@ func RegisterArmServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/GetJointPositions", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/joint_positions"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/GetJointPositions", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/joint_positions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ArmService_GetJointPositions_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ArmService_GetJointPositions_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -553,12 +561,13 @@ func RegisterArmServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/MoveToJointPositions", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/joint_positions"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/MoveToJointPositions", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/joint_positions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ArmService_MoveToJointPositions_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ArmService_MoveToJointPositions_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -573,12 +582,13 @@ func RegisterArmServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.arm.v1.ArmService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/arm/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ArmService_Stop_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ArmService_Stop_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)

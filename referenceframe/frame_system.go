@@ -187,7 +187,7 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 
 	var tfParent *PoseInFrame
 	var err error
-	if _, ok := object.(*GeometriesInFrame); ok && sfs.parents[srcFrame] != nil {
+	if _, ok := object.(*GeometriesInFrame); ok && src != World {
 		// We don't want to apply the final transformation when that is taken care of by the geometries
 		// This has to do with the way we decided to tie geometries to frames for ease of defining them in the model_json file
 		// A frame is assigned a pose and a geometry and the two are not coupled together. This way you do can define everything relative

@@ -221,12 +221,13 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_NavigationService_GetMode_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_NavigationService_GetMode_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -244,12 +245,13 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_NavigationService_SetMode_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_NavigationService_SetMode_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -267,12 +269,13 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetLocation", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/location"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetLocation", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/location"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_NavigationService_GetLocation_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_NavigationService_GetLocation_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -290,12 +293,13 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetWaypoints", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetWaypoints", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_NavigationService_GetWaypoints_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_NavigationService_GetWaypoints_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -313,12 +317,13 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/AddWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/AddWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_NavigationService_AddWaypoint_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_NavigationService_AddWaypoint_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -336,12 +341,13 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/RemoveWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints/{id}"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/RemoveWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_NavigationService_RemoveWaypoint_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_NavigationService_RemoveWaypoint_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -398,12 +404,13 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_NavigationService_GetMode_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_NavigationService_GetMode_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -418,12 +425,13 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_NavigationService_SetMode_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_NavigationService_SetMode_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -438,12 +446,13 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetLocation", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/location"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetLocation", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/location"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_NavigationService_GetLocation_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_NavigationService_GetLocation_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -458,12 +467,13 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetWaypoints", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetWaypoints", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_NavigationService_GetWaypoints_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_NavigationService_GetWaypoints_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -478,12 +488,13 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/AddWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/AddWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_NavigationService_AddWaypoint_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_NavigationService_AddWaypoint_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -498,12 +509,13 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/RemoveWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints/{id}"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/RemoveWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_NavigationService_RemoveWaypoint_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_NavigationService_RemoveWaypoint_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)

@@ -269,12 +269,13 @@ func RegisterGantryServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GantryService_GetPosition_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GantryService_GetPosition_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -292,12 +293,13 @@ func RegisterGantryServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/MoveToPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/MoveToPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GantryService_MoveToPosition_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GantryService_MoveToPosition_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -315,12 +317,13 @@ func RegisterGantryServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/GetLengths", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/lengths"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/GetLengths", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/lengths"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GantryService_GetLengths_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GantryService_GetLengths_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -338,12 +341,13 @@ func RegisterGantryServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GantryService_Stop_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GantryService_Stop_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -400,12 +404,13 @@ func RegisterGantryServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GantryService_GetPosition_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GantryService_GetPosition_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -420,12 +425,13 @@ func RegisterGantryServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/MoveToPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/MoveToPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GantryService_MoveToPosition_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GantryService_MoveToPosition_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -440,12 +446,13 @@ func RegisterGantryServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/GetLengths", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/lengths"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/GetLengths", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/lengths"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GantryService_GetLengths_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GantryService_GetLengths_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -460,12 +467,13 @@ func RegisterGantryServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gantry.v1.GantryService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/gantry/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GantryService_Stop_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GantryService_Stop_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)

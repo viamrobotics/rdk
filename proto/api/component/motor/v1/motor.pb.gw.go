@@ -531,12 +531,13 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/SetPower", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/power"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/SetPower", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/power"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotorService_SetPower_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotorService_SetPower_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -554,12 +555,13 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GoFor", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/go_for"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GoFor", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/go_for"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotorService_GoFor_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotorService_GoFor_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -577,12 +579,13 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GoTo", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/go_to"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GoTo", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/go_to"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotorService_GoTo_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotorService_GoTo_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -600,12 +603,13 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/ResetZeroPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/zero"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/ResetZeroPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/zero"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotorService_ResetZeroPosition_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotorService_ResetZeroPosition_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -623,12 +627,13 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotorService_GetPosition_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotorService_GetPosition_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -646,12 +651,13 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GetFeatures", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/features"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GetFeatures", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/features"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotorService_GetFeatures_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotorService_GetFeatures_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -669,12 +675,13 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotorService_Stop_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotorService_Stop_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -692,12 +699,13 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/powered"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/powered"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotorService_IsPowered_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotorService_IsPowered_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -754,12 +762,13 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/SetPower", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/power"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/SetPower", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/power"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotorService_SetPower_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotorService_SetPower_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -774,12 +783,13 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GoFor", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/go_for"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GoFor", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/go_for"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotorService_GoFor_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotorService_GoFor_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -794,12 +804,13 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GoTo", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/go_to"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GoTo", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/go_to"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotorService_GoTo_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotorService_GoTo_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -814,12 +825,13 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/ResetZeroPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/zero"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/ResetZeroPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/zero"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotorService_ResetZeroPosition_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotorService_ResetZeroPosition_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -834,12 +846,13 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotorService_GetPosition_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotorService_GetPosition_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -854,12 +867,13 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GetFeatures", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/features"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/GetFeatures", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/features"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotorService_GetFeatures_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotorService_GetFeatures_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -874,12 +888,13 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotorService_Stop_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotorService_Stop_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -894,12 +909,13 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/powered"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.motor.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/viam/api/v1/component/motor/{name}/powered"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotorService_IsPowered_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotorService_IsPowered_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)

@@ -251,12 +251,13 @@ func RegisterIMUServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAngularVelocity", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/angular_velocity"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAngularVelocity", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/angular_velocity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_IMUService_ReadAngularVelocity_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_IMUService_ReadAngularVelocity_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -274,12 +275,13 @@ func RegisterIMUServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadOrientation", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/orientation"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadOrientation", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/orientation"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_IMUService_ReadOrientation_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_IMUService_ReadOrientation_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -297,12 +299,13 @@ func RegisterIMUServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAcceleration", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/acceleration"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAcceleration", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/acceleration"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_IMUService_ReadAcceleration_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_IMUService_ReadAcceleration_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -320,12 +323,13 @@ func RegisterIMUServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadMagnetometer", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/magnetometer"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadMagnetometer", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/magnetometer"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_IMUService_ReadMagnetometer_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_IMUService_ReadMagnetometer_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -382,12 +386,13 @@ func RegisterIMUServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAngularVelocity", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/angular_velocity"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAngularVelocity", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/angular_velocity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_IMUService_ReadAngularVelocity_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_IMUService_ReadAngularVelocity_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -402,12 +407,13 @@ func RegisterIMUServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadOrientation", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/orientation"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadOrientation", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/orientation"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_IMUService_ReadOrientation_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_IMUService_ReadOrientation_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -422,12 +428,13 @@ func RegisterIMUServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAcceleration", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/acceleration"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAcceleration", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/acceleration"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_IMUService_ReadAcceleration_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_IMUService_ReadAcceleration_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -442,12 +449,13 @@ func RegisterIMUServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadMagnetometer", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/magnetometer"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadMagnetometer", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/magnetometer"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_IMUService_ReadMagnetometer_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_IMUService_ReadMagnetometer_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
