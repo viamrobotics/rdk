@@ -67,6 +67,34 @@ type JoinAttrs struct {
 	*camera.AttrConfig
 	TargetFrame   string   `json:"target_frame"`
 	SourceCameras []string `json:"source_cameras"`
+	MergeMethod   string   `json:"merge_method"`
+}
+
+type MergeMethodType string
+type MergeMethodUnsupportedError error
+
+const (
+	Null  MergeMethodType = ""
+	Naive MergeMethodType = "naive"
+	ICP   MergeMethodType = "icp"
+	NDT   MergeMethodType = "ndt"
+)
+
+func readMergeMethodType(s string) (MergeMethodType, error) {
+	switch s {
+	case "naive", "":
+		return Naive, nil
+	case "icp":
+		return ICP, nil
+	case "ndt":
+		return NDT, nil
+	default:
+		return Null, newMergeMethodUnsupportedError(s)
+	}
+}
+
+func newMergeMethodUnsupportedError(method string) MergeMethodUnsupportedError {
+	return errors.Errorf("merge method %s not supported", method)
 }
 
 // joinPointCloudSource takes image sources that can produce point clouds and merges them together from
@@ -79,6 +107,7 @@ type joinPointCloudSource struct {
 	targetName    string
 	robot         robot.Robot
 	stream        camera.StreamType
+	mergeMethod   MergeMethodType
 }
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
@@ -100,6 +129,13 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttr
 	joinSource.targetName = attrs.TargetFrame
 	joinSource.robot = r
 	joinSource.stream = camera.StreamType(attrs.Stream)
+
+	mergeMethod, err := readMergeMethodType(attrs.MergeMethod)
+	if err != nil {
+		return nil, fmt.Errorf("invalid merge method (%s): %w", attrs.MergeMethod, err)
+	}
+	joinSource.mergeMethod = mergeMethod
+
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
 		proj, _ := camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx])
 		return camera.New(joinSource, proj)
@@ -110,7 +146,18 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttr
 // NextPointCloud gets all the point clouds from the source cameras,
 // and puts the points in one point cloud in the frame of targetFrame.
 func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud")
+	switch jpcs.mergeMethod {
+	case Naive:
+		return jpcs.NextPointCloudNaive(ctx)
+	case ICP:
+		return jpcs.NextPointCloudICP(ctx)
+	default:
+		return nil, newMergeMethodUnsupportedError(string(jpcs.mergeMethod))
+	}
+}
+
+func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
 	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
@@ -216,6 +263,10 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	return pcTo, nil
 }
 
+func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
+	return nil, newMergeMethodUnsupportedError(string(jpcs.mergeMethod))
+}
+
 // initalizeInputs gets all the input positions for the robot components in order to calculate the frame system offsets.
 func (jpcs *joinPointCloudSource) initializeInputs(
 	ctx context.Context,
@@ -263,7 +314,9 @@ func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func()
 	if proj == nil { // use a default projector if target frame doesn't have one
 		proj = &rimage.ParallelProjection{}
 	}
+
 	pc, err := jpcs.NextPointCloud(ctx)
+
 	if err != nil {
 		return nil, nil, err
 	}
