@@ -2,6 +2,7 @@ package rtk
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -172,6 +173,35 @@ func TestReadings(t *testing.T) {
 	valid1, err := g.ReadValid(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, valid1, test.ShouldEqual, false)
+}
+
+func TestConnect(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	info := ntripInfo{
+		url: "invalidurl",
+		username: "user",
+		password:"pwd",
+		mountPoint: "",
+	}
+	g := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, info: info}
+
+	// create new ntrip client and connect
+	err := g.Connect()
+	fmt.Println("url: ", g.info.url)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	g.info.url = "http://fakeurl"
+	err = g.Connect()
+	test.That(t, err, test.ShouldBeNil)
+
+	err = g.GetStream()
+	test.That(t, err, test.ShouldNotBeNil)
+
+	g.info.mountPoint = "mp"
+	err = g.GetStream()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no such host")
 }
 
 // Helpers
