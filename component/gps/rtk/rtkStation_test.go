@@ -57,9 +57,48 @@ func TestRTK(t *testing.T) {
 	//test serial connection source
 
 	//test I2C correction source
+	cfig = config.Component{
+		Name:  "rtk1",
+		Model: "rtk-station",
+		Type:  "gps",
+		Attributes: config.AttributeMap{
+			"correction_source": "I2C",
+			"ntrip_addr": "some_ntrip_address",
+			"ntrip_username": "skarpoor",
+			"ntrip_password": "plswork",
+			"ntrip_mountpoint": "NJI2",
+			"ntrip_connect_attempts": 10,
+			"board":                  testBoardName,
+			"bus":                    testBusName,
+		},
+	}
+
+	g, err = newRTKStation(ctx, deps, cfig, logger)
+	passErr := "board " + cfig.Attributes.String("board") + " is not local"
+
+	if err == nil || err.Error() != passErr {
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, g, test.ShouldNotBeNil)
+	}
 
 	//test invalid source
-
+	cfig = config.Component{
+		Name:  "rtk1",
+		Model: "rtk-station",
+		Type:  "gps",
+		Attributes: config.AttributeMap{
+			"correction_source": "invalid-protocol",
+			"ntrip_addr": "some_ntrip_address",
+			"ntrip_username": "skarpoor",
+			"ntrip_password": "plswork",
+			"ntrip_mountpoint": "NJI2",
+			"ntrip_connect_attempts": 10,
+			"board":                  testBoardName,
+			"bus":                    testBusName,
+		},
+	}
+	_, err = newRTKStation(ctx, deps, cfig, logger)
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestClose(t *testing.T) {
