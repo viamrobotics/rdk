@@ -19,16 +19,12 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	weboptions "go.viam.com/rdk/robot/web/options"
-
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
-
-	// register.
-	_ "go.viam.com/rdk/component/register"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -120,7 +116,7 @@ func newTestDataManagerWithRemote(t *testing.T) (internal.DMService, string) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Inject the robot with the local and remote arm resources.
-	remoteArmName := string(remoteCfg.Components[0].ResourceName().Name)
+	remoteArmName := remoteCfg.Components[0].ResourceName().Name
 	r := injectedRobotWithArms([]string{"localArm", remoteArmName})
 
 	// Instantiate the Data Manager with the injected robot.
