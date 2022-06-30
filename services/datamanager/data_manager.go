@@ -331,9 +331,8 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *dataManagerService) Sync(ctx context.Context) error {
 	if svc.syncer == nil {
-		panic("called Sync on data manager service with nil syncer")
+		return errors.New("called Sync on data manager service with nil syncer")
 	}
-
 	svc.syncDataCaptureFiles()
 	return nil
 }

@@ -1081,6 +1081,9 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Type: "no",
 			},
 		},
+		Cloud: &config.Cloud{
+			ID: "part_id",
+		},
 	}
 
 	goodConfig := &config.Config{
@@ -1099,6 +1102,9 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Type:                config.ServiceType(datamanager.SubtypeName),
 				ConvertedAttributes: &datamanager.Config{},
 			},
+		},
+		Cloud: &config.Cloud{
+			ID: "part_id",
 		},
 	}
 	r, err := robotimpl.New(ctx, badConfig, logger)
