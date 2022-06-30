@@ -110,8 +110,10 @@ func Named(name string) resource.Name {
 }
 
 var (
-	_ = LocalMotor(&reconfigurableMotor{})
+	_ = Motor(&reconfigurableMotor{})
+	_ = LocalMotor(&reconfigurableLocalMotor{})
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
+	_ = resource.Reconfigurable(&reconfigurableLocalMotor{})
 )
 
 // FromDependencies is a helper for getting the named motor from a collection of
@@ -238,33 +240,10 @@ func (r *reconfigurableMotor) Stop(ctx context.Context) error {
 	return r.actual.Stop(ctx)
 }
 
-func (r *reconfigurableMotor) IsMoving(ctx context.Context) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	localMotor, ok := r.actual.(LocalMotor)
-	if !ok {
-		return false, utils.NewUnimplementedInterfaceError("LocalMotor", r)
-	}
-	return localMotor.IsMoving(ctx)
-}
-
 func (r *reconfigurableMotor) IsPowered(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.IsPowered(ctx)
-}
-
-func (r *reconfigurableMotor) GoTillStop(
-	ctx context.Context, rpm float64,
-	stopFunc func(ctx context.Context) bool,
-) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	localMotor, ok := r.actual.(LocalMotor)
-	if !ok {
-		return NewGoTillStopUnsupportedError("(name unavailable)")
-	}
-	return localMotor.GoTillStop(ctx, rpm, stopFunc)
 }
 
 func (r *reconfigurableMotor) Close(ctx context.Context) error {
@@ -276,6 +255,10 @@ func (r *reconfigurableMotor) Close(ctx context.Context) error {
 func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	return r.reconfigure(ctx, newMotor)
+}
+
+func (r *reconfigurableMotor) reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
 	actual, ok := newMotor.(*reconfigurableMotor)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newMotor)
@@ -287,17 +270,61 @@ func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource
 	return nil
 }
 
+type reconfigurableLocalMotor struct {
+	*reconfigurableMotor
+	actual LocalMotor
+}
+
+func (g *reconfigurableLocalMotor) Reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	motor, ok := newMotor.(*reconfigurableLocalMotor)
+	if !ok {
+		return utils.NewUnexpectedTypeError(g, newMotor)
+	}
+	if err := viamutils.TryClose(ctx, g.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	g.actual = motor.actual
+	return g.reconfigurableMotor.reconfigure(ctx, motor.reconfigurableMotor)
+}
+
+func (r *reconfigurableLocalMotor) GoTillStop(
+	ctx context.Context, rpm float64,
+	stopFunc func(ctx context.Context) bool,
+) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GoTillStop(ctx, rpm, stopFunc)
+}
+
+func (r *reconfigurableLocalMotor) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving(ctx)
+}
+
 // WrapWithReconfigurable converts a regular Motor implementation to a reconfigurableMotor.
 // If motor is already a reconfigurableMotor, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	motor, ok := r.(Motor)
+	m, ok := r.(Motor)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("Motor", r)
 	}
-	if reconfigurable, ok := motor.(*reconfigurableMotor); ok {
+	if reconfigurable, ok := m.(*reconfigurableMotor); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableMotor{actual: motor}, nil
+	rMotor := &reconfigurableMotor{actual: m}
+	mLocal, ok := r.(LocalMotor)
+	if !ok {
+		return rMotor, nil
+	}
+	if reconfigurable, ok := m.(*reconfigurableLocalMotor); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableLocalMotor{actual: mLocal, reconfigurableMotor: rMotor}, nil
 }
 
 // PinConfig defines the mapping of where motor are wired.
