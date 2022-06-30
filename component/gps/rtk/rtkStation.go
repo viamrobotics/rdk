@@ -53,7 +53,7 @@ type RTKStation struct {
 
 type correctionSource interface {
 	GetReader() (io.ReadCloser, error)
-	Start(ctx context.Context, ready chan<- bool)
+	Start(ready chan<- bool)
 	Close() error
 }
 
@@ -145,7 +145,7 @@ func (r *RTKStation) Start(ctx context.Context) {
 
 		// read from correction source
 		ready := make(chan bool)
-		go r.correction.Start(ctx, ready)
+		go r.correction.Start(ready)
 
 		<-ready
 		stream, err := r.correction.GetReader()
@@ -204,11 +204,15 @@ func (r *RTKStation) Start(ctx context.Context) {
 
 // Close shuts down the RTKStation
 func (r *RTKStation) Close() error {
+	r.logger.Debug("Closing RTK Station")
 	// close correction source
 	err := r.correction.Close()
 	if err != nil {
 		return err
 	}
+
+	r.cancelFunc()
+	r.activeBackgroundWorkers.Wait()
 
 	// close all ports in slice
 	for _, port := range r.serialPorts {
@@ -218,9 +222,7 @@ func (r *RTKStation) Close() error {
 
 	//close i2c handles?
 
-	r.cancelFunc()
-	r.activeBackgroundWorkers.Wait()
-
+	r.logger.Debug("Closing RTK Station Closed")
 	return nil
 }
 
