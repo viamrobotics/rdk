@@ -84,7 +84,7 @@ func (manager *resourceManager) addRemote(ctx context.Context, r robot.Robot, c 
 func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []resource.Name {
 	var filtered []resource.Name
 	if _, ok := manager.resources.Nodes[remoteName]; !ok {
-		manager.logger.Errorw("trying to get remote resources of a non existinmg remote", "remote", remoteName)
+		manager.logger.Errorw("trying to get remote resources of a non existing remote", "remote", remoteName)
 	}
 	children := manager.resources.GetAllChildrenOf(remoteName)
 	for _, child := range children {
@@ -191,7 +191,7 @@ func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
 		if k.ResourceType == remoteTypeName {
 			rr, ok := manager.resources.Nodes[k].(robot.Robot)
 			if !ok {
-				manager.logger.Errorw("remote robot is not a robot interface",
+				manager.logger.Errorw("remote robot doesn't implement the robot interface",
 					"remote", k,
 					"type", manager.resources.Nodes[k])
 				continue
@@ -512,7 +512,8 @@ func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
 	if iface, ok := manager.resources.Nodes[rName]; ok {
 		part, ok := iface.(robot.Robot)
 		if !ok {
-			panic(errors.Errorf("tried to access remote '%q' but its not a robot its %T", name, iface))
+			manager.logger.Errorf("tried to access remote '%q' but its not a robot interface its %T", name, iface)
+			return nil, false
 		}
 		return part, true
 	}

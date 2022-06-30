@@ -32,7 +32,7 @@ const (
 	ResourceTypeService   = TypeName("service")
 )
 
-var regex = regexp.MustCompile(`^(\w+:(?:\w+:)*)?(rdk:\w+:(?:\w+))\/?(.+)?$`)
+var resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
 
 // Remote is set when the resource sits behind (a) Remote(s).
 type Remote struct {
@@ -144,12 +144,12 @@ func NameFromSubtype(subtype Subtype, name string) Name {
 
 // NewFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewFromString(resourceName string) (Name, error) {
-	if !regex.MatchString(resourceName) {
+	if !resRegexValidator.MatchString(resourceName) {
 		return Name{}, errors.Errorf("string %q is not a valid resource name", resourceName)
 	}
-	matches := regex.FindStringSubmatch(resourceName)
-	rSubtypeParts := strings.Split(matches[2], ":")
-	remote := matches[1]
+	matches := resRegexValidator.FindStringSubmatch(resourceName)
+	rSubtypeParts := strings.Split(matches[1], ":")
+	remote := matches[2]
 	if len(remote) > 0 {
 		remote = remote[:len(remote)-1]
 	}
@@ -186,7 +186,7 @@ func (n Name) PopRemote() Name {
 
 // IsRemoteResource return true if the resource is a remote resource.
 func (n Name) IsRemoteResource() bool {
-	return len(n.Remote.Remote) > 1
+	return len(n.Remote.Remote) > 0
 }
 
 // Validate ensures that important fields exist and are valid.
@@ -198,10 +198,14 @@ func (n Name) Validate() error {
 func (n Name) String() string {
 	name := n.Subtype.String()
 	if n.Remote.Remote != "" {
-		name = fmt.Sprintf("%s:%s", n.Remote, name)
+		name = fmt.Sprintf("%s/%s:", name, n.Remote)
 	}
 	if n.Name != "" && (n.ResourceType != ResourceTypeService) {
-		name = fmt.Sprintf("%s/%s", name, n.Name)
+		if n.Remote.Remote != "" {
+			name = fmt.Sprintf("%s%s", name, n.Name)
+		} else {
+			name = fmt.Sprintf("%s/%s", name, n.Name)
+		}
 	}
 	return name
 }
