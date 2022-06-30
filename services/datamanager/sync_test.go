@@ -263,7 +263,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		defer os.Remove(tf.Name())
 
 		// First write metadata to file.
-		syncMetadata := v1.SyncMetadata{
+		syncMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
 			MethodName:       methodName,
@@ -365,7 +365,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		defer os.Remove(tf.Name())
 
 		// First write metadata to file.
-		syncMetadata := v1.SyncMetadata{
+		syncMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
 			MethodName:       methodName,

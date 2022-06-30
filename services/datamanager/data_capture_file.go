@@ -14,7 +14,7 @@ import (
 const dataCaptureFileExt = ".capture"
 
 // Create a timestamped file within the given capture directory.
-func createDataCaptureFile(captureDir string, md *v1.SyncMetadata) (*os.File, error) {
+func createDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.File, error) {
 	// First create directories and the file in it.
 	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
@@ -49,8 +49,8 @@ func getDataType(componentType string, methodName string) v1.DataType {
 	return v1.DataType_DATA_TYPE_TABULAR_SENSOR
 }
 
-func getSyncMetadata(attributes dataCaptureConfig) *v1.SyncMetadata {
-	return &v1.SyncMetadata{
+func buildSyncMetadata(attributes dataCaptureConfig) *v1.DataCaptureMetadata {
+	return &v1.DataCaptureMetadata{
 		ComponentType:    string(attributes.Type),
 		ComponentName:    attributes.Name,
 		MethodName:       attributes.Method,
@@ -59,13 +59,13 @@ func getSyncMetadata(attributes dataCaptureConfig) *v1.SyncMetadata {
 	}
 }
 
-// readSyncMetadata reads the SyncMetadata message from the beginning of the capture file.
-func readSyncMetadata(f *os.File) (*v1.SyncMetadata, error) {
+// readDataCaptureMetadata reads the SyncMetadata message from the beginning of the capture file.
+func readDataCaptureMetadata(f *os.File) (*v1.DataCaptureMetadata, error) {
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}
 
-	r := &v1.SyncMetadata{}
+	r := &v1.DataCaptureMetadata{}
 	if _, err := pbutil.ReadDelimited(f, r); err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read SyncMetadata from %s", f.Name()))
 	}
@@ -75,7 +75,7 @@ func readSyncMetadata(f *os.File) (*v1.SyncMetadata, error) {
 
 // readNextSensorData reads sensorData sequentially from a data capture file. It assumes the file offset is already
 // pointing at the beginning of series of SensorData in the file. This is accomplished by first calling
-// readSyncMetadata.
+// readDataCaptureMetadata.
 func readNextSensorData(f *os.File) (*v1.SensorData, error) {
 	r := &v1.SensorData{}
 	if _, err := pbutil.ReadDelimited(f, r); err != nil {
