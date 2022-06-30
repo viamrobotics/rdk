@@ -149,7 +149,7 @@ func valToAngle(val float64) uint8 {
 }
 
 func (s *piPigpioServo) Stop(ctx context.Context) error {
-	ctx, done := s.opMgr.New(ctx)
+	_, done := s.opMgr.New(ctx)
 	defer done()
 	getPos := C.gpioServo(s.pin, C.uint(0))
 	if getPos != 0 {
