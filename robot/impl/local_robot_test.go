@@ -339,8 +339,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			}
 
 			_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+			test.That(t, err, test.ShouldBeNil)
 
 			remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
 				Type:    rpc.CredentialsTypeAPIKey,
@@ -355,14 +354,16 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, "must use Config.AllowInsecureCreds")
+				test.That(t, err, test.ShouldBeNil)
 
 				remoteConfig.AllowInsecureCreds = true
 
-				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
+				r3, err := robotimpl.New(context.Background(), remoteConfig, logger)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, r3, test.ShouldNotBeNil)
+				remoteBot, ok := r3.RemoteByName("foo")
+				test.That(t, ok, test.ShouldBeFalse)
+				test.That(t, remoteBot, test.ShouldBeNil)
 
 				remoteConfig.Remotes[0].Auth.Entity = entityName
 				remoteConfig.Remotes[1].Auth.Entity = entityName
@@ -380,8 +381,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, "must use Config.AllowInsecureCreds")
+				test.That(t, err, test.ShouldBeNil)
 
 				remoteConfig.AllowInsecureCreds = true
 
@@ -544,17 +544,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	}
 
 	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
-
-	remoteConfig.Remotes[0].Auth.Entity = "wrong"
-	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
-
-	remoteConfig.Remotes[0].Auth.Entity = options.FQDN
-	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+	test.That(t, err, test.ShouldBeNil)
 
 	// use secret
 	remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
@@ -731,9 +721,11 @@ func TestNewTeardown(t *testing.T) {
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
+	ctx := context.Background()
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	err = r.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dummyBoard1.closeCount, test.ShouldEqual, 1)
 }
 
@@ -1068,4 +1060,66 @@ func TestGetStatusRemote(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, convMap, test.ShouldResemble, armStatus)
 	}
+}
+
+func TestResourceStartsOnReconfigure(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	badConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "fake0",
+				Type:      base.SubtypeName,
+				Model:     "random",
+			},
+		},
+		Services: []config.Service{
+			{
+				Name: "fake1",
+				Type: "no",
+			},
+		},
+		Cloud: &config.Cloud{},
+	}
+
+	goodConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "fake0",
+				Type:      base.SubtypeName,
+				Model:     "fake",
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "fake1",
+				Type:                config.ServiceType(datamanager.SubtypeName),
+				ConvertedAttributes: &datamanager.Config{},
+			},
+		},
+		Cloud: &config.Cloud{},
+	}
+	r, err := robotimpl.New(ctx, badConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r, test.ShouldNotBeNil)
+
+	noBase, err := r.ResourceByName(base.Named("fake0"))
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldResemble, rutils.NewResourceNotFoundError(base.Named("fake0")).Error())
+	test.That(t, noBase, test.ShouldBeNil)
+
+	err = r.Reconfigure(ctx, goodConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	yesBase, err := r.ResourceByName(base.Named("fake0"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, yesBase, test.ShouldNotBeNil)
+
+	yesSvc, err := r.ResourceByName(datamanager.Name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, yesSvc, test.ShouldNotBeNil)
 }
