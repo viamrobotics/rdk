@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -27,8 +26,8 @@ const modelName = "gpiostepper"
 
 func init() {
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(r, config)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, config)
 			if err != nil {
 				return nil, err
 			}
@@ -40,7 +39,7 @@ func init() {
 	motor.RegisterConfigAttributeConverter(modelName)
 }
 
-func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Board, *motor.Config, error) {
+func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *motor.Config, error) {
 	motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
 	if !ok {
 		return nil, nil, rdkutils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
@@ -48,7 +47,7 @@ func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Boar
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
 	}
-	b, err := board.FromRobot(r, motorConfig.BoardName)
+	b, err := board.FromDependencies(deps, motorConfig.BoardName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -332,6 +331,13 @@ func (m *gpioStepper) GetFeatures(ctx context.Context) (map[motor.Feature]bool, 
 	}, nil
 }
 
+// IsMoving returns if the motor is currently moving.
+func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return m.stepPosition != m.targetStepPosition, nil
+}
+
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *gpioStepper) Stop(ctx context.Context) error {
 	m.stop()
@@ -349,9 +355,7 @@ func (m *gpioStepper) stop() {
 
 // IsPowered returns whether or not the motor is currently on.
 func (m *gpioStepper) IsPowered(ctx context.Context) (bool, error) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	return m.stepPosition != m.targetStepPosition, nil
+	return m.IsMoving(ctx)
 }
 
 func (m *gpioStepper) enable(ctx context.Context, on bool) error {

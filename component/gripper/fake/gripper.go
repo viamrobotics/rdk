@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 //go:embed gripper_model.json
@@ -21,7 +20,7 @@ var gripperjson []byte
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "fake", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			model, err := referenceframe.UnmarshalModelJSON(gripperjson, "")
 			if err != nil {
 				return nil, err
@@ -62,6 +61,6 @@ func (g *Gripper) Stop(ctx context.Context) error {
 }
 
 // IsMoving is always false for a fake gripper.
-func (g *Gripper) IsMoving() bool {
-	return false
+func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }

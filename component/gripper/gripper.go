@@ -96,7 +96,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 }
 
 var (
-	_ = Gripper(&reconfigurableGripper{})
+	_ = LocalGripper(&reconfigurableGripper{})
 	_ = resource.Reconfigurable(&reconfigurableGripper{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
@@ -111,7 +111,7 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	}
 	part, ok := res.(Gripper)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGripper", res)
+		return nil, utils.NewUnimplementedInterfaceError("Gripper", res)
 	}
 	return part, nil
 }
@@ -127,7 +127,11 @@ func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.Actuator
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("LocalGripper", resource)
 	}
-	return &commonpb.ActuatorStatus{IsMoving: gripper.IsMoving()}, nil
+	isMoving, err := gripper.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.ActuatorStatus{IsMoving: isMoving}, nil
 }
 
 type reconfigurableGripper struct {
@@ -165,10 +169,10 @@ func (g *reconfigurableGripper) Stop(ctx context.Context) error {
 	return g.actual.Stop(ctx)
 }
 
-func (g *reconfigurableGripper) IsMoving() bool {
+func (g *reconfigurableGripper) IsMoving(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.actual.IsMoving()
+	return g.actual.IsMoving(ctx)
 }
 
 // Reconfigure reconfigures the resource.

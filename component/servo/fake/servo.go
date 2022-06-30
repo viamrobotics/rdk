@@ -10,13 +10,13 @@ import (
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	registry.RegisterComponent(servo.Subtype, "fake", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return &Servo{Name: config.Name}, nil
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			var s servo.LocalServo = &Servo{Name: config.Name}
+			return s, nil
 		},
 	})
 }
@@ -42,4 +42,9 @@ func (s *Servo) GetPosition(ctx context.Context) (uint8, error) {
 // Stop doesn't do anything for a fake servo.
 func (s *Servo) Stop(ctx context.Context) error {
 	return nil
+}
+
+// IsMoving is always false for a fake servo.
+func (s *Servo) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }

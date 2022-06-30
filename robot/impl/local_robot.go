@@ -327,7 +327,8 @@ func newWithResources(
 		}
 		svc, err := r.newService(ctx, cfg)
 		if err != nil {
-			return nil, err
+			logger.Errorw("failed to add default service", "error", err, "service", name)
+			continue
 		}
 		r.manager.addResource(name, svc)
 	}
@@ -336,18 +337,13 @@ func newWithResources(
 	r.internalServices[webName] = web.New(ctx, r, logger)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 
-	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
-		return nil, err
-	}
+	r.manager.processConfig(ctx, cfg, r)
 
 	for name, res := range resources {
 		r.manager.addResource(name, res)
 	}
 
-	// update default services - done here so that all resources have been created and can be addressed.
-	if err := r.updateDefaultServices(ctx); err != nil {
-		return nil, err
-	}
+	r.updateDefaultServices(ctx)
 	r.manager.updateResourceRemoteNames()
 	successful = true
 	return r, nil
@@ -367,13 +363,44 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
+// getDependencies derives a collection of dependencies from a robot for a given
+// component configuration. We don't use the resource manager for this information since it
+// is not be constructed at this point.
+func (r *localRobot) getDependencies(config config.Component) (registry.Dependencies, error) {
+	deps := make(registry.Dependencies)
+	for _, dep := range config.DependsOn {
+		if c := r.config.FindComponent(dep); c != nil {
+			res, err := r.ResourceByName(c.ResourceName())
+			if err != nil {
+				return nil, &registry.DependencyNotReadyError{Name: dep}
+			}
+			deps[c.ResourceName()] = res
+		}
+	}
+
+	return deps, nil
+}
+
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
-	newResource, err := f.Constructor(ctx, r, config, r.logger)
+
+	deps, err := r.getDependencies(config)
+	if err != nil {
+		return nil, err
+	}
+
+	var newResource interface{}
+	if f.Constructor != nil {
+		newResource, err = f.Constructor(ctx, deps, config, r.logger)
+	} else {
+		r.logger.Warnw("using legacy constructor", "subtype", rName.Subtype, "model", config.Model)
+		newResource, err = f.RobotConstructor(ctx, r, config, r.logger)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -390,10 +417,8 @@ type ConfigUpdateable interface {
 	Update(context.Context, *config.Config) error
 }
 
-func (r *localRobot) updateDefaultServices(ctx context.Context) error {
-	// grab all resources
+func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	resources := map[resource.Name]interface{}{}
-
 	for _, n := range r.ResourceNames() {
 		// TODO(RSDK-333) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
@@ -406,16 +431,19 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	for _, name := range defaultSvc {
 		svc, err := r.ResourceByName(name)
 		if err != nil {
-			return utils.NewResourceNotFoundError(name)
+			r.Logger().Errorw("resource not found", "error", utils.NewResourceNotFoundError(name))
+			continue
 		}
 		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
-				return err
+				r.Logger().Errorw("failed to update resource", "resource", name, "error", err)
+				continue
 			}
 		}
 		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
 			if err := configUpdateable.Update(ctx, r.config); err != nil {
-				return err
+				r.Logger().Errorw("config for service failed to update", "resource", name, "error", err)
+				continue
 			}
 		}
 	}
@@ -423,12 +451,11 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	for _, svc := range r.internalServices {
 		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
-				return err
+				r.Logger().Errorw("failed to update internal service", "resource", svc, "error", err)
+				continue
 			}
 		}
 	}
-
-	return nil
 }
 
 // Refresh does nothing for now.

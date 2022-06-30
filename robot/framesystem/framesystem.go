@@ -155,7 +155,7 @@ func (svc *frameSystemService) TransformPose(
 		input[name] = pos
 	}
 
-	tf, err := fs.Transform(input, referenceframe.NewPoseInFrame(pose.FrameName(), pose.Pose()), dst)
+	tf, err := fs.Transform(input, pose, dst)
 	if err != nil {
 		return nil, err
 	}

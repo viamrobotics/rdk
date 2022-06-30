@@ -14,17 +14,16 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			m := &Motor{Name: config.Name}
 			if mcfg, ok := config.ConvertedAttributes.(*motor.Config); ok {
 				if mcfg.BoardName != "" {
 					m.Board = mcfg.BoardName
-					b, err := board.FromRobot(r, m.Board)
+					b, err := board.FromDependencies(deps, m.Board)
 					if err != nil {
 						return nil, err
 					}
@@ -46,6 +45,8 @@ func init() {
 
 	motor.RegisterConfigAttributeConverter("fake")
 }
+
+var _ motor.LocalMotor = &Motor{}
 
 // A Motor allows setting and reading a set power percentage and
 // direction.
@@ -148,6 +149,13 @@ func (m *Motor) Stop(ctx context.Context) error {
 
 // IsPowered returns if the motor is pretending to be on or not.
 func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return math.Abs(m.powerPct) >= 0.005, nil
+}
+
+// IsMoving returns if the motor is pretending to be moving or not.
+func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil

@@ -48,7 +48,7 @@ var ur5DHmodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return URArmConnect(ctx, r, config, logger)
 		},
 	})
@@ -255,8 +255,8 @@ func (ua *URArm) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the arm is moving.
-func (ua *URArm) IsMoving() bool {
-	return ua.opMgr.OpRunning()
+func (ua *URArm) IsMoving(ctx context.Context) (bool, error) {
+	return ua.opMgr.OpRunning(), nil
 }
 
 // MoveToJointPositionRadians TODO.

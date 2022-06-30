@@ -262,6 +262,14 @@ func TestGeomtriesTransform(t *testing.T) {
 	framedGeometries, _ := tf.(*GeometriesInFrame)
 	test.That(t, framedGeometries.FrameName(), test.ShouldResemble, "frame2")
 	test.That(t, spatial.PoseAlmostCoincident(framedGeometries.Geometries()["object"].Pose(), objectFromFrame2), test.ShouldBeTrue)
+
+	gf := NewGeometriesInFrame(World, geometries.Geometries())
+	tf, err = fs.Transform(map[string][]Input{}, gf, "frame3")
+	test.That(t, err, test.ShouldBeNil)
+	framedGeometries, _ = tf.(*GeometriesInFrame)
+	test.That(t, framedGeometries.FrameName(), test.ShouldResemble, "frame3")
+	objectFromFrame3 := spatial.NewPoseFromPoint(r3.Vector{5, -4, 0.}) // the point from PoV of frame 2
+	test.That(t, spatial.PoseAlmostCoincident(framedGeometries.Geometries()["object"].Pose(), objectFromFrame3), test.ShouldBeTrue)
 }
 
 func TestComplicatedFrameTransform(t *testing.T) {

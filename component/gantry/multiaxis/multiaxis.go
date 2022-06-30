@@ -16,7 +16,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -49,11 +48,11 @@ func (config *AttrConfig) Validate(path string) error {
 func init() {
 	registry.RegisterComponent(gantry.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newMultiAxis(ctx, r, config, logger)
+			return newMultiAxis(ctx, deps, config, logger)
 		},
 	})
 
@@ -66,7 +65,12 @@ func init() {
 }
 
 // NewMultiAxis creates a new-multi axis gantry.
-func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.LocalGantry, error) {
+func newMultiAxis(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (gantry.LocalGantry, error) {
 	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
@@ -78,13 +82,9 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 	}
 
 	for _, s := range conf.SubAxes {
-		oneAx, err := r.ResourceByName(gantry.Named(s))
+		subAx, err := gantry.FromDependencies(deps, s)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no axes named [%s]", s)
-		}
-		subAx, ok := oneAx.(gantry.Gantry)
-		if !ok {
-			return nil, errors.Errorf("gantry named [%s] is not a gantry, is a %T", s, oneAx)
 		}
 		mAx.subAxes = append(mAx.subAxes, subAx)
 	}
@@ -191,8 +191,8 @@ func (g *multiAxis) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gantry is moving.
-func (g *multiAxis) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *multiAxis) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 // CurrentInputs returns the current inputs of the Gantry frame.

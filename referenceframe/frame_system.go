@@ -174,11 +174,9 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error) {
 	src := object.FrameName()
-	
 	if src == dst {
 		return object, nil
 	}
-	
 	if !sfs.frameExists(src) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", src)
 	}
@@ -189,7 +187,7 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 
 	var tfParent *PoseInFrame
 	var err error
-	if _, ok := object.(*GeometriesInFrame); ok {
+	if _, ok := object.(*GeometriesInFrame); ok && src != World {
 		// We don't want to apply the final transformation when that is taken care of by the geometries
 		// This has to do with the way we decided to tie geometries to frames for ease of defining them in the model_json file
 		// A frame is assigned a pose and a geometry and the two are not coupled together. This way you do can define everything relative

@@ -217,12 +217,13 @@ func RegisterServoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/Move", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/move"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/Move", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/move"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ServoService_Move_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ServoService_Move_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -240,12 +241,13 @@ func RegisterServoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ServoService_GetPosition_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ServoService_GetPosition_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -263,12 +265,13 @@ func RegisterServoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ServoService_Stop_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ServoService_Stop_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -325,12 +328,13 @@ func RegisterServoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/Move", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/move"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/Move", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/move"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ServoService_Move_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ServoService_Move_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -345,12 +349,13 @@ func RegisterServoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/position"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/GetPosition", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ServoService_GetPosition_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ServoService_GetPosition_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -365,12 +370,13 @@ func RegisterServoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.servo.v1.ServoService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/servo/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ServoService_Stop_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ServoService_Stop_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)

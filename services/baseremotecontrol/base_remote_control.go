@@ -199,7 +199,7 @@ func (svc *remoteService) controllerInputs() []input.Control {
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
 // control the angle.
 func triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
-	// nolint:exhaustive
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteZ:
 		speed -= 0.05
@@ -218,7 +218,8 @@ func triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64
 func buttonControlEvent(event input.Event, buttons map[input.Control]bool) (float64, float64, map[input.Control]bool) {
 	var speed float64
 	var angle float64
-	// nolint:exhaustive
+
+	//nolint:exhaustive
 	switch event.Event {
 	case input.ButtonPress:
 		buttons[event.Control] = true
@@ -261,7 +262,7 @@ func arrowEvent(event input.Event, arrows map[input.Control]float64) (float64, f
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
 func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64) {
-	// nolint:exhaustive
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteY:
 		y = -1.0 * event.Value
@@ -275,7 +276,7 @@ func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64
 // right joystick is forward/back, strafe right/left
 // left joystick is spin right/left & up/down.
 func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vector) {
-	// nolint:exhaustive
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteX:
 		angular.Z = scaleThrottle(-1.0 * event.Value)
