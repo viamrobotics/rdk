@@ -468,8 +468,9 @@ func (vg *gripperV1) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gripper is moving.
-func (vg *gripperV1) IsMoving() bool {
-	return vg.opMgr.OpRunning()
+func (vg *gripperV1) IsMoving(ctx context.Context) (bool, error) {
+	// RSDK-434: Refine implementation
+	return vg.opMgr.OpRunning(), nil
 }
 
 func (vg *gripperV1) readCurrent(ctx context.Context) (int, error) {
@@ -528,4 +529,3 @@ func (vg *gripperV1) Do(ctx context.Context, cmd map[string]interface{}) (map[st
 		return nil, errors.Errorf("no such command: %s", name)
 	}
 }
-

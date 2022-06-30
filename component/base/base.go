@@ -86,8 +86,10 @@ type LocalBase interface {
 }
 
 var (
-	_ = LocalBase(&reconfigurableBase{})
+	_ = Base(&reconfigurableBase{})
+	_ = LocalBase(&reconfigurableLocalBase{})
 	_ = resource.Reconfigurable(&reconfigurableBase{})
+	_ = resource.Reconfigurable(&reconfigurableLocalBase{})
 )
 
 // FromDependencies is a helper for getting the named base from a collection of
@@ -124,7 +126,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableBase struct {
 	mu     sync.RWMutex
-	actual LocalBase
+	actual Base
 }
 
 func (r *reconfigurableBase) ProxyFor() interface{} {
@@ -171,10 +173,12 @@ func (r *reconfigurableBase) Stop(ctx context.Context) error {
 	return r.actual.Stop(ctx)
 }
 
-func (r *reconfigurableBase) GetWidth(ctx context.Context) (int, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.GetWidth(ctx)
+func (r *reconfigurableBase) UpdateAction(c *config.Component) config.UpdateActionType {
+	obj, canUpdate := r.actual.(config.CompononentUpdate)
+	if canUpdate {
+		return obj.UpdateAction(c)
+	}
+	return config.Reconfigure
 }
 
 func (r *reconfigurableBase) Close(ctx context.Context) error {
@@ -186,6 +190,10 @@ func (r *reconfigurableBase) Close(ctx context.Context) error {
 func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.reconfigure(ctx, newBase)
+}
+
+func (r *reconfigurableBase) reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {
 	actual, ok := newBase.(*reconfigurableBase)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newBase)
@@ -197,25 +205,53 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 	return nil
 }
 
-func (r *reconfigurableBase) UpdateAction(c *config.Component) config.UpdateActionType {
-	obj, canUpdate := r.actual.(config.CompononentUpdate)
-	if canUpdate {
-		return obj.UpdateAction(c)
+type reconfigurableLocalBase struct {
+	*reconfigurableBase
+	actual LocalBase
+}
+
+func (r *reconfigurableLocalBase) GetWidth(ctx context.Context) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GetWidth(ctx)
+}
+
+func (r *reconfigurableLocalBase) Reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	actual, ok := newBase.(*reconfigurableLocalBase)
+	if !ok {
+		return utils.NewUnexpectedTypeError(r, newBase)
 	}
-	return config.Reconfigure
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	r.actual = actual.actual
+	return r.reconfigurableBase.reconfigure(ctx, actual.reconfigurableBase)
 }
 
 // WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.
 // If base is already a reconfigurableBase, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	base, ok := r.(LocalBase)
+	base, ok := r.(Base)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalBase", r)
+		return nil, utils.NewUnimplementedInterfaceError("Base", r)
 	}
 	if reconfigurable, ok := base.(*reconfigurableBase); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableBase{actual: base}, nil
+
+	rBase := &reconfigurableBase{actual: base}
+	localBase, ok := r.(LocalBase)
+	if !ok {
+		return rBase, nil
+	}
+
+	if reconfigurable, ok := localBase.(*reconfigurableLocalBase); ok {
+		return reconfigurable, nil
+	}
+	return &reconfigurableLocalBase{actual: localBase, reconfigurableBase: rBase}, nil
 }
 
 // A Move describes instructions for a robot to spin followed by moving straight.

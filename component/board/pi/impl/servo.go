@@ -94,7 +94,7 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 }
 
 func (s *piPigpioServo) Stop(ctx context.Context) error {
-	ctx, done := s.opMgr.New(ctx)
+	_, done := s.opMgr.New(ctx)
 	defer done()
 	res := C.gpioServo(s.pin, C.uint(0))
 	if res != 0 {
@@ -103,6 +103,7 @@ func (s *piPigpioServo) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (s *piPigpioServo) IsMoving() bool {
-	return s.opMgr.OpRunning()
+func (s *piPigpioServo) IsMoving(ctx context.Context) (bool, error) {
+	// RSDK-434: Refine implementation
+	return s.opMgr.OpRunning(), nil
 }
