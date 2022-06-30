@@ -164,8 +164,8 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 }
 
 // IsMoving returns whether the gripper is moving.
-func (g *softGripper) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *softGripper) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 // ModelFrame is unimplemented for softGripper.
