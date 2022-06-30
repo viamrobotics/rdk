@@ -2,10 +2,10 @@ package rtk
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
-	"errors"
 
 	"github.com/edaniels/golog"
 
@@ -14,19 +14,19 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-type i2CCorrectionSource struct {
-	correctionReader    	io.ReadCloser // reader for rctm corrections only
-	logger             		golog.Logger
-	ntripStatus        		bool
-	bus    board.I2C
-	addr   byte
+type i2cCorrectionSource struct {
+	correctionReader io.ReadCloser // reader for rctm corrections only
+	logger           golog.Logger
+	ntripStatus      bool
+	bus              board.I2C
+	addr             byte
 
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newI2CCorrectionSource(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (correctionSource, error) {
+func newi2cCorrectionSource(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (correctionSource, error) {
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
@@ -46,17 +46,17 @@ func newI2CCorrectionSource(ctx context.Context, deps registry.Dependencies, con
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	s := &i2CCorrectionSource{bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	s := &i2cCorrectionSource{bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	return s, nil
 }
 
 // Start reads correction data from the i2c address and sends it into the correctionReader
-func (s *i2CCorrectionSource) Start(ready chan<- bool) {
+func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 	//currently not checking if rtcm message is valid, need to figure out how to integrate constant I2C byte message with rtcm3 scanner
 	s.activeBackgroundWorkers.Add(1)
-	defer s.activeBackgroundWorkers.Done()	
-	
+	defer s.activeBackgroundWorkers.Done()
+
 	var w *io.PipeWriter
 	s.correctionReader, w = io.Pipe()
 	ready <- true
@@ -112,8 +112,8 @@ func (s *i2CCorrectionSource) Start(ready chan<- bool) {
 	}
 }
 
-// GetReader returns the i2CCorrectionSource's correctionReader if it exists
-func (s *i2CCorrectionSource) GetReader() (io.ReadCloser, error) {
+// GetReader returns the i2cCorrectionSource's correctionReader if it exists
+func (s *i2cCorrectionSource) GetReader() (io.ReadCloser, error) {
 	if s.correctionReader == nil {
 		return nil, errors.New("No Stream")
 	}
@@ -121,8 +121,8 @@ func (s *i2CCorrectionSource) GetReader() (io.ReadCloser, error) {
 	return s.correctionReader, nil
 }
 
-// Close shuts down the i2CCorrectionSource
-func (s *i2CCorrectionSource) Close() error {
+// Close shuts down the i2cCorrectionSource
+func (s *i2cCorrectionSource) Close() error {
 	s.cancelFunc()
 	s.activeBackgroundWorkers.Wait()
 
