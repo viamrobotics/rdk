@@ -17,7 +17,6 @@ import (
 type i2cCorrectionSource struct {
 	correctionReader io.ReadCloser // reader for rctm corrections only
 	logger           golog.Logger
-	ntripStatus      bool
 	bus              board.I2C
 	addr             byte
 
@@ -26,7 +25,12 @@ type i2cCorrectionSource struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newi2cCorrectionSource(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (correctionSource, error) {
+func newi2cCorrectionSource(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (correctionSource, error) {
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
@@ -51,9 +55,9 @@ func newi2cCorrectionSource(ctx context.Context, deps registry.Dependencies, con
 	return s, nil
 }
 
-// Start reads correction data from the i2c address and sends it into the correctionReader
+// Start reads correction data from the i2c address and sends it into the correctionReader.
 func (s *i2cCorrectionSource) Start(ready chan<- bool) {
-	//currently not checking if rtcm message is valid, need to figure out how to integrate constant I2C byte message with rtcm3 scanner
+	// currently not checking if rtcm message is valid, need to figure out how to integrate constant I2C byte message with rtcm3 scanner
 	s.activeBackgroundWorkers.Add(1)
 	defer s.activeBackgroundWorkers.Done()
 
@@ -68,14 +72,14 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 		return
 	}
 
-	//read from handle and pipe to correctionSource
+	// read from handle and pipe to correctionSource
 	buffer, err := handle.Read(context.Background(), 1024)
 	_, err = w.Write(buffer)
 	if err != nil {
 		s.logger.Fatalf("Error writing RTCM message: %s", err)
 	}
 
-	//close I2C handle
+	// close I2C handle
 	err = handle.Close()
 	if err != nil {
 		s.logger.Debug("failed to close handle: %s", err)
@@ -96,14 +100,14 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 			return
 		}
 
-		//read from handle and pipe to correctionSource
+		// read from handle and pipe to correctionSource
 		buffer, err := handle.Read(context.Background(), 1024)
 		_, err = w.Write(buffer)
 		if err != nil {
 			s.logger.Fatalf("Error writing RTCM message: %s", err)
 		}
 
-		//close I2C handle
+		// close I2C handle
 		err = handle.Close()
 		if err != nil {
 			s.logger.Debug("failed to close handle: %s", err)
@@ -112,16 +116,16 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 	}
 }
 
-// GetReader returns the i2cCorrectionSource's correctionReader if it exists
+// GetReader returns the i2cCorrectionSource's correctionReader if it exists.
 func (s *i2cCorrectionSource) GetReader() (io.ReadCloser, error) {
 	if s.correctionReader == nil {
-		return nil, errors.New("No Stream")
+		return nil, errors.New("no stream")
 	}
 
 	return s.correctionReader, nil
 }
 
-// Close shuts down the i2cCorrectionSource
+// Close shuts down the i2cCorrectionSource.
 func (s *i2cCorrectionSource) Close() error {
 	s.cancelFunc()
 	s.activeBackgroundWorkers.Wait()

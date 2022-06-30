@@ -1,3 +1,5 @@
+// Package rtk defines the rtk correction receiver
+// which sends rtcm data to child gps's
 package rtk
 
 import (
@@ -9,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/board"
@@ -18,7 +21,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
 )
 
 func init() {
@@ -37,7 +39,6 @@ func init() {
 
 type RTKStation struct {
 	generic.Unimplemented
-	mu             sync.RWMutex
 	logger         golog.Logger
 	correction     correctionSource
 	correctionType string
@@ -125,7 +126,7 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 
 			r.i2cPaths = append(r.i2cPaths, busAddr)
 		default:
-			return nil, errors.New("Child is not valid nmeaGPS type")
+			return nil, errors.New("child is not valid nmeaGPS type")
 		}
 	}
 
@@ -137,7 +138,7 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 	return r, nil
 }
 
-// Start starts reading from the correction source and sends corrections to the child gps's
+// Start starts reading from the correction source and sends corrections to the child gps's.
 func (r *RTKStation) Start(ctx context.Context) {
 	r.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -179,19 +180,19 @@ func (r *RTKStation) Start(ctx context.Context) {
 
 			// write buf to all i2c handles
 			for _, busAddr := range r.i2cPaths {
-				//open handle
+				// open handle
 				handle, err := busAddr.bus.OpenHandle(busAddr.addr)
 				if err != nil {
 					r.logger.Fatalf("can't open gps i2c handle: %s", err)
 					return
 				}
-				//write to i2c handle
+				// write to i2c handle
 				err = handle.Write(ctx, buf)
 				if err != nil {
 					r.logger.Fatalf("i2c handle write failed %s", err)
 					return
 				}
-				//close i2c handle
+				// close i2c handle
 				err = handle.Close()
 				if err != nil {
 					r.logger.Fatalf("failed to close handle: %s", err)
@@ -202,7 +203,7 @@ func (r *RTKStation) Start(ctx context.Context) {
 	})
 }
 
-// Close shuts down the RTKStation
+// Close shuts down the RTKStation.
 func (r *RTKStation) Close() error {
 	r.logger.Debug("Closing RTK Station")
 	// close correction source
@@ -216,39 +217,42 @@ func (r *RTKStation) Close() error {
 
 	// close all ports in slice
 	for _, port := range r.serialPorts {
-		port.(io.ReadWriteCloser).Close()
+		err := port.(io.ReadWriteCloser).Close()
+		if err != nil {
+			return err
+		}
 	}
 
 	r.logger.Debug("Closing RTK Station Closed")
 	return nil
 }
 
-// ReadLocation implements a LocalGPS function, but returns nil since the RTKStation does not have GPS data
-func (g *RTKStation) ReadLocation(ctx context.Context) (*geo.Point, error) {
-	return nil, nil
+// ReadLocation implements a LocalGPS function, but returns nil since the RTKStation does not have GPS data.
+func (r *RTKStation) ReadLocation(ctx context.Context) (*geo.Point, error) {
+	return &geo.Point{}, nil
 }
 
-// ReadAltitude implements a LocalGPS function, but returns 0 since the RTKStation does not have GPS data
-func (g *RTKStation) ReadAltitude(ctx context.Context) (float64, error) {
+// ReadAltitude implements a LocalGPS function, but returns 0 since the RTKStation does not have GPS data.
+func (r *RTKStation) ReadAltitude(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-// ReadSpeed implements a LocalGPS function, but returns 0 since the RTKStation does not have GPS data
-func (g *RTKStation) ReadSpeed(ctx context.Context) (float64, error) {
+// ReadSpeed implements a LocalGPS function, but returns 0 since the RTKStation does not have GPS data.
+func (r *RTKStation) ReadSpeed(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-// ReadSatellites implements a LocalGPS function, but returns 0, 0 since the RTKStation does not have GPS data
-func (g *RTKStation) ReadSatellites(ctx context.Context) (int, int, error) {
+// ReadSatellites implements a LocalGPS function, but returns 0, 0 since the RTKStation does not have GPS data.
+func (r *RTKStation) ReadSatellites(ctx context.Context) (int, int, error) {
 	return 0, 0, nil
 }
 
-// ReadAccuracy implements a LocalGPS function, but returns 0, 0 since the RTKStation does not have GPS data
-func (g *RTKStation) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+// ReadAccuracy implements a LocalGPS function, but returns 0, 0 since the RTKStation does not have GPS data.
+func (r *RTKStation) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	return 0, 0, nil
 }
 
-// ReadAcReadValidcuracy implements a LocalGPS function, but returns false since the RTKStation does not have GPS data
-func (g *RTKStation) ReadValid(ctx context.Context) (bool, error) {
+// ReadValid implements a LocalGPS function, but returns false since the RTKStation does not have GPS data.
+func (r *RTKStation) ReadValid(ctx context.Context) (bool, error) {
 	return false, nil
 }

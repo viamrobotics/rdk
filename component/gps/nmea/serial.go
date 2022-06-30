@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 	"strings"
+	"sync"
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
@@ -37,11 +37,11 @@ func init() {
 
 type SerialNMEAGPS struct {
 	generic.Unimplemented
-	mu     					sync.RWMutex
-	dev    					io.ReadWriteCloser
-	logger 					golog.Logger
-	path					string
-	correctionPath			string
+	mu             sync.RWMutex
+	dev            io.ReadWriteCloser
+	logger         golog.Logger
+	path           string
+	correctionPath string
 
 	data                    gpsData
 	cancelCtx               context.Context
@@ -50,7 +50,7 @@ type SerialNMEAGPS struct {
 }
 
 const (
-	pathAttrName = "path"
+	pathAttrName       = "path"
 	correctionAttrName = "correction_path"
 )
 
@@ -70,7 +70,14 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	g := &SerialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, path: serialPath, correctionPath: correctionPath}
+	g := &SerialNMEAGPS{
+		dev:            dev,
+		cancelCtx:      cancelCtx,
+		cancelFunc:     cancelFunc,
+		logger:         logger,
+		path:           serialPath,
+		correctionPath: correctionPath,
+	}
 
 	g.Start(ctx)
 
@@ -85,6 +92,7 @@ func (g *SerialNMEAGPS) FilterNmea(line string) string {
 	return line[ind:]
 }
 
+// Start begins reading nmea messages from module and updates gps data.
 func (g *SerialNMEAGPS) Start(ctx context.Context) {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -113,52 +121,78 @@ func (g *SerialNMEAGPS) Start(ctx context.Context) {
 	})
 }
 
+// GetCorrectionPath returns the serial path that takes in rtcm corrections.
 func (g *SerialNMEAGPS) GetCorrectionPath() string {
 	return g.correctionPath
 }
 
+// ReadLocation returns the current geographic location of the GPS.
 func (g *SerialNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, nil
 }
 
+// ReadAltitude returns the current altitude of the GPS.
 func (g *SerialNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.alt, nil
 }
 
+// ReadSpeed returns the current speed of the GPS.
 func (g *SerialNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.speed, nil
 }
 
+// ReadSatellites returns the number of satellites that are currently visible to the GPS.
 func (g *SerialNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.satsInUse, g.data.satsInView, nil
 }
 
+// ReadAccuracy returns how accurate the lat/long readings are.
 func (g *SerialNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.hDOP, g.data.vDOP, nil
 }
 
+// ReadValid returns whether or not the GPS is currently reading valid measurements.
 func (g *SerialNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.valid, nil
 }
 
+// ReadFix returns Fix quality of GPS measurements.
 func (g *SerialNMEAGPS) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.fixQuality, nil
 }
 
+// GetReadings will use return all of the GPS Readings.
+func (g *SerialNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
+	readings, err := gps.GetReadings(ctx, g)
+	if err != nil {
+		return nil, err
+	}
+
+	fix, err := g.ReadFix(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	readings = append(readings, fix)
+
+	return readings, nil
+}
+
+// Close shuts down the SerialNMEAGPS.
 func (g *SerialNMEAGPS) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()

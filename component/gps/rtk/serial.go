@@ -2,23 +2,22 @@ package rtk
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
-	"errors"
 
-	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/edaniels/golog"
+	"github.com/go-gnss/rtcm/rtcm3"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/config"
 )
 
 type serialCorrectionSource struct {
-	correctionReader    	io.ReadCloser // reader for rctm corrections only
-	port					io.ReadCloser // reads all messages from port
-	logger             		golog.Logger
-	ntripStatus        		bool
+	correctionReader io.ReadCloser // reader for rctm corrections only
+	port             io.ReadCloser // reads all messages from port
+	logger           golog.Logger
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -48,7 +47,7 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 	return s, nil
 }
 
-// Start reads correction data from the serial port and sends it into the correctionReader
+// Start reads correction data from the serial port and sends it into the correctionReader.
 func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	s.activeBackgroundWorkers.Add(1)
 	defer s.activeBackgroundWorkers.Done()
@@ -58,10 +57,9 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	ready <- true
 
 	// read from s.port and write rctm messages into w, discard other messages in loop
-	var err error
 	scanner := rtcm3.NewScanner(s.port)
 
-	for err == nil {
+	for {
 		select {
 		case <-s.cancelCtx.Done():
 			return
@@ -85,16 +83,16 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	}
 }
 
-// GetReader returns the serialCorrectionSource's correctionReader if it exists
+// GetReader returns the serialCorrectionSource's correctionReader if it exists.
 func (s *serialCorrectionSource) GetReader() (io.ReadCloser, error) {
 	if s.correctionReader == nil {
-		return nil, errors.New("No Stream")
+		return nil, errors.New("no stream")
 	}
 
 	return s.correctionReader, nil
 }
 
-// Close shuts down the serialCorrectionSource and closes s.port
+// Close shuts down the serialCorrectionSource and closes s.port.
 func (s *serialCorrectionSource) Close() error {
 	s.cancelFunc()
 	s.activeBackgroundWorkers.Wait()
