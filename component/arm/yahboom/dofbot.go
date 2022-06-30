@@ -25,6 +25,7 @@ import (
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 //go:embed dofbot.json
@@ -67,8 +68,8 @@ func (jc jointConfig) toHw(degrees float64) int {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "yahboom-dofbot", registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newDofBot(ctx, deps, config, logger)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return newDofBot(ctx, r, config, logger)
 		},
 	})
 }
@@ -78,32 +79,20 @@ type Dofbot struct {
 	generic.Unimplemented
 	handle board.I2CHandle
 	model  referenceframe.Model
-	mp     motionplan.MotionPlanner
+	robot  robot.Robot
 	mu     sync.Mutex
 	muMove sync.Mutex
 	logger golog.Logger
 	opMgr  operation.SingleOperationManager
 }
 
-func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.MotionPlanner, error) {
-	model, err := dofbotModel()
-	if err != nil {
-		return nil, nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
-	if err != nil {
-		return nil, nil, err
-	}
-	return model, mp, nil
-}
-
-func newDofBot(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 
 	a := Dofbot{}
 	a.logger = logger
 
-	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
+	b, err := board.FromRobot(r, config.Attributes.String("board"))
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +108,8 @@ func newDofBot(ctx context.Context, deps registry.Dependencies, config config.Co
 	if err != nil {
 		return nil, err
 	}
-	a.model, a.mp, err = createDofBotSolver(logger)
+
+	a.model, err = dofbotModel()
 	if err != nil {
 		return nil, err
 	}
@@ -141,26 +131,14 @@ func (a *Dofbot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
-	return motionplan.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the given absolute position.
 func (a *Dofbot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-
-	joints, err := a.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	// dofbot las limited dof
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), opt)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.
