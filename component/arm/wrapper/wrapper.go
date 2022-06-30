@@ -87,7 +87,11 @@ func (wrapper *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) 
 func (wrapper *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, wrapper.robot, wrapper, pos, worldState)
+	solution, err := arm.Plan(ctx, wrapper.robot, wrapper, pos, worldState)
+	if err != nil {
+		return err
+	}
+	return arm.GoToWaypoints(ctx, wrapper, solution)
 }
 
 // MoveToJointPositions sets the joints.

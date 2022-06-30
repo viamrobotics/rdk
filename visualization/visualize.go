@@ -6,59 +6,22 @@ import (
 	"io/ioutil"
 	"log"
 	"os/exec"
-	"runtime"
 	"strconv"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"go.viam.com/rdk/motionplan"
 	pb "go.viam.com/rdk/proto/api/common/v1"
-	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 type stepData map[string][][]r3.Vector
 
-func VisualizePlan(
-	ctx context.Context,
-	logger golog.Logger,
-	model referenceframe.Model,
-	start *armpb.JointPositions,
-	goal *pb.Pose,
-	worldState *pb.WorldState,
-) {
-	fs := referenceframe.NewEmptySimpleFrameSystem("test")
-	err := fs.AddFrame(model, fs.World())
-
-	from, _ := model.Transform(referenceframe.JointPosToInputs(start))
-	to := spatialmath.NewPoseFromProtobuf(goal)
-
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt = motionplan.DefaultConstraint(from, to, model, opt)
-	opt.RemoveConstraint("self-collision")
-
-	startPos := map[string][]referenceframe.Input{}
-	startPos["xArm6"] = referenceframe.JointPosToInputs(start)
-
-	constraint := motionplan.NewCollisionConstraintFromWorldState(model, fs, worldState, startPos)
-	opt.AddConstraint("collision", constraint)
-
-	nCPU := runtime.NumCPU()
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
-	if err != nil {
-		logger.Fatal(err)
+func VisualizePlan(ctx context.Context, plan [][]referenceframe.Input, model referenceframe.Model, worldState *pb.WorldState) {
+	planData := make([]stepData, 0)
+	for _, step := range plan {
+		planData = append(planData, getStepData(model, worldState, step))
 	}
-	solution, err := mp.Plan(ctx, goal, referenceframe.JointPosToInputs(start), opt)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	plan := make([]stepData, 0)
-	for _, step := range solution {
-		plan = append(plan, getStepData(model, worldState, step))
-	}
-	visualize(plan)
+	visualize(planData)
 }
 
 func VisualizeStep(model referenceframe.Model, worldState *pb.WorldState, inputs []referenceframe.Input) {

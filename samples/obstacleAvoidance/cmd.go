@@ -3,19 +3,22 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/arm/fake"
+	"go.viam.com/rdk/component/arm/xarm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	pb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	math "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/visualization"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 )
@@ -30,6 +33,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	// parse command line input
 	simulation := flag.Bool("simulation", false, "choose to run in simulation")
 	flag.Parse()
+
+	// connect to the robot and get arm
+	robotClient, xArm, err := connect(ctx, *simulation)
 
 	// setup planning problem - the idea is to move from one position to the other while avoiding obstalces
 	position1 := r3.Vector{0, -600, 100}
@@ -49,24 +55,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		InteractionSpaces: []*pb.GeometriesInFrame{frame.GeometriesInFrameToProtobuf(frame.NewGeometriesInFrame(frame.World, workspace))},
 	}
 
-	// get the arm to plan with - either use hardware or a fake arm
-	var xArm arm.Arm
-	var err error
-	if *simulation {
-		xArm, err = fake.NewArm(config.Component{Name: "xarm6"})
-	} else {
-		robotClient := connect()
-		defer robotClient.Close(ctx)
-		xArm, err = arm.FromRobot(robotClient, "xarm6")
-	}
-	if err != nil {
-		logger.Fatal(err)
-	}
-
 	// determine which position to assign the start and which the goal
 	currentPose, err := xArm.GetEndPosition(ctx)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
 	eePosition := math.NewPoseFromProtobuf(currentPose).Point()
 	delta1 := eePosition.Sub(position1).Norm()
@@ -80,44 +72,54 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	// ensure that the arm starts in the correct position
-	move(ctx, xArm, start, worldState)
+	if err := xArm.MoveToPosition(ctx, start, worldState); err != nil {
+		return err
+	}
 
 	// visualize plan to move it to the goal
-	// joints, err := xArm.GetJointPositions(ctx)
-	// if err != nil {
-	// 	logger.Fatal(err)
-	// }
-	// model, err := xarm.XArmModel(6)
-	// if err != nil {
-	// 	logger.Fatal(err)
-	// }
-	// visualization.VisualizePlan(ctx, logger, model, joints, goal, worldState)
-
-	// move it to the goal
-	move(ctx, xArm, goal, worldState)
+	solution, err := arm.Plan(ctx, robotClient, xArm, goal, worldState)
+	if err != nil {
+		return err
+	}
+	visualization.VisualizePlan(ctx, solution, xArm.ModelFrame(), worldState)
+	arm.GoToWaypoints(ctx, xArm, solution)
 	return nil
 }
 
-func move(ctx context.Context, a arm.Arm, toPose *pb.Pose, worldState *pb.WorldState) {
-	fmt.Println("goal", toPose)
-	if err := a.MoveToPosition(ctx, toPose, worldState); err != nil {
-		fmt.Println("err", err)
-		logger.Fatal(err)
+func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xArm arm.Arm, err error) {
+	armName := arm.Named("xarm6")
+	if simulation {
+		model, err := xarm.XArmModel(6)
+		if err != nil {
+			return nil, nil, err
+		}
+		xArm, err = fake.NewArmIK(ctx, config.Component{Name: armName.Name}, model, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+		robotClient, err = robotimpl.RobotFromResources(ctx, map[resource.Name]interface{}{armName: xArm}, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer robotClient.Close(ctx)
+	} else {
+		robotClient, err := client.New(
+			context.Background(),
+			"ray-pi-main.tcz8zh8cf6.viam.cloud",
+			logger,
+			client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
+				Type:    rdkutils.CredentialsTypeRobotLocationSecret,
+				Payload: "ewvmwn3qs6wqcrbnewwe1g231nvzlx5k5r5g34c31n6f7hs8",
+			})),
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer robotClient.Close(ctx)
+		xArm, err = arm.FromRobot(robotClient, "xarm6")
+		if err != nil {
+			return nil, nil, err
+		}
 	}
-}
-
-func connect() robot.Robot {
-	robot, err := client.New(
-		context.Background(),
-		"ray-pi-main.tcz8zh8cf6.viam.cloud",
-		logger,
-		client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
-			Type:    rdkutils.CredentialsTypeRobotLocationSecret,
-			Payload: "ewvmwn3qs6wqcrbnewwe1g231nvzlx5k5r5g34c31n6f7hs8",
-		})),
-	)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	return robot
+	return
 }

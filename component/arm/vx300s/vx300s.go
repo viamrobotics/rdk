@@ -140,7 +140,11 @@ func (a *myArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, a.robot, a, pos, worldState)
+	solution, err := arm.Plan(ctx, a.robot, a, pos, worldState)
+	if err != nil {
+		return err
+	}
+	return arm.GoToWaypoints(ctx, a, solution)
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.

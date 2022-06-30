@@ -227,7 +227,11 @@ func (a *armV1) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, a.robot, a, pos, worldState)
+	solution, err := arm.Plan(ctx, a.robot, a, pos, worldState)
+	if err != nil {
+		return err
+	}
+	return arm.GoToWaypoints(ctx, a, solution)
 }
 
 func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, curDegrees, gotoDegrees float64) error {
