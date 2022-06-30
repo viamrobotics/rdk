@@ -495,7 +495,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	if svcConfig.SyncIntervalMins != svc.syncIntervalMins ||
 		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
-		
 		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.lock.Lock()
