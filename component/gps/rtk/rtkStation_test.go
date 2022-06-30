@@ -5,18 +5,37 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
+	// geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/board"
+	// "go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 )
+
+const (
+	testBoardName = "board1"
+	testBusName   = "i2c1"
+)
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+
+	actualBoard := newBoard(testBoardName)
+	deps[board.Named(testBoardName)] = actualBoard
+
+	return deps
+}
 
 func TestRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	deps := setupDependencies(t)
 
+	//test NTRIPConnection Source
 	cfig := config.Component{
 		Name:  "rtk1",
 		Model: "rtk-station",
@@ -28,16 +47,12 @@ func TestRTK(t *testing.T) {
 			"ntrip_password": "plswork",
 			"ntrip_mountpoint": "NJI2",
 			"ntrip_connect_attempts": 10,
-			"children": [
-			  "gps1"
-			]
 		},
 	}
 
-	g := newRTKGPS(ctx, cfig, logger)
-
-	//test NTRIPConnection Source
-	
+	g, err := newRTKStation(ctx, deps, cfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g, test.ShouldNotBeNil)
 
 	//test serial connection source
 
@@ -45,7 +60,42 @@ func TestRTK(t *testing.T) {
 
 	//test invalid source
 
+}
 
-
+func TestClose(t *testing.T) {
 
 }
+
+// Helpers
+
+type mock struct {
+	board.LocalBoard
+	Name string
+
+	i2cs []string
+	i2c  *mockI2C
+}
+
+func newBoard(name string) *mock {
+	return &mock{
+		Name: name,
+		i2cs: []string{"i2c1"},
+		i2c:  &mockI2C{1},
+	}
+}
+
+// Mock I2C
+
+type mockI2C struct{ handleCount int }
+
+func (m *mock) I2CNames() []string {
+	return m.i2cs
+}
+
+func (m *mock) I2CByName(name string) (*mockI2C, bool) {
+	if len(m.i2cs) == 0 {
+		return nil, false
+	}
+	return m.i2c, true
+}
+
