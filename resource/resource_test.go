@@ -248,7 +248,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 		},
 		{
 			"with remotes",
-			"remote1:rdk:component:gps/gps1",
+			"rdk:component:gps/remote1:gps1",
 			resource.Name{
 				Remote: resource.Remote{
 					Remote: "remote1",
@@ -266,7 +266,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 		},
 		{
 			"with remotes 2",
-			"remote1:remote2:rdk:component:gps/gps1",
+			"rdk:component:gps/remote1:remote2:gps1",
 			resource.Name{
 				Remote: resource.Remote{
 					Remote: "remote1:remote2",
@@ -455,7 +455,7 @@ func TestRemoteResource(t *testing.T) {
 
 	test.That(t, n1.IsRemoteResource(), test.ShouldBeTrue)
 	test.That(t, n1.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
-	test.That(t, n1.String(), test.ShouldResemble, "remote1:rdk:component:gps/gps1")
+	test.That(t, n1.String(), test.ShouldResemble, "rdk:component:gps/remote1:gps1")
 
 	test.That(t, n1, test.ShouldNotResemble, n)
 
@@ -463,13 +463,13 @@ func TestRemoteResource(t *testing.T) {
 
 	test.That(t, n2.IsRemoteResource(), test.ShouldBeTrue)
 	test.That(t, n2.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote2:remote1"))
-	test.That(t, n2.String(), test.ShouldResemble, "remote2:remote1:rdk:component:gps/gps1")
+	test.That(t, n2.String(), test.ShouldResemble, "rdk:component:gps/remote2:remote1:gps1")
 
 	n3 := n2.PopRemote()
 	test.That(t, n3.IsRemoteResource(), test.ShouldBeTrue)
 	test.That(t, n3.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
 	test.That(t, n3, test.ShouldResemble, n1)
-	test.That(t, n3.String(), test.ShouldResemble, "remote1:rdk:component:gps/gps1")
+	test.That(t, n3.String(), test.ShouldResemble, "rdk:component:gps/remote1:gps1")
 
 	n4 := n3.PopRemote()
 	test.That(t, n4.IsRemoteResource(), test.ShouldBeFalse)
@@ -487,11 +487,11 @@ func TestRemoteResource(t *testing.T) {
 	n5 = resource.NameFromSubtype(resourceSubtype, "")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent")
 	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:test")
-	test.That(t, n5.String(), test.ShouldResemble, "remote1:test:component:mycomponent/test")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote1:test")
 	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:test")
-	test.That(t, n5.String(), test.ShouldResemble, "remote2:remote1:test:component:mycomponent/test")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:test")
 	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:")
-	test.That(t, n5.String(), test.ShouldResemble, "remote1:test:component:mycomponent")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote1:")
 	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:")
-	test.That(t, n5.String(), test.ShouldResemble, "remote2:remote1:test:component:mycomponent")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:")
 }
