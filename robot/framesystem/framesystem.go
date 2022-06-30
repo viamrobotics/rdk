@@ -155,7 +155,12 @@ func (svc *frameSystemService) TransformPose(
 		input[name] = pos
 	}
 
-	return fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
+	tf, err := fs.Transform(input, pose, dst)
+	if err != nil {
+		return nil, err
+	}
+	pose, _ = tf.(*referenceframe.PoseInFrame)
+	return pose, nil
 }
 
 // updateLocalParts collects the physical parts of the robot that may have frame info,
