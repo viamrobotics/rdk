@@ -342,7 +342,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 		svc.syncer.Sync(previouslyCaptured)
 
 		// Kick off background routine to periodically sync files.
-		//nolint:contextcheck
+
 		svc.startSyncBackgroundRoutine(intervalMins)
 	}
 }
@@ -453,7 +453,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	if svcConfig.SyncIntervalMins != svc.syncIntervalMins {
-		//nolint:contextcheck
 		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	}

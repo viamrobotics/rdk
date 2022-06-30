@@ -153,7 +153,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	defer rc.mu.Unlock()
 
 	client := pb.NewRobotServiceClient(conn)
-	//nolint:contextcheck
+
 	refClient := grpcreflect.NewClient(rc.closeContext, reflectpb.NewServerReflectionClient(conn))
 
 	rc.conn = conn
