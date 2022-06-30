@@ -12,8 +12,7 @@ import (
 	"go.viam.com/rdk/config"
 )
 
-//test NTRIPConnection Source
-func TestNTRIP(t *testing.T) {
+func TestRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -36,15 +35,17 @@ func TestNTRIP(t *testing.T) {
 	}
 
 	g := newRTKGPS(ctx, cfig, logger)
+
+	//test NTRIPConnection Source
+	
+
+	//test serial connection source
+
+	//test I2C correction source
+
+	//test invalid source
+
+
+
+
 }
-
-//test serial connection source
-
-//test I2C correction source
-
-
-//test invalid source
-
-//check writing to all ports and i2c handles
-
-//test close function
