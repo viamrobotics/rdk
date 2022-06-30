@@ -254,9 +254,21 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = gantry.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", nil))
+
 	reconfGantry2, err := gantry.WrapWithReconfigurable(reconfGantry1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGantry2, test.ShouldEqual, reconfGantry1)
+
+	var actualGantry2 gantry.LocalGantry = &mockLocal{Name: testGantryName}
+	reconfGantry3, err := gantry.WrapWithReconfigurable(actualGantry2)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfGantry4, err := gantry.WrapWithReconfigurable(reconfGantry3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGantry4, test.ShouldResemble, reconfGantry3)
+
+	_, ok := reconfGantry4.(gantry.LocalGantry)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestReconfigurableGantry(t *testing.T) {

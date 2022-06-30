@@ -160,6 +160,17 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	reconfGPS2, err := gps.WrapWithReconfigurable(reconfGPS1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGPS2, test.ShouldEqual, reconfGPS1)
+
+	var actualGPS2 gps.LocalGPS = &mockLocal{Name: testGPSName}
+	reconfGPS3, err := gps.WrapWithReconfigurable(actualGPS2)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfGPS4, err := gps.WrapWithReconfigurable(reconfGPS3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGPS4, test.ShouldResemble, reconfGPS3)
+
+	_, ok := reconfGPS4.(gps.LocalGPS)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestReconfigurableGPS(t *testing.T) {
