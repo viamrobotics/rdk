@@ -275,19 +275,19 @@ type reconfigurableLocalMotor struct {
 	actual LocalMotor
 }
 
-func (g *reconfigurableLocalMotor) Reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+func (r *reconfigurableLocalMotor) Reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	motor, ok := newMotor.(*reconfigurableLocalMotor)
 	if !ok {
-		return utils.NewUnexpectedTypeError(g, newMotor)
+		return utils.NewUnexpectedTypeError(r, newMotor)
 	}
-	if err := viamutils.TryClose(ctx, g.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 
-	g.actual = motor.actual
-	return g.reconfigurableMotor.reconfigure(ctx, motor.reconfigurableMotor)
+	r.actual = motor.actual
+	return r.reconfigurableMotor.reconfigure(ctx, motor.reconfigurableMotor)
 }
 
 func (r *reconfigurableLocalMotor) GoTillStop(
