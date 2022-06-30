@@ -184,8 +184,8 @@ func (a *myArm) Stop(ctx context.Context) error {
 	return arm.ErrStopUnimplemented
 }
 
-func (a *myArm) IsMoving() bool {
-	return a.opMgr.OpRunning()
+func (a *myArm) IsMoving(ctx context.Context) (bool, error) {
+	return a.opMgr.OpRunning(), nil
 }
 
 // Close will get the arm ready to be turned off.

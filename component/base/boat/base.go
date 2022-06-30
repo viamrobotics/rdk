@@ -215,7 +215,6 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 	b.stateMutex.Lock()
 
 	if !b.state.threadStarted {
-		// nolint:contextcheck
 		err := b.startVelocityThread()
 		if err != nil {
 			return err

@@ -136,8 +136,8 @@ func (g *vx300s) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gripper is moving.
-func (g *vx300s) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *vx300s) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 // Close closes the connection, not the gripper.

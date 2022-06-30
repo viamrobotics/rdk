@@ -90,6 +90,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 	var err error
 
 	a := Dofbot{}
+	a.logger = logger
 
 	b, err := board.FromRobot(r, config.Attributes.String("board"))
 	if err != nil {
@@ -103,7 +104,6 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 	if !ok {
 		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
 	}
-
 	a.handle, err = i2c.OpenHandle(0x15)
 	if err != nil {
 		return nil, err
@@ -114,12 +114,13 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	_, err = a.GetEndPosition(ctx)
+	// sanity check if init succeeded
+	var pos *componentpb.JointPositions
+	pos, err = a.GetJointPositions(ctx)
 	if err != nil {
-		return nil, errors.New("issue pinging yahboom motors, check connection to motors")
+		return nil, fmt.Errorf("error reading joint positions during init: %w", err)
 	}
-
-	a.logger = logger
+	logger.Debug("Current joint positions: %v", pos)
 
 	return &a, nil
 }
@@ -128,7 +129,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 func (a *Dofbot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
 	return motionplan.ComputePosition(a.model, joints)
 }
@@ -241,14 +242,14 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 	reg := byte(0x30 + joint)
 	err := a.handle.WriteByteData(ctx, reg, 0)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error requesting joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
 
 	res, err := a.handle.ReadWordData(ctx, reg)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error reading joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
@@ -270,8 +271,8 @@ func (a *Dofbot) GripperStop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the arm is moving.
-func (a *Dofbot) IsMoving() bool {
-	return a.opMgr.OpRunning()
+func (a *Dofbot) IsMoving(ctx context.Context) (bool, error) {
+	return a.opMgr.OpRunning(), nil
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
