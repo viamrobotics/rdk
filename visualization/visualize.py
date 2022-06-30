@@ -195,9 +195,8 @@ class Video():
         ax.set_zlim(-200, 1800)
         ax.set_box_aspect(np.ptp([ax.get_xlim(), ax.get_ylim(), ax.get_zlim()], axis=1))
 
-        
         # start video
-        Player(fig, self.play, num_frames=len(self.frames), interval=1000/fps)
+        player = Player(fig, self.play, num_frames=len(self.frames), interval=1000/fps)
         plt.show()
 
     def play(self, frame):
@@ -205,8 +204,7 @@ class Video():
 
 
 if __name__ == "__main__":
-    # if len(sys.argv) != 2:
-    #     print("Error: must provide a single .json file to display as a command line argument")
-    #     sys.exit(1)
-    # video = Video(ax, sys.argv[1])
-    video = Video("visualization/temp.json")
+    if len(sys.argv) != 2:
+        print("Error: must provide a single .json file to display as a command line argument")
+        sys.exit(1)
+    video = Video(sys.argv[1])

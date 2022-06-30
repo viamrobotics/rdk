@@ -125,7 +125,11 @@ func (e *eva) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, e.robot, e, pos, worldState)
+	solution, err := arm.Plan(ctx, e.robot, e, pos, worldState)
+	if err != nil {
+		return err
+	}
+	return arm.GoToWaypoints(ctx, e, solution)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {

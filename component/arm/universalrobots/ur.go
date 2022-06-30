@@ -236,7 +236,11 @@ func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, ua.robot, ua, pos, worldState)
+	solution, err := arm.Plan(ctx, ua.robot, ua, pos, worldState)
+	if err != nil {
+		return err
+	}
+	return arm.GoToWaypoints(ctx, ua, solution)
 }
 
 // MoveToJointPositions TODO.
