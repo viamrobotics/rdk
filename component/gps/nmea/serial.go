@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 
 	"github.com/adrianmo/go-nmea"
@@ -84,14 +83,6 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	return g, nil
 }
 
-func (g *SerialNMEAGPS) FilterNmea(line string) string {
-	ind := strings.Index(line, "$G")
-	if ind == -1 {
-		return "Garbage"
-	}
-	return line[ind:]
-}
-
 // Start begins reading nmea messages from module and updates gps data.
 func (g *SerialNMEAGPS) Start(ctx context.Context) {
 	g.activeBackgroundWorkers.Add(1)
@@ -111,7 +102,6 @@ func (g *SerialNMEAGPS) Start(ctx context.Context) {
 			}
 			// Update our struct's gps data in-place
 			g.mu.Lock()
-			line = g.FilterNmea(line)
 			err = g.data.parseAndUpdate(line)
 			g.mu.Unlock()
 			if err != nil {
