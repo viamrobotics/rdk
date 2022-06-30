@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -390,7 +389,6 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
-		fmt.Println("IN HERE")
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 
