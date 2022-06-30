@@ -74,6 +74,9 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 
 	// read from handle and pipe to correctionSource
 	buffer, err := handle.Read(context.Background(), 1024)
+	if err != nil {
+		s.logger.Debug("Could not read from handle")
+	}
 	_, err = w.Write(buffer)
 	if err != nil {
 		s.logger.Fatalf("Error writing RTCM message: %s", err)
@@ -102,6 +105,9 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 
 		// read from handle and pipe to correctionSource
 		buffer, err := handle.Read(context.Background(), 1024)
+		if err != nil {
+			s.logger.Debug("Could not read from handle")
+		}
 		_, err = w.Write(buffer)
 		if err != nil {
 			s.logger.Fatalf("Error writing RTCM message: %s", err)
