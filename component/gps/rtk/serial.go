@@ -49,7 +49,7 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 }
 
 // Start reads correction data from the serial port and sends it into the correctionReader
-func (s *serialCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
+func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	s.activeBackgroundWorkers.Add(1)
 	defer s.activeBackgroundWorkers.Done()
 

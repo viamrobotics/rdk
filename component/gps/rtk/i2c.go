@@ -52,7 +52,7 @@ func newI2CCorrectionSource(ctx context.Context, deps registry.Dependencies, con
 }
 
 // Start reads correction data from the i2c address and sends it into the correctionReader
-func (s *i2CCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
+func (s *i2CCorrectionSource) Start(ready chan<- bool) {
 	//currently not checking if rtcm message is valid, need to figure out how to integrate constant I2C byte message with rtcm3 scanner
 	s.activeBackgroundWorkers.Add(1)
 	defer s.activeBackgroundWorkers.Done()	
