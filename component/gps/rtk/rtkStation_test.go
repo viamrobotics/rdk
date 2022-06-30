@@ -2,6 +2,8 @@ package rtk
 
 import (
 	"context"
+	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -127,7 +129,62 @@ func TestRTK(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	g := RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	r := ioutil.NopCloser(strings.NewReader("hello world"))
+	n := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger:logger, correctionReader: r}
+	g.correction = n
 
+	err := g.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	g = RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	s := &serialCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger:logger, correctionReader: r}
+	g.correction = s
+
+	err = g.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	g = RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	i := &i2cCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger:logger, correctionReader: r}
+	g.correction = i
+
+	err = g.Close()
+	test.That(t, err, test.ShouldBeNil)
+}
+func TestReadings(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	g := RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+
+	loc1, err := g.ReadLocation(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, loc1, test.ShouldBeNil)
+
+	alt1, err := g.ReadAltitude(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, alt1, test.ShouldEqual, 0)
+
+	speed1, err := g.ReadSpeed(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, speed1, test.ShouldEqual, 0)
+
+	inUse, inView, err := g.ReadSatellites(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, inUse, test.ShouldEqual, 0)
+	test.That(t, inView, test.ShouldEqual, 0)
+
+	acc1, acc2, err := g.ReadAccuracy(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, acc1, test.ShouldEqual, 0)
+	test.That(t, acc2, test.ShouldEqual, 0)
+
+	valid1, err := g.ReadValid(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, valid1, test.ShouldEqual, false)
 }
 
 // Helpers
