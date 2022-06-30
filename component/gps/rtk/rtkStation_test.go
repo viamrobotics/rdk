@@ -52,7 +52,7 @@ func TestRTK(t *testing.T) {
 		},
 	}
 
-	g, err := newRTKStation(ctx, deps, cfig, logger)
+	g, err := newrtkStation(ctx, deps, cfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g, test.ShouldNotBeNil)
 
@@ -66,7 +66,7 @@ func TestRTK(t *testing.T) {
 			"correction_path":   "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
 		},
 	}
-	g, err = newRTKStation(ctx, deps, cfig, logger)
+	g, err = newrtkStation(ctx, deps, cfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g, test.ShouldNotBeNil)
 
@@ -88,7 +88,7 @@ func TestRTK(t *testing.T) {
 		},
 	}
 
-	g, err = newRTKStation(ctx, deps, cfig, logger)
+	g, err = newrtkStation(ctx, deps, cfig, logger)
 	passErr := "board " + cfig.Attributes.String("board") + " is not local"
 
 	if err == nil || err.Error() != passErr {
@@ -113,7 +113,7 @@ func TestRTK(t *testing.T) {
 			"bus":                    testBusName,
 		},
 	}
-	_, err = newRTKStation(ctx, deps, cfig, logger)
+	_, err = newrtkStation(ctx, deps, cfig, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
@@ -121,7 +121,7 @@ func TestClose(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	r := ioutil.NopCloser(strings.NewReader("hello world"))
 	n := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, correctionReader: r}
 	g.correction = n
@@ -129,14 +129,14 @@ func TestClose(t *testing.T) {
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
-	g = RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	s := &serialCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, correctionReader: r}
 	g.correction = s
 
 	err = g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
-	g = RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	i := &i2cCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, correctionReader: r}
 	g.correction = i
 
@@ -148,7 +148,7 @@ func TestReadings(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	loc1, err := g.ReadLocation(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -238,4 +238,3 @@ func (m *mock) I2CByName(name string) (*mockI2C, bool) {
 	}
 	return m.i2c, true
 }
-

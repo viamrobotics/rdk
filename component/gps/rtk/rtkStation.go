@@ -33,11 +33,11 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newRTKStation(ctx, deps, config, logger)
+			return newrtkStation(ctx, deps, config, logger)
 		}})
 }
 
-type RTKStation struct {
+type rtkStation struct {
 	generic.Unimplemented
 	logger         golog.Logger
 	correction     correctionSource
@@ -68,10 +68,10 @@ const (
 	childrenName         = "children"
 )
 
-func newRTKStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
+func newrtkStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	r := &RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	r := &rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	r.correctionType = config.Attributes.String(correctionSourceName)
 
@@ -139,7 +139,7 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 }
 
 // Start starts reading from the correction source and sends corrections to the child gps's.
-func (r *RTKStation) Start(ctx context.Context) {
+func (r *rtkStation) Start(ctx context.Context) {
 	r.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer r.activeBackgroundWorkers.Done()
@@ -203,8 +203,8 @@ func (r *RTKStation) Start(ctx context.Context) {
 	})
 }
 
-// Close shuts down the RTKStation.
-func (r *RTKStation) Close() error {
+// Close shuts down the rtkStation.
+func (r *rtkStation) Close() error {
 	r.logger.Debug("Closing RTK Station")
 	// close correction source
 	err := r.correction.Close()
@@ -227,32 +227,32 @@ func (r *RTKStation) Close() error {
 	return nil
 }
 
-// ReadLocation implements a LocalGPS function, but returns nil since the RTKStation does not have GPS data.
-func (r *RTKStation) ReadLocation(ctx context.Context) (*geo.Point, error) {
+// ReadLocation implements a LocalGPS function, but returns nil since the rtkStation does not have GPS data.
+func (r *rtkStation) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	return &geo.Point{}, nil
 }
 
-// ReadAltitude implements a LocalGPS function, but returns 0 since the RTKStation does not have GPS data.
-func (r *RTKStation) ReadAltitude(ctx context.Context) (float64, error) {
+// ReadAltitude implements a LocalGPS function, but returns 0 since the rtkStation does not have GPS data.
+func (r *rtkStation) ReadAltitude(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-// ReadSpeed implements a LocalGPS function, but returns 0 since the RTKStation does not have GPS data.
-func (r *RTKStation) ReadSpeed(ctx context.Context) (float64, error) {
+// ReadSpeed implements a LocalGPS function, but returns 0 since the rtkStation does not have GPS data.
+func (r *rtkStation) ReadSpeed(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-// ReadSatellites implements a LocalGPS function, but returns 0, 0 since the RTKStation does not have GPS data.
-func (r *RTKStation) ReadSatellites(ctx context.Context) (int, int, error) {
+// ReadSatellites implements a LocalGPS function, but returns 0, 0 since the rtkStation does not have GPS data.
+func (r *rtkStation) ReadSatellites(ctx context.Context) (int, int, error) {
 	return 0, 0, nil
 }
 
-// ReadAccuracy implements a LocalGPS function, but returns 0, 0 since the RTKStation does not have GPS data.
-func (r *RTKStation) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+// ReadAccuracy implements a LocalGPS function, but returns 0, 0 since the rtkStation does not have GPS data.
+func (r *rtkStation) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	return 0, 0, nil
 }
 
-// ReadValid implements a LocalGPS function, but returns false since the RTKStation does not have GPS data.
-func (r *RTKStation) ReadValid(ctx context.Context) (bool, error) {
+// ReadValid implements a LocalGPS function, but returns false since the rtkStation does not have GPS data.
+func (r *rtkStation) ReadValid(ctx context.Context) (bool, error) {
 	return false, nil
 }
