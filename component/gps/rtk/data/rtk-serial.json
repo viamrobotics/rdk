@@ -1,0 +1,32 @@
+{
+    "components": [
+      {
+        "attributes": {
+          "correction_source": "serial",
+          "correction_path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
+          "children": [
+            "gps1"
+          ]
+        },
+        "depends_on": [
+          "gps1"
+        ],
+        "model": "rtk-station",
+        "name": "rtk1",
+        "type": "gps"
+      },
+      {
+        "attributes": {
+            "path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
+            "correction_input_protocol": "serial",
+            "correction_path": "",
+            "correction_baud": 115200
+        },
+        "depends_on": [],
+        "model": "nmea-serial",
+        "name": "gps1",
+        "type": "gps"
+      }
+    ]
+  }
+  

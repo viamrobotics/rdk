@@ -219,9 +219,6 @@ func (r *RTKStation) Close() error {
 		port.(io.ReadWriteCloser).Close()
 	}
 
-
-	//close i2c handles?
-
 	r.logger.Debug("Closing RTK Station Closed")
 	return nil
 }

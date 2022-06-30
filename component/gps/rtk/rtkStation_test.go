@@ -36,16 +36,27 @@ func TestRTK(t *testing.T) {
 
 	g := newRTKGPS(ctx, cfig, logger)
 
-	//test NTRIPConnection Source
+	// test NTRIPConnection Source
 	
 
-	//test serial connection source
+	// test serial connection source
+	cfig := config.Component{
+		Name:  "rtk1",
+		Model: "rtk-station",
+		Type:  "gps",
+		Attributes: config.AttributeMap{
+			"correction_source": "serial",
+			"correction_path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
+			"children": [
+			  "gps1"
+			]
+		},
+	}
+	s, err := newSerialCorrectionSource(ctx, )
 
-	//test I2C correction source
+	// test I2C correction source
 
-	//test invalid source
-
-
+	// test invalid source
 
 
 }
