@@ -1484,7 +1484,7 @@
       <span>{{ $authType }}: </span>
       <div id="auth-{{ $authType }}" class="w-96">
         <input class="mb-2 appearance-none block w-full border text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition-colors duration-150 ease-in-out p-2" type="password" />
-        <button  class="relative leading-tight font-button transition-colors duration-150 focus:outline-none shadow-sm text-black border border-black bg-primary hover:border-black hover:bg-gray-200 focus:bg-gray-400 active:bg-gray-400 cursor-pointer px-5 py-2">Login</button>
+        <button  class="relativeing-tight font-button transition-colors duration-150 focus:outline-none shadow-sm text-black border border-black bg-primary hover:border-black hover:bg-gray-200 focus:bg-gray-400 active:bg-gray-400 cursor-pointer px-5 py-2">Login</button>
       </div>
       {{ end }}
     </div>
@@ -1604,7 +1604,7 @@
                       <h3 class="mb-2">END POSITION (mms)</h3>
                       <div class="grid grid-cols-2 gap-1 pb-1">
                         <template v-for="cc in armToggle[arm.name].pos_pieces" :key="cc.endPosition[0]">
-                          <label class="pr-2 py-1 text-right lead">${cc.endPosition[1]}</label>
+                          <label class="pr-2 py-1 text-right">${cc.endPosition[1]}</label>
                           <input class="border border-black py-1 px-4" v-model="cc.endPositionValue">
                         </template>
                       </div>
@@ -1621,7 +1621,7 @@
                       <h3 class="mb-2">JOINTS (degrees)</h3>
                       <div class="grid grid-cols-2 gap-1 pb-1">
                         <template v-for="bb in armToggle[arm.name].joint_pieces" :key="bb.joint">
-                          <label class="pr-2 py-1 text-right lead">Joint ${bb.joint}</label>
+                          <label class="pr-2 py-1 text-right">Joint ${bb.joint}</label>
                           <input class="border border-black py-1 px-4" v-model="bb.jointValue">
                         </template>
                       </div>
@@ -1641,12 +1641,12 @@
                       <h3 class="mb-2">END POSITION (mms)</h3>
                       <div class="grid grid-cols-6 gap-1 pb-1">
                         <template v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.endPosition[0]">
-                          <h4 class="pr-2 py-1 text-right lead">${aa.endPosition[1]}</h4>
+                          <h4 class="pr-2 py-1 text-right">${aa.endPosition[1]}</h4>
                           <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
                           <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
                           <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
                           <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
-                          <h4 class="py-1">${aa.endPosition[1]}</h4>
+                          <h4 class="py-1">${aa.endPositionValue.toFixed(2)}</h4>
                         </template>
                       </div>
                       <div class="flex mt-2">
@@ -1667,7 +1667,7 @@
                           <viam-button v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
                           <viam-button v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
                           <viam-button v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
-                          <h4 class="pr-2 py-1 text-right">${aa.jointValue.toFixed(2)}</h4>
+                          <h4 class="pl-2 py-1">${aa.jointValue.toFixed(2)}</h4>
                         </template>
                       </div>
                       <div class="flex mt-2">
