@@ -101,6 +101,7 @@ func newDofBot(ctx context.Context, deps registry.Dependencies, config config.Co
 	var err error
 
 	a := Dofbot{}
+	a.logger = logger
 
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
@@ -114,22 +115,22 @@ func newDofBot(ctx context.Context, deps registry.Dependencies, config config.Co
 	if !ok {
 		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
 	}
-
 	a.handle, err = i2c.OpenHandle(0x15)
 	if err != nil {
 		return nil, err
 	}
-
 	a.model, a.mp, err = createDofBotSolver(logger)
 	if err != nil {
 		return nil, err
 	}
-	_, err = a.GetEndPosition(ctx)
-	if err != nil {
-		return nil, errors.New("issue pinging yahboom motors, check connection to motors")
-	}
 
-	a.logger = logger
+	// sanity check if init succeeded
+	var pos *componentpb.JointPositions
+	pos, err = a.GetJointPositions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error reading joint positions during init: %w", err)
+	}
+	logger.Debug("Current joint positions: %v", pos)
 
 	return &a, nil
 }
@@ -138,7 +139,7 @@ func newDofBot(ctx context.Context, deps registry.Dependencies, config config.Co
 func (a *Dofbot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
 	return motionplan.ComputePosition(a.mp.Frame(), joints)
 }
@@ -263,14 +264,14 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 	reg := byte(0x30 + joint)
 	err := a.handle.WriteByteData(ctx, reg, 0)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error requesting joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
 
 	res, err := a.handle.ReadWordData(ctx, reg)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error reading joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)

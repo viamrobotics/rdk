@@ -1,4 +1,4 @@
-version: v1beta1
+version: v1
 plugins:
   - name: go
     out: .
@@ -15,6 +15,6 @@ plugins:
       - generate_unbound_methods=true
   - name: doc
     out: docs/proto
-    strategy: all
     opt:
       - html,index.html
+    strategy: all
