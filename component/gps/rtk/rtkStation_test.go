@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
@@ -17,7 +18,6 @@ import (
 const (
 	testBoardName = "board1"
 	testBusName   = "i2c1"
-	gpsChild 	  = "gps1"
 )
 
 func setupDependencies(t *testing.T) registry.Dependencies {
@@ -36,19 +36,19 @@ func TestRTK(t *testing.T) {
 	ctx := context.Background()
 	deps := setupDependencies(t)
 
-	//test NTRIPConnection Source
+	// test NTRIPConnection Source
 	cfig := config.Component{
 		Name:  "rtk1",
 		Model: "rtk-station",
 		Type:  "gps",
 		Attributes: config.AttributeMap{
-			"correction_source": "ntrip",
-			"ntrip_addr": "some_ntrip_address",
-			"ntrip_username": "",
-			"ntrip_password": "",
-			"ntrip_mountpoint": "NJI2",
+			"correction_source":      "ntrip",
+			"ntrip_addr":             "some_ntrip_address",
+			"ntrip_username":         "",
+			"ntrip_password":         "",
+			"ntrip_mountpoint":       "NJI2",
 			"ntrip_connect_attempts": 10,
-			"children": "gps1",
+			"children":               "gps1",
 		},
 	}
 
@@ -63,28 +63,28 @@ func TestRTK(t *testing.T) {
 		Type:  "gps",
 		Attributes: config.AttributeMap{
 			"correction_source": "serial",
-			"correction_path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
+			"correction_path":   "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
 		},
 	}
 	g, err = newRTKStation(ctx, deps, cfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g, test.ShouldNotBeNil)
 
-	//test I2C correction source
+	// test I2C correction source
 	cfig = config.Component{
 		Name:  "rtk1",
 		Model: "rtk-station",
 		Type:  "gps",
 		Attributes: config.AttributeMap{
-			"correction_source": "I2C",
-			"ntrip_addr": "some_ntrip_address",
-			"ntrip_username": "",
-			"ntrip_password": "",
-			"ntrip_mountpoint": "NJI2",
+			"correction_source":      "I2C",
+			"ntrip_addr":             "some_ntrip_address",
+			"ntrip_username":         "",
+			"ntrip_password":         "",
+			"ntrip_mountpoint":       "NJI2",
 			"ntrip_connect_attempts": 10,
 			"board":                  testBoardName,
 			"bus":                    testBusName,
-			"children": "gps1",
+			"children":               "gps1",
 		},
 	}
 
@@ -96,19 +96,19 @@ func TestRTK(t *testing.T) {
 		test.That(t, g, test.ShouldNotBeNil)
 	}
 
-	//test invalid source
+	// test invalid source
 	cfig = config.Component{
 		Name:  "rtk1",
 		Model: "rtk-station",
 		Type:  "gps",
 		Attributes: config.AttributeMap{
-			"correction_source": "invalid-protocol",
-			"ntrip_addr": "some_ntrip_address",
-			"ntrip_username": "",
-			"ntrip_password": "",
-			"ntrip_mountpoint": "NJI2",
+			"correction_source":      "invalid-protocol",
+			"ntrip_addr":             "some_ntrip_address",
+			"ntrip_username":         "",
+			"ntrip_password":         "",
+			"ntrip_mountpoint":       "NJI2",
 			"ntrip_connect_attempts": 10,
-			"children": "gps1",
+			"children":               "gps1",
 			"board":                  testBoardName,
 			"bus":                    testBusName,
 		},
@@ -123,26 +123,27 @@ func TestClose(t *testing.T) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	r := ioutil.NopCloser(strings.NewReader("hello world"))
-	n := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger:logger, correctionReader: r}
+	n := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, correctionReader: r}
 	g.correction = n
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
 	g = RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	s := &serialCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger:logger, correctionReader: r}
+	s := &serialCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, correctionReader: r}
 	g.correction = s
 
 	err = g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
 	g = RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	i := &i2cCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger:logger, correctionReader: r}
+	i := &i2cCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, correctionReader: r}
 	g.correction = i
 
 	err = g.Close()
 	test.That(t, err, test.ShouldBeNil)
 }
+
 func TestReadings(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
@@ -151,7 +152,7 @@ func TestReadings(t *testing.T) {
 
 	loc1, err := g.ReadLocation(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, loc1, test.ShouldBeNil)
+	test.That(t, loc1, test.ShouldResemble, &geo.Point{})
 
 	alt1, err := g.ReadAltitude(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -181,10 +182,10 @@ func TestConnect(t *testing.T) {
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	info := ntripInfo{
-		url: "invalidurl",
-		username: "user",
-		password:"pwd",
-		mountPoint: "",
+		url:                "invalidurl",
+		username:           "user",
+		password:           "pwd",
+		mountPoint:         "",
 		maxConnectAttempts: 10,
 	}
 	g := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, info: info}

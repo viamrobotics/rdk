@@ -31,7 +31,7 @@ func init() {
 		}})
 }
 
-// This allows the use of any GPS chip that communicates over I2C using the PMTK protocol.
+// PmtkI2CNMEAGPS allows the use of any GPS chip that communicates over I2C using the PMTK protocol.
 type PmtkI2CNMEAGPS struct {
 	generic.Unimplemented
 	mu     sync.RWMutex
@@ -76,6 +76,7 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 	return g, nil
 }
 
+// Start begins reading nmea messages from module and updates gps data.
 func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
@@ -148,7 +149,7 @@ func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 						if err != nil {
 							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
 							continue
-						// }
+							// }
 						} else {
 							g.logger.Info(g.ReadLocation(ctx))
 						}
@@ -162,52 +163,78 @@ func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 	})
 }
 
+// GetBusAddr returns the bus and address that takes in rtcm corrections.
 func (g *PmtkI2CNMEAGPS) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
+// ReadLocation returns the current geographic location of the GPS.
 func (g *PmtkI2CNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, nil
 }
 
+// ReadAltitude returns the current altitude of the GPS.
 func (g *PmtkI2CNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.alt, nil
 }
 
+// ReadSpeed returns the current speed of the GPS.
 func (g *PmtkI2CNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.speed, nil
 }
 
+// ReadSatellites returns the number of satellites that are currently visible to the GPS.
 func (g *PmtkI2CNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.satsInUse, g.data.satsInView, nil
 }
 
+// ReadAccuracy returns how accurate the lat/long readings are.
 func (g *PmtkI2CNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.hDOP, g.data.vDOP, nil
 }
 
+// ReadValid returns whether or not the GPS is currently reading valid measurements.
 func (g *PmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.valid, nil
 }
 
+// ReadFix returns Fix quality of GPS measurements.
 func (g *PmtkI2CNMEAGPS) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.fixQuality, nil
 }
 
+// GetReadings will use return all of the GPS Readings.
+func (g *PmtkI2CNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
+	readings, err := gps.GetReadings(ctx, g)
+	if err != nil {
+		return nil, err
+	}
+
+	fix, err := g.ReadFix(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	readings = append(readings, fix)
+
+	return readings, nil
+}
+
+// Close shuts down the SerialNMEAGPS.
 func (g *PmtkI2CNMEAGPS) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()

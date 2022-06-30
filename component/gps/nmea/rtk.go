@@ -165,7 +165,6 @@ func (g *RTKGPS) Start(ctx context.Context) {
 		go g.ReceiveAndWriteI2C(ctx)
 	}
 	g.nmeagps.Start(ctx)
-	
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
