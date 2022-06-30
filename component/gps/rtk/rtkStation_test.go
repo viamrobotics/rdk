@@ -8,6 +8,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/rdk/component/gps/nmea"
+	"go.viam.com/rdk/component/gps"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
@@ -17,6 +19,7 @@ import (
 const (
 	testBoardName = "board1"
 	testBusName   = "i2c1"
+	gpsChild 	  = "gps1"
 )
 
 func setupDependencies(t *testing.T) registry.Dependencies {
@@ -26,6 +29,13 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 
 	actualBoard := newBoard(testBoardName)
 	deps[board.Named(testBoardName)] = actualBoard
+
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	g := &nmea.SerialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+
+	deps[gps.Named(gpsChild)] = g
 
 	return deps
 }
@@ -43,10 +53,11 @@ func TestRTK(t *testing.T) {
 		Attributes: config.AttributeMap{
 			"correction_source": "ntrip",
 			"ntrip_addr": "some_ntrip_address",
-			"ntrip_username": "skarpoor",
-			"ntrip_password": "plswork",
+			"ntrip_username": "",
+			"ntrip_password": "",
 			"ntrip_mountpoint": "NJI2",
 			"ntrip_connect_attempts": 10,
+			"children": "gps1",
 		},
 	}
 
@@ -76,12 +87,13 @@ func TestRTK(t *testing.T) {
 		Attributes: config.AttributeMap{
 			"correction_source": "I2C",
 			"ntrip_addr": "some_ntrip_address",
-			"ntrip_username": "skarpoor",
-			"ntrip_password": "plswork",
+			"ntrip_username": "",
+			"ntrip_password": "",
 			"ntrip_mountpoint": "NJI2",
 			"ntrip_connect_attempts": 10,
 			"board":                  testBoardName,
 			"bus":                    testBusName,
+			"children": "gps1",
 		},
 	}
 
@@ -101,10 +113,11 @@ func TestRTK(t *testing.T) {
 		Attributes: config.AttributeMap{
 			"correction_source": "invalid-protocol",
 			"ntrip_addr": "some_ntrip_address",
-			"ntrip_username": "skarpoor",
-			"ntrip_password": "plswork",
+			"ntrip_username": "",
+			"ntrip_password": "",
 			"ntrip_mountpoint": "NJI2",
 			"ntrip_connect_attempts": 10,
+			"children": "gps1",
 			"board":                  testBoardName,
 			"bus":                    testBusName,
 		},
