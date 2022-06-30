@@ -41,7 +41,7 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
-//nolint:unparam
+
 func getDataType(componentType string, methodName string) v1.DataType {
 	if methodName == "NextPointCloud" {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
