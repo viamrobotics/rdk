@@ -45,6 +45,6 @@ func (s *Servo) Stop(ctx context.Context) error {
 }
 
 // IsMoving is always false for a fake servo.
-func (s *Servo) IsMoving() bool {
-	return false
+func (s *Servo) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }

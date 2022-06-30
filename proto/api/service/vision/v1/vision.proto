@@ -85,10 +85,10 @@ message GetDetectionsResponse {
 
 message Detection {
   // the four corners of the box
-  int64 x_min = 1;
-  int64 y_min = 2;
-  int64 x_max = 3;
-  int64 y_max = 4;
+  optional int64 x_min = 1;
+  optional int64 y_min = 2;
+  optional int64 x_max = 3;
+  optional int64 y_max = 4;
   // the confidence of the detection
   double confidence = 5;
   // label associated with the detected object
