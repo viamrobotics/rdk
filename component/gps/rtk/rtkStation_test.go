@@ -64,7 +64,7 @@ func TestRTK(t *testing.T) {
 			"correction_path": "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
 		},
 	}
-	g, err = newSerialCorrectionSource(ctx, cfig, logger)
+	g, err = newRTKStation(ctx, deps, cfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g, test.ShouldNotBeNil)
 
