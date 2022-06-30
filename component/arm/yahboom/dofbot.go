@@ -104,7 +104,6 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 	if !ok {
 		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
 	}
-
 	a.handle, err = i2c.OpenHandle(0x15)
 	if err != nil {
 		return nil, err
@@ -115,10 +114,13 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	_, err = a.GetEndPosition(ctx)
+	// sanity check if init succeeded
+	var pos *componentpb.JointPositions
+	pos, err = a.GetJointPositions(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get end position: %w", err)
+		return nil, fmt.Errorf("error reading joint positions during init: %w", err)
 	}
+	logger.Debug("Current joint positions: %v", pos)
 
 	return &a, nil
 }
@@ -240,14 +242,14 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 	reg := byte(0x30 + joint)
 	err := a.handle.WriteByteData(ctx, reg, 0)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error requesting joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
 
 	res, err := a.handle.ReadWordData(ctx, reg)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error reading joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)

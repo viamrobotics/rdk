@@ -83,7 +83,7 @@ func init() {
 			if ttl == 0 {
 				return nil, errors.New("need to specify a ttl")
 			}
-			//nolint:contextcheck
+
 			return New(logger, port, ttl)
 		}})
 }
