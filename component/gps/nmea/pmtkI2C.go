@@ -126,7 +126,7 @@ func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 				g.logger.Fatalf("can't open gps i2c handle: %s", err)
 				return
 			}
-			buffer, err := handle.Read(context.Background(), 32)
+			buffer, err := handle.Read(ctx, 32)
 			hErr := handle.Close()
 			if hErr != nil {
 				g.logger.Fatalf("failed to close handle: %s", hErr)
