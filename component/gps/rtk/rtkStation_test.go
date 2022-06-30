@@ -8,8 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/rdk/component/gps/nmea"
-	"go.viam.com/rdk/component/gps"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
@@ -29,13 +27,6 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 
 	actualBoard := newBoard(testBoardName)
 	deps[board.Named(testBoardName)] = actualBoard
-
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &nmea.SerialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-
-	deps[gps.Named(gpsChild)] = g
 
 	return deps
 }
