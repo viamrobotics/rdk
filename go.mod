@@ -67,7 +67,7 @@ require (
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
-	go.viam.com/api v0.0.0-20220614204753-0e056a1cae4d
+	go.viam.com/api v0.0.0-20220630152604-4a3f3996ada2
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.0
 	go.viam.com/utils v0.0.4-0.20220624144819-bfac3f11c4f5
