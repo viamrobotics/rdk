@@ -43,6 +43,7 @@
       data.staticClass,
     ]"
     :style="[data.style, data.staticStyle]"
+    style="height:38px"
     :aria-busy="props.loading ? 'true' : null"
     :aria-disabled="props.tag !== 'button' && props.disabled ? 'true' : null"
     :disabled="props.disabled || props.loading"
