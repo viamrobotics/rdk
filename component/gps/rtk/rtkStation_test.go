@@ -2,6 +2,8 @@ package rtk
 
 import (
 	"context"
+	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -114,7 +116,30 @@ func TestRTK(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	g := RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	r := ioutil.NopCloser(strings.NewReader("hello world"))
+	n := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger:logger, correctionReader: r}
+	g.correction = n
 
+	err := g.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	g = RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	s := &serialCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger:logger, correctionReader: r}
+	g.correction = s
+
+	err = g.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	g = RTKStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	i := &i2cCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger:logger, correctionReader: r}
+	g.correction = i
+
+	err = g.Close()
+	test.That(t, err, test.ShouldBeNil)
 }
 
 // Helpers
