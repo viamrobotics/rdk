@@ -188,7 +188,7 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 
 	var md *v1.UploadMetadata
 	if isDataCaptureFile(f) {
-		syncMD, err := readSyncMetadata(f)
+		syncMD, err := readDataCaptureMetadata(f)
 		if err != nil {
 			return err
 		}
