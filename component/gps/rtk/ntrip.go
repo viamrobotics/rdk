@@ -146,7 +146,7 @@ func (n *ntripCorrectionSource) GetStream() error {
 }
 
 // Start connects to the ntrip caster and stream and sends filtered correction data into the correctionReader
-func (n *ntripCorrectionSource) Start(ctx context.Context, ready chan<- bool) {
+func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	n.activeBackgroundWorkers.Add(1)
 	defer n.activeBackgroundWorkers.Done()
 	err := n.Connect()
