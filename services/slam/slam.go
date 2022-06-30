@@ -318,13 +318,13 @@ func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, c
 
 // New returns a new slam service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
+	defer span.End()
+
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
-
-	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
-	defer span.End()
 
 	cameraName, cam, err := configureCamera(svcConfig, r, logger)
 	if err != nil {
