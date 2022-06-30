@@ -1490,7 +1490,7 @@
     </div>
     
     <div id="app" v-cloak>
-      <!-- <div class="p-2">
+      <!-- <div class="pb-8">
         <Collapse>
           <div class="flex">
             <h2 class="p-4 text-xl">dfsadsafa</h2>
@@ -1685,14 +1685,14 @@
             </Collapse>
           </div>
 
-          <!-- ******* ARM *******  -->
+          <!-- ******* template *******  -->
           <!-- <div class="pb-8" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
             <Collapse>
               <div class="flex">
                 <h2 class="p-4 text-xl">Arm ${arm.name}</h2>
               </div>
               <template v-slot:content>
-                <div class="flex border border-black border-t-0 p-6">
+                <div class="flex border border-black border-t-0 p-4">
                   <div class="w-1/2 grid grid-cols-3 gap-4">
                     
                   </div>
@@ -1705,35 +1705,47 @@
           </div> -->
 
           <!-- ******* GRIPPER *******  -->
-          <div class="gripper pb-8" v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
-            <h3>Gripper ${ gripper.name }</h3>
-            <ul>
-              <li><viam-button group v-on:click="gripperAction( gripper.name, 'open')">Open</viam-button></li>
-              <li><viam-button group v-on:click="gripperAction( gripper.name, 'grab')">Grab</viam-button></li>
-            </ul>
+          <div class="pb-8">
+            <Collapse v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
+              <div class="flex">
+                <h2 class="p-4 text-xl">Gripper ${ gripper.name }</h2>
+              </div>
+              <template v-slot:content>
+                <div class="flex border border-black border-t-0 p-4">
+                  <viam-button class="mr-4" group v-on:click="gripperAction( gripper.name, 'open')">Open</viam-button>
+                  <viam-button group v-on:click="gripperAction( gripper.name, 'grab')">Grab</viam-button>
+                </div>
+              </template>
+            </Collapse>
           </div>
 
           <!-- ******* SERVO *******  -->
-          <div
-            class="servo pb-8"
-            v-for="servo in filterResources('rdk', 'component', 'servo')"
-            :key="servo.name"
-            v-if="resourceStatusByName(servo)"
-            style="margin-bottom: .5em;"
-          >
-            <table  class="table-auto border-collapse border border-slate-400">
-              <tr> <th class="border border-slate-300">Servo</th> <td class="border border-slate-300">${servo.name}</td></tr>
-              <tr> <td class="border border-slate-300">Angle</td> <td class="border border-slate-300">${resourceStatusByName(servo).positionDeg}</td></tr>
-              <tr>
-                 <td class="border border-slate-300"></td>
-                 <td class="border border-slate-300">
-                  <viam-button group v-on:click="servoMove(servo, -10)">-10</viam-button>
-                  <viam-button group v-on:click="servoMove(servo, -1)">-1</viam-button>
-                  <viam-button group v-on:click="servoMove(servo, 1)">1</viam-button>
-                  <viam-button group v-on:click="servoMove(servo, 10)">10</viam-button>
-                </td>
-              </tr>
-            </table>
+          <div class="pb-8" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name"
+            v-if="resourceStatusByName(servo)">
+            <Collapse>
+              <div class="flex">
+                <h2 class="p-4 text-xl">Servo ${servo.name}</h2>
+              </div>
+              <template v-slot:content>
+                <div class="flex border border-black border-t-0 p-4">
+                  <table  class="table-auto border-collapse border border-black">
+                    <tr>
+                      <td class="border border-black p-2">Angle</td>
+                      <td class="border border-black p-2">${resourceStatusByName(servo).positionDeg}</td>
+                    </tr>
+                    <tr>
+                       <td class="border border-black p-2"></td>
+                       <td class="border border-black p-2">
+                        <viam-button group v-on:click="servoMove(servo, -10)">-10</viam-button>
+                        <viam-button group v-on:click="servoMove(servo, -1)">-1</viam-button>
+                        <viam-button group v-on:click="servoMove(servo, 1)">1</viam-button>
+                        <viam-button group v-on:click="servoMove(servo, 10)">10</viam-button>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </template>
+            </Collapse>
           </div>
 
           <!-- ******* MOTOR *******  -->
