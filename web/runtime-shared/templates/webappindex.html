@@ -1476,7 +1476,7 @@
       imuRefresh();
     </script>
   </head>
-  <body class="margin-2" onLoad="waitForClientAndStart()">
+  <body class="p-2" onLoad="waitForClientAndStart()">
     <div id="pre-app">
       <div id="connecting-error" class="hidden border-l-4 border-danger-500 bg-gray-100 px-4 py-3" role="alert"></div>
       <div id="connecting" class="hidden border-l-4 border-greendark bg-gray-100 px-4 py-3">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
@@ -1837,22 +1837,31 @@
             <viam-button group v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
             <div id="map" v-map-mounted></div>
           </div>
+
           <div class="pb-8">
-            <h3>Current Operations</h3>
-            <table class="table-auto border-collapse border border-slate-400">
-              <tr>
-                <th class="border border-slate-300">id</th>
-                <th class="border border-slate-300">method</th>
-                <th class="border border-slate-300">elapsed time</th>
-                <th class="border border-slate-300"></th>
-              </tr>
-              <tr v-for="o in currentOps" :key="o.id">
-                <td class="border border-slate-300">${o.id}</td>
-                <td class="border border-slate-300">${o.method}</td>
-                <td class="border border-slate-300">${(new Date()).getTime() - (o.started.seconds * 1000)}ms</td>
-                <td class="border border-slate-300"><button v-on:click="killOp(o.id)">Kill</button></td>
-              </tr>
-            </table>
+            <Collapse>
+              <div class="flex">
+                <h2 class="p-4 text-xl">Current Operations</h2>
+              </div>
+              <template v-slot:content>
+                <div class="border border-black border-t-0 p-4">
+                  <table class="w-full table-auto border border-black">
+                    <tr>
+                      <th class="border border-black p-2">id</th>
+                      <th class="border border-black p-2">method</th>
+                      <th class="border border-black p-2">elapsed time</th>
+                      <th class="border border-black p-2"></th>
+                    </tr>
+                    <tr v-for="o in currentOps" :key="o.id">
+                      <td class="border border-black p-2">${o.id}</td>
+                      <td class="border border-black p-2">${o.method}</td>
+                      <td class="border border-black p-2">${(new Date()).getTime() - (o.started.seconds * 1000)}ms</td>
+                      <td class="border border-black p-2 text-center"><viam-button v-on:click="killOp(o.id)">Kill</viam-button></td>
+                    </tr>
+                  </table>
+                </div>
+              </template>
+            </Collapse>
           </div>
 
           <!-- ******* CAMERAS *******  -->
