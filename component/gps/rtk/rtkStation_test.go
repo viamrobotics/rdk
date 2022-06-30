@@ -2,7 +2,6 @@ package rtk
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -184,12 +183,12 @@ func TestConnect(t *testing.T) {
 		username: "user",
 		password:"pwd",
 		mountPoint: "",
+		maxConnectAttempts: 10,
 	}
 	g := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, info: info}
 
 	// create new ntrip client and connect
 	err := g.Connect()
-	fmt.Println("url: ", g.info.url)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	g.info.url = "http://fakeurl"
