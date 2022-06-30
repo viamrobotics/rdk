@@ -2,10 +2,10 @@ package rtk
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
-	"errors"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -37,14 +37,14 @@ func init() {
 
 type RTKStation struct {
 	generic.Unimplemented
-	mu     					sync.RWMutex
-	logger 					golog.Logger
-	correction				correctionSource
-	correctionType			string
-	i2cPaths				[]i2cBusAddr
-	serialPorts				[]io.Writer
-	serialWriter			io.Writer
-	gpsNames				[]string
+	mu             sync.RWMutex
+	logger         golog.Logger
+	correction     correctionSource
+	correctionType string
+	i2cPaths       []i2cBusAddr
+	serialPorts    []io.Writer
+	serialWriter   io.Writer
+	gpsNames       []string
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -58,13 +58,13 @@ type correctionSource interface {
 }
 
 type i2cBusAddr struct {
-	bus		board.I2C
-	addr	byte
+	bus  board.I2C
+	addr byte
 }
 
 const (
-	correctionSourceName		= "correction_source"
-	childrenName				= "children"
+	correctionSourceName = "correction_source"
+	childrenName         = "children"
 )
 
 func newRTKStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
@@ -88,7 +88,7 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 			return nil, err
 		}
 	case "I2C":
-		r.correction, err = newI2CCorrectionSource(ctx, deps, config, logger)
+		r.correction, err = newi2cCorrectionSource(ctx, deps, config, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -176,7 +176,7 @@ func (r *RTKStation) Start(ctx context.Context) {
 				}
 				r.logger.Fatalf("Unable to read stream: %s", err)
 			}
-			
+
 			// write buf to all i2c handles
 			for _, busAddr := range r.i2cPaths {
 				//open handle
@@ -193,13 +193,13 @@ func (r *RTKStation) Start(ctx context.Context) {
 				}
 				//close i2c handle
 				err = handle.Close()
-                if err != nil {
-                    r.logger.Fatalf("failed to close handle: %s", err)
-                    return
-                }
-            }
-        }
-    })
+				if err != nil {
+					r.logger.Fatalf("failed to close handle: %s", err)
+					return
+				}
+			}
+		}
+	})
 }
 
 // Close shuts down the RTKStation
