@@ -31,7 +31,7 @@ var (
 // method.
 type mockClient struct {
 	sent []*v1.UploadRequest
-	lock *sync.Mutex
+	lock sync.Mutex
 	grpc.ClientStream
 }
 
@@ -158,7 +158,7 @@ func TestFileUpload(t *testing.T) {
 	for _, tc := range tests {
 		mc := &mockClient{
 			sent: []*v1.UploadRequest{},
-			lock: &sync.Mutex{},
+			lock: sync.Mutex{},
 		}
 
 		// Create temp file to be used as examples of reading data from the files into buffers
@@ -251,11 +251,10 @@ func TestSensorUploadTabular(t *testing.T) {
 	for _, tc := range tests {
 		mc := &mockClient{
 			sent: []*v1.UploadRequest{},
-			lock: &sync.Mutex{},
+			lock: sync.Mutex{},
 		}
 
-		// Create temp file to be used as examples of reading data from the files into buffers and finally to have
-		// that data be uploaded to the cloud
+		// Create temp data capture file.
 		tf, err := createTmpDataCaptureFile()
 		if err != nil {
 			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
@@ -352,7 +351,7 @@ func TestSensorUploadBinary(t *testing.T) {
 	for _, tc := range tests {
 		mc := &mockClient{
 			sent: []*v1.UploadRequest{},
-			lock: &sync.Mutex{},
+			lock: sync.Mutex{},
 		}
 
 		// Create temp file to be used as examples of reading data from the files into buffers and finally to have
@@ -425,7 +424,7 @@ func TestSensorUploadBinary(t *testing.T) {
 func TestUploadsOnce(t *testing.T) {
 	mc := &mockClient{
 		sent: []*v1.UploadRequest{},
-		lock: &sync.Mutex{},
+		lock: sync.Mutex{},
 	}
 	sut := newTestSyncer(t, mc, nil)
 
@@ -465,7 +464,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	}
 	mc := &mockClient{
 		sent: []*v1.UploadRequest{},
-		lock: &sync.Mutex{},
+		lock: sync.Mutex{},
 	}
 	sut := newTestSyncer(t, mc, uploadFunc)
 
