@@ -67,7 +67,6 @@ func newTestDataManager(t *testing.T, armKeyList []string) internal.DMService {
 		rs[arm.Named(key)] = injectedArm
 	}
 	r.MockResourcesFromMap(rs)
-
 	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
 	if err != nil {
 		t.Log(err)
@@ -121,7 +120,6 @@ func TestNewRemoteDataManager(t *testing.T) {
 
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
-	// conf.Remotes[0].Address = remoteAddr
 	defer resetFolder(t, captureDir)
 	svc.Update(context.Background(), conf)
 	sleepTime := time.Millisecond * 100
@@ -327,11 +325,11 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 func setConfigIntervalMins(config *config.Config, interval float64) error {
 	svcConfig, ok, err := datamanager.GetServiceConfig(config)
-	if !ok {
-		return errors.New("failed to get service config")
-	}
 	if err != nil {
 		return err
+	}
+	if !ok {
+		return errors.New("failed to get service config")
 	}
 	svcConfig.SyncIntervalMins = interval
 	return nil
