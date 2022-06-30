@@ -12,10 +12,11 @@ const ModelName = "pi"
 
 // ServoConfig is the config for a pi servo.
 type ServoConfig struct {
-	Pin      string `json:"pin"`
-	Min      int    `json:"min,omitempty"`
-	Max      int    `json:"max,omitempty"`
-	RelaxPos bool   `json:"relax_position"`
+	Pin      string   `json:"pin"`
+	Min      int      `json:"min,omitempty"`
+	Max      int      `json:"max,omitempty"`
+	StartPos *float64 `json:"starting_position_degrees"`
+	HoldPos  *bool    `json:"hold_position"` // defaults true, holds servo position for 500 ms then disables motor when false. For safety.
 }
 
 func init() {
