@@ -26,7 +26,9 @@ func TestDofBotIK(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	_, mp, err := createDofBotSolver(logger)
+	model, err := dofbotModel()
+	test.That(t, err, test.ShouldBeNil)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	goal := commonpb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
