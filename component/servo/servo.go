@@ -189,19 +189,19 @@ func (r *reconfigurableLocalServo) IsMoving(ctx context.Context) (bool, error) {
 	return r.actual.IsMoving(ctx)
 }
 
-func (s *reconfigurableLocalServo) Reconfigure(ctx context.Context, newServo resource.Reconfigurable) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (r *reconfigurableLocalServo) Reconfigure(ctx context.Context, newServo resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	Servo, ok := newServo.(*reconfigurableLocalServo)
 	if !ok {
-		return utils.NewUnexpectedTypeError(s, newServo)
+		return utils.NewUnexpectedTypeError(r, newServo)
 	}
-	if err := viamutils.TryClose(ctx, s.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 
-	s.actual = Servo.actual
-	return s.reconfigurableServo.reconfigure(ctx, Servo.reconfigurableServo)
+	r.actual = Servo.actual
+	return r.reconfigurableServo.reconfigure(ctx, Servo.reconfigurableServo)
 }
 
 // WrapWithReconfigurable converts a regular Servo implementation to a reconfigurableServo.

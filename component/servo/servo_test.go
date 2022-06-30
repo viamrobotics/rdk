@@ -249,7 +249,6 @@ func TestReconfigurableServo(t *testing.T) {
 	err = reconfServo3.Reconfigure(context.Background(), reconfServo1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfServo3, reconfServo1))
-
 }
 
 func TestStop(t *testing.T) {
