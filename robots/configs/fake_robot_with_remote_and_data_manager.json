@@ -7,7 +7,7 @@
     [
         {
             "model": "fake",
-            "name": "arm1",
+            "name": "localArm",
             "type": "arm",
             "service_config": [
                 {
@@ -44,7 +44,7 @@
                   "attributes": {
                     "capture_methods": [
                         {
-                            "name": "rdk:component:arm2",
+                            "name": "rdk:component:remoteArm",
                             "type": "arm",
                             "method": "GetEndPosition",
                             "capture_frequency_hz": 100

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
@@ -25,6 +26,9 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
+
+	// register.
+	_ "go.viam.com/rdk/component/register"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -51,7 +55,7 @@ func resetFolder(t *testing.T, path string) {
 	}
 }
 
-func injectedRobot(armKeyList []string) *inject.Robot {
+func injectedRobotWithArms(armKeyList []string) *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 	for _, key := range armKeyList {
@@ -74,7 +78,7 @@ func newTestDataManager(t *testing.T) internal.DMService {
 		ConvertedAttributes: dmCfg,
 	}
 	logger := golog.NewTestLogger(t)
-	r := injectedRobot([]string{"arm1"})
+	r := injectedRobotWithArms([]string{"arm1"})
 	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
 	if err != nil {
 		t.Log(err)
@@ -82,7 +86,7 @@ func newTestDataManager(t *testing.T) internal.DMService {
 	return svc.(internal.DMService)
 }
 
-func newTestDataManagerWithRemote(t *testing.T) internal.DMService {
+func newTestDataManagerWithRemote(t *testing.T) (internal.DMService, string) {
 	t.Helper()
 	dmCfg := &datamanager.Config{}
 	cfgService := config.Service{
@@ -90,31 +94,41 @@ func newTestDataManagerWithRemote(t *testing.T) internal.DMService {
 		ConvertedAttributes: dmCfg,
 	}
 	logger := golog.NewTestLogger(t)
-
 	remoteCfg := &config.Config{
 		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "arm2",
+				Name:      "remoteArm",
 				Type:      arm.SubtypeName,
 				Model:     "fake",
 			},
 		},
 	}
+
+	// Set up remote robot.
 	remoteRobot, err := robotimpl.New(context.Background(), remoteCfg, logger)
-	fmt.Println("MADE REMOTE ROBOT")
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
+	}()
+	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	options.Network.BindAddress = "localhost:8081"
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
 	err = remoteRobot.StartWeb(context.Background(), options)
 	test.That(t, err, test.ShouldBeNil)
 
-	r := injectedRobot([]string{"arm1"})
+	// Inject the robot with the local and remote arm resources.
+	remoteArmName := string(remoteCfg.Components[0].ResourceName().Name)
+	r := injectedRobotWithArms([]string{"localArm", remoteArmName})
+
+	// Instantiate the Data Manager with the injected robot.
 	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
 	if err != nil {
 		t.Log(err)
 	}
-	return svc.(internal.DMService)
+	return svc.(internal.DMService), addr
 }
 
 func setupConfig(t *testing.T, relativePath string) *config.Config {
@@ -158,31 +172,32 @@ func TestNewDataManager(t *testing.T) {
 func TestNewRemoteDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
-	svc := newTestDataManagerWithRemote(t)
+	svc, remoteAddr := newTestDataManagerWithRemote(t)
+
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
-	svcConfig, ok, err := datamanager.GetServiceConfig(conf)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, err, test.ShouldBeNil)
+	conf.Remotes[0].Address = remoteAddr
 	defer resetFolder(t, captureDir)
 	svc.Update(context.Background(), conf)
-	sleepTime := time.Millisecond * 5
+	sleepTime := time.Millisecond * 100
 	time.Sleep(sleepTime)
 
-	// Verify that the single configured collector wrote to its file.
-	files, err := ioutil.ReadDir(svcConfig.CaptureDir)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(files), test.ShouldEqual, 2)
-
 	// Verify that after close is called, the collector is no longer writing.
-	oldSize := files[0].Size()
-	err = svc.Close(context.Background())
-	// When Close returns all background processes in svc should be closed, but still sleep for 100ms to verify
-	// that there's not a resource leak causing writes to still happens after Close() returns.
-	time.Sleep(time.Millisecond * 100)
+	err := svc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	newSize := files[0].Size()
-	test.That(t, oldSize, test.ShouldEqual, newSize)
+
+	// Verify that the local and remote collectors wrote to their files.
+	localArmDir := captureDir + "/arm/localArm"
+	filesInLocalArmDir, err := readDir(t, localArmDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInLocalArmDir), test.ShouldEqual, 1)
+	test.That(t, filesInLocalArmDir[0].Size(), test.ShouldBeGreaterThan, 0)
+
+	remoteArmDir := captureDir + "/arm/remoteArm"
+	filesInRemoteArmDir, err := readDir(t, remoteArmDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInRemoteArmDir), test.ShouldEqual, 1)
+	test.That(t, filesInRemoteArmDir[0].Size(), test.ShouldBeGreaterThan, 0)
 }
 
 // Validates that manual syncing works for a datamanager.
