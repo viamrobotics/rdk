@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
@@ -47,7 +48,19 @@ func resetFolder(t *testing.T, path string) {
 	}
 }
 
-func newTestDataManager(t *testing.T, armKeyList []string) internal.DMService {
+func getInjectedRobotWithArm(armKey string) *inject.Robot {
+	r := &inject.Robot{}
+	rs := map[resource.Name]interface{}{}
+	injectedArm := &inject.Arm{}
+	injectedArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
+	}
+	rs[arm.Named(armKey)] = injectedArm
+	r.MockResourcesFromMap(rs)
+	return r
+}
+
+func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) internal.DMService {
 	t.Helper()
 	dmCfg := &datamanager.Config{}
 	cfgService := config.Service{
@@ -56,17 +69,18 @@ func newTestDataManager(t *testing.T, armKeyList []string) internal.DMService {
 	}
 	logger := golog.NewTestLogger(t)
 
-	r := &inject.Robot{}
-	rs := map[resource.Name]interface{}{}
-	for _, key := range armKeyList {
-		injectedArm := &inject.Arm{}
-		// Set a dummy GetEndPositionFunc so inject doesn't throw error
-		injectedArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
-			return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
+	// Create local robot with injected arm.
+	r := getInjectedRobotWithArm(localArmKey)
+
+	// If passed, create remote robot with an injected arm.
+	if remoteArmKey != "" {
+		remoteRobot := getInjectedRobotWithArm(remoteArmKey)
+
+		r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
+			return remoteRobot, true
 		}
-		rs[arm.Named(key)] = injectedArm
 	}
-	r.MockResourcesFromMap(rs)
+
 	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
 	if err != nil {
 		t.Log(err)
@@ -86,7 +100,7 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 func TestNewDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
-	svc := newTestDataManager(t, []string{"arm1"})
+	svc := newTestDataManager(t, "arm1", "")
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
 	svcConfig, ok, err := datamanager.GetServiceConfig(conf)
@@ -116,7 +130,7 @@ func TestNewDataManager(t *testing.T) {
 func TestNewRemoteDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
-	svc := newTestDataManager(t, []string{"localArm", "remoteArm"})
+	svc := newTestDataManager(t, "localArm", "remoteArm")
 
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
@@ -164,7 +178,7 @@ func TestManualSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t, []string{"arm1"})
+	dmsvc := newTestDataManager(t, "arm1", "")
 	defer dmsvc.Close(context.Background())
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.Background(), testCfg)
@@ -215,7 +229,7 @@ func TestScheduledSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t, []string{"arm1"})
+	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -251,7 +265,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t, []string{"arm1"})
+	dmsvc := newTestDataManager(t, "arm1", "")
 
 	// Make sure we close resources to prevent leaks.
 	dmsvc.SetUploadFn(uploadFn)
@@ -297,7 +311,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t, []string{"arm1"})
+	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -312,7 +326,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	test.That(t, len(uploaded), test.ShouldEqual, 0)
 
 	// Turn the service back on.
-	dmsvc = newTestDataManager(t, []string{"arm1"})
+	dmsvc = newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
