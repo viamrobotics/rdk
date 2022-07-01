@@ -1914,14 +1914,23 @@
 
           <!-- get segments -->
           <div class="pb-8" id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
-            <br />
-            <br />
-            <viam-button group v-on:click="setNavigationMode('manual')">Manual</viam-button>
-            <viam-button group v-on:click="setNavigationMode('waypoint')">Waypoint</viam-button>
-            <br />
-            <viam-input v-model="locationValue" input-id="nav-set-location" />
-            <viam-button group v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
-            <div id="map" v-map-mounted></div>
+            <Collapse>
+              <div class="flex">
+                <h2 class="p-4 text-xl">Get Segments</h2>
+              </div>
+              <template v-slot:content>
+                <div class="border border-black border-t-0 p-4">
+                  <div class="mb-2">
+                    <viam-button group v-on:click="setNavigationMode('manual')">Manual</viam-button>
+                    <viam-button group v-on:click="setNavigationMode('waypoint')">Waypoint</viam-button>
+                  </div>
+                  <div class="mb-2">
+                    <viam-button group v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
+                  </div>
+                  <div id="map" class="mb-2" v-map-mounted></div>
+                  <viam-input v-model="locationValue" input-id="nav-set-location" />
+              </template>
+            </Collapse>
           </div>
 
           <!-- current operations -->
