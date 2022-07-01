@@ -703,7 +703,6 @@ func TestGRPCConnection(t *testing.T) {
 	closeOutSLAMService(t, name)
 }
 
-// nolint:unparam
 func createTempFolderArchitecture(validArch bool) (string, error) {
 	name, err := ioutil.TempDir("", "*")
 	if err != nil {
