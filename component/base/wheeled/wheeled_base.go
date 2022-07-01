@@ -27,16 +27,25 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateFourWheelBase(ctx, deps, config, logger)
+			return CreateFourWheelBase(ctx, deps, config.ConvertedAttributes.(*FourWheelConfig), logger)
 		},
 	}
+
 	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
+	config.RegisterComponentAttributeMapConverter(
+		base.SubtypeName,
+		"four-wheel",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf FourWheelConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&FourWheelConfig{})
 
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateWheeledBase(ctx, deps, config.ConvertedAttributes.(*Config), logger)
+			return CreateWheeledBase(ctx, deps, config.ConvertedAttributes.(*WheeledConfig), logger)
 		},
 	}
 
@@ -45,10 +54,10 @@ func init() {
 		base.SubtypeName,
 		"wheeled",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
+			var conf WheeledConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&Config{})
+		&WheeledConfig{})
 }
 
 type wheeledBase struct {
@@ -260,44 +269,87 @@ func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }
 
+// FourWheelConfig is how you configure a four-wheeled base.
+type FourWheelConfig struct {
+	WidthMM              int     `json:"width_mm"`
+	WheelCircumferenceMM int     `json:"wheel_circumference_mm"`
+	SpinSlipFactor       float64 `json:"spin_slip_factor,omitempty"`
+	FrontLeft            string  `json:"front_left"`
+	FrontRight           string  `json:"front_right"`
+	BackLeft             string  `json:"back_left"`
+	BackRight            string  `json:"back_right"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *FourWheelConfig) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.WidthMM == 0 {
+		return nil, errors.New("need a width_mm for a four-wheel base")
+	}
+
+	if config.WheelCircumferenceMM == 0 {
+		return nil, errors.New("need a wheel_circumference_mm for a four-wheel base")
+	}
+
+	if len(config.FrontLeft) == 0 {
+		return nil, errors.New("need a front_left motor")
+	}
+
+	if len(config.FrontRight) == 0 {
+		return nil, errors.New("need a front_right motor")
+	}
+
+	if len(config.BackLeft) == 0 {
+		return nil, errors.New("need a back_left motor")
+	}
+
+	if len(config.BackRight) == 0 {
+		return nil, errors.New("need a back_right motor")
+	}
+
+	deps = append(deps, config.FrontLeft)
+	deps = append(deps, config.FrontRight)
+	deps = append(deps, config.BackLeft)
+	deps = append(deps, config.BackRight)
+
+	return deps, nil
+}
+
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	config *FourWheelConfig,
 	logger golog.Logger,
 ) (base.LocalBase, error) {
-	frontLeft, err := motor.FromDependencies(deps, config.Attributes.String("front_left"))
+	frontLeft, err := motor.FromDependencies(deps, config.FrontLeft)
 	if err != nil {
 		return nil, errors.Wrap(err, "front_left motor not found")
 	}
-	frontRight, err := motor.FromDependencies(deps, config.Attributes.String("front_right"))
+	frontRight, err := motor.FromDependencies(deps, config.FrontRight)
 	if err != nil {
 		return nil, errors.Wrap(err, "front_right motor not found")
 	}
-	backLeft, err := motor.FromDependencies(deps, config.Attributes.String("back_left"))
+	backLeft, err := motor.FromDependencies(deps, config.BackLeft)
 	if err != nil {
 		return nil, errors.Wrap(err, "back_left motor not found")
 	}
-	backRight, err := motor.FromDependencies(deps, config.Attributes.String("back_right"))
+	backRight, err := motor.FromDependencies(deps, config.BackRight)
 	if err != nil {
 		return nil, errors.Wrap(err, "back_right motor not found")
 	}
 
 	base := &wheeledBase{
-		widthMm:              config.Attributes.Int("width_mm", 0),
-		wheelCircumferenceMm: config.Attributes.Int("wheel_circumference_mm", 0),
-		spinSlipFactor:       config.Attributes.Float64("spin_slip_factor", 1.0),
+		widthMm:              config.WidthMM,
+		wheelCircumferenceMm: config.WheelCircumferenceMM,
+		spinSlipFactor:       config.SpinSlipFactor,
 		left:                 []motor.Motor{frontLeft, backLeft},
 		right:                []motor.Motor{frontRight, backRight},
 	}
 
-	if base.widthMm == 0 {
-		return nil, errors.New("need a widthMm for a four-wheel base")
-	}
-
-	if base.wheelCircumferenceMm == 0 {
-		return nil, errors.New("need a wheelCircumferenceMm for a four-wheel base")
+	if base.spinSlipFactor == 0 {
+		base.spinSlipFactor = 1
 	}
 
 	base.allMotors = append(base.allMotors, base.left...)
@@ -307,7 +359,7 @@ func CreateFourWheelBase(
 }
 
 // Config is how you configure a wheeled base.
-type Config struct {
+type WheeledConfig struct {
 	WidthMM              int      `json:"width_mm"`
 	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
@@ -316,7 +368,7 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
+func (config *WheeledConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.WidthMM == 0 {
@@ -342,7 +394,12 @@ func (config *Config) Validate(path string) ([]string, error) {
 }
 
 // CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(ctx context.Context, deps registry.Dependencies, config *Config, logger golog.Logger) (base.LocalBase, error) {
+func CreateWheeledBase(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config *WheeledConfig,
+	logger golog.Logger,
+) (base.LocalBase, error) {
 	base := &wheeledBase{
 		widthMm:              config.WidthMM,
 		wheelCircumferenceMm: config.WheelCircumferenceMM,
