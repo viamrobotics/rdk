@@ -1538,30 +1538,37 @@
             </div>
 
           <!-- ******* GANTRY *******  -->
-          <div class="gantry pb-8" v-for="gantry in filterResources('rdk', 'component', 'gantry')" :key="gantry.name" v-if="resourceStatusByName(gantry)">
-            <h3>Gantry ${gantry.name}</h3>
-            <table  class="table-auto border-collapse border border-slate-400">
-                 <th class="border border-black"ead>
-                  <tr>
-                     <th class="border border-black">axis</th>
-                     <th class="border border-black">position</th>
-                     <th class="border border-black">length</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="pp in resourceStatusByName(gantry).parts" :key="pp.axis">
-                     <th class="border border-black">${pp.axis}</th>
-                     <td class="border border-black">
-                      <viam-button group v-on:click="gantryInc( gantry, pp.axis, -10 )">--</viam-button>
-                      <viam-button group v-on:click="gantryInc( gantry, pp.axis, -1 )">-</viam-button>
-                      <viam-button group v-on:click="gantryInc( gantry, pp.axis, 1 )">+</viam-button>
-                      <viam-button group v-on:click="gantryInc( gantry, pp.axis, 10 )">++</viam-button>
-                    </td>
-                     <td class="border border-black">${pp.pos.toFixed(2)}</td>
-                     <td class="border border-black">${pp.length}</td>
-                  </tr>
-                </tbody>
-            </table>
+          <div class="pb-8" v-for="gantry in filterResources('rdk', 'component', 'gantry')" :key="gantry.name" v-if="resourceStatusByName(gantry)">
+            <Collapse>
+              <div class="flex">
+                <h2 class="p-4 text-xl">Gantry ${gantry.name}</h2>
+              </div>
+              <template v-slot:content>
+                <div class="border border-black border-t-0 p-4">
+                  <table class="border border-black border-t-0 p-4">
+                    <tr>
+                      <th class="border border-black p-2">axis</th>
+                      <th class="border border-black p-2" colspan="2">position</th>
+                      <th class="border border-black p-2">length</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="pp in resourceStatusByName(gantry).parts" :key="pp.axis">
+                        <th class="border border-black p-2">${pp.axis}</th>
+                        <td class="border border-black p-2">
+                          <viam-button group v-on:click="gantryInc( gantry, pp.axis, -10 )">--</viam-button>
+                          <viam-button group v-on:click="gantryInc( gantry, pp.axis, -1 )">-</viam-button>
+                          <viam-button group v-on:click="gantryInc( gantry, pp.axis, 1 )">+</viam-button>
+                          <viam-button group v-on:click="gantryInc( gantry, pp.axis, 10 )">++</viam-button>
+                        </td>
+                        <td class="border border-black p-2">${pp.pos.toFixed(2)}</td>
+                        <td class="border border-black p-2">${pp.length}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </Collapse>
           </div>
 
           <!-- ******* IMU *******  -->
