@@ -124,40 +124,40 @@ func TestCaptureDisabled(t *testing.T) {
 
 	defer resetFolder(t, captureDir)
 	dmsvc.Update(context.Background(), testCfg)
-	sleepTime := time.Millisecond * 5
-	time.Sleep(sleepTime)
+	captureTime := time.Millisecond * 500
+	time.Sleep(captureTime)
 
-	// Verify that the single configured collector wrote to its file.
-	armDir := captureDir + "/arm/arm1/"
+	// Call Update with a disabled capture and give the collector time to write to file.
+	dmCfg.CaptureDisabled = true
+	dmsvc.Update(context.Background(), testCfg)
+	flushWritersTime := time.Millisecond * 10
+	time.Sleep(flushWritersTime)
+
+	// Verify that the collector wrote to its file.
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
-
-	// Verify that after Update is called with a disabled capture, the collector is no longer writing.
-	oldSize := filesInArmDir[0].Size()
-	dmCfg.CaptureDisabled = true
-	dmsvc.Update(context.Background(), testCfg)
-
-	// Sleep for 100ms to verify that there's no more writing.
-	time.Sleep(time.Millisecond * 100)
-
-	newSize := filesInArmDir[0].Size()
-	test.That(t, oldSize, test.ShouldEqual, newSize)
+	emptyFileSize := 30
+	test.That(t, filesInArmDir[0].Size(), test.ShouldBeGreaterThan, emptyFileSize)
 
 	// Re-enable capture.
 	dmCfg.CaptureDisabled = false
 	dmsvc.Update(context.Background(), testCfg)
+	time.Sleep(captureTime)
 
-	// Sleep for 100ms.
-	time.Sleep(time.Millisecond * 100)
+	// Close service.
+	dmsvc.Close(context.Background())
+	time.Sleep(flushWritersTime)
 
-	// Verify that started collecting in a new file.
+	// Verify that started collection began in a new file when it was re-enabled.
 	filesInArmDir, err = readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 2)
-	test.That(t, filesInArmDir[0], test.ShouldNotEqual, filesInArmDir[1])
 
-	dmsvc.Close(context.Background())
+	// Verify that something different was written to both files.
+	test.That(t, filesInArmDir[0], test.ShouldNotEqual, filesInArmDir[1])
+	test.That(t, filesInArmDir[1].Size(), test.ShouldBeGreaterThan, emptyFileSize)
 }
 
 // Validates that manual syncing works for a datamanager.

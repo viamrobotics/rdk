@@ -417,15 +417,12 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.closeCollectors()
 		return err
 	}
-<<<<<<< HEAD
-
-	toggledCapture := svc.captureDisabled != svcConfig.CaptureDisabled
-	svc.captureDisabled = svcConfig.CaptureDisabled
-=======
 	if cfg.Cloud != nil {
 		svc.partID = cfg.Cloud.ID
 	}
->>>>>>> bcd68736660a01db190950a0f4ec3c1cc09084a0
+	toggledCapture := svc.captureDisabled != svcConfig.CaptureDisabled
+	svc.captureDisabled = svcConfig.CaptureDisabled
+
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if toggledCapture && svcConfig.CaptureDisabled {
 		svc.closeCollectors()
