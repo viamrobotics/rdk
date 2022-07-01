@@ -67,6 +67,7 @@ var Subtype = resource.NewSubtype(
 var Name = resource.NameFromSubtype(Subtype, "")
 
 // Named is a helper for getting the named sensor's typed resource name.
+// RSDK-347 Implements senors's Named.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
