@@ -19,7 +19,7 @@ type Geometry interface {
 	Pose() Pose
 	Vertices() []r3.Vector
 	AlmostEqual(Geometry) bool
-	Transform(Pose)
+	Transform(Pose) Geometry
 	ToProtobuf() *commonpb.Geometry
 	CollidesWith(Geometry) (bool, error)
 	DistanceFrom(Geometry) (float64, error)
