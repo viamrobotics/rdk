@@ -56,18 +56,23 @@ func TestRTK(t *testing.T) {
 	test.That(t, g, test.ShouldNotBeNil)
 
 	// test serial connection source
+	path := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
 	cfig = config.Component{
 		Name:  "rtk1",
 		Model: "rtk-station",
 		Type:  "gps",
 		Attributes: config.AttributeMap{
 			"correction_source": "serial",
-			"correction_path":   "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
+			"correction_path":   path,
 		},
 	}
+
 	g, err = newrtkStation(ctx, deps, cfig, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, g, test.ShouldNotBeNil)
+	passErr := "open " + path + ": no such file or directory"
+	if err == nil || err.Error() != passErr {
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, g, test.ShouldNotBeNil)
+	}
 
 	// test I2C correction source
 	cfig = config.Component{
@@ -87,7 +92,7 @@ func TestRTK(t *testing.T) {
 	}
 
 	g, err = newrtkStation(ctx, deps, cfig, logger)
-	passErr := "board " + cfig.Attributes.String("board") + " is not local"
+	passErr = "board " + cfig.Attributes.String("board") + " is not local"
 
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
