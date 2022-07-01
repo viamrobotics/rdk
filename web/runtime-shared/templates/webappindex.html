@@ -1572,29 +1572,89 @@
           </div>
 
           <!-- ******* IMU *******  -->
-          <div class="pb-8">
-            <div v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()" :key="imu[1].name">
-              <hr />
-              <h2>IMU: ${imu[1].name}</h2>
-              <table  class="table-auto border-collapse border border-slate-400" v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
-                <tr> <th class="border border-black" colspan="2">Orientation (degrees)</th></tr>
-                <tr> <th class="border border-black">Roll</th> <td class="border border-black">${imuData[imu[1].name].orientation.rollDeg.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black">Pitch</th> <td class="border border-black">${imuData[imu[1].name].orientation.pitchDeg.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black">Yaw</th> <td class="border border-black">${imuData[imu[1].name].orientation.yawDeg.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black" colspan="2">Angular Velocity (degrees/second)</th></tr>
-                <tr> <th class="border border-black">X</th> <td class="border border-black">${imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black">Y</th> <td class="border border-black">${imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black">Z</th> <td class="border border-black">${imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black" colspan="2">Acceleration (mm/second/second)</th></tr>
-                <tr> <th class="border border-black">X</th> <td class="border border-black">${imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black">Y</th> <td class="border border-black">${imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black">Z</th> <td class="border border-black">${imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black" colspan="2">Magnetometer (gauss)</th></tr>
-                <tr> <th class="border border-black">X</th> <td class="border border-black">${imuData[imu[1].name].magnetometer.xGauss.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black">Y</th> <td class="border border-black">${imuData[imu[1].name].magnetometer.yGauss.toFixed(2)}</td></tr>
-                <tr> <th class="border border-black">Z</th> <td class="border border-black">${imuData[imu[1].name].magnetometer.zGauss.toFixed(2)}</td></tr>
-              </table>
-            </div>
+          <div class="pb-8" v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()" :key="imu[1].name">
+            <Collapse>
+              <div class="flex">
+                <h2 class="p-4 text-xl">IMU: ${imu[1].name}</h2>
+              </div>
+              <template v-slot:content>
+                <div class="flex border border-black border-t-0 p-4">
+                  <template v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
+                    <div class="w-1/4 mr-4">
+                      <h3 class="mb-1">Orientation (degrees)</h3>
+                      <table class="w-full border border-black border-t-0 p-4">
+                        <tr>
+                          <th class="border border-black p-2">Roll</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].orientation.rollDeg.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <th class="border border-black p-2">Pitch</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].orientation.pitchDeg.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <th class="border border-black p-2">Yaw</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].orientation.yawDeg.toFixed(2)}</td>
+                        </tr>
+                      </table>
+                    </div>
+                    
+                    <div class="w-1/4 mr-4">
+                      <h3 class="mb-1">Angular Velocity (degrees/second)</h3>
+                      <table class="w-full border border-black border-t-0 p-4">
+                        <tr>
+                          <th class="border border-black p-2">X</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <th class="border border-black p-2">Y</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <th class="border border-black p-2">Z</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2)}</td>
+                        </tr>
+                      </table>
+                    </div>
+                    
+                    <div class="w-1/4 mr-4">
+                      <h3 class="mb-1">Acceleration (mm/second/second)</h3>
+                      <table class="w-full border border-black border-t-0 p-4">
+                        <tr>
+                          <th class="border border-black p-2">X</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <th class="border border-black p-2">Y</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <th class="border border-black p-2">Z</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2)}</td>
+                        </tr>
+                      </table>
+                    </div>
+                    
+                    <div class="w-1/4">
+                      <h3 class="mb-1">Magnetometer (gauss)</h3>
+                      <table class="w-full border border-black border-t-0 p-4">
+                        <tr>
+                          <th class="border border-black p-2">X</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].magnetometer.xGauss.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <th class="border border-black p-2">Y</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].magnetometer.yGauss.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <th class="border border-black p-2">Z</th>
+                          <td class="border border-black p-2">${imuData[imu[1].name].magnetometer.zGauss.toFixed(2)}</td>
+                        </tr>
+                      </table>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </Collapse>
           </div>
 
           <!-- ******* ARM *******  -->
