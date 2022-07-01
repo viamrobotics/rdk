@@ -48,7 +48,6 @@ func TestRTK(t *testing.T) {
 			"ntrip_password":         "",
 			"ntrip_mountpoint":       "NJI2",
 			"ntrip_connect_attempts": 10,
-			"children":               "gps1",
 		},
 	}
 
@@ -84,7 +83,6 @@ func TestRTK(t *testing.T) {
 			"ntrip_connect_attempts": 10,
 			"board":                  testBoardName,
 			"bus":                    testBusName,
-			"children":               "gps1",
 		},
 	}
 
