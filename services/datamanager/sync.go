@@ -126,7 +126,6 @@ func (p *progressTracker) mark(k string) {
 	p.lock.Unlock()
 }
 
-
 func (p *progressTracker) unmark(k string) {
 	p.lock.Lock()
 	delete(p.m, k)
