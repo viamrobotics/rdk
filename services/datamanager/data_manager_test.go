@@ -24,6 +24,9 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+// Default sync interval of 250ms.
+const syncIntervalMins = 0.0041
+
 // readDir filters out folders from a slice of FileInfos.
 func readDir(t *testing.T, dir string) ([]fs.FileInfo, error) {
 	t.Helper()
@@ -77,6 +80,7 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	logger := golog.NewTestLogger(t)
 	testCfg, err := config.Read(context.Background(), rutils.ResolveFile(relativePath), logger)
 	test.That(t, err, test.ShouldBeNil)
+	testCfg.Cloud = &config.Cloud{ID: "part_id"}
 	return testCfg
 }
 
@@ -160,7 +164,7 @@ func TestCaptureDisabled(t *testing.T) {
 func TestManualSync(t *testing.T) {
 	var uploaded []string
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -171,7 +175,7 @@ func TestManualSync(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 
 	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
@@ -203,7 +207,7 @@ func TestManualSync(t *testing.T) {
 func TestScheduledSync(t *testing.T) {
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -213,11 +217,11 @@ func TestScheduledSync(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = 0.0041
+	dmCfg.SyncIntervalMins = syncIntervalMins
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 
 	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
@@ -239,7 +243,7 @@ func TestScheduledSync(t *testing.T) {
 func TestManualAndScheduledSync(t *testing.T) {
 	var uploadedFiles []string
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploadedFiles = append(uploadedFiles, path)
 		lock.Unlock()
@@ -250,11 +254,11 @@ func TestManualAndScheduledSync(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = 0.0041
+	dmCfg.SyncIntervalMins = syncIntervalMins
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 
 	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
@@ -287,9 +291,9 @@ func TestManualAndScheduledSync(t *testing.T) {
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
-	uploaded := []string{}
+	var uploaded []string
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -299,11 +303,11 @@ func TestRecoversAfterKilled(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = 0.0041
+	dmCfg.SyncIntervalMins = syncIntervalMins
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
@@ -336,7 +340,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 func TestSyncDisabled(t *testing.T) {
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -346,7 +350,7 @@ func TestSyncDisabled(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = 0.0041
+	dmCfg.SyncIntervalMins = syncIntervalMins
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
@@ -382,11 +386,11 @@ func TestSyncDisabled(t *testing.T) {
 
 func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
 	svcConfig, ok, err := datamanager.GetServiceConfig(config)
-	if !ok {
-		return nil, errors.New("failed to get service config")
-	}
 	if err != nil {
 		return nil, err
+	}
+	if !ok {
+		return nil, errors.New("failed to get service config")
 	}
 	return svcConfig, nil
 }

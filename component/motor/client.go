@@ -29,11 +29,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections.
-func (sc *serviceClient) Close() error {
-	return nil
-}
-
 // client is a motor client.
 type client struct {
 	*serviceClient

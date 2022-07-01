@@ -538,6 +538,43 @@ func main() {
 									)
 								},
 							},
+							{
+								Name:  "shell",
+								Usage: "start a shell on a robot part",
+								Flags: []cli.Flag{
+									&cli.StringFlag{
+										Name:     "organization",
+										Required: true,
+									},
+									&cli.StringFlag{
+										Name:     "location",
+										Required: true,
+									},
+									&cli.StringFlag{
+										Name:     "robot",
+										Required: true,
+									},
+									&cli.StringFlag{
+										Name:     "part",
+										Required: true,
+									},
+								},
+								Action: func(c *cli.Context) error {
+									client, err := rdkcli.NewAppClient(c)
+									if err != nil {
+										return err
+									}
+
+									return client.StartRobotPartShell(
+										c.String("organization"),
+										c.String("location"),
+										c.String("robot"),
+										c.String("part"),
+										c.Bool("debug"),
+										logger,
+									)
+								},
+							},
 						},
 					},
 				},

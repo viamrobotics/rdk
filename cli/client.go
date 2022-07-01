@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -27,6 +28,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/shell"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -536,22 +540,18 @@ func (c *AppClient) TailRobotPartLogs(orgStr, locStr, robotStr, partStr string, 
 	}
 }
 
-// RunRobotPartCommand runs the given command on a robot part.
-func (c *AppClient) RunRobotPartCommand(
+func (c *AppClient) prepareDial(
 	orgStr, locStr, robotStr, partStr string,
-	svcMethod, data string,
-	streamDur time.Duration,
 	debug bool,
-	logger golog.Logger,
-) error {
+) (context.Context, string, []rpc.DialOption, error) {
 	locAuth, err := c.LocationAuth(orgStr, locStr)
 	if err != nil {
-		return err
+		return nil, "", nil, err
 	}
 
 	part, err := c.RobotPart(c.selectedOrg.Id, c.selectedLoc.Id, robotStr, partStr)
 	if err != nil {
-		return err
+		return nil, "", nil, err
 	}
 
 	rpcDialer := rpc.NewCachedDialer()
@@ -569,7 +569,23 @@ func (c *AppClient) RunRobotPartCommand(
 		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
 	}
 
-	conn, err := grpc.Dial(dialCtx, part.Fqdn, logger, rpcOpts...)
+	return dialCtx, part.Fqdn, rpcOpts, nil
+}
+
+// RunRobotPartCommand runs the given command on a robot part.
+func (c *AppClient) RunRobotPartCommand(
+	orgStr, locStr, robotStr, partStr string,
+	svcMethod, data string,
+	streamDur time.Duration,
+	debug bool,
+	logger golog.Logger,
+) error {
+	dialCtx, fqdn, rpcOpts, err := c.prepareDial(orgStr, locStr, robotStr, partStr, debug)
+	if err != nil {
+		return err
+	}
+
+	conn, err := grpc.Dial(dialCtx, fqdn, logger, rpcOpts...)
 	if err != nil {
 		return err
 	}
@@ -652,4 +668,137 @@ func (c *AppClient) RunRobotPartCommand(
 			}
 		}
 	}
+}
+
+// StartRobotPartShell starts a shell on a robot part.
+func (c *AppClient) StartRobotPartShell(
+	orgStr, locStr, robotStr, partStr string,
+	debug bool,
+	logger golog.Logger,
+) error {
+	dialCtx, fqdn, rpcOpts, err := c.prepareDial(orgStr, locStr, robotStr, partStr, debug)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(c.c.App.Writer, "establishing connection...")
+	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
+	if err != nil {
+		fmt.Fprintln(c.c.App.ErrWriter, err)
+		cli.OsExiter(1)
+		return nil
+	}
+
+	defer func() {
+		utils.UncheckedError(robotClient.Close(c.c.Context))
+	}()
+
+	var found *resource.Name
+	for _, name := range robotClient.ResourceNames() {
+		if name == shell.Name {
+			nameCopy := name
+			found = &nameCopy
+			break
+		}
+	}
+	if found == nil {
+		fmt.Fprintln(c.c.App.ErrWriter, "shell service is not enabled")
+		cli.OsExiter(1)
+		return nil
+	}
+
+	shellRes, err := robotClient.ResourceByName(*found)
+	if err != nil {
+		fmt.Fprintln(c.c.App.ErrWriter, err)
+		cli.OsExiter(1)
+		return nil
+	}
+
+	shellSvc, ok := shellRes.(shell.Service)
+	if !ok {
+		fmt.Fprintln(c.c.App.ErrWriter, "shell service is not a shell service")
+		cli.OsExiter(1)
+		return nil
+	}
+
+	input, output, err := shellSvc.Shell(c.c.Context)
+	if err != nil {
+		fmt.Fprintln(c.c.App.ErrWriter, err)
+		cli.OsExiter(1)
+		return nil
+	}
+
+	setRaw := func(isRaw bool) error {
+		r := "raw"
+		if !isRaw {
+			r = "-raw"
+		}
+
+		rawMode := exec.Command("stty", r)
+		rawMode.Stdin = os.Stdin
+		return rawMode.Run()
+	}
+	if err := setRaw(true); err != nil {
+		fmt.Fprintln(c.c.App.ErrWriter, err)
+		cli.OsExiter(1)
+		return nil
+	}
+	defer func() {
+		utils.UncheckedError(setRaw(false))
+	}()
+
+	utils.PanicCapturingGo(func() {
+		var data [64]byte
+		for {
+			select {
+			case <-c.c.Context.Done():
+				close(input)
+				return
+			default:
+			}
+
+			n, err := os.Stdin.Read(data[:])
+			if err != nil {
+				close(input)
+				return
+			}
+			if n == 1 && data[0] == 4 {
+				// EOT -> EOF
+				close(input)
+				return
+			}
+			select {
+			case <-c.c.Context.Done():
+				close(input)
+				return
+			case input <- string(data[:n]):
+			}
+		}
+	})
+
+	outputLoop := func() {
+		for {
+			select {
+			case <-c.c.Context.Done():
+				return
+			case outputData, ok := <-output:
+				if ok {
+					if outputData.Output != "" {
+						fmt.Fprint(c.c.App.Writer, outputData.Output)
+					}
+					if outputData.Error != "" {
+						fmt.Fprint(c.c.App.ErrWriter, outputData.Error)
+					}
+					if outputData.EOF {
+						return
+					}
+				} else {
+					return
+				}
+			}
+		}
+	}
+
+	outputLoop()
+	return nil
 }
