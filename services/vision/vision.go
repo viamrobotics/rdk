@@ -77,6 +77,7 @@ var Subtype = resource.NewSubtype(
 var Name = resource.NameFromSubtype(Subtype, "")
 
 // Named is a helper for getting the named vision's typed resource name.
+// RSDK-347 Implements vision's Named.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
