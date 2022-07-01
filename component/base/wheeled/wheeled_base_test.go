@@ -242,12 +242,12 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
 
 	// empty config
-	cfg := &WheeledConfig{}
+	cfg := &Config{}
 	_, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// invalid config
-	cfg = &WheeledConfig{
+	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
@@ -257,7 +257,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// valid config
-	cfg = &WheeledConfig{
+	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
@@ -277,7 +277,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	cfg := &WheeledConfig{}
+	cfg := &Config{}
 	deps, err := cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "need a width_mm for a wheeled base")
