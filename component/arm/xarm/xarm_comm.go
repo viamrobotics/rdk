@@ -403,16 +403,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldStat
 			return err
 		}
 	}
-	joints, err := x.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	solution, err := x.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
-	if err != nil {
-		return err
-	}
-	err = arm.GoToWaypoints(ctx, x, solution)
-	if err != nil {
+	if err := arm.Move(ctx, x.robot, x, pos, worldState); err != nil {
 		return err
 	}
 	return x.opMgr.WaitForSuccess(
@@ -451,8 +442,8 @@ func (x *xArm) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the arm is moving.
-func (x *xArm) IsMoving() bool {
-	return x.opMgr.OpRunning()
+func (x *xArm) IsMoving(ctx context.Context) (bool, error) {
+	return x.opMgr.OpRunning(), nil
 }
 
 func getMaxDiff(from, to []referenceframe.Input) float64 {
