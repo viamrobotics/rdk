@@ -148,11 +148,64 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
 	})
-}
 
-func TestNewServo(t *testing.T) {
-	fakecfg := board.Config{
-		
-	}
+	t.Run("servo initialize with pin error", func(t *testing.T) {
+		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
+		test.That(t, servoReg, test.ShouldNotBeNil)
+		_, err := servoReg.Constructor(
+			ctx,
+			nil,
+			config.Component{
+				Name:                "servo",
+				ConvertedAttributes: &picommon.ServoConfig{Pin: ""},
+			},
+			logger,
+		)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "need pin for pi servo")
 
+	})
+
+	t.Run("check new servo defaults", func(t *testing.T) {
+		ctx := context.Background()
+		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
+		test.That(t, servoReg, test.ShouldNotBeNil)
+		servoInt, err := servoReg.Constructor(
+			ctx,
+			nil,
+			config.Component{
+				Name:                "servo",
+				ConvertedAttributes: &picommon.ServoConfig{Pin: "22"},
+			},
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		servo1 := servoInt.(servo.Servo)
+		pos1, err := servo1.GetPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos1, test.ShouldEqual, 90)
+	})
+
+	t.Run("check set default position", func(t *testing.T) {
+		ctx := context.Background()
+		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
+		test.That(t, servoReg, test.ShouldNotBeNil)
+
+		initPos := 33.0
+		servoInt, err := servoReg.Constructor(
+			ctx,
+			nil,
+			config.Component{
+				Name:                "servo",
+				ConvertedAttributes: &picommon.ServoConfig{Pin: "22", StartPos: &initPos},
+			},
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		servo1 := servoInt.(servo.Servo)
+		pos1, err := servo1.GetPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos1, test.ShouldEqual, 32)
+	})
 }

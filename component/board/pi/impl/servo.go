@@ -184,9 +184,9 @@ func (s *piPigpioServo) Stop(ctx context.Context) error {
 func (s *piPigpioServo) IsMoving(ctx context.Context) (bool, error) {
 	// RSDK-434: Refine implementation
 	switch s.res {
-	case -93:
+	case PI_NOT_SERVO_GPIO:
 		return false, errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
-	case -7:
+	case PI_BAD_PULSEWIDTH:
 		return false, errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
 	case 0:
 		return false, nil

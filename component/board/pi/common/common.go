@@ -4,10 +4,11 @@ package picommon
 import (
 	"errors"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/utils"
 )
 
 // ModelName is the name used refer to any implementation of a pi based component.
@@ -19,17 +20,15 @@ type ServoConfig struct {
 	Min      int      `json:"min,omitempty"`
 	Max      int      `json:"max,omitempty"`
 	StartPos *float64 `json:"starting_position_degrees,omitempty"`
-	HoldPos  *bool    `json:"hold_position,omitempty"` // defaults true, holds servo position for 500 ms then disables motor when false. For safety.
+	HoldPos  *bool    `json:"hold_position,omitempty"` // defaults true, holds for 500 ms then disables servo
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *ServoConfig) Validate(path string) error {
-
 	if config.Pin == "" {
-		utils.NewConfigValidationError(path, errors.New("board pin is unspecified for servo"))
+		return utils.NewConfigValidationError(path,
+			errors.New("need pin for pi servo"))
 	}
-
-	// no other attribute is required
 
 	return nil
 }
