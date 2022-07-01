@@ -859,7 +859,6 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (interface{},
 // PartsMergeResult is the result of merging in parts together.
 type PartsMergeResult struct {
 	ReplacedProcesses []pexec.ManagedProcess
-	ReplacedRemotes   []*remoteRobot
 }
 
 // FilterFromConfig given a config this function will remove elements from the manager and return removed resources in a new manager.
@@ -930,4 +929,61 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		manager.resources.Remove(rName)
 	}
 	return filtered, nil
+}
+
+func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.DialOption {
+	var dialOpts []rpc.DialOption
+	if opts.debug {
+		dialOpts = append(dialOpts, rpc.WithDialDebug())
+	}
+	if config.Insecure {
+		dialOpts = append(dialOpts, rpc.WithInsecure())
+	}
+	if opts.allowInsecureCreds {
+		dialOpts = append(dialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
+	}
+	if opts.tlsConfig != nil {
+		dialOpts = append(dialOpts, rpc.WithTLSConfig(opts.tlsConfig))
+	}
+	if config.Auth.Credentials != nil {
+		if config.Auth.Entity == "" {
+			dialOpts = append(dialOpts, rpc.WithCredentials(*config.Auth.Credentials))
+		} else {
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials(config.Auth.Entity, *config.Auth.Credentials))
+		}
+	} else {
+		// explicitly unset credentials so they are not fed to remotes unintentionally.
+		dialOpts = append(dialOpts, rpc.WithEntityCredentials("", rpc.Credentials{}))
+	}
+
+	if config.Auth.ExternalAuthAddress != "" {
+		dialOpts = append(dialOpts, rpc.WithExternalAuth(
+			config.Auth.ExternalAuthAddress,
+			config.Auth.ExternalAuthToEntity,
+		))
+	}
+
+	if config.Auth.ExternalAuthInsecure {
+		dialOpts = append(dialOpts, rpc.WithExternalAuthInsecure())
+	}
+
+	if config.Auth.SignalingServerAddress != "" {
+		wrtcOpts := rpc.DialWebRTCOptions{
+			Config:                 &rpc.DefaultWebRTCConfiguration,
+			SignalingServerAddress: config.Auth.SignalingServerAddress,
+			SignalingAuthEntity:    config.Auth.SignalingAuthEntity,
+		}
+		if config.Auth.SignalingCreds != nil {
+			wrtcOpts.SignalingCreds = *config.Auth.SignalingCreds
+		}
+		dialOpts = append(dialOpts, rpc.WithWebRTCOptions(wrtcOpts))
+
+		if config.Auth.Managed {
+			// managed robots use TLS authN/Z
+			dialOpts = append(dialOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
+				RemoveAuthCredentials: true,
+			}))
+		}
+	}
+	return dialOpts
 }
