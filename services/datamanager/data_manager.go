@@ -422,7 +422,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 					if err != nil {
 						return componentDataCaptureConfigs, err
 					}
-					attrs.Name = string(name.Subtype.ResourceSubtype)
+					attrs.Name = string(name.Name)
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}

@@ -44,7 +44,7 @@
                   "attributes": {
                     "capture_methods": [
                         {
-                            "name": "rdk:component:remoteArm",
+                            "name": "rdk:component:arm/remoteArm",
                             "type": "arm",
                             "method": "GetEndPosition",
                             "capture_frequency_hz": 100
