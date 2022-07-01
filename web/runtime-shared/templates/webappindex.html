@@ -1490,19 +1490,6 @@
     </div>
     
     <div id="app" v-cloak>
-      <!-- <div class="pb-8">
-        <Collapse>
-          <div class="flex">
-            <h2 class="p-4 text-xl">dfsadsafa</h2>
-          </div>
-          <template v-slot:content>
-            <div class="border border-black border-t-0 p-6">
-              fads
-            </div>
-          </template>
-        </Collapse>
-      </div> -->
-
       <div class="p-2">
           <div style="color: red;">${ error }</div>
           <!-- ******* BASE *******  -->
@@ -1836,7 +1823,6 @@
             v-if="resourceStatusByName(controller)"
             v-bind:controller-name="controller.name"
             v-bind:controller-status="resourceStatusByName(controller)"
-            style="max-width: 1080px;"
           >
           </input-controller>
 
@@ -1907,7 +1893,7 @@
               </div>
               <template v-slot:content>
                 <div class="border border-black border-t-0 p-4">
-                  <table class="w-full table-auto border border-black">
+                  <table class="table-auto border border-black">
                     <tr>
                       <th class="border border-black p-2">Name</th>
                       <th class="border border-black p-2">Type</th>
