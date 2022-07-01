@@ -178,6 +178,7 @@ type dataManagerService struct {
 	backgroundWorkers        sync.WaitGroup
 	uploadFunc               uploadFn
 	updateCollectorsCancelFn func()
+	partID                   string
 }
 
 // Parameters stored for each collector.
@@ -197,23 +198,6 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 	return time.Second / time.Duration(captureFrequencyHz)
 }
 
-// Create a filename based on the current time.
-func getFileTimestampName() string {
-	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
-	return time.Now().Format(time.RFC3339Nano)
-}
-
-// Create a timestamped file within the given capture directory.
-func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, componentName string) (*os.File, error) {
-	fileDir := filepath.Join(captureDir, string(subtypeName), componentName)
-	if err := os.MkdirAll(fileDir, 0o700); err != nil {
-		return nil, err
-	}
-	fileName := filepath.Join(fileDir, getFileTimestampName())
-	//nolint:gosec
-	return os.Create(fileName)
-}
-
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *dataManagerService) initializeOrUpdateCollector(
@@ -229,6 +213,9 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		ComponentName:  attributes.Name,
 		MethodMetadata: metadata,
 	}
+	// Build metadata.
+	syncMetadata := buildSyncMetadata(attributes)
+
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
 		previousAttributes := storedCollectorParams.Attributes
@@ -236,8 +223,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := createDataCaptureFile(
-					svc.captureDir, attributes.Type, attributes.Name)
+				targetFile, err := createDataCaptureFile(svc.captureDir, syncMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -251,12 +237,12 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	}
 
 	// Get the resource corresponding to the component subtype and name.
-	subtype := resource.NewSubtype(
+	resourceType := resource.NewSubtype(
 		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeComponent,
 		attributes.Type,
 	)
-	res, err := svc.r.ResourceByName(resource.NameFromSubtype(subtype, attributes.Name))
+	res, err := svc.r.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +255,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, attributes.Name)
+	targetFile, err := createDataCaptureFile(svc.captureDir, syncMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -323,7 +309,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 
 	svc.cancelSyncBackgroundRoutine()
 
-	svc.syncer = newSyncer(svc.logger, svc.uploadFunc)
+	svc.syncer = newSyncer(svc.logger, svc.uploadFunc, svc.partID)
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
@@ -351,9 +337,8 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *dataManagerService) Sync(ctx context.Context) error {
 	if svc.syncer == nil {
-		panic("called Sync on data manager service with nil syncer")
+		return errors.New("called Sync on data manager service with nil syncer")
 	}
-
 	svc.syncDataCaptureFiles()
 	return nil
 }
@@ -363,7 +348,10 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
-		nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
+		// Build metadata.
+		syncMetadata := buildSyncMetadata(collector.Attributes)
+
+		nextTarget, err := createDataCaptureFile(svc.captureDir, syncMetadata)
 		if err != nil {
 			svc.logger.Errorw("failed to create new data capture file", "error", err)
 		}
@@ -396,7 +384,7 @@ func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 
 // Get the component configs associated with the data manager service.
 func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
-	componentDataCaptureConfigs := []dataCaptureConfig{}
+	var componentDataCaptureConfigs []dataCaptureConfig
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
@@ -432,7 +420,9 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.closeCollectors()
 		return err
 	}
-
+	if cfg.Cloud != nil {
+		svc.partID = cfg.Cloud.ID
+	}
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svcConfig.Disabled {
 		svc.closeCollectors()
