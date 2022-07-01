@@ -45,7 +45,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateWheeledBase(ctx, deps, config.ConvertedAttributes.(*WheeledConfig), logger)
+			return CreateWheeledBase(ctx, deps, config.ConvertedAttributes.(*Config), logger)
 		},
 	}
 
@@ -54,10 +54,10 @@ func init() {
 		base.SubtypeName,
 		"wheeled",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf WheeledConfig
+			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&WheeledConfig{})
+		&Config{})
 }
 
 type wheeledBase struct {
@@ -359,7 +359,7 @@ func CreateFourWheelBase(
 }
 
 // Config is how you configure a wheeled base.
-type WheeledConfig struct {
+type Config struct {
 	WidthMM              int      `json:"width_mm"`
 	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
@@ -368,7 +368,7 @@ type WheeledConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *WheeledConfig) Validate(path string) ([]string, error) {
+func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.WidthMM == 0 {
@@ -397,7 +397,7 @@ func (config *WheeledConfig) Validate(path string) ([]string, error) {
 func CreateWheeledBase(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config *WheeledConfig,
+	config *Config,
 	logger golog.Logger,
 ) (base.LocalBase, error) {
 	base := &wheeledBase{
