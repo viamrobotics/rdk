@@ -26,6 +26,21 @@ func fakeDependencies(t *testing.T) registry.Dependencies {
 	return deps
 }
 
+func fakeDependenciesFromConfig(t *testing.T, config *Config) (registry.Dependencies, error) {
+	t.Helper()
+
+	result := make(registry.Dependencies)
+	deps, err := config.Validate("path")
+	if err != nil {
+		return result, err
+	}
+
+	for _, dep := range deps {
+		result[motor.Named(dep)] = &fake.Motor{}
+	}
+	return result, nil
+}
+
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
 
@@ -44,6 +59,7 @@ func TestFourWheelBase1(t *testing.T) {
 			"back_left":              "bl-m",
 		},
 	}
+
 	baseBase, err := CreateFourWheelBase(context.Background(), deps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
@@ -241,26 +257,32 @@ func TestFourWheelBase1(t *testing.T) {
 
 func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
-	deps := fakeDependencies(t)
 
-	_, err := CreateWheeledBase(context.Background(), deps, &Config{}, rlog.Logger)
+	// empty config
+	cfg := &Config{}
+	_, err := fakeDependenciesFromConfig(t, cfg)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg := &Config{
+	// invalid config
+	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m"},
 	}
-	_, err = CreateWheeledBase(ctx, deps, cfg, rlog.Logger)
+	_, err = fakeDependenciesFromConfig(t, cfg)
 	test.That(t, err, test.ShouldNotBeNil)
 
+	// valid config
 	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m", "br-m"},
 	}
+	deps, err := fakeDependenciesFromConfig(t, cfg)
+	test.That(t, err, test.ShouldBeNil)
+
 	baseBase, err := CreateWheeledBase(ctx, deps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -268,4 +290,36 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, len(base.left), test.ShouldEqual, 2)
 	test.That(t, len(base.right), test.ShouldEqual, 2)
 	test.That(t, len(base.allMotors), test.ShouldEqual, 4)
+}
+
+func TestValidate(t *testing.T) {
+	cfg := &Config{}
+	deps, err := cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need a width_mm for a wheeled base")
+
+	cfg.WidthMM = 100
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need a wheel_circumference_mm for a wheeled base")
+
+	cfg.WheelCircumferenceMM = 1000
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need left and right motors")
+
+	cfg.Left = []string{"fl-m", "bl-m"}
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need left and right motors")
+
+	cfg.Right = []string{"fr-m"}
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "left and right need to have the same number of motors, not 2 vs 1")
+
+	cfg.Right = append(cfg.Right, "br-m")
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldResemble, []string{"fl-m", "bl-m", "fr-m", "br-m"})
+	test.That(t, err, test.ShouldBeNil)
 }

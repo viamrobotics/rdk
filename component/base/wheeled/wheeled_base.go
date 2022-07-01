@@ -315,20 +315,38 @@ type Config struct {
 	Right                []string `json:"right"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.WidthMM == 0 {
+		return nil, errors.New("need a width_mm for a wheeled base")
+	}
+
+	if config.WheelCircumferenceMM == 0 {
+		return nil, errors.New("need a wheel_circumference_mm for a wheeled base")
+	}
+
+	if len(config.Left) == 0 || len(config.Right) == 0 {
+		return nil, errors.New("need left and right motors")
+	}
+
+	if len(config.Left) != len(config.Right) {
+		return nil, fmt.Errorf("left and right need to have the same number of motors, not %d vs %d", len(config.Left), len(config.Right))
+	}
+
+	deps = append(deps, config.Left...)
+	deps = append(deps, config.Right...)
+
+	return deps, nil
+}
+
 // CreateWheeledBase returns a new wheeled base defined by the given config.
 func CreateWheeledBase(ctx context.Context, deps registry.Dependencies, config *Config, logger golog.Logger) (base.LocalBase, error) {
 	base := &wheeledBase{
 		widthMm:              config.WidthMM,
 		wheelCircumferenceMm: config.WheelCircumferenceMM,
 		spinSlipFactor:       config.SpinSlipFactor,
-	}
-
-	if base.widthMm == 0 {
-		return nil, errors.New("need a width_mm for a wheeled base")
-	}
-
-	if base.wheelCircumferenceMm == 0 {
-		return nil, errors.New("need a wheel_circumference_mm for a wheeled base")
 	}
 
 	if base.spinSlipFactor == 0 {
@@ -349,14 +367,6 @@ func CreateWheeledBase(ctx context.Context, deps registry.Dependencies, config *
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
 		}
 		base.right = append(base.right, m)
-	}
-
-	if len(base.left) == 0 {
-		return nil, errors.New("need left and right motors")
-	}
-
-	if len(base.left) != len(base.right) {
-		return nil, fmt.Errorf("left and right need to have the same number of motors, not %d vs %d", len(base.left), len(base.right))
 	}
 
 	base.allMotors = append(base.allMotors, base.left...)
