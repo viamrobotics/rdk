@@ -30,8 +30,7 @@ type ControlBlockConfig struct {
 	Name      string              `json:"name"`       // Control Block name
 	Type      controlBlockType    `json:"type"`       // Control Block type
 	Attribute config.AttributeMap `json:"attributes"` // Internal block configuration
-	// TODO: include ImplicitDependsOn?
-	DependsOn []string `json:"depends_on"` // List of blocks needed for calling Next
+	DependsOn []string            `json:"depends_on"` // List of blocks needed for calling Next
 }
 
 // ControlBlock interface for a control block
