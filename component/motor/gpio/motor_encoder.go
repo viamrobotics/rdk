@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/operation"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -103,7 +104,7 @@ func NewEncodedMotor(
 	realMotor motor.Motor,
 	encoder board.Encoder,
 	logger golog.Logger,
-) (motor.Motor, error) {
+) (motor.LocalMotor, error) {
 	return newEncodedMotor(config, motorConfig, realMotor, encoder, logger)
 }
 
@@ -114,11 +115,15 @@ func newEncodedMotor(
 	encoder board.Encoder,
 	logger golog.Logger,
 ) (*EncodedMotor, error) {
+	localReal, ok := realMotor.(motor.LocalMotor)
+	if !ok {
+		return nil, rutils.NewUnimplementedInterfaceError("LocalMotor", realMotor)
+	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cfg:                     motorConfig,
-		real:                    realMotor,
+		real:                    localReal,
 		encoder:                 encoder,
 		cancelCtx:               cancelCtx,
 		cancel:                  cancel,
@@ -169,7 +174,7 @@ func newEncodedMotor(
 type EncodedMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cfg                     motor.Config
-	real                    motor.Motor
+	real                    motor.LocalMotor
 	encoder                 board.Encoder
 
 	stateMu *sync.RWMutex
@@ -547,6 +552,11 @@ func (m *EncodedMotor) Stop(ctx context.Context) error {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.off(ctx)
+}
+
+// IsMoving returns if the motor is moving or not.
+func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
+	return m.real.IsMoving(ctx)
 }
 
 // IsPowered returns if the motor is on or not.

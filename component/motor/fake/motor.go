@@ -46,6 +46,8 @@ func init() {
 	motor.RegisterConfigAttributeConverter("fake")
 }
 
+var _ motor.LocalMotor = &Motor{}
+
 // A Motor allows setting and reading a set power percentage and
 // direction.
 type Motor struct {
@@ -147,6 +149,13 @@ func (m *Motor) Stop(ctx context.Context) error {
 
 // IsPowered returns if the motor is pretending to be on or not.
 func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return math.Abs(m.powerPct) >= 0.005, nil
+}
+
+// IsMoving returns if the motor is pretending to be moving or not.
+func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil

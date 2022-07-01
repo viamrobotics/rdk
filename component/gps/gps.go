@@ -4,6 +4,7 @@ package gps
 
 import (
 	"context"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -72,9 +73,12 @@ type LocalGPS interface {
 }
 
 var (
-	_ = LocalGPS(&reconfigurableGPS{})
+	_ = GPS(&reconfigurableGPS{})
+	_ = LocalGPS(&reconfigurableLocalGPS{})
 	_ = sensor.Sensor(&reconfigurableGPS{})
+	_ = sensor.Sensor(&reconfigurableLocalGPS{})
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
+	_ = resource.Reconfigurable(&reconfigurableLocalGPS{})
 )
 
 // FromDependencies is a helper for getting the named gps from a collection of
@@ -154,9 +158,49 @@ func GetReadings(ctx context.Context, g GPS) ([]interface{}, error) {
 	return append(readings, active, total, hAcc, vAcc, valid), nil
 }
 
+// GetHeading calculates bearing and absolute heading angles given 2 GPS coordinates
+// 0 degrees indicate North, 90 degrees indicate East and so on.
+func GetHeading(gps1 *geo.Point, gps2 *geo.Point, yawOffset float64) (float64, float64, float64) {
+	// convert latitude and longitude readings from degrees to radians
+	gps1Lat := utils.DegToRad(gps1.Lat())
+	gps1Long := utils.DegToRad(gps1.Lng())
+	gps2Lat := utils.DegToRad(gps2.Lat())
+	gps2Long := utils.DegToRad(gps2.Lng())
+
+	// calculate bearing from gps1 to gps 2
+	dLon := gps2Long - gps1Long
+	y := math.Sin(dLon) * math.Cos(gps2Lat)
+	x := math.Cos(gps1Lat)*math.Sin(gps2Lat) - math.Sin(gps1Lat)*math.Cos(gps2Lat)*math.Cos(dLon)
+	brng := utils.RadToDeg(math.Atan2(y, x))
+
+	// maps bearing to 0-360 degrees
+	if brng < 0 {
+		brng += 360
+	}
+
+	// calculate absolute heading from bearing, accounting for yaw offset
+	// e.g if the GPS antennas are mounted on the left and right sides of the robot,
+	// the yaw offset would be roughly 90 degrees
+	var standardBearing float64
+	if brng > 180 {
+		standardBearing = -(360 - brng)
+	} else {
+		standardBearing = brng
+	}
+	heading := brng - yawOffset
+
+	// make heading positive again
+	if heading < 0 {
+		diff := math.Abs(heading)
+		heading = 360 - diff
+	}
+
+	return brng, heading, standardBearing
+}
+
 type reconfigurableGPS struct {
 	mu     sync.RWMutex
-	actual LocalGPS
+	actual GPS
 }
 
 func (r *reconfigurableGPS) Close(ctx context.Context) error {
@@ -195,24 +239,6 @@ func (r *reconfigurableGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	return r.actual.ReadSpeed(ctx)
 }
 
-func (r *reconfigurableGPS) ReadSatellites(ctx context.Context) (int, int, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.ReadSatellites(ctx)
-}
-
-func (r *reconfigurableGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.ReadAccuracy(ctx)
-}
-
-func (r *reconfigurableGPS) ReadValid(ctx context.Context) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.ReadValid(ctx)
-}
-
 // GetReadings will use the default GPS GetReadings if not provided.
 func (r *reconfigurableGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
@@ -227,6 +253,10 @@ func (r *reconfigurableGPS) GetReadings(ctx context.Context) ([]interface{}, err
 func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.reconfigure(ctx, newGPS)
+}
+
+func (r *reconfigurableGPS) reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {
 	actual, ok := newGPS.(*reconfigurableGPS)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newGPS)
@@ -238,15 +268,62 @@ func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Rec
 	return nil
 }
 
-// WrapWithReconfigurable converts a regular LocalGPS implementation to a reconfigurableGPS.
-// If GPS is already a reconfigurableGPS, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	gps, ok := r.(LocalGPS)
+type reconfigurableLocalGPS struct {
+	*reconfigurableGPS
+	actual LocalGPS
+}
+
+func (r *reconfigurableLocalGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	gps, ok := newGPS.(*reconfigurableLocalGPS)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGPS", r)
+		return utils.NewUnexpectedTypeError(r, newGPS)
+	}
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	r.actual = gps.actual
+	return r.reconfigurableGPS.reconfigure(ctx, gps.reconfigurableGPS)
+}
+
+func (r *reconfigurableLocalGPS) ReadSatellites(ctx context.Context) (int, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ReadSatellites(ctx)
+}
+
+func (r *reconfigurableLocalGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ReadAccuracy(ctx)
+}
+
+func (r *reconfigurableLocalGPS) ReadValid(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ReadValid(ctx)
+}
+
+// WrapWithReconfigurable converts a GPS to a reconfigurableGPS
+// and a LocalGPS implementation to a reconfigurableLocalGPS.
+// If GPS or LocalGPS is already a reconfigurableGPS, then nothing is done.
+func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+	gps, ok := r.(GPS)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("GPS", r)
 	}
 	if reconfigurable, ok := gps.(*reconfigurableGPS); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableGPS{actual: gps}, nil
+	rGPS := &reconfigurableGPS{actual: gps}
+	gpsLocal, ok := r.(LocalGPS)
+	if !ok {
+		return rGPS, nil
+	}
+	if reconfigurable, ok := gps.(*reconfigurableLocalGPS); ok {
+		return reconfigurable, nil
+	}
+	return &reconfigurableLocalGPS{actual: gpsLocal, reconfigurableGPS: rGPS}, nil
 }

@@ -61,8 +61,8 @@ func (g *Gantry) Stop(ctx context.Context) error {
 }
 
 // IsMoving is always false for a fake gantry.
-func (g *Gantry) IsMoving() bool {
-	return false
+func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
 // ModelFrame returns a Gantry frame.
