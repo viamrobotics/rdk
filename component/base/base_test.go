@@ -129,6 +129,17 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	reconfBase2, err := base.WrapWithReconfigurable(reconfBase1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfBase2, test.ShouldEqual, reconfBase1)
+
+	var actualBase2 base.LocalBase = &mockLocal{Name: testBaseName}
+	reconfBase3, err := base.WrapWithReconfigurable(actualBase2)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfBase4, err := base.WrapWithReconfigurable(reconfBase3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfBase4, test.ShouldResemble, reconfBase3)
+
+	_, ok := reconfBase4.(base.LocalBase)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestReconfigurableBase(t *testing.T) {
@@ -170,6 +181,15 @@ func TestReconfigurableBase(t *testing.T) {
 	err = reconfBase3.Reconfigure(context.Background(), reconfBase1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfBase3, reconfBase1))
+
+	actualBase4 := &mock{Name: testBaseName2}
+	reconfBase4, err := base.WrapWithReconfigurable(actualBase4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfBase4, test.ShouldNotBeNil)
+
+	err = reconfBase3.Reconfigure(context.Background(), reconfBase4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfBase3, test.ShouldResemble, reconfBase4)
 }
 
 func TestClose(t *testing.T) {
