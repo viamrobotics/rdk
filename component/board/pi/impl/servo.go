@@ -57,21 +57,20 @@ func init() {
 
 				theServo.pinname = attr.Pin
 
-				if attr.StartPos == nil { // sets and holds the starting position to the middle of servo range if StartPos is not set
+				if attr.StartPos == nil {
 					setPos := C.gpioServo(theServo.pin, C.uint(1500)) // a 1500ms pulsewidth positions the servo at 90 degrees
 					if setPos != 0 {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
 
-				} else { // sets and holds the starting position to the user set_postion.
+				} else {
 					setPos := C.gpioServo(theServo.pin, C.uint(angleToVal(uint8(*attr.StartPos))))
 					if setPos != 0 {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
 
 				}
-				// logic to release if hold is unwanted
-				if attr.HoldPos == nil {
+				if attr.HoldPos == nil || *attr.HoldPos == true {
 					theServo.holdPos = true
 				} else {
 					theServo.res = C.gpioGetServoPulsewidth(theServo.pin)
@@ -95,7 +94,7 @@ type piPigpioServo struct {
 	res      C.int
 	min, max uint8
 	opMgr    operation.SingleOperationManager
-	val      float64
+	val      float64 // pulsewidth value, 500-2500us is 0-180 degrees, 0 is off
 	holdPos  bool
 }
 
@@ -142,7 +141,7 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 // GetPosition returns the current set angle (degrees) of the servo.
 func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
-	switch res { // 0 is off, 500-2500us is value associated with position
+	switch res {
 	case PI_NOT_SERVO_GPIO:
 		s.res = res
 		return 0, errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
@@ -150,21 +149,20 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 		s.res = res
 		return 0, errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
 	case 0:
-
 		return uint8(valToAngle(float64(s.res))), nil
-		// 180 * (float64(s.res) - 500.0) / 2000), nil
 	default:
 		s.res = res
 		return uint8(valToAngle(float64(s.res))), nil
-		// 180 * (float64(res) - 500.0) / 2000), nil
 	}
 }
 
+// angleToVal chnages the input angle in degrees into the corresponding pulsewidth value in us
 func angleToVal(angle uint8) float64 {
 	val := 500 + (2000.0 * float64(angle) / 180.0)
 	return val
 }
 
+// valToAngle changes the pulsewidth value in us to the corresponding angle in degrees
 func valToAngle(val float64) uint8 {
 	angle := 180 * (float64(val) - 500.0) / 2000.0
 	return uint8(angle)

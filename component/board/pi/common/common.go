@@ -2,7 +2,7 @@
 package picommon
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 
