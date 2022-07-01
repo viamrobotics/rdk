@@ -233,7 +233,6 @@ func TestReadLocation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(90, 1))
 	test.That(t, actualGPS1.locCount, test.ShouldEqual, 1)
-
 }
 
 func TestReadAltitude(t *testing.T) {
