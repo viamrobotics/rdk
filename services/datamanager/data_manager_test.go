@@ -24,8 +24,8 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// Default sync interval of 250ms.
-const syncIntervalMins = 0.0041
+const syncIntervalMins = 0.0041 // 250ms
+const emptyFileBytesSize = 30
 
 // readDir filters out folders from a slice of FileInfos.
 func readDir(t *testing.T, dir string) ([]fs.FileInfo, error) {
@@ -93,21 +93,27 @@ func TestNewDataManager(t *testing.T) {
 
 	defer resetFolder(t, captureDir)
 	dmsvc.Update(context.Background(), testCfg)
-	sleepTime := time.Millisecond * 5
-	time.Sleep(sleepTime)
+	captureTime := time.Millisecond * 100
+	time.Sleep(captureTime)
 
-	// Verify that the single configured collector wrote to its file.
-	armDir := captureDir + "/arm/arm1/"
+	err := dmsvc.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	flushWritersTime := time.Millisecond * 10
+	time.Sleep(flushWritersTime)
+
+	// Check that a collector wrote to file.
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
-
-	// Verify that after close is called, the collector is no longer writing.
 	oldSize := filesInArmDir[0].Size()
-	err = dmsvc.Close(context.Background())
+	test.That(t, oldSize, test.ShouldBeGreaterThan, emptyFileBytesSize)
+
 	// When Close returns all background processes in svc should be closed, but still sleep for 100ms to verify
 	// that there's not a resource leak causing writes to still happens after Close() returns.
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(captureTime)
+	test.That(t, err, test.ShouldBeNil)
+	filesInArmDir, err = readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	newSize := filesInArmDir[0].Size()
 	test.That(t, oldSize, test.ShouldEqual, newSize)
@@ -138,8 +144,7 @@ func TestCaptureDisabled(t *testing.T) {
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
-	emptyFileSize := 30
-	test.That(t, filesInArmDir[0].Size(), test.ShouldBeGreaterThan, emptyFileSize)
+	test.That(t, filesInArmDir[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 
 	// Re-enable capture.
 	dmCfg.CaptureDisabled = false
@@ -157,7 +162,7 @@ func TestCaptureDisabled(t *testing.T) {
 
 	// Verify that something different was written to both files.
 	test.That(t, filesInArmDir[0], test.ShouldNotEqual, filesInArmDir[1])
-	test.That(t, filesInArmDir[1].Size(), test.ShouldBeGreaterThan, emptyFileSize)
+	test.That(t, filesInArmDir[1].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 }
 
 // Validates that manual syncing works for a datamanager.
