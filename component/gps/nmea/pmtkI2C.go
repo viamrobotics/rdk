@@ -126,7 +126,7 @@ func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 				g.logger.Fatalf("can't open gps i2c handle: %s", err)
 				return
 			}
-			buffer, err := handle.Read(ctx, 32)
+			buffer, err := handle.Read(ctx, 1024)
 			hErr := handle.Close()
 			if hErr != nil {
 				g.logger.Fatalf("failed to close handle: %s", hErr)
@@ -136,7 +136,6 @@ func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 				g.logger.Error(err)
 				continue
 			}
-
 			for _, b := range buffer {
 				// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
 				// Since CR should never appear except at the end of our sentence, we use that to determine sentence end.
@@ -147,11 +146,7 @@ func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 						err = g.data.parseAndUpdate(strBuf)
 						g.mu.Unlock()
 						if err != nil {
-							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
-							continue
-							// }
-						} else {
-							g.logger.Info(g.ReadLocation(ctx))
+							g.logger.Debugf("can't parse nmea : %s, %v", strBuf, err)
 						}
 					}
 					strBuf = ""

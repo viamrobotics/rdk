@@ -32,9 +32,10 @@ func (g *gpsData) parseAndUpdate(line string) error {
 	ind := strings.Index(line, "$G")
 	if ind == -1 {
 		line = ""
+	} else {
+		line = line[ind:]
 	}
-	line = line[ind:]
-
+	
 	s, err := nmea.Parse(line)
 	if err != nil {
 		return err
