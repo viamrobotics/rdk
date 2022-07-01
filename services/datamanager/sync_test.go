@@ -447,6 +447,7 @@ func TestUploadsOnce(t *testing.T) {
 	_, err := os.Stat(file1.Name())
 	test.That(t, err, test.ShouldNotBeNil)
 	_, err = os.Stat(file2.Name())
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestUploadExponentialRetry(t *testing.T) {
