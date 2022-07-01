@@ -24,8 +24,10 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-const syncIntervalMins = 0.0041 // 250ms
-const emptyFileBytesSize = 30
+const (
+	syncIntervalMins   = 0.0041 // 250ms
+	emptyFileBytesSize = 30
+)
 
 // readDir filters out folders from a slice of FileInfos.
 func readDir(t *testing.T, dir string) ([]fs.FileInfo, error) {
