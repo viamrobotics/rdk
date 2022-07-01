@@ -331,6 +331,15 @@ func TestReconfigurableMotor(t *testing.T) {
 	err = reconfMotor3.Reconfigure(context.Background(), reconfMotor1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfMotor3, reconfMotor1))
+
+	actualMotor4 := &mock{Name: testMotorName2}
+	reconfMotor4, err := motor.WrapWithReconfigurable(actualMotor4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfMotor4, test.ShouldNotBeNil)
+
+	err = reconfMotor3.Reconfigure(context.Background(), reconfMotor4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfMotor3, test.ShouldResemble, reconfMotor4)
 }
 
 func TestSetPower(t *testing.T) {

@@ -186,7 +186,7 @@ func TestServoName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualServo1 servo.Servo = &mockLocal{Name: testServoName}
+	var actualServo1 servo.Servo = &mock{Name: testServoName}
 	reconfServo1, err := servo.WrapWithReconfigurable(actualServo1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -249,6 +249,15 @@ func TestReconfigurableServo(t *testing.T) {
 	err = reconfServo3.Reconfigure(context.Background(), reconfServo1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfServo3, reconfServo1))
+
+	actualServo4 := &mock{Name: testServoName2}
+	reconfServo4, err := servo.WrapWithReconfigurable(actualServo4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfServo4, test.ShouldNotBeNil)
+
+	err = reconfServo3.Reconfigure(context.Background(), reconfServo4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfServo3, test.ShouldResemble, reconfServo4)
 }
 
 func TestStop(t *testing.T) {
