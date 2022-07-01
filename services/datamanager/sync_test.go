@@ -452,6 +452,8 @@ func TestUploadsOnce(t *testing.T) {
 func TestUploadExponentialRetry(t *testing.T) {
 	// Set retry related global vars to faster values for test.
 	initialWaitTime = time.Millisecond * 25
+	maxRetryInterval = time.Millisecond * 150
+	// Define an uploadFunc that fails 4 times then succeeds on its 5th attempt.
 	failureCount := 0
 	successCount := 0
 	callTimes := make(map[int]time.Time)
