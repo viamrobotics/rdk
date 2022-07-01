@@ -23,12 +23,8 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-// type AttrConfig {
-// 	max
-// 	minterface
-// }
-
-// func confgi Validate() {}
+var PI_BAD_PULSEWIDTH = C.int(-7)
+var PI_NOT_SERVO_GPIO = C.int(-93)
 
 // init registers a pi servo based on pigpio.
 func init() {
@@ -59,11 +55,7 @@ func init() {
 					theServo.max = uint8(attr.Max)
 				}
 
-				if attr.HoldPos == nil {
-					theServo.holdPos = true
-				} else {
-					theServo.holdPos = false
-				}
+				theServo.pinname = attr.Pin
 
 				if attr.StartPos == nil { // sets and holds the starting position to the middle of servo range if StartPos is not set
 					setPos := C.gpioServo(theServo.pin, C.uint(1500)) // a 1500ms pulsewidth positions the servo at 90 degrees
@@ -71,13 +63,20 @@ func init() {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
 
-				} else { // sets and holds the starting position to the user setting.
-
+				} else { // sets and holds the starting position to the user set_postion.
 					setPos := C.gpioServo(theServo.pin, C.uint(angleToVal(uint8(*attr.StartPos))))
 					if setPos != 0 {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
 
+				}
+				// logic to release if hold is unwanted
+				if attr.HoldPos == nil {
+					theServo.holdPos = true
+				} else {
+					theServo.res = C.gpioGetServoPulsewidth(theServo.pin)
+					theServo.holdPos = false
+					C.gpioServo(theServo.pin, C.uint(0)) // disables servo
 				}
 
 				return theServo, nil
@@ -92,12 +91,16 @@ var _ = servo.LocalServo(&piPigpioServo{})
 type piPigpioServo struct {
 	generic.Unimplemented
 	pin      C.uint
+	pinname  string
+	res      C.int
 	min, max uint8
 	opMgr    operation.SingleOperationManager
 	val      float64
 	holdPos  bool
 }
 
+// Move moves the servo to the given angle (0-180 degrees)
+// This will block until done or a new operation cancels this one
 func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	_, done := s.opMgr.New(ctx)
 	defer done()
@@ -109,19 +112,19 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 		angle = s.max
 	}
 
-	val := 500 + (2000.0 * float64(angle) / 180.0)
+	val := angleToVal(angle)
 	res := C.gpioServo(s.pin, C.uint(val))
 
 	s.val = val
 
 	if res != 0 {
 		switch res {
-		case -93:
-			return errors.Errorf("gpioservo pin %d is not set up to send and receive pulsewidths")
-		case -7:
-			return errors.Errorf("gpioservo on pin %d trying to reach out of range position", s.pin)
+		case PI_NOT_SERVO_GPIO:
+			return errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
+		case PI_BAD_PULSEWIDTH:
+			return errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
 		default:
-			return errors.Errorf("gpioServo on pin %d failed with %d", s.pin, res)
+			return errors.Errorf("gpioServo on pin %s failed with %d", s.pinname, res)
 		}
 
 	}
@@ -129,27 +132,32 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	if !s.holdPos { // the following logic disables a servo once it has reached a position or after a certain amount of time has been reached
 		time.Sleep(500 * time.Millisecond) // time before a stop is sent
 		setPos := C.gpioServo(s.pin, C.uint(0))
-		// if setPos == C.int(pulseErr) {
 		if setPos < 0 {
-			return errors.Errorf("servo on pin %d failed with code %d", s.pin, setPos)
+			return errors.Errorf("servo on pin %s failed with code %d", s.pinname, setPos)
 		}
 	}
 	return nil
 }
 
+// GetPosition returns the current set angle (degrees) of the servo.
 func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
-	if res <= 0 {
-		switch res {
-		case -93:
-			return 0, errors.Errorf("gpioservo pin %d is not set up to send and receive pulsewidths")
-		case -7:
-			return 0, errors.Errorf("gpioservo on pin %d trying to reach out of range position", s.pin)
-		default:
-			return 0, errors.Errorf("gpioServo on pin %d failed with %d", s.pin, res)
-		}
+	switch res { // 0 is off, 500-2500us is value associated with position
+	case PI_NOT_SERVO_GPIO:
+		s.res = res
+		return 0, errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
+	case PI_BAD_PULSEWIDTH:
+		s.res = res
+		return 0, errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
+	case 0:
+
+		return uint8(valToAngle(float64(s.res))), nil
+		// 180 * (float64(s.res) - 500.0) / 2000), nil
+	default:
+		s.res = res
+		return uint8(valToAngle(float64(s.res))), nil
+		// 180 * (float64(res) - 500.0) / 2000), nil
 	}
-	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
 
 func angleToVal(angle uint8) float64 {
@@ -162,6 +170,7 @@ func valToAngle(val float64) uint8 {
 	return uint8(angle)
 }
 
+// Stop stops the servo. It is assumed the servo stops immediately.
 func (s *piPigpioServo) Stop(ctx context.Context) error {
 	_, done := s.opMgr.New(ctx)
 	defer done()
@@ -174,5 +183,14 @@ func (s *piPigpioServo) Stop(ctx context.Context) error {
 
 func (s *piPigpioServo) IsMoving(ctx context.Context) (bool, error) {
 	// RSDK-434: Refine implementation
-	return s.opMgr.OpRunning(), nil
+	switch s.res {
+	case -93:
+		return false, errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
+	case -7:
+		return false, errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
+	case 0:
+		return false, nil
+	default:
+		return s.opMgr.OpRunning(), nil
+	}
 }

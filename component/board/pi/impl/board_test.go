@@ -149,3 +149,10 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
 	})
 }
+
+func TestNewServo(t *testing.T) {
+	fakecfg := board.Config{
+		
+	}
+
+}
