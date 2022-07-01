@@ -32,7 +32,6 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			//nolint:contextcheck
 			return NewWit(deps, config, logger)
 		},
 	})

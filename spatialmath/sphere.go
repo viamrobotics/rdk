@@ -18,8 +18,8 @@ type sphereCreator struct {
 
 // sphere is a collision geometry that represents a sphere, it has a pose and a radius that fully define it.
 type sphere struct {
-	radius float64
 	pose   Pose
+	radius float64
 }
 
 // NewSphereCreator instantiates a SphereCreator class, which allows instantiating spheres given only a pose which is applied
@@ -33,9 +33,7 @@ func NewSphereCreator(radius float64, offset Pose) (GeometryCreator, error) {
 
 // NewGeometry instantiates a new sphere from a SphereCreator class.
 func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
-	s := &sphere{sc.radius, sc.offset}
-	s.Transform(pose)
-	return s
+	return &sphere{Compose(sc.offset, pose), sc.radius}
 }
 
 func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
@@ -53,7 +51,7 @@ func NewSphere(pt r3.Vector, radius float64) (Geometry, error) {
 	if radius < 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
-	return &sphere{radius, NewPoseFromPoint(pt)}, nil
+	return &sphere{NewPoseFromPoint(pt), radius}, nil
 }
 
 // Pose returns the pose of the sphere.
@@ -77,8 +75,8 @@ func (s *sphere) AlmostEqual(g Geometry) bool {
 }
 
 // Transform premultiplies the sphere pose with a transform, allowing the sphere to be moved in space.
-func (s *sphere) Transform(toPremultiply Pose) {
-	s.pose = Compose(toPremultiply, s.pose)
+func (s *sphere) Transform(toPremultiply Pose) Geometry {
+	return &sphere{Compose(toPremultiply, s.pose), s.radius}
 }
 
 // ToProto converts the sphere to a Geometry proto message.
