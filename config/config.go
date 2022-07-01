@@ -136,7 +136,6 @@ func (c *Config) Ensure(fromCloud bool) error {
 		if err != nil {
 			return err
 		}
-		// TODO: do we need to track user-defined `DependsOn` at all?
 		c.Components[idx].ImplicitDependsOn = dependsOn
 	}
 
