@@ -324,25 +324,10 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 		})
 		svc.syncer.Sync(previouslyCaptured)
 
-		// Sync existing files in additional sync paths.
-		var additionalSyncPathsFiles []string
-		for _, asp := range svc.additionalSyncPaths {
-			//nolint
-			_ = filepath.Walk(asp, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil
-				}
-				if info.IsDir() {
-					return nil
-				}
-				additionalSyncPathsFiles = append(additionalSyncPathsFiles, path)
-				return nil
-			})
-		}
-		svc.syncer.Sync(additionalSyncPathsFiles)
+		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
+		svc.syncer.Sync(svc.validateAdditionalSyncPaths())
 
 		// Kick off background routine to periodically sync files.
-
 		svc.startSyncBackgroundRoutine(intervalMins)
 	}
 }
@@ -376,9 +361,7 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	svc.syncer.Sync(oldFiles)
 }
 
-// Add files contained in additional sync paths to syncManager (to then be synced). Before adding, ensure the dirs
-// exist (and if they don't, create them). Once all files in additional sync paths have been added, sync them all.
-func (svc *dataManagerService) syncAdditionalSyncPaths() {
+func (svc *dataManagerService) validateAdditionalSyncPaths() []string {
 	svc.lock.Lock()
 	// Slice containing all filepaths (from each additional sync path) that need to be synced.
 	var filepathsToSync []string
@@ -409,7 +392,12 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 		}
 	}
 	svc.lock.Unlock()
-	svc.syncer.Sync(filepathsToSync)
+	return filepathsToSync
+}
+
+// Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
+func (svc *dataManagerService) syncAdditionalSyncPaths() {
+	svc.syncer.Sync(svc.validateAdditionalSyncPaths())
 }
 
 // Get the config associated with the data manager service.
@@ -493,6 +481,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
+	// If the sync config has changed, update the syncer.
 	if svcConfig.SyncIntervalMins != svc.syncIntervalMins ||
 		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
 		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
