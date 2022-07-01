@@ -107,6 +107,7 @@ func (config *Component) ResourceName() resource.Name {
 
 // Validate ensures all parts of the config are valid and returns dependencies.
 func (config *Component) Validate(path string) ([]string, error) {
+	var deps []string
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
@@ -123,11 +124,11 @@ func (config *Component) Validate(path string) ([]string, error) {
 				return nil, err
 			}
 		case dependencyValidator:
-			deps, err := v.Validate(fieldPath)
+			validatedDeps, err := v.Validate(fieldPath)
 			if err != nil {
 				return nil, err
 			}
-			return deps, nil
+			deps = append(deps, validatedDeps...)
 		default:
 			continue
 		}
@@ -138,13 +139,13 @@ func (config *Component) Validate(path string) ([]string, error) {
 			return nil, err
 		}
 	case dependencyValidator:
-		deps, err := v.Validate(path)
+		validatedDeps, err := v.Validate(path)
 		if err != nil {
 			return nil, err
 		}
-		return deps, nil
+		deps = append(deps, validatedDeps...)
 	}
-	return nil, nil
+	return deps, nil
 }
 
 // Set hydrates a config based on a flag like value.
