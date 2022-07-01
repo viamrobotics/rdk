@@ -154,7 +154,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("Gantry", r)
 	}
-	if reconfigurable, ok := g.(*reconfigurableLocalGantry); ok {
+	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
 		return reconfigurable, nil
 	}
 

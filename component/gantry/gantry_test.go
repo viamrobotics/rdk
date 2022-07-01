@@ -248,7 +248,7 @@ func TestGantryName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualGantry1 gantry.Gantry = &mockLocal{Name: testGantryName}
+	var actualGantry1 gantry.Gantry = &mock{Name: testGantryName}
 	reconfGantry1, err := gantry.WrapWithReconfigurable(actualGantry1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -311,6 +311,15 @@ func TestReconfigurableGantry(t *testing.T) {
 	err = reconfGantry3.Reconfigure(context.Background(), reconfGantry1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGantry3, reconfGantry1))
+
+	actualGantry4 := &mock{Name: testGantryName2}
+	reconfGantry4, err := gantry.WrapWithReconfigurable(actualGantry4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGantry4, test.ShouldNotBeNil)
+
+	err = reconfGantry3.Reconfigure(context.Background(), reconfGantry4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGantry3, test.ShouldResemble, reconfGantry4)
 }
 
 func TestStop(t *testing.T) {

@@ -213,6 +213,15 @@ func TestReconfigurableGPS(t *testing.T) {
 	err = reconfGPS3.Reconfigure(context.Background(), reconfGPS1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGPS3, reconfGPS1))
+
+	actualGPS4 := &mock{Name: testGPSName2}
+	reconfGPS4, err := gps.WrapWithReconfigurable(actualGPS4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGPS4, test.ShouldNotBeNil)
+
+	err = reconfGPS3.Reconfigure(context.Background(), reconfGPS4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGPS3, test.ShouldResemble, reconfGPS4)
 }
 
 func TestReadLocation(t *testing.T) {
@@ -224,6 +233,7 @@ func TestReadLocation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(90, 1))
 	test.That(t, actualGPS1.locCount, test.ShouldEqual, 1)
+
 }
 
 func TestReadAltitude(t *testing.T) {
