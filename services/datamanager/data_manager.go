@@ -97,6 +97,7 @@ type dataCaptureConfig struct {
 	CaptureBufferSize  int                  `json:"capture_buffer_size"`
 	AdditionalParams   map[string]string    `json:"additional_params"`
 	Disabled           bool                 `json:"disabled"`
+	RemoteRobotName    string               // Empty if this component is locally accessed
 }
 
 type dataCaptureConfigs struct {
@@ -234,7 +235,19 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		resource.ResourceTypeComponent,
 		attributes.Type,
 	)
-	res, err := svc.r.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+
+	// Get the resource from the local or remote robot.
+	var res interface{}
+	var err error
+	if attributes.RemoteRobotName != "" {
+		remoteRobot, exists := svc.r.RemoteByName(attributes.RemoteRobotName)
+		if !exists {
+			return nil, errors.Errorf("failed to find remote %s", attributes.RemoteRobotName)
+		}
+		res, err = remoteRobot.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+	} else {
+		res, err = svc.r.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -424,6 +437,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 					}
 					attrs.Name = name.Name
 					attrs.Type = name.ResourceSubtype
+					attrs.RemoteRobotName = r.Name
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}
