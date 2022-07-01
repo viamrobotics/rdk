@@ -110,18 +110,16 @@ func newrtkStation(ctx context.Context, deps registry.Dependencies, config confi
 			return nil, err
 		}
 
-		switch localgps.(type) {
+		switch t := localgps.(type) {
 		case *nmea.SerialNMEAGPS:
-			serialgps := localgps.(*nmea.SerialNMEAGPS)
-			port, err := serial.Open(localgps.GetCorrectionPath())
+			port, err := serial.Open(t.GetCorrectionPath())
 			if err != nil {
 				return nil, err
 			}
 
 			r.serialPorts = append(r.serialPorts, port)
 		case *nmea.PmtkI2CNMEAGPS:
-			i2cgps := localgps.(*nmea.PmtkI2CNMEAGPS)
-			bus, addr := i2cgps.GetBusAddr()
+			bus, addr := t.GetBusAddr()
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
 
 			r.i2cPaths = append(r.i2cPaths, busAddr)
