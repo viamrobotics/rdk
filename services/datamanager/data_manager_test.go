@@ -176,7 +176,10 @@ func TestRecoversAfterKilled(t *testing.T) {
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
 // that directory is created (and can be synced on subsequent iterations of syncing).
 func TestValidateAdditionalSyncPaths(t *testing.T) {
+	td := "additional_sync_path_dir"
+
 	// Empty file structure at beginning of testing to ensure no files from previous tests remain
+	resetFolder(t, td)
 	resetFolder(t, captureDir)
 	resetFolder(t, armDir)
 
@@ -196,41 +199,33 @@ func TestValidateAdditionalSyncPaths(t *testing.T) {
 	// Add a directory path to additionalSyncPaths that does not exist. Expected behavior is the datamanager
 	// should create a dir called "additional_sync_path_dir" and its contents (if it ever has any) should be uploaded
 	// on the next iteration of syncing.
-	td := "additional_sync_path_dir"
-	err = setConfigAdditionalSyncPaths(testCfg, []string{td})
+	setConfigAdditionalSyncPaths(testCfg, []string{td})
 
 	// Once testing is complete, remove contents from data capture dirs.
 	defer resetFolder(t, captureDir)
 	defer resetFolder(t, armDir)
+	defer resetFolder(t, td)
 
-	// Initialize the data manager and update it with our config.
+	// Initialize the data manager and update it with our config. The call to Update(ctx, conf) should create the
+	// arbitrary sync paths directory and persist it in the file system.
 	dmsvc := newTestDataManager(t)
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Validate the "additional_sync_path_dir" was created by manually adding a file to the folder and ensuring it
 	// exists in that directory.
-
-	// WORKING HERE
+	tf, _ := ioutil.TempFile(td, "temp_file")
+	tf.Write([]byte("arbitrary_data"))
 
 	// Run and upload files.
 	dmsvc.Sync(context.Background())
 	time.Sleep(time.Millisecond * 100)
-
-	// Verify that one data capture file was uploaded, two additional_sync_paths files were uploaded,
-	// and that no two uploaded files are the same.
-	lock.Lock()
-	// test.That(t, len(uploaded), test.ShouldEqual, (numArbitraryFilesToSync + 1))
-	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
-	lock.Unlock()
-
-	// Sync again and verify it synced the second data capture file, but also validate that it didn't attempt to resync
-	// any data capture files that were previously synced.
-	dmsvc.Sync(context.Background())
-	time.Sleep(time.Millisecond * 100)
 	_ = dmsvc.Close(context.TODO())
-	// test.That(t, len(uploaded), test.ShouldEqual, (numArbitraryFilesToSync + 2))
-	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
+
+	// Verify that one additional_sync_paths file was uploaded after adding the file to the filesystem.
+	lock.Lock()
+	test.That(t, len(uploaded), test.ShouldEqual, 1)
+	lock.Unlock()
 }
 
 func setconfigSyncIntervalMins(config *config.Config, interval float64) error {
