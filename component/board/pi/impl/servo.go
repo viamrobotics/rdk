@@ -117,15 +117,8 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	s.val = val
 
 	if res != 0 {
-		switch res {
-		case PI_NOT_SERVO_GPIO:
-			return errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
-		case PI_BAD_PULSEWIDTH:
-			return errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
-		default:
-			return errors.Errorf("gpioServo on pin %s failed with %d", s.pinname, res)
-		}
-
+		err := pigpioErrors(res)
+		return err
 	}
 
 	if !s.holdPos { // the following logic disables a servo once it has reached a position or after a certain amount of time has been reached
@@ -138,16 +131,33 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	return nil
 }
 
+// TODO Check
+func (s *piPigpioServo) pigpioErrors(res int) error {
+	switch {
+	case res == PI_NOT_SERVO_GPIO:
+		return errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
+	case res == PI_BAD_PULSEWIDTH:
+		return errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
+	case res == 0:
+		return nil
+	case res < 0 && res != PI_BAD_PULSEWIDTH && res != PI_NOT_SERVO_GPIO:
+		return errors.Errorf("gpioServo on pin %s failed with %d", s.pinname, res)
+	default:
+		return nil
+	}
+}
+
 // GetPosition returns the current set angle (degrees) of the servo.
 func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
+	err := s.pigpioErrors(res)
 	switch res {
 	case PI_NOT_SERVO_GPIO:
 		s.res = res
-		return 0, errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
+		return 0, err
 	case PI_BAD_PULSEWIDTH:
 		s.res = res
-		return 0, errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
+		return 0, err
 	case 0:
 		return uint8(valToAngle(float64(s.res))), nil
 	default:
@@ -181,11 +191,12 @@ func (s *piPigpioServo) Stop(ctx context.Context) error {
 
 func (s *piPigpioServo) IsMoving(ctx context.Context) (bool, error) {
 	// RSDK-434: Refine implementation
+	err := s.pigpioErrors(s.res)
 	switch s.res {
 	case PI_NOT_SERVO_GPIO:
-		return false, errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
+		return false, err
 	case PI_BAD_PULSEWIDTH:
-		return false, errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
+		return false, err
 	case 0:
 		return false, nil
 	default:
