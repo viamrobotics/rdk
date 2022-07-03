@@ -3,7 +3,6 @@ package picommon
 
 import (
 	"github.com/pkg/errors"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
