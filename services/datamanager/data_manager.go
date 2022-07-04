@@ -93,7 +93,7 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
-// Attributes to initialize the collector for a component.
+// Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
 	Type               resource.SubtypeName `json:"type"`
@@ -103,6 +103,7 @@ type dataCaptureConfig struct {
 	CaptureBufferSize  int                  `json:"capture_buffer_size"`
 	AdditionalParams   map[string]string    `json:"additional_params"`
 	Disabled           bool                 `json:"disabled"`
+	RemoteRobotName    string               // Empty if this component is locally accessed
 }
 
 type dataCaptureConfigs struct {
@@ -116,8 +117,6 @@ type Config struct {
 	SyncIntervalMins    float64  `json:"sync_interval_mins"`
 	Disabled            bool     `json:"disabled"`
 }
-
-// TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
@@ -242,7 +241,19 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		resource.ResourceTypeComponent,
 		attributes.Type,
 	)
-	res, err := svc.r.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+
+	// Get the resource from the local or remote robot.
+	var res interface{}
+	var err error
+	if attributes.RemoteRobotName != "" {
+		remoteRobot, exists := svc.r.RemoteByName(attributes.RemoteRobotName)
+		if !exists {
+			return nil, errors.Errorf("failed to find remote %s", attributes.RemoteRobotName)
+		}
+		res, err = remoteRobot.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+	} else {
+		res, err = svc.r.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -382,6 +393,19 @@ func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	return &Config{}, false, nil
 }
 
+func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConfig) (dataCaptureConfigs, error) {
+	var attrs dataCaptureConfigs
+	configs, err := config.TransformAttributeMapToStruct(&attrs, resourceSvcConfig.Attributes)
+	if err != nil {
+		return dataCaptureConfigs{}, err
+	}
+	convertedConfigs, ok := configs.(*dataCaptureConfigs)
+	if !ok {
+		return dataCaptureConfigs{}, utils.NewUnexpectedTypeError(convertedConfigs, configs)
+	}
+	return *convertedConfigs, nil
+}
+
 // Get the component configs associated with the data manager service.
 func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
@@ -389,20 +413,37 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
 			if componentSvcConfig.ResourceName() == Name {
-				var attrs dataCaptureConfigs
-				configs, err := config.TransformAttributeMapToStruct(&attrs, componentSvcConfig.Attributes)
+				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
 				}
-				convertedConfigs, ok := configs.(*dataCaptureConfigs)
-				if !ok {
-					return componentDataCaptureConfigs, utils.NewUnexpectedTypeError(convertedConfigs, configs)
-				}
 
-				// Add the method configuration to the result.
-				for _, attrs := range convertedConfigs.Attributes {
+				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
 					attrs.Type = c.Type
+					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
+				}
+			}
+		}
+	}
+
+	for _, r := range cfg.Remotes {
+		// Iterate over all remote-level service configs of type data_manager.
+		for _, resourceSvcConfig := range r.ServiceConfig {
+			if resourceSvcConfig.ResourceName() == Name {
+				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
+				if err != nil {
+					return componentDataCaptureConfigs, err
+				}
+
+				for _, attrs := range attrs.Attributes {
+					name, err := resource.NewFromString(attrs.Name)
+					if err != nil {
+						return componentDataCaptureConfigs, err
+					}
+					attrs.Name = name.Name
+					attrs.Type = name.ResourceSubtype
+					attrs.RemoteRobotName = r.Name
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}
