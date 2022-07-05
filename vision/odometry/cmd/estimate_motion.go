@@ -77,17 +77,17 @@ func RunMotionEstimation() (image.Image, image.Image, error) {
 		return nil, nil, err
 	}
 	// Estimate motion
-	motion, err := odometry.EstimateMotionFrom2Frames(im1, im2, cfg, true)
+	motion, outDir, err := odometry.EstimateMotionFrom2Frames(im1, im2, cfg, logger, true)
 	if err != nil {
 		return nil, nil, err
 	}
 	logger.Info(motion.Rotation)
 	logger.Info(motion.Translation)
-	img1Out, err := rimage.NewImageFromFile("/tmp/img1.png")
+	img1Out, err := rimage.NewImageFromFile(outDir + "/img1.png")
 	if err != nil {
 		return nil, nil, err
 	}
-	img2Out, err := rimage.NewImageFromFile("/tmp/img2.png")
+	img2Out, err := rimage.NewImageFromFile(outDir + "/img2.png")
 	if err != nil {
 		return nil, nil, err
 	}
