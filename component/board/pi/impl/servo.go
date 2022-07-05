@@ -23,8 +23,11 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-var PI_BAD_PULSEWIDTH = C.int(-7)
-var PI_NOT_SERVO_GPIO = C.int(-93)
+//nolint:stylecheck
+var PI_BAD_PULSEWIDTH = -7
+
+//nolint:stylecheck
+var PI_NOT_SERVO_GPIO = -93
 
 // init registers a pi servo based on pigpio.
 func init() {
@@ -62,15 +65,13 @@ func init() {
 					if setPos != 0 {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
-
 				} else {
 					setPos := C.gpioServo(theServo.pin, C.uint(angleToVal(uint8(*attr.StartPos))))
 					if setPos != 0 {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
-
 				}
-				if attr.HoldPos == nil || *attr.HoldPos == true {
+				if attr.HoldPos == nil || *attr.HoldPos {
 					theServo.holdPos = true
 				} else {
 					theServo.res = C.gpioGetServoPulsewidth(theServo.pin)
@@ -117,7 +118,7 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	s.val = val
 
 	if res != 0 {
-		err := pigpioErrors(res)
+		err := s.pigpioErrors(int(res))
 		return err
 	}
 
@@ -150,8 +151,8 @@ func (s *piPigpioServo) pigpioErrors(res int) error {
 // GetPosition returns the current set angle (degrees) of the servo.
 func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
-	err := s.pigpioErrors(res)
-	switch res {
+	err := s.pigpioErrors(int(res))
+	switch int(res) {
 	case PI_NOT_SERVO_GPIO:
 		s.res = res
 		return 0, err
@@ -159,10 +160,10 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 		s.res = res
 		return 0, err
 	case 0:
-		return uint8(valToAngle(float64(s.res))), nil
+		return valToAngle(float64(s.res)), nil
 	default:
 		s.res = res
-		return uint8(valToAngle(float64(s.res))), nil
+		return valToAngle(float64(s.res)), nil
 	}
 }
 
@@ -174,7 +175,7 @@ func angleToVal(angle uint8) float64 {
 
 // valToAngle changes the pulsewidth value in us to the corresponding angle in degrees
 func valToAngle(val float64) uint8 {
-	angle := 180 * (float64(val) - 500.0) / 2000.0
+	angle := 180 * (val - 500.0) / 2000.0
 	return uint8(angle)
 }
 
@@ -191,8 +192,8 @@ func (s *piPigpioServo) Stop(ctx context.Context) error {
 
 func (s *piPigpioServo) IsMoving(ctx context.Context) (bool, error) {
 	// RSDK-434: Refine implementation
-	err := s.pigpioErrors(s.res)
-	switch s.res {
+	err := s.pigpioErrors(int(s.res))
+	switch int(s.res) {
 	case PI_NOT_SERVO_GPIO:
 		return false, err
 	case PI_BAD_PULSEWIDTH:
