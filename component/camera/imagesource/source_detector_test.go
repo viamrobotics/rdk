@@ -98,6 +98,10 @@ func TestColorDetectionSource(t *testing.T) {
 	r, err := buildRobotWithFakeCamera(logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
 	// add the detector
 	srv, err := vision.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
@@ -130,6 +134,9 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	defer cancel()
 
 	r, err := buildRobotWithFakeCamera(logger)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
 	test.That(t, err, test.ShouldBeNil)
 
 	// add the detector
@@ -163,6 +170,9 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	defer cancel()
 
 	r, err := buildRobotWithFakeCamera(logger)
+	defer func() {
+		test.That(b, r.Close(context.Background()), test.ShouldBeNil)
+	}()
 	test.That(b, err, test.ShouldBeNil)
 	// add the detector
 	srv, err := vision.FromRobot(r)
@@ -195,6 +205,9 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	defer cancel()
 
 	r, err := buildRobotWithFakeCamera(logger)
+	defer func() {
+		test.That(b, r.Close(context.Background()), test.ShouldBeNil)
+	}()
 	test.That(b, err, test.ShouldBeNil)
 	// add the detector
 	srv, err := vision.FromRobot(r)
