@@ -18,20 +18,27 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
+//go:embed arm_model.json
+var armikModelJSON []byte
+
 func init() {
 	registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")
 			}
-			return NewArmIK(ctx, config, nil, logger)
+			return NewArmIK(ctx, config, logger)
 		},
 	})
 }
 
 // NewArmIK returns a new fake arm.
-func NewArmIK(ctx context.Context, cfg config.Component, model referenceframe.Model, logger golog.Logger) (arm.LocalArm, error) {
+func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	name := cfg.Name
+	model, err := referenceframe.UnmarshalModelJSON(armikModelJSON, "")
+	if err != nil {
+		return nil, err
+	}
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err

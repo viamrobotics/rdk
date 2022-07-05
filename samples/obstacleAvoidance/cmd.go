@@ -3,14 +3,16 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/arm/fake"
-	"go.viam.com/rdk/component/arm/xarm"
+	"go.viam.com/rdk/component/arm/wrapper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/motionplan/visualization"
 	pb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -18,7 +20,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	math "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/rdk/visualization"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 )
@@ -32,6 +33,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	// parse command line input
 	simulation := flag.Bool("simulation", false, "choose to run in simulation")
+	visualize := flag.Bool("visualize", false, "choose to display visualization")
 	flag.Parse()
 
 	// connect to the robot and get arm
@@ -76,24 +78,24 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return err
 	}
 
-	// visualize plan to move it to the goal
+	// move it to the goal
 	solution, err := arm.Plan(ctx, robotClient, xArm, goal, worldState)
 	if err != nil {
 		return err
 	}
-	visualization.VisualizePlan(ctx, solution, xArm.ModelFrame(), worldState)
+	if *visualize {
+		// visualize if specified by flag
+		visualization.VisualizePlan(ctx, solution, xArm.ModelFrame(), worldState)
+	}
 	arm.GoToWaypoints(ctx, xArm, solution)
+	fmt.Println(xArm.CurrentInputs(ctx))
 	return nil
 }
 
 func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xArm arm.Arm, err error) {
 	armName := arm.Named("xarm6")
 	if simulation {
-		model, err := xarm.XArmModel(6)
-		if err != nil {
-			return nil, nil, err
-		}
-		xArm, err = fake.NewArmIK(ctx, config.Component{Name: armName.Name}, model, logger)
+		fakeArm, err := fake.NewArmIK(ctx, config.Component{Name: armName.Name}, logger)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -102,6 +104,17 @@ func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xAr
 			return nil, nil, err
 		}
 		defer robotClient.Close(ctx)
+		xArm, err = wrapper.NewWrapperArm(
+			config.Component{
+				ConvertedAttributes: wrapper.AttrConfig{ModelPath: rdkutils.ResolveFile("component/arm/xarm/xarm6_kinematics.json")},
+			},
+			fakeArm,
+			robotClient,
+			logger,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
 	} else {
 		robotClient, err := client.New(
 			context.Background(),

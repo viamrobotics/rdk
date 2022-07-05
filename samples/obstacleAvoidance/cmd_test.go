@@ -5,11 +5,7 @@ import (
 	"testing"
 )
 
-func TestMainHardware(t *testing.T) {
-	main()
-}
-
 func TestMainSimulation(t *testing.T) {
-	os.Args = append([]string{""}, []string{"--simulation=true"}...)
+	os.Args = append([]string{""}, []string{"--simulation", "--visualize"}...)
 	main()
 }
