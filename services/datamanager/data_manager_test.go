@@ -523,10 +523,10 @@ func TestManualAndScheduledSync(t *testing.T) {
 	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
 	lock.Unlock()
 
-	// We've uploaded the first two files and should now be collecting a single new one.
+	// We've uploaded (and thus deleted) the first two files and should now be collecting a single new one.
 	filesInArmDir, err := readDir(t, armDir)
 	if err != nil {
 		t.Fatalf("failed to list files in armDir")
 	}
-	test.That(t, len(filesInArmDir), test.ShouldEqual, 3)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 }
