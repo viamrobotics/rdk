@@ -146,31 +146,37 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, fs.GetFrame("gps1"), test.ShouldBeNil) // gps1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
-	worldPt := r3.Vector{1500, 500, 1300}
+	worldPose := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{1500, 500, 1300}))
 	armPt := r3.Vector{0, 0, 500}
-	transformPoint, err := fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceArm")
+	tf, err := fs.Transform(blankPos, worldPose, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, armPt)
+	transformPose, _ := tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), armPt)
 
 	sensorPt := r3.Vector{0, 0, 500}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "gps2")
+	tf, err = fs.Transform(blankPos, worldPose, "gps2")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, sensorPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), sensorPt)
 
 	gripperPt := r3.Vector{0, 0, 300}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceGripper")
+	tf, err = fs.Transform(blankPos, worldPose, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, gripperPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), gripperPt)
 
 	cameraPt := r3.Vector{500, 0, 0}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "cameraOver")
+	tf, err = fs.Transform(blankPos, worldPose, "cameraOver")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, cameraPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), cameraPt)
 
 	// go from camera point to gripper point
-	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, "cameraOver", "pieceGripper")
+	cameraPose := referenceframe.NewPoseInFrame("cameraOver", spatialmath.NewPoseFromPoint(cameraPt))
+	tf, err = fs.Transform(blankPos, cameraPose, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, gripperPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), gripperPt)
 }
 
 // All of these config files should fail.
