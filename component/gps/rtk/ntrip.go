@@ -6,10 +6,10 @@ import (
 	"io"
 	"sync"
 
-	"github.com/pkg/errors"
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
 	"github.com/go-gnss/rtcm/rtcm3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
 )
