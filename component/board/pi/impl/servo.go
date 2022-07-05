@@ -155,28 +155,24 @@ func (s *piPigpioServo) pigpioErrors(res int) error {
 func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
 	err := s.pigpioErrors(int(res))
-	switch int(res) {
-	case PI_NOT_SERVO_GPIO:
+	if int(res) != 0 {
 		s.res = res
-		return 0, err
-	case PI_BAD_PULSEWIDTH:
-		s.res = res
-		return 0, err
-	case 0:
-		return valToAngle(float64(s.res)), nil
-	default:
-		s.res = res
-		return valToAngle(float64(s.res)), nil
 	}
+	if err != nil {
+		return 0, err
+	}
+	return valToAngle(float64(s.res)), nil
 }
 
-// angleToVal chnages the input angle in degrees into the corresponding pulsewidth value in us
+// angleToVal changes the input angle in degrees
+// into the corresponding pulsewidth value in microsecond
 func angleToVal(angle uint8) float64 {
 	val := 500 + (2000.0 * float64(angle) / 180.0)
 	return val
 }
 
-// valToAngle changes the pulsewidth value in us to the corresponding angle in degrees
+// valToAngle changes the pulsewidth value in microsecond
+// to the corresponding angle in degrees
 func valToAngle(val float64) uint8 {
 	angle := 180 * (val - 500.0) / 2000.0
 	return uint8(angle)
@@ -196,14 +192,11 @@ func (s *piPigpioServo) Stop(ctx context.Context) error {
 func (s *piPigpioServo) IsMoving(ctx context.Context) (bool, error) {
 	// RSDK-434: Refine implementation
 	err := s.pigpioErrors(int(s.res))
-	switch int(s.res) {
-	case PI_NOT_SERVO_GPIO:
+	if err != nil {
 		return false, err
-	case PI_BAD_PULSEWIDTH:
-		return false, err
-	case 0:
-		return false, nil
-	default:
-		return s.opMgr.OpRunning(), nil
 	}
+	if int(s.res) == 0 {
+		return false, nil
+	}
+	return s.opMgr.OpRunning(), nil
 }
