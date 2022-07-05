@@ -73,9 +73,12 @@ type LocalGPS interface {
 }
 
 var (
-	_ = LocalGPS(&reconfigurableGPS{})
+	_ = GPS(&reconfigurableGPS{})
+	_ = LocalGPS(&reconfigurableLocalGPS{})
 	_ = sensor.Sensor(&reconfigurableGPS{})
+	_ = sensor.Sensor(&reconfigurableLocalGPS{})
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
+	_ = resource.Reconfigurable(&reconfigurableLocalGPS{})
 )
 
 // FromDependencies is a helper for getting the named gps from a collection of
@@ -197,7 +200,7 @@ func GetHeading(gps1 *geo.Point, gps2 *geo.Point, yawOffset float64) (float64, f
 
 type reconfigurableGPS struct {
 	mu     sync.RWMutex
-	actual LocalGPS
+	actual GPS
 }
 
 func (r *reconfigurableGPS) Close(ctx context.Context) error {
@@ -236,24 +239,6 @@ func (r *reconfigurableGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	return r.actual.ReadSpeed(ctx)
 }
 
-func (r *reconfigurableGPS) ReadSatellites(ctx context.Context) (int, int, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.ReadSatellites(ctx)
-}
-
-func (r *reconfigurableGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.ReadAccuracy(ctx)
-}
-
-func (r *reconfigurableGPS) ReadValid(ctx context.Context) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.ReadValid(ctx)
-}
-
 // GetReadings will use the default GPS GetReadings if not provided.
 func (r *reconfigurableGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
@@ -268,6 +253,10 @@ func (r *reconfigurableGPS) GetReadings(ctx context.Context) ([]interface{}, err
 func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.reconfigure(ctx, newGPS)
+}
+
+func (r *reconfigurableGPS) reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {
 	actual, ok := newGPS.(*reconfigurableGPS)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newGPS)
@@ -279,15 +268,62 @@ func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Rec
 	return nil
 }
 
-// WrapWithReconfigurable converts a regular LocalGPS implementation to a reconfigurableGPS.
-// If GPS is already a reconfigurableGPS, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	gps, ok := r.(LocalGPS)
+type reconfigurableLocalGPS struct {
+	*reconfigurableGPS
+	actual LocalGPS
+}
+
+func (r *reconfigurableLocalGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	gps, ok := newGPS.(*reconfigurableLocalGPS)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGPS", r)
+		return utils.NewUnexpectedTypeError(r, newGPS)
+	}
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	r.actual = gps.actual
+	return r.reconfigurableGPS.reconfigure(ctx, gps.reconfigurableGPS)
+}
+
+func (r *reconfigurableLocalGPS) ReadSatellites(ctx context.Context) (int, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ReadSatellites(ctx)
+}
+
+func (r *reconfigurableLocalGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ReadAccuracy(ctx)
+}
+
+func (r *reconfigurableLocalGPS) ReadValid(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ReadValid(ctx)
+}
+
+// WrapWithReconfigurable converts a GPS to a reconfigurableGPS
+// and a LocalGPS implementation to a reconfigurableLocalGPS.
+// If GPS or LocalGPS is already a reconfigurableGPS, then nothing is done.
+func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+	gps, ok := r.(GPS)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("GPS", r)
 	}
 	if reconfigurable, ok := gps.(*reconfigurableGPS); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableGPS{actual: gps}, nil
+	rGPS := &reconfigurableGPS{actual: gps}
+	gpsLocal, ok := r.(LocalGPS)
+	if !ok {
+		return rGPS, nil
+	}
+	if reconfigurable, ok := gps.(*reconfigurableLocalGPS); ok {
+		return reconfigurable, nil
+	}
+	return &reconfigurableLocalGPS{actual: gpsLocal, reconfigurableGPS: rGPS}, nil
 }
