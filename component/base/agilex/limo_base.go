@@ -414,6 +414,16 @@ func (base *limoBase) Stop(ctx context.Context) error {
 	return nil
 }
 
+func (base *limoBase) IsMoving(ctx context.Context) (bool, error) {
+	base.controller.logger.Debug("IsMoving()")
+	base.stateMutex.Lock()
+	defer base.stateMutex.Unlock()
+	if base.state.velocityLinearGoal.ApproxEqual(r3.Vector{}) && base.state.velocityAngularGoal.ApproxEqual(r3.Vector{}) {
+		return false, nil
+	}
+	return true, nil
+}
+
 // Do executes additional commands beyond the Base{} interface.
 func (base *limoBase) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
