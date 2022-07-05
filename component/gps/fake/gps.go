@@ -253,6 +253,10 @@ func (b *interceptingGPSBase) Stop(ctx context.Context) error {
 	return nil
 }
 
+func (b *interceptingGPSBase) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
+}
+
 const maxMmPerSec = 300
 
 // SetPower sets power based on the linear and angular components. However, due to being fake and not
