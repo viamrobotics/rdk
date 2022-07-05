@@ -254,6 +254,7 @@ func setConfigAdditionalSyncPaths(config *config.Config, dirs []string) error {
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
 // syncing of any data that is not captured live on the robot.
 func populateArbitraryFiles(t *testing.T, configPath string) ([]string, *config.Config, int, error) {
+	t.Helper()
 
 	// Retrieve config from config filepath and
 	testCfg := setupConfig(t, configPath)
