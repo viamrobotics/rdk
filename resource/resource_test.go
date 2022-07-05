@@ -187,19 +187,19 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"malformed name",
 			"rdk/component/arm/arm1",
 			resource.Name{},
-			"there is more than one backslash",
+			"string \"rdk/component/arm/arm1\" is not a valid resource name",
 		},
 		{
 			"too many colons",
 			"rdk::component::arm/arm1",
 			resource.Name{},
-			"there are more than 2 colons",
+			"string \"rdk::component::arm/arm1\" is not a valid resource name",
 		},
 		{
 			"too few colons",
 			"rdk.component.arm/arm1",
 			resource.Name{},
-			"there are less than 2 colons",
+			"string \"rdk.component.arm/arm1\" is not a valid resource name",
 		},
 		{
 			"missing name",
@@ -246,12 +246,49 @@ func TestResourceNameNewFromString(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"with remotes",
+			"rdk:component:gps/remote1:gps1",
+			resource.Name{
+				Remote: resource.Remote{
+					Remote: "remote1",
+				},
+				Subtype: resource.Subtype{
+					Type: resource.Type{
+						Namespace:    resource.ResourceNamespaceRDK,
+						ResourceType: resource.ResourceTypeComponent,
+					},
+					ResourceSubtype: gps.SubtypeName,
+				},
+				Name: "gps1",
+			},
+			"",
+		},
+		{
+			"with remotes 2",
+			"rdk:component:gps/remote1:remote2:gps1",
+			resource.Name{
+				Remote: resource.Remote{
+					Remote: "remote1:remote2",
+				},
+				Subtype: resource.Subtype{
+					Type: resource.Type{
+						Namespace:    resource.ResourceNamespaceRDK,
+						ResourceType: resource.ResourceTypeComponent,
+					},
+					ResourceSubtype: gps.SubtypeName,
+				},
+				Name: "gps1",
+			},
+			"",
+		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			observed, err := resource.NewFromString(tc.Name)
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, observed, test.ShouldResemble, tc.Expected)
+				test.That(t, observed.String(), test.ShouldResemble, tc.Name)
 			} else {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
@@ -396,4 +433,65 @@ func TestResourceNameValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRemoteResource(t *testing.T) {
+	n, err := resource.NewFromString("rdk:component:gps/gps1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldResemble, resource.Name{
+		Subtype: resource.Subtype{
+			Type: resource.Type{
+				Namespace:    resource.ResourceNamespaceRDK,
+				ResourceType: resource.ResourceTypeComponent,
+			},
+			ResourceSubtype: gps.SubtypeName,
+		},
+		Name: "gps1",
+	})
+
+	test.That(t, n.IsRemoteResource(), test.ShouldBeFalse)
+
+	n1 := n.PrependRemote("remote1")
+
+	test.That(t, n1.IsRemoteResource(), test.ShouldBeTrue)
+	test.That(t, n1.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
+	test.That(t, n1.String(), test.ShouldResemble, "rdk:component:gps/remote1:gps1")
+
+	test.That(t, n1, test.ShouldNotResemble, n)
+
+	n2 := n1.PrependRemote("remote2")
+
+	test.That(t, n2.IsRemoteResource(), test.ShouldBeTrue)
+	test.That(t, n2.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote2:remote1"))
+	test.That(t, n2.String(), test.ShouldResemble, "rdk:component:gps/remote2:remote1:gps1")
+
+	n3 := n2.PopRemote()
+	test.That(t, n3.IsRemoteResource(), test.ShouldBeTrue)
+	test.That(t, n3.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
+	test.That(t, n3, test.ShouldResemble, n1)
+	test.That(t, n3.String(), test.ShouldResemble, "rdk:component:gps/remote1:gps1")
+
+	n4 := n3.PopRemote()
+	test.That(t, n4.IsRemoteResource(), test.ShouldBeFalse)
+	test.That(t, n4.Remote.Remote, test.ShouldResemble, resource.RemoteName(""))
+	test.That(t, n4, test.ShouldResemble, n)
+	test.That(t, n4.String(), test.ShouldResemble, "rdk:component:gps/gps1")
+
+	resourceSubtype := resource.NewSubtype(
+		"test",
+		resource.ResourceTypeComponent,
+		resource.SubtypeName("mycomponent"),
+	)
+	n5 := resource.NameFromSubtype(resourceSubtype, "test")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/test")
+	n5 = resource.NameFromSubtype(resourceSubtype, "")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent")
+	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:test")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote1:test")
+	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:test")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:test")
+	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote1:")
+	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:")
 }
