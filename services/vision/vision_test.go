@@ -28,6 +28,9 @@ func createService(t *testing.T, filePath string) vision.Service {
 	logger := golog.NewTestLogger(t)
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
 	srv, err := vision.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	return srv
@@ -70,6 +73,9 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 	// make the robot from new config and get the service
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
 	srv, err := vision.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	// add the detector
