@@ -12,8 +12,8 @@ import (
 )
 
 // AlignColorAndDepthImage takes in a RGB image and Depth map and aligns them according to the Aligner,
-// returning a new ImageWithDepth.
-func (dcie *DepthColorIntrinsicsExtrinsics) AlignColorAndDepthImage(c *rimage.Image, d *rimage.DepthMap) (*rimage.ImageWithDepth, error) {
+// returning a new Image and DepthMap.
+func (dcie *DepthColorIntrinsicsExtrinsics) AlignColorAndDepthImage(c *rimage.Image, d *rimage.DepthMap) (*rimage.Image, *rimage.DepthMap, error) {
 	if c == nil {
 		return nil, errors.New("no color image present to align")
 	}
@@ -27,14 +27,14 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignColorAndDepthImage(c *rimage.Im
 // as the color image.
 func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(
 	col *rimage.Image, dep *rimage.DepthMap,
-) (*rimage.ImageWithDepth, error) {
+) (*rimage.Image, *rimage.DepthMap, error) {
 	if col.Height() != dcie.ColorCamera.Height || col.Width() != dcie.ColorCamera.Width {
-		return nil,
+		return nil, nil,
 			errors.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)",
 				dcie.ColorCamera.Width, dcie.ColorCamera.Height, col.Width(), col.Height())
 	}
 	if dep.Height() != dcie.DepthCamera.Height || dep.Width() != dcie.DepthCamera.Width {
-		return nil,
+		return nil, nil,
 			errors.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)",
 				dcie.DepthCamera.Width, dcie.DepthCamera.Height, dep.Width(), dep.Height())
 	}
@@ -63,7 +63,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(
 			}
 		}
 	}
-	return rimage.MakeImageWithDepth(col, outmap, true), nil
+	return col, outmap, nil
 }
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
@@ -71,23 +71,11 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Poin
 	return intrinsics2DPtTo3DPt(point, depth, &dcie.ColorCamera)
 }
 
-// ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
-// Aligns it if it isn't already aligned.
-func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(
-	ii *rimage.ImageWithDepth,
+// RGBDToPointCloud takes an Image and DepthMap and uses the camera parameters to project it to a pointcloud.
+func (dcie *DepthColorIntrinsicsExtrinsics) RGBDToPointCloud(
+	img *rimage.Image, dm *rimage.DepthMap,
 	crop ...image.Rectangle,
 ) (pointcloud.PointCloud, error) {
-	var iwd *rimage.ImageWithDepth
-	var err error
-	// color and depth images need to already be aligned
-	if ii.IsAligned() {
-		iwd = ii
-	} else {
-		iwd, err = dcie.AlignColorAndDepthImage(ii.Color, ii.Depth)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var rect *image.Rectangle
 	if len(crop) > 1 {
 		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
@@ -95,14 +83,14 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(
 	if len(crop) == 1 {
 		rect = &crop[0]
 	}
-	return intrinsics2DTo3D(iwd, &dcie.ColorCamera, rect)
+	return intrinsics2DTo3D(img, dm, &dcie.ColorCamera, rect)
 }
 
-// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth
+// PointCloudToRGBD takes a PointCloud with color info and returns an Image and DepthMap
 // from the perspective of the color camera referenceframe.
-func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(
+func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToRGBD(
 	cloud pointcloud.PointCloud,
-) (*rimage.ImageWithDepth, error) {
+) (*rimage.Image, *rimage.DepthMap, error) {
 	return intrinsics3DTo2D(cloud, &dcie.ColorCamera)
 }
 
