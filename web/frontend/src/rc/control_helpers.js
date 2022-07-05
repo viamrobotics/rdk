@@ -154,22 +154,22 @@ window.PWMControlHelper = {
     boardService.setPWM(req, {}, cb);
   },
 
-  // getPWMFrequency: function (name, pin, cb) {
-  //   const req = new boardAPI.PWMFrequencyRequest();
-  //   req.setName(name);
-  //   req.setPin(pin);
+  getPWMFrequency: function (name, pin, cb) {
+    const req = new boardApi.PWMFrequencyRequest();
+    req.setName(name);
+    req.setPin(pin);
     
-  //   rcLogConditionally(req);
-  //   boardService.pWMFrequency(req, {}, cb);
-  // },
+    rcLogConditionally(req);
+    boardService.pWMFrequency(req, {}, cb);
+  },
 
-  // setPWMFrequency: function (name, pin, value, cb) {
-  //   const req = new boardAPI.setPWMFrequencyRequest();
-  //   req.setName(name);
-  //   req.setPin(pin);
-  //   req.setFrequencyHz(value);
+  setPWMFrequency: function (name, pin, value, cb) {
+    const req = new boardApi.SetPWMFrequencyRequest();
+    req.setName(name);
+    req.setPin(pin);
+    req.setFrequencyHz(value);
 
-  //   rcLogConditionally(req);
-  //   boardService.setPWMFrequency(req, {}, cb);
-  // },
+    rcLogConditionally(req);
+    boardService.setPWMFrequency(req, {}, cb);
+  },
 };

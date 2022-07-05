@@ -234,8 +234,8 @@
           currentOps: [],
           setPin: 1,
           getPin: 1,
-          getPWMPin: 1,
-          setPWMPin: 1,
+          pwm: 1,
+          pwmFrequency: 1,
           locationValue: "40.745297,-74.010916",
           imageMapTemp: "",
           pcdMapTemp: null
@@ -971,7 +971,7 @@
                   return;
                 }
                 var x = resp.toObject();
-                document.getElementById("get_pin_value_" + boardName).innerHTML = "Pin: " + pin + " is " + (x.high ? "high" : "low");
+                document.getElementById("get_pin_value_" + boardName).innerHTML = "Pin " + pin + " is " + (x.high ? "high" : "low");
               });
             },
             setGPIO: function (boardName) {
@@ -980,21 +980,37 @@
               BoardControlHelper.setGPIO(boardName, pin, v === "high", grpcCallback);
             },
             getPWM: function (boardName) {
-              var pin = document.getElementById('get_pwm_pin' + boardName).value;
+              const pin = document.getElementById("get_pin_" + boardName).value;
               PWMControlHelper.getPWM(boardName, pin, (err, resp) => {
                 if (err) {
                   console.log(err);
                   return;
                 }
-                var pwm = resp.toObject();
-                document.getElementById("get_pwm_pin_value_" + boardName).innerHTML = `Pin ${pin}'s duty cycle is ${pwm.dutyCyclePct * 100}%.`
+                const pwm = resp.toObject();
+                document.getElementById("get_pin_value_" + boardName).innerHTML = `Pin ${pin}'s duty cycle is ${pwm.dutyCyclePct * 100}%.`
               })
             },
             setPWM: function (boardName) {
-              var pin = document.getElementById("set_pwm_pin_" + boardName).value;
-              var v = document.getElementById("set_pwm_pin_v_" + boardName).value/100;
+              const pin = document.getElementById("set_pin_" + boardName).value;
+              const v = document.getElementById("set_pwm_pin_v_" + boardName).value/100;
               PWMControlHelper.setPWM(boardName, pin, v, grpcCallback);
-            }
+            },
+            getPWMFrequency: function (boardName) {
+              const pin = document.getElementById("get_pin_" + boardName).value;
+              PWMControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
+                if (err) {
+                  console.log(err);
+                  return;
+                }
+                const freq = resp.toObject();
+                document.getElementById("get_pin_value_" + boardName).innerHTML = `Pin ${pin}'s frequency is ${freq.frequencyHz}Hz.`
+              })
+            },
+            setPWMFrequency: function (boardName) {
+              const pin = document.getElementById("set_pin_" + boardName).value;
+              const v = document.getElementById("set_pwm_freq_v_" + boardName).value;
+              PWMControlHelper.setPWMFrequency(boardName, pin, v, grpcCallback);
+            },
           },
           directives: {
             // TODO(APP-82): replace with vue component after naveed work done
@@ -1750,73 +1766,65 @@
           <web-gamepad class="pb-4" v-if="hasWebGamepad()" v-on:execute="inputInject($event)" style="max-width: 1080px;"> </web-gamepad>
 
           <!-- ******* BOARD *******  -->
-          <div class="board pb-4" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
-            <h3>Board ${board.name}</h3>
-            <table  class="table-auto border-collapse border border-slate-400">
-
-              <tr> <th class="border border-slate-300" colspan="2">Analogs</th></tr>
-              <tr v-for="(analog, name) in resourceStatusByName(board).analogsMap" :key="name">
-                 <th class="border border-slate-300">${name}</th>
-                 <td class="border border-slate-300">${analog.value || 0}</td>
-              </tr>
-
-              <tr> <th class="border border-slate-300" colspan="2">DigitalInterrupts</th></tr>
-              <tr v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap" :key="name">
-                 <th class="border border-slate-300">${name}</th>
-                 <td class="border border-slate-300">${di.value || 0}</td>
-              </tr>
-
-              <tr> <th class="border border-slate-300" colspan="2">GPIO</th></tr>
-              <tr>
-                 <th class="border border-slate-300">Get</th>
-                 <td class="border border-slate-300">
-                  Pin: <number-input  v-model="getPin" :input-id="'get_pin_' + board.name"></number-input>
-                  <viam-button group v-on:click="getGPIO(board.name)">Get</viam-button><br>
-                  <span :id="'get_pin_value_' + board.name"/>
-                </td>
-              </tr>
-              <tr>
-                 <th class="border border-slate-300">Set</th>
-                 <td class="border border-slate-300">
-                  Pin: <number-input v-model="setPin" :input-id="'set_pin_' + board.name"></number-input><br>
-                  <select :id="'set_pin_v_' + board.name">
-                    <option>low</option>
-                    <option>high</option>
-                  </select>
-                  <viam-button group v-on:click="setGPIO(board.name)">Set</viam-button><br>
-                </td>
-              </tr>
-
-              <tr> <th class="border border-slate-300" colspan="2">PWM</th></tr>
-              <tr>
-                 <th class="border border-slate-300">Get</th>
-                 <td class="border border-slate-300">
-                  Pin: <number-input  v-model="getPWMPin" :input-id="'get_pwm_pin' + board.name"></number-input>
-                  <viam-button group v-on:click="getPWM(board.name)">Get</viam-button><br>
-                  <span :id="'get_pwm_pin_value_' + board.name"/>
-                </td>
-              </tr>
-              <tr>
-                 <th class="border border-slate-300">Set</th>
-                 <td class="border border-slate-300">
-                  Pin: <number-input v-model="setPWMPin" :input-id="'set_pwm_pin_' + board.name"></number-input><br>
-                  <select :id="'set_pwm_pin_v_' + board.name">
-                    <option>0</option>
-                    <option>10</option>
-                    <option>20</option>
-                    <option>30</option>
-                    <option>40</option>
-                    <option>50</option>
-                    <option>60</option>
-                    <option>70</option>
-                    <option>80</option>
-                    <option>90</option>
-                    <option>100</option>
-                  </select>
-                  <viam-button group v-on:click="setPWM(board.name)">Set</viam-button><br>
-                </td>
-              </tr>
-            </table>
+          <div class="pb-8" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
+            <Collapse>
+              <div class="flex">
+                <h2 class="p-4 text-xl">Board ${board.name}</h2>
+              </div>
+              <template v-slot:content>
+                <div class="border border-black border-t-0 p-4">
+                  <h3 class="mb-2">Analogs</h3>
+                  <table class="mb-4 table-auto border border-black">
+                    <tr v-for="(analog, name) in resourceStatusByName(board).analogsMap" :key="name">
+                        <th class="border border-black p-2">${name}</th>
+                        <td class="border border-black p-2">${analog.value || 0}</td>
+                    </tr>
+                  </table>
+                  <h3 class="mb-2">DigitalInterrupts</h3>
+                  <table class="mb-4 table-auto border border-black">
+                    <tr v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap" :key="name">
+                      <th class="border border-black p-2">${name}</th>
+                      <td class="border border-black p-2">${di.value || 0}</td>
+                    </tr>
+                  </table>
+                  <h3 class="mb-2">GPIO</h3>
+                  <table class="mb-4 table-auto border border-black">
+                    <tr>
+                      <th class="border border-black p-2">Get</th>
+                      <td class="border border-black p-2">
+                        <div class="flex">
+                          <label class="pr-2 py-2 text-right">Pin:</label>
+                          <number-input class="mr-2" v-model="getPin" :input-id="'get_pin_' + board.name"></number-input>
+                          <viam-button class="mr-2" group v-on:click="getGPIO(board.name)">Get Pin State</viam-button>
+                          <viam-button class="mr-2" group v-on:click="getPWM(board.name)">Get PWM</viam-button>
+                          <viam-button class="mr-2" group v-on:click="getPWMFrequency(board.name)">Get PWM Frequency</viam-button>
+                          <span class="py-2" :id="'get_pin_value_' + board.name" />
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th class="border border-black p-2">Set</th>
+                      <td class="p-2">
+                        <div class="flex">
+                          <label class="pr-2 py-2  text-right">Pin:</label>
+                          <number-input class="mr-2" v-model="setPin" :input-id="'set_pin_' + board.name"></number-input>
+                          <select class="bg-white border border-black mr-2" style="height: 38px" :id="'set_pin_v_' + board.name">
+                            <option>low</option>
+                            <option>high</option>
+                          </select>
+                          <viam-button group v-on:click="setGPIO(board.name)">Set Pin State</viam-button>
+                          <number-input class="mr-2 ml-2" v-model="pwm" :input-id="'set_pwm_pin_v_' + board.name"></number-input>
+                          <viam-button group v-on:click="setPWM(board.name)">Set PWM</viam-button>
+                          <number-input class="mr-2 ml-2" v-model="pwmFrequency" :input-id="'set_pwm_freq_v_' + board.name"></number-input>
+                          <viam-button group v-on:click="setPWMFrequency(board.name)">Set PWM Frequency</viam-button>
+                        </div>
+                      </td>
+                    </tr>
+                    </table>
+                  </table>
+                </div>
+              </template>
+            </Collapse>
           </div>
           <!-- end boards -->
 
