@@ -48,7 +48,7 @@ func getStepData(model referenceframe.Model, worldState *pb.WorldState, inputs [
 
 func visualize(plan []stepData) {
 	// write entities to temporary file
-	tempFile := utils.ResolveFile("visualization/temp.json")
+	tempFile := utils.ResolveFile("motionplan/visualization/temp.json")
 	bytes, err := json.MarshalIndent(plan, "", " ")
 	if err != nil {
 		log.Fatal("Could not marshal JSON")
@@ -58,7 +58,7 @@ func visualize(plan []stepData) {
 	}
 
 	// call python visualizer
-	_, err = exec.Command("python3", utils.ResolveFile("visualization/visualize.py"), tempFile).Output()
+	_, err = exec.Command("python3", utils.ResolveFile("motionplan/visualization/visualize.py"), tempFile).Output()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
