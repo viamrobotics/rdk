@@ -3,6 +3,7 @@ package odometry
 import (
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
@@ -27,6 +28,7 @@ func TestNewMotion3DFromRotationTranslation(t *testing.T) {
 }
 
 func TestEstimateMotionFrom2Frames(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	// load cfg
 	cfg := LoadMotionEstimationConfig("vo_config.json")
 	// load images
@@ -35,7 +37,7 @@ func TestEstimateMotionFrom2Frames(t *testing.T) {
 	im2, err := rimage.NewImageFromFile(artifact.MustPath("vision/odometry/000002.png"))
 	test.That(t, err, test.ShouldBeNil)
 	// Estimate motion
-	motion, err := EstimateMotionFrom2Frames(im1, im2, cfg, true)
+	motion, _, err := EstimateMotionFrom2Frames(im1, im2, cfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -1.0)
 	test.That(t, motion.Translation.At(1, 0), test.ShouldBeLessThan, 0.2)

@@ -3,10 +3,11 @@ package odometry
 import (
 	"encoding/json"
 	"image"
-	"log"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
@@ -57,35 +58,42 @@ func NewMotion3DFromRotationTranslation(rotation, translation *mat.Dense) *Motio
 }
 
 // EstimateMotionFrom2Frames estimates the 3D motion of the camera between frame img1 and frame img2.
-func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationConfig, display bool) (*Motion3D, error) {
+func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationConfig, logger golog.Logger, display bool,
+) (*Motion3D, string, error) {
 	// Convert both images to gray
 	im1 := rimage.MakeGray(img1)
 	im2 := rimage.MakeGray(img2)
 	// compute keypoints
 	orb1, kps1, err := keypoints.ComputeORBKeypoints(im1, cfg.KeyPointCfg)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	orb2, kps2, err := keypoints.ComputeORBKeypoints(im2, cfg.KeyPointCfg)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	// match keypoints
 	matches := keypoints.MatchKeypoints(orb1, orb2, cfg.MatchingCfg)
 	// get 2 sets of matching keypoints
 	matchedKps1, matchedKps2, err := keypoints.GetMatchingKeyPoints(matches, kps1, kps2)
+	tempDir := ""
 	if display {
-		err = keypoints.PlotKeypoints(im1, matchedKps1, "/tmp/img1.png")
+		tempDir, err = ioutil.TempDir("", "motion_keypoint_matching")
+		logger.Infof("writing motion keypoint files to %s", tempDir)
 		if err != nil {
-			log.Println("img1 could not be saved")
+			return nil, "", err
 		}
-		err = keypoints.PlotKeypoints(im2, matchedKps2, "/tmp/img2.png")
+		err = keypoints.PlotKeypoints(im1, matchedKps1, tempDir+"/img1.png")
 		if err != nil {
-			log.Println("img2 could not be saved")
+			logger.Warnf("%s/img1.png could not be saved", tempDir)
+		}
+		err = keypoints.PlotKeypoints(im2, matchedKps2, tempDir+"/img2.png")
+		if err != nil {
+			logger.Warnf("%s/img2.png could not be saved", tempDir)
 		}
 	}
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	// get intrinsics matrix
 	k := cfg.CamIntrinsics.GetCameraMatrix()
@@ -95,13 +103,13 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	matchedKps2Float := convertImagePointSliceToFloatPointSlice(matchedKps2)
 	pose, err := transform.EstimateNewPose(matchedKps1Float, matchedKps2Float, k)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// Rescale motion
 	estimatedCamHeight, err := EstimateCameraHeight(matchedKps1Float, matchedKps2Float, pose, cfg.ScaleEstimatorCfg, cfg.CamIntrinsics)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	scale := cfg.CamHeightGround / estimatedCamHeight
 
@@ -111,7 +119,7 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	return &Motion3D{
 		Rotation:    pose.Rotation,
 		Translation: &rescaledTranslation,
-	}, nil
+	}, tempDir, nil
 }
 
 // convertImagePointSliceToFloatPointSlice is a helper to convert slice of image.Point to a slice of r2.Point.
