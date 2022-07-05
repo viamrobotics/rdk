@@ -30,6 +30,8 @@ func init() {
 	)
 }
 
+var _ = base.LocalBase(&Base{})
+
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
 	generic.Echo
@@ -65,6 +67,11 @@ func (b *Base) GetWidth(ctx context.Context) (int, error) {
 // Stop does nothing.
 func (b *Base) Stop(ctx context.Context) error {
 	return nil
+}
+
+// IsMoving always returns false.
+func (b *Base) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
 // Close does nothing.
