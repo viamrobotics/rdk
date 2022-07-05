@@ -29,7 +29,7 @@ func init() {
 func TestPC1(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.ParseDepthmap(artifact.MustPath("rimage/board2.dat.gz"))
+	dm, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// get camera matrix parameters
@@ -56,9 +56,7 @@ func TestPC1(t *testing.T) {
 }
 
 func TestPC2(t *testing.T) {
-	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
-	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.ParseDepthmap(artifact.MustPath("rimage/board2.dat.gz"))
+	dm, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// get camera matrix parameters
@@ -77,7 +75,7 @@ func TestPC2(t *testing.T) {
 func TestCameraMatrixTo3D(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.ParseDepthmap(artifact.MustPath("rimage/board2.dat.gz"))
+	dm, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// get and set camera matrix parameters
@@ -90,8 +88,7 @@ func TestCameraMatrixTo3D(t *testing.T) {
 	vec, err := cameraMatrices.ImagePointTo3DPoint(testPoint, dm.Get(testPoint))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vec.Z, test.ShouldEqual, float64(dm.Get(testPoint)))
-	// out of bounds
+	// out of bounds - panic
 	testPoint = image.Point{img.Width(), img.Height()}
-	_, err = cameraMatrices.ImagePointTo3DPoint(testPoint, dm.Get(testPoint))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, func() { cameraMatrices.ImagePointTo3DPoint(testPoint, dm.Get(testPoint)) }, test.ShouldPanic)
 }

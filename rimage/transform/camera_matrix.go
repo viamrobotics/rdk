@@ -15,10 +15,10 @@ import (
 // returning a new Image and DepthMap.
 func (dcie *DepthColorIntrinsicsExtrinsics) AlignColorAndDepthImage(c *rimage.Image, d *rimage.DepthMap) (*rimage.Image, *rimage.DepthMap, error) {
 	if c == nil {
-		return nil, errors.New("no color image present to align")
+		return nil, nil, errors.New("no color image present to align")
 	}
 	if d == nil {
-		return nil, errors.New("no depth image present to align")
+		return nil, nil, errors.New("no depth image present to align")
 	}
 	return dcie.TransformDepthCoordToColorCoord(c, d)
 }

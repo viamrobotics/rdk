@@ -33,7 +33,7 @@ func (h *homographyTestHelper) Process(
 	pCtx.GotDebugImage(imgFixed, "color-fixed_homography")
 	pCtx.GotDebugImage(dmFixed.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed_homography")
 
-	pCtx.GotDebugImage(fixed.Overlay(), "overlay_homography")
+	pCtx.GotDebugImage(rimage.Overlay(imgFixed, dmFixed), "overlay_homography")
 
 	// get pointcloud
 	pc, err := h.proj.RGBDToPointCloud(imgFixed, dmFixed)

@@ -46,7 +46,7 @@ func (pp *ParallelProjection) RGBDToPointCloud(img *Image, dm *DepthMap, crop ..
 		return nil, errors.New("no depth map to project to pointcloud")
 	}
 	if dm.Bounds() != img.Bounds() {
-		return nil, errors.New("rgb image and depth map are not the same size img(%v) != depth(%v)", img.Bounds(), dm.Bounds())
+		return nil, errors.Errorf("rgb image and depth map are not the same size img(%v) != depth(%v)", img.Bounds(), dm.Bounds())
 	}
 	var rect *image.Rectangle
 	if len(crop) > 1 {
@@ -85,7 +85,7 @@ func (pp *ParallelProjection) PointCloudToRGBD(cloud pointcloud.PointCloud) (*Im
 	meta := cloud.MetaData()
 	// Needs to be a pointcloud with color
 	if !meta.HasColor {
-		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
+		return nil, nil, errors.New("pointcloud has no color information, cannot create an image with depth")
 	}
 	// Image and DepthMap will be in the camera frame of the RGB camera.
 	// Points outside of the frame will be discarded.
