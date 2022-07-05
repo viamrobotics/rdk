@@ -31,6 +31,10 @@ type CompononentUpdate interface {
 	UpdateAction(config *Component) UpdateActionType
 }
 
+type dependencyValidator interface {
+	Validate(path string) ([]string, error)
+}
+
 type validator interface {
 	Validate(path string) error
 }
@@ -65,6 +69,26 @@ type Component struct {
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`
+	ImplicitDependsOn   []string     `json:"-"`
+}
+
+// Dependencies returns the deduplicated union of user-defined and implicit dependencies.
+func (config *Component) Dependencies() []string {
+	result := make([]string, 0, len(config.DependsOn)+len(config.ImplicitDependsOn))
+	seen := make(map[string]struct{})
+	appendUniq := func(dep string) {
+		if _, ok := seen[dep]; !ok {
+			seen[dep] = struct{}{}
+			result = append(result, dep)
+		}
+	}
+	for _, dep := range config.DependsOn {
+		appendUniq(dep)
+	}
+	for _, dep := range config.ImplicitDependsOn {
+		appendUniq(dep)
+	}
+	return result
 }
 
 // Ensure Component conforms to flag.Value.
@@ -81,31 +105,47 @@ func (config *Component) ResourceName() resource.Name {
 	return resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
-// Validate ensures all parts of the config are valid.
-func (config *Component) Validate(path string) error {
+// Validate ensures all parts of the config are valid and returns dependencies.
+func (config *Component) Validate(path string) ([]string, error) {
+	var deps []string
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
 	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	for key, value := range config.Attributes {
-		v, ok := value.(validator)
-		if !ok {
+		fieldPath := fmt.Sprintf("%s.%s", path, key)
+		switch v := value.(type) {
+		case validator:
+			if err := v.Validate(fieldPath); err != nil {
+				return nil, err
+			}
+		case dependencyValidator:
+			validatedDeps, err := v.Validate(fieldPath)
+			if err != nil {
+				return nil, err
+			}
+			deps = append(deps, validatedDeps...)
+		default:
 			continue
 		}
-		if err := v.Validate(fmt.Sprintf("%s.%s", path, key)); err != nil {
-			return err
-		}
 	}
-	if v, ok := config.ConvertedAttributes.(validator); ok {
+	switch v := config.ConvertedAttributes.(type) {
+	case validator:
 		if err := v.Validate(path); err != nil {
-			return err
+			return nil, err
 		}
+	case dependencyValidator:
+		validatedDeps, err := v.Validate(path)
+		if err != nil {
+			return nil, err
+		}
+		deps = append(deps, validatedDeps...)
 	}
-	return nil
+	return deps, nil
 }
 
 // Set hydrates a config based on a flag like value.
