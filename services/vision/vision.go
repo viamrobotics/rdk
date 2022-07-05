@@ -76,6 +76,12 @@ var Subtype = resource.NewSubtype(
 // Name is the Vision Service's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
+// Named is a helper for getting the named vision's typed resource name.
+// RSDK-347 Implements vision's Named.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
+
 // FromRobot retrieves the vision service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
 	resource, err := r.ResourceByName(Name)

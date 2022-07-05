@@ -48,8 +48,8 @@ type ResourceConfig interface {
 	Set(val string) error
 }
 
-// A ComponentLevelServiceConfig describes component-level configuration for a service.
-type ComponentLevelServiceConfig struct {
+// A ResourceLevelServiceConfig describes component or remote configuration for a service.
+type ResourceLevelServiceConfig struct {
 	Type                resource.SubtypeName `json:"type"`
 	Attributes          AttributeMap         `json:"attributes"`
 	ConvertedAttributes interface{}          `json:"-"`
@@ -59,13 +59,13 @@ type ComponentLevelServiceConfig struct {
 type Component struct {
 	Name string `json:"name"`
 
-	Namespace     resource.Namespace            `json:"namespace"`
-	Type          resource.SubtypeName          `json:"type"`
-	SubType       string                        `json:"subtype"`
-	Model         string                        `json:"model"`
-	Frame         *Frame                        `json:"frame,omitempty"`
-	DependsOn     []string                      `json:"depends_on"`
-	ServiceConfig []ComponentLevelServiceConfig `json:"service_config"`
+	Namespace     resource.Namespace           `json:"namespace"`
+	Type          resource.SubtypeName         `json:"type"`
+	SubType       string                       `json:"subtype"`
+	Model         string                       `json:"model"`
+	Frame         *Frame                       `json:"frame,omitempty"`
+	DependsOn     []string                     `json:"depends_on"`
+	ServiceConfig []ResourceLevelServiceConfig `json:"service_config"`
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`
@@ -240,7 +240,7 @@ func (config *Service) ResourceName() resource.Name {
 }
 
 // ResourceName returns the  ResourceName for the component within a service_config.
-func (config *ComponentLevelServiceConfig) ResourceName() resource.Name {
+func (config *ResourceLevelServiceConfig) ResourceName() resource.Name {
 	cType := string(config.Type)
 	return resource.NewName(
 		resource.ResourceNamespaceRDK,
