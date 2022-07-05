@@ -20,7 +20,8 @@
               {{ control[1] }}
             </div>
           </template>
-        </template>
+        </div>
+      </template>
     </Collapse>
   </div>
 </template>
