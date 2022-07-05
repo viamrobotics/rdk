@@ -38,14 +38,12 @@
         'px-5 py-2': $slots.default && props.size === 'base',
         'px-10 py-4': $slots.default && props.size === 'lg',
         'px-3 py-2': !$slots.default,
-        'rounded-button': props.group === false,
-        'rounded-l-button': props.group === 'first',
-        'rounded-r-button': props.group === 'last',
       },
       data.class,
       data.staticClass,
     ]"
     :style="[data.style, data.staticStyle]"
+    style="height: 38px"
     :aria-busy="props.loading ? 'true' : null"
     :aria-disabled="props.tag !== 'button' && props.disabled ? 'true' : null"
     :disabled="props.disabled || props.loading"
