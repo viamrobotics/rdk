@@ -2,7 +2,6 @@ package datamanager_test
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"math/rand"
@@ -292,12 +291,12 @@ func populateArbitraryFiles(t *testing.T, configPath string) ([]string, *config.
 				// Create arbitrary file that will be in the temp dir generated above.
 				tf, err := ioutil.TempFile(td, "arbitrary_file_")
 				if err != nil {
-					return nil, nil, 0, fmt.Errorf("cannot create temporary file to simulate uploading from data manager service")
+					return nil, nil, 0, errors.New("cannot create temporary file to simulate uploading from data manager service")
 				}
 
 				// Write data to the temp file.
 				if _, err := tf.Write(fileData); err != nil {
-					return nil, nil, 0, fmt.Errorf("cannot write arbitrary data to temporary file")
+					return nil, nil, 0, errors.New("cannot write arbitrary data to temporary file")
 				}
 
 				// Increment number of files to be synced.
@@ -333,7 +332,7 @@ func TestManualSync(t *testing.T) {
 	// Test Case Setup
 	dirs, testCfg, numArbitraryFilesToSync, err := populateArbitraryFiles(t, configPath)
 	if err != nil {
-		t.Errorf("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
+		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
 
 	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
@@ -389,7 +388,7 @@ func TestScheduledSync(t *testing.T) {
 	// Test Case Setup
 	dirs, testCfg, numArbitraryFilesToSync, err := populateArbitraryFiles(t, configPath)
 	if err != nil {
-		t.Errorf("unable to generate arbitrary data file structure")
+		t.Error("unable to generate arbitrary data file structure")
 	}
 
 	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
@@ -438,7 +437,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	// Test Case Setup
 	dirs, testCfg, numArbitraryFilesToSync, err := populateArbitraryFiles(t, configPath)
 	if err != nil {
-		t.Errorf("unable to generate arbitrary data file structure")
+		t.Error("unable to generate arbitrary data file structure")
 	}
 
 	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
