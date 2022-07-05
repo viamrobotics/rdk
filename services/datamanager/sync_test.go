@@ -430,9 +430,8 @@ func TestUploadsOnce(t *testing.T) {
 
 	// Put a couple files in captureDir.
 	file1, _ := ioutil.TempFile("", "whatever")
-	defer os.Remove(file1.Name())
 	file2, _ := ioutil.TempFile("", "whatever2")
-	defer os.Remove(file2.Name())
+
 	// Immediately try to Sync same files many times.
 	for i := 1; i < 10; i++ {
 		sut.Sync([]string{file1.Name(), file2.Name()})
@@ -443,6 +442,12 @@ func TestUploadsOnce(t *testing.T) {
 	sut.Close()
 	test.That(t, len(mc.sent), test.ShouldEqual, 2)
 	test.That(t, mc.sent[0], test.ShouldNotEqual, mc.sent[1])
+
+	// Verify that the files were deleted after upload.
+	_, err := os.Stat(file1.Name())
+	test.That(t, err, test.ShouldNotBeNil)
+	_, err = os.Stat(file2.Name())
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestUploadExponentialRetry(t *testing.T) {
@@ -470,7 +475,6 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// Sync file.
 	file1, _ := ioutil.TempFile("", "whatever")
-	defer os.Remove(file1.Name())
 	sut.Sync([]string{file1.Name()})
 
 	// Let it run.
@@ -495,6 +499,10 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// ... but not increase past maxRetryInterval.
 	test.That(t, callTimes[4].Sub(callTimes[3]), test.ShouldAlmostEqual, maxRetryInterval, marginOfError)
+
+	// Verify that the file was deleted after upload.
+	_, err := os.Stat(file1.Name())
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
