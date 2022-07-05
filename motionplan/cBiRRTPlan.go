@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/rand"
 	"sort"
-	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -105,24 +104,24 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 			return finalSteps, plan.err
 		}
 	}
-	
+
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
 	goalPos := spatial.NewPoseFromProtobuf(goal)
-	
+
 	numSteps := GetSteps(seedPos, goalPos, pathStepSize)
 	goals := make([]spatial.Pose, 0, numSteps)
 	for i := 1; i < numSteps; i++ {
-		by := float64(i)/float64(numSteps)
+		by := float64(i) / float64(numSteps)
 		goals = append(goals, spatial.Interpolate(seedPos, goalPos, by))
 	}
 	goals = append(goals, goalPos)
-	
+
 	// We want to make this of len(goals), not len(0) so that indexing does not fail
 	opts := make([]*PlannerOptions, len(goals))
-	results, err := PlannerRunner(ctx, mp, goals, seed, opts, 0)
+	results, err := RunPlannerWithWaypoints(ctx, mp, goals, seed, opts, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +137,6 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	endpointPreview chan *configuration,
 	solutionChan chan *planReturn,
 ) {
-	fmt.Println("cbert to", goal)
 	defer close(solutionChan)
 	inputSteps := []*configuration{}
 
@@ -150,7 +148,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			return
 		}
 		goalPos := spatial.NewPoseFromProtobuf(goal)
-		
+
 		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
 	}
 
@@ -170,7 +168,6 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		solutionChan <- &planReturn{err: err}
 		return
 	}
-	fmt.Println("solutions", solutions)
 
 	// Get the N best solutions
 	keys := make([]float64, 0, len(solutions))
@@ -242,13 +239,6 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			} else {
 				seedReached, goalReached = m2reached, m1reached
 			}
-			for k, v := range seedMap {
-				fmt.Println("seedmap", k, v)
-			}
-			for k, v := range goalMap {
-				fmt.Println("goalmap", k, v)
-			}
-			
 
 			// extract the path to the seed
 			for seedReached != nil {

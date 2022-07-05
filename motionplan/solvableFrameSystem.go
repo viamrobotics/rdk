@@ -124,7 +124,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	}
 
 	seed := sf.mapToSlice(seedMap)
-	resultSlices, err := PlannerRunner(ctx, planner, goals, seed, opts, 0)
+	resultSlices, err := RunPlannerWithWaypoints(ctx, planner, goals, seed, opts, 0)
 	if err != nil {
 		return nil, err
 	}

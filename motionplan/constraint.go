@@ -3,7 +3,6 @@ package motionplan
 import (
 	"errors"
 	"math"
-	//~ "fmt"
 
 	"github.com/golang/geo/r3"
 
@@ -215,7 +214,7 @@ func NewCollisionConstraintFromWorldState(
 	return NewCollisionConstraint(model, obstacles.Geometries(), interactionSpaces.Geometries())
 }
 
-// NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
+// NewLinearInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
 // This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
 // it will return true. If any intermediate pose violates the constraint, will return false.
 // This constraint will interpolate between the start and end poses, and ensure that the pose given by interpolating
@@ -224,7 +223,7 @@ func NewLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (C
 	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, epsilon)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), epsilon)
 	interpMetric := CombineMetrics(orientMetric, lineMetric)
-	
+
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		oValid, oDist := orientConstraint(cInput)
 		lValid, lDist := lineConstraint(cInput)
@@ -264,7 +263,7 @@ func NewOrientationConstraint(orientFunc func(o spatial.Orientation) bool) Const
 	return f
 }
 
-// orientDist returns the arclength between two orientations
+// orientDist returns the arclength between two orientations.
 func orientDist(o1, o2 spatial.Orientation) float64 {
 	return math.Sqrt(spatial.QuatToR3AA(spatial.OrientationBetween(o1, o2).Quaternion()).Norm2())
 }
@@ -302,28 +301,26 @@ func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) Metric {
 	}
 }
 
-// NewSlerpOrientationConstraint will provide a distance function 
+// NewSlerpOrientationConstraint will provide a distance function.
 func NewSlerpOrientationConstraint(start, goal spatial.Pose, epsilon float64) (Constraint, Metric) {
-	
 	var gradFunc func(from, _ spatial.Pose) float64
 	origDist := orientDist(start.Orientation(), goal.Orientation())
-	
-	if origDist < epsilon * epsilon {
+
+	if origDist < epsilon*epsilon {
 		gradFunc = func(from, _ spatial.Pose) float64 {
 			oDist := orientDist(start.Orientation(), from.Orientation())
 			return oDist
 		}
-	}else{
+	} else {
 		gradFunc = func(from, _ spatial.Pose) float64 {
 			sDist := orientDist(start.Orientation(), from.Orientation())
 			gDist := orientDist(goal.Orientation(), from.Orientation())
 			return (sDist + gDist) - origDist
 		}
 	}
-	
-	validDist := epsilon*epsilon
-	
-	
+
+	validDist := epsilon * epsilon
+
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
 		err := resolveInputsToPositions(cInput)
 		if err != nil {
@@ -386,7 +383,6 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Con
 // which will bring a pose into the valid constraint space.
 // epsilon refers to the closeness to the line necessary to be a valid pose.
 func NewLineConstraint(pt1, pt2 r3.Vector, epsilon float64) (Constraint, Metric) {
-
 	// distance from line to point
 	lineDist := func(point r3.Vector) float64 {
 		ab := pt1.Sub(pt2)
@@ -408,7 +404,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, epsilon float64) (Constraint, Metric)
 
 	gradFunc := func(from, _ spatial.Pose) float64 {
 		pDist := lineDist(from.Point())
-		return pDist*pDist
+		return pDist * pDist
 	}
 
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
