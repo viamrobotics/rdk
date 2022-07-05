@@ -4,7 +4,6 @@ package motionplan
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 
 	"go.viam.com/utils"
@@ -23,7 +22,7 @@ const (
 	defaultEpsilon = 0.001
 	// Default motion constraint name.
 	defaultMotionConstraint = "defaultMotionConstraint"
-	// Solve for waypoints this far apart to speed solving
+	// Solve for waypoints this far apart to speed solving.
 	pathStepSize = 10.0
 )
 
@@ -120,7 +119,7 @@ func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.minScore = minScore
 }
 
-// Clone makes a deep copy of the PlannerOptions
+// Clone makes a deep copy of the PlannerOptions.
 func (p *PlannerOptions) Clone() *PlannerOptions {
 	opt := &PlannerOptions{}
 	opt.constraints = p.constraints
@@ -128,22 +127,18 @@ func (p *PlannerOptions) Clone() *PlannerOptions {
 	opt.pathDist = p.pathDist
 	opt.maxSolutions = p.maxSolutions
 	opt.minScore = p.minScore
-	
+
 	return opt
 }
 
-func PlannerRunner(ctx context.Context,
+// RunPlannerWithWaypoints will plan to each of a list of goals in oder, optionally also taking a new planner option for each goal.
+func RunPlannerWithWaypoints(ctx context.Context,
 	planner MotionPlanner,
 	goals []spatial.Pose,
 	seed []frame.Input,
 	opts []*PlannerOptions,
 	iter int,
 ) ([][]frame.Input, error) {
-	fmt.Println("goals:")
-	for _, goal := range goals{
-		fmt.Println(spatial.PoseToProtobuf(goal))
-	}
-	fmt.Println("opts", opts)
 	var err error
 	goal := goals[iter]
 	opt := opts[iter]
@@ -178,7 +173,7 @@ func PlannerRunner(ctx context.Context,
 				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = PlannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
+					remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -196,12 +191,11 @@ func PlannerRunner(ctx context.Context,
 						if finalSteps.err != nil {
 							return nil, finalSteps.err
 						}
-						results := make([][]frame.Input, 0, len(finalSteps.steps) + len(remainingSteps))
+						results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
 						for _, step := range finalSteps.steps {
 							results = append(results, step.inputs)
 						}
 						results = append(results, remainingSteps...)
-						fmt.Println(iter, "ret 1", results)
 						return results, nil
 					default:
 					}
@@ -214,17 +208,16 @@ func PlannerRunner(ctx context.Context,
 				if iter+1 < len(goals) {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = PlannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
+					remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
 				}
-				results := make([][]frame.Input, 0, len(finalSteps.steps) + len(remainingSteps))
+				results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
 				for _, step := range finalSteps.steps {
 					results = append(results, step.inputs)
 				}
 				results = append(results, remainingSteps...)
-				fmt.Println(iter, "ret 2", results)
 				return results, nil
 			default:
 			}
@@ -237,12 +230,11 @@ func PlannerRunner(ctx context.Context,
 		if iter < len(goals)-2 {
 			// in this case, we create the next step (and thus the remaining steps) and the
 			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = PlannerRunner(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
+			remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
 			if err != nil {
 				return nil, err
 			}
 		}
-		fmt.Println("ret 3")
 		return append(resultSlicesRaw, remainingSteps...), nil
 	}
 }
