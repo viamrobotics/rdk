@@ -47,7 +47,6 @@ func TestRGBDToPointCloud(t *testing.T) {
 	pcBad, err := dct.RGBDToPointCloud(img, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, pcBad, test.ShouldBeNil)
-	test.That(t, iwdBad.IsAligned(), test.ShouldEqual, false)
 }
 
 func TestWarpPointsTo3D(t *testing.T) {
@@ -76,11 +75,10 @@ func TestWarpPointsTo3D(t *testing.T) {
 	test.That(t, vec.X, test.ShouldEqual, 0.0)
 	test.That(t, vec.Y, test.ShouldEqual, 0.0)
 	// test out To3D
-	vec, err := dct.ImagePointTo3DPoint(testPoint, dm.Get(testPoint))
+	vec, err = dct.ImagePointTo3DPoint(testPoint, dm.Get(testPoint))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vec.Z, test.ShouldEqual, float64(dm.Get(testPoint)))
 	// out of bounds - panic
 	testPoint = image.Point{img.Width(), img.Height()}
-	_, err = dct.ImagePointTo3DPoint(testPoint, dm.Get(testPoint))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, func() { dct.ImagePointTo3DPoint(testPoint, dm.Get(testPoint)) }, test.ShouldPanic)
 }
