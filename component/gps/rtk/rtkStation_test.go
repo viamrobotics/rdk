@@ -51,7 +51,7 @@ func TestRTK(t *testing.T) {
 		},
 	}
 
-	g, err := newrtkStation(ctx, deps, cfig, logger)
+	g, err := newRTKStation(ctx, deps, cfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g, test.ShouldNotBeNil)
 
@@ -67,7 +67,7 @@ func TestRTK(t *testing.T) {
 		},
 	}
 
-	g, err = newrtkStation(ctx, deps, cfig, logger)
+	g, err = newRTKStation(ctx, deps, cfig, logger)
 	passErr := "open " + path + ": no such file or directory"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
@@ -91,7 +91,7 @@ func TestRTK(t *testing.T) {
 		},
 	}
 
-	g, err = newrtkStation(ctx, deps, cfig, logger)
+	g, err = newRTKStation(ctx, deps, cfig, logger)
 	passErr = "board " + cfig.Attributes.String("board") + " is not local"
 
 	if err == nil || err.Error() != passErr {
@@ -116,7 +116,7 @@ func TestRTK(t *testing.T) {
 			"bus":                    testBusName,
 		},
 	}
-	_, err = newrtkStation(ctx, deps, cfig, logger)
+	_, err = newRTKStation(ctx, deps, cfig, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 

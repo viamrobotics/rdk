@@ -25,7 +25,7 @@ type i2cCorrectionSource struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newi2cCorrectionSource(
+func newI2CCorrectionSource(
 	ctx context.Context,
 	deps registry.Dependencies,
 	config config.Component,

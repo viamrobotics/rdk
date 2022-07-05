@@ -2,11 +2,11 @@ package rtk
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
 	"github.com/go-gnss/rtcm/rtcm3"
