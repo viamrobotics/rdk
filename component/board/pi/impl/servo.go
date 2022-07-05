@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/utils"
 )
 
 //nolint:stylecheck
@@ -102,7 +103,7 @@ type piPigpioServo struct {
 // Move moves the servo to the given angle (0-180 degrees)
 // This will block until done or a new operation cancels this one
 func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
-	_, done := s.opMgr.New(ctx)
+	ctx, done := s.opMgr.New(ctx)
 	defer done()
 
 	if s.min > 0 && angle < s.min {
@@ -122,6 +123,8 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 		return err
 	}
 
+	utils.SelectContextOrWait(ctx, time.Duration(val)*time.Microsecond) // duration of pulswidth send on pin and servo moves
+
 	if !s.holdPos { // the following logic disables a servo once it has reached a position or after a certain amount of time has been reached
 		time.Sleep(500 * time.Millisecond) // time before a stop is sent
 		setPos := C.gpioServo(s.pin, C.uint(0))
@@ -132,7 +135,7 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	return nil
 }
 
-// TODO Check
+// returns piGPIO specific errors to user
 func (s *piPigpioServo) pigpioErrors(res int) error {
 	switch {
 	case res == PI_NOT_SERVO_GPIO:
