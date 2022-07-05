@@ -4,11 +4,11 @@ package rtk
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
@@ -33,7 +33,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newrtkStation(ctx, deps, config, logger)
+			return newRTKStation(ctx, deps, config, logger)
 		}})
 }
 
@@ -68,7 +68,7 @@ const (
 	childrenName         = "children"
 )
 
-func newrtkStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
+func newRTKStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	r := &rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
@@ -89,7 +89,7 @@ func newrtkStation(ctx context.Context, deps registry.Dependencies, config confi
 			return nil, err
 		}
 	case "I2C":
-		r.correction, err = newi2cCorrectionSource(ctx, deps, config, logger)
+		r.correction, err = newI2CCorrectionSource(ctx, deps, config, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -221,7 +221,7 @@ func (r *rtkStation) Close() error {
 		}
 	}
 
-	r.logger.Debug("Closing RTK Station Closed")
+	r.logger.Debug("RTK Station Closed")
 	return nil
 }
 
