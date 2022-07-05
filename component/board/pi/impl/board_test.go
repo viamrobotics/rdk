@@ -162,7 +162,6 @@ func TestPiPigpio(t *testing.T) {
 			logger,
 		)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "need pin for pi servo")
-
 	})
 
 	t.Run("check new servo defaults", func(t *testing.T) {
@@ -208,8 +207,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos1, test.ShouldEqual, 32)
 
-		localServo := servo1.(*pigpioServo)
+		localServo := servo1.(*piPigpioServo)
 		test.That(t, localServo.holdPos, test.ShouldBeTrue)
-
 	})
 }

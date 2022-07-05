@@ -19,7 +19,7 @@ type ServoConfig struct {
 	Min      int      `json:"min,omitempty"`
 	Max      int      `json:"max,omitempty"`
 	StartPos *float64 `json:"starting_position_degrees,omitempty"`
-	HoldPos  *bool    `json:"hold_position,omitempty"` // defaults true, holds for 500 ms then disables servo
+	HoldPos  *bool    `json:"hold_position,omitempty"` // defaults True. False holds for 500 ms then disables servo
 }
 
 // Validate ensures all parts of the config are valid.
