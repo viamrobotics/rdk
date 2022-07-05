@@ -8,9 +8,9 @@ import (
 	"io"
 	"sync"
 
-	"github.com/pkg/errors"
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
