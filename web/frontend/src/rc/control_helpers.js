@@ -153,4 +153,23 @@ window.PWMControlHelper = {
     rcLogConditionally(req);
     boardService.setPWM(req, {}, cb);
   },
+
+  // getPWMFrequency: function (name, pin, cb) {
+  //   const req = new boardAPI.PWMFrequencyRequest();
+  //   req.setName(name);
+  //   req.setPin(pin);
+    
+  //   rcLogConditionally(req);
+  //   boardService.pWMFrequency(req, {}, cb);
+  // },
+
+  // setPWMFrequency: function (name, pin, value, cb) {
+  //   const req = new boardAPI.setPWMFrequencyRequest();
+  //   req.setName(name);
+  //   req.setPin(pin);
+  //   req.setFrequencyHz(value);
+
+  //   rcLogConditionally(req);
+  //   boardService.setPWMFrequency(req, {}, cb);
+  // },
 };
