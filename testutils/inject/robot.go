@@ -166,27 +166,6 @@ func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) 
 	return r.DiscoverComponentsFunc(ctx, keys)
 }
 
-// RemoteRobot is an injected remote robot.
-type RemoteRobot struct {
-	Robot
-
-	Disconnected bool
-	ChangeChan   chan bool
-}
-
-// Changed returns a channel that returns true when the remote has changed.
-func (r *RemoteRobot) Changed() <-chan bool {
-	if r.ChangeChan == nil {
-		r.ChangeChan = make(chan bool)
-	}
-	return r.ChangeChan
-}
-
-// Connected returns whether the injected robot is connected or not.
-func (r *RemoteRobot) Connected() bool {
-	return !r.Disconnected
-}
-
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
 func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
 	if r.FrameSystemConfigFunc == nil {
