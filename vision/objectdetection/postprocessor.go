@@ -35,7 +35,7 @@ func NewScoreFilter(conf float64) Postprocessor {
 func SortByArea() Postprocessor {
 	return func(in []Detection) []Detection {
 		sort.Slice(in, func(i, j int) bool {
-			return in[i].BoundingBox().Size().X*in[i].BoundingBox().Size().Y > in[j].BoundingBox().Size().X*in[j].BoundingBox().Size().Y
+			return in[i].BoundingBox().Dx()*in[i].BoundingBox().Dy() > in[j].BoundingBox().Dx()*in[j].BoundingBox().Dy()
 		})
 		return in
 	}
