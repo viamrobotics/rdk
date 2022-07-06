@@ -4,7 +4,6 @@ import (
 	"context"
 	"io/fs"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"sync"
 	"testing"
@@ -143,7 +142,6 @@ func TestNewDataManager(t *testing.T) {
 
 func TestNewRemoteDataManager(t *testing.T) {
 	// Empty config at initialization.
-	captureDir := "/tmp/capture"
 	svc := newTestDataManager(t, "localArm", "remoteArm")
 
 	// Set capture parameters in Update.
@@ -220,14 +218,12 @@ func TestRecoversAfterKilled(t *testing.T) {
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
 // that directory is created (and can be synced on subsequent iterations of syncing).
 func TestValidateAdditionalSyncPaths(t *testing.T) {
+	datamanager.WaitAfterLastModify = 0
 	td := "additional_sync_path_dir"
-
-	// Empty file structure at beginning of testing to ensure no files from previous tests remain
 	resetFolder(t, td)
 	resetFolder(t, captureDir)
 	resetFolder(t, armDir)
 
-	// Prepare list of uploaded filepaths.
 	uploaded := []string{}
 	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
@@ -240,10 +236,9 @@ func TestValidateAdditionalSyncPaths(t *testing.T) {
 	err := setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Add a directory path to additionalSyncPaths that does not exist. Expected behavior is the datamanager
-	// should create a dir called "additional_sync_path_dir" and its contents (if it ever has any) should be uploaded
-	// on the next iteration of syncing.
-	setConfigAdditionalSyncPaths(testCfg, []string{td})
+	// Add a directory path to additionalSyncPaths that does not exist. The data manager should create it.
+	err = setConfigAdditionalSyncPaths(testCfg, []string{td})
+	test.That(t, err, test.ShouldBeNil)
 
 	// Once testing is complete, remove contents from data capture dirs.
 	defer resetFolder(t, captureDir)
@@ -251,25 +246,16 @@ func TestValidateAdditionalSyncPaths(t *testing.T) {
 	defer resetFolder(t, td)
 
 	// Initialize the data manager and update it with our config. The call to Update(ctx, conf) should create the
-	// arbitrary sync paths directory and persist it in the file system.
+	// arbitrary sync paths directory it in the file system.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
-	// Validate the "additional_sync_path_dir" was created by manually adding a file to the folder and ensuring it
-	// exists in that directory.
-	tf, _ := ioutil.TempFile(td, "temp_file")
-	tf.Write([]byte("arbitrary_data"))
-
-	// Run and upload files.
-	dmsvc.Sync(context.Background())
-	time.Sleep(time.Millisecond * 100)
+	// Validate the "additional_sync_path_dir" was created. Wait some time to ensure it would have been created.
+	time.Sleep(time.Millisecond * 300)
 	_ = dmsvc.Close(context.TODO())
-
-	// Verify that one additional_sync_paths file was uploaded after adding the file to the filesystem.
-	lock.Lock()
-	test.That(t, len(uploaded), test.ShouldEqual, 1)
-	lock.Unlock()
+	_, err = os.Stat(td)
+	test.That(t, !errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
 }
 
 func setconfigSyncIntervalMins(config *config.Config, interval float64) error {
@@ -297,30 +283,18 @@ func setConfigAdditionalSyncPaths(config *config.Config, dirs []string) error {
 }
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
-// syncing of any data that is not captured live on the robot.
-func populateArbitraryFiles(t *testing.T, configPath string) ([]string, *config.Config, int, error) {
-	t.Helper()
-
-	// Retrieve config from config filepath and
-	testCfg := setupConfig(t, configPath)
-	err := setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
-	test.That(t, err, test.ShouldBeNil)
-
-	// bytesPerFile value doesn't really matter, but maybe it will in future testing?
-	bytesPerFile := 100
-
-	// Slice of temp dirs to be generated.
+// syncing of data in the service's additional_sync_paths.
+//nolint
+func populateAdditionalSyncPaths() ([]string, int, error) {
 	additionalSyncPaths := []string{}
-
-	// Number of total files to be synced.
 	numArbitraryFilesToSync := 0
 
-	// Begin generating additional_sync_paths "dummy" dirs & files.
+	// Generate additional_sync_paths "dummy" dirs & files.
 	for i := 0; i < numDirs; i++ {
 		// Create a temp dir that will be in additional_sync_paths.
 		td, err := ioutil.TempDir("", "additional_sync_path_dir_")
 		if err != nil {
-			t.Error("cannot create temporary dir to simulate additional_sync_paths in data manager service config")
+			return []string{}, 0, errors.New("cannot create temporary dir to simulate additional_sync_paths in data manager service config")
 		}
 		additionalSyncPaths = append(additionalSyncPaths, td)
 
@@ -328,21 +302,20 @@ func populateArbitraryFiles(t *testing.T, configPath string) ([]string, *config.
 		if i == 0 {
 			continue
 		} else {
-			// Make the dirs that will contain at least one (at most two) file(s).
+			// Make the dirs that will contain two file.
 			for i := 0; i < filesPerDir; i++ {
 				// Generate data that will be in a temp file.
-				fileData := make([]byte, bytesPerFile)
-				rand.Read(fileData)
+				fileData := []byte("This is file data. It will be stored in a directory included in the user's specified additional sync paths. Hopefully it is uploaded from the robot to the cloud!")
 
 				// Create arbitrary file that will be in the temp dir generated above.
 				tf, err := ioutil.TempFile(td, "arbitrary_file_")
 				if err != nil {
-					return nil, nil, 0, errors.New("cannot create temporary file to simulate uploading from data manager service")
+					return nil, 0, errors.New("cannot create temporary file to simulate uploading from data manager service")
 				}
 
 				// Write data to the temp file.
 				if _, err := tf.Write(fileData); err != nil {
-					return nil, nil, 0, errors.New("cannot write arbitrary data to temporary file")
+					return nil, 0, errors.New("cannot write arbitrary data to temporary file")
 				}
 
 				// Increment number of files to be synced.
@@ -350,12 +323,7 @@ func populateArbitraryFiles(t *testing.T, configPath string) ([]string, *config.
 			}
 		}
 	}
-
-	// Add the additional sync paths dirs to the test case datamanager config.
-	err = setConfigAdditionalSyncPaths(testCfg, additionalSyncPaths)
-	test.That(t, err, test.ShouldBeNil)
-
-	return additionalSyncPaths, testCfg, numArbitraryFilesToSync, nil
+	return additionalSyncPaths, numArbitraryFilesToSync, nil
 }
 
 func noRepeatedElements(slice []string) bool {
@@ -371,26 +339,30 @@ func noRepeatedElements(slice []string) bool {
 
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
-	// Empty file structure at beginning of testing to ensure no files from previous tests remain
+	datamanager.WaitAfterLastModify = 0
 	resetFolder(t, captureDir)
 	resetFolder(t, armDir)
 
-	// Test Case Setup
-	dirs, testCfg, numArbitraryFilesToSync, err := populateArbitraryFiles(t, configPath)
-	if err != nil {
-		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
-	}
-
-	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
+	// Populate file system with data (as additional specified paths) to be synced.
+	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
 			resetFolder(t, dir)
 		}
 	}()
+	if err != nil {
+		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
+	}
+	testCfg := setupConfig(t, configPath)
+	err = setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
+	test.That(t, err, test.ShouldBeNil)
+	err = setConfigAdditionalSyncPaths(testCfg, dirs)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Once testing is complete, remove all temp dirs.
 	defer resetFolder(t, captureDir)
 	defer resetFolder(t, armDir)
 
-	// Prepare list of uploaded filepaths.
 	uploaded := []string{}
 	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partId string) error {
@@ -417,7 +389,7 @@ func TestManualSync(t *testing.T) {
 	lock.Unlock()
 
 	// Sync again and verify it synced the second data capture file, but also validate that it didn't attempt to resync
-	// any data capture files that were previously synced.
+	// any files that were previously synced.
 	dmsvc.Sync(context.Background())
 	time.Sleep(time.Millisecond * 100)
 	_ = dmsvc.Close(context.TODO())
@@ -427,26 +399,30 @@ func TestManualSync(t *testing.T) {
 
 // Validates that scheduled syncing works for a datamanager.
 func TestScheduledSync(t *testing.T) {
-	// Empty file structure at beginning of testing to ensure no files from previous tests remain
+	datamanager.WaitAfterLastModify = 0
 	resetFolder(t, captureDir)
 	resetFolder(t, armDir)
 
-	// Test Case Setup
-	dirs, testCfg, numArbitraryFilesToSync, err := populateArbitraryFiles(t, configPath)
-	if err != nil {
-		t.Error("unable to generate arbitrary data file structure")
-	}
-
-	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
+	// Populate file system with data (as additional specified paths) to be synced.
+	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
 			os.RemoveAll(dir)
 		}
 	}()
+	if err != nil {
+		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
+	}
+	testCfg := setupConfig(t, configPath)
+	err = setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
+	test.That(t, err, test.ShouldBeNil)
+	err = setConfigAdditionalSyncPaths(testCfg, dirs)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Once testing is complete, remove all temp dirs.
 	defer resetFolder(t, captureDir)
 	defer resetFolder(t, armDir)
 
-	// Prepare list ofuploaded filepaths.
 	uploaded := []string{}
 	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
@@ -476,26 +452,30 @@ func TestScheduledSync(t *testing.T) {
 // Validates that we can attempt a scheduled and manual syncDataCaptureFiles at the same time without duplicating files
 // or running into errors.
 func TestManualAndScheduledSync(t *testing.T) {
-	// Empty file structure at beginning of testing to ensure no files from previous tests remain
+	datamanager.WaitAfterLastModify = 0
 	resetFolder(t, captureDir)
 	resetFolder(t, armDir)
 
-	// Test Case Setup
-	dirs, testCfg, numArbitraryFilesToSync, err := populateArbitraryFiles(t, configPath)
-	if err != nil {
-		t.Error("unable to generate arbitrary data file structure")
-	}
-
-	// Once testing is complete, remove the temp dirs created in [populateArbitraryFiles] and all files within.
+	// Populate file system with data (as additional specified paths) to be synced.
+	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
-			os.RemoveAll(dir)
+			resetFolder(t, dir)
 		}
 	}()
+	if err != nil {
+		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
+	}
+	testCfg := setupConfig(t, configPath)
+	err = setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
+	test.That(t, err, test.ShouldBeNil)
+	err = setConfigAdditionalSyncPaths(testCfg, dirs)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Once testing is complete, remove all temp dirs.
 	defer resetFolder(t, captureDir)
 	defer resetFolder(t, armDir)
 
-	// Prepare list ofuploaded filepaths.
 	uploaded := []string{}
 	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {

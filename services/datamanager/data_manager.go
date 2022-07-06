@@ -25,6 +25,11 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Wait interval (seconds) after a file's last modification before syncing it.
+var (
+	WaitAfterLastModify = 10
+)
+
 func init() {
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
@@ -342,7 +347,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 		svc.syncer.Sync(previouslyCaptured)
 
 		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
-		svc.syncer.Sync(svc.validateAdditionalSyncPaths())
+		svc.syncer.Sync(svc.buildListAdditionalSyncPaths())
 
 		// Kick off background routine to periodically sync files.
 		svc.startSyncBackgroundRoutine(intervalMins)
@@ -378,29 +383,31 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	svc.syncer.Sync(oldFiles)
 }
 
-func (svc *dataManagerService) validateAdditionalSyncPaths() []string {
+func (svc *dataManagerService) buildListAdditionalSyncPaths() []string {
 	svc.lock.Lock()
-	// Slice containing all filepaths (from each additional sync path) that need to be synced.
 	var filepathsToSync []string
 
 	// Loop through additional sync paths and add files from each to the syncer.
 	for _, asp := range svc.additionalSyncPaths {
-		// Validate that additional sync paths directories exist. If not, create directories accordingly.
+		// Check that additional sync paths directories exist. If not, create directories accordingly.
 		if _, err := os.Stat(asp); errors.Is(err, os.ErrNotExist) {
 			err := os.Mkdir(asp, os.ModePerm)
 			if err != nil {
 				svc.logger.Errorw("data manager context closed unexpectedly", "error", err)
 			}
 		} else {
-			// In this case we know the directory previously existed (which means it can have nested files).
-
 			// Traverse all files in 'asp' directory and append them to a list of files to be synced.
+			now := time.Now()
 			//nolint
 			_ = filepath.Walk(asp, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return nil
 				}
 				if info.IsDir() {
+					return nil
+				}
+				// If a file was modified within the past 10 seconds, do not sync it (data may still be being streamed).
+				if diff := now.Sub(info.ModTime()); diff < (time.Duration(WaitAfterLastModify) * time.Second) {
 					return nil
 				}
 				filepathsToSync = append(filepathsToSync, path)
@@ -414,7 +421,7 @@ func (svc *dataManagerService) validateAdditionalSyncPaths() []string {
 
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *dataManagerService) syncAdditionalSyncPaths() {
-	svc.syncer.Sync(svc.validateAdditionalSyncPaths())
+	svc.syncer.Sync(svc.buildListAdditionalSyncPaths())
 }
 
 // Get the config associated with the data manager service.
