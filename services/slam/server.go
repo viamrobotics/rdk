@@ -68,9 +68,11 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 		return nil, err
 	}
 
-	pInFrame := &commonpb.PoseInFrame{Pose: req.CameraPosition}
-	mimeType, imageData, pcData, err := svc.GetMap(ctx, req.Name, req.MimeType,
-		referenceframe.ProtobufToPoseInFrame(pInFrame), req.IncludeRobotMarker)
+	var pInFrame *referenceframe.PoseInFrame
+	if req.CameraPosition != nil {
+		pInFrame = referenceframe.ProtobufToPoseInFrame(&commonpb.PoseInFrame{Pose: req.CameraPosition})
+	}
+	mimeType, imageData, pcData, err := svc.GetMap(ctx, req.Name, req.MimeType, pInFrame, req.IncludeRobotMarker)
 	if err != nil {
 		return nil, err
 	}
