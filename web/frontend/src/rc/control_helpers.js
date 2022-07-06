@@ -131,10 +131,7 @@ window.BoardControlHelper = {
     rcLogConditionally(req);
     boardService.setGPIO(req, {}, cb);
   },
-};
 
-// PWM helpers
-window.PWMControlHelper = {
   getPWM: function (name, pin, cb) {
     const req = new boardApi.PWMRequest();
     req.setName(name);

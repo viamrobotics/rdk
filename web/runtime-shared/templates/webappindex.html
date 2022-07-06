@@ -981,35 +981,35 @@
             },
             getPWM: function (boardName) {
               const pin = document.getElementById("get_pin_" + boardName).value;
-              PWMControlHelper.getPWM(boardName, pin, (err, resp) => {
+              BoardControlHelper.getPWM(boardName, pin, (err, resp) => {
                 if (err) {
                   console.log(err);
                   return;
                 }
-                const pwm = resp.toObject();
-                document.getElementById("get_pin_value_" + boardName).innerHTML = `Pin ${pin}'s duty cycle is ${pwm.dutyCyclePct * 100}%.`
+                const { dutyCyclePct } = resp.toObject();
+                document.getElementById("get_pin_value_" + boardName).innerHTML = `Pin ${pin}'s duty cycle is ${dutyCyclePct * 100}%.`
               })
             },
             setPWM: function (boardName) {
               const pin = document.getElementById("set_pin_" + boardName).value;
               const v = document.getElementById("set_pwm_pin_v_" + boardName).value/100;
-              PWMControlHelper.setPWM(boardName, pin, v, grpcCallback);
+              BoardControlHelper.setPWM(boardName, pin, v, grpcCallback);
             },
             getPWMFrequency: function (boardName) {
               const pin = document.getElementById("get_pin_" + boardName).value;
-              PWMControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
+              BoardControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
                 if (err) {
                   console.log(err);
                   return;
                 }
-                const freq = resp.toObject();
-                document.getElementById("get_pin_value_" + boardName).innerHTML = `Pin ${pin}'s frequency is ${freq.frequencyHz}Hz.`
+                const { frequencyHz } = resp.toObject();
+                document.getElementById("get_pin_value_" + boardName).innerHTML = `Pin ${pin}'s frequency is ${frequencyHz}Hz.`
               })
             },
             setPWMFrequency: function (boardName) {
               const pin = document.getElementById("set_pin_" + boardName).value;
               const v = document.getElementById("set_pwm_freq_v_" + boardName).value;
-              PWMControlHelper.setPWMFrequency(boardName, pin, v, grpcCallback);
+              BoardControlHelper.setPWMFrequency(boardName, pin, v, grpcCallback);
             },
           },
           directives: {
