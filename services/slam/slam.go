@@ -190,9 +190,14 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 		if time.Since(startTime) >= cameraValidationMaxTimeoutSec*time.Second {
 			return errors.Wrap(err, "error getting data in desired mode")
 		}
-
 		if !goutils.SelectContextOrWait(ctx, cameraValidationIntervalSec*time.Second) {
 			return ctx.Err()
+		}
+	}
+	if slamSvc.slamLib.AlgoName == "orbslamv3" && cam != nil {
+		err = orbGenYAML(slamSvc, cam)
+		if err != nil {
+			return errors.Errorf("slam yaml generation error: %v", err)
 		}
 	}
 
