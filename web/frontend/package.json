@@ -20,7 +20,8 @@
   },
   "scripts": {
     "start": "vite --host",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vite build",
+    "check": "vue-tsc --noEmit",
     "preview": "vite preview",
     "prepare": "./etc/prepare.sh",
     "lint": "eslint --ext .js,.ts,.vue --fix --ignore-pattern 'gen/' 'src/'"

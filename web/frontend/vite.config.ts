@@ -9,6 +9,9 @@ export default defineConfig({
       input: {
         control: './src/main.js',
       },
+      output: {
+        entryFileNames: '[name].js',
+      },
     },
     outDir: '../runtime-shared/static',
   },
