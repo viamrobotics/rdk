@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,6 +15,10 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
+	"gonum.org/v1/gonum/diff/fd"
+	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/num/quat"
+	"gonum.org/v1/gonum/optimize"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/generic"
@@ -213,7 +218,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 							newPose := spatialmath.Compose(theTransform.(*referenceframe.PoseInFrame).Pose(), savedDualQuat)
 							p = newPose.Point()
 						}
-						batch = append(batch, pointcloud.PointAndData{p, d})
+						batch = append(batch, pointcloud.PointAndData{P: p, D: d})
 						if len(batch) > batchSize {
 							finalPoints <- batch
 							batch = make([]pointcloud.PointAndData, 0, batchSize)
@@ -263,7 +268,152 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 	return pcTo, nil
 }
 
+func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem, inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree) (*pointcloud.PointCloud, error) {
+	pcSrc, err := jpcs.sourceCameras[sourceIndex].NextPointCloud(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sourcePointList := make([]spatialmath.Pose, 0, pcSrc.Size())
+	targetPointList := make([]r3.Vector, 0, target.Size())
+
+	pointNum := 0
+	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		sourcePointList[pointNum] = spatialmath.NewPoseFromPoint(p)
+		nearest, _, _, _ := target.NearestNeighbor(p)
+		targetPointList[pointNum] = nearest
+		return true
+	})
+
+	// create optimization problem
+	optFunc := func(x []float64) float64 {
+		// x is an 7-vector used to create a pose
+		point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
+		quat := spatialmath.QuatToOV(quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]})
+		pose := spatialmath.NewPoseFromOrientationVector(point, quat)
+		// compute the error
+		var dist float64
+		for i := 0; i < len(sourcePointList); i++ {
+			transformedP := spatialmath.Compose(pose, sourcePointList[i]).Point()
+			dist += math.Sqrt(math.Pow((transformedP.X-targetPointList[i].X), 2) +
+				math.Pow((transformedP.Y-targetPointList[i].Y), 2) +
+				math.Pow((transformedP.Z-targetPointList[i].Z), 2))
+		}
+		return dist / float64(len(sourcePointList))
+	}
+	grad := func(grad, x []float64) {
+		fd.Gradient(grad, optFunc, x, nil)
+	}
+	hess := func(h *mat.SymDense, x []float64) {
+		fd.Hessian(h, optFunc, x, nil)
+	}
+
+	sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[sourceIndex], spatialmath.NewZeroPose())
+	theTransform, err := (*fs).Transform(*inputs, sourceFrame, jpcs.targetName)
+	if err != nil {
+		return nil, err
+	}
+	x0 := make([]float64, 7)
+	x0[0] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().X
+	x0[1] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Y
+	x0[2] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Z
+	x0[3] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Real
+	x0[4] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Imag
+	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Jmag
+	x0[6] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Kmag
+
+	prob := optimize.Problem{Func: optFunc, Grad: grad, Hess: hess}
+
+	// setup optimizer
+	settings := &optimize.Settings{
+		GradientThreshold: 0,
+		Converger: &optimize.FunctionConverge{
+			Relative:   1e-6,
+			Absolute:   1e-8,
+			Iterations: 100,
+		},
+	}
+
+	method := &optimize.GradientDescent{
+		StepSizer:         &optimize.FirstOrderStepSize{},
+		GradStopThreshold: 1e-8,
+	}
+
+	// run optimization
+	res, err := optimize.Minimize(prob, x0, settings, method)
+	if err != nil {
+		return nil, err
+	}
+	x := res.Location.X
+
+	// create the new pose
+	point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
+	quat := spatialmath.QuatToOV(quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]})
+	pose := spatialmath.NewPoseFromOrientationVector(point, quat)
+
+	// transform the pointcloud
+	registeredPointCloud := pointcloud.NewAppendOnlyOnlyPointsPointCloud(pcSrc.Size())
+	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		posePoint := spatialmath.NewPoseFromPoint(p)
+		transformedP := spatialmath.Compose(pose, posePoint).Point()
+		registeredPointCloud.Set(transformedP, d)
+		return true
+	})
+
+	return &registeredPointCloud, nil
+}
+
 func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
+	defer span.End()
+
+	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	inputs, err := jpcs.initializeInputs(ctx, fs)
+	if err != nil {
+		return nil, err
+	}
+
+	var targetIndex int
+
+	for i, camName := range jpcs.sourceNames {
+		if camName == jpcs.targetName {
+			targetIndex = i
+			break
+		}
+	}
+
+	targetPointCloud, err := jpcs.sourceCameras[targetIndex].NextPointCloud(ctx)
+	if err != nil {
+		return nil, err
+	}
+	targetPointCloudKD := pointcloud.NewKDTree(targetPointCloud)
+
+	finalPointCloud := pointcloud.NewKDTree(targetPointCloud)
+	for i := range jpcs.sourceCameras {
+		if jpcs.sourceNames[i] == jpcs.targetName {
+			continue
+		}
+
+		registeredPointCloud, err := jpcs.MergePointCloudsICP(ctx, i, &fs, &inputs, targetPointCloudKD)
+		if err != nil {
+			panic(err) // TODO(erh) is there something better to do?
+		}
+
+		var ok bool
+		// TODO(aidanglickman) this loop is highly parallelizable, not yet making use
+		(*registeredPointCloud).Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+			_, ok = finalPointCloud.At(p.X, p.Y, p.Z)
+			if !ok {
+				finalPointCloud.Set(p, d)
+			}
+			return true
+		})
+
+	}
+
 	return nil, newMergeMethodUnsupportedError(string(jpcs.mergeMethod))
 }
 
