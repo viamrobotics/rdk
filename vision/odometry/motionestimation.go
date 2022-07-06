@@ -5,7 +5,6 @@ import (
 	"image"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
@@ -29,8 +28,7 @@ type MotionEstimationConfig struct {
 // LoadMotionEstimationConfig loads a motion estimation configuration from a json file.
 func LoadMotionEstimationConfig(path string) *MotionEstimationConfig {
 	var config MotionEstimationConfig
-	filePath := filepath.Clean(path)
-	configFile, err := os.Open(filePath)
+	configFile, err := os.Open(path)
 	defer utils.UncheckedErrorFunc(configFile.Close)
 	if err != nil {
 		return nil

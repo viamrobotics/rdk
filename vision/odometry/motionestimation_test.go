@@ -30,7 +30,7 @@ func TestNewMotion3DFromRotationTranslation(t *testing.T) {
 func TestEstimateMotionFrom2Frames(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	// load cfg
-	cfg := LoadMotionEstimationConfig("vo_config.json")
+	cfg := LoadMotionEstimationConfig(artifact.MustPath("vision/odometry/vo_config.json"))
 	// load images
 	im1, err := rimage.NewImageFromFile(artifact.MustPath("vision/odometry/000001.png"))
 	test.That(t, err, test.ShouldBeNil)
