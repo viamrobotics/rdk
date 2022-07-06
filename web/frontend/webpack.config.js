@@ -2,7 +2,7 @@ const path = require('path');
 
 module.exports = {
 	entry: {
-		control: './src/control.js',
+		control: './src/main.js',
 		control_helpers: './src/rc/control_helpers.js',
 	},
 	module: {
