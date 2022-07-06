@@ -70,37 +70,46 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
   limo1 := limo.(base.Base)
 
-  x1, y1, x2, y2 := 0., 0., 0., 0.
+//   x1, y1, x2, y2, dir := 0., 0., 0., 0., 0.
 
-  for i, wp := range waypoints {
-    if i == 0 {
-      x1 = wp[0].Value
-      y1 = wp[1].Value
-    } else {
-      x2 = wp[0].Value
-      y2 = wp[1].Value
-      MoveToWaypoint(ctx, limo1, x1, y1, x2, y2)
 
-      x1, y1 = x2, y2
-    }
-  }
+//   for i, wp := range waypoints {
+//     if i == 0 {
+//       x1 = wp[0].Value
+//       y1 = wp[1].Value
+//     } else {
+//       x2 = wp[0].Value
+//       y2 = wp[1].Value
+//       dir,err = MoveToWaypoint(ctx, limo1, x1, y1, x2, y2, dir)
+//       logger.Infof("degrees: %d", dir)
+//       if err!=nil {
+//         logger.Debug(err)
+//         return err
+//       }
 
+//       x1, y1 = x2, y2
+//     }
+//   }
+
+  MoveToWaypoint(ctx, limo1, -1, -1, 0, 0, 0)
   return nil
   
 }
 
-func MoveToWaypoint(ctx context.Context, limo base.Base, x1 float64, y1 float64, x2 float64, y2 float64) error {
-  dir := 0.0  //get direction from state, but assume we're pointing at x direction for rn
-  dist := math.Sqrt(math.Pow((y2-y1), 2) + math.Pow((x2-x1), 2))*500  //each grid square is half a meter
-  theta := math.Acos((x2-x1)/dist)  //angle to x axis
+func MoveToWaypoint(ctx context.Context, limo base.Base, x1 float64, y1 float64, x2 float64, y2 float64, dir float64) (float64, error) {
+  dist := math.Sqrt(math.Pow((y2-y1), 2) + math.Pow((x2-x1), 2)) //in grid values
+  theta := math.Acos((x2-x1)/dist)*(180/math.Pi)  //angle to x axis in degrees
 
-  moves := base.Move{DistanceMm: int(dist), MmPerSec: 100, AngleDeg: (dir-theta)*(180/math.Pi), DegsPerSec: 20}
+//   turnRadius := int(322/math.Tan(.48869)) //in mm, turning angle is about 28 degrees right now
+
+  newAngle := dir-theta
+  moves := base.Move{DistanceMm: int(dist)*1000, MmPerSec: 100, AngleDeg: newAngle, DegsPerSec: 20}
   err := base.DoMove(ctx, moves, limo)
   if err!=nil {
-    return err
+    return dir, err
   }
 
-  return nil
+  return math.Mod((dir + newAngle), 360), nil
 
 }
 
