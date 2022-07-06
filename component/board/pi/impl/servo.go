@@ -67,7 +67,7 @@ func init() {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
 				} else {
-					setPos := C.gpioServo(theServo.pin, C.uint(angleToVal(uint8(*attr.StartPos))))
+					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(uint8(*attr.StartPos))))
 					if setPos != 0 {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
@@ -91,13 +91,13 @@ var _ = servo.LocalServo(&piPigpioServo{})
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
 	generic.Unimplemented
-	pin      C.uint
-	pinname  string
-	res      C.int
-	min, max uint8
-	opMgr    operation.SingleOperationManager
-	val      float64 // pulsewidth value, 500-2500us is 0-180 degrees, 0 is off
-	holdPos  bool
+	pin        C.uint
+	pinname    string
+	res        C.int
+	min, max   uint8
+	opMgr      operation.SingleOperationManager
+	pulseWidth float64 // pulsewidth value, 500-2500us is 0-180 degrees, 0 is off
+	holdPos    bool
 }
 
 // Move moves the servo to the given angle (0-180 degrees)
@@ -113,17 +113,17 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 		angle = s.max
 	}
 
-	val := angleToVal(angle)
-	res := C.gpioServo(s.pin, C.uint(val))
+	pulseWidth := angleToPulseWidth(angle)
+	res := C.gpioServo(s.pin, C.uint(pulseWidth))
 
-	s.val = val
+	s.pulseWidth = pulseWidth
 
 	if res != 0 {
 		err := s.pigpioErrors(int(res))
 		return err
 	}
 
-	utils.SelectContextOrWait(ctx, time.Duration(val)*time.Microsecond) // duration of pulswidth send on pin and servo moves
+	utils.SelectContextOrWait(ctx, time.Duration(pulseWidth)*time.Microsecond) // duration of pulswidth send on pin and servo moves
 
 	if !s.holdPos { // the following logic disables a servo once it has reached a position or after a certain amount of time has been reached
 		time.Sleep(500 * time.Millisecond) // time before a stop is sent
@@ -161,20 +161,20 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	if err != nil {
 		return 0, err
 	}
-	return valToAngle(float64(s.res)), nil
+	return pulseWidthToAngle(float64(s.res)), nil
 }
 
-// angleToVal changes the input angle in degrees
+// angleToPulseWidth changes the input angle in degrees
 // into the corresponding pulsewidth value in microsecond
-func angleToVal(angle uint8) float64 {
-	val := 500 + (2000.0 * float64(angle) / 180.0)
-	return val
+func angleToPulseWidth(angle uint8) float64 {
+	pulseWidth := 500 + (2000.0 * float64(angle) / 180.0)
+	return pulseWidth
 }
 
-// valToAngle changes the pulsewidth value in microsecond
+// pulseWidthToAngle changes the pulsewidth value in microsecond
 // to the corresponding angle in degrees
-func valToAngle(val float64) uint8 {
-	angle := 180 * (val - 500.0) / 2000.0
+func pulseWidthToAngle(pulseWidth float64) uint8 {
+	angle := 180 * (pulseWidth - 500.0) / 2000.0
 	return uint8(angle)
 }
 
