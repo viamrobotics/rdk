@@ -219,9 +219,7 @@ func (d *Dubins) generate_points_curve(start []float64, end []float64, path []fl
 	}
 	intercenter := d.dist(center_0, center_2)
 	center_1 := (center_0+center_2)/2 + math.Signbit(path[0])
-				*d.ortho((center_2-center_0)/intercenter)
-				*math.Sqrt((4*math.Pow(d.radius, 2)
-				-math.Pow((intercenter/2), 2)))   
+				*d.ortho((center_2-center_0)/intercenter)*math.Sqrt((4*math.Pow(d.radius, 2)-math.Pow((intercenter/2), 2)))   
 	psi_0 := math.Atan2((center_1-center_0)[1], (center_1-center_0)[0])-math.Pi
 
 	//generate all points
