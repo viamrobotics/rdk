@@ -90,7 +90,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	if opt != nil {
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
-			// TODO(rb) fix me
 			mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
 		})
 		select {
