@@ -275,9 +275,9 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 
 // setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, func() error, error) {
-
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::setupGRPCConnection")
 	defer span.End()
+
 	// This takes about 1 second, so the timeout should be sufficient.
 	ctx, timeoutCancel := context.WithTimeout(ctx, dialMaxTimeoutSec*time.Second)
 	defer timeoutCancel()
