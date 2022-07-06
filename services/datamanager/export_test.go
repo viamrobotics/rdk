@@ -14,5 +14,10 @@ func (svc *dataManagerService) SetUploadFn(fn func(ctx context.Context, client v
 	svc.uploadFunc = fn
 }
 
+// SetWaitAfterLastModify sets the wait time for the syncer to use when initialized/changed in Service.Update.
+func (svc *dataManagerService) SetWaitAfterLastModify(s int) {
+	svc.waitAfterLastModify = s
+}
+
 // Make getServiceConfig global for tests.
 var GetServiceConfig = getServiceConfig

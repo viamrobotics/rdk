@@ -25,11 +25,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Wait interval (seconds) after a file's last modification before syncing it.
-var (
-	WaitAfterLastModify = 10
-)
-
 func init() {
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
@@ -138,6 +133,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		lock:                sync.Mutex{},
 		syncIntervalMins:    -1,
 		additionalSyncPaths: []string{},
+		waitAfterLastModify: 10,
 	}
 
 	return dataManagerSvc, nil
@@ -185,6 +181,7 @@ type dataManagerService struct {
 	updateCollectorsCancelFn func()
 	additionalSyncPaths      []string
 	partID                   string
+	waitAfterLastModify      int
 }
 
 // Parameters stored for each collector.
@@ -407,7 +404,7 @@ func (svc *dataManagerService) buildListAdditionalSyncPaths() []string {
 					return nil
 				}
 				// If a file was modified within the past 10 seconds, do not sync it (data may still be being streamed).
-				if diff := now.Sub(info.ModTime()); diff < (time.Duration(WaitAfterLastModify) * time.Second) {
+				if diff := now.Sub(info.ModTime()); diff < (time.Duration(svc.waitAfterLastModify) * time.Second) {
 					return nil
 				}
 				filepathsToSync = append(filepathsToSync, path)

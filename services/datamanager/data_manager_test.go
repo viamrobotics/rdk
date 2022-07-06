@@ -191,6 +191,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetWaitAfterLastModify(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
@@ -206,6 +207,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	// Turn the service back on.
 	dmsvc = newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetWaitAfterLastModify(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Validate that the previously captured file was uploaded at startup.
@@ -218,7 +220,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
 // that directory is created (and can be synced on subsequent iterations of syncing).
 func TestValidateAdditionalSyncPaths(t *testing.T) {
-	datamanager.WaitAfterLastModify = 0
 	td := "additional_sync_path_dir"
 	resetFolder(t, td)
 	resetFolder(t, captureDir)
@@ -249,6 +250,7 @@ func TestValidateAdditionalSyncPaths(t *testing.T) {
 	// arbitrary sync paths directory it in the file system.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetWaitAfterLastModify(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Validate the "additional_sync_path_dir" was created. Wait some time to ensure it would have been created.
@@ -339,7 +341,6 @@ func noRepeatedElements(slice []string) bool {
 
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
-	datamanager.WaitAfterLastModify = 0
 	resetFolder(t, captureDir)
 	resetFolder(t, armDir)
 
@@ -375,6 +376,7 @@ func TestManualSync(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetWaitAfterLastModify(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Run and upload files.
@@ -399,7 +401,6 @@ func TestManualSync(t *testing.T) {
 
 // Validates that scheduled syncing works for a datamanager.
 func TestScheduledSync(t *testing.T) {
-	datamanager.WaitAfterLastModify = 0
 	resetFolder(t, captureDir)
 	resetFolder(t, armDir)
 
@@ -435,6 +436,7 @@ func TestScheduledSync(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetWaitAfterLastModify(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms (more than two iterations of syncing)
@@ -452,7 +454,6 @@ func TestScheduledSync(t *testing.T) {
 // Validates that we can attempt a scheduled and manual syncDataCaptureFiles at the same time without duplicating files
 // or running into errors.
 func TestManualAndScheduledSync(t *testing.T) {
-	datamanager.WaitAfterLastModify = 0
 	resetFolder(t, captureDir)
 	resetFolder(t, armDir)
 
@@ -488,6 +489,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetWaitAfterLastModify(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Perform a manual and scheduled syncDataCaptureFiles at approximately the same time, then close the svc.
