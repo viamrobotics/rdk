@@ -32,7 +32,7 @@ func (t *testReader) Read(ctx context.Context) (int, error) {
 
 func TestAnalogSmoother1(t *testing.T) {
 	testReader := testReader{
-		r: rand.New(rand.NewSource(11)),
+		r:   rand.New(rand.NewSource(11)),
 		lim: 200,
 	}
 	defer func() {
