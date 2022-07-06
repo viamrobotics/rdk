@@ -15,7 +15,7 @@
       },
       {
         "attributes": {
-          "drive_mode": "ackermann"
+          "drive_mode": "differential"
         },
         "depends_on": [],
         "model": "agilex-limo",
