@@ -1,0 +1,54 @@
+{
+    "components": [
+        {
+            "attributes": {
+              "i2cs": [
+                {
+                  "bus": "1",
+                  "name": "bus1"
+                }
+              ]
+            },
+            "model": "pi",
+            "name": "local",
+            "type": "board",
+            "depends_on": [],
+            "service_config": []
+          },
+      {
+        "attributes": {
+          "correction_source": "ntrip",
+          "ntrip_addr": "http://rtn.dot.ny.gov:8082",
+          "ntrip_username": "",
+          "ntrip_password": "",
+          "ntrip_mountpoint": "NJI2",
+          "ntrip_connect_attempts": 10,
+          "children": [
+            "gps1"
+          ]
+        },
+        "depends_on": [
+          "gps1"
+        ],
+        "model": "rtk-station",
+        "name": "rtk1",
+        "type": "gps"
+      },
+      {
+        "attributes": {
+            "path": "",
+            "correction_input_protocol": "I2C",
+            "correction_path": "",
+            "correction_baud": 115200,
+            "bus": "bus1",
+            "i2c_addr": 66,
+            "board": "local"
+        },
+        "depends_on": ["local"],
+        "model": "nmea-pmtkI2C",
+        "name": "gps1",
+        "type": "gps"
+      }
+    ]
+  }
+  
