@@ -1,8 +1,7 @@
 <script>
 
 function roundTo2Decimals(num) {
-  num = Math.round(num * 100);
-  return num / 100;
+  return Math.round(num * 100) / 100;
 }
 
 function setError(err) {
@@ -16,199 +15,207 @@ function grpcCallback(err, resp, stringify) {
   }
   if (stringify === undefined || stringify) {
     try {
-      if (resp.toJavaScript) {
-        theData.res = JSON.stringify(resp.toJavaScript());
-      } else {
-        theData.res = JSON.stringify(resp.toObject());
-      }
-    } catch (e) {
+      theData.res = resp.toJavaScript ? JSON.stringify(resp.toJavaScript()) : JSON.stringify(resp.toObject());
+    } catch {
       setError(err);
     }
   }
 }
 
 function fixArmStatus(old) {
-  var newStatus = { pos_pieces : [], joint_pieces : [], is_moving: old["is_moving"] || false };
-  var fieldSetters = [
-    ["x", "X"],
-    ["y", "Y"],
-    ["z", "Z"],
-    ["theta", "Theta"],
-    ["o_x", "OX"],
-    ["o_y", "OY"],
-    ["o_z", "OZ"],
+  const newStatus = { pos_pieces : [], joint_pieces : [], is_moving: old['is_moving'] || false };
+  const fieldSetters = [
+    ['x', 'X'],
+    ['y', 'Y'],
+    ['z', 'Z'],
+    ['theta', 'Theta'],
+    ['o_x', 'OX'],
+    ['o_y', 'OY'],
+    ['o_z', 'OZ'],
   ];
-  for (var j=0; j<fieldSetters.length; j++ ){
-      let endPositionField = fieldSetters[j][0];
-      newStatus.pos_pieces.push(
-        { 
-          endPosition : fieldSetters[j],
-          endPositionValue : old["end_position"][endPositionField] || 0,
-        }
-      );
+  
+  for (const fieldSetter of fieldSetters) {
+    const endPositionField = fieldSetter[0];
+    newStatus.pos_pieces.push(
+      { 
+        endPosition : fieldSetters[j],
+        endPositionValue : old['end_position'][endPositionField] || 0,
+      }
+    );
   }
-  for (var j=0; j<old["joint_positions"]["degrees"].length; j++ ){
-      let endPositionField = fieldSetters[j][0];
-      newStatus.joint_pieces.push(
-        { 
-          joint : j,
-          jointValue : old["joint_positions"]["degrees"][j] || 0,
-        }
-      );
+
+  for (let j = 0; j < old['joint_positions']['degrees'].length; j++ ){
+    newStatus.joint_pieces.push(
+      { 
+        joint : j,
+        jointValue : old['joint_positions']['degrees'][j] || 0,
+      }
+    );
   }
+
   return newStatus;
 }
 
 function fixBoardStatus(old) {
-  var newStatus = {
-    analogsMap: old["analogs"] || [],
-    digitalInterruptsMap: old["digital_interrupts"] || [],
+  return {
+    analogsMap: old['analogs'] || [],
+    digitalInterruptsMap: old['digital_interrupts'] || [],
   };
-  return newStatus;
 }
 
 function fixGantryStatus(old) {
-  var newStatus = { parts: [], is_moving: old["is_moving"] || false};
-  if (old["lengths_mm"].length != old["positions_mm"].length) {
-    throw "gantry lists different lengths";
+  const newStatus = {
+    parts: [],
+    is_moving: old['is_moving'] || false,
+  };
+
+  if (old['lengths_mm'].length !== old['positions_mm'].length) {
+    throw 'gantry lists different lengths';
   }
 
-  for (var i = 0; i < old["lengths_mm"].length; i++) {
-    newStatus.parts.push({ axis: i, pos: old["positions_mm"][i], length: old["lengths_mm"][i] });
+  for (let i = 0; i < old['lengths_mm'].length; i++) {
+    newStatus.parts.push({ axis: i, pos: old['positions_mm'][i], length: old['lengths_mm'][i] });
   }
+
   return newStatus;
 }
 
 function fixInputStatus(old) {
-  let events = old["events"] || [];
-  let eventsList = events.map((e) => {
+  const events = old['events'] || [];
+  const eventsList = events.map((e) => {
     return {
-      time: e["time"] || {},
-      event: e["event"] || "",
-      control: e["control"] || "",
-      value: e["value"] || 0.0,
+      time: e['time'] || {},
+      event: e['event'] || '',
+      control: e['control'] || '',
+      value: e['value'] || 0,
     };
   });
-  return { eventsList: eventsList };
+  return { eventsList };
 }
 
 function fixMotorStatus(old) {
   return {
-    isPowered: old["is_powered"] || false,
-    positionReporting: old["position_reporting"] || false,
-    position: old["position"] || 0,
-    isMoving: old["is_moving"] || false,
+    isPowered: old['is_powered'] || false,
+    positionReporting: old['position_reporting'] || false,
+    position: old['position'] || 0,
+    isMoving: old['is_moving'] || false,
   };
 }
 
 function fixServoStatus(old) {
-  return { positionDeg: old["position_deg"] || 0, is_moving: old["is_moving"] || false };
+  return { positionDeg: old['position_deg'] || 0, is_moving: old['is_moving'] || false };
 }
 
 function fixRawStatus(name, status) {
   switch (theApp.resourceNameToSubtypeString(name)) {
     // TODO (APP-146): generate these using constants
-    case "rdk:component:arm":
-      status = fixArmStatus(status);
-      break;
-    case "rdk:component:board":
-      status = fixBoardStatus(status);
-      break;
-    case "rdk:component:gantry":
-      status = fixGantryStatus(status);
-      break;
-    case "rdk:component:input_controller":
-      status = fixInputStatus(status);
-      break;
-    case "rdk:component:motor":
-      status = fixMotorStatus(status);
-      break;
-    case "rdk:component:servo":
-      status = fixServoStatus(status);
-      break;
+    case 'rdk:component:arm':
+      return fixArmStatus(status);
+    case 'rdk:component:board':
+      return fixBoardStatus(status);
+    case 'rdk:component:gantry':
+      return fixGantryStatus(status);
+    case 'rdk:component:input_controller':
+      return fixInputStatus(status);
+    case 'rdk:component:motor':
+      return fixMotorStatus(status);
+    case 'rdk:component:servo':
+      return fixServoStatus(status);
   }
   return status;
 }
 
-async function updateStatus(grpcStatus) {
-  var rawStatus = {};
-  var status = {};
+function updateStatus(grpcStatus) {
+  const rawStatus = {};
+  const status = {};
 
-  grpcStatus.forEach((s) => {
-    let nameObj = s.getName().toObject();
-    let statusJs = s.getStatus().toJavaScript();
-    let fixed = fixRawStatus(nameObj, statusJs);
+  for (const s of grpcStatus) {
+    const nameObj = s.getName().toObject();
+    const statusJs = s.getStatus().toJavaScript();
+    const fixed = fixRawStatus(nameObj, statusJs);
 
-    let nameStr = theApp.resourceNameToString(nameObj);
+    const nameStr = theApp.resourceNameToString(nameObj);
     rawStatus[nameStr] = statusJs;
     status[nameStr] = fixed;
-  });
+  }
 
   theData.rawStatus = rawStatus;
   theData.status = status;
 }
 
 export default {
-  data: {
-    error: "",
-    res: {},
-    rawStatus: {},
-    status: {},
-    pcdClick: {},
-    sensorReadings: {},
-    resources: [],
-    sensorNames: [],
-    streamNames: [],
-    intervalId: null,
-    segmenterNames: [],
-    segmenterParameterNames: [],
-    segmenterParameters: {},
-    segmentAlgo: "",
-    fullcloud: null,
-    objects: null,
-    minPtsPlane: 10000,
-    minPtsSegment: 100,
-    clusterRad: 5,
-    armToggle: {},
-    mapOnce: false,
-    value: 0,
-    imuData: {},
-    currentOps: [],
-    setPin: "",
-    getPin: "",
-    locationValue: "40.745297,-74.010916",
-    imageMapTemp: "",
-    pcdMapTemp: null
+  directives: {
+    // TODO(APP-82): replace with vue component after naveed work done
+    mapMounted() {
+      if (theData.mapOnce) {
+        return;
+      }
+      theData.mapOnce = true;
+      initNavigation();
+    },
+  },
+  data() {
+    return {
+      error: '',
+      res: {},
+      rawStatus: {},
+      status: {},
+      pcdClick: {},
+      sensorReadings: {},
+      resources: [],
+      sensorNames: [],
+      streamNames: [],
+      intervalId: null,
+      segmenterNames: [],
+      segmenterParameterNames: [],
+      segmenterParameters: {},
+      segmentAlgo: '',
+      fullcloud: null,
+      objects: null,
+      minPtsPlane: 10_000,
+      minPtsSegment: 100,
+      clusterRad: 5,
+      armToggle: {},
+      mapOnce: false,
+      value: 0,
+      imuData: {},
+      currentOps: [],
+      setPin: '',
+      getPin: '',
+      locationValue: '40.745297,-74.010916',
+      imageMapTemp: '',
+      pcdMapTemp: null,
+    };
   },
   methods: {
-    parameterType: function (typeName) {
-      if (typeName == "int" || typeName == "float64") {
-        return "number";
-      } else if (typeName == "string" || typeName == "char") {
-        return "text";
+    parameterType(typeName) {
+      if (typeName === 'int' || typeName === 'float64') {
+        return 'number';
+      } else if (typeName === 'string' || typeName === 'char') {
+        return 'text';
       }
-      return "";
+      return '';
     },
-    getSegmenterNames: function () {
-      let req = new visionApi.GetSegmenterNamesRequest();
+    getSegmenterNames() {
+      const req = new visionApi.GetSegmenterNamesRequest();
       visionService.getSegmenterNames(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
-          console.log("error getting segmenter names");
+          console.log('error getting segmenter names');
           console.log(err);
           return;
         }
         theData.segmenterNames = resp.getSegmenterNamesList();
       });
     },
-    getSegmenterParameters: function (name) {
+    getSegmenterParameters(name) {
       this.segmentAlgo = name;
-      let req = new visionApi.GetSegmenterParametersRequest();
+      const req = new visionApi.GetSegmenterParametersRequest();
       req.setSegmenterName(name);
       visionService.getSegmenterParameters(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
-          console.log("error getting segmenter parameters for " + name);
+          console.log(`error getting segmenter parameters for ${ name}`);
           console.log(err);
           return;
         }
@@ -216,9 +223,9 @@ export default {
         theData.segmenterParameters = {};
       });
     },
-    filterResources: function (namespace, type, subtype) {
+    filterResources(namespace, type, subtype) {
       return theData.resources.filter((elem) => {
-        return elem.namespace == namespace && elem.type == type && elem.subtype == subtype;
+        return elem.namespace === namespace && elem.type === type && elem.subtype === subtype;
       }).sort((a, b) => {
         if (a.name < b.name) {
           return -1;
@@ -229,43 +236,43 @@ export default {
         return 0;
       });
     },
-    resourceNameToSubtypeString: function (name) {
+    resourceNameToSubtypeString(name) {
       return `${name.namespace}:${name.type}:${name.subtype}`;
     },
-    resourceNameToString: function (name) {
+    resourceNameToString(name) {
       strName = theApp.resourceNameToSubtypeString(name);
-      if (name.name !== "") {
+      if (name.name !== '') {
         strName += `/${name.name}`;
       }
       return strName;
     },
-    stringToResourceName: function (nameStr) {
-      let nameParts = nameStr.split("/");
-      let name = "";
+    stringToResourceName(nameStr) {
+      const nameParts = nameStr.split('/');
+      let name = '';
+
       if (nameParts.length === 2) {
         name = nameParts[1];
-      } else if (nameParts.length === 2) {
-        throw "more than one backslash in resource name string";
       }
-      let subtypeParts = nameParts[0].split(":");
+
+      const subtypeParts = nameParts[0].split(':');
       if (subtypeParts.length > 3) {
-        throw "more than 2 colons in resource name string";
+        throw 'more than 2 colons in resource name string';
       }
       if (subtypeParts.length < 3) {
-        throw "less than 2 colons in resource name string";
+        throw 'less than 2 colons in resource name string';
       }
-      return { namespace: subtypeParts[0], type: subtypeParts[1], subtype: subtypeParts[2], name: name };
+      return { namespace: subtypeParts[0], type: subtypeParts[1], subtype: subtypeParts[2], name };
     },
-    resourceStatusByName: function (name) {
+    resourceStatusByName(name) {
       return theData.status[theApp.resourceNameToString(name)];
     },
-    rawResourceStatusByName: function (name) {
+    rawResourceStatusByName(name) {
       return theData.rawStatus[theApp.resourceNameToString(name)];
     },
-    gantryInc: function (name, axis, amount) {
-      var g = theApp.resourceStatusByName(name);
-      var pos = [];
-      for (var i = 0; i < g.parts.length; i++) {
+    gantryInc(name, axis, amount) {
+      const g = theApp.resourceStatusByName(name);
+      const pos = [];
+      for (let i = 0; i < g.parts.length; i++) {
         pos[i] = g.parts[i].pos;
       }
       pos[axis] += amount;
@@ -275,42 +282,39 @@ export default {
       req.setPositionsMmList(pos);
       gantryService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
     },
-    armEndPositionInc: function (name, getterSetter, amount) {
-      if (getterSetter[0] == "o" || getterSetter[0] == "O") {
-        amount /= 100;
-      }
+    armEndPositionInc(name, getterSetter, amount) {
+      const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
       const arm = theApp.rawResourceStatusByName(name);
-      let old = arm["end_position"];
-      var newPose = new commonApi.Pose();
-      var fieldSetters = [
-        ["x", "X"],
-        ["y", "Y"],
-        ["z", "Z"],
-        ["theta", "Theta"],
-        ["o_x", "OX"],
-        ["o_y", "OY"],
-        ["o_z", "OZ"],
+      const old = arm['end_position'];
+      const newPose = new commonApi.Pose();
+      const fieldSetters = [
+        ['x', 'X'],
+        ['y', 'Y'],
+        ['z', 'Z'],
+        ['theta', 'Theta'],
+        ['o_x', 'OX'],
+        ['o_y', 'OY'],
+        ['o_z', 'OZ'],
       ];
-      for (var j = 0; j < fieldSetters.length; j++) {
-        let endPositionField = fieldSetters[j][0];
-        let endPositionValue = old[endPositionField] || 0;
-        const setter = `set${fieldSetters[j][1]}`;
+      for (const fieldSetter of fieldSetters) {
+        const endPositionField = fieldSetter[0];
+        const endPositionValue = old[endPositionField] || 0;
+        const setter = `set${fieldSetter[1]}`;
         newPose[setter](endPositionValue);
       }
 
       const getter = `get${getterSetter}`;
       const setter = `set${getterSetter}`;
-      newPose[setter](newPose[getter]() + amount);
+      newPose[setter](newPose[getter]() + adjustedAmount);
       const req = new armApi.MoveToPositionRequest();
       req.setName(name.name);
       req.setTo(newPose);
       armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
     },
-    armJointInc: function (name, field, amount) {
+    armJointInc(name, field, amount) {
       const arm = theApp.rawResourceStatusByName(name);
-      let old = arm["joint_positions"];
-      var newPositionDegs = new armApi.JointPositions();
-      var newList = arm["joint_positions"]["degrees"];
+      const newPositionDegs = new armApi.JointPositions();
+      const newList = arm['joint_positions']['degrees'];
       newList[field] += amount;
       newPositionDegs.setDegreesList(newList);
       const req = new armApi.MoveToJointPositionsRequest();
@@ -318,12 +322,11 @@ export default {
       req.setPositionDegs(newPositionDegs);
       armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
     },
-    armHome: function (name) {
+    armHome(name) {
       const arm = theApp.rawResourceStatusByName(name);
-      let old = arm["joint_positions"];
-      var newPositionDegs = new armApi.JointPositions();
-      var newList = arm["joint_positions"]["degrees"];
-      for (var i = 0; i < newList.length; i++) {
+      const newPositionDegs = new armApi.JointPositions();
+      const newList = arm['joint_positions']['degrees'];
+      for (let i = 0; i < newList.length; i++) {
         newList[i] = 0;
       }
       newPositionDegs.setDegreesList(newList);
@@ -332,17 +335,17 @@ export default {
       req.setPositionDegs(newPositionDegs);
       armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
     },
-    armModifyAll: function (name) {
+    armModifyAll(name) {
       const arm = theApp.resourceStatusByName(name);
-      var n = { pos_pieces: [], joint_pieces: [] };
-      for (var i = 0; i < arm.pos_pieces.length; i++) {
+      const n = { pos_pieces: [], joint_pieces: [] };
+      for (let i = 0; i < arm.pos_pieces.length; i++) {
         n.pos_pieces.push({
           endPosition: arm.pos_pieces[i].endPosition,
           endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
 
         });
       }
-      for (var i = 0; i < arm.joint_pieces.length; i++) {
+      for (let i = 0; i < arm.joint_pieces.length; i++) {
         n.joint_pieces.push({
           joint: arm.joint_pieces[i].joint,
           jointValue: roundTo2Decimals(arm.joint_pieces[i].jointValue),
@@ -350,17 +353,17 @@ export default {
       }
       theData.armToggle[name.name] = n;
     },
-    armModifyAllCancel: function (name) {
+    armModifyAllCancel(name) {
       delete theData.armToggle[name.name];
     },
-    armModifyAllDoEndPosition: function (name) {
-      var newPose = new commonApi.Pose();
-      var newPieces = theData.armToggle[name.name].pos_pieces;
+    armModifyAllDoEndPosition(name) {
+      const newPose = new commonApi.Pose();
+      const newPieces = theData.armToggle[name.name].pos_pieces;
 
-      for (var i = 0; i < newPieces.length; i++) {
-        var getterSetter = newPieces[i].endPosition[1];
+      for (const newPiece of newPieces) {
+        const getterSetter = newPiece.endPosition[1];
         const setter = `set${getterSetter}`;
-        newPose[setter](newPieces[i].endPositionValue);
+        newPose[setter](newPiece.endPositionValue);
       }
 
       const req = new armApi.MoveToPositionRequest();
@@ -369,12 +372,12 @@ export default {
       armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
       delete theData.armToggle[name.name];
     },
-    armModifyAllDoJoint: function (name) {
+    armModifyAllDoJoint(name) {
       const arm = theApp.rawResourceStatusByName(name);
-      var newPositionDegs = new armApi.JointPositions();
-      var newList = arm["joint_positions"]["degrees"];
-      var newPieces = theData.armToggle[name.name].joint_pieces;
-      for (var i = 0; i < newPieces.length && i < newList.length; i++) {
+      const newPositionDegs = new armApi.JointPositions();
+      const newList = arm['joint_positions']['degrees'];
+      const newPieces = theData.armToggle[name.name].joint_pieces;
+      for (let i = 0; i < newPieces.length && i < newList.length; i++) {
         newList[newPieces[i].joint] = newPieces[i].jointValue;
       }
 
@@ -386,100 +389,105 @@ export default {
       delete theData.armToggle[name.name];
     },
 
-    gripperAction: function (name, action) {
+    gripperAction(name, action) {
       let req;
       switch (action) {
-        case "open":
+        case 'open':
           req = new gripperApi.OpenRequest();
           req.setName(name);
           gripperService.open(req, {}, (err, resp) => grpcCallback(err, resp));
           break;
-        case "grab":
+        case 'grab':
           req = new gripperApi.GrabRequest();
           req.setName(name);
           gripperService.grab(req, {}, (err, resp) => grpcCallback(err, resp));
           break;
       }
     },
-    servoMove: function (name, amount) {
+    servoMove(name, amount) {
       const servo = theApp.rawResourceStatusByName(name);
-      var oldAngle = servo["position_deg"] || 0;
-      let angle = oldAngle + amount;
+      const oldAngle = servo['position_deg'] || 0;
+      const angle = oldAngle + amount;
       const req = new servoApi.MoveRequest();
       req.setName(name.name);
       req.setAngleDeg(angle);
       servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
     },
-    motorCommand: function (name, inputs) {
+    motorCommand(name, inputs) {
       switch (inputs.type) {
-        case "go":
+        case 'go':
           MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, (err, resp) => grpcCallback(err, resp));
           break;
-        case "goFor":
+        case 'goFor':
           MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, (err, resp) => grpcCallback(err, resp));
           break;
-        case "goTo":
+        case 'goTo':
           MotorControlHelper.goTo(name, inputs.rpm, inputs.position, (err, resp) => grpcCallback(err, resp));
           break;
       }
     },
-    motorStop: function(name) {
+    motorStop(name) {
       MotorControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
     },
-    hasWebGamepad: function () {
+    hasWebGamepad() {
       // TODO (APP-146): replace these with constants
-      return theData.resources.some((elem) => elem.namespace == "rdk" && elem.type == "component" && elem.subtype == "input_controller" && elem.name == "WebGamepad");
+      return theData.resources.some((elem) =>
+        elem.namespace === 'rdk' &&
+        elem.type === 'component' &&
+        elem.subtype === 'input_controller' &&
+        elem.name === 'WebGamepad'
+      );
     },
-    filteredInputControllerList: function () {
+    filteredInputControllerList() {
       // TODO (APP-146): replace these with constants
       // filters out WebGamepad
-      return theData.resources.filter((elem) => {
-        return elem.namespace == "rdk" && elem.type == "component" && elem.subtype == "input_controller" && elem.name !== "WebGamepad";
-      });
+      return theData.resources.filter((elem) =>
+        elem.namespace === 'rdk' &&
+        elem.type === 'component' &&
+        elem.subtype === 'input_controller' &&
+        elem.name !== 'WebGamepad'
+      );
     },
-    inputInject: function (req) {
+    inputInject(req) {
       inputControllerService.triggerEvent(req, {}, (err, resp) => grpcCallback(err, resp));
     },
-    killOp: function (id) {
-      var req = new robotApi.KillOperationRequest();
+    killOp(id) {
+      const req = new robotApi.KillOperationRequest();
       req.setId(id);
       robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
     },
     baseKeyboardCtl: function(name, controls) {
       if (Object.values(controls).every((item) => item === false)) {
-        console.log("All keyboard inputs false, stopping base.");
+        console.log('All keyboard inputs false, stopping base.');
         this.handleBaseActionStop(name);
         return;
       } 
 
       const inputs = window.computeKeyboardBaseControls(controls);
-      var linear = new commonApi.Vector3();
-      var angular = new commonApi.Vector3();
-      linear.setY(inputs.linear)
-      angular.setZ(inputs.angular)
-      BaseControlHelper.setPower(name,
-                                  linear,
-                                  angular,
-                                  (err, resp) => {
-                                    return grpcCallback(err, resp)
-            });
+      const linear = new commonApi.Vector3();
+      const angular = new commonApi.Vector3();
+      linear.setY(inputs.linear);
+      angular.setZ(inputs.angular);
+      BaseControlHelper.setPower(name, linear, angular, (err, resp) => {
+        return grpcCallback(err, resp);
+      });
     },
-    handleBaseActionStop: function(name) {
-      let req = new baseApi.StopRequest();
+    handleBaseActionStop(name) {
+      const req = new baseApi.StopRequest();
       req.setName(name);
       baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
     },
-    handleBaseSpin: function(name, event) {
-          BaseControlHelper.spin(name, 
-            event.angle * event.direction,
-            event.speed,
-            (err, resp) => {
-              return grpcCallback(err, resp)
-          });
+    handleBaseSpin(name, event) {
+      BaseControlHelper.spin(name, 
+        event.angle * event.direction,
+        event.speed,
+        (err, resp) => {
+          return grpcCallback(err, resp);
+      });
     },
-    handleBaseStraight: function(name, event) {
-      if (event.movementType === "Continuous") {
-        let linear = new commonApi.Vector3();
+    handleBaseStraight(name, event) {
+      if (event.movementType === 'Continuous') {
+        const linear = new commonApi.Vector3();
         linear.setY(event.speed * event.direction);
 
         BaseControlHelper.setVelocity(
@@ -487,46 +495,46 @@ export default {
           linear, // linear
           new commonApi.Vector3(), // angular
           (err, resp) => {
-            return grpcCallback(err, resp)
+            return grpcCallback(err, resp);
           });
       } else {
         BaseControlHelper.moveStraight(name,
           event.distance, 
           event.speed * event.direction, 
           (err, resp) => {
-            return grpcCallback(err, resp)
+            return grpcCallback(err, resp);
           });
       }
     },
-    renderFrame: function (cameraName) {
+    renderFrame(cameraName) {
       req = new cameraApi.RenderFrameRequest();
       req.setName(cameraName);
-      const mimeType = "image/jpeg";
+      const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
       cameraService.renderFrame(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
           return;
         }
-        let blob = new Blob([resp.getData_asU8()], { type: mimeType });
-        window.open(URL.createObjectURL(blob), "_blank");
+        const blob = new Blob([resp.getData_asU8()], { type: mimeType });
+        window.open(URL.createObjectURL(blob), '_blank');
       });
     },
-    viewCameraFrame: function (time) {
+    viewCameraFrame(time) {
         clearInterval(this.intervalId);
-        let cameraName = this.streamNames[0];
+        const cameraName = this.streamNames[0];
         if (time === 'manual' ) {
             this.viewManualFrame(cameraName);
         } else if (time === 'live') {
-            this.viewCamera(cameraName)
+            this.viewCamera(cameraName);
         } else {
             this.viewIntervalFrame(cameraName, time);
         }
     },
-    viewManualFrame: function (cameraName) {
+    viewManualFrame(cameraName) {
       req = new cameraApi.RenderFrameRequest();
       req.setName(cameraName);
-      const mimeType = "image/jpeg";
+      const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
       cameraService.renderFrame(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
@@ -534,23 +542,23 @@ export default {
           return;
         }
         const streamContainer = document.getElementById(`stream-${cameraName}`);
-        if (streamContainer && streamContainer.getElementsByTagName("video").length > 0) {
-            streamContainer.getElementsByTagName("video")[0].remove();
+        if (streamContainer && streamContainer.getElementsByTagName('video').length > 0) {
+            streamContainer.getElementsByTagName('video')[0].remove();
         }
-        if (streamContainer && streamContainer.getElementsByTagName("img").length > 0) {
-            streamContainer.getElementsByTagName("img")[0].remove();
+        if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
+            streamContainer.getElementsByTagName('img')[0].remove();
         }
         const image = new Image();
-        let blob = new Blob([resp.getData_asU8()], { type: mimeType });
+        const blob = new Blob([resp.getData_asU8()], { type: mimeType });
         image.src = URL.createObjectURL(blob);
-        streamContainer.appendChild(image);
+        streamContainer.append(image);
       });
     },
-    viewIntervalFrame: function (cameraName, time) {
+    viewIntervalFrame(cameraName, time) {
         this.intervalId = setInterval(() => {
           req = new cameraApi.RenderFrameRequest();
           req.setName(cameraName);
-          const mimeType = "image/jpeg";
+          const mimeType = 'image/jpeg';
           req.setMimeType(mimeType);
           cameraService.renderFrame(req, {}, (err, resp) => {
             grpcCallback(err, resp, false);
@@ -558,60 +566,60 @@ export default {
               return;
             }
             const streamContainer = document.getElementById(`stream-${cameraName}`);
-            if (streamContainer && streamContainer.getElementsByTagName("video").length > 0) {
-                streamContainer.getElementsByTagName("video")[0].remove();
+            if (streamContainer && streamContainer.getElementsByTagName('video').length > 0) {
+                streamContainer.getElementsByTagName('video')[0].remove();
             }
-            if (streamContainer && streamContainer.getElementsByTagName("img").length > 0) {
-                streamContainer.getElementsByTagName("img")[0].remove();
+            if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
+                streamContainer.getElementsByTagName('img')[0].remove();
             }
             const image = new Image();
-            let blob = new Blob([resp.getData_asU8()], { type: mimeType });
+            const blob = new Blob([resp.getData_asU8()], { type: mimeType });
             image.src = URL.createObjectURL(blob);
-            streamContainer.appendChild(image);
+            streamContainer.append(image);
           });
         }, +time * 1000);
     },
-    renderPCD: function (cameraName) {
-      this.$nextTick(function () {
-          theData.pcdClick.pcdloaded = false;
-          theData.pcdClick.foundSegments = false;
-          initPCDIfNeeded();
-          pcdGlobal.cameraName = cameraName;
+    renderPCD(cameraName) {
+      this.$nextTick(() => {
+        theData.pcdClick.pcdloaded = false;
+        theData.pcdClick.foundSegments = false;
+        initPCDIfNeeded();
+        pcdGlobal.cameraName = cameraName;
 
-          req = new cameraApi.GetPointCloudRequest();
-          req.setName(cameraName);
-          const mimeType = "pointcloud/pcd";
-          req.setMimeType(mimeType);
-          cameraService.getPointCloud(req, {}, (err, resp) => {
-            grpcCallback(err, resp, false);
-            if (err) {
-              return;
-            }
-            console.log("loading pcd");
-            theData.fullcloud = resp.getPointCloud_asB64();
-            pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
-          });
+        req = new cameraApi.GetPointCloudRequest();
+        req.setName(cameraName);
+        const mimeType = 'pointcloud/pcd';
+        req.setMimeType(mimeType);
+        cameraService.getPointCloud(req, {}, (err, resp) => {
+          grpcCallback(err, resp, false);
+          if (err) {
+            return;
+          }
+          console.log('loading pcd');
+          theData.fullcloud = resp.getPointCloud_asB64();
+          pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
+        });
       });
     },
-    viewSLAMImageMap: function () {
+    viewSLAMImageMap() {
       req = new slamApi.GetMapRequest();
-      req.setName("UI");
-      const mimeType = "image/jpeg";
+      req.setName('UI');
+      const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
       slamService.getMap(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
           return;
         }
-        console.log("loading image map");
-        let blob = new Blob([resp.getImage_asU8()], { type: mimeType });
+        console.log('loading image map');
+        const blob = new Blob([resp.getImage_asU8()], { type: mimeType });
         this.imageMapTemp = URL.createObjectURL(blob);
       });
     },
-    viewSLAMPCDMap: function () {
+    viewSLAMPCDMap() {
       req = new slamApi.GetMapRequest();
-      req.setName("UI");
-      const mimeType = "pointcloud/pcd";
+      req.setName('UI');
+      const mimeType = 'pointcloud/pcd';
       req.setMimeType(mimeType);
       initPCDIfNeeded();
       slamService.getMap(req, {}, (err, resp) => {
@@ -619,16 +627,16 @@ export default {
         if (err) {
           return;
         }
-        console.log("loading pcd map");
+        console.log('loading pcd map');
         pcObject = resp.getPointCloud();
         theData.fullcloud = pcObject.getPointCloud_asB64();
         pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
       });
     },
-    getReadings: function (sensorNames) {
-      var req = new sensorsApi.GetReadingsRequest();
-      let names = sensorNames.map((name) => {
-        let resourceName = new commonApi.ResourceName();
+    getReadings(sensorNames) {
+      const req = new sensorsApi.GetReadingsRequest();
+      const names = sensorNames.map((name) => {
+        const resourceName = new commonApi.ResourceName();
         resourceName.setNamespace(name.namespace);
         resourceName.setType(name.type);
         resourceName.setSubtype(name.subtype);
@@ -641,45 +649,42 @@ export default {
         if (err) {
           return;
         }
-        resp.getReadingsList().forEach((r) => {
-          let readings = r.getReadingsList().map((v) => v.toJavaScript());
+        for (const r of resp.getReadingsList()) {
+          const readings = r.getReadingsList().map((v) => v.toJavaScript());
           theData.sensorReadings[theApp.resourceNameToString(r.getName().toObject())] = readings;
-        });
+        }
       });
     },
     processFunctionResults: function (err, resp) {
       grpcCallback(err, resp, false);
       if (err) {
-        document.getElementById("function_results").value = `${err}`;
+        document.getElementById('function_results').value = `${err}`;
         return;
       }
-      var results = resp.getResultsList();
+      const results = resp.getResultsList();
 
-      let resultStr = "";
+      let resultStr = '';
       if (results.length > 0) {
-        resultStr += "Results: \n";
+        resultStr += 'Results: \n';
         for (let i = 0; i < results.length && i < results.length; i++) {
-          let result = results[i];
+          const result = results[i];
           resultStr += `${i}: ${JSON.stringify(result.toJavaScript())}\n`;
         }
       }
       resultStr += `StdOut: ${resp.getStdOut()}\n`;
       resultStr += `StdErr: ${resp.getStdErr()}\n`;
-      document.getElementById("function_results").value = resultStr;
+      document.getElementById('function_results').value = resultStr;
     },
-    nonEmpty: function (d) {
-      for (var k in d) {
-        return true;
-      }
-      return false;
+    nonEmpty(object) {
+      return Object.keys(object).length > 0;
     },
-    hasKey: function (d, key) {
+    hasKey(d, key) {
       if (!d) {
         return false;
       }
       if (Array.isArray(d)) {
-        for (let i = 0; i < d.length; i++) {
-          if (d[i] == key || (d[i].length && d[i].length >= 1 && d[i][0] == key)) {
+        for (const element of d) {
+          if (element === key || (element.length > 0 && element.length > 0 && element[0] === key)) {
             return true;
           }
         }
@@ -687,134 +692,134 @@ export default {
       }
       return d.hasOwn(key);
     },
-    grabClick: function (e) {
-      var mouse = new THREE.Vector2();
+    grabClick(e) {
+      const mouse = new THREE.Vector2();
       mouse.x = (e.offsetX / e.srcElement.offsetWidth) * 2 - 1;
       mouse.y = (e.offsetY / e.srcElement.offsetHeight) * -2 + 1;
 
       pcdGlobal.raycaster.setFromCamera(mouse, pcdGlobal.camera);
 
-      var intersects = pcdGlobal.raycaster.intersectObjects(pcdGlobal.scene.children);
-      var p = intersects.length > 0 ? intersects[0] : null;
+      const intersects = pcdGlobal.raycaster.intersectObjects(pcdGlobal.scene.children);
+      const p = intersects.length > 0 ? intersects[0] : null;
 
       if (p !== null) {
         console.log(p.point);
         setPoint(p.point);
       } else {
-        console.log("no point intersected");
+        console.log('no point intersected');
       }
     },
     doPCDMove: function () {
-      let gripperName = theApp.filterResources("rdk", "component", "gripper")[0];
-      let cameraName = pcdGlobal.cameraName;
-      let cameraPointX = theData.pcdClick.x;
-      let cameraPointY = theData.pcdClick.y;
-      let cameraPointZ = theData.pcdClick.z;
+      const gripperName = theApp.filterResources('rdk', 'component', 'gripper')[0];
+      const cameraName = pcdGlobal.cameraName;
+      const cameraPointX = theData.pcdClick.x;
+      const cameraPointY = theData.pcdClick.y;
+      const cameraPointZ = theData.pcdClick.z;
 
-      let req = new motionApi.MoveRequest();
-      let cameraPoint = new commonApi.Pose();
+      const req = new motionApi.MoveRequest();
+      const cameraPoint = new commonApi.Pose();
       cameraPoint.setX(cameraPointX);
       cameraPoint.setY(cameraPointY);
       cameraPoint.setZ(cameraPointZ);
 
-      var pose = new commonApi.PoseInFrame();
+      const pose = new commonApi.PoseInFrame();
       pose.setReferenceFrame(cameraName);
       pose.setPose(cameraPoint);
       req.setDestination(pose);
-      let componentName = new commonApi.ResourceName();
+      const componentName = new commonApi.ResourceName();
       componentName.setNamespace(gripperName.namespace);
       componentName.setType(gripperName.type);
       componentName.setSubtype(gripperName.subtype);
       componentName.setName(gripperName.name);
       req.setComponentName(componentName);
-      console.log("making move attempt using " + gripperName);
+      console.log(`making move attempt using ${ gripperName}`);
 
       motionService.move(req, {}, (err, resp) => {
         grpcCallback(err, resp);
         if (err) {
           return Promise.reject(err);
         }
-        return Promise.resolve(resp).then(console.log("move success: " + resp.getSuccess()));
+        return Promise.resolve(resp).then(console.log(`move success: ${ resp.getSuccess()}`));
       });
     },
     findSegments: function (segmenterName, segmenterParams) {
-      console.log("parameters for segmenter below:");
+      console.log('parameters for segmenter below:');
       console.log(segmenterParams);
       theData.pcdClick.calculatingSegments = true;
       theData.pcdClick.foundSegments = false;
-      let req = new visionApi.GetObjectPointCloudsRequest();
+      const req = new visionApi.GetObjectPointCloudsRequest();
       req.setCameraName(pcdGlobal.cameraName);
       req.setSegmenterName(segmenterName);
       req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
-      const mimeType = "pointcloud/pcd";
+      const mimeType = 'pointcloud/pcd';
       req.setMimeType(mimeType);
-      console.log("finding object segments...");
+      console.log('finding object segments...');
       visionService.getObjectPointClouds(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
-          console.log("error getting segments");
+          console.log('error getting segments');
           console.log(err);
           theData.pcdClick.calculatingSegments = false;
           return;
         }
-        console.log("got pcd segments");
+        console.log('got pcd segments');
         theData.pcdClick.foundSegments = true;
         theData.objects = resp.getObjectsList();
         theData.pcdClick.calculatingSegments = false;
       });
     },
     doSegmentLoad: function (i) {
-      var segment = theData.objects[i];
-      var data = segment.getPointCloud_asB64();
-      var center = segment.getGeometries().getGeometriesList()[0].getCenter();
-      var box = segment.getGeometries().getGeometriesList()[0].getBox();
-      var p = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
+      const segment = theData.objects[i];
+      const data = segment.getPointCloud_asB64();
+      const center = segment.getGeometries().getGeometriesList()[0].getCenter();
+      const box = segment.getGeometries().getGeometriesList()[0].getBox();
+      const p = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
       console.log(p);
       setPoint(p);
       setBoundingBox(box, p);
-      const mimeType = "pointcloud/pcd";
+      const mimeType = 'pointcloud/pcd';
       pcdLoad(`data:${mimeType};base64,${data}`);
     },
     doPointLoad: function (i) {
-      var segment = theData.objects[i];
-      var center = segment.getGeometries().getGeometriesList()[0].getCenter();
-      var p = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
+      const segment = theData.objects[i];
+      const center = segment.getGeometries().getGeometriesList()[0].getCenter();
+      const p = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
       console.log(p);
       setPoint(p);
     },
     doBoundingBoxLoad: function (i) {
-      var segment = theData.objects[i];
-      var center = segment.getGeometries().getGeometriesList()[0].getCenter();
-      var box = segment.getGeometries().getGeometriesList()[0].getBox();
-      var centerP = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
+      const segment = theData.objects[i];
+      const center = segment.getGeometries().getGeometriesList()[0].getCenter();
+      const box = segment.getGeometries().getGeometriesList()[0].getBox();
+      const centerP = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
       setBoundingBox(box, centerP);
     },
     doPCDLoad: function (data) {
-      const mimeType = "pointcloud/pcd";
+      const mimeType = 'pointcloud/pcd';
       pcdLoad(`data:${mimeType};base64,${data}`);
     },
     doCenterPCDLoad: function (data) {
-      const mimeType = "pointcloud/pcd";
+      const mimeType = 'pointcloud/pcd';
       pcdLoad(`data:${mimeType};base64,${data}`);
-      var p = { x: 0 / 1000, y: 0 / 1000, z: 0 / 1000 };
+      const p = { x: 0 / 1000, y: 0 / 1000, z: 0 / 1000 };
       console.log(p);
       setPoint(p);
     },
     doPCDDownload: function(data) {
-      const mimeType = "pointcloud/pcd";
+      const mimeType = 'pointcloud/pcd';
       window.open(`data:${mimeType};base64,${data}`);
     },
     doSelectObject: function (selection, index) {
         console.log(selection);
         console.log(index);
         switch (selection) {
-          case "Center Point":
+          case 'Center Point':
             this.doSegmentLoad(index);
             break;
-          case "Bounding Box":
+          case 'Bounding Box':
             this.doBoundingBoxLoad(index);
             break;
-          case "Cropped":
+          case 'Cropped':
             this.doPointLoad(index);
             break;
           default:
@@ -824,35 +829,35 @@ export default {
     setNavigationMode: function (mode) {
       let pbMode = navigationApi.Mode.MODE_UNSPECIFIED;
       switch (mode) {
-        case "manual":
+        case 'manual':
           pbMode = navigationApi.Mode.MODE_MANUAL;
           break;
-        case "waypoint":
+        case 'waypoint':
           pbMode = navigationApi.Mode.MODE_WAYPOINT;
           break;
       }
-      var req = new navigationApi.SetModeRequest();
+      const req = new navigationApi.SetModeRequest();
       req.setMode(pbMode);
       navigationService.setMode(req, {}, (err, resp) => grpcCallback(err, resp));
     },
     setNavigationLocation: function (elId) {
-      const posSplit = document.getElementById(elId).value.split(",");
-      if (posSplit.length != 2) {
+      const posSplit = document.getElementById(elId).value.split(',');
+      if (posSplit.length !== 2) {
         return;
       }
-      const lat = parseFloat(posSplit[0]);
-      const lng = parseFloat(posSplit[1]);
-      var req = new robotApi.ResourceRunCommandRequest();
-      let gpsName = "";
-      gpses = theApp.filterResources("rdk", "component", "gps");
+      const lat = Number.parseFloat(posSplit[0]);
+      const lng = Number.parseFloat(posSplit[1]);
+      const req = new robotApi.ResourceRunCommandRequest();
+      let gpsName = '';
+      gpses = theApp.filterResources('rdk', 'component', 'gps');
       if (gpses.length > 0) {
         gpsName = gpses[0].name;
       } else {
-        theData.error = "no gps device found";
+        theData.error = 'no gps device found';
         return;
       }
       req.setResourceName(gpsName);
-      req.setCommandName("set_location");
+      req.setCommandName('set_location');
       req.setArgs(
         proto.google.protobuf.Struct.fromJavaScript({
           latitude: lat,
@@ -866,30 +871,29 @@ export default {
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
       streamService.addStream(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false)
-        if (streamContainer && streamContainer.getElementsByTagName("img").length > 0) {
-            streamContainer.getElementsByTagName("img")[0].remove();
+        grpcCallback(err, resp, false);
+        if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
+            streamContainer.getElementsByTagName('img')[0].remove();
         }
         if (err) {
-          theData.error = "no live camera device found";
+          theData.error = 'no live camera device found';
           return;
         }
       });
     },
     viewPreviewCamera : function(name) {
-      const streamPreviewContainer = document.getElementById(`stream-preview-${name}`);
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
       streamService.addStream(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
-          theData.error = "no live camera device found";
+          theData.error = 'no live camera device found';
           return;
         }
       });
     },
     displayRadiansInDegrees: function (r) {
-      var d = r * 180;
+      let d = r * 180;
       while (d < 0) {
         d += 360;
       }
@@ -899,40 +903,33 @@ export default {
       return d.toFixed(1);
     },
     getGPIO: function (boardName) {
-      var pin = document.getElementById("get_pin_" + boardName).value;
+      const pin = document.getElementById(`get_pin_${ boardName}`).value;
       BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
         if (err) {
           console.log(err);
           return;
         }
-        var x = resp.toObject();
-        document.getElementById("get_pin_value_" + boardName).innerHTML = "Pin: " + pin + " is " + (x.high ? "high" : "low");
+        const x = resp.toObject();
+        document.getElementById(`get_pin_value_${ boardName}`).innerHTML = `Pin: ${ pin } is ${ x.high ? 'high' : 'low'}`;
       });
     },
     setGPIO: function (boardName) {
-      var pin = document.getElementById("set_pin_" + boardName).value;
-      var v = document.getElementById("set_pin_v_" + boardName).value;
-      BoardControlHelper.setGPIO(boardName, pin, v === "high", grpcCallback);
+      const pin = document.getElementById(`set_pin_${ boardName}`).value;
+      const v = document.getElementById(`set_pin_v_${ boardName}`).value;
+      BoardControlHelper.setGPIO(boardName, pin, v === 'high', grpcCallback);
+    },
+    isWebRtcEnabled() {
+      return window.webrtcEnabled;
     },
   },
-  directives: {
-    // TODO(APP-82): replace with vue component after naveed work done
-    mapMounted(el) {
-      if (theData.mapOnce) {
-        return;
-      }
-      theData.mapOnce = true;
-      initNavigation();
-    },
-  },
-}
+};
 
-const relevantSubtypesForStatus = ["arm", "gantry", "board", "servo", "motor", "input_controller"];
+const relevantSubtypesForStatus = ['arm', 'gantry', 'board', 'servo', 'motor', 'input_controller'];
 
-const loadCurrentOps = async function () {
-  var req = new robotApi.GetOperationsRequest();
+const loadCurrentOps = function () {
+  const req = new robotApi.GetOperationsRequest();
   robotService.getOperations(req, {}, (err, resp) => {
-    var lst = resp.toObject().operationsList;
+    const lst = resp.toObject().operationsList;
     theData.currentOps = lst;
   });
   setTimeout(loadCurrentOps, 500);
@@ -942,13 +939,13 @@ const loadCurrentOps = async function () {
 const queryMetadata = async function () {
   let pResolve;
   let pReject;
-  let p = new Promise((resolve, reject) => {
+  const p = new Promise((resolve, reject) => {
     pResolve = resolve;
     pReject = reject;
   });
   let resourcesChanged = false;
   let shouldRestartStatusStream = false;
-  robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, function (err, resp) {
+  robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, (err, resp) => {
     grpcCallback(err, resp, false);
     if (err) {
       pReject(err);
@@ -957,9 +954,9 @@ const queryMetadata = async function () {
     resources = resp.toObject().resourcesList;
 
     // if resource list has changed, flag that
-    let differences = new Set(theData.resources.map((name) => theApp.resourceNameToString(name)));
-    let resourceSet = new Set(resources.map((name) => theApp.resourceNameToString(name)));
-    for (let elem of resourceSet) {
+    const differences = new Set(theData.resources.map((name) => theApp.resourceNameToString(name)));
+    const resourceSet = new Set(resources.map((name) => theApp.resourceNameToString(name)));
+    for (const elem of resourceSet) {
       if (differences.has(elem)) {
         differences.delete(elem);
       } else {
@@ -970,9 +967,9 @@ const queryMetadata = async function () {
       resourcesChanged = true;
 
       // restart status stream if resource difference includes a resource we care about
-      for (let elem of differences) {
-        let name = theApp.stringToResourceName(elem);
-        if (name.namespace == "rdk" && name.type == "component" && relevantSubtypesForStatus.includes(name.subtype)) {
+      for (const elem of differences) {
+        const name = theApp.stringToResourceName(elem);
+        if (name.namespace === 'rdk' && name.type === 'component' && relevantSubtypesForStatus.includes(name.subtype)) {
           shouldRestartStatusStream = true;
           break;
         }
@@ -994,14 +991,14 @@ const queryMetadata = async function () {
   setTimeout(() => queryMetadata(), 500);
 };
 
-const querySensors = async function () {
+const querySensors = function () {
   let pResolve;
   let pReject;
   p = new Promise((resolve, reject) => {
     pResolve = resolve;
     pReject = reject;
   });
-  sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, function (err, resp) {
+  sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, (err, resp) => {
     grpcCallback(err, resp, false);
     if (err) {
       pReject(err);
@@ -1015,17 +1012,17 @@ const querySensors = async function () {
 const queryStreams = async function () {
   let pResolve;
   let pReject;
-  let p = new Promise((resolve, reject) => {
+  const p = new Promise((resolve, reject) => {
     pResolve = resolve;
     pReject = reject;
   });
-  streamService.listStreams(new streamApi.ListStreamsRequest(), {}, function (err, resp) {
+  streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
     grpcCallback(err, resp, false);
     if (err) {
       pReject(err);
       return;
     }
-    let streamNames = resp.toObject().namesList;
+    const streamNames = resp.toObject().namesList;
     theData.streamNames = streamNames;
     pResolve(null);
   });
@@ -1048,18 +1045,18 @@ const restartStatusStream = async function () {
   if (statusStream) {
     statusStream.cancel();
     try {
-      console.log("reconnecting");
+      console.log('reconnecting');
       await window.connect();
-    } catch (e) {
-      console.error("failed to reconnect; retrying:", e);
+    } catch (error) {
+      console.error('failed to reconnect; retrying:', error);
       setTimeout(() => restartStatusStream(), 1000);
     }
   }
   let resourceNames = [];
   // get all relevant resource names
-  relevantSubtypesForStatus.forEach((subtype) => (resourceNames = resourceNames.concat(theApp.filterResources("rdk", "component", subtype))));
-  let names = resourceNames.map((name) => {
-    let resourceName = new commonApi.ResourceName();
+  for (const subtype of relevantSubtypesForStatus) (resourceNames = resourceNames.concat(theApp.filterResources('rdk', 'component', subtype)));
+  const names = resourceNames.map((name) => {
+    const resourceName = new commonApi.ResourceName();
     resourceName.setNamespace(name.namespace);
     resourceName.setType(name.type);
     resourceName.setSubtype(name.subtype);
@@ -1068,10 +1065,10 @@ const restartStatusStream = async function () {
   });
   const streamReq = new robotApi.StreamStatusRequest();
   streamReq.setResourceNamesList(names);
-  streamReq.setEvery(new proto.google.protobuf.Duration().setNanos(500000000)); // 500ms
+  streamReq.setEvery(new proto.google.protobuf.Duration().setNanos(500_000_000)); // 500ms
   statusStream = robotService.streamStatus(streamReq);
   let firstData = true;
-  statusStream.on("data", function (response) {
+  statusStream.on('data', (response) => {
     lastStatusTS = Date.now();
     updateStatus(response.getStatusList());
     if (firstData) {
@@ -1079,13 +1076,13 @@ const restartStatusStream = async function () {
       checkLastStatus();
     }
   });
-  statusStream.on("status", function (status) {
-    console.log("error streaming robot status");
+  statusStream.on('status', (status) => {
+    console.log('error streaming robot status');
     console.log(status);
-    console.log(status.code, " ", status.details);
+    console.log(status.code, ' ', status.details);
   });
-  statusStream.on("end", function (end) {
-    console.log("done streaming robot status");
+  statusStream.on('end', () => {
+    console.log('done streaming robot status');
     setTimeout(() => restartStatusStream(), 1000);
   });
 };
@@ -1102,10 +1099,10 @@ function initPCDIfNeeded() {
     return;
   }
   theData.pcdClick.enable = true;
-  console.log("initing pcd");
+  console.log('initing pcd');
 
   const sphereGeometry = new THREE.SphereGeometry(0.009, 32, 32);
-  const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xFF_00_00 });
 
   pcdGlobal = {
     scene: new THREE.Scene(),
@@ -1116,7 +1113,7 @@ function initPCDIfNeeded() {
   };
 
   pcdGlobal.renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
-  document.getElementById("pcd").appendChild(pcdGlobal.renderer.domElement);
+  document.getElementById('pcd').append(pcdGlobal.renderer.domElement);
 
   pcdGlobal.controls = new orbitLib.OrbitControls(pcdGlobal.camera, pcdGlobal.renderer.domElement);
   pcdGlobal.camera.position.set(0, 0, 0);
@@ -1124,7 +1121,7 @@ function initPCDIfNeeded() {
   pcdGlobal.controls.update();
   pcdGlobal.camera.updateMatrix();
 
-  console.log("pcd init done");
+  console.log('pcd init done');
 }
 
 function resizeRendererToDisplaySize(renderer) {
@@ -1150,12 +1147,12 @@ function pcdAnimate() {
 }
 
 function pcdLoad(path) {
-  var loader = new pcdLib.PCDLoader();
+  const loader = new pcdLib.PCDLoader();
   loader.load(
     path,
 
     // called when the resource is loaded
-    function (mesh) {
+    (mesh) => {
       pcdGlobal.scene.clear();
       pcdGlobal.scene.add(mesh);
       pcdGlobal.scene.add(pcdGlobal.sphere);
@@ -1165,11 +1162,11 @@ function pcdLoad(path) {
       pcdAnimate();
     },
     // called when loading is in progresses
-    function (xhr) {
+    () => {
       //console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
     },
     // called when loading has errors
-    function (error) {
+    (error) => {
       console.log(error);
     }
   );
@@ -1190,24 +1187,24 @@ function setPoint(point) {
 function setBoundingBox(box, centerPoint) {
   const geometry = new THREE.BoxGeometry(box.getWidthMm() / 1000, box.getLengthMm() / 1000, box.getDepthMm() / 1000);
   const edges = new THREE.EdgesGeometry(geometry);
-  const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+  const material = new THREE.LineBasicMaterial({ color: 0xFF_00_00 });
   const cube = new THREE.LineSegments(edges, material);
   cube.position.copy(centerPoint);
-  cube.name = "bounding-box";
-  pcdGlobal.scene.remove(pcdGlobal.scene.getObjectByName("bounding-box"));
+  cube.name = 'bounding-box';
+  pcdGlobal.scene.remove(pcdGlobal.scene.getObjectByName('bounding-box'));
   pcdGlobal.cube = cube;
   pcdGlobal.scene.add(cube);
 }
 
 async function doConnect(authEntity, creds, onError) {
-  console.debug("connecting");
-  const alertError = document.getElementById("connecting-error");
-  alertError.innerHTML = "";
-  document.getElementById("connecting").classList.remove("hidden");
+  console.debug('connecting');
+  const alertError = document.getElementById('connecting-error');
+  alertError.innerHTML = '';
+  document.getElementById('connecting').classList.remove('hidden');
   try {
     await window.connect(authEntity, creds);
-  } catch (e) {
-    const msg = `failed to connect: ${e}`;
+  } catch (error) {
+    const msg = `failed to connect: ${error}`;
     console.error(msg);
     alertError.classList.remove('hidden').innerHTML = msg;
     if (onError) {
@@ -1215,13 +1212,13 @@ async function doConnect(authEntity, creds, onError) {
     }
     return;
   }
-  console.debug("connected");
-  document.getElementById("pre-app").classList.add("hidden");
+  console.debug('connected');
+  document.getElementById('pre-app').classList.add('hidden');
   await startup();
 }
 
-async function waitForClientAndStart() {
-  if (window.supportedAuthTypes.length == 0) {
+function waitForClientAndStart() {
+  if (window.supportedAuthTypes.length === 0) {
     doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, waitForClientAndStart);
     return;
   }
@@ -1239,17 +1236,17 @@ async function waitForClientAndStart() {
   };
   for (authType of window.supportedAuthTypes) {
     const authDiv = document.getElementById(`auth-${authType}`);
-    const input = authDiv.getElementsByTagName("input")[0];
-    const button = authDiv.getElementsByTagName("button")[0];
+    const input = authDiv.getElementsByTagName('input')[0];
+    const button = authDiv.getElementsByTagName('button')[0];
     authElems.push(input, button);
     const doLogin = () => {
       disableAll();
       const creds = { type: authType, payload: input.value };
-      doConnect("", creds, "", "", () => enableAll());
+      doConnect('', creds, '', '', () => enableAll());
     };
-    button.addEventListener("click", () => doLogin());
-    input.addEventListener("keyup", (event) => {
-      if (event.keyCode !== 13) {
+    button.addEventListener('click', () => doLogin());
+    input.addEventListener('keyup', (event) => {
+      if (event.key.toLowerCase() !== 'enter') {
         return;
       }
       doLogin();
@@ -1259,10 +1256,10 @@ async function waitForClientAndStart() {
 
 async function initNavigation() {
   await mapReady;
-  window.map = new google.maps.Map(document.getElementById("map"), { zoom: 18 });
-  window.map.addListener("click", (e) => {
-    var req = new navigationApi.AddWaypointRequest();
-    var point = new commonApi.GeoPoint();
+  window.map = new google.maps.Map(document.getElementById('map'), { zoom: 18 });
+  window.map.addListener('click', (e) => {
+    const req = new navigationApi.AddWaypointRequest();
+    const point = new commonApi.GeoPoint();
     point.setLatitude(e.latLng.lat());
     point.setLongitude(e.latLng.lng());
     req.setLocation(point);
@@ -1273,7 +1270,7 @@ async function initNavigation() {
   const knownWaypoints = {};
   let localLabelCounter = 0;
   const updateWaypoints = function () {
-    var req = new navigationApi.GetWaypointsRequest();
+    const req = new navigationApi.GetWaypointsRequest();
     navigationService.getWaypoints(req, {}, (err, resp) => {
       grpcCallback(err, resp, false);
       if (err) {
@@ -1286,8 +1283,7 @@ async function initNavigation() {
         waypoints = resp.getWaypointsList();
       }
       const currentWaypoints = {};
-      for (var i = 0; i < waypoints.length; i++) {
-        const waypoint = waypoints[i];
+      for (const waypoint of waypoints) {
         const pos = { lat: waypoint.getLocation().getLatitude(), lng: waypoint.getLocation().getLongitude() };
         const posStr = JSON.stringify(pos);
         if (knownWaypoints[posStr]) {
@@ -1301,11 +1297,11 @@ async function initNavigation() {
         });
         currentWaypoints[posStr] = marker;
         knownWaypoints[posStr] = marker;
-        marker.addListener("click", () => {
-          console.log("clicked on marker", pos);
+        marker.addListener('click', () => {
+          console.log('clicked on marker', pos);
         });
-        marker.addListener("dblclick", () => {
-          var req = new navigationApi.RemoveWaypointRequest();
+        marker.addListener('dblclick', () => {
+          const req = new navigationApi.RemoveWaypointRequest();
           req.setId(waypoint.getId());
           navigationService.removeWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
         });
@@ -1323,9 +1319,9 @@ async function initNavigation() {
   };
   updateWaypoints();
 
-  const locationMarker = new google.maps.Marker({ label: "robot" });
+  const locationMarker = new google.maps.Marker({ label: 'robot' });
   const updateLocation = function () {
-    var req = new navigationApi.GetLocationRequest();
+    const req = new navigationApi.GetLocationRequest();
     navigationService.getLocation(req, {}, (err, resp) => {
       grpcCallback(err, resp, false);
       if (err) {
@@ -1346,26 +1342,24 @@ async function initNavigation() {
   updateLocation();
 }
 
-function initMap() {
-  mapReadyResolve();
-}
+window.initMap = () => mapReadyResolve();
 
 let mapReadyResolve;
-let mapReady = new Promise((resolve) => {
+const mapReady = new Promise((resolve) => {
   mapReadyResolve = resolve;
 });
 
 function imuRefresh() {
-  if (window.theApp) {
-    var all = theApp.filterResources("rdk", "component", "imu");
-    all.forEach(function (x) {
-      var name = x.name;
+  const all = theApp.filterResources('rdk', 'component', 'imu');
+  for (const x of all) {
+    const name = x.name;
 
-      if (!theData.imuData[name]) {
-        theData.imuData[name] = {};
-      }
+    if (!theData.imuData[name]) {
+      theData.imuData[name] = {};
+    }
 
-      var req = new imuApi.ReadOrientationRequest();
+    {
+      const req = new imuApi.ReadOrientationRequest();
       req.setName(name);
 
       imuService.readOrientation(req, {}, (err, resp) => {
@@ -1375,8 +1369,10 @@ function imuRefresh() {
         }
         theData.imuData[name].orientation = resp.toObject().orientation;
       });
+    }
 
-      var req = new imuApi.ReadAngularVelocityRequest();
+    {
+      const req = new imuApi.ReadAngularVelocityRequest();
       req.setName(name);
 
       imuService.readAngularVelocity(req, {}, (err, resp) => {
@@ -1386,8 +1382,10 @@ function imuRefresh() {
         }
         theData.imuData[name].angularVelocity = resp.toObject().angularVelocity;
       });
+    }
 
-      var req = new imuApi.ReadAccelerationRequest();
+    {
+      const req = new imuApi.ReadAccelerationRequest();
       req.setName(name);
 
       imuService.readAcceleration(req, {}, (err, resp) => {
@@ -1397,8 +1395,10 @@ function imuRefresh() {
         }
         theData.imuData[name].acceleration = resp.toObject().acceleration;
       });
+    }
 
-      var req = new imuApi.ReadMagnetometerRequest();
+    {
+      const req = new imuApi.ReadMagnetometerRequest();
       req.setName(name);
 
       imuService.readMagnetometer(req, {}, (err, resp) => {
@@ -1408,17 +1408,15 @@ function imuRefresh() {
         }
         theData.imuData[name].magnetometer = resp.toObject().magnetometer;
       });
-    });
+    }
   }
+
   setTimeout(imuRefresh, 500);
 }
 
-const isWebRtcEnabled = () => {
-  return window.webrtcEnabled
-}
 
 imuRefresh();
-waitForClientAndStart()
+waitForClientAndStart();
 
 </script>
 
@@ -1434,16 +1432,26 @@ waitForClientAndStart()
       id="connecting"
       class="hidden border-l-4 border-greendark bg-gray-100 px-4 py-3"
     >
-      Connecting via <template v-if="isWebRtcEnabled()">WebRTC</template><template v-else>gRPC</template>...
+      Connecting via <template v-if="isWebRtcEnabled()">
+        WebRTC
+      </template><template v-else>
+        gRPC
+      </template>...
     </div>
 
-    <template v-for="authType in supportedAuthTypes" :key="authType">
+    <template
+      v-for="authType in supportedAuthTypes"
+      :key="authType"
+    >
       <span>{{ authType }}: </span>
-      <div :id="`auth-${authType}`" class="w-96">
+      <div
+        :id="`auth-${authType}`"
+        class="w-96"
+      >
         <input
           class="mb-2 appearance-none block w-full border text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition-colors duration-150 ease-in-out p-2"
           type="password"
-        />
+        >
         <button
           class="relative leading-tight font-button transition-colors duration-150 focus:outline-none shadow-sm text-black border border-black bg-primary hover:border-black hover:bg-gray-200 focus:bg-gray-400 active:bg-gray-400 cursor-pointer px-5 py-2"
         >
@@ -1455,11 +1463,17 @@ waitForClientAndStart()
   
   <div>
     <div class="p-2">
-      <div style="color: red;">{{ error }}</div>
+      <div style="color: red;">
+        {{ error }}
+      </div>
 
       <!-- ******* BASE *******  -->
-      <div class="base pb-8" v-for="base in filterResources('rdk', 'component', 'base')" :key="base.name">
-        <div v-if="!streamNames.length">
+      <div
+        v-for="base in filterResources('rdk', 'component', 'base')"
+        :key="base.name"
+        class="base pb-8"
+      >
+        <div v-if="streamNames.length === 0">
           <div class="camera">
             <viam-base
               :base-name="base.name"
@@ -1473,7 +1487,11 @@ waitForClientAndStart()
           </div>
         </div>
         <div v-else>
-          <div class="camera" v-for="streamName in streamNames" :key="streamName">
+          <div
+            v-for="streamName in streamNames"
+            :key="streamName"
+            class="camera"
+          >
             <viam-base
               :base-name="base.name"
               :stream-name="streamName"
@@ -1492,35 +1510,75 @@ waitForClientAndStart()
       <!-- ******* GANTRY *******  -->
       <div
         v-for="gantry in filterResources('rdk', 'component', 'gantry')"
-        :key="gantry.name"
         v-if="resourceStatusByName(gantry)"
+        :key="gantry.name"
         class="pb-8"
       >
         <Collapse>
           <div class="flex">
-            <h2 class="p-4 text-xl">Gantry {{ gantry.name }}</h2>
+            <h2 class="p-4 text-xl">
+              Gantry {{ gantry.name }}
+            </h2>
           </div>
-          <template v-slot:content>
+          <template #content>
             <div class="border border-black border-t-0 p-4">
               <table class="border border-black border-t-0 p-4">
                 <thead>
                   <tr>
-                    <th class="border border-black p-2">axis</th>
-                    <th class="border border-black p-2" colspan="2">position</th>
-                    <th class="border border-black p-2">length</th>
+                    <th class="border border-black p-2">
+                      axis
+                    </th>
+                    <th
+                      class="border border-black p-2"
+                      colspan="2"
+                    >
+                      position
+                    </th>
+                    <th class="border border-black p-2">
+                      length
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="pp in resourceStatusByName(gantry).parts" :key="pp.axis">
-                    <th class="border border-black p-2">{{ pp.axis }}</th>
+                  <tr
+                    v-for="pp in resourceStatusByName(gantry).parts"
+                    :key="pp.axis"
+                  >
+                    <th class="border border-black p-2">
+                      {{ pp.axis }}
+                    </th>
                     <td class="border border-black p-2">
-                      <viam-button group v-on:click="gantryInc( gantry, pp.axis, -10 )">--</viam-button>
-                      <viam-button group v-on:click="gantryInc( gantry, pp.axis, -1 )">-</viam-button>
-                      <viam-button group v-on:click="gantryInc( gantry, pp.axis, 1 )">+</viam-button>
-                      <viam-button group v-on:click="gantryInc( gantry, pp.axis, 10 )">++</viam-button>
+                      <viam-button
+                        group
+                        @click="gantryInc( gantry, pp.axis, -10 )"
+                      >
+                        --
+                      </viam-button>
+                      <viam-button
+                        group
+                        @click="gantryInc( gantry, pp.axis, -1 )"
+                      >
+                        -
+                      </viam-button>
+                      <viam-button
+                        group
+                        @click="gantryInc( gantry, pp.axis, 1 )"
+                      >
+                        +
+                      </viam-button>
+                      <viam-button
+                        group
+                        @click="gantryInc( gantry, pp.axis, 10 )"
+                      >
+                        ++
+                      </viam-button>
                     </td>
-                    <td class="border border-black p-2">{{ pp.pos.toFixed(2) }}</td>
-                    <td class="border border-black p-2">{{ pp.length }}</td>
+                    <td class="border border-black p-2">
+                      {{ pp.pos.toFixed(2) }}
+                    </td>
+                    <td class="border border-black p-2">
+                      {{ pp.length }}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -1530,82 +1588,144 @@ waitForClientAndStart()
       </div>
 
       <!-- ******* IMU *******  -->
-      <div class="pb-8" v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()" :key="imu[1].name">
+      <div
+        v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()"
+        :key="imu[1].name"
+        class="pb-8"
+      >
         <Collapse>
           <div class="flex">
-            <h2 class="p-4 text-xl">IMU: {{ imu[1].name }}</h2>
+            <h2 class="p-4 text-xl">
+              IMU: {{ imu[1].name }}
+            </h2>
           </div>
-          <template v-slot:content>
+          <template #content>
             <div class="flex border border-black border-t-0 p-4">
               <template v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
                 <div class="w-1/4 mr-4">
-                  <h3 class="mb-1">Orientation (degrees)</h3>
+                  <h3 class="mb-1">
+                    Orientation (degrees)
+                  </h3>
                   <table class="w-full border border-black border-t-0 p-4">
                     <tr>
-                      <th class="border border-black p-2">Roll</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].orientation.rollDeg.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        Roll
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].orientation.rollDeg.toFixed(2) }}
+                      </td>
                     </tr>
                     <tr>
-                      <th class="border border-black p-2">Pitch</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].orientation.pitchDeg.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        Pitch
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].orientation.pitchDeg.toFixed(2) }}
+                      </td>
                     </tr>
                     <tr>
-                      <th class="border border-black p-2">Yaw</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].orientation.yawDeg.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        Yaw
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].orientation.yawDeg.toFixed(2) }}
+                      </td>
                     </tr>
                   </table>
                 </div>
                 
                 <div class="w-1/4 mr-4">
-                  <h3 class="mb-1">Angular Velocity (degrees/second)</h3>
+                  <h3 class="mb-1">
+                    Angular Velocity (degrees/second)
+                  </h3>
                   <table class="w-full border border-black border-t-0 p-4">
                     <tr>
-                      <th class="border border-black p-2">X</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        X
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2) }}
+                      </td>
                     </tr>
                     <tr>
-                      <th class="border border-black p-2">Y</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        Y
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2) }}
+                      </td>
                     </tr>
                     <tr>
-                      <th class="border border-black p-2">Z</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        Z
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2) }}
+                      </td>
                     </tr>
                   </table>
                 </div>
                 
                 <div class="w-1/4 mr-4">
-                  <h3 class="mb-1">Acceleration (mm/second/second)</h3>
+                  <h3 class="mb-1">
+                    Acceleration (mm/second/second)
+                  </h3>
                   <table class="w-full border border-black border-t-0 p-4">
                     <tr>
-                      <th class="border border-black p-2">X</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        X
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2) }}
+                      </td>
                     </tr>
                     <tr>
-                      <th class="border border-black p-2">Y</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        Y
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2) }}
+                      </td>
                     </tr>
                     <tr>
-                      <th class="border border-black p-2">Z</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        Z
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2) }}
+                      </td>
                     </tr>
                   </table>
                 </div>
                 
                 <div class="w-1/4">
-                  <h3 class="mb-1">Magnetometer (gauss)</h3>
+                  <h3 class="mb-1">
+                    Magnetometer (gauss)
+                  </h3>
                   <table class="w-full border border-black border-t-0 p-4">
                     <tr>
-                      <th class="border border-black p-2">X</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].magnetometer.xGauss.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        X
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].magnetometer.xGauss.toFixed(2) }}
+                      </td>
                     </tr>
                     <tr>
-                      <th class="border border-black p-2">Y</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].magnetometer.yGauss.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        Y
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].magnetometer.yGauss.toFixed(2) }}
+                      </td>
                     </tr>
                     <tr>
-                      <th class="border border-black p-2">Z</th>
-                      <td class="border border-black p-2">{{ imuData[imu[1].name].magnetometer.zGauss.toFixed(2) }}</td>
+                      <th class="border border-black p-2">
+                        Z
+                      </th>
+                      <td class="border border-black p-2">
+                        {{ imuData[imu[1].name].magnetometer.zGauss.toFixed(2) }}
+                      </td>
                     </tr>
                   </table>
                 </div>
@@ -1616,90 +1736,183 @@ waitForClientAndStart()
       </div>
 
       <!-- ******* ARM *******  -->
-      <div class="pb-8" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
+      <div
+        v-for="arm in filterResources('rdk', 'component', 'arm')"
+        :key="arm.name"
+        class="pb-8"
+      >
         <Collapse>
           <div class="flex">
-            <h2 class="p-4 text-xl">Arm {{ arm.name }}</h2>
+            <h2 class="p-4 text-xl">
+              Arm {{ arm.name }}
+            </h2>
           </div>
-          <template v-slot:content>
+          <template #content>
             <div class="border border-black border-t-0 p-4">
               <div class="flex mb-2">
-                <div class="border border-black p-4 w-1/2 mr-4" v-if="armToggle[arm.name]">
-                  <h3 class="mb-2">END POSITION (mms)</h3>
+                <div
+                  v-if="armToggle[arm.name]"
+                  class="border border-black p-4 w-1/2 mr-4"
+                >
+                  <h3 class="mb-2">
+                    END POSITION (mms)
+                  </h3>
                   <div class="grid grid-cols-2 gap-1 pb-1">
-                    <template v-for="cc in armToggle[arm.name].pos_pieces" :key="cc.endPosition[0]">
+                    <template
+                      v-for="cc in armToggle[arm.name].pos_pieces"
+                      :key="cc.endPosition[0]"
+                    >
                       <label class="pr-2 py-1 text-right">{{ cc.endPosition[1] }}</label>
-                      <input class="border border-black py-1 px-4" v-model="cc.endPositionValue">
+                      <input
+                        v-model="cc.endPositionValue"
+                        class="border border-black py-1 px-4"
+                      >
                     </template>
                   </div>
                   <div class="flex mt-2">
                     <div>
-                      <viam-button class="mr-4 whitespace-nowrap" v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</viam-button>
+                      <viam-button
+                        class="mr-4 whitespace-nowrap"
+                        @click="armModifyAllDoEndPosition(arm)"
+                      >
+                        Go To End Position
+                      </viam-button>
                     </div>
                     <div class="flex-auto text-right">
-                      <viam-button v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
+                      <viam-button @click="armModifyAllCancel(arm)">
+                        Cancel
+                      </viam-button>
                     </div>
                   </div>
                 </div>
-                <div class="border border-black p-4 w-1/2" v-if="armToggle[arm.name]">
-                  <h3 class="mb-2">JOINTS (degrees)</h3>
+                <div
+                  v-if="armToggle[arm.name]"
+                  class="border border-black p-4 w-1/2"
+                >
+                  <h3 class="mb-2">
+                    JOINTS (degrees)
+                  </h3>
                   <div class="grid grid-cols-2 gap-1 pb-1">
-                    <template v-for="bb in armToggle[arm.name].joint_pieces" :key="bb.joint">
+                    <template
+                      v-for="bb in armToggle[arm.name].joint_pieces"
+                      :key="bb.joint"
+                    >
                       <label class="pr-2 py-1 text-right">Joint {{ bb.joint }}</label>
-                      <input class="border border-black py-1 px-4" v-model="bb.jointValue">
+                      <input
+                        v-model="bb.jointValue"
+                        class="border border-black py-1 px-4"
+                      >
                     </template>
                   </div>
                   <div class="flex mt-2">
                     <div>
-                      <viam-button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</viam-button>
+                      <viam-button @click="armModifyAllDoJoint(arm)">
+                        Go To Joints
+                      </viam-button>
                     </div>
                     <div class="flex-auto text-right">
-                      <viam-button v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
+                      <viam-button @click="armModifyAllCancel(arm)">
+                        Cancel
+                      </viam-button>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div class="flex mb-2">
-                <div class="border border-black p-4 w-1/2 mr-4" v-if="resourceStatusByName(arm)">
-                  <h3 class="mb-2">END POSITION (mms)</h3>
+                <div
+                  v-if="resourceStatusByName(arm)"
+                  class="border border-black p-4 w-1/2 mr-4"
+                >
+                  <h3 class="mb-2">
+                    END POSITION (mms)
+                  </h3>
                   <div class="grid grid-cols-6 gap-1 pb-1">
-                    <template v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.endPosition[0]">
-                      <h4 class="pr-2 py-1 text-right">{{ aa.endPosition[1] }}</h4>
-                      <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
-                      <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
-                      <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
-                      <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
-                      <h4 class="py-1">{{ aa.endPositionValue.toFixed(2) }}</h4>
+                    <template
+                      v-for="aa in resourceStatusByName(arm).pos_pieces"
+                      :key="aa.endPosition[0]"
+                    >
+                      <h4 class="pr-2 py-1 text-right">
+                        {{ aa.endPosition[1] }}
+                      </h4>
+                      <viam-button @click="armEndPositionInc( arm, aa.endPosition[1], -10 )">
+                        --
+                      </viam-button>
+                      <viam-button @click="armEndPositionInc( arm, aa.endPosition[1], -1 )">
+                        -
+                      </viam-button>
+                      <viam-button @click="armEndPositionInc( arm, aa.endPosition[1], 1 )">
+                        +
+                      </viam-button>
+                      <viam-button @click="armEndPositionInc( arm, aa.endPosition[1], 10 )">
+                        ++
+                      </viam-button>
+                      <h4 class="py-1">
+                        {{ aa.endPositionValue.toFixed(2) }}
+                      </h4>
                     </template>
                   </div>
                   <div class="flex mt-2">
                     <div>
-                      <viam-button v-on:click="armHome(arm)">Home</viam-button>
+                      <viam-button @click="armHome(arm)">
+                        Home
+                      </viam-button>
                     </div>
                     <div class="flex-auto text-right">
-                      <viam-button class="whitespace-nowrap" v-on:click="armModifyAll(arm)">Modify All</viam-button>
+                      <viam-button
+                        class="whitespace-nowrap"
+                        @click="armModifyAll(arm)"
+                      >
+                        Modify All
+                      </viam-button>
                     </div>
                   </div>
                 </div>
-                <div class="border border-black p-4 w-1/2" v-if="resourceStatusByName(arm)">
-                  <h3 class="mb-2">JOINTS (degrees)</h3>
+                <div
+                  v-if="resourceStatusByName(arm)"
+                  class="border border-black p-4 w-1/2"
+                >
+                  <h3 class="mb-2">
+                    JOINTS (degrees)
+                  </h3>
                   <div class="grid grid-cols-6 gap-1 pb-1">
-                    <template v-for="aa in resourceStatusByName(arm).joint_pieces" :key="aa.joint">
-                      <h4 class="pr-2 py-1 text-right whitespace-nowrap">Joint {{ aa.joint }}</h4>
-                      <viam-button v-on:click="armJointInc( arm, aa.joint, -10 )">--</viam-button>
-                      <viam-button v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
-                      <viam-button v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
-                      <viam-button v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
-                      <h4 class="pl-2 py-1">{{ aa.jointValue.toFixed(2) }}</h4>
+                    <template
+                      v-for="aa in resourceStatusByName(arm).joint_pieces"
+                      :key="aa.joint"
+                    >
+                      <h4 class="pr-2 py-1 text-right whitespace-nowrap">
+                        Joint {{ aa.joint }}
+                      </h4>
+                      <viam-button @click="armJointInc( arm, aa.joint, -10 )">
+                        --
+                      </viam-button>
+                      <viam-button @click="armJointInc( arm, aa.joint, -1 )">
+                        -
+                      </viam-button>
+                      <viam-button @click="armJointInc( arm, aa.joint, 1 )">
+                        +
+                      </viam-button>
+                      <viam-button @click="armJointInc( arm, aa.joint, 10 )">
+                        ++
+                      </viam-button>
+                      <h4 class="pl-2 py-1">
+                        {{ aa.jointValue.toFixed(2) }}
+                      </h4>
                     </template>
                   </div>
                   <div class="flex mt-2">
                     <div>
-                      <viam-button v-on:click="armHome(arm)">Home</viam-button>
+                      <viam-button @click="armHome(arm)">
+                        Home
+                      </viam-button>
                     </div>
                     <div class="flex-auto text-right">
-                      <viam-button class="whitespace-nowrap" v-on:click="armModifyAll(arm)">Modify All</viam-button>
+                      <viam-button
+                        class="whitespace-nowrap"
+                        @click="armModifyAll(arm)"
+                      >
+                        Modify All
+                      </viam-button>
                     </div>
                   </div>
                 </div>
@@ -1711,40 +1924,86 @@ waitForClientAndStart()
 
       <!-- ******* GRIPPER *******  -->
       <div class="pb-8">
-        <Collapse v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
+        <Collapse
+          v-for="gripper in filterResources('rdk', 'component', 'gripper')"
+          :key="gripper.name"
+        >
           <div class="flex">
-            <h2 class="p-4 text-xl">Gripper { gripper.name }</h2>
+            <h2 class="p-4 text-xl">
+              Gripper { gripper.name }
+            </h2>
           </div>
-          <template v-slot:content>
+          <template #content>
             <div class="flex border border-black border-t-0 p-4">
-              <viam-button class="mr-4" group v-on:click="gripperAction( gripper.name, 'open')">Open</viam-button>
-              <viam-button group v-on:click="gripperAction( gripper.name, 'grab')">Grab</viam-button>
+              <viam-button
+                class="mr-4"
+                group
+                @click="gripperAction( gripper.name, 'open')"
+              >
+                Open
+              </viam-button>
+              <viam-button
+                group
+                @click="gripperAction( gripper.name, 'grab')"
+              >
+                Grab
+              </viam-button>
             </div>
           </template>
         </Collapse>
       </div>
 
       <!-- ******* SERVO *******  -->
-      <div class="pb-8" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name"
-        v-if="resourceStatusByName(servo)">
+      <div
+        v-for="servo in filterResources('rdk', 'component', 'servo')"
+        v-if="resourceStatusByName(servo)"
+        :key="servo.name"
+        class="pb-8"
+      >
         <Collapse>
           <div class="flex">
-            <h2 class="p-4 text-xl">Servo {{ servo.name }}</h2>
+            <h2 class="p-4 text-xl">
+              Servo {{ servo.name }}
+            </h2>
           </div>
-          <template v-slot:content>
+          <template #content>
             <div class="flex border border-black border-t-0 p-4">
-              <table  class="table-auto border-collapse border border-black">
+              <table class="table-auto border-collapse border border-black">
                 <tr>
-                  <td class="border border-black p-2">Angle</td>
-                  <td class="border border-black p-2">{{ resourceStatusByName(servo).positionDeg }}</td>
+                  <td class="border border-black p-2">
+                    Angle
+                  </td>
+                  <td class="border border-black p-2">
+                    {{ resourceStatusByName(servo).positionDeg }}
+                  </td>
                 </tr>
                 <tr>
-                    <td class="border border-black p-2"></td>
-                    <td class="border border-black p-2">
-                    <viam-button group v-on:click="servoMove(servo, -10)">-10</viam-button>
-                    <viam-button group v-on:click="servoMove(servo, -1)">-1</viam-button>
-                    <viam-button group v-on:click="servoMove(servo, 1)">1</viam-button>
-                    <viam-button group v-on:click="servoMove(servo, 10)">10</viam-button>
+                  <td class="border border-black p-2" />
+                  <td class="border border-black p-2">
+                    <viam-button
+                      group
+                      @click="servoMove(servo, -10)"
+                    >
+                      -10
+                    </viam-button>
+                    <viam-button
+                      group
+                      @click="servoMove(servo, -1)"
+                    >
+                      -1
+                    </viam-button>
+                    <viam-button
+                      group
+                      @click="servoMove(servo, 1)"
+                    >
+                      1
+                    </viam-button>
+                    <viam-button
+                      group
+                      @click="servoMove(servo, 10)"
+                    >
+                      10
+                    </viam-button>
                   </td>
                 </tr>
               </table>
@@ -1755,81 +2014,138 @@ waitForClientAndStart()
 
       <!-- ******* MOTOR *******  -->
       <motor-detail 
-        class="pb-8"
         v-for="motor in filterResources('rdk', 'component', 'motor')"
+        v-if="resourceStatusByName(motor)"
         :key="'new-' + motor.name"
-        v-if="resourceStatusByName(motor)"  
+        class="pb-8"  
         :motor-name="motor.name" 
         :crumbs="['motor', motor.name]" 
         :motor-status="resourceStatusByName(motor)"
-        v-on:motor-run="motorCommand(motor.name, $event)"
-        v-on:motor-stop="motorStop(motor.name)"
+        @motor-run="motorCommand(motor.name, $event)"
+        @motor-stop="motorStop(motor.name)"
       />
 
       <!-- ******* INPUT VIEW *******  -->
       <input-controller
-        class="pb-8"
         v-for="controller in filteredInputControllerList()"
-        :key="'new-' + controller.name"
         v-if="resourceStatusByName(controller)"
-        v-bind:controller-name="controller.name"
-        v-bind:controller-status="resourceStatusByName(controller)"
+        :key="'new-' + controller.name"
+        class="pb-8"
+        :controller-name="controller.name"
+        :controller-status="resourceStatusByName(controller)"
       />
 
       <!-- ******* WEB CONTROLS *******  -->
       <web-gamepad
         v-if="hasWebGamepad()"
         class="pb-8"
-        v-on:execute="inputInject($event)"
         style="max-width: 1080px;"
+        @execute="inputInject($event)"
       />
 
       <!-- ******* BOARD *******  -->
-      <div class="pb-8" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
+      <div
+        v-for="board in filterResources('rdk', 'component', 'board')"
+        v-if="resourceStatusByName(board)"
+        :key="board.name"
+        class="pb-8"
+      >
         <Collapse>
           <div class="flex">
-            <h2 class="p-4 text-xl">Board {{ board.name }}</h2>
+            <h2 class="p-4 text-xl">
+              Board {{ board.name }}
+            </h2>
           </div>
-          <template v-slot:content>
+          <template #content>
             <div class="border border-black border-t-0 p-4">
-              <h3 class="mb-2">Analogs</h3>
+              <h3 class="mb-2">
+                Analogs
+              </h3>
               <table class="mb-4 table-auto border border-black">
-                <tr v-for="(analog, name) in resourceStatusByName(board).analogsMap" :key="name">
-                    <th class="border border-black p-2">{{ name }}</th>
-                    <td class="border border-black p-2">{{ analog.value || 0 }}</td>
+                <tr
+                  v-for="(analog, name) in resourceStatusByName(board).analogsMap"
+                  :key="name"
+                >
+                  <th class="border border-black p-2">
+                    {{ name }}
+                  </th>
+                  <td class="border border-black p-2">
+                    {{ analog.value || 0 }}
+                  </td>
                 </tr>
               </table>
-              <h3 class="mb-2">GPIO</h3>
+              <h3 class="mb-2">
+                GPIO
+              </h3>
               <table class="mb-4 table-auto border border-black">
-                <tr v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap" :key="name">
-                  <th class="border border-black p-2">{{ name }}</th>
-                  <td class="border border-black p-2">{{ di.value || 0 }}</td>
+                <tr
+                  v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
+                  :key="name"
+                >
+                  <th class="border border-black p-2">
+                    {{ name }}
+                  </th>
+                  <td class="border border-black p-2">
+                    {{ di.value || 0 }}
+                  </td>
                 </tr>
               </table>
-              <h3 class="mb-2">DigiGPIOtalInterrupts</h3>
+              <h3 class="mb-2">
+                DigiGPIOtalInterrupts
+              </h3>
               <table class="mb-4 table-auto border border-black">
                 <tr>
-                  <th class="border border-black p-2">Get</th>
+                  <th class="border border-black p-2">
+                    Get
+                  </th>
                   <td class="border border-black p-2">
                     <div class="flex">
                       <label class="pr-2 py-2 text-right">Pin:</label>
-                      <number-input class="mr-2" v-model="getPin" :input-id="'get_pin_' + board.name"></number-input>
-                      <viam-button class="mr-2" group v-on:click="getGPIO(board.name)">Get</viam-button>
-                      <span class="py-2" :id="'get_pin_value_' + board.name" />
+                      <number-input
+                        v-model="getPin"
+                        class="mr-2"
+                        :input-id="'get_pin_' + board.name"
+                      />
+                      <viam-button
+                        class="mr-2"
+                        group
+                        @click="getGPIO(board.name)"
+                      >
+                        Get
+                      </viam-button>
+                      <span
+                        :id="'get_pin_value_' + board.name"
+                        class="py-2"
+                      />
                     </div>
                   </td>
                 </tr>
                 <tr>
-                  <th class="border border-black p-2">Set</th>
+                  <th class="border border-black p-2">
+                    Set
+                  </th>
                   <td class="p-2">
                     <div class="flex">
                       <label class="pr-2 py-2  text-right">Pin:</label>
-                      <number-input class="mr-2" v-model="setPin" :input-id="'set_pin_' + board.name"></number-input>
-                      <select class="bg-white border border-black mr-2" style="height: 38px" :id="'set_pin_v_' + board.name">
+                      <number-input
+                        v-model="setPin"
+                        class="mr-2"
+                        :input-id="'set_pin_' + board.name"
+                      />
+                      <select
+                        :id="'set_pin_v_' + board.name"
+                        class="bg-white border border-black mr-2"
+                        style="height: 38px"
+                      >
                         <option>low</option>
                         <option>high</option>
                       </select>
-                      <viam-button group v-on:click="setGPIO(board.name)">Set</viam-button>
+                      <viam-button
+                        group
+                        @click="setGPIO(board.name)"
+                      >
+                        Set
+                      </viam-button>
                     </div>
                   </td>
                 </tr>
@@ -1839,124 +2155,213 @@ waitForClientAndStart()
         </Collapse>
       </div>
 
-        <!-- sensors -->
-        <div class="pb-8" v-if="nonEmpty(sensorNames)">
-          <Collapse>
-            <div class="flex">
-              <h2 class="p-4 text-xl">Sensors</h2>
+      <!-- sensors -->
+      <div
+        v-if="nonEmpty(sensorNames)"
+        class="pb-8"
+      >
+        <Collapse>
+          <div class="flex">
+            <h2 class="p-4 text-xl">
+              Sensors
+            </h2>
+          </div>
+          <template #content>
+            <div class="border border-black border-t-0 p-4">
+              <table class="table-auto border border-black">
+                <tr>
+                  <th class="border border-black p-2">
+                    Name
+                  </th>
+                  <th class="border border-black p-2">
+                    Type
+                  </th>
+                  <th class="border border-black p-2">
+                    Readings
+                  </th>
+                  <th class="border border-black p-2 text-center">
+                    <viam-button
+                      group
+                      @click="getReadings(sensorNames)"
+                    >
+                      Get All Readings
+                    </viam-button>
+                  </th>
+                </tr>
+                <tr v-for="name in sensorNames">
+                  <td class="border border-black p-2">
+                    {{ name.name }}
+                  </td>
+                  <td class="border border-black p-2">
+                    {{ name.subtype }}
+                  </td>
+                  <td class="border border-black p-2">
+                    {{ sensorReadings[resourceNameToString(name)] }}
+                  </td>
+                  <td class="border border-black p-2 text-center">
+                    <viam-button
+                      group
+                      @click="getReadings([name])"
+                    >
+                      Get Readings
+                    </viam-button>
+                  </td>
+                </tr>
+              </table>
             </div>
-            <template v-slot:content>
-              <div class="border border-black border-t-0 p-4">
-                <table class="table-auto border border-black">
-                  <tr>
-                    <th class="border border-black p-2">Name</th>
-                    <th class="border border-black p-2">Type</th>
-                    <th class="border border-black p-2">Readings</th>
-                    <th class="border border-black p-2 text-center"><viam-button group v-on:click="getReadings(sensorNames)">Get All Readings</viam-button></th>
-                  </tr>
-                  <tr v-for="name in sensorNames">
-                    <td class="border border-black p-2">{{ name.name }}</td>
-                    <td class="border border-black p-2">{{ name.subtype }}</td>
-                    <td class="border border-black p-2">{{ sensorReadings[resourceNameToString(name)] }}</td>
-                    <td class="border border-black p-2 text-center"><viam-button group v-on:click="getReadings([name])">Get Readings</viam-button></td>
-                  </tr>
-                </table>
-              </div>
-            </template>
-          </Collapse>
-        </div>
-
-        <!-- get segments -->
-        <div class="pb-8" id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
-          <Collapse>
-            <div class="flex">
-              <h2 class="p-4 text-xl">Get Segments</h2>
-            </div>
-            <template v-slot:content>
-              <div class="border border-black border-t-0 p-4">
-                <div class="mb-2">
-                  <viam-button group v-on:click="setNavigationMode('manual')">Manual</viam-button>
-                  <viam-button group v-on:click="setNavigationMode('waypoint')">Waypoint</viam-button>
-                </div>
-                <div class="mb-2">
-                  <viam-button group v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
-                </div>
-                <div id="map" class="mb-2" v-map-mounted></div>
-                <viam-input v-model="locationValue" input-id="nav-set-location" />
-            </template>
-          </Collapse>
-        </div>
-
-        <!-- current operations -->
-        <div class="pb-8">
-          <Collapse>
-            <div class="flex">
-              <h2 class="p-4 text-xl">Current Operations</h2>
-            </div>
-            <template v-slot:content>
-              <div class="border border-black border-t-0 p-4">
-                <table class="w-full table-auto border border-black">
-                  <tr>
-                    <th class="border border-black p-2">id</th>
-                    <th class="border border-black p-2">method</th>
-                    <th class="border border-black p-2">elapsed time</th>
-                    <th class="border border-black p-2"></th>
-                  </tr>
-                  <tr v-for="o in currentOps" :key="o.id">
-                    <td class="border border-black p-2">{{ o.id }}</td>
-                    <td class="border border-black p-2">{{ o.method }}</td>
-                    <td class="border border-black p-2">{{ (new Date()).getTime() - (o.started.seconds * 1000) }}ms</td>
-                    <td class="border border-black p-2 text-center"><viam-button v-on:click="killOp(o.id)">Kill</viam-button></td>
-                  </tr>
-                </table>
-              </div>
-            </template>
-          </Collapse>
-        </div>
-
-        <!-- ******* CAMERAS *******  -->
-        <div class="camera pb-8" v-for="streamName in streamNames" :key="streamName">
-            <camera
-              :stream-name="streamName"
-              :crumbs="[streamName]"
-              :x="pcdClick.x"
-              :y="pcdClick.y"
-              :z="pcdClick.z"
-              :pcd-click="pcdClick"
-              :segmenter-names="segmenterNames"
-              :segmenter-parameters="segmenterParameters"
-              :segmenter-parameter-names="segmenterParameterNames"
-              :parameter-type="parameterType"
-              :segment-algo="segmentAlgo"
-              :segment-objects="objects"
-              :find-status="pcdClick.calculatingSegments"
-              @full-image="doPCDLoad(fullcloud)"
-              @center-pcd="doCenterPCDLoad(fullcloud)"
-              @find-segments="findSegments(segmentAlgo, segmenterParameters)"
-              @change-segmenter="getSegmenterParameters"
-              @toggle-camera="viewCamera(streamName)"
-              @refresh-camera="viewCameraFrame"
-              @selected-camera-view="viewCameraFrame"
-              @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
-              @pcd-click="grabClick"
-              @pcd-move="doPCDMove"
-              @point-load="doPointLoad"
-              @segment-load="doSegmentLoad"
-              @bounding-box-load="doBoundingBoxLoad"
-              @download-screenshot="renderFrame(streamName)"
-              @download-raw-data="doPCDDownload(fullcloud)"
-              @select-object="doSelectObject"
-            ></camera>
-        </div>
-        <!-- ******* SLAM *******  -->
-        <div class="slam pb-8" v-if="filterResources('rdk', 'service', 'slam').length !== 0">
-          <slam
-            :image-map="imageMapTemp"
-            :pcd-map="pcdMapTemp"
-            @refresh-image-map="viewSLAMImageMap"
-            @refresh-pcd-map="viewSLAMPCDMap"
-          ></slam>
-        </div>
+          </template>
+        </Collapse>
       </div>
+
+      <!-- get segments -->
+      <div
+        v-if="filterResources('rdk', 'service', 'navigation').length > 0"
+        id="map-container"
+        class="pb-8"
+      >
+        <Collapse>
+          <div class="flex">
+            <h2 class="p-4 text-xl">
+              Get Segments
+            </h2>
+          </div>
+          <template #content>
+            <div class="border border-black border-t-0 p-4">
+              <div class="mb-2">
+                <viam-button
+                  group
+                  @click="setNavigationMode('manual')"
+                >
+                  Manual
+                </viam-button>
+                <viam-button
+                  group
+                  @click="setNavigationMode('waypoint')"
+                >
+                  Waypoint
+                </viam-button>
+              </div>
+              <div class="mb-2">
+                <viam-button
+                  group
+                  @click="setNavigationLocation('nav-set-location')"
+                >
+                  Try Set Location
+                </viam-button>
+              </div>
+              <div
+                id="map"
+                v-map-mounted
+                class="mb-2"
+              />
+              <viam-input
+                v-model="locationValue"
+                input-id="nav-set-location"
+              />
+            </div>
+          </template>
+        </Collapse>
+      </div>
+
+      <!-- current operations -->
+      <div class="pb-8">
+        <Collapse>
+          <div class="flex">
+            <h2 class="p-4 text-xl">
+              Current Operations
+            </h2>
+          </div>
+          <template #content>
+            <div class="border border-black border-t-0 p-4">
+              <table class="w-full table-auto border border-black">
+                <tr>
+                  <th class="border border-black p-2">
+                    id
+                  </th>
+                  <th class="border border-black p-2">
+                    method
+                  </th>
+                  <th class="border border-black p-2">
+                    elapsed time
+                  </th>
+                  <th class="border border-black p-2" />
+                </tr>
+                <tr
+                  v-for="o in currentOps"
+                  :key="o.id"
+                >
+                  <td class="border border-black p-2">
+                    {{ o.id }}
+                  </td>
+                  <td class="border border-black p-2">
+                    {{ o.method }}
+                  </td>
+                  <td class="border border-black p-2">
+                    {{ (new Date()).getTime() - (o.started.seconds * 1000) }}ms
+                  </td>
+                  <td class="border border-black p-2 text-center">
+                    <viam-button @click="killOp(o.id)">
+                      Kill
+                    </viam-button>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </template>
+        </Collapse>
+      </div>
+
+      <!-- ******* CAMERAS *******  -->
+      <div
+        v-for="streamName in streamNames"
+        :key="streamName"
+        class="camera pb-8"
+      >
+        <camera
+          :stream-name="streamName"
+          :crumbs="[streamName]"
+          :x="pcdClick.x"
+          :y="pcdClick.y"
+          :z="pcdClick.z"
+          :pcd-click="pcdClick"
+          :segmenter-names="segmenterNames"
+          :segmenter-parameters="segmenterParameters"
+          :segmenter-parameter-names="segmenterParameterNames"
+          :parameter-type="parameterType"
+          :segment-algo="segmentAlgo"
+          :segment-objects="objects"
+          :find-status="pcdClick.calculatingSegments"
+          @full-image="doPCDLoad(fullcloud)"
+          @center-pcd="doCenterPCDLoad(fullcloud)"
+          @find-segments="findSegments(segmentAlgo, segmenterParameters)"
+          @change-segmenter="getSegmenterParameters"
+          @toggle-camera="viewCamera(streamName)"
+          @refresh-camera="viewCameraFrame"
+          @selected-camera-view="viewCameraFrame"
+          @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
+          @pcd-click="grabClick"
+          @pcd-move="doPCDMove"
+          @point-load="doPointLoad"
+          @segment-load="doSegmentLoad"
+          @bounding-box-load="doBoundingBoxLoad"
+          @download-screenshot="renderFrame(streamName)"
+          @download-raw-data="doPCDDownload(fullcloud)"
+          @select-object="doSelectObject"
+        />
+      </div>
+
+      <!-- ******* SLAM *******  -->
+      <div
+        v-if="filterResources('rdk', 'service', 'slam').length > 0"
+        class="slam pb-8"
+      >
+        <slam
+          :image-map="imageMapTemp"
+          :pcd-map="pcdMapTemp"
+          @refresh-image-map="viewSLAMImageMap"
+          @refresh-pcd-map="viewSLAMPCDMap"
+        />
+      </div>
+    </div>
   </div>
 </template>
