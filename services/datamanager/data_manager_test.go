@@ -32,10 +32,8 @@ var (
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
 
-	captureDir = "/tmp/capture"
-	armDir     = captureDir + "/arm/arm1/GetEndPosition"
-
-	// Used in file generation of arbitrary sync paths.
+	captureDir  = "/tmp/capture"
+	armDir      = captureDir + "/arm/arm1/GetEndPosition"
 	numDirs     = 2
 	filesPerDir = 2
 )
@@ -172,26 +170,39 @@ func TestNewRemoteDataManager(t *testing.T) {
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
+	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
+	if err != nil {
+		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
+	}
+
+	// Once testing is complete, remove all temp dirs.
+	defer func() {
+		for _, dir := range dirs {
+			resetFolder(t, dir)
+		}
+	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
+
+	testCfg := setupConfig(t, configPath)
+	err = setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
+	test.That(t, err, test.ShouldBeNil)
+	err = setConfigAdditionalSyncPaths(testCfg, dirs)
+	test.That(t, err, test.ShouldBeNil)
+
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partId string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
 		return nil
 	}
-	testCfg := setupConfig(t, configPath)
-	err := setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Make the captureDir where we're logging data for our arm.
-	defer resetFolder(t, captureDir)
-	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
-	dmsvc.SetWaitAfterLastModify(0)
+	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
@@ -207,24 +218,20 @@ func TestRecoversAfterKilled(t *testing.T) {
 	// Turn the service back on.
 	dmsvc = newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
-	dmsvc.SetWaitAfterLastModify(0)
+	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Validate that the previously captured file was uploaded at startup.
 	time.Sleep(time.Millisecond * 50)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(uploaded), test.ShouldEqual, 1)
+	test.That(t, len(uploaded), test.ShouldEqual, (1 + numArbitraryFilesToSync))
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
 // that directory is created (and can be synced on subsequent iterations of syncing).
-func TestValidateAdditionalSyncPaths(t *testing.T) {
+func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	td := "additional_sync_path_dir"
-	resetFolder(t, td)
-	resetFolder(t, captureDir)
-	resetFolder(t, armDir)
-
 	uploaded := []string{}
 	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
@@ -233,6 +240,11 @@ func TestValidateAdditionalSyncPaths(t *testing.T) {
 		lock.Unlock()
 		return nil
 	}
+	// Once testing is complete, remove contents from data capture dirs.
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
+	defer resetFolder(t, td)
+
 	testCfg := setupConfig(t, configPath)
 	err := setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
 	test.That(t, err, test.ShouldBeNil)
@@ -241,23 +253,18 @@ func TestValidateAdditionalSyncPaths(t *testing.T) {
 	err = setConfigAdditionalSyncPaths(testCfg, []string{td})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Once testing is complete, remove contents from data capture dirs.
-	defer resetFolder(t, captureDir)
-	defer resetFolder(t, armDir)
-	defer resetFolder(t, td)
-
 	// Initialize the data manager and update it with our config. The call to Update(ctx, conf) should create the
 	// arbitrary sync paths directory it in the file system.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
-	dmsvc.SetWaitAfterLastModify(0)
+	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Validate the "additional_sync_path_dir" was created. Wait some time to ensure it would have been created.
-	time.Sleep(time.Millisecond * 300)
+	time.Sleep(time.Millisecond * 100)
 	_ = dmsvc.Close(context.TODO())
 	_, err = os.Stat(td)
-	test.That(t, !errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
+	test.That(t, errors.Is(err, nil), test.ShouldBeTrue)
 }
 
 func setconfigSyncIntervalMins(config *config.Config, interval float64) error {
@@ -341,10 +348,6 @@ func noRepeatedElements(slice []string) bool {
 
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
-	resetFolder(t, captureDir)
-	resetFolder(t, armDir)
-
-	// Populate file system with data (as additional specified paths) to be synced.
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
@@ -376,7 +379,7 @@ func TestManualSync(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
-	dmsvc.SetWaitAfterLastModify(0)
+	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Run and upload files.
@@ -401,10 +404,6 @@ func TestManualSync(t *testing.T) {
 
 // Validates that scheduled syncing works for a datamanager.
 func TestScheduledSync(t *testing.T) {
-	resetFolder(t, captureDir)
-	resetFolder(t, armDir)
-
-	// Populate file system with data (as additional specified paths) to be synced.
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
@@ -436,7 +435,7 @@ func TestScheduledSync(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
-	dmsvc.SetWaitAfterLastModify(0)
+	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms (more than two iterations of syncing)
@@ -454,10 +453,6 @@ func TestScheduledSync(t *testing.T) {
 // Validates that we can attempt a scheduled and manual syncDataCaptureFiles at the same time without duplicating files
 // or running into errors.
 func TestManualAndScheduledSync(t *testing.T) {
-	resetFolder(t, captureDir)
-	resetFolder(t, armDir)
-
-	// Populate file system with data (as additional specified paths) to be synced.
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
@@ -489,7 +484,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
-	dmsvc.SetWaitAfterLastModify(0)
+	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Perform a manual and scheduled syncDataCaptureFiles at approximately the same time, then close the svc.
