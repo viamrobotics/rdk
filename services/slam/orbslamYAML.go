@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
+
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/rimage/transform"
-	"gopkg.in/yaml.v3"
 )
 
+// orbCamMaker takes in the camera intrinsics and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
 func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamService) (orbslam ORBsettings, err error) {
 	orbslam = ORBsettings{
 		CamType:        "PinHole",
@@ -31,20 +33,36 @@ func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamServ
 		Stereob:        0,
 		StereoThDepth:  40.0,
 		DepthMapFactor: 1000.0,
-		FPSCamera:      30,
+		FPSCamera:      int8(slamSvc.dataRateMs),
 		FileVersion:    "1.0",
 	}
 	orbslam.NFeatures, err = orbConfigToInt(slamSvc.configParams["orb_n_features"], 1250)
+	if err != nil {
+		return orbslam, err
+	}
 	orbslam.ScaleFactor, err = orbConfigToFloat(slamSvc.configParams["orb_scale_factor"], 1.2)
+	if err != nil {
+		return orbslam, err
+	}
 	orbslam.NLevels, err = orbConfigToInt(slamSvc.configParams["orb_n_levels"], 8)
+	if err != nil {
+		return orbslam, err
+	}
 	orbslam.IniThFAST, err = orbConfigToInt(slamSvc.configParams["orb_n_ini_th_fast"], 20)
+	if err != nil {
+		return orbslam, err
+	}
 	orbslam.MinThFAST, err = orbConfigToInt(slamSvc.configParams["orb_n_min_th_fast"], 7)
+	if err != nil {
+		return orbslam, err
+	}
 	if err != nil {
 		return orbslam, err
 	}
 	return orbslam, nil
 }
 
+// ORBsettings is used to construct the yaml file.
 type ORBsettings struct {
 	FileVersion    string  `yaml:"File.version"`
 	NFeatures      int     `yaml:"ORBextractor.nFeatures"`
@@ -71,6 +89,7 @@ type ORBsettings struct {
 	FPSCamera      int8    `yaml:"Camera.fps"`
 }
 
+// generate a .yaml file to be used with orbslam.
 func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
 	proj := camera.Projector(cam) // will be nil if no intrinsics
 	if proj == nil {
@@ -90,15 +109,15 @@ func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
 		return errors.Errorf("Error while Marshaling YAML file. %v", err)
 	}
 
-	timeStamp := time.Now()
-	fileName := filepath.Join(slamSvc.dataDirectory, "config", slamSvc.cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+".yaml")
+	timeStamp := time.Now().UTC().Format("2006-01-02T15_04_05.0000")
+	fileName := filepath.Join(slamSvc.dataDirectory, "config", slamSvc.cameraName+"_data_"+timeStamp+".yaml")
 
 	addLine := "%YAML:1.0\n"
+	//nolint:gosec
 	outfile, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
-	defer outfile.Close()
 	_, err = outfile.WriteString(addLine)
 	if err != nil {
 		return err
@@ -107,7 +126,7 @@ func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	return outfile.Close()
 }
 
 func orbConfigToInt(attr string, def int) (int, error) {
