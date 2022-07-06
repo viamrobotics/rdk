@@ -3,7 +3,6 @@ package main
 import (
   "context"
   "math"
-  "fmt"
 
   "github.com/edaniels/golog"
   "go.viam.com/rdk/grpc/client"
@@ -46,9 +45,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
   limo1 := limo.(base.Base)
 
-  MoveToWaypoint(ctx, limo1, 0, 0, 1, 0)
-
-  limo1.MoveStraight(ctx, 1000, 100)
+  err = MoveToWaypoint(ctx, limo1, 0, 0, 1, 0)
+  if err!=nil {
+    logger.Debug(err)
+    return err
+  }
 
   return nil
   
@@ -59,9 +60,11 @@ func MoveToWaypoint(ctx context.Context, limo base.Base, x1 float64, y1 float64,
   dist := math.Sqrt(math.Pow((y2-y1), 2) + math.Pow((x2-x1), 2))*500  //each grid square is half a meter
   theta := math.Acos((x2-x1)/dist)  //angle to x axis
 
-  limo.Spin(ctx, (dir-theta)*(180/math.Pi), 50) //constant velocity for rn
-  fmt.Println(dir-theta)
-  limo.MoveStraight(ctx, int(dist), 100)
+  moves := base.Move{DistanceMm: int(dist), MmPerSec: 100, AngleDeg: (dir-theta)*(180/math.Pi), DegsPerSec: 20}
+  err := base.DoMove(ctx, moves, limo)
+  if err!=nil {
+    return err
+  }
 
   return nil
 
