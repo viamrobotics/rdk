@@ -24,11 +24,11 @@ func VisualizePlan(ctx context.Context, plan [][]referenceframe.Input, model ref
 	visualize(planData)
 }
 
-func VisualizeStep(model referenceframe.Model, worldState *pb.WorldState, inputs []referenceframe.Input) {
+func VisualizeStep(model referenceframe.Frame, worldState *pb.WorldState, inputs []referenceframe.Input) {
 	visualize([]stepData{getStepData(model, worldState, inputs)})
 }
 
-func getStepData(model referenceframe.Model, worldState *pb.WorldState, inputs []referenceframe.Input) stepData {
+func getStepData(model referenceframe.Frame, worldState *pb.WorldState, inputs []referenceframe.Input) stepData {
 	entities := make(map[string][][]r3.Vector)
 	if worldState != nil {
 		for i, obstacles := range worldState.Obstacles {
