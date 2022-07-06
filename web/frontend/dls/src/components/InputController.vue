@@ -1,25 +1,28 @@
 <template>
-  <div class="component">
-    <div class="card">
-      <div class="row" style="margin-right: 0; align-items: center">
-        <div class="header">
-          <h2>{{ controllerName }} Input</h2>
-          <span v-if="connected" class="pill green">Connected</span>
-          <span v-else class="pill">Disconnected</span>
+  <div class="pb-8">
+    <Collapse>
+      <div class="flex">
+        <h2 class="p-4 text-xl">{{ controllerName }} Input</h2>
+        <div class="p-4 flex items-center flex-wrap">
+          <ViamBadge color="green" v-if="connected">Connected</ViamBadge>
+          <ViamBadge color="gray" v-if="!connected">Disconnected</ViamBadge>
         </div>
       </div>
-
-      <div class="row" v-if="connected">
-        <div
-          v-for="control in controls"
-          :key="control[0]"
-          class="column control"
-        >
-          <p class="subtitle">{{ control[0] }}</p>
-          {{ control[1] }}
+      <template v-slot:content>
+        <div class="border border-black border-t-0 p-4">
+          <template v-if="connected">
+            <div
+              v-for="control in controls"
+              :key="control[0]"
+              class="column control"
+            >
+              <p class="subtitle">{{ control[0] }}</p>
+              {{ control[1] }}
+            </div>
+          </template>
         </div>
-      </div>
-    </div>
+      </template>
+    </Collapse>
   </div>
 </template>
 
