@@ -479,7 +479,7 @@ func DefaultArmPlannerOptions(
 
 	//~ opt.SetMetric(metric)
 	opt.SetPathDist(metric)
-	opt.AddConstraint("self-collision", collisionConst)
+	opt.AddConstraint("collision", collisionConst)
 	opt.AddConstraint("linearmotion", constraint)
 
 	return opt

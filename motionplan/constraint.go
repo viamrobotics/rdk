@@ -263,45 +263,9 @@ func NewOrientationConstraint(orientFunc func(o spatial.Orientation) bool) Const
 	return f
 }
 
-// orientDist returns the arclength between two orientations.
-func orientDist(o1, o2 spatial.Orientation) float64 {
-	return math.Sqrt(spatial.QuatToR3AA(spatial.OrientationBetween(o1, o2).Quaternion()).Norm2())
-}
-
-// orientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
-// vector is from a region defined by a point and an arclength around it. The theta value of OV is disregarded.
-// This is useful, for example, in defining the set of acceptable angles of attack for writing on a whiteboard.
-func orientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Orientation) float64 {
-	ov1 := goal.OrientationVectorRadians()
-	return func(o spatial.Orientation) float64 {
-		ov2 := o.OrientationVectorRadians()
-		acosInput := ov1.OX*ov2.OX + ov1.OY*ov2.OY + ov1.OZ*ov2.OZ
-
-		// Account for floating point issues
-		if acosInput > 1.0 {
-			acosInput = 1.0
-		}
-		if acosInput < -1.0 {
-			acosInput = -1.0
-		}
-		dist := math.Acos(acosInput)
-		return math.Max(0, dist-alpha)
-	}
-}
-
-// NewPoseFlexOVMetric will provide a distance function which will converge on an OV within an arclength of `alpha`
-// of the ov of the goal given. The 3d point of the goal given is discarded, and the function will converge on the
-// 3d point of the `to` pose (this is probably what you want).
-func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) Metric {
-	oDistFunc := orientDistToRegion(goal.Orientation(), alpha)
-	return func(from, to spatial.Pose) float64 {
-		pDist := from.Point().Distance(to.Point())
-		oDist := oDistFunc(from.Orientation())
-		return pDist*pDist + oDist*oDist
-	}
-}
-
-// NewSlerpOrientationConstraint will provide a distance function.
+// NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
+// returns whether a given orientation is within a given epsilon distance of the shortest arc between the two orientations, as well as a
+// metric which returns the distance to that valid region.
 func NewSlerpOrientationConstraint(start, goal spatial.Pose, epsilon float64) (Constraint, Metric) {
 	var gradFunc func(from, _ spatial.Pose) float64
 	origDist := orientDist(start.Orientation(), goal.Orientation())
