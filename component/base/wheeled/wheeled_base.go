@@ -261,6 +261,19 @@ func (base *wheeledBase) Stop(ctx context.Context) error {
 	return err
 }
 
+func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
+	for _, m := range base.allMotors {
+		isMoving, err := m.IsPowered(ctx)
+		if err != nil {
+			return false, err
+		}
+		if isMoving {
+			return true, err
+		}
+	}
+	return false, nil
+}
+
 func (base *wheeledBase) Close(ctx context.Context) error {
 	return base.Stop(ctx)
 }
