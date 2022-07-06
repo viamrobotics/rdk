@@ -3,7 +3,6 @@ package main
 import (
   "context"
   "math"
-  "fmt"
   "encoding/json"
 	"io/ioutil"
 	"strconv"
