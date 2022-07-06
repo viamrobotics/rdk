@@ -22,6 +22,8 @@ const (
 	defaultEpsilon = 0.001
 	// Default motion constraint name.
 	defaultMotionConstraint = "defaultMotionConstraint"
+	// Solve for waypoints this far apart to speed solving.
+	pathStepSize = 10.0
 )
 
 // MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
@@ -117,10 +119,130 @@ func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.minScore = minScore
 }
 
-// getSteps will determine the number of steps which should be used to get from the seed to the goal.
+// Clone makes a deep copy of the PlannerOptions.
+func (p *PlannerOptions) Clone() *PlannerOptions {
+	opt := &PlannerOptions{}
+	opt.constraints = p.constraints
+	opt.metric = p.metric
+	opt.pathDist = p.pathDist
+	opt.maxSolutions = p.maxSolutions
+	opt.minScore = p.minScore
+
+	return opt
+}
+
+// RunPlannerWithWaypoints will plan to each of a list of goals in oder, optionally also taking a new planner option for each goal.
+func RunPlannerWithWaypoints(ctx context.Context,
+	planner MotionPlanner,
+	goals []spatial.Pose,
+	seed []frame.Input,
+	opts []*PlannerOptions,
+	iter int,
+) ([][]frame.Input, error) {
+	var err error
+	goal := goals[iter]
+	opt := opts[iter]
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+	}
+	remainingSteps := [][]frame.Input{}
+	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
+		// cBiRRT supports solution look-ahead for parallel waypoint solving
+		endpointPreview := make(chan *configuration, 1)
+		solutionChan := make(chan *planReturn, 1)
+		utils.PanicCapturingGo(func() {
+			// TODO(rb) fix me
+			cbert.planRunner(
+				ctx,
+				spatial.PoseToProtobuf(goal),
+				seed,
+				opt,
+				endpointPreview,
+				solutionChan,
+			)
+		})
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+			select {
+			case nextSeed := <-endpointPreview:
+				// Got a solution preview, start solving the next motion in a new thread.
+				if iter+1 < len(goals) {
+					// In this case, we create the next step (and thus the remaining steps) and the
+					// step from our iteration hangs out in the channel buffer until we're done with it.
+					remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
+					if err != nil {
+						return nil, err
+					}
+				}
+				for {
+					// Get the step from this runner invocation, and return everything in order.
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					default:
+					}
+
+					select {
+					case finalSteps := <-solutionChan:
+						if finalSteps.err != nil {
+							return nil, finalSteps.err
+						}
+						results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
+						for _, step := range finalSteps.steps {
+							results = append(results, step.inputs)
+						}
+						results = append(results, remainingSteps...)
+						return results, nil
+					default:
+					}
+				}
+			case finalSteps := <-solutionChan:
+				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
+				if finalSteps.err != nil {
+					return nil, finalSteps.err
+				}
+				if iter+1 < len(goals) {
+					// in this case, we create the next step (and thus the remaining steps) and the
+					// step from our iteration hangs out in the channel buffer until we're done with it
+					remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
+					if err != nil {
+						return nil, err
+					}
+				}
+				results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
+				for _, step := range finalSteps.steps {
+					results = append(results, step.inputs)
+				}
+				results = append(results, remainingSteps...)
+				return results, nil
+			default:
+			}
+		}
+	} else {
+		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
+		if err != nil {
+			return nil, err
+		}
+		if iter < len(goals)-2 {
+			// in this case, we create the next step (and thus the remaining steps) and the
+			// step from our iteration hangs out in the channel buffer until we're done with it
+			remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return append(resultSlicesRaw, remainingSteps...), nil
+	}
+}
+
+// GetSteps will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step.
-func getSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
+func GetSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
 	// use a default size of 1 if zero is passed in to avoid divide-by-zero
 	if stepSize == 0 {
 		stepSize = 1.
