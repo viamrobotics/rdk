@@ -1,5 +1,145 @@
 <script>
 
+import robotApi from './gen/proto/api/robot/v1/robot_pb';
+import commonApi from './gen/proto/api/common/v1/common_pb';
+import armApi from './gen/proto/api/component/arm/v1/arm_pb';
+import { RobotServiceClient } from './gen/proto/api/robot/v1/robot_pb_service';
+import { ArmServiceClient } from './gen/proto/api/component/arm/v1/arm_pb_service';
+import baseApi from './gen/proto/api/component/base/v1/base_pb';
+import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_service';
+import boardApi from './gen/proto/api/component/board/v1/board_pb';
+import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_service';
+import cameraApi from './gen/proto/api/component/camera/v1/camera_pb';
+import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_pb_service';
+import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb';
+import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service';
+import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb';
+import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service';
+import imuApi from './gen/proto/api/component/imu/v1/imu_pb';
+import { IMUServiceClient } from './gen/proto/api/component/imu/v1/imu_pb_service';
+import inputApi from './gen/proto/api/component/inputcontroller/v1/input_controller_pb';
+import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service';
+import motorApi from './gen/proto/api/component/motor/v1/motor_pb';
+import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service';
+import navigationApi from './gen/proto/api/service/navigation/v1/navigation_pb';
+import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service';
+import motionApi from './gen/proto/api/service/motion/v1/motion_pb';
+import { MotionServiceClient } from './gen/proto/api/service/motion/v1/motion_pb_service';
+import visionApi from './gen/proto/api/service/vision/v1/vision_pb';
+import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service';
+import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb';
+import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors_pb_service';
+import servoApi from './gen/proto/api/component/servo/v1/servo_pb';
+import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service';
+import slamApi from './gen/proto/api/service/slam/v1/slam_pb';
+import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service';
+import streamApi from './gen/proto/stream/v1/stream_pb';
+import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service';
+import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
+import THREE from 'three';
+import pcdLib from 'three/examples/jsm/loaders/PCDLoader';
+import orbitLib from 'three/examples/jsm/controls/OrbitControls';
+import trackLib from 'three/examples/jsm/controls/TrackballControls';
+
+const { webrtcHost } = window;
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
+const rtcConfig = {
+	iceServers: [
+		{
+			urls: 'stun:global.stun.twilio.com:3478?transport=udp',
+		},
+	],
+};
+
+if (window.webrtcAdditionalICEServers) {
+	rtcConfig.iceServers = rtcConfig.iceServers.concat(window.webrtcAdditionalICEServers);
+}
+
+const connect = async (authEntity, creds) => {
+	let transportFactory;
+	const opts = { 
+		authEntity,
+		credentials: creds,
+		webrtcOptions: { rtcConfig },
+	};
+	const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${ location.port}` : ''}`;
+	if (window.webrtcEnabled) {
+		if (!window.webrtcSignalingAddress) {
+			window.webrtcSignalingAddress = impliedURL;
+		}
+		opts.webrtcOptions.signalingAuthEntity = opts.authEntity;
+		opts.webrtcOptions.signalingCredentials = opts.credentials;
+
+		const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, opts);
+		transportFactory = webRTCConn.transportFactory;
+		window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
+		
+		// eslint-disable-next-line require-await
+		webRTCConn.peerConnection.ontrack = async event => {
+			const video = document.createElement('video');
+			video.srcObject = event.streams[0];
+			video.autoplay = true;
+			video.controls = false;
+			video.playsInline = true;
+			const streamName = event.streams[0].id;
+			const streamContainer = document.getElementById(`stream-${streamName}`);
+			if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
+				streamContainer.querySelectorAll('video')[0].remove();
+			}
+			if (streamContainer) {
+				streamContainer.append(video);
+			}
+			const videoPreview = document.createElement('video');
+			videoPreview.srcObject = event.streams[0];
+			videoPreview.autoplay = true;
+			videoPreview.controls = false;
+			videoPreview.playsInline = true;
+			const streamPreviewContainer = document.getElementById(`stream-preview-${streamName}`);
+			if (streamPreviewContainer && streamPreviewContainer.querySelectorAll('video').length > 0) {
+				streamPreviewContainer.querySelectorAll('video')[0].remove();
+			}
+			if (streamPreviewContainer) {
+				streamPreviewContainer.append(videoPreview);
+			}
+		};
+	} else {
+		transportFactory = await dialDirect(impliedURL, opts);
+	}
+
+	// save authEntity, creds
+	window.connect = () => connect(authEntity, creds);
+};
+window.connect = connect;
+
+window.rcDebug = false;
+
+window.rcLogConditionally = function (req) {
+	if (rcDebug) {
+		console.log('gRPC call:', req);
+	}
+};
+
+
+const robotService = new RobotServiceClient(webrtcHost, { transport: transportFactory });
+// TODO(RSDK-144): these should be created as needed
+const armService = new ArmServiceClient(webrtcHost, { transport: transportFactory });
+const baseService = new BaseServiceClient(webrtcHost, { transport: transportFactory });
+const boardService = new BoardServiceClient(webrtcHost, { transport: transportFactory });
+const cameraService = new CameraServiceClient(webrtcHost, { transport: transportFactory });
+const gantryService = new GantryServiceClient(webrtcHost, { transport: transportFactory });
+const gripperService = new GripperServiceClient(webrtcHost, { transport: transportFactory });
+const imuService = new IMUServiceClient(webrtcHost, { transport: transportFactory });
+const inputControllerService = new InputControllerServiceClient(webrtcHost, { transport: transportFactory });
+const motorService = new MotorServiceClient(webrtcHost, { transport: transportFactory });
+const navigationService = new NavigationServiceClient(webrtcHost, { transport: transportFactory });
+const motionService = new MotionServiceClient(webrtcHost, { transport: transportFactory });
+const visionService = new VisionServiceClient(webrtcHost, { transport: transportFactory });
+const sensorsService = new SensorsServiceClient(webrtcHost, { transport: transportFactory });
+const servoService = new ServoServiceClient(webrtcHost, { transport: transportFactory });
+const slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
+
 function roundTo2Decimals(num) {
   return Math.round(num * 100) / 100;
 }
