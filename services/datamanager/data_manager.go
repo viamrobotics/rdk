@@ -125,13 +125,15 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &dataManagerService{
-		r:                 r,
-		logger:            logger,
-		captureDir:        viamCaptureDotDir,
-		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
-		backgroundWorkers: sync.WaitGroup{},
-		lock:              sync.Mutex{},
-		syncIntervalMins:  -1,
+		r:                         r,
+		logger:                    logger,
+		captureDir:                viamCaptureDotDir,
+		collectors:                make(map[componentMethodMetadata]collectorAndConfig),
+		backgroundWorkers:         sync.WaitGroup{},
+		lock:                      sync.Mutex{},
+		syncIntervalMins:          -1,
+		additionalSyncPaths:       []string{},
+		waitAfterLastModifiedSecs: 10,
 	}
 
 	return dataManagerSvc, nil
@@ -167,17 +169,19 @@ func (svc *dataManagerService) closeCollectors() {
 
 // dataManagerService initializes and orchestrates data capture collectors for registered component/methods.
 type dataManagerService struct {
-	r                        robot.Robot
-	logger                   golog.Logger
-	captureDir               string
-	collectors               map[componentMethodMetadata]collectorAndConfig
-	syncer                   syncManager
-	syncIntervalMins         float64
-	lock                     sync.Mutex
-	backgroundWorkers        sync.WaitGroup
-	uploadFunc               uploadFn
-	updateCollectorsCancelFn func()
-	partID                   string
+	r                         robot.Robot
+	logger                    golog.Logger
+	captureDir                string
+	collectors                map[componentMethodMetadata]collectorAndConfig
+	syncer                    syncManager
+	syncIntervalMins          float64
+	lock                      sync.Mutex
+	backgroundWorkers         sync.WaitGroup
+	uploadFunc                uploadFn
+	updateCollectorsCancelFn  func()
+	additionalSyncPaths       []string
+	partID                    string
+	waitAfterLastModifiedSecs int
 }
 
 // Parameters stored for each collector.
@@ -339,8 +343,10 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 		})
 		svc.syncer.Sync(previouslyCaptured)
 
-		// Kick off background routine to periodically sync files.
+		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
+		svc.syncer.Sync(svc.buildAdditionalSyncPaths())
 
+		// Kick off background routine to periodically sync files.
 		svc.startSyncBackgroundRoutine(intervalMins)
 	}
 }
@@ -351,6 +357,7 @@ func (svc *dataManagerService) Sync(ctx context.Context) error {
 		return errors.New("called Sync on data manager service with nil syncer")
 	}
 	svc.syncDataCaptureFiles()
+	svc.syncAdditionalSyncPaths()
 	return nil
 }
 
@@ -371,6 +378,47 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	}
 	svc.lock.Unlock()
 	svc.syncer.Sync(oldFiles)
+}
+
+func (svc *dataManagerService) buildAdditionalSyncPaths() []string {
+	svc.lock.Lock()
+	var filepathsToSync []string
+	// Loop through additional sync paths and add files from each to the syncer.
+	for _, asp := range svc.additionalSyncPaths {
+		// Check that additional sync paths directories exist. If not, create directories accordingly.
+		if _, err := os.Stat(asp); errors.Is(err, os.ErrNotExist) {
+			err := os.Mkdir(asp, os.ModePerm)
+			if err != nil {
+				svc.logger.Errorw("data manager unable to create a directory specified as an additional sync path", "error", err)
+			}
+		} else {
+			// Traverse all files in 'asp' directory and append them to a list of files to be synced.
+			now := time.Now()
+			//nolint
+			_ = filepath.Walk(asp, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return nil
+				}
+				if info.IsDir() {
+					return nil
+				}
+				// If a file was modified within the past svc.waitAfterLastModifiedSecs seconds, do not sync it (data
+				// may still be being written).
+				if diff := now.Sub(info.ModTime()); diff < (time.Duration(svc.waitAfterLastModifiedSecs) * time.Second) {
+					return nil
+				}
+				filepathsToSync = append(filepathsToSync, path)
+				return nil
+			})
+		}
+	}
+	svc.lock.Unlock()
+	return filepathsToSync
+}
+
+// Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
+func (svc *dataManagerService) syncAdditionalSyncPaths() {
+	svc.syncer.Sync(svc.buildAdditionalSyncPaths())
 }
 
 // Get the config associated with the data manager service.
@@ -484,7 +532,12 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
-	if svcConfig.SyncIntervalMins != svc.syncIntervalMins {
+	// If the sync config has changed, update the syncer.
+	if svcConfig.SyncIntervalMins != svc.syncIntervalMins ||
+		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
+		svc.lock.Lock()
+		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
+		svc.lock.Unlock()
 		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	}
@@ -514,7 +567,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	return nil
 }
 
-func (svc *dataManagerService) uploadCapturedData(cancelCtx context.Context, intervalMins float64) {
+func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMins float64) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -535,6 +588,7 @@ func (svc *dataManagerService) uploadCapturedData(cancelCtx context.Context, int
 				return
 			case <-ticker.C:
 				svc.syncDataCaptureFiles()
+				svc.syncAdditionalSyncPaths()
 			}
 		}
 	})
@@ -543,7 +597,7 @@ func (svc *dataManagerService) uploadCapturedData(cancelCtx context.Context, int
 func (svc *dataManagerService) startSyncBackgroundRoutine(intervalMins float64) {
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.updateCollectorsCancelFn = fn
-	svc.uploadCapturedData(cancelCtx, intervalMins)
+	svc.uploadData(cancelCtx, intervalMins)
 }
 
 func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
