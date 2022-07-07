@@ -16,7 +16,6 @@ import (
 	"go.uber.org/multierr"
 
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -107,7 +106,7 @@ type Frame interface {
 
 	// Geometries returns a map between names and geometries for the reference frame and any intermediate frames that
 	// may be defined for it, e.g. links in an arm. If a frame does not have a geometryCreator it will not be added into the map
-	Geometries([]Input) (map[string]spatial.Geometry, error)
+	Geometries([]Input) (*GeometriesInFrame, error)
 
 	// DoF will return a slice with length equal to the number of joints/degrees of freedom.
 	// Each element describes the min and max movement limit of that joint/degree of freedom.
@@ -205,17 +204,16 @@ func (sf *staticFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
-func (sf *staticFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if sf.geometryCreator == nil {
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
 	}
-	pose, err := sf.Transform(input)
-	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
-		return nil, err
+	if len(input) != 0 {
+		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(input))
 	}
 	m := make(map[string]spatial.Geometry)
-	m[sf.Name()] = sf.geometryCreator.NewGeometry(pose)
-	return m, err
+	m[sf.Name()] = sf.geometryCreator.NewGeometry(spatial.NewZeroPose())
+	return NewGeometriesInFrame(sf.name, m), nil
 }
 
 // DoF are the degrees of freedom of the transform. In the staticFrame, it is always 0.
@@ -301,7 +299,7 @@ func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPosition
 }
 
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.
-func (pf *translationalFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if pf.geometryCreator == nil {
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", pf)
 	}
@@ -311,7 +309,7 @@ func (pf *translationalFrame) Geometries(input []Input) (map[string]spatial.Geom
 	}
 	m := make(map[string]spatial.Geometry)
 	m[pf.Name()] = pf.geometryCreator.NewGeometry(pose)
-	return m, err
+	return NewGeometriesInFrame(pf.name, m), err
 }
 
 // DoF are the degrees of freedom of the transform.
@@ -388,7 +386,7 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 
 // Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
-func (rf *rotationalFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	return nil, fmt.Errorf("s not implemented for type %T", rf)
 }
 
@@ -471,7 +469,7 @@ func (mf *mobile2DFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	return &pb.JointPositions{Degrees: n}
 }
 
-func (mf *mobile2DFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if mf.geometryCreator == nil {
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", mf)
 	}
@@ -481,7 +479,7 @@ func (mf *mobile2DFrame) Geometries(input []Input) (map[string]spatial.Geometry,
 	}
 	m := make(map[string]spatial.Geometry)
 	m[mf.Name()] = mf.geometryCreator.NewGeometry(pose)
-	return m, err
+	return NewGeometriesInFrame(mf.name, m), err
 }
 
 func (mf *mobile2DFrame) DoF() []Limit {

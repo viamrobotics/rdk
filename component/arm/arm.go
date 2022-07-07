@@ -3,6 +3,7 @@ package arm
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 
@@ -14,6 +15,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -21,9 +23,13 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
+
+var numCPUs = 4
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
@@ -56,7 +62,11 @@ func init() {
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "arm".
-const SubtypeName = resource.SubtypeName("arm")
+const (
+	SubtypeName            = resource.SubtypeName("arm")
+	DefaultLinearDeviation = 0.1
+	DefaultPathStepSize    = 10.0
+)
 
 // Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
@@ -103,8 +113,10 @@ type LocalArm interface {
 }
 
 var (
-	_ = LocalArm(&reconfigurableArm{})
+	_ = Arm(&reconfigurableArm{})
+	_ = LocalArm(&reconfigurableLocalArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
+	_ = resource.Reconfigurable(&reconfigurableLocalArm{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
@@ -156,12 +168,16 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: arm.IsMoving()}, nil
+	isMoving, err := arm.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 type reconfigurableArm struct {
 	mu     sync.RWMutex
-	actual LocalArm
+	actual Arm
 }
 
 func (r *reconfigurableArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -224,12 +240,6 @@ func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referencefram
 	return r.actual.GoToInputs(ctx, goal)
 }
 
-func (r *reconfigurableArm) IsMoving() bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.IsMoving()
-}
-
 func (r *reconfigurableArm) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -239,14 +249,18 @@ func (r *reconfigurableArm) Close(ctx context.Context) error {
 func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	actual, ok := newArm.(*reconfigurableArm)
+	return r.reconfigure(ctx, newArm)
+}
+
+func (r *reconfigurableArm) reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
+	arm, ok := newArm.(*reconfigurableArm)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newArm)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	r.actual = actual.actual
+	r.actual = arm.actual
 	return nil
 }
 
@@ -260,17 +274,56 @@ func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActio
 	return config.Reconfigure
 }
 
-// WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
-// If arm is already a reconfigurableArm, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	arm, ok := r.(LocalArm)
+type reconfigurableLocalArm struct {
+	*reconfigurableArm
+	actual LocalArm
+}
+
+func (r *reconfigurableLocalArm) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving(ctx)
+}
+
+func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	arm, ok := newArm.(*reconfigurableLocalArm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalArm", r)
+		return utils.NewUnexpectedTypeError(r, newArm)
 	}
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	r.actual = arm.actual
+	return r.reconfigurableArm.reconfigure(ctx, arm.reconfigurableArm)
+}
+
+// WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm
+// and a localArm into a reconfigurableLocalArm
+// If arm is already a Reconfigurable, then nothing is done.
+func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+	arm, ok := r.(Arm)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
+	}
+
 	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableArm{actual: arm}, nil
+
+	rArm := &reconfigurableArm{actual: arm}
+	localArm, ok := r.(LocalArm)
+	if !ok {
+		// is an arm but is not a local arm
+		return rArm, nil
+	}
+
+	if reconfigurableLocal, ok := localArm.(*reconfigurableLocalArm); ok {
+		return reconfigurableLocal, nil
+	}
+	return &reconfigurableLocalArm{actual: localArm, reconfigurableArm: rArm}, nil
 }
 
 // NewPositionFromMetersAndOV returns a three-dimensional arm position
@@ -308,18 +361,132 @@ func PositionRotationDiff(a, b *commonpb.Pose) float64 {
 		utils.Square(a.OZ-b.OZ)
 }
 
+// Move is a helper function to be called by arm implementations to abstract away the default procedure for using the
+// motion planning library with arms.
+func Move(
+	ctx context.Context,
+	r robot.Robot,
+	a Arm,
+	dst *commonpb.Pose,
+	worldState *commonpb.WorldState,
+) error {
+	logger := r.Logger()
+
+	// build the framesystem
+	fs, err := framesystem.RobotFrameSystem(ctx, r, worldState.GetTransforms())
+	if err != nil {
+		return err
+	}
+
+	// get the initial inputs
+	inputs := referenceframe.StartPositions(fs)
+	for name, original := range inputs {
+		// skip frames with no input
+		if len(original) == 0 {
+			continue
+		}
+
+		// add component to map
+		components := robot.AllResourcesByName(r, name)
+		if len(components) != 1 {
+			return fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
+		}
+		component, ok := components[0].(referenceframe.InputEnabled)
+		if !ok {
+			return fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
+		}
+
+		// add input to map
+		input, err := component.CurrentInputs(ctx)
+		if err != nil {
+			return err
+		}
+		inputs[name] = input
+	}
+	logger.Debugf("frame system inputs: %v", inputs)
+
+	model := a.ModelFrame()
+	if model == nil {
+		return errors.New("arm did not provide a valid model")
+	}
+
+	// conduct planning query
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, numCPUs, logger)
+	if err != nil {
+		return err
+	}
+
+	seed, err := a.GetJointPositions(ctx) // TODO(rb) should be able to get this from the input map
+	if err != nil {
+		return err
+	}
+
+	seedPos, err := model.Transform(model.InputFromProtobuf(seed))
+	if err != nil {
+		return err
+	}
+	goalPos := spatialmath.NewPoseFromProtobuf(dst)
+
+	numSteps := motionplan.GetSteps(seedPos, goalPos, DefaultPathStepSize)
+	goals := make([]spatialmath.Pose, 0, numSteps)
+	opts := make([]*motionplan.PlannerOptions, 0, numSteps)
+
+	collisionConst := motionplan.NewCollisionConstraintFromWorldState(a.ModelFrame(), fs, worldState, inputs)
+
+	from := seedPos
+	for i := 1; i < numSteps; i++ {
+		by := float64(i) / float64(numSteps)
+		to := spatialmath.Interpolate(seedPos, goalPos, by)
+		goals = append(goals, to)
+		opt := DefaultArmPlannerOptions(from, to, a.ModelFrame(), collisionConst)
+		opts = append(opts, opt)
+
+		from = to
+	}
+	goals = append(goals, goalPos)
+	opt := DefaultArmPlannerOptions(from, goalPos, a.ModelFrame(), collisionConst)
+	opts = append(opts, opt)
+
+	solution, err := motionplan.RunPlannerWithWaypoints(ctx, mp, goals, model.InputFromProtobuf(seed), opts, 0)
+	if err != nil {
+		return err
+	}
+
+	// move arm
+	return GoToWaypoints(ctx, a, solution)
+}
+
 // GoToWaypoints will visit in turn each of the joint position waypoints generated by a motion planner.
 func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Input) error {
-	//~ for _, waypoint := range waypoints {
-	//~ err := ctx.Err() // make sure we haven't been cancelled
-	//~ if err != nil {
-	//~ return err
-	//~ }
+	for _, waypoint := range waypoints {
+		err := ctx.Err() // make sure we haven't been cancelled
+		if err != nil {
+			return err
+		}
 
-	//~ err = a.GoToInputs(ctx, waypoint)
-	//~ if err != nil {
-	//~ return err
-	//~ }
-	//~ }
+		err = a.GoToInputs(ctx, waypoint)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// DefaultArmPlannerOptions will provide a set of default planner options which can be passed to motion planning.
+// The user can choose to enforce linear motion constraints, and optionally also orientation interpolation constraints if sufficient DOF.
+func DefaultArmPlannerOptions(
+	from,
+	to spatialmath.Pose,
+	f referenceframe.Frame,
+	collisionConst motionplan.Constraint,
+) *motionplan.PlannerOptions {
+	opt := motionplan.NewDefaultPlannerOptions()
+	constraint, metric := motionplan.NewLinearInterpolatingConstraint(from, to, DefaultLinearDeviation)
+
+	//~ opt.SetMetric(metric)
+	opt.SetPathDist(metric)
+	opt.AddConstraint("collision", collisionConst)
+	opt.AddConstraint("linearmotion", constraint)
+
+	return opt
 }

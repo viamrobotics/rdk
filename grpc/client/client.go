@@ -58,6 +58,8 @@ type RobotClient struct {
 	cancelBackgroundWorkers func()
 	logger                  golog.Logger
 
+	notifyParent func()
+
 	closeContext context.Context
 }
 
@@ -79,6 +81,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		logger:                  logger,
 		closeContext:            closeCtx,
 		dialOptions:             rOpts.dialOptions,
+		notifyParent:            nil,
 	}
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
@@ -113,6 +116,13 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	return rc, nil
 }
 
+// SetParentNotifier set the notifier function, robot client will use that the relay changes.
+func (rc *RobotClient) SetParentNotifier(f func()) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	rc.notifyParent = f
+}
+
 // Connected exposes whether a robot client is connected to the remote.
 func (rc *RobotClient) Connected() bool {
 	return rc.connected
@@ -143,7 +153,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	defer rc.mu.Unlock()
 
 	client := pb.NewRobotServiceClient(conn)
-	//nolint:contextcheck
+
 	refClient := grpcreflect.NewClient(rc.closeContext, reflectpb.NewServerReflectionClient(conn))
 
 	rc.conn = conn
@@ -152,6 +162,9 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	rc.connected = true
 	if rc.changeChan != nil {
 		rc.changeChan <- true
+	}
+	if rc.notifyParent != nil {
+		rc.notifyParent()
 	}
 	return nil
 }
@@ -217,6 +230,9 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 				rc.connected = false
 				if rc.changeChan != nil {
 					rc.changeChan <- true
+				}
+				if rc.notifyParent != nil {
+					rc.notifyParent()
 				}
 				rc.mu.Unlock()
 			}

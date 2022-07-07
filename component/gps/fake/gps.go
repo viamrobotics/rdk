@@ -42,7 +42,6 @@ func init() {
 				config config.Component,
 				logger golog.Logger,
 			) (interface{}, error) {
-				//nolint:contextcheck
 				return newInterceptingGPSBase(deps, config)
 			},
 		},
@@ -252,6 +251,10 @@ func (b *interceptingGPSBase) GetWidth(ctx context.Context) (int, error) {
 
 func (b *interceptingGPSBase) Stop(ctx context.Context) error {
 	return nil
+}
+
+func (b *interceptingGPSBase) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
 const maxMmPerSec = 300

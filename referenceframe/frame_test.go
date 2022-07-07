@@ -137,19 +137,12 @@ func TestGeometries(t *testing.T) {
 	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
 	expectedBox := bc.NewGeometry(pose)
 
-	// test creating a new static frame with a geometry
-	sf, err := NewStaticFrameWithGeometry("", pose, bc)
-	test.That(t, err, test.ShouldBeNil)
-	geometries, err := sf.Geometries([]Input{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
-
 	// test creating a new translational frame with a geometry
 	tf, err := NewTranslationalFrameWithGeometry("", r3.Vector{0, 1, 0}, Limit{Min: -30, Max: 30}, bc)
 	test.That(t, err, test.ShouldBeNil)
-	geometries, err = tf.Geometries(FloatsToInputs([]float64{10}))
+	geometries, err := tf.Geometries(FloatsToInputs([]float64{10}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
 
 	// test erroring correctly from trying to create a geometry for a rotational frame
 	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
@@ -163,14 +156,22 @@ func TestGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = mf.Geometries(FloatsToInputs([]float64{0, 10}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
+
+	// test creating a new static frame with a geometry
+	expectedBox = bc.NewGeometry(spatial.NewZeroPose())
+	sf, err := NewStaticFrameWithGeometry("", pose, bc)
+	test.That(t, err, test.ShouldBeNil)
+	geometries, err = sf.Geometries([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
 
 	// test inheriting a geometry creator
 	sf, err = NewStaticFrameFromFrame(tf, pose)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = sf.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
 }
 
 func TestSerializationStatic(t *testing.T) {

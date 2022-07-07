@@ -15,15 +15,6 @@ type SLAMService struct {
 	GetPositionFunc func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error)
 	GetMapFunc      func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
 		include bool) (string, image.Image, *vision.Object, error)
-	CloseFunc func() error
-}
-
-// Close calls the injected CloseFunc or the real version.
-func (slamSvc *SLAMService) Close() error {
-	if slamSvc.CloseFunc == nil {
-		return slamSvc.Service.Close()
-	}
-	return slamSvc.CloseFunc()
 }
 
 // GetPosition calls the injected GetPositionFunc or the real version.

@@ -37,22 +37,17 @@ type pmtkI2CNMEAGPS struct {
 	mu     sync.RWMutex
 	bus    board.I2C
 	addr   byte
+	wbaud  int
 	logger golog.Logger
 
-	data        gpsData
-	ntripClient ntripInfo
+	data gpsData
 
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newPmtkI2CNMEAGPS(
-	ctx context.Context,
-	deps registry.Dependencies,
-	config config.Component,
-	logger golog.Logger,
-) (gps.LocalGPS, error) {
+func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (nmeaGPS, error) {
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
@@ -65,16 +60,16 @@ func newPmtkI2CNMEAGPS(
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
 	}
-	addr := config.Attributes.Int("address", -1)
+	addr := config.Attributes.Int("i2c_addr", -1)
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
+	wbaud := config.Attributes.Int("ntrip_baud", 38400)
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &pmtkI2CNMEAGPS{
-		bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
-		ntripClient: ntripInfo{sendNMEA: false},
+		bus: i2cbus, addr: byte(addr), wbaud: wbaud, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
 	}
 	g.Start(ctx)
 
@@ -88,8 +83,15 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 		return
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
+	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
+	cmd251 := addChk([]byte(baudcmd))
 	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
+
+	err = handle.Write(ctx, cmd251)
+	if err != nil {
+		g.logger.Debug("Failed to set baud rate")
+	}
 
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
@@ -142,14 +144,14 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 				if b == 0x0D {
 					if strBuf != "" {
 						g.mu.Lock()
-						err = g.data.parseAndUpdate(strBuf, g.ntripClient)
+						err = g.data.parseAndUpdate(strBuf)
 						g.mu.Unlock()
 						if err != nil {
 							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
 						}
 					}
 					strBuf = ""
-				} else if b != 0x0A {
+				} else if b != 0x0A && b != 0xFF { // adds only valid bytes
 					strBuf += string(b)
 				}
 			}
@@ -193,9 +195,16 @@ func (g *pmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	return g.data.valid, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Close() {
+func (g *pmtkI2CNMEAGPS) ReadFix(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.fixQuality, nil
+}
+
+func (g *pmtkI2CNMEAGPS) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // PMTK checksums commands by XORing together each byte.

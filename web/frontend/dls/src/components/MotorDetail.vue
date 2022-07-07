@@ -15,8 +15,10 @@
           </p>
         </div>
         <div class="p-4 flex items-center flex-wrap">
-          <ViamBadge color="green" v-if="motorStatus.isOn">Running</ViamBadge>
-          <ViamBadge color="gray" v-if="!motorStatus.isOn">Idle</ViamBadge>
+          <ViamBadge color="green" v-if="motorStatus.isPowered"
+            >Running</ViamBadge
+          >
+          <ViamBadge color="gray" v-if="!motorStatus.isPowered">Idle</ViamBadge>
         </div>
       </div>
       <div class="p-2 float-right">
@@ -32,7 +34,7 @@
       <template v-slot:content>
         <div class="" :style="{ height: maxHeight + 'px' }">
           <div
-            class="border border-black p-4 grid grid-cols-1"
+            class="border border-black border-t-0 p-4 grid grid-cols-1"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div class="grid">

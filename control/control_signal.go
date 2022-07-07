@@ -11,7 +11,6 @@ type Signal struct {
 	mu        *sync.Mutex
 }
 
-//nolint: unparam
 func makeSignal(name string, dimension int) Signal {
 	var s Signal
 	s.dimension = dimension
