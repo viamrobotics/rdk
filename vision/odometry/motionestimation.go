@@ -27,7 +27,7 @@ type MotionEstimationConfig struct {
 // LoadMotionEstimationConfig loads a motion estimation configuration from a json file.
 func LoadMotionEstimationConfig(path string) *MotionEstimationConfig {
 	var config MotionEstimationConfig
-	configFile, err := os.Open(path)
+	configFile, err := os.Open(path) // nolint:gosec
 	defer utils.UncheckedErrorFunc(configFile.Close)
 	if err != nil {
 		return nil
