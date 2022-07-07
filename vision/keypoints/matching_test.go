@@ -6,6 +6,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -39,6 +40,7 @@ func TestRangeInt(t *testing.T) {
 }
 
 func TestMatchKeypoints(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	// load config
 	cfg := LoadFASTConfiguration("kpconfig.json")
 	// load image from artifacts and convert to gray image
@@ -78,20 +80,21 @@ func TestMatchKeypoints(t *testing.T) {
 		1000,
 	}
 	// test matches with itself
-	matches := MatchKeypoints(briefDescriptors, briefDescriptors, &cfgMatch)
+	matches := MatchKeypoints(briefDescriptors, briefDescriptors, &cfgMatch, logger)
 	for _, match := range matches.Indices {
 		test.That(t, match.Idx1, test.ShouldEqual, match.Idx2)
 	}
 	// test matches with bigger image
-	matches2 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch)
+	matches2 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
 	test.That(t, len(matches2.Indices), test.ShouldEqual, len(matches2.Descriptors1))
 	// test matches with bigger image and cross-check; #matches <= #kps2
 	cfgMatch.DoCrossCheck = true
-	matches3 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch)
+	matches3 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
 	test.That(t, len(matches3.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
 }
 
 func TestGetMatchingKeyPoints(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	cfg, err := LoadORBConfiguration("orbconfig.json")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg, test.ShouldNotBeNil)
@@ -114,7 +117,7 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 		1000,
 	}
 	// test matches with itself
-	matches := MatchKeypoints(descs, descs, &cfgMatch)
+	matches := MatchKeypoints(descs, descs, &cfgMatch, logger)
 
 	kps1, kps2, err := GetMatchingKeyPoints(matches, kps, kps)
 	test.That(t, err, test.ShouldBeNil)
@@ -125,4 +128,48 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 		test.That(t, math.Abs(float64(pt1.X-pt2.X)), test.ShouldBeLessThan, 1)
 		test.That(t, math.Abs(float64(pt1.Y-pt2.Y)), test.ShouldBeLessThan, 1)
 	}
+}
+
+func TestOrbMatching(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	orbConf := &ORBConfig{
+		Layers:          4,
+		DownscaleFactor: 2,
+		FastConf: &FASTConfig{
+			NMatchesCircle: 9,
+			NMSWinSize:     7,
+			Threshold:      .10,
+			Oriented:       true,
+			Radius:         16,
+		},
+		BRIEFConf: &BRIEFConfig{
+			N:              2056,
+			Sampling:       0,
+			UseOrientation: true,
+			PatchSize:      16,
+		},
+	}
+	matchingConf := &MatchingConfig{
+		DoCrossCheck: true,
+		MaxDist:      1000,
+	}
+	img1, err := rimage.NewImageFromFile(artifact.MustPath("vision/odometry/000001.png"))
+	test.That(t, err, test.ShouldBeNil)
+	img2, err := rimage.NewImageFromFile(artifact.MustPath("vision/odometry/000002.png"))
+	test.That(t, err, test.ShouldBeNil)
+	im1 := rimage.MakeGray(img1)
+	im2 := rimage.MakeGray(img2)
+	// image 1
+	orb1, kps1, err := ComputeORBKeypoints(im1, orbConf)
+	test.That(t, err, test.ShouldBeNil)
+	orb1, _, err = sortDescriptorsByPoint(orb1, kps1, logger)
+	test.That(t, err, test.ShouldBeNil)
+	// image 2
+	orb2, kps2, err := ComputeORBKeypoints(im2, orbConf)
+	test.That(t, err, test.ShouldBeNil)
+	orb2, _, err = sortDescriptorsByPoint(orb2, kps2, logger)
+	test.That(t, err, test.ShouldBeNil)
+	matches := MatchKeypoints(orb1, orb2, matchingConf, logger)
+	test.That(t, len(matches.Indices), test.ShouldEqual, 4)
+
 }
