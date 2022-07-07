@@ -1,49 +1,49 @@
 <script>
 
-import robotApi from './gen/proto/api/robot/v1/robot_pb';
-import commonApi from './gen/proto/api/common/v1/common_pb';
-import armApi from './gen/proto/api/component/arm/v1/arm_pb';
-import { RobotServiceClient } from './gen/proto/api/robot/v1/robot_pb_service';
-import { ArmServiceClient } from './gen/proto/api/component/arm/v1/arm_pb_service';
-import baseApi from './gen/proto/api/component/base/v1/base_pb';
-import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_service';
-import boardApi from './gen/proto/api/component/board/v1/board_pb';
-import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_service';
-import cameraApi from './gen/proto/api/component/camera/v1/camera_pb';
-import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_pb_service';
-import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb';
-import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service';
-import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb';
-import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service';
-import imuApi from './gen/proto/api/component/imu/v1/imu_pb';
-import { IMUServiceClient } from './gen/proto/api/component/imu/v1/imu_pb_service';
-import inputApi from './gen/proto/api/component/inputcontroller/v1/input_controller_pb';
-import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service';
-import motorApi from './gen/proto/api/component/motor/v1/motor_pb';
-import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service';
-import navigationApi from './gen/proto/api/service/navigation/v1/navigation_pb';
-import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service';
-import motionApi from './gen/proto/api/service/motion/v1/motion_pb';
-import { MotionServiceClient } from './gen/proto/api/service/motion/v1/motion_pb_service';
-import visionApi from './gen/proto/api/service/vision/v1/vision_pb';
-import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service';
-import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb';
-import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors_pb_service';
-import servoApi from './gen/proto/api/component/servo/v1/servo_pb';
-import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service';
-import slamApi from './gen/proto/api/service/slam/v1/slam_pb';
-import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service';
-import streamApi from './gen/proto/stream/v1/stream_pb';
-import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service';
+import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
+import commonApi from './gen/proto/api/common/v1/common_pb.esm';
+import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
+import { RobotServiceClient } from './gen/proto/api/robot/v1/robot_pb_service.esm';
+import { ArmServiceClient } from './gen/proto/api/component/arm/v1/arm_pb_service.esm';
+import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
+import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_service.esm';
+import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_service.esm';
+import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
+import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_pb_service.esm';
+import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
+import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service.esm';
+import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
+import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service.esm';
+import imuApi from './gen/proto/api/component/imu/v1/imu_pb.esm';
+import { IMUServiceClient } from './gen/proto/api/component/imu/v1/imu_pb_service.esm';
+import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
+import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service.esm';
+import navigationApi from './gen/proto/api/service/navigation/v1/navigation_pb.esm';
+import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service.esm';
+import motionApi from './gen/proto/api/service/motion/v1/motion_pb.esm';
+import { MotionServiceClient } from './gen/proto/api/service/motion/v1/motion_pb_service.esm';
+import visionApi from './gen/proto/api/service/vision/v1/vision_pb.esm';
+import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service.esm';
+import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
+import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors_pb_service.esm';
+import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
+import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service.esm';
+import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
+import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
+import streamApi from './gen/proto/stream/v1/stream_pb.esm';
+import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
 import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
-import THREE from 'three';
-import pcdLib from 'three/examples/jsm/loaders/PCDLoader';
-import orbitLib from 'three/examples/jsm/controls/OrbitControls';
-import trackLib from 'three/examples/jsm/controls/TrackballControls';
+import * as THREE from 'three';
+import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import {
+  BaseControlHelper,
+  MotorControlHelper,
+  BoardControlHelper,
+  computeKeyboardBaseControls,
+} from './rc/control_helpers';
 
 const { webrtcHost } = window;
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 const rtcConfig = {
 	iceServers: [
@@ -122,23 +122,23 @@ window.rcLogConditionally = function (req) {
 };
 
 
-const robotService = new RobotServiceClient(webrtcHost, { transport: transportFactory });
+window.robotService = new RobotServiceClient(webrtcHost, { transport: transportFactory });
 // TODO(RSDK-144): these should be created as needed
-const armService = new ArmServiceClient(webrtcHost, { transport: transportFactory });
-const baseService = new BaseServiceClient(webrtcHost, { transport: transportFactory });
-const boardService = new BoardServiceClient(webrtcHost, { transport: transportFactory });
-const cameraService = new CameraServiceClient(webrtcHost, { transport: transportFactory });
-const gantryService = new GantryServiceClient(webrtcHost, { transport: transportFactory });
-const gripperService = new GripperServiceClient(webrtcHost, { transport: transportFactory });
-const imuService = new IMUServiceClient(webrtcHost, { transport: transportFactory });
-const inputControllerService = new InputControllerServiceClient(webrtcHost, { transport: transportFactory });
-const motorService = new MotorServiceClient(webrtcHost, { transport: transportFactory });
-const navigationService = new NavigationServiceClient(webrtcHost, { transport: transportFactory });
-const motionService = new MotionServiceClient(webrtcHost, { transport: transportFactory });
-const visionService = new VisionServiceClient(webrtcHost, { transport: transportFactory });
-const sensorsService = new SensorsServiceClient(webrtcHost, { transport: transportFactory });
-const servoService = new ServoServiceClient(webrtcHost, { transport: transportFactory });
-const slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
+window.armService = new ArmServiceClient(webrtcHost, { transport: transportFactory });
+window.baseService = new BaseServiceClient(webrtcHost, { transport: transportFactory });
+window.boardService = new BoardServiceClient(webrtcHost, { transport: transportFactory });
+window.cameraService = new CameraServiceClient(webrtcHost, { transport: transportFactory });
+window.gantryService = new GantryServiceClient(webrtcHost, { transport: transportFactory });
+window.gripperService = new GripperServiceClient(webrtcHost, { transport: transportFactory });
+window.imuService = new IMUServiceClient(webrtcHost, { transport: transportFactory });
+window.inputControllerService = new InputControllerServiceClient(webrtcHost, { transport: transportFactory });
+window.motorService = new MotorServiceClient(webrtcHost, { transport: transportFactory });
+window.navigationService = new NavigationServiceClient(webrtcHost, { transport: transportFactory });
+window.motionService = new MotionServiceClient(webrtcHost, { transport: transportFactory });
+window.visionService = new VisionServiceClient(webrtcHost, { transport: transportFactory });
+window.sensorsService = new SensorsServiceClient(webrtcHost, { transport: transportFactory });
+window.servoService = new ServoServiceClient(webrtcHost, { transport: transportFactory });
+window.slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
 
 function roundTo2Decimals(num) {
   return Math.round(num * 100) / 100;
@@ -603,7 +603,7 @@ export default {
         return;
       } 
 
-      const inputs = window.computeKeyboardBaseControls(controls);
+      const inputs = computeKeyboardBaseControls(controls);
       const linear = new commonApi.Vector3();
       const angular = new commonApi.Vector3();
       linear.setY(inputs.linear);
@@ -1255,7 +1255,7 @@ function initPCDIfNeeded() {
   pcdGlobal.renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
   document.getElementById('pcd').append(pcdGlobal.renderer.domElement);
 
-  pcdGlobal.controls = new orbitLib.OrbitControls(pcdGlobal.camera, pcdGlobal.renderer.domElement);
+  pcdGlobal.controls = new OrbitControls(pcdGlobal.camera, pcdGlobal.renderer.domElement);
   pcdGlobal.camera.position.set(0, 0, 0);
   pcdGlobal.controls.target.set(0, 0, -1);
   pcdGlobal.controls.update();
@@ -1287,7 +1287,7 @@ function pcdAnimate() {
 }
 
 function pcdLoad(path) {
-  const loader = new pcdLib.PCDLoader();
+  const loader = new PCDLoader();
   loader.load(
     path,
 
