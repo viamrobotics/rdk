@@ -313,7 +313,7 @@ func (slamSvc *slamService) GetPosition(ctx context.Context, name string) (*refe
 func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
 	string, image.Image, *vision.Object, error,
 ) {
-	ctx, span := trace.StartSpan(ctx, "slam::GetMap")
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::GetMap")
 	defer span.End()
 
 	var cameraPosition *v1.Pose
