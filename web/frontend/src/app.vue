@@ -1,5 +1,6 @@
 <script>
 
+import ViamBase from './components/Base.vue'
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
@@ -108,6 +109,24 @@ const connect = async (authEntity, creds) => {
 		transportFactory = await dialDirect(impliedURL, opts);
 	}
 
+  window.robotService = new RobotServiceClient(webrtcHost, { transport: transportFactory });
+  // TODO(RSDK-144): these should be created as needed
+  window.armService = new ArmServiceClient(webrtcHost, { transport: transportFactory });
+  window.baseService = new BaseServiceClient(webrtcHost, { transport: transportFactory });
+  window.boardService = new BoardServiceClient(webrtcHost, { transport: transportFactory });
+  window.cameraService = new CameraServiceClient(webrtcHost, { transport: transportFactory });
+  window.gantryService = new GantryServiceClient(webrtcHost, { transport: transportFactory });
+  window.gripperService = new GripperServiceClient(webrtcHost, { transport: transportFactory });
+  window.imuService = new IMUServiceClient(webrtcHost, { transport: transportFactory });
+  window.inputControllerService = new InputControllerServiceClient(webrtcHost, { transport: transportFactory });
+  window.motorService = new MotorServiceClient(webrtcHost, { transport: transportFactory });
+  window.navigationService = new NavigationServiceClient(webrtcHost, { transport: transportFactory });
+  window.motionService = new MotionServiceClient(webrtcHost, { transport: transportFactory });
+  window.visionService = new VisionServiceClient(webrtcHost, { transport: transportFactory });
+  window.sensorsService = new SensorsServiceClient(webrtcHost, { transport: transportFactory });
+  window.servoService = new ServoServiceClient(webrtcHost, { transport: transportFactory });
+  window.slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
+
 	// save authEntity, creds
 	window.connect = () => connect(authEntity, creds);
 };
@@ -121,45 +140,8 @@ window.rcLogConditionally = function (req) {
 	}
 };
 
-
-window.robotService = new RobotServiceClient(webrtcHost, { transport: transportFactory });
-// TODO(RSDK-144): these should be created as needed
-window.armService = new ArmServiceClient(webrtcHost, { transport: transportFactory });
-window.baseService = new BaseServiceClient(webrtcHost, { transport: transportFactory });
-window.boardService = new BoardServiceClient(webrtcHost, { transport: transportFactory });
-window.cameraService = new CameraServiceClient(webrtcHost, { transport: transportFactory });
-window.gantryService = new GantryServiceClient(webrtcHost, { transport: transportFactory });
-window.gripperService = new GripperServiceClient(webrtcHost, { transport: transportFactory });
-window.imuService = new IMUServiceClient(webrtcHost, { transport: transportFactory });
-window.inputControllerService = new InputControllerServiceClient(webrtcHost, { transport: transportFactory });
-window.motorService = new MotorServiceClient(webrtcHost, { transport: transportFactory });
-window.navigationService = new NavigationServiceClient(webrtcHost, { transport: transportFactory });
-window.motionService = new MotionServiceClient(webrtcHost, { transport: transportFactory });
-window.visionService = new VisionServiceClient(webrtcHost, { transport: transportFactory });
-window.sensorsService = new SensorsServiceClient(webrtcHost, { transport: transportFactory });
-window.servoService = new ServoServiceClient(webrtcHost, { transport: transportFactory });
-window.slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
-
 function roundTo2Decimals(num) {
   return Math.round(num * 100) / 100;
-}
-
-function setError(err) {
-  theData.error = err;
-}
-
-function grpcCallback(err, resp, stringify) {
-  if (err) {
-    setError(err);
-    return;
-  }
-  if (stringify === undefined || stringify) {
-    try {
-      theData.res = resp.toJavaScript ? JSON.stringify(resp.toJavaScript()) : JSON.stringify(resp.toObject());
-    } catch {
-      setError(err);
-    }
-  }
 }
 
 function fixArmStatus(old) {
@@ -178,7 +160,7 @@ function fixArmStatus(old) {
     const endPositionField = fieldSetter[0];
     newStatus.pos_pieces.push(
       { 
-        endPosition : fieldSetters[j],
+        endPosition : fieldSetter,
         endPositionValue : old['end_position'][endPositionField] || 0,
       }
     );
@@ -246,53 +228,30 @@ function fixServoStatus(old) {
   return { positionDeg: old['position_deg'] || 0, is_moving: old['is_moving'] || false };
 }
 
-function fixRawStatus(name, status) {
-  switch (theApp.resourceNameToSubtypeString(name)) {
-    // TODO (APP-146): generate these using constants
-    case 'rdk:component:arm':
-      return fixArmStatus(status);
-    case 'rdk:component:board':
-      return fixBoardStatus(status);
-    case 'rdk:component:gantry':
-      return fixGantryStatus(status);
-    case 'rdk:component:input_controller':
-      return fixInputStatus(status);
-    case 'rdk:component:motor':
-      return fixMotorStatus(status);
-    case 'rdk:component:servo':
-      return fixServoStatus(status);
-  }
-  return status;
-}
-
-function updateStatus(grpcStatus) {
-  const rawStatus = {};
-  const status = {};
-
-  for (const s of grpcStatus) {
-    const nameObj = s.getName().toObject();
-    const statusJs = s.getStatus().toJavaScript();
-    const fixed = fixRawStatus(nameObj, statusJs);
-
-    const nameStr = theApp.resourceNameToString(nameObj);
-    rawStatus[nameStr] = statusJs;
-    status[nameStr] = fixed;
-  }
-
-  theData.rawStatus = rawStatus;
-  theData.status = status;
-}
-
 export default {
   directives: {
     // TODO(APP-82): replace with vue component after naveed work done
     mapMounted() {
-      if (theData.mapOnce) {
+      if (this.mapOnce) {
         return;
       }
-      theData.mapOnce = true;
-      initNavigation();
+      this.mapOnce = true;
+      this.initNavigation();
     },
+  },
+  async mounted() {
+    this.grpcCallback = this.grpcCallback.bind(this);
+    await this.waitForClientAndStart();
+
+    if (window.streamService) {
+      this.queryStreams();
+    }
+
+    this.imuRefresh();
+    this.queryMetadata();
+  },
+  components: {
+    ViamBase,
   },
   data() {
     return {
@@ -328,6 +287,37 @@ export default {
     };
   },
   methods: {
+    fixRawStatus(name, status) {
+      switch (this.resourceNameToSubtypeString(name)) {
+        // TODO (APP-146): generate these using constants
+        case 'rdk:component:arm':
+          return fixArmStatus(status);
+        case 'rdk:component:board':
+          return fixBoardStatus(status);
+        case 'rdk:component:gantry':
+          return fixGantryStatus(status);
+        case 'rdk:component:input_controller':
+          return fixInputStatus(status);
+        case 'rdk:component:motor':
+          return fixMotorStatus(status);
+        case 'rdk:component:servo':
+          return fixServoStatus(status);
+      }
+      return status;
+    },
+    grpcCallback (err, resp, stringify) {
+      if (err) {
+        this.error = err;
+        return;
+      }
+      if (stringify === undefined || stringify) {
+        try {
+          this.res = resp.toJavaScript ? JSON.stringify(resp.toJavaScript()) : JSON.stringify(resp.toObject());
+        } catch {
+          this.error = err;
+        }
+      }
+    },
     parameterType(typeName) {
       if (typeName === 'int' || typeName === 'float64') {
         return 'number';
@@ -339,13 +329,13 @@ export default {
     getSegmenterNames() {
       const req = new visionApi.GetSegmenterNamesRequest();
       visionService.getSegmenterNames(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
           console.log('error getting segmenter names');
           console.log(err);
           return;
         }
-        theData.segmenterNames = resp.getSegmenterNamesList();
+        this.segmenterNames = resp.getSegmenterNamesList();
       });
     },
     getSegmenterParameters(name) {
@@ -353,18 +343,18 @@ export default {
       const req = new visionApi.GetSegmenterParametersRequest();
       req.setSegmenterName(name);
       visionService.getSegmenterParameters(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
           console.log(`error getting segmenter parameters for ${ name}`);
           console.log(err);
           return;
         }
-        theData.segmenterParameterNames = resp.getSegmenterParametersList();
-        theData.segmenterParameters = {};
+        this.segmenterParameterNames = resp.getSegmenterParametersList();
+        this.segmenterParameters = {};
       });
     },
     filterResources(namespace, type, subtype) {
-      return theData.resources.filter((elem) => {
+      return this.resources.filter((elem) => {
         return elem.namespace === namespace && elem.type === type && elem.subtype === subtype;
       }).sort((a, b) => {
         if (a.name < b.name) {
@@ -377,10 +367,18 @@ export default {
       });
     },
     resourceNameToSubtypeString(name) {
+      if (!name) {
+        return ''
+      }
+
       return `${name.namespace}:${name.type}:${name.subtype}`;
     },
     resourceNameToString(name) {
-      strName = theApp.resourceNameToSubtypeString(name);
+      if (!name) {
+        return ''
+      }
+
+      let strName = this.resourceNameToSubtypeString(name);
       if (name.name !== '') {
         strName += `/${name.name}`;
       }
@@ -404,13 +402,13 @@ export default {
       return { namespace: subtypeParts[0], type: subtypeParts[1], subtype: subtypeParts[2], name };
     },
     resourceStatusByName(name) {
-      return theData.status[theApp.resourceNameToString(name)];
+      return this.status[this.resourceNameToString(name)];
     },
     rawResourceStatusByName(name) {
-      return theData.rawStatus[theApp.resourceNameToString(name)];
+      return this.rawStatus[this.resourceNameToString(name)];
     },
     gantryInc(name, axis, amount) {
-      const g = theApp.resourceStatusByName(name);
+      const g = this.resourceStatusByName(name);
       const pos = [];
       for (let i = 0; i < g.parts.length; i++) {
         pos[i] = g.parts[i].pos;
@@ -420,11 +418,11 @@ export default {
       const req = new gantryApi.MoveToPositionRequest();
       req.setName(name.name);
       req.setPositionsMmList(pos);
-      gantryService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+      gantryService.moveToPosition(req, {}, this.grpcCallback);
     },
     armEndPositionInc(name, getterSetter, amount) {
       const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
-      const arm = theApp.rawResourceStatusByName(name);
+      const arm = this.rawResourceStatusByName(name);
       const old = arm['end_position'];
       const newPose = new commonApi.Pose();
       const fieldSetters = [
@@ -449,10 +447,10 @@ export default {
       const req = new armApi.MoveToPositionRequest();
       req.setName(name.name);
       req.setTo(newPose);
-      armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+      armService.moveToPosition(req, {}, this.grpcCallback);
     },
     armJointInc(name, field, amount) {
-      const arm = theApp.rawResourceStatusByName(name);
+      const arm = this.rawResourceStatusByName(name);
       const newPositionDegs = new armApi.JointPositions();
       const newList = arm['joint_positions']['degrees'];
       newList[field] += amount;
@@ -460,10 +458,10 @@ export default {
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
       req.setPositionDegs(newPositionDegs);
-      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+      armService.moveToJointPositions(req, {}, this.grpcCallback);
     },
     armHome(name) {
-      const arm = theApp.rawResourceStatusByName(name);
+      const arm = this.rawResourceStatusByName(name);
       const newPositionDegs = new armApi.JointPositions();
       const newList = arm['joint_positions']['degrees'];
       for (let i = 0; i < newList.length; i++) {
@@ -473,10 +471,10 @@ export default {
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
       req.setPositionDegs(newPositionDegs);
-      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+      armService.moveToJointPositions(req, {}, this.grpcCallback);
     },
     armModifyAll(name) {
-      const arm = theApp.resourceStatusByName(name);
+      const arm = this.resourceStatusByName(name);
       const n = { pos_pieces: [], joint_pieces: [] };
       for (let i = 0; i < arm.pos_pieces.length; i++) {
         n.pos_pieces.push({
@@ -491,14 +489,14 @@ export default {
           jointValue: roundTo2Decimals(arm.joint_pieces[i].jointValue),
         });
       }
-      theData.armToggle[name.name] = n;
+      this.armToggle[name.name] = n;
     },
     armModifyAllCancel(name) {
-      delete theData.armToggle[name.name];
+      delete this.armToggle[name.name];
     },
     armModifyAllDoEndPosition(name) {
       const newPose = new commonApi.Pose();
-      const newPieces = theData.armToggle[name.name].pos_pieces;
+      const newPieces = this.armToggle[name.name].pos_pieces;
 
       for (const newPiece of newPieces) {
         const getterSetter = newPiece.endPosition[1];
@@ -509,14 +507,14 @@ export default {
       const req = new armApi.MoveToPositionRequest();
       req.setName(name.name);
       req.setTo(newPose);
-      armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
-      delete theData.armToggle[name.name];
+      armService.moveToPosition(req, {}, this.grpcCallback);
+      delete this.armToggle[name.name];
     },
     armModifyAllDoJoint(name) {
-      const arm = theApp.rawResourceStatusByName(name);
+      const arm = this.rawResourceStatusByName(name);
       const newPositionDegs = new armApi.JointPositions();
       const newList = arm['joint_positions']['degrees'];
-      const newPieces = theData.armToggle[name.name].joint_pieces;
+      const newPieces = this.armToggle[name.name].joint_pieces;
       for (let i = 0; i < newPieces.length && i < newList.length; i++) {
         newList[newPieces[i].joint] = newPieces[i].jointValue;
       }
@@ -525,8 +523,8 @@ export default {
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
       req.setPositionDegs(newPositionDegs);
-      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
-      delete theData.armToggle[name.name];
+      armService.moveToJointPositions(req, {}, this.grpcCallback);
+      delete this.armToggle[name.name];
     },
 
     gripperAction(name, action) {
@@ -535,43 +533,43 @@ export default {
         case 'open':
           req = new gripperApi.OpenRequest();
           req.setName(name);
-          gripperService.open(req, {}, (err, resp) => grpcCallback(err, resp));
+          gripperService.open(req, {}, this.grpcCallback);
           break;
         case 'grab':
           req = new gripperApi.GrabRequest();
           req.setName(name);
-          gripperService.grab(req, {}, (err, resp) => grpcCallback(err, resp));
+          gripperService.grab(req, {}, this.grpcCallback);
           break;
       }
     },
     servoMove(name, amount) {
-      const servo = theApp.rawResourceStatusByName(name);
+      const servo = this.rawResourceStatusByName(name);
       const oldAngle = servo['position_deg'] || 0;
       const angle = oldAngle + amount;
       const req = new servoApi.MoveRequest();
       req.setName(name.name);
       req.setAngleDeg(angle);
-      servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
+      servoService.move(req, {}, this.grpcCallback);
     },
     motorCommand(name, inputs) {
       switch (inputs.type) {
         case 'go':
-          MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, (err, resp) => grpcCallback(err, resp));
+          MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, this.grpcCallback);
           break;
         case 'goFor':
-          MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, (err, resp) => grpcCallback(err, resp));
+          MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, this.grpcCallback);
           break;
         case 'goTo':
-          MotorControlHelper.goTo(name, inputs.rpm, inputs.position, (err, resp) => grpcCallback(err, resp));
+          MotorControlHelper.goTo(name, inputs.rpm, inputs.position, this.grpcCallback);
           break;
       }
     },
     motorStop(name) {
-      MotorControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
+      MotorControlHelper.stop(name, this.grpcCallback);
     },
     hasWebGamepad() {
       // TODO (APP-146): replace these with constants
-      return theData.resources.some((elem) =>
+      return this.resources.some((elem) =>
         elem.namespace === 'rdk' &&
         elem.type === 'component' &&
         elem.subtype === 'input_controller' &&
@@ -581,7 +579,7 @@ export default {
     filteredInputControllerList() {
       // TODO (APP-146): replace these with constants
       // filters out WebGamepad
-      return theData.resources.filter((elem) =>
+      return this.resources.filter((elem) =>
         elem.namespace === 'rdk' &&
         elem.type === 'component' &&
         elem.subtype === 'input_controller' &&
@@ -589,12 +587,12 @@ export default {
       );
     },
     inputInject(req) {
-      inputControllerService.triggerEvent(req, {}, (err, resp) => grpcCallback(err, resp));
+      inputControllerService.triggerEvent(req, {}, this.grpcCallback);
     },
     killOp(id) {
       const req = new robotApi.KillOperationRequest();
       req.setId(id);
-      robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
+      window.robotService.killOperation(req, {}, this.grpcCallback);
     },
     baseKeyboardCtl: function(name, controls) {
       if (Object.values(controls).every((item) => item === false)) {
@@ -608,22 +606,19 @@ export default {
       const angular = new commonApi.Vector3();
       linear.setY(inputs.linear);
       angular.setZ(inputs.angular);
-      BaseControlHelper.setPower(name, linear, angular, (err, resp) => {
-        return grpcCallback(err, resp);
-      });
+      BaseControlHelper.setPower(name, linear, angular, this.grpcCallback);
     },
     handleBaseActionStop(name) {
       const req = new baseApi.StopRequest();
       req.setName(name);
-      baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
+      baseService.stop(req, {}, this.grpcCallback);
     },
     handleBaseSpin(name, event) {
       BaseControlHelper.spin(name, 
         event.angle * event.direction,
         event.speed,
-        (err, resp) => {
-          return grpcCallback(err, resp);
-      });
+        this.grpcCallback
+      );
     },
     handleBaseStraight(name, event) {
       if (event.movementType === 'Continuous') {
@@ -634,16 +629,14 @@ export default {
           name, 
           linear, // linear
           new commonApi.Vector3(), // angular
-          (err, resp) => {
-            return grpcCallback(err, resp);
-          });
+          this.grpcCallback
+        );
       } else {
         BaseControlHelper.moveStraight(name,
           event.distance, 
           event.speed * event.direction, 
-          (err, resp) => {
-            return grpcCallback(err, resp);
-          });
+          this.grpcCallback
+        );
       }
     },
     renderFrame(cameraName) {
@@ -651,6 +644,7 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
+      const { grpcCallback } = this
       cameraService.renderFrame(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
@@ -676,6 +670,7 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
+      const { grpcCallback } = this
       cameraService.renderFrame(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
@@ -695,6 +690,7 @@ export default {
       });
     },
     viewIntervalFrame(cameraName, time) {
+      const { grpcCallback } = this
         this.intervalId = setInterval(() => {
           req = new cameraApi.RenderFrameRequest();
           req.setName(cameraName);
@@ -721,9 +717,9 @@ export default {
     },
     renderPCD(cameraName) {
       this.$nextTick(() => {
-        theData.pcdClick.pcdloaded = false;
-        theData.pcdClick.foundSegments = false;
-        initPCDIfNeeded();
+        this.pcdClick.pcdloaded = false;
+        this.pcdClick.foundSegments = false;
+        this.initPCDIfNeeded();
         pcdGlobal.cameraName = cameraName;
 
         req = new cameraApi.GetPointCloudRequest();
@@ -731,13 +727,13 @@ export default {
         const mimeType = 'pointcloud/pcd';
         req.setMimeType(mimeType);
         cameraService.getPointCloud(req, {}, (err, resp) => {
-          grpcCallback(err, resp, false);
+          this.grpcCallback(err, resp, false);
           if (err) {
             return;
           }
           console.log('loading pcd');
-          theData.fullcloud = resp.getPointCloud_asB64();
-          pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
+          this.fullcloud = resp.getPointCloud_asB64();
+          pcdLoad(`data:${mimeType};base64,${this.fullcloud}`);
         });
       });
     },
@@ -747,7 +743,7 @@ export default {
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
       slamService.getMap(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
           return;
         }
@@ -761,19 +757,20 @@ export default {
       req.setName('UI');
       const mimeType = 'pointcloud/pcd';
       req.setMimeType(mimeType);
-      initPCDIfNeeded();
+      this.initPCDIfNeeded();
       slamService.getMap(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
           return;
         }
         console.log('loading pcd map');
         pcObject = resp.getPointCloud();
-        theData.fullcloud = pcObject.getPointCloud_asB64();
-        pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
+        this.fullcloud = pcObject.getPointCloud_asB64();
+        pcdLoad(`data:${mimeType};base64,${this.fullcloud}`);
       });
     },
     getReadings(sensorNames) {
+      const { grpcCallback } = this
       const req = new sensorsApi.GetReadingsRequest();
       const names = sensorNames.map((name) => {
         const resourceName = new commonApi.ResourceName();
@@ -791,12 +788,12 @@ export default {
         }
         for (const r of resp.getReadingsList()) {
           const readings = r.getReadingsList().map((v) => v.toJavaScript());
-          theData.sensorReadings[theApp.resourceNameToString(r.getName().toObject())] = readings;
+          this.sensorReadings[this.resourceNameToString(r.getName().toObject())] = readings;
         }
       });
     },
     processFunctionResults: function (err, resp) {
-      grpcCallback(err, resp, false);
+      this.grpcCallback(err, resp, false);
       if (err) {
         document.getElementById('function_results').value = `${err}`;
         return;
@@ -849,12 +846,12 @@ export default {
         console.log('no point intersected');
       }
     },
-    doPCDMove: function () {
-      const gripperName = theApp.filterResources('rdk', 'component', 'gripper')[0];
+    doPCDMove() {
+      const gripperName = this.filterResources('rdk', 'component', 'gripper')[0];
       const cameraName = pcdGlobal.cameraName;
-      const cameraPointX = theData.pcdClick.x;
-      const cameraPointY = theData.pcdClick.y;
-      const cameraPointZ = theData.pcdClick.z;
+      const cameraPointX = this.pcdClick.x;
+      const cameraPointY = this.pcdClick.y;
+      const cameraPointZ = this.pcdClick.z;
 
       const req = new motionApi.MoveRequest();
       const cameraPoint = new commonApi.Pose();
@@ -875,18 +872,18 @@ export default {
       console.log(`making move attempt using ${ gripperName}`);
 
       motionService.move(req, {}, (err, resp) => {
-        grpcCallback(err, resp);
+        this.grpcCallback(err, resp);
         if (err) {
           return Promise.reject(err);
         }
         return Promise.resolve(resp).then(console.log(`move success: ${ resp.getSuccess()}`));
       });
     },
-    findSegments: function (segmenterName, segmenterParams) {
+    findSegments(segmenterName, segmenterParams) {
       console.log('parameters for segmenter below:');
       console.log(segmenterParams);
-      theData.pcdClick.calculatingSegments = true;
-      theData.pcdClick.foundSegments = false;
+      this.pcdClick.calculatingSegments = true;
+      this.pcdClick.foundSegments = false;
       const req = new visionApi.GetObjectPointCloudsRequest();
       req.setCameraName(pcdGlobal.cameraName);
       req.setSegmenterName(segmenterName);
@@ -895,21 +892,21 @@ export default {
       req.setMimeType(mimeType);
       console.log('finding object segments...');
       visionService.getObjectPointClouds(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
           console.log('error getting segments');
           console.log(err);
-          theData.pcdClick.calculatingSegments = false;
+          this.pcdClick.calculatingSegments = false;
           return;
         }
         console.log('got pcd segments');
-        theData.pcdClick.foundSegments = true;
-        theData.objects = resp.getObjectsList();
-        theData.pcdClick.calculatingSegments = false;
+        this.pcdClick.foundSegments = true;
+        this.objects = resp.getObjectsList();
+        this.pcdClick.calculatingSegments = false;
       });
     },
-    doSegmentLoad: function (i) {
-      const segment = theData.objects[i];
+    doSegmentLoad (i) {
+      const segment = this.objects[i];
       const data = segment.getPointCloud_asB64();
       const center = segment.getGeometries().getGeometriesList()[0].getCenter();
       const box = segment.getGeometries().getGeometriesList()[0].getBox();
@@ -920,25 +917,25 @@ export default {
       const mimeType = 'pointcloud/pcd';
       pcdLoad(`data:${mimeType};base64,${data}`);
     },
-    doPointLoad: function (i) {
-      const segment = theData.objects[i];
+    doPointLoad (i) {
+      const segment = this.objects[i];
       const center = segment.getGeometries().getGeometriesList()[0].getCenter();
       const p = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
       console.log(p);
       setPoint(p);
     },
-    doBoundingBoxLoad: function (i) {
-      const segment = theData.objects[i];
+    doBoundingBoxLoad (i) {
+      const segment = this.objects[i];
       const center = segment.getGeometries().getGeometriesList()[0].getCenter();
       const box = segment.getGeometries().getGeometriesList()[0].getBox();
       const centerP = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
       setBoundingBox(box, centerP);
     },
-    doPCDLoad: function (data) {
+    doPCDLoad (data) {
       const mimeType = 'pointcloud/pcd';
       pcdLoad(`data:${mimeType};base64,${data}`);
     },
-    doCenterPCDLoad: function (data) {
+    doCenterPCDLoad (data) {
       const mimeType = 'pointcloud/pcd';
       pcdLoad(`data:${mimeType};base64,${data}`);
       const p = { x: 0 / 1000, y: 0 / 1000, z: 0 / 1000 };
@@ -978,9 +975,9 @@ export default {
       }
       const req = new navigationApi.SetModeRequest();
       req.setMode(pbMode);
-      navigationService.setMode(req, {}, (err, resp) => grpcCallback(err, resp));
+      navigationService.setMode(req, {}, this.grpcCallback);
     },
-    setNavigationLocation: function (elId) {
+    setNavigationLocation (elId) {
       const posSplit = document.getElementById(elId).value.split(',');
       if (posSplit.length !== 2) {
         return;
@@ -989,11 +986,11 @@ export default {
       const lng = Number.parseFloat(posSplit[1]);
       const req = new robotApi.ResourceRunCommandRequest();
       let gpsName = '';
-      gpses = theApp.filterResources('rdk', 'component', 'gps');
+      gpses = this.filterResources('rdk', 'component', 'gps');
       if (gpses.length > 0) {
         gpsName = gpses[0].name;
       } else {
-        theData.error = 'no gps device found';
+        this.error = 'no gps device found';
         return;
       }
       req.setResourceName(gpsName);
@@ -1004,35 +1001,37 @@ export default {
           longitude: lng,
         })
       );
-      robotService.resourceRunCommand(req, {}, (err, resp) => grpcCallback(err, resp));
+      window.robotService.resourceRunCommand(req, {}, this.grpcCallback);
     },
-    viewCamera : function(name) {
+    viewCamera(name) {
       const streamContainer = document.getElementById(`stream-${name}`);
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
+      const { grpcCallback } = this
       streamService.addStream(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
             streamContainer.getElementsByTagName('img')[0].remove();
         }
         if (err) {
-          theData.error = 'no live camera device found';
+          this.error = 'no live camera device found';
           return;
         }
       });
     },
-    viewPreviewCamera : function(name) {
+    viewPreviewCamera(name) {
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
+      const { grpcCallback } = this
       streamService.addStream(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
-          theData.error = 'no live camera device found';
+          this.error = 'no live camera device found';
           return;
         }
       });
     },
-    displayRadiansInDegrees: function (r) {
+    displayRadiansInDegrees (r) {
       let d = r * 180;
       while (d < 0) {
         d += 360;
@@ -1053,216 +1052,465 @@ export default {
         document.getElementById(`get_pin_value_${ boardName}`).innerHTML = `Pin: ${ pin } is ${ x.high ? 'high' : 'low'}`;
       });
     },
-    setGPIO: function (boardName) {
+    setGPIO (boardName) {
       const pin = document.getElementById(`set_pin_${ boardName}`).value;
       const v = document.getElementById(`set_pin_v_${ boardName}`).value;
-      BoardControlHelper.setGPIO(boardName, pin, v === 'high', grpcCallback);
+      BoardControlHelper.setGPIO(boardName, pin, v === 'high', this.grpcCallback);
     },
     isWebRtcEnabled() {
       return window.webrtcEnabled;
+    },
+    // query metadata service every 0.5s
+    async queryMetadata () {
+      let pResolve;
+      let pReject;
+      const p = new Promise((resolve, reject) => {
+        pResolve = resolve;
+        pReject = reject;
+      });
+      let resourcesChanged = false;
+      let shouldRestartStatusStream = false;
+
+      window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, (err, resp) => {
+        this.grpcCallback(err, resp, false);
+        if (err) {
+          pReject(err);
+          return;
+        }
+        let resources = resp.toObject().resourcesList;
+
+        // if resource list has changed, flag that
+        const resourceNameToString = this.resourceNameToString.bind(this)
+
+        const differences = new Set(this.resources.map((name) => resourceNameToString(name)));
+        const resourceSet = new Set(resources.map((name) => resourceNameToString(name)));
+        for (const elem of resourceSet) {
+          if (differences.has(elem)) {
+            differences.delete(elem);
+          } else {
+            differences.add(elem);
+          }
+        }
+        if (differences.size > 0) {
+          resourcesChanged = true;
+
+          // restart status stream if resource difference includes a resource we care about
+          for (const elem of differences) {
+            const name = this.stringToResourceName(elem);
+            if (name.namespace === 'rdk' && name.type === 'component' && relevantSubtypesForStatus.includes(name.subtype)) {
+              shouldRestartStatusStream = true;
+              break;
+            }
+          }
+        }
+
+        this.resources = resources;
+        pResolve(null);
+      });
+      await p;
+
+      if (resourcesChanged === true) {
+        this.querySensors();
+
+        if (shouldRestartStatusStream === true) {
+          this.restartStatusStream();
+        }
+      }
+      setTimeout(() => this.queryMetadata(), 500);
+    },
+    async initNavigation() {
+      const { grpcCallback } = this
+
+      await mapReady;
+      window.map = new google.maps.Map(document.getElementById('map'), { zoom: 18 });
+      window.map.addListener('click', (e) => {
+        const req = new navigationApi.AddWaypointRequest();
+        const point = new commonApi.GeoPoint();
+        point.setLatitude(e.latLng.lat());
+        point.setLongitude(e.latLng.lng());
+        req.setLocation(point);
+        navigationService.addWaypoint(req, {}, grpcCallback);
+      });
+
+      let centered = false;
+      const knownWaypoints = {};
+      let localLabelCounter = 0;
+      
+      const updateWaypoints = function () {
+        const req = new navigationApi.GetWaypointsRequest();
+        navigationService.getWaypoints(req, {}, (err, resp) => {
+          grpcCallback(err, resp, false);
+          if (err) {
+            setTimeout(updateWaypoints, 1000);
+            return;
+          }
+          let waypoints = [];
+          if (resp) {
+            waypoints = resp.getWaypointsList();
+          }
+          const currentWaypoints = {};
+          for (const waypoint of waypoints) {
+            const pos = { lat: waypoint.getLocation().getLatitude(), lng: waypoint.getLocation().getLongitude() };
+            const posStr = JSON.stringify(pos);
+            if (knownWaypoints[posStr]) {
+              currentWaypoints[posStr] = knownWaypoints[posStr];
+              continue;
+            }
+            const marker = new google.maps.Marker({
+              position: pos,
+              map: window.map,
+              label: `${localLabelCounter++}`,
+            });
+            currentWaypoints[posStr] = marker;
+            knownWaypoints[posStr] = marker;
+            marker.addListener('click', () => {
+              console.log('clicked on marker', pos);
+            });
+            marker.addListener('dblclick', () => {
+              const req = new navigationApi.RemoveWaypointRequest();
+              req.setId(waypoint.getId());
+              navigationService.removeWaypoint(req, {}, grpcCallback);
+            });
+          }
+          const waypointsToDelete = Object.keys(knownWaypoints).filter((elem) => {
+            return !(elem in currentWaypoints);
+          });
+          for (key of waypointsToDelete) {
+            const marker = knownWaypoints[key];
+            marker.setMap(null);
+            delete knownWaypoints[key];
+          }
+          setTimeout(updateWaypoints, 1000);
+        });
+      };
+      updateWaypoints();
+
+      const locationMarker = new google.maps.Marker({ label: 'robot' });
+      const updateLocation = () => {
+        const req = new navigationApi.GetLocationRequest();
+        navigationService.getLocation(req, {}, (err, resp) => {
+          grpcCallback(err, resp, false);
+          if (err) {
+            setTimeout(updateLocation, 1000);
+            return;
+          }
+          const pos = { lat: resp.getLocation().getLatitude(), lng: resp.getLocation().getLongitude() };
+          if (!centered) {
+            centered = true;
+            window.map.setCenter(pos);
+          }
+          locationMarker.setPosition(pos);
+          locationMarker.setMap(window.map);
+          setTimeout(updateLocation, 1000);
+        });
+      };
+      updateLocation();
+    },
+    querySensors() {
+      let pResolve;
+      let pReject;
+      const p = new Promise((resolve, reject) => {
+        pResolve = resolve;
+        pReject = reject;
+      });
+      const { grpcCallback } = this
+      sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, (err, resp) => {
+        grpcCallback(err, resp, false);
+        if (err) {
+          pReject(err);
+          return;
+        }
+        this.sensorNames = resp.toObject().sensorNamesList;
+        pResolve(null);
+      });
+    },
+    loadCurrentOps () {
+      const req = new robotApi.GetOperationsRequest();
+      window.robotService.getOperations(req, {}, (err, resp) => {
+        const lst = resp.toObject().operationsList;
+        this.currentOps = lst;
+      });
+      setTimeout(this.loadCurrentOps, 500);
+    },
+    async doConnect(authEntity, creds, onError) {
+      console.debug('connecting');
+      const alertError = document.getElementById('connecting-error');
+      alertError.innerHTML = '';
+      document.getElementById('connecting').classList.remove('hidden');
+      try {
+        await window.connect(authEntity, creds);
+        this.loadCurrentOps();
+      } catch (error) {
+        const msg = `failed to connect: ${error}`;
+        console.error(msg);
+        alertError.classList.remove('hidden').innerHTML = msg;
+        if (onError) {
+          setTimeout(onError, 1000);
+        }
+        return;
+      }
+      console.debug('connected');
+      document.getElementById('pre-app').classList.add('hidden');
+    },
+    async waitForClientAndStart() {
+      if (window.supportedAuthTypes.length === 0) {
+        await this.doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, this.waitForClientAndStart);
+        return;
+      }
+
+      const authElems = [];
+      const disableAll = () => {
+        for (elem of authElems) {
+          elem.disabled = true;
+        }
+      };
+      const enableAll = () => {
+        for (elem of authElems) {
+          elem.disabled = false;
+        }
+      };
+      for (authType of window.supportedAuthTypes) {
+        const authDiv = document.getElementById(`auth-${authType}`);
+        const input = authDiv.getElementsByTagName('input')[0];
+        const button = authDiv.getElementsByTagName('button')[0];
+        authElems.push(input, button);
+        const doLogin = () => {
+          disableAll();
+          const creds = { type: authType, payload: input.value };
+          this.doConnect('', creds, '', '', () => enableAll());
+        };
+        button.addEventListener('click', () => doLogin());
+        input.addEventListener('keyup', (event) => {
+          if (event.key.toLowerCase() !== 'enter') {
+            return;
+          }
+          doLogin();
+        });
+      }
+    },
+    async queryStreams () {
+      let pResolve;
+      let pReject;
+      const p = new Promise((resolve, reject) => {
+        pResolve = resolve;
+        pReject = reject;
+      });
+      streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
+        this.grpcCallback(err, resp, false);
+        if (err) {
+          pReject(err);
+          return;
+        }
+        const streamNames = resp.toObject().namesList;
+        this.streamNames = streamNames;
+        pResolve(null);
+      });
+      await p;
+      setTimeout(() => this.queryStreams(), 500);
+    },
+    initPCDIfNeeded() {
+      if (pcdGlobal) {
+        return;
+      }
+      this.pcdClick.enable = true;
+
+      const sphereGeometry = new THREE.SphereGeometry(0.009, 32, 32);
+      const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xFF_00_00 });
+
+      pcdGlobal = {
+        scene: new THREE.Scene(),
+        camera: new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000),
+        renderer: new THREE.WebGLRenderer(),
+        raycaster: new THREE.Raycaster(),
+        sphere: new THREE.Mesh(sphereGeometry, sphereMaterial),
+      };
+
+      pcdGlobal.renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
+      document.getElementById('pcd').append(pcdGlobal.renderer.domElement);
+
+      pcdGlobal.controls = new OrbitControls(pcdGlobal.camera, pcdGlobal.renderer.domElement);
+      pcdGlobal.camera.position.set(0, 0, 0);
+      pcdGlobal.controls.target.set(0, 0, -1);
+      pcdGlobal.controls.update();
+      pcdGlobal.camera.updateMatrix();
+    },
+    pcdLoad(path) {
+      const loader = new PCDLoader();
+      loader.load(
+        path,
+
+        // called when the resource is loaded
+        (mesh) => {
+          pcdGlobal.scene.clear();
+          pcdGlobal.scene.add(mesh);
+          pcdGlobal.scene.add(pcdGlobal.sphere);
+          if (pcdGlobal.cube) {
+            pcdGlobal.scene.add(pcdGlobal.cube);
+          }
+          pcdAnimate();
+        },
+        // called when loading is in progresses
+        () => {
+        },
+        // called when loading has errors
+        (error) => {
+
+        }
+      );
+      this.pcdClick.pcdloaded = true;
+    },
+    setPoint(point) {
+      this.pcdClick.x = r(point.x);
+      this.pcdClick.y = r(point.y);
+      this.pcdClick.z = r(point.z);
+      pcdGlobal.sphere.position.copy(point);
+    },
+    imuRefresh() {
+      const all = this.filterResources('rdk', 'component', 'imu');
+      for (const x of all) {
+        const name = x.name;
+
+        if (!this.imuData[name]) {
+          this.imuData[name] = {};
+        }
+
+        {
+          const req = new imuApi.ReadOrientationRequest();
+          req.setName(name);
+
+          imuService.readOrientation(req, {}, (err, resp) => {
+            if (err) {
+              console.log(err);
+              return;
+            }
+            this.imuData[name].orientation = resp.toObject().orientation;
+          });
+        }
+
+        {
+          const req = new imuApi.ReadAngularVelocityRequest();
+          req.setName(name);
+
+          imuService.readAngularVelocity(req, {}, (err, resp) => {
+            if (err) {
+              console.log(err);
+              return;
+            }
+            this.imuData[name].angularVelocity = resp.toObject().angularVelocity;
+          });
+        }
+
+        {
+          const req = new imuApi.ReadAccelerationRequest();
+          req.setName(name);
+
+          imuService.readAcceleration(req, {}, (err, resp) => {
+            if (err) {
+              console.log(err);
+              return;
+            }
+            this.imuData[name].acceleration = resp.toObject().acceleration;
+          });
+        }
+
+        {
+          const req = new imuApi.ReadMagnetometerRequest();
+          req.setName(name);
+
+          imuService.readMagnetometer(req, {}, (err, resp) => {
+            if (err) {
+              console.log(err);
+              return;
+            }
+            this.imuData[name].magnetometer = resp.toObject().magnetometer;
+          });
+        }
+      }
+
+      setTimeout(this.imuRefresh, 500);
+    },
+    updateStatus(grpcStatus) {
+      const rawStatus = {};
+      const status = {};
+
+      for (const s of grpcStatus) {
+        const nameObj = s.getName().toObject();
+        const statusJs = s.getStatus().toJavaScript();
+        const fixed = this.fixRawStatus(nameObj, statusJs);
+
+        const nameStr = this.resourceNameToString(nameObj);
+        rawStatus[nameStr] = statusJs;
+        status[nameStr] = fixed;
+      }
+
+      this.rawStatus = rawStatus;
+      this.status = status;
+    },
+    async restartStatusStream () {
+      if (statusStream) {
+        statusStream.cancel();
+        try {
+          console.log('reconnecting');
+          await window.connect();
+        } catch (error) {
+          console.error('failed to reconnect; retrying:', error);
+          setTimeout(() => this.restartStatusStream(), 1000);
+        }
+      }
+      let resourceNames = [];
+      // get all relevant resource names
+      for (const subtype of relevantSubtypesForStatus) {
+        resourceNames = resourceNames.concat(this.filterResources('rdk', 'component', subtype))
+      }
+
+      const names = resourceNames.map((name) => {
+        const resourceName = new commonApi.ResourceName();
+        resourceName.setNamespace(name.namespace);
+        resourceName.setType(name.type);
+        resourceName.setSubtype(name.subtype);
+        resourceName.setName(name.name);
+        return resourceName;
+      });
+      const streamReq = new robotApi.StreamStatusRequest();
+      streamReq.setResourceNamesList(names);
+      streamReq.setEvery(new proto.google.protobuf.Duration().setNanos(500_000_000)); // 500ms
+      statusStream = window.robotService.streamStatus(streamReq);
+      let firstData = true;
+      statusStream.on('data', (response) => {
+        lastStatusTS = Date.now();
+        this.updateStatus(response.getStatusList());
+        if (firstData) {
+          firstData = false;
+          this.checkLastStatus();
+        }
+      });
+      statusStream.on('status', (status) => {
+        console.log('error streaming robot status');
+        console.log(status);
+        console.log(status.code, ' ', status.details);
+      });
+      statusStream.on('end', () => {
+        console.log('done streaming robot status');
+        setTimeout(() => this.restartStatusStream(), 1000);
+      });
+    },
+    checkLastStatus () {
+      const checkIntervalMillis = 3000;
+      if (Date.now() - lastStatusTS > checkIntervalMillis) {
+        this.restartStatusStream();
+        return;
+      }
+      setTimeout(this.checkLastStatus, checkIntervalMillis);
     },
   },
 };
 
 const relevantSubtypesForStatus = ['arm', 'gantry', 'board', 'servo', 'motor', 'input_controller'];
 
-const loadCurrentOps = function () {
-  const req = new robotApi.GetOperationsRequest();
-  robotService.getOperations(req, {}, (err, resp) => {
-    const lst = resp.toObject().operationsList;
-    theData.currentOps = lst;
-  });
-  setTimeout(loadCurrentOps, 500);
-};
-
-// query metadata service every 0.5s
-const queryMetadata = async function () {
-  let pResolve;
-  let pReject;
-  const p = new Promise((resolve, reject) => {
-    pResolve = resolve;
-    pReject = reject;
-  });
-  let resourcesChanged = false;
-  let shouldRestartStatusStream = false;
-  robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, (err, resp) => {
-    grpcCallback(err, resp, false);
-    if (err) {
-      pReject(err);
-      return;
-    }
-    resources = resp.toObject().resourcesList;
-
-    // if resource list has changed, flag that
-    const differences = new Set(theData.resources.map((name) => theApp.resourceNameToString(name)));
-    const resourceSet = new Set(resources.map((name) => theApp.resourceNameToString(name)));
-    for (const elem of resourceSet) {
-      if (differences.has(elem)) {
-        differences.delete(elem);
-      } else {
-        differences.add(elem);
-      }
-    }
-    if (differences.size > 0) {
-      resourcesChanged = true;
-
-      // restart status stream if resource difference includes a resource we care about
-      for (const elem of differences) {
-        const name = theApp.stringToResourceName(elem);
-        if (name.namespace === 'rdk' && name.type === 'component' && relevantSubtypesForStatus.includes(name.subtype)) {
-          shouldRestartStatusStream = true;
-          break;
-        }
-      }
-    }
-
-    theData.resources = resources;
-    pResolve(null);
-  });
-  await p;
-
-  if (resourcesChanged === true) {
-    querySensors();
-
-    if (shouldRestartStatusStream === true) {
-      restartStatusStream();
-    }
-  }
-  setTimeout(() => queryMetadata(), 500);
-};
-
-const querySensors = function () {
-  let pResolve;
-  let pReject;
-  p = new Promise((resolve, reject) => {
-    pResolve = resolve;
-    pReject = reject;
-  });
-  sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, (err, resp) => {
-    grpcCallback(err, resp, false);
-    if (err) {
-      pReject(err);
-      return;
-    }
-    theData.sensorNames = resp.toObject().sensorNamesList;
-    pResolve(null);
-  });
-};
-
-const queryStreams = async function () {
-  let pResolve;
-  let pReject;
-  const p = new Promise((resolve, reject) => {
-    pResolve = resolve;
-    pReject = reject;
-  });
-  streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
-    grpcCallback(err, resp, false);
-    if (err) {
-      pReject(err);
-      return;
-    }
-    const streamNames = resp.toObject().namesList;
-    theData.streamNames = streamNames;
-    pResolve(null);
-  });
-  await p;
-  setTimeout(() => queryStreams(), 500);
-};
-
 let statusStream;
 let lastStatusTS = Date.now();
-const checkIntervalMillis = 3000;
-const checkLastStatus = function () {
-  if (Date.now() - lastStatusTS > checkIntervalMillis) {
-    restartStatusStream();
-    return;
-  }
-  setTimeout(checkLastStatus, checkIntervalMillis);
-};
-
-const restartStatusStream = async function () {
-  if (statusStream) {
-    statusStream.cancel();
-    try {
-      console.log('reconnecting');
-      await window.connect();
-    } catch (error) {
-      console.error('failed to reconnect; retrying:', error);
-      setTimeout(() => restartStatusStream(), 1000);
-    }
-  }
-  let resourceNames = [];
-  // get all relevant resource names
-  for (const subtype of relevantSubtypesForStatus) (resourceNames = resourceNames.concat(theApp.filterResources('rdk', 'component', subtype)));
-  const names = resourceNames.map((name) => {
-    const resourceName = new commonApi.ResourceName();
-    resourceName.setNamespace(name.namespace);
-    resourceName.setType(name.type);
-    resourceName.setSubtype(name.subtype);
-    resourceName.setName(name.name);
-    return resourceName;
-  });
-  const streamReq = new robotApi.StreamStatusRequest();
-  streamReq.setResourceNamesList(names);
-  streamReq.setEvery(new proto.google.protobuf.Duration().setNanos(500_000_000)); // 500ms
-  statusStream = robotService.streamStatus(streamReq);
-  let firstData = true;
-  statusStream.on('data', (response) => {
-    lastStatusTS = Date.now();
-    updateStatus(response.getStatusList());
-    if (firstData) {
-      firstData = false;
-      checkLastStatus();
-    }
-  });
-  statusStream.on('status', (status) => {
-    console.log('error streaming robot status');
-    console.log(status);
-    console.log(status.code, ' ', status.details);
-  });
-  statusStream.on('end', () => {
-    console.log('done streaming robot status');
-    setTimeout(() => restartStatusStream(), 1000);
-  });
-};
-queryMetadata();
-loadCurrentOps();
-if (window.streamService) {
-  queryStreams();
-}
 
 let pcdGlobal = null;
-
-function initPCDIfNeeded() {
-  if (pcdGlobal) {
-    return;
-  }
-  theData.pcdClick.enable = true;
-  console.log('initing pcd');
-
-  const sphereGeometry = new THREE.SphereGeometry(0.009, 32, 32);
-  const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xFF_00_00 });
-
-  pcdGlobal = {
-    scene: new THREE.Scene(),
-    camera: new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000),
-    renderer: new THREE.WebGLRenderer(),
-    raycaster: new THREE.Raycaster(),
-    sphere: new THREE.Mesh(sphereGeometry, sphereMaterial),
-  };
-
-  pcdGlobal.renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
-  document.getElementById('pcd').append(pcdGlobal.renderer.domElement);
-
-  pcdGlobal.controls = new OrbitControls(pcdGlobal.camera, pcdGlobal.renderer.domElement);
-  pcdGlobal.camera.position.set(0, 0, 0);
-  pcdGlobal.controls.target.set(0, 0, -1);
-  pcdGlobal.controls.update();
-  pcdGlobal.camera.updateMatrix();
-
-  console.log('pcd init done');
-}
 
 function resizeRendererToDisplaySize(renderer) {
   const canvas = renderer.domElement;
@@ -1286,42 +1534,8 @@ function pcdAnimate() {
   requestAnimationFrame(pcdAnimate);
 }
 
-function pcdLoad(path) {
-  const loader = new PCDLoader();
-  loader.load(
-    path,
-
-    // called when the resource is loaded
-    (mesh) => {
-      pcdGlobal.scene.clear();
-      pcdGlobal.scene.add(mesh);
-      pcdGlobal.scene.add(pcdGlobal.sphere);
-      if (pcdGlobal.cube) {
-        pcdGlobal.scene.add(pcdGlobal.cube);
-      }
-      pcdAnimate();
-    },
-    // called when loading is in progresses
-    () => {
-      //console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
-    },
-    // called when loading has errors
-    (error) => {
-      console.log(error);
-    }
-  );
-  theData.pcdClick.pcdloaded = true;
-}
-
 function r(n) {
   return Math.round(n * 1000);
-}
-
-function setPoint(point) {
-  theData.pcdClick.x = r(point.x);
-  theData.pcdClick.y = r(point.y);
-  theData.pcdClick.z = r(point.z);
-  pcdGlobal.sphere.position.copy(point);
 }
 
 function setBoundingBox(box, centerPoint) {
@@ -1336,227 +1550,12 @@ function setBoundingBox(box, centerPoint) {
   pcdGlobal.scene.add(cube);
 }
 
-async function doConnect(authEntity, creds, onError) {
-  console.debug('connecting');
-  const alertError = document.getElementById('connecting-error');
-  alertError.innerHTML = '';
-  document.getElementById('connecting').classList.remove('hidden');
-  try {
-    await window.connect(authEntity, creds);
-  } catch (error) {
-    const msg = `failed to connect: ${error}`;
-    console.error(msg);
-    alertError.classList.remove('hidden').innerHTML = msg;
-    if (onError) {
-      setTimeout(onError, 1000);
-    }
-    return;
-  }
-  console.debug('connected');
-  document.getElementById('pre-app').classList.add('hidden');
-  await startup();
-}
-
-function waitForClientAndStart() {
-  if (window.supportedAuthTypes.length === 0) {
-    doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, waitForClientAndStart);
-    return;
-  }
-
-  const authElems = [];
-  const disableAll = () => {
-    for (elem of authElems) {
-      elem.disabled = true;
-    }
-  };
-  const enableAll = () => {
-    for (elem of authElems) {
-      elem.disabled = false;
-    }
-  };
-  for (authType of window.supportedAuthTypes) {
-    const authDiv = document.getElementById(`auth-${authType}`);
-    const input = authDiv.getElementsByTagName('input')[0];
-    const button = authDiv.getElementsByTagName('button')[0];
-    authElems.push(input, button);
-    const doLogin = () => {
-      disableAll();
-      const creds = { type: authType, payload: input.value };
-      doConnect('', creds, '', '', () => enableAll());
-    };
-    button.addEventListener('click', () => doLogin());
-    input.addEventListener('keyup', (event) => {
-      if (event.key.toLowerCase() !== 'enter') {
-        return;
-      }
-      doLogin();
-    });
-  }
-}
-
-async function initNavigation() {
-  await mapReady;
-  window.map = new google.maps.Map(document.getElementById('map'), { zoom: 18 });
-  window.map.addListener('click', (e) => {
-    const req = new navigationApi.AddWaypointRequest();
-    const point = new commonApi.GeoPoint();
-    point.setLatitude(e.latLng.lat());
-    point.setLongitude(e.latLng.lng());
-    req.setLocation(point);
-    navigationService.addWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
-  });
-
-  let centered = false;
-  const knownWaypoints = {};
-  let localLabelCounter = 0;
-  const updateWaypoints = function () {
-    const req = new navigationApi.GetWaypointsRequest();
-    navigationService.getWaypoints(req, {}, (err, resp) => {
-      grpcCallback(err, resp, false);
-      if (err) {
-        console.log(err);
-        setTimeout(updateWaypoints, 1000);
-        return;
-      }
-      let waypoints = [];
-      if (resp) {
-        waypoints = resp.getWaypointsList();
-      }
-      const currentWaypoints = {};
-      for (const waypoint of waypoints) {
-        const pos = { lat: waypoint.getLocation().getLatitude(), lng: waypoint.getLocation().getLongitude() };
-        const posStr = JSON.stringify(pos);
-        if (knownWaypoints[posStr]) {
-          currentWaypoints[posStr] = knownWaypoints[posStr];
-          continue;
-        }
-        const marker = new google.maps.Marker({
-          position: pos,
-          map: window.map,
-          label: `${localLabelCounter++}`,
-        });
-        currentWaypoints[posStr] = marker;
-        knownWaypoints[posStr] = marker;
-        marker.addListener('click', () => {
-          console.log('clicked on marker', pos);
-        });
-        marker.addListener('dblclick', () => {
-          const req = new navigationApi.RemoveWaypointRequest();
-          req.setId(waypoint.getId());
-          navigationService.removeWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
-        });
-      }
-      const waypointsToDelete = Object.keys(knownWaypoints).filter((elem) => {
-        return !(elem in currentWaypoints);
-      });
-      for (key of waypointsToDelete) {
-        const marker = knownWaypoints[key];
-        marker.setMap(null);
-        delete knownWaypoints[key];
-      }
-      setTimeout(updateWaypoints, 1000);
-    });
-  };
-  updateWaypoints();
-
-  const locationMarker = new google.maps.Marker({ label: 'robot' });
-  const updateLocation = function () {
-    const req = new navigationApi.GetLocationRequest();
-    navigationService.getLocation(req, {}, (err, resp) => {
-      grpcCallback(err, resp, false);
-      if (err) {
-        console.log(err);
-        setTimeout(updateLocation, 1000);
-        return;
-      }
-      const pos = { lat: resp.getLocation().getLatitude(), lng: resp.getLocation().getLongitude() };
-      if (!centered) {
-        centered = true;
-        window.map.setCenter(pos);
-      }
-      locationMarker.setPosition(pos);
-      locationMarker.setMap(window.map);
-      setTimeout(updateLocation, 1000);
-    });
-  };
-  updateLocation();
-}
-
 window.initMap = () => mapReadyResolve();
 
 let mapReadyResolve;
 const mapReady = new Promise((resolve) => {
   mapReadyResolve = resolve;
 });
-
-function imuRefresh() {
-  const all = theApp.filterResources('rdk', 'component', 'imu');
-  for (const x of all) {
-    const name = x.name;
-
-    if (!theData.imuData[name]) {
-      theData.imuData[name] = {};
-    }
-
-    {
-      const req = new imuApi.ReadOrientationRequest();
-      req.setName(name);
-
-      imuService.readOrientation(req, {}, (err, resp) => {
-        if (err) {
-          console.log(err);
-          return;
-        }
-        theData.imuData[name].orientation = resp.toObject().orientation;
-      });
-    }
-
-    {
-      const req = new imuApi.ReadAngularVelocityRequest();
-      req.setName(name);
-
-      imuService.readAngularVelocity(req, {}, (err, resp) => {
-        if (err) {
-          console.log(err);
-          return;
-        }
-        theData.imuData[name].angularVelocity = resp.toObject().angularVelocity;
-      });
-    }
-
-    {
-      const req = new imuApi.ReadAccelerationRequest();
-      req.setName(name);
-
-      imuService.readAcceleration(req, {}, (err, resp) => {
-        if (err) {
-          console.log(err);
-          return;
-        }
-        theData.imuData[name].acceleration = resp.toObject().acceleration;
-      });
-    }
-
-    {
-      const req = new imuApi.ReadMagnetometerRequest();
-      req.setName(name);
-
-      imuService.readMagnetometer(req, {}, (err, resp) => {
-        if (err) {
-          console.log(err);
-          return;
-        }
-        theData.imuData[name].magnetometer = resp.toObject().magnetometer;
-      });
-    }
-  }
-
-  setTimeout(imuRefresh, 500);
-}
-
-
-imuRefresh();
-waitForClientAndStart();
 
 </script>
 

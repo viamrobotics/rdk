@@ -10,9 +10,6 @@
         height: 400px;
         width: 100%;
       }
-      [v-cloak] {
-        display: none;
-      }
       h3 {
         margin: 0.1em;
         margin-block-end: 0.1em;
@@ -36,7 +33,7 @@
       import "/static/rdk/dls/dls.umd.min.js";
     </script>
     {{ else }}
-    <script src="/static/control.js"></script>
+    
     <script src="/static/third-party/vue.js"></script>
     <link rel="stylesheet" href="/static/dls/dls.css" />
     <script type="module">
@@ -47,6 +44,12 @@
 
   <body class="p-2">
     <div id="app"></div>
+
+
+    <!-- <script type="module" src="/static/control.js"></script> -->
+
+    <script type="module" src="http://localhost:3000/src/main.js"></script>
+
     <!-- TODO(RSDK-51): remove api key once going into production -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly" async></script>
   </body>

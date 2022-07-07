@@ -2,5 +2,8 @@
   "name": "rdk",
   "devDependencies": {
     "ts-protoc-gen": "0.15.0"
+  },
+  "dependencies": {
+    "vue": "^3.2.37"
   }
 }
