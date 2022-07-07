@@ -3,8 +3,10 @@ package keypoints
 import (
 	"image"
 	"image/draw"
+	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -46,6 +48,7 @@ func TestLoadORBConfiguration(t *testing.T) {
 }
 
 func TestComputeORBKeypoints(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	cfg, err := LoadORBConfiguration("orbconfig.json")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg, test.ShouldNotBeNil)
@@ -61,4 +64,10 @@ func TestComputeORBKeypoints(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(descs), test.ShouldEqual, 137)
 	test.That(t, len(kps), test.ShouldEqual, 137)
+	// save the output image in a temp file
+	tempDir, err := os.MkdirTemp("", "compute_orb_keypoints")
+	test.That(t, err, test.ShouldBeNil)
+	logger.Infof("writing orb keypoint files to %s", tempDir)
+	err = PlotKeypoints(imGray, kps, tempDir+"/chess3_orb.png")
+	test.That(t, err, test.ShouldBeNil)
 }
