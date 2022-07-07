@@ -156,9 +156,9 @@ func Clamp(value float64, min float64, max float64) float64 {
 	return value
 }
 
-// CycleIntSliceByN cycles the list to the right by n steps
+// CycleIntSliceByN cycles the list to the right by n steps.
 func CycleIntSliceByN(s []int, n int) []int {
-	n = n % len(s)
+	n %= len(s)
 	res := make([]int, 0, len(s))
 	res = append(res, s[n:]...)
 	res = append(res, s[:n]...)
