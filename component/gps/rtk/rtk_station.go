@@ -23,6 +23,63 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// AttrConfig is used for converting oneAxis config attributes.
+type AttrConfig struct {
+	CorrectionSource     string             `json:"correction_source"`
+	//ntrip
+	NtripAddr            string             `json:"ntrip_addr"`
+	NtripConnectAttempts int               	`json:"ntrip_connect_attempts,omitempty"`
+	NtripMountpoint      string             `json:"limit_pin_enabled_high,omitempty"`
+	NtripPass            string             `json:"ntrip_password,omitempty"`
+	NtripUser            string             `json:"ntrip_username,omitempty"`
+	//serial
+	CorrectionPath		 string 			`json: "correction_path`
+	//I2C
+	Board				 string				`json: "board"`
+	Bus 				 string  			`json: "bus"`
+	I2cAddr			 	 int				`json: i2c_addr`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) (error) {
+
+	if len(config.CorrectionSource) == 0 {
+		return errors.New("expected nonempty correction source")
+	}
+	if config.CorrectionSource != "serial" && config.CorrectionSource != "ntrip" && config.CorrectionSource != "I2C" {
+		return errors.New("only serial, I2C, and ntrip are supported correction sources")
+	}
+
+	if config.CorrectionSource == "ntrip" {
+		if len(config.NtripAddr) == 0 {
+			return errors.New("expected nonempty ntrip address")
+		}
+	}
+
+	if config.CorrectionSource == "serial" {
+		if len(config.CorrectionPath) == 0 {
+			return errors.New("must specify serial path")
+		}
+	}
+
+	if config.CorrectionSource == "I2C" {
+		if len(config.Board) == 0 {
+			return errors.New("cannot find board for rtk station")
+		}
+
+		//deps = append(deps, config.Board)
+
+		if len(config.Bus) == 0 {
+			return errors.New("cannot find i2c board for rtk station")
+		}
+		if config.I2cAddr <= 0{
+			return errors.New("cannot find i2c address for rtk station")
+		}
+	}
+
+	return nil
+}
+
 func init() {
 	registry.RegisterComponent(
 		gps.Subtype,
