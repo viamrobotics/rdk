@@ -81,29 +81,35 @@ var setTrue = true
 
 func TestValidate(t *testing.T) {
 	fakecfg := &AttrConfig{}
-	err := fakecfg.Validate("path")
+	deps, err := fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find motor for gantry")
 
 	fakecfg.Motor = motorName
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "non-zero and positive")
 
 	fakecfg.LengthMm = 1.0
 	fakecfg.LimitSwitchPins = []string{}
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry axis undefined")
 
 	fakecfg.Board = "board"
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "assign boards or controllers")
 
 	fakecfg.Board = ""
 	fakecfg.LimitSwitchPins = []string{"1"}
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for gantry")
 
 	fakecfg.Board = "board"
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(
 		t,
 		err.Error(),
@@ -112,31 +118,38 @@ func TestValidate(t *testing.T) {
 	)
 
 	fakecfg.LimitSwitchPins = []string{"1", "2"}
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "limit pin enabled")
 
 	fakecfg.LimitPinEnabled = &setTrue
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry axis undefined")
 
 	fakecfg.Axis = spatial.TranslationConfig{X: 1, Y: 1, Z: 0}
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only one translational")
 
 	fakecfg.Axis = spatial.TranslationConfig{X: 1, Y: 0, Z: 1}
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only one translational")
 
 	fakecfg.Axis = spatial.TranslationConfig{X: 0, Y: 1, Z: 1}
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only one translational")
 
 	fakecfg.Axis = spatial.TranslationConfig{X: 1, Y: 1, Z: 1}
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only one translational")
 
 	fakecfg.Axis = spatial.TranslationConfig{X: 1, Y: 0, Z: 0}
-	err = fakecfg.Validate("path")
+	deps, err = fakecfg.Validate("path")
+	test.That(t, deps, test.ShouldResemble, []string{fakecfg.Motor, fakecfg.Board})
 	test.That(t, err, test.ShouldBeNil)
 }
 

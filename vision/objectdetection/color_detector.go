@@ -56,7 +56,12 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 	if err != nil {
 		return nil, err
 	}
-	return det, nil
+	sortedDet, err := Build(nil, det, SortByArea())
+	if err != nil {
+		return nil, err
+	}
+
+	return sortedDet, nil
 }
 
 func hueToString(hue float64) string {
