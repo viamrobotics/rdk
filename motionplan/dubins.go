@@ -1,11 +1,11 @@
 package motionplan
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"sort"
 )
-
-// all points are in the form (x, y, psi) except center which are (x, y)
 
 type Dubins struct {
 	radius           float64
@@ -18,7 +18,18 @@ type dubinOption struct {
 	straight   bool
 }
 
-func (d *Dubins) find_center(point []float64, side string) []float64 {
+func NewDubins(radius float64, point_separation float64) (*Dubins, error) {
+	if radius <= 0 {
+		return nil, errors.New("Radius must be greater than 0")
+	}
+	if point_separation <= 0 {
+		return nil, errors.New("Point Separation must be greater than 0")
+	}
+	dubins := &Dubins{radius: radius, point_separation: point_separation}
+	return dubins, nil
+}
+
+func (d *Dubins) FindCenter(point []float64, side string) []float64 {
 	angle := point[2]
 	if side == "L" {
 		angle += math.Pi / 2
@@ -161,11 +172,12 @@ func (d *Dubins) rlr(start []float64, end []float64, center_0 []float64, center_
 	return dubin
 }
 
-func (d *Dubins) all_options(start []float64, end []float64, sorts bool) []dubinOption {
-	center_0_left := d.find_center(start, "L")
-	center_0_right := d.find_center(start, "R")
-	center_2_left := d.find_center(end, "L")
-	center_2_right := d.find_center(end, "R")
+
+func (d *Dubins) AllOptions(start []float64, end []float64, sorts bool) ([]dubinOption){
+	center_0_left := d.FindCenter(start, "L")
+	center_0_right := d.FindCenter(start, "R")
+	center_2_left := d.FindCenter(end, "L")
+	center_2_right := d.FindCenter(end, "R")
 
 	options := []dubinOption{d.lsl(start, end, center_0_left, center_2_left),
 		d.rsr(start, end, center_0_right, center_2_right),
@@ -182,15 +194,15 @@ func (d *Dubins) all_options(start []float64, end []float64, sorts bool) []dubin
 	return options
 }
 
-func (d *Dubins) generate_points_straight(start []float64, end []float64, path []float64) [][]float64 {
-	total := d.radius*(math.Abs(path[1])+math.Abs(path[0])) + path[2]
+func (d *Dubins) GeneratePointsStraight(start []float64, end []float64, path []float64) [][]float64 {
+	total := d.radius*(math.Abs(path[1])+math.Abs(path[0]))+path[2]
 
-	center_0 := d.find_center(start, "R")
-	center_2 := d.find_center(end, "R")
+	center_0 := d.FindCenter(start, "R")
+	center_2 := d.FindCenter(end, "R")
 
 	if path[0] > 0 {
-		center_0 = d.find_center(start, "L")
-		center_2 = d.find_center(end, "L")
+		center_0 = d.FindCenter(start, "L")
+		center_2 = d.FindCenter(end, "L")
 	}
 
 	//start of straight
@@ -242,15 +254,15 @@ func (d *Dubins) generate_points_straight(start []float64, end []float64, path [
 	return points
 }
 
-func (d *Dubins) generate_points_curve(start []float64, end []float64, path []float64) [][]float64 {
-	total := d.radius*(math.Abs(path[1])+math.Abs(path[0])) + path[2]
+func (d *Dubins) GeneratePointsCurve(start []float64, end []float64, path []float64) [][]float64 {
+	total := d.radius*(math.Abs(path[1])+math.Abs(path[0]))+path[2]
 
-	center_0 := d.find_center(start, "R")
-	center_2 := d.find_center(end, "R")
+	center_0 := d.FindCenter(start, "R")
+	center_2 := d.FindCenter(end, "R")
 	if path[0] > 0 {
-		center_0 = d.find_center(start, "L")
-		center_2 = d.find_center(end, "L")
-	}
+		center_0 = d.FindCenter(start, "L")
+		center_2 = d.FindCenter(end, "L")
+	} 
 
 	intercenter := d.dist(center_0, center_2)
 	center_1 := d.mul(d.add(center_0, center_2), 0.5)
@@ -300,18 +312,22 @@ func (d *Dubins) circle_arc(reference []float64, beta float64, center []float64,
 	return point
 }
 
-func (d *Dubins) generate_points(start []float64, end []float64, dubins_path []float64, straight bool) [][]float64 {
+func (d *Dubins) GeneratePoints(start []float64, end []float64, DubinsPath []float64, straight bool) [][]float64 {
 	if straight {
-		return d.generate_points_straight(start, end, dubins_path)
+		return d.GeneratePointsStraight(start, end, DubinsPath)
 	}
-	return d.generate_points_curve(start, end, dubins_path)
+	return d.GeneratePointsCurve(start, end, DubinsPath)
 }
 
-func (d *Dubins) dubins_path(start []float64, end []float64) [][]float64 {
-	options := d.all_options(start, end, true)
-	dubins_path, straight := options[0].dubinsPath, options[0].straight
-	return d.generate_points(start, end, dubins_path, straight)
-}
+func (d *Dubins) DubinsPath(start []float64, end []float64) ([][]float64) {
+	options := d.AllOptions(start, end, false)
+	//sort by first element in options
+	sort.SliceStable(options, func(i, j int) bool {
+		return options[i].totalLen < options[j].totalLen
+	})
+	DubinsPath, straight := options[0].dubinsPath, options[0].straight
+	return d.GeneratePoints(start, end, DubinsPath, straight)
+} 
 
 //Helper functions
 func (d *Dubins) dist(p1 []float64, p2 []float64) float64 {
