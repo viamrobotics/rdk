@@ -46,16 +46,16 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		client, err := datamanager.NewClient(cancelCtx, "", listener1.Addr().String(), logger)
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
 
 	// working
 	t.Run("datamanager client 1", func(t *testing.T) {
-		client, err := datamanager.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+		client := datamanager.NewClientFromConn(context.Background(), conn, "", logger)
 
 		injectMS.SyncFunc = func(
 			ctx context.Context,
@@ -65,6 +65,7 @@ func TestClient(t *testing.T) {
 		err = client.Sync(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	// broken
@@ -85,6 +86,7 @@ func TestClient(t *testing.T) {
 		err = client2.Sync(context.Background())
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -107,15 +109,19 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := datamanager.NewClient(ctx, "", listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := datamanager.NewClientFromConn(context.Background(), conn1, "", logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := datamanager.NewClient(ctx, "", listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := datamanager.NewClientFromConn(context.Background(), conn2, "", logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }
