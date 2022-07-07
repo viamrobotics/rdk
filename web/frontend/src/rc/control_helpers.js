@@ -4,8 +4,8 @@
 * Feel free to add any missing gRPC method wrappers.
 */
 
-import boardApi from '../gen/proto/api/component/board/v1/board_pb';
-import motorApi from '../gen/proto/api/component/motor/v1/motor_pb';
+import boardApi from '../gen/proto/api/component/board/v1/board_pb.esm';
+import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 
 // Base control helpers
 export const BaseControlHelper = {
@@ -55,7 +55,7 @@ export const BaseControlHelper = {
 * Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
 * Output: linearY and angularZ throttle
 */
-window.computeKeyboardBaseControls = (keysPressed) => {
+export const computeKeyboardBaseControls = (keysPressed) => {
     let linear = 0;
     let angular = 0;
 

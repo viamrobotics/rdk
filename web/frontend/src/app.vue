@@ -1,42 +1,47 @@
 <script>
 
-import robotApi from './gen/proto/api/robot/v1/robot_pb';
-import commonApi from './gen/proto/api/common/v1/common_pb';
-import armApi from './gen/proto/api/component/arm/v1/arm_pb';
-import { RobotServiceClient } from './gen/proto/api/robot/v1/robot_pb_service';
-import { ArmServiceClient } from './gen/proto/api/component/arm/v1/arm_pb_service';
-import baseApi from './gen/proto/api/component/base/v1/base_pb';
-import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_service';
-import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_service';
-import cameraApi from './gen/proto/api/component/camera/v1/camera_pb';
-import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_pb_service';
-import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb';
-import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service';
-import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb';
-import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service';
-import imuApi from './gen/proto/api/component/imu/v1/imu_pb';
-import { IMUServiceClient } from './gen/proto/api/component/imu/v1/imu_pb_service';
-import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service';
-import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service';
-import navigationApi from './gen/proto/api/service/navigation/v1/navigation_pb';
-import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service';
-import motionApi from './gen/proto/api/service/motion/v1/motion_pb';
-import { MotionServiceClient } from './gen/proto/api/service/motion/v1/motion_pb_service';
-import visionApi from './gen/proto/api/service/vision/v1/vision_pb';
-import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service';
-import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb';
-import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors_pb_service';
-import servoApi from './gen/proto/api/component/servo/v1/servo_pb';
-import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service';
-import slamApi from './gen/proto/api/service/slam/v1/slam_pb';
-import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service';
-import streamApi from './gen/proto/stream/v1/stream_pb';
-import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service';
+import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
+import commonApi from './gen/proto/api/common/v1/common_pb.esm';
+import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
+import { RobotServiceClient } from './gen/proto/api/robot/v1/robot_pb_service.esm';
+import { ArmServiceClient } from './gen/proto/api/component/arm/v1/arm_pb_service.esm';
+import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
+import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_service.esm';
+import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_service.esm';
+import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
+import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_pb_service.esm';
+import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
+import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service.esm';
+import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
+import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service.esm';
+import imuApi from './gen/proto/api/component/imu/v1/imu_pb.esm';
+import { IMUServiceClient } from './gen/proto/api/component/imu/v1/imu_pb_service.esm';
+import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
+import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service.esm';
+import navigationApi from './gen/proto/api/service/navigation/v1/navigation_pb.esm';
+import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service.esm';
+import motionApi from './gen/proto/api/service/motion/v1/motion_pb.esm';
+import { MotionServiceClient } from './gen/proto/api/service/motion/v1/motion_pb_service.esm';
+import visionApi from './gen/proto/api/service/vision/v1/vision_pb.esm';
+import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service.esm';
+import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
+import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors_pb_service.esm';
+import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
+import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service.esm';
+import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
+import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
+import streamApi from './gen/proto/stream/v1/stream_pb.esm';
+import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
 import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { BaseControlHelper, MotorControlHelper, BoardControlHelper } from './rc/control_helpers';
+import {
+  BaseControlHelper,
+  MotorControlHelper,
+  BoardControlHelper,
+  computeKeyboardBaseControls,
+} from './rc/control_helpers';
 
 const { webrtcHost } = window;
 
@@ -598,7 +603,7 @@ export default {
         return;
       } 
 
-      const inputs = window.computeKeyboardBaseControls(controls);
+      const inputs = computeKeyboardBaseControls(controls);
       const linear = new commonApi.Vector3();
       const angular = new commonApi.Vector3();
       linear.setY(inputs.linear);
