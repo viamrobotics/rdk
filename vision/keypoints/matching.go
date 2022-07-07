@@ -98,13 +98,8 @@ func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.
 		return nil
 	}
 	r, c := distances.Dims()
-	logger.Debugf("size of distances (%d, %d) and matrix size (r=%d, c=%d)", len(d1), len(d2), r, c)
-	logger.Debugf("descriptor 1524 of d1: %v", d1[1524])
-	logger.Debugf("descriptor 2015 of d2: %v", d2[2015])
-	logger.Debugf("descriptor 2025 of d2: %v", d2[2025])
 	indices1 := rangeInt(len(desc1), 0, 1)
 	indices2 := utils.GetArgMinDistancesPerRow(distances)
-	logger.Debugf("index count for 2:\n %v", indexCount(indices2))
 	// mask for valid indices
 	maskIdx := make([]int, len(desc1))
 	for i := range maskIdx {
@@ -200,7 +195,6 @@ func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].Kp.Y > sorted[j].Kp.Y
 	})
-	logger.Debugf("sorted points:\n %v", sorted[:10])
 	sortedDesc := make(Descriptors, 0, len(desc))
 	sortedKps := make(KeyPoints, 0, len(kps))
 	for i := range sorted {
