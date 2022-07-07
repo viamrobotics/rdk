@@ -1,7 +1,11 @@
 package keypoints
 
 import (
-	"errors"
+	"fmt"
+	"image"
+	"sort"
+
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/gonum/floats"
@@ -56,16 +60,51 @@ func convertDescriptorsToFloats(desc Descriptors) [][]float64 {
 	return out
 }
 
+func indexCount(list []int) []string {
+	m := map[int]int{}
+	for _, n := range list {
+		if _, ok := m[n]; !ok {
+			m[n] = 0
+		} else {
+			m[n]++
+		}
+	}
+	// then sort by value order
+	type kv struct {
+		Key   int
+		Value int
+	}
+
+	var ss []kv
+	for k, v := range m {
+		ss = append(ss, kv{k, v})
+	}
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Value > ss[j].Value
+	})
+	text := make([]string, len(ss))
+	for i, kv := range ss {
+		text[i] = fmt.Sprintf("%d: %d", kv.Key, kv.Value)
+	}
+	return text
+}
+
 // MatchKeypoints takes 2 sets of descriptors and performs matching.
-func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig) *DescriptorMatches {
+func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.Logger) *DescriptorMatches {
 	d1 := convertDescriptorsToFloats(desc1)
 	d2 := convertDescriptorsToFloats(desc2)
 	distances, err := utils.PairwiseDistance(d1, d2, utils.Hamming)
 	if err != nil {
 		return nil
 	}
+	r, c := distances.Dims()
+	logger.Debugf("size of distances (%d, %d) and matrix size (r=%d, c=%d)", len(d1), len(d2), r, c)
+	logger.Debugf("descriptor 1524 of d1: %v", d1[1524])
+	logger.Debugf("descriptor 2015 of d2: %v", d2[2015])
+	logger.Debugf("descriptor 2025 of d2: %v", d2[2025])
 	indices1 := rangeInt(len(desc1), 0, 1)
 	indices2 := utils.GetArgMinDistancesPerRow(distances)
+	logger.Debugf("index count for 2:\n %v", indexCount(indices2))
 	// mask for valid indices
 	maskIdx := make([]int, len(desc1))
 	for i := range maskIdx {
@@ -139,4 +178,34 @@ func GetMatchingKeyPoints(matches *DescriptorMatches, kps1, kps2 KeyPoints) (Key
 		matchedKps2[i] = kps1[match.Idx2]
 	}
 	return matchedKps1, matchedKps2, nil
+}
+
+func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger) (Descriptors, KeyPoints, error) {
+	if len(desc) != len(kps) {
+		return nil, nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
+	}
+	// sort by point order
+	type ptdesc struct {
+		Kp  image.Point
+		Des Descriptor
+	}
+
+	sorted := make([]ptdesc, 0, len(kps))
+	for i := range kps {
+		sorted = append(sorted, ptdesc{kps[i], desc[i]})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Kp.X > sorted[j].Kp.X
+	})
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Kp.Y > sorted[j].Kp.Y
+	})
+	logger.Debugf("sorted points:\n %v", sorted[:10])
+	sortedDesc := make(Descriptors, 0, len(desc))
+	sortedKps := make(KeyPoints, 0, len(kps))
+	for i := range sorted {
+		sortedDesc = append(sortedDesc, sorted[i].Des)
+		sortedKps = append(sortedKps, sorted[i].Kp)
+	}
+	return sortedDesc, sortedKps, nil
 }
