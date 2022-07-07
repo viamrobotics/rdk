@@ -1,6 +1,6 @@
 <script>
 
-import ViamBase from './components/Base.vue'
+// import ViamBase from './components/Base.vue'
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
@@ -251,7 +251,7 @@ export default {
     this.queryMetadata();
   },
   components: {
-    ViamBase,
+    // ViamBase,
   },
   data() {
     return {
