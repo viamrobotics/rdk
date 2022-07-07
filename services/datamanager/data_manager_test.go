@@ -32,10 +32,8 @@ var (
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
 
-	captureDir  = "/tmp/capture"
-	armDir      = captureDir + "/arm/arm1/GetEndPosition"
-	numDirs     = 2
-	filesPerDir = 2
+	captureDir = "/tmp/capture"
+	armDir     = captureDir + "/arm/arm1/GetEndPosition"
 )
 
 // readDir filters out folders from a slice of FileInfos.
@@ -171,11 +169,6 @@ func TestNewRemoteDataManager(t *testing.T) {
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
-	if err != nil {
-		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
-	}
-
-	// Once testing is complete, remove all temp dirs.
 	defer func() {
 		for _, dir := range dirs {
 			resetFolder(t, dir)
@@ -183,6 +176,9 @@ func TestRecoversAfterKilled(t *testing.T) {
 	}()
 	defer resetFolder(t, captureDir)
 	defer resetFolder(t, armDir)
+	if err != nil {
+		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
+	}
 
 	testCfg := setupConfig(t, configPath)
 	err = setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
@@ -299,7 +295,7 @@ func populateAdditionalSyncPaths() ([]string, int, error) {
 	numArbitraryFilesToSync := 0
 
 	// Generate additional_sync_paths "dummy" dirs & files.
-	for i := 0; i < numDirs; i++ {
+	for i := 0; i < 2; i++ {
 		// Create a temp dir that will be in additional_sync_paths.
 		td, err := ioutil.TempDir("", "additional_sync_path_dir_")
 		if err != nil {
@@ -312,7 +308,7 @@ func populateAdditionalSyncPaths() ([]string, int, error) {
 			continue
 		} else {
 			// Make the dirs that will contain two file.
-			for i := 0; i < filesPerDir; i++ {
+			for i := 0; i < 2; i++ {
 				// Generate data that will be in a temp file.
 				fileData := []byte("This is file data. It will be stored in a directory included in the user's specified additional sync paths. Hopefully it is uploaded from the robot to the cloud!")
 
@@ -354,6 +350,8 @@ func TestManualSync(t *testing.T) {
 			resetFolder(t, dir)
 		}
 	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
@@ -362,10 +360,6 @@ func TestManualSync(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = setConfigAdditionalSyncPaths(testCfg, dirs)
 	test.That(t, err, test.ShouldBeNil)
-
-	// Once testing is complete, remove all temp dirs.
-	defer resetFolder(t, captureDir)
-	defer resetFolder(t, armDir)
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
@@ -410,6 +404,8 @@ func TestScheduledSync(t *testing.T) {
 			os.RemoveAll(dir)
 		}
 	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
@@ -418,10 +414,6 @@ func TestScheduledSync(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = setConfigAdditionalSyncPaths(testCfg, dirs)
 	test.That(t, err, test.ShouldBeNil)
-
-	// Once testing is complete, remove all temp dirs.
-	defer resetFolder(t, captureDir)
-	defer resetFolder(t, armDir)
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
@@ -459,6 +451,8 @@ func TestManualAndScheduledSync(t *testing.T) {
 			resetFolder(t, dir)
 		}
 	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
@@ -467,10 +461,6 @@ func TestManualAndScheduledSync(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = setConfigAdditionalSyncPaths(testCfg, dirs)
 	test.That(t, err, test.ShouldBeNil)
-
-	// Once testing is complete, remove all temp dirs.
-	defer resetFolder(t, captureDir)
-	defer resetFolder(t, armDir)
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
