@@ -7,7 +7,6 @@ import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import ViamIcon from "@/components/ViamIcon.vue";
 import Tabs from "@/components/Tabs.vue";
 import Tab from "@/components/Tab.vue";
-import RadioButtons from "@/components/RadioButtons.vue";
 import ViamButton from "@/components/Button.vue";
 import KeyboardInput from "@/components/KeyboardInput.vue";
 import Range from "@/components/Range.vue";
@@ -27,7 +26,6 @@ describe("Base", () => {
         Collapse,
         Breadcrumbs,
         ViamIcon,
-        RadioButtons,
         Tabs,
         Tab,
         ViamButton,
@@ -55,7 +53,6 @@ describe("Base", () => {
         Collapse,
         Breadcrumbs,
         ViamIcon,
-        RadioButtons,
         Tabs,
         Tab,
         ViamButton,
@@ -95,7 +92,6 @@ describe("Base", () => {
         Collapse,
         Breadcrumbs,
         ViamIcon,
-        RadioButtons,
         Tabs,
         Tab,
         ViamButton,
@@ -129,7 +125,6 @@ describe("Base", () => {
         Collapse,
         Breadcrumbs,
         ViamIcon,
-        RadioButtons,
         Tabs,
         Tab,
         ViamButton,
@@ -164,7 +159,6 @@ describe("Base", () => {
         Collapse,
         Breadcrumbs,
         ViamIcon,
-        RadioButtons,
         Tabs,
         Tab,
         ViamButton,

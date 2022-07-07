@@ -15,7 +15,6 @@ import Collapse from "./components/Collapse.vue";
 import Container from "./components/Container.vue";
 import Grid from "./components/Grid.vue";
 import Range from "./components/Range.vue";
-import RadioButtons from "./components/RadioButtons.vue";
 import ViamSwitch from "./components/Switch.vue";
 import Tab from "./components/Tab.vue";
 import Tabs from "./components/Tabs.vue";
@@ -39,7 +38,6 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   Breadcrumbs,
   ViamSwitch,
   ViamIcon,
-  RadioButtons,
   Tabs,
   Tab,
   ViamBadge,
