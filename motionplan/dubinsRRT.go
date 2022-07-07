@@ -153,7 +153,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 
 			start := configuration2slice(node)
 			end := configuration2slice(target)
-			path := dm.d.generate_points(start, end, o.dubinsPath, o.straight)
+			path := dm.d.GeneratePoints(start, end, o.dubinsPath, o.straight)
 
 			pathOk := true
 			p1, p2 := path[0], path[1]
@@ -377,7 +377,7 @@ func (dm *dubinOptionManager) selectOptions(
 	for node := range rrtMap {
 		start := configuration2slice(node)
 		end := configuration2slice(sample)
-		allOpts := dm.d.all_options(start, end, true)
+		allOpts := dm.d.AllOptions(start, end, true)
 
 		for _, opt := range allOpts {
 			pl = append(pl, pair{node, opt})
@@ -467,7 +467,7 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 				dm.optLock.RLock()
 				start := configuration2slice(k)
 				end := configuration2slice(dm.sample)
-				allOpts := dm.d.all_options(start, end, true)
+				allOpts := dm.d.AllOptions(start, end, true)
 				dm.optLock.RUnlock()
 
 				for _, opt := range allOpts {
