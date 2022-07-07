@@ -1,3 +1,43 @@
+<script setup lang="ts">
+
+import { computed } from 'vue'
+
+interface Props {
+  path: string
+  title: string
+  description: string
+  size: number | string
+  horizontal: boolean
+  vertical: boolean
+  rotate: number | string
+  color: string
+  spin: boolean | string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  size: 18,
+  rotate: 0,
+  spin: false,
+})
+
+const viewBox = computed(() => {
+  return `0 0 ${iconSize()} ${iconSize()}`;
+});
+
+const rotation = computed(() => {
+  return `rotate(${props.rotate} 12 12)`;
+});
+
+const iconSize = () => {
+  return isNumeric(props.size) ? `${props.size}px` : props.size
+}
+
+const isNumeric = (value) => {
+  return /^-{0,1}\d+$/.test(value);
+}
+
+</script>
+
 <template>
   <svg
     :width="`${iconSize()}`"
@@ -17,7 +57,7 @@
   </svg>
 </template>
 
-<script>
+<!-- <script>
 export default {
   computed: {
     viewBox() {
@@ -64,4 +104,4 @@ export default {
     },
   },
 };
-</script>
+</script> -->
