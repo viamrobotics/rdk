@@ -5,6 +5,8 @@ package internal
 import (
 	"context"
 
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/rdk/component/camera"
 )
 
@@ -13,7 +15,8 @@ import (
 // a circular import caused by the inject package.
 type Service interface {
 	StartDataProcess(cancelCtx context.Context, cam camera.Camera)
-	StartSLAMProcess(ctx context.Context) ([]string, error)
+	StartSLAMProcess(ctx context.Context) error
 	StopSLAMProcess() error
 	Close() error
+	GetSLAMProcessConfig() pexec.ProcessConfig
 }
