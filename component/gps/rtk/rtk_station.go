@@ -33,11 +33,11 @@ type AttrConfig struct {
 	NtripPass            string             `json:"ntrip_password,omitempty"`
 	NtripUser            string             `json:"ntrip_username,omitempty"`
 	//serial
-	CorrectionPath		 string 			`json: "correction_path`
+	CorrectionPath		 string 			`json:"correction_path"`
 	//I2C
-	Board				 string				`json: "board"`
-	Bus 				 string  			`json: "bus"`
-	I2cAddr			 	 int				`json: i2c_addr`
+	Board				 string				`json:"board"`
+	Bus 				 string  			`json:"bus"`
+	I2cAddr			 	 int				`json:"i2c_addr"`
 }
 
 // Validate ensures all parts of the config are valid.
