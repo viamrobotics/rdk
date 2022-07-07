@@ -15,8 +15,9 @@ import (
 )
 
 // orbCamMaker takes in the camera intrinsics and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
-func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamService) (orbslam ORBsettings, err error) {
-	orbslam = ORBsettings{
+func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamService) (ORBsettings, error) {
+	var err error
+	orbslam := ORBsettings{
 		CamType:        "PinHole",
 		Width:          intrinics.Width,
 		Height:         intrinics.Height,
@@ -36,28 +37,25 @@ func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamServ
 		FPSCamera:      int8(slamSvc.dataRateMs),
 		FileVersion:    "1.0",
 	}
-	orbslam.NFeatures, err = orbConfigToInt(slamSvc.configParams["orb_n_features"], 1250)
+	orbslam.NFeatures, err = slamSvc.orbConfigToInt("orb_n_features", 1250)
 	if err != nil {
-		return orbslam, err
+		return ORBsettings{}, err
 	}
-	orbslam.ScaleFactor, err = orbConfigToFloat(slamSvc.configParams["orb_scale_factor"], 1.2)
+	orbslam.ScaleFactor, err = slamSvc.orbConfigToFloat("orb_scale_factor", 1.2)
 	if err != nil {
-		return orbslam, err
+		return ORBsettings{}, err
 	}
-	orbslam.NLevels, err = orbConfigToInt(slamSvc.configParams["orb_n_levels"], 8)
+	orbslam.NLevels, err = slamSvc.orbConfigToInt("orb_n_levels", 8)
 	if err != nil {
-		return orbslam, err
+		return ORBsettings{}, err
 	}
-	orbslam.IniThFAST, err = orbConfigToInt(slamSvc.configParams["orb_n_ini_th_fast"], 20)
+	orbslam.IniThFAST, err = slamSvc.orbConfigToInt("orb_n_ini_th_fast", 20)
 	if err != nil {
-		return orbslam, err
+		return ORBsettings{}, err
 	}
-	orbslam.MinThFAST, err = orbConfigToInt(slamSvc.configParams["orb_n_min_th_fast"], 7)
+	orbslam.MinThFAST, err = slamSvc.orbConfigToInt("orb_n_min_th_fast", 7)
 	if err != nil {
-		return orbslam, err
-	}
-	if err != nil {
-		return orbslam, err
+		return ORBsettings{}, err
 	}
 	return orbslam, nil
 }
@@ -103,7 +101,6 @@ func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
 	if err != nil {
 		return err
 	}
-	orbslam.FileVersion = "1.0"
 	yamlData, err := yaml.Marshal(&orbslam)
 	if err != nil {
 		return errors.Errorf("Error while Marshaling YAML file. %v", err)
@@ -129,7 +126,7 @@ func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
 	return outfile.Close()
 }
 
-func orbConfigToInt(attr string, def int) (int, error) {
+func (slamSvc *slamService) orbConfigToInt(attr string, def int) (int, error) {
 	var val int
 	if attr == "" {
 		val = def
@@ -137,22 +134,26 @@ func orbConfigToInt(attr string, def int) (int, error) {
 		var err error
 		val, err = strconv.Atoi(attr)
 		if err != nil {
-			return val, err
+			return 0, err
 		}
 	}
 	return val, nil
 }
 
-func orbConfigToFloat(attr string, def float64) (float64, error) {
-	var val float64
-	if attr == "" {
-		val = def
-	} else {
-		var err error
-		val, err = strconv.ParseFloat(attr, 64)
-		if err != nil {
-			return val, err
-		}
+func (slamSvc *slamService) orbConfigToFloat(key string, def float64) (float64, error) {
+	valStr, ok := slamSvc.configParams[key]
+	if !ok {
+		slamSvc.logger.Debugf("Parameter %s not found, using default value %f", key, def)
+		return def, nil
+	}
+	if valStr == "" {
+		slamSvc.logger.Debugf("Parameter %s was left empty, using default %f", key, def)
+		return def, nil
+	}
+
+	val, err := strconv.ParseFloat(valStr, 64)
+	if err != nil {
+		return 0, err
 	}
 	return val, nil
 }

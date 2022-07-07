@@ -197,7 +197,7 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 	if slamSvc.slamLib.AlgoName == "orbslamv3" {
 		err = orbGenYAML(slamSvc, cam)
 		if err != nil {
-			return errors.Errorf("slam yaml generation error: %v", err)
+			return errors.Wrap(err, "error generating .yaml config")
 		}
 	}
 
