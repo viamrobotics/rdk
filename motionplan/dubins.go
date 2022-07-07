@@ -13,6 +13,12 @@ type Dubins struct {
 	point_separation		float64
 }
 
+type dubinOption struct {
+	totalLen 		float64
+	dubinsPath 		[]float64
+	straight 		bool
+}
+
 func (d *Dubins) find_center(point []float64, side string) []float64 {
 	angle := point[2]
 	if side=="L" {
