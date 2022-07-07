@@ -3,7 +3,6 @@ package odometry
 import (
 	"encoding/json"
 	"image"
-	"io/ioutil"
 	"os"
 
 	"github.com/edaniels/golog"
@@ -58,6 +57,15 @@ func NewMotion3DFromRotationTranslation(rotation, translation *mat.Dense) *Motio
 // EstimateMotionFrom2Frames estimates the 3D motion of the camera between frame img1 and frame img2.
 func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationConfig, logger golog.Logger, display bool,
 ) (*Motion3D, string, error) {
+	var err error
+	tempDir := ""
+	if display {
+		tempDir, err = os.MkdirTemp("", "motion_keypoint_matching")
+		if err != nil {
+			return nil, "", err
+		}
+		logger.Infof("writing motion keypoint files to %s", tempDir)
+	}
 	// Convert both images to gray
 	im1 := rimage.MakeGray(img1)
 	im2 := rimage.MakeGray(img2)
@@ -66,21 +74,27 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	if err != nil {
 		return nil, "", err
 	}
+	if display {
+		err = keypoints.PlotKeypoints(im1, kps1, tempDir+"/img1_orb_points.png")
+		if err != nil {
+			logger.Warnf("%s/img1_orb_points.png could not be saved", tempDir)
+		}
+	}
 	orb2, kps2, err := keypoints.ComputeORBKeypoints(im2, cfg.KeyPointCfg)
 	if err != nil {
 		return nil, "", err
+	}
+	if display {
+		err = keypoints.PlotKeypoints(im2, kps2, tempDir+"/img2_orb_points.png")
+		if err != nil {
+			logger.Warnf("%s/img2_orb_points.png could not be saved", tempDir)
+		}
 	}
 	// match keypoints
 	matches := keypoints.MatchKeypoints(orb1, orb2, cfg.MatchingCfg)
 	// get 2 sets of matching keypoints
 	matchedKps1, matchedKps2, err := keypoints.GetMatchingKeyPoints(matches, kps1, kps2)
-	tempDir := ""
 	if display {
-		tempDir, err = ioutil.TempDir("", "motion_keypoint_matching")
-		logger.Infof("writing motion keypoint files to %s", tempDir)
-		if err != nil {
-			return nil, "", err
-		}
 		err = keypoints.PlotKeypoints(im1, matchedKps1, tempDir+"/img1.png")
 		if err != nil {
 			logger.Warnf("%s/img1.png could not be saved", tempDir)
