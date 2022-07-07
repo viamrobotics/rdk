@@ -143,8 +143,8 @@ func TestOrbMatching(t *testing.T) {
 			Radius:         16,
 		},
 		BRIEFConf: &BRIEFConfig{
-			N:              2056,
-			Sampling:       0,
+			N:              256,
+			Sampling:       2,
 			UseOrientation: true,
 			PatchSize:      16,
 		},
@@ -170,6 +170,6 @@ func TestOrbMatching(t *testing.T) {
 	orb2, _, err = sortDescriptorsByPoint(orb2, kps2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	matches := MatchKeypoints(orb1, orb2, matchingConf, logger)
-	test.That(t, len(matches.Indices), test.ShouldEqual, 4)
+	test.That(t, len(matches.Indices), test.ShouldEqual, 307)
 
 }
