@@ -16,6 +16,7 @@ type Base struct {
 	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64) error
 	GetWidthFunc     func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context) error
+	IsMovingFunc     func(context.Context) (bool, error)
 	CloseFunc        func(ctx context.Context) error
 }
 
@@ -49,6 +50,14 @@ func (b *Base) Stop(ctx context.Context) error {
 		return b.LocalBase.Stop(ctx)
 	}
 	return b.StopFunc(ctx)
+}
+
+// IsMoving calls the injected IsMoving or the real version.
+func (b *Base) IsMoving(ctx context.Context) (bool, error) {
+	if b.IsMovingFunc == nil {
+		return b.LocalBase.IsMoving(ctx)
+	}
+	return b.IsMovingFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

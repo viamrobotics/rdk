@@ -52,6 +52,7 @@ module.exports = {
       cyan: colors.cyan,
       gray: colors.gray,
       green: colors.green,
+      greendark: "#397F48",
       indigo: colors.indigo,
       orange: colors.orange,
       pink: colors.pink,
