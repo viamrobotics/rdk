@@ -37,7 +37,6 @@ type Service struct {
 	RegDebugInfo
 	Constructor           CreateService
 	AttributeMapConverter config.AttributeMapConverter
-	Reconfigurable        CreateReconfigurable
 }
 
 func getCallerName() string {
@@ -59,7 +58,6 @@ func RegisterService(subtype resource.Subtype, creator Service) {
 	if creator.Constructor == nil {
 		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
-	fmt.Println(subtype.String())
 	serviceRegistry[subtype.String()] = creator
 }
 
