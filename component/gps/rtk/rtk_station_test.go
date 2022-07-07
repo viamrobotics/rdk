@@ -31,6 +31,40 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	return deps
 }
 
+func TestValidate(t *testing.T) {
+	fakecfg := &AttrConfig{}
+	err := fakecfg.Validate("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty correction source")
+
+	fakecfg.CorrectionSource = "notvalid"
+	err = fakecfg.Validate("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "only serial, I2C, and ntrip are supported correction sources")
+
+	//ntrip
+	fakecfg.CorrectionSource = "ntrip"
+	err = fakecfg.Validate("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty ntrip address")
+
+	fakecfg.NtripAddr = "some-ntrip-address"
+	err = fakecfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+
+	//serial
+	fakecfg.CorrectionSource = "serial"
+	err = fakecfg.Validate("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "must specify serial path")
+
+	fakecfg.CorrectionPath = "some-serial-path"
+	err = fakecfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+
+	//I2C
+	fakecfg.CorrectionSource = "I2C"
+	err = fakecfg.Validate("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for rtk station")
+
+}
+
 func TestRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
