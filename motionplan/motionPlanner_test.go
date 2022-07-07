@@ -148,7 +148,7 @@ func TestSimpleMotionUR5e(t *testing.T) {
 		X:  -750,
 		Y:  -250,
 		Z:  200,
-		OZ: -1,
+		OX: -1,
 	}
 	path, err := mp.Plan(context.Background(), pos, home6, nil)
 	test.That(t, err, test.ShouldBeNil)

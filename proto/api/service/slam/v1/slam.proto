@@ -44,7 +44,7 @@ message GetMapRequest {
   string mime_type = 2;
   // Optional parameter for image/jpeg mime_type, used to project point
   // cloud into a 2D image.
-  common.v1.Pose camera_position = 3;
+  optional common.v1.Pose camera_position = 3;
   // Optional parameter for image/jpeg mime_type, defaults to false.
   // Tells us whether to include the robot position on the 2D image.
   bool include_robot_marker = 4;
