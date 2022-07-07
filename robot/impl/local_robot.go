@@ -28,6 +28,7 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/services"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/vision"
@@ -383,7 +384,13 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	if f == nil {
 		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
 	}
-	return f.Constructor(ctx, r, config, r.logger)
+
+	svc, err := f.Constructor(ctx, r, config, r.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return services.WrapWithReconfigurable(svc)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
