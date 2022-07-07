@@ -131,7 +131,10 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 	protoTypes := make([]*pb.ResourceRPCSubtype, 0, len(resSubtypes))
 	for _, rt := range resSubtypes {
 		protoTypes = append(protoTypes, &pb.ResourceRPCSubtype{
-			Subtype:      protoutils.ResourceNameToProto(resource.Name{rt.Subtype, ""}),
+			Subtype: protoutils.ResourceNameToProto(resource.Name{
+				Subtype: rt.Subtype,
+				Name:    "",
+			}),
 			ProtoService: rt.Desc.GetFullyQualifiedName(),
 		})
 	}

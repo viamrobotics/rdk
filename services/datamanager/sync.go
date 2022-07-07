@@ -2,6 +2,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -76,6 +77,7 @@ func (s *syncer) Close() {
 }
 
 func (s *syncer) upload(ctx context.Context, path string) {
+	fmt.Println("UPLOADING ", path)
 	if s.progressTracker.inProgress(path) {
 		return
 	}
@@ -84,13 +86,24 @@ func (s *syncer) upload(ctx context.Context, path string) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
-		exponentialRetry(
+		uploadErr := exponentialRetry(
 			ctx,
 			func(ctx context.Context) error { return s.uploadFn(ctx, s.client, path, s.partID) },
 			s.logger,
 		)
+		if uploadErr != nil {
+			return
+		}
+
+		// Delete the file and indicate that the upload is done.
+		if err := os.Remove(path); err != nil {
+			fmt.Println("ERROR REMOVING ", path, err)
+			s.logger.Errorw("error while deleting file", "error", err)
+		} else {
+			fmt.Println("REMOVED ", path)
+			s.progressTracker.unmark(path)
+		}
 	})
-	// TODO DATA-40: If upload completed successfully, unmark in-progress and delete file.
 }
 
 func (s *syncer) Sync(paths []string) {
@@ -117,7 +130,6 @@ func (p *progressTracker) mark(k string) {
 	p.lock.Unlock()
 }
 
-//nolint:unused
 func (p *progressTracker) unmark(k string) {
 	p.lock.Lock()
 	delete(p.m, k)
@@ -126,10 +138,10 @@ func (p *progressTracker) unmark(k string) {
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.
-func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) {
+func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) error {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
 	if err := fn(cancelCtx); err == nil {
-		return
+		return nil
 	}
 
 	// First call failed, so begin exponentialRetry with a factor of retryExponentialFactor
@@ -140,13 +152,13 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 			if !errors.Is(err, context.Canceled) {
 				log.Errorw("context closed unexpectedly", "error", err)
 			}
-			return
+			return err
 		}
 		select {
 		// If cancelled, return nil.
 		case <-cancelCtx.Done():
 			ticker.Stop()
-			return
+			return cancelCtx.Err()
 		// Otherwise, try again after nextWait.
 		case <-ticker.C:
 			if err := fn(cancelCtx); err != nil {
@@ -159,7 +171,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 			}
 			// If no error, return.
 			ticker.Stop()
-			return
+			return nil
 		}
 	}
 }

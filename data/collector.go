@@ -179,8 +179,10 @@ func (c *collector) tickerBasedCapture() {
 
 func (c *collector) getAndPushNextReading() {
 	timeRequested := timestamppb.New(time.Now().UTC())
+	fmt.Println("TIME REQUESTED, ", timeRequested.AsTime())
 	reading, err := c.capturer.Capture(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(time.Now().UTC())
+	fmt.Println("TIME RECEIVED ", timeReceived.AsTime())
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			c.logger.Debugw("error while capturing data", "error", err)
@@ -205,6 +207,7 @@ func (c *collector) getAndPushNextReading() {
 	default:
 		// If it's not bytes, it's a struct.
 		pbReading, err := protoutils.StructToStructPb(reading)
+		fmt.Println("READING ", reading)
 		if err != nil {
 			c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
 			return
