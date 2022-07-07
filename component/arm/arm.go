@@ -83,22 +83,22 @@ func Named(name string) resource.Name {
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
 	// GetEndPosition returns the current position of the arm.
-	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
+	GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error
+	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	// This will block until done or a new operation cancels this one
-	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error
+	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
 
 	// GetJointPositions returns the current joint positions of the arm.
-	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
+	GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 
 	// Stop stops the arm. It is assumed the arm stops immediately.
-	Stop(ctx context.Context) error
+	Stop(ctx context.Context, extra map[string]interface{}) error
 
 	generic.Generic
 	referenceframe.ModelFramer
@@ -160,11 +160,11 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("LocalArm", resource)
 	}
-	endPosition, err := arm.GetEndPosition(ctx)
+	endPosition, err := arm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	jointPositions, err := arm.GetJointPositions(ctx)
+	jointPositions, err := arm.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -192,34 +192,34 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+func (r *reconfigurableArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetEndPosition(ctx)
+	return r.actual.GetEndPosition(ctx, extra)
 }
 
-func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToPosition(ctx, pose, worldState)
+	return r.actual.MoveToPosition(ctx, pose, worldState, extra)
 }
 
-func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error {
+func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToJointPositions(ctx, positionDegs)
+	return r.actual.MoveToJointPositions(ctx, positionDegs, extra)
 }
 
-func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (r *reconfigurableArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetJointPositions(ctx)
+	return r.actual.GetJointPositions(ctx, extra)
 }
 
-func (r *reconfigurableArm) Stop(ctx context.Context) error {
+func (r *reconfigurableArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Stop(ctx)
+	return r.actual.Stop(ctx, extra)
 }
 
 func (r *reconfigurableArm) ModelFrame() referenceframe.Model {
@@ -411,7 +411,7 @@ func Move(
 		return err
 	}
 
-	seed, err := a.GetJointPositions(ctx) // TODO(rb) should be able to get this from the input map
+	seed, err := a.GetJointPositions(ctx, nil) // TODO(rb) should be able to get this from the input map
 	if err != nil {
 		return err
 	}

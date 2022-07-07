@@ -45,7 +45,7 @@ func (s *subtypeServer) GetEndPosition(
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.GetEndPosition(ctx)
+	pos, err := arm.GetEndPosition(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (s *subtypeServer) GetJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.GetJointPositions(ctx)
+	pos, err := arm.GetJointPositions(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositi
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, req.GetTo(), req.GetWorldState())
+	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, req.GetTo(), req.GetWorldState(), req.Extra.AsMap())
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
@@ -92,7 +92,7 @@ func (s *subtypeServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.PositionDegs)
+	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.PositionDegs, req.Extra.AsMap())
 }
 
 // Stop stops the arm specified.
@@ -102,5 +102,5 @@ func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.Stop
 	if err != nil {
 		return nil, err
 	}
-	return &pb.StopResponse{}, arm.Stop(ctx)
+	return &pb.StopResponse{}, arm.Stop(ctx, req.Extra.AsMap())
 }
