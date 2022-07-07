@@ -10,7 +10,7 @@
           class="border-l border-r border-b border-black p-2"
           :style="{ height: height }"
         >
-          <Container>
+          <div class="container mx-auto">
             <div class="pt-4">
               <span class="pr-2">View Camera</span>
               <ViamSwitch
@@ -160,7 +160,7 @@
                 </div>
                 <div class="grid grid-cols-1 divide-y clear-both">
                   <div>
-                    <Container class="pt-4">
+                    <div class="container mx-auto pt-4">
                       <div>
                         <h2>Segmentation Settings</h2>
                         <div class="relative">
@@ -217,7 +217,7 @@
                           </div>
                         </div>
                       </div>
-                    </Container>
+                    </div>
                     <div class="p-4 float-right">
                       <ViamButton
                         :loading="findStatus"
@@ -329,7 +329,7 @@
                 </div>
               </div>
             </div>
-          </Container>
+          </div>
         </div>
       </template>
     </Collapse>
