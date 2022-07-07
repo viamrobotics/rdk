@@ -1,10 +1,6 @@
 package keypoints
 
 import (
-	"fmt"
-	"image"
-	"sort"
-
 	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
@@ -60,35 +56,6 @@ func convertDescriptorsToFloats(desc Descriptors) [][]float64 {
 	return out
 }
 
-func indexCount(list []int) []string {
-	m := map[int]int{}
-	for _, n := range list {
-		if _, ok := m[n]; !ok {
-			m[n] = 0
-		} else {
-			m[n]++
-		}
-	}
-	// then sort by value order
-	type kv struct {
-		Key   int
-		Value int
-	}
-
-	var ss []kv
-	for k, v := range m {
-		ss = append(ss, kv{k, v})
-	}
-	sort.Slice(ss, func(i, j int) bool {
-		return ss[i].Value > ss[j].Value
-	})
-	text := make([]string, len(ss))
-	for i, kv := range ss {
-		text[i] = fmt.Sprintf("%d: %d", kv.Key, kv.Value)
-	}
-	return text
-}
-
 // MatchKeypoints takes 2 sets of descriptors and performs matching.
 func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.Logger) *DescriptorMatches {
 	d1 := convertDescriptorsToFloats(desc1)
@@ -97,7 +64,6 @@ func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.
 	if err != nil {
 		return nil
 	}
-	r, c := distances.Dims()
 	indices1 := rangeInt(len(desc1), 0, 1)
 	indices2 := utils.GetArgMinDistancesPerRow(distances)
 	// mask for valid indices
@@ -173,33 +139,4 @@ func GetMatchingKeyPoints(matches *DescriptorMatches, kps1, kps2 KeyPoints) (Key
 		matchedKps2[i] = kps1[match.Idx2]
 	}
 	return matchedKps1, matchedKps2, nil
-}
-
-func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger) (Descriptors, KeyPoints, error) {
-	if len(desc) != len(kps) {
-		return nil, nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
-	}
-	// sort by point order
-	type ptdesc struct {
-		Kp  image.Point
-		Des Descriptor
-	}
-
-	sorted := make([]ptdesc, 0, len(kps))
-	for i := range kps {
-		sorted = append(sorted, ptdesc{kps[i], desc[i]})
-	}
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Kp.X > sorted[j].Kp.X
-	})
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Kp.Y > sorted[j].Kp.Y
-	})
-	sortedDesc := make(Descriptors, 0, len(desc))
-	sortedKps := make(KeyPoints, 0, len(kps))
-	for i := range sorted {
-		sortedDesc = append(sortedDesc, sorted[i].Des)
-		sortedKps = append(sortedKps, sorted[i].Kp)
-	}
-	return sortedDesc, sortedKps, nil
 }

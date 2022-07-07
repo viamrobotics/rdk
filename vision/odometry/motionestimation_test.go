@@ -39,6 +39,6 @@ func TestEstimateMotionFrom2Frames(t *testing.T) {
 	// Estimate motion
 	motion, _, err := EstimateMotionFrom2Frames(im1, im2, cfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, motion.Translation.At(2, 0), test.ShouldBeGreaterThan, 0.0) // motion is moving forward in z
+	test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -1.0)
 	test.That(t, motion.Translation.At(1, 0), test.ShouldBeLessThan, 0.2)
 }

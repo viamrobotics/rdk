@@ -4,9 +4,11 @@ import (
 	"image"
 	"image/draw"
 	"math"
+	"sort"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -172,4 +174,33 @@ func TestOrbMatching(t *testing.T) {
 	matches := MatchKeypoints(orb1, orb2, matchingConf, logger)
 	test.That(t, len(matches.Indices), test.ShouldEqual, 307)
 
+}
+
+func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger) (Descriptors, KeyPoints, error) {
+	if len(desc) != len(kps) {
+		return nil, nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
+	}
+	// sort by point order
+	type ptdesc struct {
+		Kp  image.Point
+		Des Descriptor
+	}
+
+	sorted := make([]ptdesc, 0, len(kps))
+	for i := range kps {
+		sorted = append(sorted, ptdesc{kps[i], desc[i]})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Kp.X > sorted[j].Kp.X
+	})
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Kp.Y > sorted[j].Kp.Y
+	})
+	sortedDesc := make(Descriptors, 0, len(desc))
+	sortedKps := make(KeyPoints, 0, len(kps))
+	for i := range sorted {
+		sortedDesc = append(sortedDesc, sorted[i].Des)
+		sortedKps = append(sortedKps, sorted[i].Kp)
+	}
+	return sortedDesc, sortedKps, nil
 }
