@@ -10,8 +10,9 @@ import (
 
 	"go.uber.org/multierr"
 
-	"go.viam.com/rdk/spatialmath"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
@@ -77,7 +78,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	return frames[0].transform, err
 }
 
-// InputFromProtobuf converts pb.JointPosition to inputs
+// InputFromProtobuf converts pb.JointPosition to inputs.
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	inputs := make([]Input, 0, len(jp.Degrees))
 	posIdx := 0
@@ -85,14 +86,14 @@ func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 		dof := len(transform.DoF()) + posIdx
 		jPos := jp.Degrees[posIdx:dof]
 		posIdx = dof
-		
+
 		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Degrees: jPos})...)
 	}
-	
+
 	return inputs
 }
 
-// ProtobufFromInput converts inputs to pb.JointPosition
+// ProtobufFromInput converts inputs to pb.JointPosition.
 func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 	jPos := &pb.JointPositions{}
 	posIdx := 0
@@ -101,7 +102,7 @@ func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 		jPos.Degrees = append(jPos.Degrees, transform.ProtobufFromInput(input[posIdx:dof]).Degrees...)
 		posIdx = dof
 	}
-	
+
 	return jPos
 }
 

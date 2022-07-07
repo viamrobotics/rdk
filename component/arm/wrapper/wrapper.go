@@ -95,7 +95,7 @@ func (wrapper *Arm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, wor
 	if err != nil {
 		return err
 	}
-	solution, err := wrapper.mp.Plan(ctx, pose, referenceframe.JointPosToInputs(joints), nil)
+	solution, err := wrapper.mp.Plan(ctx, pose, wrapper.model.InputFromProtobuf(joints), nil)
 	if err != nil {
 		return err
 	}
@@ -138,10 +138,10 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return wrapper.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return wrapper.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return wrapper.MoveToJointPositions(ctx, wrapper.model.ProtobufFromInput(goal))
 }

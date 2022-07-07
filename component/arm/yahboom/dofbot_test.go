@@ -10,7 +10,6 @@ import (
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
-	"go.viam.com/rdk/referenceframe"
 )
 
 func TestJointConfig(t *testing.T) {
@@ -26,12 +25,12 @@ func TestDofBotIK(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	_, mp, err := createDofBotSolver(logger)
+	model, mp, err := createDofBotSolver(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	goal := commonpb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
 	opt := motionplan.NewDefaultPlannerOptions()
 	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	_, err = mp.Plan(ctx, &goal, referenceframe.JointPosToInputs(&componentpb.JointPositions{Degrees: make([]float64, 5)}), opt)
+	_, err = mp.Plan(ctx, &goal, model.InputFromProtobuf(&componentpb.JointPositions{Degrees: make([]float64, 5)}), opt)
 	test.That(t, err, test.ShouldBeNil)
 }

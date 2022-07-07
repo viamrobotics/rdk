@@ -3,6 +3,7 @@ package arm
 
 import (
 	"context"
+	"errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -102,15 +103,11 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.GetJointPositions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return referenceframe.JointPosToInputs(res), nil
+	return nil, errors.New("arm client does not support inputs directly")
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return c.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return errors.New("arm client does not support inputs directly")
 }
 
 // Close cleanly closes the underlying connections.
