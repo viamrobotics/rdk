@@ -227,26 +227,31 @@ func (r *rtkStation) Close() error {
 
 // ReadLocation implements a LocalGPS function, but returns nil since the rtkStation does not have GPS data.
 func (r *rtkStation) ReadLocation(ctx context.Context) (*geo.Point, error) {
+	r.logger.Info("Reading location of station")
 	return &geo.Point{}, nil
 }
 
 // ReadAltitude implements a LocalGPS function, but returns 0 since the rtkStation does not have GPS data.
 func (r *rtkStation) ReadAltitude(ctx context.Context) (float64, error) {
+	r.logger.Info("Reading altitude of station")
 	return 0, nil
 }
 
 // ReadSpeed implements a LocalGPS function, but returns 0 since the rtkStation does not have GPS data.
 func (r *rtkStation) ReadSpeed(ctx context.Context) (float64, error) {
+	r.logger.Info("Reading speed of station")
 	return 0, nil
 }
 
 // ReadSatellites implements a LocalGPS function, but returns 0, 0 since the rtkStation does not have GPS data.
 func (r *rtkStation) ReadSatellites(ctx context.Context) (int, int, error) {
+	r.logger.Info("Reading number of satellites visible of station")
 	return 0, 0, nil
 }
 
 // ReadAccuracy implements a LocalGPS function, but returns 0, 0 since the rtkStation does not have GPS data.
 func (r *rtkStation) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+	r.logger.Info("Reading accuracy of station")
 	return 0, 0, nil
 }
 
