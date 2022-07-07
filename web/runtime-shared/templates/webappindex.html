@@ -27,6 +27,15 @@
       window.bakedAuth = {{ .BakedAuth }} || {};
       window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
+
+    <!-- Configure static file path for Prime component library -->
+    <link rel="preload" href="/static/prime.css" as="style">
+
+    <script type="module">
+      window.PRIME_CONFIG = { base: '/static' }
+    </script>
+
+
     {{ if .External }}
     <script src="/static/rdk/control.js"></script>
     <script src="/static/rdk/control_helpers.js"></script>
