@@ -10,7 +10,6 @@ import (
 	"go.uber.org/multierr"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
