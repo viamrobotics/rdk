@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 	"golang.org/x/exp/shiny/widget/node"
 
@@ -124,7 +125,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	goalInputs[0], goalInputs[1], goalInputs[2] = referenceframe.Input{goal.X}, referenceframe.Input{goal.Y}, referenceframe.Input{goal.Theta}
 	goalConfig := &configuration{goalInputs}
 
-	nn := &dubinOptionManager{nCPU: mp.nCPU, d: mp.d}
+	dm := &dubinOptionManager{nCPU: mp.nCPU, d: mp.d}
 
 	for i := 0; i < mp.iter; i++ {
 		select {
@@ -138,47 +139,76 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 		if (rand.Float64() > 1- goalRate) {
 			target = goalConfig
 		} else {
-			target = &configuration{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+			input2D := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+			inputDubins := append(input2D, referenceframe.Input{rand.Float64() * 2 * math.Pi})
+			target = &configuration{inputDubins}
 		}
 
-		var mreached *configuration
+		targetConnected := false
+		options := dm.selectOptions(ctxWithCancel, target, seedMap, 10)
+		for node, o := range options {
+			if o.totalLen == math.Inf(1) {
+				break
+			}
 
-		// extend seed tree first
-		nearest := nn.nearestNeighbor(ctxWithCancel, target, seedMap) 
-		// Extend map1 as far towards target as it can get. It may or may not reach it.
-		mreached = mp.constrainedExtend(ctx, opt, seedMap, nearest, target) // replace with select_options, have to define using all_options in dubins.go
+			start := configuration2slice(node)
+			end := configuration2slice(target)
+			path := dm.d.generate_points(start, end, o.dubinsPath, o.straight)
 
-		corners[mreached] = true
+			pathOk := true
+			p1, p2 := path[0], path[1]
+			for _, p := range path[1:] {
+				p2 = p
 
-		if mobile2DInputDist(m1reached.inputs, m2reached.inputs) < mp.solDist {
+				pose1 := spatial.NewPoseFromPoint(r3.Vector{X: p1[0], Y: p1[1], Z: 0})
+				pose2 := spatial.NewPoseFromPoint(r3.Vector{X: p2[0], Y: p2[1], Z: 0})
+				input1 := make([]referenceframe.Input, 2)
+				input1[0], input1[1] = referenceframe.Input{p1[0]}, referenceframe.Input{p1[1]}
+				input2 := make([]referenceframe.Input, 2)
+				input2[0], input2[1] = referenceframe.Input{p2[0]}, referenceframe.Input{p2[1]}
+
+				ci := &ConstraintInput{
+					StartPos: pose1,
+					EndPos: pose2,
+					StartInput: input1,
+					EndInput: input2,
+					Frame: mp.frame,
+				}
+
+				if ok, _ := opt.CheckConstraintPath(ci, mp.Resolution()); !ok {
+					pathOk = false
+					break
+				}
+
+				p1 = p2
+			}
+
+			if !pathOk {
+				continue
+			}
+
+			seedMap[target] = node
+			targetConnected = true
+			break
+		}
+
+		if targetConnected && target != goalConfig {
+			corners[target] = true
+		}
+
+		if targetConnected && target == goalConfig {
 			cancel()
 
 			// extract the path to the seed
-			var seedReached, goalReached *configuration
-			// Need to figure out which of m1/m2 is seed/goal
-			if _, ok := seedMap[m1reached]; ok {
-				seedReached, goalReached = m1reached, m2reached
-			} else {
-				seedReached, goalReached = m2reached, m1reached
-			}
-
-			// extract the path to the seed
+			seedReached := target
 			for seedReached != nil {
 				inputSteps = append(inputSteps, seedReached)
 				seedReached = seedMap[seedReached]
 			}
+
 			// reverse the slice
 			for i, j := 0, len(inputSteps)-1; i < j; i, j = i+1, j-1 {
 				inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
-			}
-			goalReached = goalMap[goalReached]
-			// extract the path to the goal
-			for goalReached != nil {
-				inputSteps = append(inputSteps, goalReached)
-				goalReached = goalMap[goalReached]
-			}
-			if endpointPreview != nil {
-				endpointPreview <- inputSteps[len(inputSteps)-1]
 			}
 
 			finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
