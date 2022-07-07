@@ -27,6 +27,7 @@
     "postinstall": "node ./scripts/postinstall.js",
     "start": "vite --host",
     "build": "vite build",
+    "rollup": "rollup -c ./scripts/rollup.config.js",
     "check": "vue-tsc --noEmit",
     "preview": "vite preview",
     "prepare": "./etc/prepare.sh",
