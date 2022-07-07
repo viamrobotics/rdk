@@ -113,8 +113,8 @@ func (a *ArmIK) Stop(ctx context.Context) error {
 }
 
 // IsMoving is always false for a fake arm.
-func (a *ArmIK) IsMoving() bool {
-	return false
+func (a *ArmIK) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
 // CurrentInputs TODO.

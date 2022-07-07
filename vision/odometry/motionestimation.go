@@ -3,6 +3,7 @@ package odometry
 import (
 	"encoding/json"
 	"image"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -56,7 +57,7 @@ func NewMotion3DFromRotationTranslation(rotation, translation *mat.Dense) *Motio
 }
 
 // EstimateMotionFrom2Frames estimates the 3D motion of the camera between frame img1 and frame img2.
-func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationConfig) (*Motion3D, error) {
+func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationConfig, display bool) (*Motion3D, error) {
 	// Convert both images to gray
 	im1 := rimage.MakeGray(img1)
 	im2 := rimage.MakeGray(img2)
@@ -73,6 +74,16 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	matches := keypoints.MatchKeypoints(orb1, orb2, cfg.MatchingCfg)
 	// get 2 sets of matching keypoints
 	matchedKps1, matchedKps2, err := keypoints.GetMatchingKeyPoints(matches, kps1, kps2)
+	if display {
+		err = keypoints.PlotKeypoints(im1, matchedKps1, "/tmp/img1.png")
+		if err != nil {
+			log.Println("img1 could not be saved")
+		}
+		err = keypoints.PlotKeypoints(im2, matchedKps2, "/tmp/img2.png")
+		if err != nil {
+			log.Println("img2 could not be saved")
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

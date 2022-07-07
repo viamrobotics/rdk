@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 // AttrConfig is used for converting config attributes.
@@ -47,6 +48,7 @@ type xArm struct {
 	model    referenceframe.Model
 	started  bool
 	opMgr    operation.SingleOperationManager
+	robot    robot.Robot
 }
 
 //go:embed xarm6_kinematics.json
@@ -57,13 +59,13 @@ var xArm7modeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "xArm6", registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config, logger, 6)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewxArm(ctx, r, config, logger, 6)
 		},
 	})
 	registry.RegisterComponent(arm.Subtype, "xArm7", registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config, logger, 7)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewxArm(ctx, r, config, logger, 7)
 		},
 	})
 
@@ -93,7 +95,7 @@ func xArmModel(dof int) (referenceframe.Model, error) {
 }
 
 // NewxArm returns a new xArm with the specified dof.
-func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
+func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
 	armCfg := cfg.ConvertedAttributes.(*AttrConfig)
 
 	if armCfg.Host == "" {
@@ -134,6 +136,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		mp:      mp,
 		model:   model,
 		started: false,
+		robot:   r,
 	}
 
 	err = xA.start(ctx)

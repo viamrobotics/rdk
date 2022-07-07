@@ -215,7 +215,6 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 	b.stateMutex.Lock()
 
 	if !b.state.threadStarted {
-		// nolint:contextcheck
 		err := b.startVelocityThread()
 		if err != nil {
 			return err
@@ -283,6 +282,19 @@ func (b *boat) Stop(ctx context.Context) error {
 
 func (b *boat) GetWidth(ctx context.Context) (int, error) {
 	return int(b.cfg.WidthMM), nil
+}
+
+func (b *boat) IsMoving(ctx context.Context) (bool, error) {
+	for _, m := range b.motors {
+		isMoving, err := m.IsPowered(ctx)
+		if err != nil {
+			return false, err
+		}
+		if isMoving {
+			return true, err
+		}
+	}
+	return false, nil
 }
 
 func (b *boat) Close(ctx context.Context) error {

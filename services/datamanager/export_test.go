@@ -8,8 +8,15 @@ import (
 )
 
 // SetUploadFn sets the upload function for the syncer to use when initialized/changed in Service.Update.
-func (svc *dataManagerService) SetUploadFn(fn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string) error) {
+func (svc *dataManagerService) SetUploadFn(fn func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	path string, partID string) error,
+) {
 	svc.uploadFunc = fn
+}
+
+// SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.
+func (svc *dataManagerService) SetWaitAfterLastModifiedSecs(s int) {
+	svc.waitAfterLastModifiedSecs = s
 }
 
 // Make getServiceConfig global for tests.

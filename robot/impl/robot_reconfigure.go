@@ -6,7 +6,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
@@ -39,10 +38,9 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// update default services
-	if err := r.updateDefaultServices(ctx); err != nil {
-		return err
-	}
-	r.manager.updateResourceRemoteNames()
+	r.updateDefaultServices(ctx)
+
+	r.manager.updateRemotesResourceNames(ctx)
 	return nil
 }
 
@@ -229,11 +227,6 @@ func (draft *draftRobot) clearLeftovers(ctx context.Context) error {
 	var allErrs error
 	for _, p := range draft.leftovers.ReplacedProcesses {
 		allErrs = multierr.Combine(allErrs, p.Stop())
-	}
-	for _, x := range draft.leftovers.ReplacedRemotes {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
-		}
 	}
 	return allErrs
 }

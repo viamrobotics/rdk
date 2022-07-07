@@ -263,8 +263,8 @@ func (g *robotiqGripper) Stop(ctx context.Context) error {
 }
 
 // IsMoving returns whether the gripper is moving.
-func (g *robotiqGripper) IsMoving() bool {
-	return g.opMgr.OpRunning()
+func (g *robotiqGripper) IsMoving(ctx context.Context) (bool, error) {
+	return g.opMgr.OpRunning(), nil
 }
 
 // ModelFrame is unimplemented for robotiqGripper.

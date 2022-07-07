@@ -49,7 +49,7 @@ do
 	TIMESTAMP=$(date_to_seconds `docker inspect -f '{{ .Created }}' ghcr.io/viamrobotics/canon:$TAG` )
 	if ( [[ $TAG =~ -cache$ ]] && [ $TIMESTAMP -lt $(yesterday) ] ) || [ $TIMESTAMP -lt $(date_to_seconds $MIN_DATE) ]
 	then
-		docker pull -a ghcr.io/viamrobotics/canon
-		break
+		# Always "succeed" in case network is down
+		docker pull ghcr.io/viamrobotics/canon:$TAG || true
 	fi
 done
