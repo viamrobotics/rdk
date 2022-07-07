@@ -2,6 +2,7 @@ package datamanager_test
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
@@ -52,7 +54,19 @@ func resetFolder(t *testing.T, path string) {
 	}
 }
 
-func newTestDataManager(t *testing.T) internal.DMService {
+func getInjectedRobotWithArm(armKey string) *inject.Robot {
+	r := &inject.Robot{}
+	rs := map[resource.Name]interface{}{}
+	injectedArm := &inject.Arm{}
+	injectedArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
+	}
+	rs[arm.Named(armKey)] = injectedArm
+	r.MockResourcesFromMap(rs)
+	return r
+}
+
+func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) internal.DMService {
 	t.Helper()
 	dmCfg := &datamanager.Config{}
 	cfgService := config.Service{
@@ -60,16 +74,19 @@ func newTestDataManager(t *testing.T) internal.DMService {
 		ConvertedAttributes: dmCfg,
 	}
 	logger := golog.NewTestLogger(t)
-	r := &inject.Robot{}
-	const arm1Key = "arm1"
-	arm1 := &inject.Arm{}
 
-	// Set a dummy GetEndPositionFunc so inject doesn't throw error
-	arm1.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
-		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
+	// Create local robot with injected arm.
+	r := getInjectedRobotWithArm(localArmKey)
+
+	// If passed, create remote robot with an injected arm.
+	if remoteArmKey != "" {
+		remoteRobot := getInjectedRobotWithArm(remoteArmKey)
+
+		r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
+			return remoteRobot, true
+		}
 	}
-	rs := map[resource.Name]interface{}{arm.Named(arm1Key): arm1}
-	r.MockResourcesFromMap(rs)
+
 	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
 	if err != nil {
 		t.Log(err)
@@ -87,13 +104,11 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 }
 
 func TestNewDataManager(t *testing.T) {
-	// Empty config at initialization.
-	captureDir := "/tmp/capture"
-	dmsvc := newTestDataManager(t)
-	// Set capture parameters in Update.
+	dmsvc := newTestDataManager(t, "arm1", "")
 	testCfg := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
 
-	defer resetFolder(t, captureDir)
+	// Empty config at initialization.
+	captureDir := "/tmp/capture"
 	dmsvc.Update(context.Background(), testCfg)
 	captureTime := time.Millisecond * 100
 	time.Sleep(captureTime)
@@ -107,7 +122,9 @@ func TestNewDataManager(t *testing.T) {
 	armDir := captureDir + "/arm/arm1/GetEndPosition"
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
+	fmt.Print(filesInArmDir[0].Name())
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+	test.That(t, false, test.ShouldBeTrue)
 	oldSize := filesInArmDir[0].Size()
 	test.That(t, oldSize, test.ShouldBeGreaterThan, emptyFileBytesSize)
 
@@ -124,7 +141,7 @@ func TestNewDataManager(t *testing.T) {
 func TestCaptureDisabled(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, "arm1", "")
 	// Set capture parameters in Update.
 	testCfg := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
 	dmCfg, err := getDataManagerConfig((testCfg))
@@ -167,6 +184,36 @@ func TestCaptureDisabled(t *testing.T) {
 	test.That(t, filesInArmDir[1].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 }
 
+func TestNewRemoteDataManager(t *testing.T) {
+	// Empty config at initialization.
+	captureDir := "/tmp/capture"
+	dmsvc := newTestDataManager(t, "localArm", "remoteArm")
+
+	// Set capture parameters in Update.
+	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
+	defer resetFolder(t, captureDir)
+	dmsvc.Update(context.Background(), conf)
+	sleepTime := time.Millisecond * 100
+	time.Sleep(sleepTime)
+
+	// Verify that after close is called, the collector is no longer writing.
+	err := dmsvc.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify that the local and remote collectors wrote to their files.
+	localArmDir := captureDir + "/arm/localArm/GetEndPosition"
+	filesInLocalArmDir, err := readDir(t, localArmDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInLocalArmDir), test.ShouldEqual, 1)
+	test.That(t, filesInLocalArmDir[0].Size(), test.ShouldBeGreaterThan, 0)
+
+	remoteArmDir := captureDir + "/arm/remoteArm/GetEndPosition"
+	filesInRemoteArmDir, err := readDir(t, remoteArmDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInRemoteArmDir), test.ShouldEqual, 1)
+	test.That(t, filesInRemoteArmDir[0].Size(), test.ShouldBeGreaterThan, 0)
+}
+
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
 	var uploaded []string
@@ -188,7 +235,7 @@ func TestManualSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, "arm1", "")
 	defer dmsvc.Close(context.Background())
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.Background(), testCfg)
@@ -234,7 +281,7 @@ func TestScheduledSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -271,7 +318,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, "arm1", "")
 
 	// Make sure we close resources to prevent leaks.
 	dmsvc.SetUploadFn(uploadFn)
@@ -287,18 +334,18 @@ func TestManualAndScheduledSync(t *testing.T) {
 	test.That(t, len(uploadedFiles), test.ShouldEqual, 2)
 	test.That(t, uploadedFiles[0], test.ShouldNotEqual, uploadedFiles[1])
 
-	// We've uploaded the first two files and should now be collecting a single new one.
+	// We've uploaded (and thus deleted) the first two files and should now be collecting a single new one.
 	filesInArmDir, err := readDir(t, armDir)
 	if err != nil {
 		t.Fatalf("failed to list files in armDir")
 	}
-	test.That(t, len(filesInArmDir), test.ShouldEqual, 3)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 }
 
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
-	var uploaded []string
+	uploaded := []string{}
 	lock := sync.Mutex{}
 	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
@@ -318,7 +365,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -333,7 +380,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	test.That(t, len(uploaded), test.ShouldEqual, 0)
 
 	// Turn the service back on.
-	dmsvc = newTestDataManager(t)
+	dmsvc = newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -365,8 +412,9 @@ func TestSyncDisabled(t *testing.T) {
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t)
+	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFn(uploadFn)
+	fmt.Println("ABOUT TO UPDATE WITH SYNC")
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
@@ -374,6 +422,7 @@ func TestSyncDisabled(t *testing.T) {
 
 	// Simulate disabling sync.
 	dmCfg.ScheduledSyncDisabled = true
+	fmt.Println("ABOUT TO DISABLE SYNC")
 	dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -382,10 +431,13 @@ func TestSyncDisabled(t *testing.T) {
 
 	// Re-enable sync.
 	dmCfg.ScheduledSyncDisabled = false
+	fmt.Println("ABOUT TO REENABLE SYNC")
 	dmsvc.Update(context.Background(), testCfg)
+	fmt.Println("UPDATED")
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms and ensure two files were uploaded.
 	time.Sleep(time.Millisecond * 600)
+	fmt.Println("ABOUT TO CLOSE!")
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(uploaded), test.ShouldEqual, 2)

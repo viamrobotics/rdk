@@ -3,6 +3,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -77,6 +78,12 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
+// Named is a helper for getting the named datamanager's typed resource name.
+// RSDK-347 Implements datamanager's Named.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
+
 // TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates
 // The Collector's queue should be big enough to ensure that .capture() is never blocked by the queue being
 // written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),
@@ -87,7 +94,7 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
-// Attributes to initialize the collector for a component.
+// Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
 	Type               resource.SubtypeName `json:"type"`
@@ -97,6 +104,7 @@ type dataCaptureConfig struct {
 	CaptureBufferSize  int                  `json:"capture_buffer_size"`
 	AdditionalParams   map[string]string    `json:"additional_params"`
 	Disabled           bool                 `json:"disabled"`
+	RemoteRobotName    string               // Empty if this component is locally accessed
 }
 
 type dataCaptureConfigs struct {
@@ -111,8 +119,6 @@ type Config struct {
 	CaptureDisabled       bool     `json:"capture_disabled"`
 	ScheduledSyncDisabled bool     `json:"sync_disabled"`
 }
-
-// TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
@@ -239,7 +245,19 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		resource.ResourceTypeComponent,
 		attributes.Type,
 	)
-	res, err := svc.r.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+
+	// Get the resource from the local or remote robot.
+	var res interface{}
+	var err error
+	if attributes.RemoteRobotName != "" {
+		remoteRobot, exists := svc.r.RemoteByName(attributes.RemoteRobotName)
+		if !exists {
+			return nil, errors.Errorf("failed to find remote %s", attributes.RemoteRobotName)
+		}
+		res, err = remoteRobot.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+	} else {
+		res, err = svc.r.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -323,6 +341,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 			previouslyCaptured = append(previouslyCaptured, path)
 			return nil
 		})
+		fmt.Println("in initOrUpdateSyncer. sync existing files in captureDir: ", previouslyCaptured)
 		svc.syncer.Sync(previouslyCaptured)
 
 		// Kick off background routine to periodically sync files.
@@ -336,11 +355,13 @@ func (svc *dataManagerService) Sync(ctx context.Context) error {
 	if svc.syncer == nil {
 		return errors.New("called Sync on data manager service with nil syncer")
 	}
+	fmt.Println("non-scheduled sync")
 	svc.syncDataCaptureFiles()
 	return nil
 }
 
 func (svc *dataManagerService) syncDataCaptureFiles() {
+	fmt.Println("syncDataCaptureFiles")
 	svc.lock.Lock()
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
@@ -379,6 +400,19 @@ func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	return &Config{}, false, nil
 }
 
+func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConfig) (dataCaptureConfigs, error) {
+	var attrs dataCaptureConfigs
+	configs, err := config.TransformAttributeMapToStruct(&attrs, resourceSvcConfig.Attributes)
+	if err != nil {
+		return dataCaptureConfigs{}, err
+	}
+	convertedConfigs, ok := configs.(*dataCaptureConfigs)
+	if !ok {
+		return dataCaptureConfigs{}, utils.NewUnexpectedTypeError(convertedConfigs, configs)
+	}
+	return *convertedConfigs, nil
+}
+
 // Get the component configs associated with the data manager service.
 func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
@@ -386,20 +420,37 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
 			if componentSvcConfig.ResourceName() == Name {
-				var attrs dataCaptureConfigs
-				configs, err := config.TransformAttributeMapToStruct(&attrs, componentSvcConfig.Attributes)
+				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
 				}
-				convertedConfigs, ok := configs.(*dataCaptureConfigs)
-				if !ok {
-					return componentDataCaptureConfigs, utils.NewUnexpectedTypeError(convertedConfigs, configs)
-				}
 
-				// Add the method configuration to the result.
-				for _, attrs := range convertedConfigs.Attributes {
+				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
 					attrs.Type = c.Type
+					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
+				}
+			}
+		}
+	}
+
+	for _, r := range cfg.Remotes {
+		// Iterate over all remote-level service configs of type data_manager.
+		for _, resourceSvcConfig := range r.ServiceConfig {
+			if resourceSvcConfig.ResourceName() == Name {
+				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
+				if err != nil {
+					return componentDataCaptureConfigs, err
+				}
+
+				for _, attrs := range attrs.Attributes {
+					name, err := resource.NewFromString(attrs.Name)
+					if err != nil {
+						return componentDataCaptureConfigs, err
+					}
+					attrs.Name = name.Name
+					attrs.Type = name.ResourceSubtype
+					attrs.RemoteRobotName = r.Name
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}
@@ -500,6 +551,7 @@ func (svc *dataManagerService) uploadCapturedData(cancelCtx context.Context, int
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
+				fmt.Println("BACKGROUND ROUTINE, calling sync")
 				svc.syncDataCaptureFiles()
 			}
 		}
@@ -509,6 +561,7 @@ func (svc *dataManagerService) uploadCapturedData(cancelCtx context.Context, int
 func (svc *dataManagerService) startSyncBackgroundRoutine(intervalMins float64) {
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.updateCollectorsCancelFn = fn
+	fmt.Println("starting background routine")
 	svc.uploadCapturedData(cancelCtx, intervalMins)
 }
 
