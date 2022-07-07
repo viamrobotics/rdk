@@ -84,16 +84,6 @@ func init() {
 		&AttrConfig{})
 }
 
-// XArmModel returns the kinematics model of the xArm, also has all Frame information.
-func XArmModel(dof int) (referenceframe.Model, error) {
-	if dof == 6 {
-		return referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
-	} else if dof == 7 {
-		return referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
-	}
-	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
-}
-
 // NewxArm returns a new xArm with the specified dof.
 func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
 	armCfg := cfg.ConvertedAttributes.(*AttrConfig)
@@ -116,10 +106,20 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 	if err != nil {
 		return nil, err
 	}
-	model, err := XArmModel(dof)
+
+	var model referenceframe.Model
+	switch dof {
+	case 6:
+		model, err = referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
+	case 7:
+		model, err = referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
+	default:
+		err = errors.New("no kinematics model for xarm with specified degrees of freedom")
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	nCPU := runtime.NumCPU()
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
 	if err != nil {

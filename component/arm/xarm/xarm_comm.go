@@ -403,11 +403,9 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldStat
 			return err
 		}
 	}
-	solution, err := arm.Plan(ctx, x.robot, x, pos, worldState)
-	if err != nil {
+	if err := arm.Move(ctx, x.robot, x, pos, worldState); err != nil {
 		return err
 	}
-	arm.GoToWaypoints(ctx, x, solution)
 	return x.opMgr.WaitForSuccess(
 		ctx,
 		time.Millisecond*50,

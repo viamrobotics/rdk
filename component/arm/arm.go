@@ -356,12 +356,21 @@ func PositionRotationDiff(a, b *commonpb.Pose) float64 {
 		utils.Square(a.OZ-b.OZ)
 }
 
-// Move is a helper function to be called by arm implementations to abstract away the default procedure for using the
+// Move is a helper function to abstract away movement for general arms.
+func Move(ctx context.Context, r robot.Robot, a Arm, dst *commonpb.Pose, worldState *commonpb.WorldState) error {
+	solution, err := Plan(ctx, r, a, dst, worldState)
+	if err != nil {
+		return err
+	}
+	return GoToWaypoints(ctx, a, solution)
+}
+
+// Plan is a helper function to be called by arm implementations to abstract away the default procedure for using the
 // motion planning library with arms.
 func Plan(
 	ctx context.Context,
 	r robot.Robot,
-	arm Arm,
+	a Arm,
 	dst *commonpb.Pose,
 	worldState *commonpb.WorldState,
 ) ([][]referenceframe.Input, error) {
@@ -401,13 +410,13 @@ func Plan(
 	logger.Debugf("frame system inputs: %v", inputs)
 
 	// conduct planning query
-	mp, err := motionplan.NewCBiRRTMotionPlanner(arm.ModelFrame(), numCPUs, logger)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(a.ModelFrame(), numCPUs, logger)
 	if err != nil {
 		return nil, err
 	}
 	opt := motionplan.NewDefaultPlannerOptions()
-	opt.AddConstraint("collision", motionplan.NewCollisionConstraintFromWorldState(arm.ModelFrame(), fs, worldState, inputs))
-	joints, err := arm.GetJointPositions(ctx) // TODO(rb) should be able to get this from the input map
+	opt.AddConstraint("collision", motionplan.NewCollisionConstraintFromWorldState(a.ModelFrame(), fs, worldState, inputs))
+	joints, err := a.GetJointPositions(ctx) // TODO(rb) should be able to get this from the input map
 	if err != nil {
 		return nil, err
 	}

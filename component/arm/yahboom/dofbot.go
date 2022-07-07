@@ -138,11 +138,7 @@ func (a *Dofbot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 func (a *Dofbot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	solution, err := arm.Plan(ctx, a.robot, a, pos, worldState)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.

@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/arm/fake"
 	"go.viam.com/rdk/component/arm/wrapper"
@@ -20,8 +22,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	math "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 )
 
 var logger = golog.NewDevelopmentLogger("client")
@@ -38,6 +38,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	// connect to the robot and get arm
 	robotClient, xArm, err := connect(ctx, *simulation)
+	if err != nil {
+		return err
+	}
 
 	// setup planning problem - the idea is to move from one position to the other while avoiding obstalces
 	position1 := r3.Vector{0, -600, 100}
@@ -85,10 +88,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 	if *visualize {
 		// visualize if specified by flag
-		visualization.VisualizePlan(ctx, solution, xArm.ModelFrame(), worldState)
+		if err := visualization.VisualizePlan(ctx, solution, xArm.ModelFrame(), worldState); err != nil {
+			return err
+		}
 	}
 	arm.GoToWaypoints(ctx, xArm, solution)
-	fmt.Println(xArm.CurrentInputs(ctx))
 	return nil
 }
 
@@ -134,5 +138,5 @@ func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xAr
 			return nil, nil, err
 		}
 	}
-	return
+	return robotClient, xArm, err
 }
