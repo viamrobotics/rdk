@@ -15,8 +15,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	spatial "go.viam.com/rdk/spatialmath"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -116,11 +117,11 @@ type Frame interface {
 	// AlmostEquals returns if the otherFrame is close to the referenceframe.
 	// differences should just be things like floating point inprecision
 	AlmostEquals(otherFrame Frame) bool
-	
-	// InputFromProtobuf does ther correct thing for this frame to convert protobuf units (degrees/mm) to input units (radians/mm)
+
+	// InputFromProtobuf does there correct thing for this frame to convert protobuf units (degrees/mm) to input units (radians/mm)
 	InputFromProtobuf(*pb.JointPositions) []Input
 
-	// ProtobufFromInput does ther correct thing for this frame to convert input units (radians/mm) to protobuf units (degrees/mm)
+	// ProtobufFromInput does there correct thing for this frame to convert input units (radians/mm) to protobuf units (degrees/mm)
 	ProtobufFromInput([]Input) *pb.JointPositions
 
 	json.Marshaler
@@ -193,12 +194,12 @@ func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 	return sf.transform, nil
 }
 
-// InputFromProtobuf converts pb.JointPosition to inputs
+// InputFromProtobuf converts pb.JointPosition to inputs.
 func (sf *staticFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	return []Input{}
 }
 
-// ProtobufFromInput converts inputs to pb.JointPosition
+// ProtobufFromInput converts inputs to pb.JointPosition.
 func (sf *staticFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	return &pb.JointPositions{}
 }
@@ -281,7 +282,7 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
 }
 
-// InputFromProtobuf converts pb.JointPosition to inputs
+// InputFromProtobuf converts pb.JointPosition to inputs.
 func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Degrees))
 	for idx, d := range jp.Degrees {
@@ -290,7 +291,7 @@ func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	return n
 }
 
-// ProtobufFromInput converts inputs to pb.JointPosition
+// ProtobufFromInput converts inputs to pb.JointPosition.
 func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {
@@ -367,7 +368,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
 }
 
-// InputFromProtobuf converts pb.JointPosition to inputs
+// InputFromProtobuf converts pb.JointPosition to inputs.
 func (rf *rotationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Degrees))
 	for idx, d := range jp.Degrees {
@@ -376,7 +377,7 @@ func (rf *rotationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	return n
 }
 
-// ProtobufFromInput converts inputs to pb.JointPosition
+// ProtobufFromInput converts inputs to pb.JointPosition.
 func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {
@@ -452,7 +453,7 @@ func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 	return spatial.NewPoseFromPoint(r3.Vector{input[0].Value, input[1].Value, 0}), errAll
 }
 
-// InputFromProtobuf converts pb.JointPosition to inputs
+// InputFromProtobuf converts pb.JointPosition to inputs.
 func (mf *mobile2DFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Degrees))
 	for idx, d := range jp.Degrees {
@@ -461,7 +462,7 @@ func (mf *mobile2DFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	return n
 }
 
-// ProtobufFromInput converts inputs to pb.JointPosition
+// ProtobufFromInput converts inputs to pb.JointPosition.
 func (mf *mobile2DFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {

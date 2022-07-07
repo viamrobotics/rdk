@@ -89,7 +89,7 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSta
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
+	solution, err := a.mp.Plan(ctx, pos, a.model.InputFromProtobuf(joints), nil)
 	if err != nil {
 		return err
 	}
@@ -123,12 +123,12 @@ func (a *ArmIK) CurrentInputs(ctx context.Context) ([]referenceframe.Input, erro
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs TODO.
 func (a *ArmIK) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal))
 }
 
 // Close does nothing.

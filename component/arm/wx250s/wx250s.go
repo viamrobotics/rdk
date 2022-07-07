@@ -149,7 +149,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
+	solution, err := a.mp.Plan(ctx, pos, a.model.InputFromProtobuf(joints), nil)
 	if err != nil {
 		return err
 	}
@@ -382,12 +382,12 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal))
 }
 
 // WaitForMovement takes some servos, and will block until the servos are done moving.
