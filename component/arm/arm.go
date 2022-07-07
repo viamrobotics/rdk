@@ -431,20 +431,20 @@ func Move(
 	goals := make([]spatialmath.Pose, 0, numSteps)
 	opts := make([]*motionplan.PlannerOptions, 0, numSteps)
 
-	collisionConst := motionplan.NewCollisionConstraintFromWorldState(a.ModelFrame(), fs, worldState, inputs)
+	collisionConst := motionplan.NewCollisionConstraintFromWorldState(model, fs, worldState, inputs)
 
 	from := seedPos
 	for i := 1; i < numSteps; i++ {
 		by := float64(i) / float64(numSteps)
 		to := spatialmath.Interpolate(seedPos, goalPos, by)
 		goals = append(goals, to)
-		opt := DefaultArmPlannerOptions(from, to, a.ModelFrame(), collisionConst)
+		opt := DefaultArmPlannerOptions(from, to, model, collisionConst)
 		opts = append(opts, opt)
 
 		from = to
 	}
 	goals = append(goals, goalPos)
-	opt := DefaultArmPlannerOptions(from, goalPos, a.ModelFrame(), collisionConst)
+	opt := DefaultArmPlannerOptions(from, goalPos, model, collisionConst)
 	opts = append(opts, opt)
 
 	solution, err := motionplan.RunPlannerWithWaypoints(ctx, mp, goals, model.InputFromProtobuf(seed), opts, 0)
