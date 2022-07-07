@@ -15,10 +15,8 @@
           </p>
         </div>
         <div class="p-4 flex items-center flex-wrap">
-          <ViamBadge color="green" v-if="motorStatus.isPowered"
-            >Running</ViamBadge
-          >
-          <ViamBadge color="gray" v-if="!motorStatus.isPowered">Idle</ViamBadge>
+          <v-badge v-if="motorStatus.isPowered" variant="green" label="Running" />
+          <v-badge v-if="!motorStatus.isPowered" variant="gray" label="Idle" /> 
         </div>
       </div>
       <div class="p-2 float-right">
@@ -196,7 +194,6 @@ import {
 import Tabs from "./Tabs.vue";
 import Tab from "./Tab.vue";
 import RadioButtons from "./RadioButtons.vue";
-import ViamBadge from "./Badge.vue";
 import Popper from "vue-popperjs";
 import "vue-popperjs/dist/vue-popper.css";
 import ViamButton from "./Button.vue";
@@ -212,7 +209,6 @@ import { Status } from "proto/api/component/motor/v1/motor_pb";
     Tab,
     ViamButton,
     Popper,
-    ViamBadge,
   },
 })
 export default class MotorDetail extends Vue {
