@@ -239,17 +239,6 @@ export default {
       this.initNavigation();
     },
   },
-  async mounted() {
-    this.grpcCallback = this.grpcCallback.bind(this);
-    await this.waitForClientAndStart();
-
-    if (window.streamService) {
-      this.queryStreams();
-    }
-
-    this.imuRefresh();
-    this.queryMetadata();
-  },
   components: {
     // ViamBase,
   },
@@ -285,6 +274,17 @@ export default {
       imageMapTemp: '',
       pcdMapTemp: null,
     };
+  },
+  async mounted() {
+    this.grpcCallback = this.grpcCallback.bind(this);
+    await this.waitForClientAndStart();
+
+    if (window.streamService) {
+      this.queryStreams();
+    }
+
+    this.imuRefresh();
+    this.queryMetadata();
   },
   methods: {
     fixRawStatus(name, status) {
@@ -368,14 +368,14 @@ export default {
     },
     resourceNameToSubtypeString(name) {
       if (!name) {
-        return ''
+        return '';
       }
 
       return `${name.namespace}:${name.type}:${name.subtype}`;
     },
     resourceNameToString(name) {
       if (!name) {
-        return ''
+        return '';
       }
 
       let strName = this.resourceNameToSubtypeString(name);
@@ -644,7 +644,7 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
-      const { grpcCallback } = this
+      const { grpcCallback } = this;
       cameraService.renderFrame(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
@@ -670,7 +670,7 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
-      const { grpcCallback } = this
+      const { grpcCallback } = this;
       cameraService.renderFrame(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
@@ -690,7 +690,7 @@ export default {
       });
     },
     viewIntervalFrame(cameraName, time) {
-      const { grpcCallback } = this
+      const { grpcCallback } = this;
         this.intervalId = setInterval(() => {
           req = new cameraApi.RenderFrameRequest();
           req.setName(cameraName);
@@ -770,7 +770,7 @@ export default {
       });
     },
     getReadings(sensorNames) {
-      const { grpcCallback } = this
+      const { grpcCallback } = this;
       const req = new sensorsApi.GetReadingsRequest();
       const names = sensorNames.map((name) => {
         const resourceName = new commonApi.ResourceName();
@@ -1007,7 +1007,7 @@ export default {
       const streamContainer = document.getElementById(`stream-${name}`);
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
-      const { grpcCallback } = this
+      const { grpcCallback } = this;
       streamService.addStream(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
@@ -1022,7 +1022,7 @@ export default {
     viewPreviewCamera(name) {
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
-      const { grpcCallback } = this
+      const { grpcCallback } = this;
       streamService.addStream(req, {}, (err, resp) => {
         grpcCallback(err, resp, false);
         if (err) {
@@ -1077,10 +1077,10 @@ export default {
           pReject(err);
           return;
         }
-        let resources = resp.toObject().resourcesList;
+        const resources = resp.toObject().resourcesList;
 
         // if resource list has changed, flag that
-        const resourceNameToString = this.resourceNameToString.bind(this)
+        const resourceNameToString = this.resourceNameToString.bind(this);
 
         const differences = new Set(this.resources.map((name) => resourceNameToString(name)));
         const resourceSet = new Set(resources.map((name) => resourceNameToString(name)));
@@ -1119,7 +1119,7 @@ export default {
       setTimeout(() => this.queryMetadata(), 500);
     },
     async initNavigation() {
-      const { grpcCallback } = this
+      const { grpcCallback } = this;
 
       await mapReady;
       window.map = new google.maps.Map(document.getElementById('map'), { zoom: 18 });
@@ -1207,21 +1207,12 @@ export default {
       updateLocation();
     },
     querySensors() {
-      let pResolve;
-      let pReject;
-      const p = new Promise((resolve, reject) => {
-        pResolve = resolve;
-        pReject = reject;
-      });
-      const { grpcCallback } = this
       sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
-          pReject(err);
           return;
         }
         this.sensorNames = resp.toObject().sensorNamesList;
-        pResolve(null);
       });
     },
     loadCurrentOps () {
@@ -1350,12 +1341,9 @@ export default {
           pcdAnimate();
         },
         // called when loading is in progresses
-        () => {
-        },
+        () => { /* noop */ },
         // called when loading has errors
-        (error) => {
-
-        }
+        (_error) => { /* noop */ }
       );
       this.pcdClick.pcdloaded = true;
     },
@@ -1460,7 +1448,7 @@ export default {
       let resourceNames = [];
       // get all relevant resource names
       for (const subtype of relevantSubtypesForStatus) {
-        resourceNames = resourceNames.concat(this.filterResources('rdk', 'component', subtype))
+        resourceNames = resourceNames.concat(this.filterResources('rdk', 'component', subtype));
       }
 
       const names = resourceNames.map((name) => {
@@ -1600,907 +1588,861 @@ const mapReady = new Promise((resolve) => {
     </template>
   </div>
   
-  <div>
-    <div class="p-2">
-      <div style="color: red;">
-        {{ error }}
-      </div>
+  <div class="flex flex-col gap-2 p-2">
+    <div style="color: red;">
+      {{ error }}
+    </div>
 
-      <!-- ******* BASE *******  -->
-      <div
-        v-for="base in filterResources('rdk', 'component', 'base')"
-        :key="base.name"
-        class="base pb-8"
-      >
-        <div v-if="streamNames.length === 0">
-          <div class="camera">
-            <viam-base
-              :base-name="base.name"
-              :connected-camera="false"
-              :crumbs="['base', base.name]"
-              @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
-              @base-spin="handleBaseSpin(base.name, $event)"
-              @base-straight="handleBaseStraight(base.name, $event)"
-              @base-stop="handleBaseActionStop(base.name)"
-            />
-          </div>
-        </div>
-        <div v-else>
-          <div
-            v-for="streamName in streamNames"
-            :key="streamName"
-            class="camera"
-          >
-            <viam-base
-              :base-name="base.name"
-              :stream-name="streamName"
-              :crumbs="['base', base.name]"
-              @base-change-tab="viewPreviewCamera(streamName)"
-              @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
-              @base-spin="handleBaseSpin(base.name, $event)"
-              @base-straight="handleBaseStraight(base.name, $event)"
-              @base-stop="handleBaseActionStop(base.name)"
-              @show-base-camera="viewPreviewCamera(streamName)"
-            />
-          </div>
+    <!-- ******* BASE *******  -->
+    <div
+      v-for="base in filterResources('rdk', 'component', 'base')"
+      :key="base.name"
+      class="base pb-8"
+    >
+      <div v-if="streamNames.length === 0">
+        <div class="camera">
+          <viam-base
+            :base-name="base.name"
+            :connected-camera="false"
+            :crumbs="['base', base.name]"
+            @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
+            @base-spin="handleBaseSpin(base.name, $event)"
+            @base-straight="handleBaseStraight(base.name, $event)"
+            @base-stop="handleBaseActionStop(base.name)"
+          />
         </div>
       </div>
+      <div v-else>
+        <div
+          v-for="streamName in streamNames"
+          :key="streamName"
+          class="camera"
+        >
+          <viam-base
+            :base-name="base.name"
+            :stream-name="streamName"
+            :crumbs="['base', base.name]"
+            @base-change-tab="viewPreviewCamera(streamName)"
+            @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
+            @base-spin="handleBaseSpin(base.name, $event)"
+            @base-straight="handleBaseStraight(base.name, $event)"
+            @base-stop="handleBaseActionStop(base.name)"
+            @show-base-camera="viewPreviewCamera(streamName)"
+          />
+        </div>
+      </div>
+    </div>
 
-      <!-- ******* GANTRY *******  -->
-      <div
-        v-for="gantry in filterResources('rdk', 'component', 'gantry')"
-        v-if="resourceStatusByName(gantry)"
-        :key="gantry.name"
-        class="pb-8"
-      >
-        <Collapse>
-          <div class="flex">
-            <h2 class="p-4 text-xl">
-              Gantry {{ gantry.name }}
-            </h2>
-          </div>
-          <template #content>
-            <div class="border border-black border-t-0 p-4">
-              <table class="border border-black border-t-0 p-4">
-                <thead>
+    <!-- ******* GANTRY *******  -->
+    <v-collapse
+      v-for="gantry in filterResources('rdk', 'component', 'gantry')"
+      v-if="resourceStatusByName(gantry)"
+      :key="gantry.name"
+      :title="`Gantry ${gantry.name}`"
+      class="pb-8"
+    >
+      <div class="border border-black border-t-0 p-4">
+        <table class="border border-black border-t-0 p-4">
+          <thead>
+            <tr>
+              <th class="border border-black p-2">
+                axis
+              </th>
+              <th
+                class="border border-black p-2"
+                colspan="2"
+              >
+                position
+              </th>
+              <th class="border border-black p-2">
+                length
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="pp in resourceStatusByName(gantry).parts"
+              :key="pp.axis"
+            >
+              <th class="border border-black p-2">
+                {{ pp.axis }}
+              </th>
+              <td class="border border-black p-2">
+                <viam-button
+                  group
+                  @click="gantryInc( gantry, pp.axis, -10 )"
+                >
+                  --
+                </viam-button>
+                <viam-button
+                  group
+                  @click="gantryInc( gantry, pp.axis, -1 )"
+                >
+                  -
+                </viam-button>
+                <viam-button
+                  group
+                  @click="gantryInc( gantry, pp.axis, 1 )"
+                >
+                  +
+                </viam-button>
+                <viam-button
+                  group
+                  @click="gantryInc( gantry, pp.axis, 10 )"
+                >
+                  ++
+                </viam-button>
+              </td>
+              <td class="border border-black p-2">
+                {{ pp.pos.toFixed(2) }}
+              </td>
+              <td class="border border-black p-2">
+                {{ pp.length }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </v-collapse>
+
+    <!-- ******* IMU *******  -->
+    <div
+      v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()"
+      :key="imu[1].name"
+      class="pb-8"
+    >
+      <Collapse>
+        <div class="flex">
+          <h2 class="p-4 text-xl">
+            IMU: {{ imu[1].name }}
+          </h2>
+        </div>
+        <template #content>
+          <div class="flex border border-black border-t-0 p-4">
+            <template v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
+              <div class="w-1/4 mr-4">
+                <h3 class="mb-1">
+                  Orientation (degrees)
+                </h3>
+                <table class="w-full border border-black border-t-0 p-4">
                   <tr>
                     <th class="border border-black p-2">
-                      axis
-                    </th>
-                    <th
-                      class="border border-black p-2"
-                      colspan="2"
-                    >
-                      position
-                    </th>
-                    <th class="border border-black p-2">
-                      length
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="pp in resourceStatusByName(gantry).parts"
-                    :key="pp.axis"
-                  >
-                    <th class="border border-black p-2">
-                      {{ pp.axis }}
+                      Roll
                     </th>
                     <td class="border border-black p-2">
-                      <viam-button
-                        group
-                        @click="gantryInc( gantry, pp.axis, -10 )"
-                      >
-                        --
-                      </viam-button>
-                      <viam-button
-                        group
-                        @click="gantryInc( gantry, pp.axis, -1 )"
-                      >
-                        -
-                      </viam-button>
-                      <viam-button
-                        group
-                        @click="gantryInc( gantry, pp.axis, 1 )"
-                      >
-                        +
-                      </viam-button>
-                      <viam-button
-                        group
-                        @click="gantryInc( gantry, pp.axis, 10 )"
-                      >
-                        ++
-                      </viam-button>
-                    </td>
-                    <td class="border border-black p-2">
-                      {{ pp.pos.toFixed(2) }}
-                    </td>
-                    <td class="border border-black p-2">
-                      {{ pp.length }}
+                      {{ imuData[imu[1].name].orientation.rollDeg.toFixed(2) }}
                     </td>
                   </tr>
-                </tbody>
-              </table>
-            </div>
-          </template>
-        </Collapse>
-      </div>
-
-      <!-- ******* IMU *******  -->
-      <div
-        v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()"
-        :key="imu[1].name"
-        class="pb-8"
-      >
-        <Collapse>
-          <div class="flex">
-            <h2 class="p-4 text-xl">
-              IMU: {{ imu[1].name }}
-            </h2>
-          </div>
-          <template #content>
-            <div class="flex border border-black border-t-0 p-4">
-              <template v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
-                <div class="w-1/4 mr-4">
-                  <h3 class="mb-1">
-                    Orientation (degrees)
-                  </h3>
-                  <table class="w-full border border-black border-t-0 p-4">
-                    <tr>
-                      <th class="border border-black p-2">
-                        Roll
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].orientation.rollDeg.toFixed(2) }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th class="border border-black p-2">
-                        Pitch
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].orientation.pitchDeg.toFixed(2) }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th class="border border-black p-2">
-                        Yaw
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].orientation.yawDeg.toFixed(2) }}
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-                
-                <div class="w-1/4 mr-4">
-                  <h3 class="mb-1">
-                    Angular Velocity (degrees/second)
-                  </h3>
-                  <table class="w-full border border-black border-t-0 p-4">
-                    <tr>
-                      <th class="border border-black p-2">
-                        X
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2) }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th class="border border-black p-2">
-                        Y
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2) }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th class="border border-black p-2">
-                        Z
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2) }}
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-                
-                <div class="w-1/4 mr-4">
-                  <h3 class="mb-1">
-                    Acceleration (mm/second/second)
-                  </h3>
-                  <table class="w-full border border-black border-t-0 p-4">
-                    <tr>
-                      <th class="border border-black p-2">
-                        X
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2) }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th class="border border-black p-2">
-                        Y
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2) }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th class="border border-black p-2">
-                        Z
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2) }}
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-                
-                <div class="w-1/4">
-                  <h3 class="mb-1">
-                    Magnetometer (gauss)
-                  </h3>
-                  <table class="w-full border border-black border-t-0 p-4">
-                    <tr>
-                      <th class="border border-black p-2">
-                        X
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].magnetometer.xGauss.toFixed(2) }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th class="border border-black p-2">
-                        Y
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].magnetometer.yGauss.toFixed(2) }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th class="border border-black p-2">
-                        Z
-                      </th>
-                      <td class="border border-black p-2">
-                        {{ imuData[imu[1].name].magnetometer.zGauss.toFixed(2) }}
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-              </template>
-            </div>
-          </template>
-        </Collapse>
-      </div>
-
-      <!-- ******* ARM *******  -->
-      <div
-        v-for="arm in filterResources('rdk', 'component', 'arm')"
-        :key="arm.name"
-        class="pb-8"
-      >
-        <Collapse>
-          <div class="flex">
-            <h2 class="p-4 text-xl">
-              Arm {{ arm.name }}
-            </h2>
-          </div>
-          <template #content>
-            <div class="border border-black border-t-0 p-4">
-              <div class="flex mb-2">
-                <div
-                  v-if="armToggle[arm.name]"
-                  class="border border-black p-4 w-1/2 mr-4"
-                >
-                  <h3 class="mb-2">
-                    END POSITION (mms)
-                  </h3>
-                  <div class="grid grid-cols-2 gap-1 pb-1">
-                    <template
-                      v-for="cc in armToggle[arm.name].pos_pieces"
-                      :key="cc.endPosition[0]"
-                    >
-                      <label class="pr-2 py-1 text-right">{{ cc.endPosition[1] }}</label>
-                      <input
-                        v-model="cc.endPositionValue"
-                        class="border border-black py-1 px-4"
-                      >
-                    </template>
-                  </div>
-                  <div class="flex mt-2">
-                    <div>
-                      <viam-button
-                        class="mr-4 whitespace-nowrap"
-                        @click="armModifyAllDoEndPosition(arm)"
-                      >
-                        Go To End Position
-                      </viam-button>
-                    </div>
-                    <div class="flex-auto text-right">
-                      <viam-button @click="armModifyAllCancel(arm)">
-                        Cancel
-                      </viam-button>
-                    </div>
-                  </div>
-                </div>
-                <div
-                  v-if="armToggle[arm.name]"
-                  class="border border-black p-4 w-1/2"
-                >
-                  <h3 class="mb-2">
-                    JOINTS (degrees)
-                  </h3>
-                  <div class="grid grid-cols-2 gap-1 pb-1">
-                    <template
-                      v-for="bb in armToggle[arm.name].joint_pieces"
-                      :key="bb.joint"
-                    >
-                      <label class="pr-2 py-1 text-right">Joint {{ bb.joint }}</label>
-                      <input
-                        v-model="bb.jointValue"
-                        class="border border-black py-1 px-4"
-                      >
-                    </template>
-                  </div>
-                  <div class="flex mt-2">
-                    <div>
-                      <viam-button @click="armModifyAllDoJoint(arm)">
-                        Go To Joints
-                      </viam-button>
-                    </div>
-                    <div class="flex-auto text-right">
-                      <viam-button @click="armModifyAllCancel(arm)">
-                        Cancel
-                      </viam-button>
-                    </div>
-                  </div>
-                </div>
+                  <tr>
+                    <th class="border border-black p-2">
+                      Pitch
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].orientation.pitchDeg.toFixed(2) }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th class="border border-black p-2">
+                      Yaw
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].orientation.yawDeg.toFixed(2) }}
+                    </td>
+                  </tr>
+                </table>
               </div>
-
-              <div class="flex mb-2">
-                <div
-                  v-if="resourceStatusByName(arm)"
-                  class="border border-black p-4 w-1/2 mr-4"
-                >
-                  <h3 class="mb-2">
-                    END POSITION (mms)
-                  </h3>
-                  <div class="grid grid-cols-6 gap-1 pb-1">
-                    <template
-                      v-for="aa in resourceStatusByName(arm).pos_pieces"
-                      :key="aa.endPosition[0]"
-                    >
-                      <h4 class="pr-2 py-1 text-right">
-                        {{ aa.endPosition[1] }}
-                      </h4>
-                      <viam-button @click="armEndPositionInc( arm, aa.endPosition[1], -10 )">
-                        --
-                      </viam-button>
-                      <viam-button @click="armEndPositionInc( arm, aa.endPosition[1], -1 )">
-                        -
-                      </viam-button>
-                      <viam-button @click="armEndPositionInc( arm, aa.endPosition[1], 1 )">
-                        +
-                      </viam-button>
-                      <viam-button @click="armEndPositionInc( arm, aa.endPosition[1], 10 )">
-                        ++
-                      </viam-button>
-                      <h4 class="py-1">
-                        {{ aa.endPositionValue.toFixed(2) }}
-                      </h4>
-                    </template>
-                  </div>
-                  <div class="flex mt-2">
-                    <div>
-                      <viam-button @click="armHome(arm)">
-                        Home
-                      </viam-button>
-                    </div>
-                    <div class="flex-auto text-right">
-                      <viam-button
-                        class="whitespace-nowrap"
-                        @click="armModifyAll(arm)"
-                      >
-                        Modify All
-                      </viam-button>
-                    </div>
-                  </div>
-                </div>
-                <div
-                  v-if="resourceStatusByName(arm)"
-                  class="border border-black p-4 w-1/2"
-                >
-                  <h3 class="mb-2">
-                    JOINTS (degrees)
-                  </h3>
-                  <div class="grid grid-cols-6 gap-1 pb-1">
-                    <template
-                      v-for="aa in resourceStatusByName(arm).joint_pieces"
-                      :key="aa.joint"
-                    >
-                      <h4 class="pr-2 py-1 text-right whitespace-nowrap">
-                        Joint {{ aa.joint }}
-                      </h4>
-                      <viam-button @click="armJointInc( arm, aa.joint, -10 )">
-                        --
-                      </viam-button>
-                      <viam-button @click="armJointInc( arm, aa.joint, -1 )">
-                        -
-                      </viam-button>
-                      <viam-button @click="armJointInc( arm, aa.joint, 1 )">
-                        +
-                      </viam-button>
-                      <viam-button @click="armJointInc( arm, aa.joint, 10 )">
-                        ++
-                      </viam-button>
-                      <h4 class="pl-2 py-1">
-                        {{ aa.jointValue.toFixed(2) }}
-                      </h4>
-                    </template>
-                  </div>
-                  <div class="flex mt-2">
-                    <div>
-                      <viam-button @click="armHome(arm)">
-                        Home
-                      </viam-button>
-                    </div>
-                    <div class="flex-auto text-right">
-                      <viam-button
-                        class="whitespace-nowrap"
-                        @click="armModifyAll(arm)"
-                      >
-                        Modify All
-                      </viam-button>
-                    </div>
-                  </div>
-                </div>
+                
+              <div class="w-1/4 mr-4">
+                <h3 class="mb-1">
+                  Angular Velocity (degrees/second)
+                </h3>
+                <table class="w-full border border-black border-t-0 p-4">
+                  <tr>
+                    <th class="border border-black p-2">
+                      X
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2) }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th class="border border-black p-2">
+                      Y
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2) }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th class="border border-black p-2">
+                      Z
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2) }}
+                    </td>
+                  </tr>
+                </table>
               </div>
-            </div>
-          </template>
-        </Collapse>
-      </div>
+                
+              <div class="w-1/4 mr-4">
+                <h3 class="mb-1">
+                  Acceleration (mm/second/second)
+                </h3>
+                <table class="w-full border border-black border-t-0 p-4">
+                  <tr>
+                    <th class="border border-black p-2">
+                      X
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2) }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th class="border border-black p-2">
+                      Y
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2) }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th class="border border-black p-2">
+                      Z
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2) }}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+                
+              <div class="w-1/4">
+                <h3 class="mb-1">
+                  Magnetometer (gauss)
+                </h3>
+                <table class="w-full border border-black border-t-0 p-4">
+                  <tr>
+                    <th class="border border-black p-2">
+                      X
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].magnetometer.xGauss.toFixed(2) }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th class="border border-black p-2">
+                      Y
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].magnetometer.yGauss.toFixed(2) }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th class="border border-black p-2">
+                      Z
+                    </th>
+                    <td class="border border-black p-2">
+                      {{ imuData[imu[1].name].magnetometer.zGauss.toFixed(2) }}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+            </template>
+          </div>
+        </template>
+      </Collapse>
+    </div>
 
-      <!-- ******* GRIPPER *******  -->
-      <div class="pb-8">
-        <Collapse
-          v-for="gripper in filterResources('rdk', 'component', 'gripper')"
-          :key="gripper.name"
+    <!-- ******* ARM *******  -->
+    <v-collapse
+      v-for="arm in filterResources('rdk', 'component', 'arm')"
+      :key="arm.name"
+      :title="`Arm ${arm.name}`"
+      class="pb-8"
+    >
+      <div class="flex mb-2">
+        <div
+          v-if="armToggle[arm.name]"
+          class="border border-black p-4 w-1/2 mr-4"
         >
-          <div class="flex">
-            <h2 class="p-4 text-xl">
-              Gripper { gripper.name }
-            </h2>
-          </div>
-          <template #content>
-            <div class="flex border border-black border-t-0 p-4">
-              <viam-button
-                class="mr-4"
-                group
-                @click="gripperAction( gripper.name, 'open')"
+          <h3 class="mb-2">
+            END POSITION (mms)
+          </h3>
+          <div class="grid grid-cols-2 gap-1 pb-1">
+            <template
+              v-for="cc in armToggle[arm.name].pos_pieces"
+              :key="cc.endPosition[0]"
+            >
+              <label class="pr-2 py-1 text-right">{{ cc.endPosition[1] }}</label>
+              <input
+                v-model="cc.endPositionValue"
+                class="border border-black py-1 px-4"
               >
-                Open
+            </template>
+          </div>
+          <div class="flex mt-2">
+            <v-button
+              class="mr-4 whitespace-nowrap"
+              label="Go To End Position"
+              @click="armModifyAllDoEndPosition(arm)"
+            />
+            <div class="flex-auto text-right">
+              <v-button
+                label="Cancel"
+                @click="armModifyAllCancel(arm)"
+              />
+            </div>
+          </div>
+        </div>
+        <div
+          v-if="armToggle[arm.name]"
+          class="border border-black p-4 w-1/2"
+        >
+          <h3 class="mb-2">
+            JOINTS (degrees)
+          </h3>
+          <div class="grid grid-cols-2 gap-1 pb-1">
+            <template
+              v-for="bb in armToggle[arm.name].joint_pieces"
+              :key="bb.joint"
+            >
+              <label class="pr-2 py-1 text-right">Joint {{ bb.joint }}</label>
+              <input
+                v-model="bb.jointValue"
+                class="border border-black py-1 px-4"
+              >
+            </template>
+          </div>
+          <div class="flex mt-2">
+            <v-button
+              label="Go To Joints"
+              @click="armModifyAllDoJoint(arm)"
+            />
+            <div class="flex-auto text-right">
+              <v-button
+                label="Cancel"
+                @click="armModifyAllCancel(arm)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex mb-2">
+        <div
+          v-if="resourceStatusByName(arm)"
+          class="border border-black p-4 w-1/2 mr-4"
+        >
+          <h3 class="mb-2">
+            END POSITION (mms)
+          </h3>
+          <div class="grid grid-cols-6 gap-1 pb-1">
+            <template
+              v-for="aa in resourceStatusByName(arm).pos_pieces"
+              :key="aa.endPosition[0]"
+            >
+              <h4 class="pr-2 py-1 text-right">
+                {{ aa.endPosition[1] }}
+              </h4>
+              <v-button
+                label="--"
+                @click="armEndPositionInc( arm, aa.endPosition[1], -10 )"
+              />
+              <v-button
+                label="-"
+                @click="armEndPositionInc( arm, aa.endPosition[1], -1 )"
+              />
+              <v-button
+                label="+"
+                @click="armEndPositionInc( arm, aa.endPosition[1], 1 )"
+              />
+              <v-button
+                label="++"
+                @click="armEndPositionInc( arm, aa.endPosition[1], 10 )"
+              />
+              <h4 class="py-1">
+                {{ aa.endPositionValue.toFixed(2) }}
+              </h4>
+            </template>
+          </div>
+          <div class="flex mt-2">
+            <v-button
+              label="Home"
+              @click="armHome(arm)"
+            />
+            <div class="flex-auto text-right">
+              <v-button
+                class="whitespace-nowrap"
+                label="Modify All"
+                @click="armModifyAll(arm)"
+              />
+            </div>
+          </div>
+        </div>
+        <div
+          v-if="resourceStatusByName(arm)"
+          class="border border-black p-4 w-1/2"
+        >
+          <h3 class="mb-2">
+            JOINTS (degrees)
+          </h3>
+          <div class="grid grid-cols-6 gap-1 pb-1">
+            <template
+              v-for="aa in resourceStatusByName(arm).joint_pieces"
+              :key="aa.joint"
+            >
+              <h4 class="pr-2 py-1 text-right whitespace-nowrap">
+                Joint {{ aa.joint }}
+              </h4>
+              <v-button
+                label="--"
+                @click="armJointInc( arm, aa.joint, -10 )"
+              />
+              <v-button
+                label="-"
+                @click="armJointInc( arm, aa.joint, -1 )"
+              />
+              <v-button
+                label="+"
+                @click="armJointInc( arm, aa.joint, 1 )"
+              />
+              <v-button
+                label="++"
+                @click="armJointInc( arm, aa.joint, 10 )"
+              />
+              <h4 class="pl-2 py-1">
+                {{ aa.jointValue.toFixed(2) }}
+              </h4>
+            </template>
+          </div>
+          <div class="flex mt-2">
+            <v-button
+              label="Home"
+              @click="armHome(arm)"
+            />
+            <div class="flex-auto text-right">
+              <v-button
+                class="whitespace-nowrap"
+                label="Modify All"
+                @click="armModifyAll(arm)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </v-collapse>
+
+    <!-- ******* GRIPPER *******  -->
+    <v-collapse
+      v-for="gripper in filterResources('rdk', 'component', 'gripper')"
+      :key="gripper.name"
+      :title="`Gripper ${gripper.name}`"
+      class="pb-8"
+    >
+      <div class="flex gap-2 border border-black border-t-0 p-4">
+        <v-button
+          label="Open"
+          @click="gripperAction( gripper.name, 'open')"
+        />
+        <v-button
+          label="Grab"
+          @click="gripperAction( gripper.name, 'grab')"
+        />
+      </div>
+    </v-collapse>
+
+    <!-- ******* SERVO *******  -->
+    <div
+      v-for="servo in filterResources('rdk', 'component', 'servo')"
+      v-if="resourceStatusByName(servo)"
+      :key="servo.name"
+      class="pb-8"
+    >
+      <Collapse>
+        <div class="flex">
+          <h2 class="p-4 text-xl">
+            Servo {{ servo.name }}
+          </h2>
+        </div>
+        <template #content>
+          <div class="flex border border-black border-t-0 p-4">
+            <table class="table-auto border-collapse border border-black">
+              <tr>
+                <td class="border border-black p-2">
+                  Angle
+                </td>
+                <td class="border border-black p-2">
+                  {{ resourceStatusByName(servo).positionDeg }}
+                </td>
+              </tr>
+              <tr>
+                <td class="border border-black p-2" />
+                <td class="border border-black p-2">
+                  <viam-button
+                    group
+                    @click="servoMove(servo, -10)"
+                  >
+                    -10
+                  </viam-button>
+                  <viam-button
+                    group
+                    @click="servoMove(servo, -1)"
+                  >
+                    -1
+                  </viam-button>
+                  <viam-button
+                    group
+                    @click="servoMove(servo, 1)"
+                  >
+                    1
+                  </viam-button>
+                  <viam-button
+                    group
+                    @click="servoMove(servo, 10)"
+                  >
+                    10
+                  </viam-button>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </template>
+      </Collapse>
+    </div>
+
+    <!-- ******* MOTOR *******  -->
+    <motor-detail 
+      v-for="motor in filterResources('rdk', 'component', 'motor')"
+      v-if="resourceStatusByName(motor)"
+      :key="'new-' + motor.name"
+      class="pb-8"  
+      :motor-name="motor.name" 
+      :crumbs="['motor', motor.name]" 
+      :motor-status="resourceStatusByName(motor)"
+      @motor-run="motorCommand(motor.name, $event)"
+      @motor-stop="motorStop(motor.name)"
+    />
+
+    <!-- ******* INPUT VIEW *******  -->
+    <input-controller
+      v-for="controller in filteredInputControllerList()"
+      v-if="resourceStatusByName(controller)"
+      :key="'new-' + controller.name"
+      class="pb-8"
+      :controller-name="controller.name"
+      :controller-status="resourceStatusByName(controller)"
+    />
+
+    <!-- ******* WEB CONTROLS *******  -->
+    <web-gamepad
+      v-if="hasWebGamepad()"
+      class="pb-8"
+      style="max-width: 1080px;"
+      @execute="inputInject($event)"
+    />
+
+    <!-- ******* BOARD *******  -->
+    <div
+      v-for="board in filterResources('rdk', 'component', 'board')"
+      v-if="resourceStatusByName(board)"
+      :key="board.name"
+      class="pb-8"
+    >
+      <Collapse>
+        <div class="flex">
+          <h2 class="p-4 text-xl">
+            Board {{ board.name }}
+          </h2>
+        </div>
+        <template #content>
+          <div class="border border-black border-t-0 p-4">
+            <h3 class="mb-2">
+              Analogs
+            </h3>
+            <table class="mb-4 table-auto border border-black">
+              <tr
+                v-for="(analog, name) in resourceStatusByName(board).analogsMap"
+                :key="name"
+              >
+                <th class="border border-black p-2">
+                  {{ name }}
+                </th>
+                <td class="border border-black p-2">
+                  {{ analog.value || 0 }}
+                </td>
+              </tr>
+            </table>
+            <h3 class="mb-2">
+              GPIO
+            </h3>
+            <table class="mb-4 table-auto border border-black">
+              <tr
+                v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
+                :key="name"
+              >
+                <th class="border border-black p-2">
+                  {{ name }}
+                </th>
+                <td class="border border-black p-2">
+                  {{ di.value || 0 }}
+                </td>
+              </tr>
+            </table>
+            <h3 class="mb-2">
+              DigiGPIOtalInterrupts
+            </h3>
+            <table class="mb-4 table-auto border border-black">
+              <tr>
+                <th class="border border-black p-2">
+                  Get
+                </th>
+                <td class="border border-black p-2">
+                  <div class="flex">
+                    <label class="pr-2 py-2 text-right">Pin:</label>
+                    <number-input
+                      v-model="getPin"
+                      class="mr-2"
+                      :input-id="'get_pin_' + board.name"
+                    />
+                    <viam-button
+                      class="mr-2"
+                      group
+                      @click="getGPIO(board.name)"
+                    >
+                      Get
+                    </viam-button>
+                    <span
+                      :id="'get_pin_value_' + board.name"
+                      class="py-2"
+                    />
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Set
+                </th>
+                <td class="p-2">
+                  <div class="flex">
+                    <label class="pr-2 py-2  text-right">Pin:</label>
+                    <number-input
+                      v-model="setPin"
+                      class="mr-2"
+                      :input-id="'set_pin_' + board.name"
+                    />
+                    <select
+                      :id="'set_pin_v_' + board.name"
+                      class="bg-white border border-black mr-2"
+                      style="height: 38px"
+                    >
+                      <option>low</option>
+                      <option>high</option>
+                    </select>
+                    <viam-button
+                      group
+                      @click="setGPIO(board.name)"
+                    >
+                      Set
+                    </viam-button>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </template>
+      </Collapse>
+    </div>
+
+    <!-- sensors -->
+    <v-collapse
+      v-if="nonEmpty(sensorNames)"
+      class="pb-8"
+      title="Sensors"
+    >
+      <div class="border border-black border-t-0 p-4">
+        <table class="table-auto border border-black">
+          <tr>
+            <th class="border border-black p-2">
+              Name
+            </th>
+            <th class="border border-black p-2">
+              Type
+            </th>
+            <th class="border border-black p-2">
+              Readings
+            </th>
+            <th class="border border-black p-2 text-center">
+              <v-button
+                group
+                label="Get All Readings"
+                @click="getReadings(sensorNames)"
+              />
+            </th>
+          </tr>
+          <tr
+            v-for="name in sensorNames"
+            :key="name.name"
+          >
+            <td class="border border-black p-2">
+              {{ name.name }}
+            </td>
+            <td class="border border-black p-2">
+              {{ name.subtype }}
+            </td>
+            <td class="border border-black p-2">
+              {{ sensorReadings[resourceNameToString(name)] }}
+            </td>
+            <td class="border border-black p-2 text-center">
+              <v-button
+                group
+                label="Get Readings"
+                @click="getReadings([name])"
+              />
+            </td>
+          </tr>
+        </table>
+      </div>
+    </v-collapse>
+
+    <!-- get segments -->
+    <div
+      v-if="filterResources('rdk', 'service', 'navigation').length > 0"
+      id="map-container"
+      class="pb-8"
+    >
+      <Collapse>
+        <div class="flex">
+          <h2 class="p-4 text-xl">
+            Get Segments
+          </h2>
+        </div>
+        <template #content>
+          <div class="border border-black border-t-0 p-4">
+            <div class="mb-2">
+              <viam-button
+                group
+                @click="setNavigationMode('manual')"
+              >
+                Manual
               </viam-button>
               <viam-button
                 group
-                @click="gripperAction( gripper.name, 'grab')"
+                @click="setNavigationMode('waypoint')"
               >
-                Grab
+                Waypoint
               </viam-button>
             </div>
-          </template>
-        </Collapse>
-      </div>
-
-      <!-- ******* SERVO *******  -->
-      <div
-        v-for="servo in filterResources('rdk', 'component', 'servo')"
-        v-if="resourceStatusByName(servo)"
-        :key="servo.name"
-        class="pb-8"
-      >
-        <Collapse>
-          <div class="flex">
-            <h2 class="p-4 text-xl">
-              Servo {{ servo.name }}
-            </h2>
-          </div>
-          <template #content>
-            <div class="flex border border-black border-t-0 p-4">
-              <table class="table-auto border-collapse border border-black">
-                <tr>
-                  <td class="border border-black p-2">
-                    Angle
-                  </td>
-                  <td class="border border-black p-2">
-                    {{ resourceStatusByName(servo).positionDeg }}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="border border-black p-2" />
-                  <td class="border border-black p-2">
-                    <viam-button
-                      group
-                      @click="servoMove(servo, -10)"
-                    >
-                      -10
-                    </viam-button>
-                    <viam-button
-                      group
-                      @click="servoMove(servo, -1)"
-                    >
-                      -1
-                    </viam-button>
-                    <viam-button
-                      group
-                      @click="servoMove(servo, 1)"
-                    >
-                      1
-                    </viam-button>
-                    <viam-button
-                      group
-                      @click="servoMove(servo, 10)"
-                    >
-                      10
-                    </viam-button>
-                  </td>
-                </tr>
-              </table>
+            <div class="mb-2">
+              <viam-button
+                group
+                @click="setNavigationLocation('nav-set-location')"
+              >
+                Try Set Location
+              </viam-button>
             </div>
-          </template>
-        </Collapse>
-      </div>
-
-      <!-- ******* MOTOR *******  -->
-      <motor-detail 
-        v-for="motor in filterResources('rdk', 'component', 'motor')"
-        v-if="resourceStatusByName(motor)"
-        :key="'new-' + motor.name"
-        class="pb-8"  
-        :motor-name="motor.name" 
-        :crumbs="['motor', motor.name]" 
-        :motor-status="resourceStatusByName(motor)"
-        @motor-run="motorCommand(motor.name, $event)"
-        @motor-stop="motorStop(motor.name)"
-      />
-
-      <!-- ******* INPUT VIEW *******  -->
-      <input-controller
-        v-for="controller in filteredInputControllerList()"
-        v-if="resourceStatusByName(controller)"
-        :key="'new-' + controller.name"
-        class="pb-8"
-        :controller-name="controller.name"
-        :controller-status="resourceStatusByName(controller)"
-      />
-
-      <!-- ******* WEB CONTROLS *******  -->
-      <web-gamepad
-        v-if="hasWebGamepad()"
-        class="pb-8"
-        style="max-width: 1080px;"
-        @execute="inputInject($event)"
-      />
-
-      <!-- ******* BOARD *******  -->
-      <div
-        v-for="board in filterResources('rdk', 'component', 'board')"
-        v-if="resourceStatusByName(board)"
-        :key="board.name"
-        class="pb-8"
-      >
-        <Collapse>
-          <div class="flex">
-            <h2 class="p-4 text-xl">
-              Board {{ board.name }}
-            </h2>
+            <div
+              id="map"
+              v-map-mounted
+              class="mb-2"
+            />
+            <viam-input
+              v-model="locationValue"
+              input-id="nav-set-location"
+            />
           </div>
-          <template #content>
-            <div class="border border-black border-t-0 p-4">
-              <h3 class="mb-2">
-                Analogs
-              </h3>
-              <table class="mb-4 table-auto border border-black">
-                <tr
-                  v-for="(analog, name) in resourceStatusByName(board).analogsMap"
-                  :key="name"
-                >
-                  <th class="border border-black p-2">
-                    {{ name }}
-                  </th>
-                  <td class="border border-black p-2">
-                    {{ analog.value || 0 }}
-                  </td>
-                </tr>
-              </table>
-              <h3 class="mb-2">
-                GPIO
-              </h3>
-              <table class="mb-4 table-auto border border-black">
-                <tr
-                  v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
-                  :key="name"
-                >
-                  <th class="border border-black p-2">
-                    {{ name }}
-                  </th>
-                  <td class="border border-black p-2">
-                    {{ di.value || 0 }}
-                  </td>
-                </tr>
-              </table>
-              <h3 class="mb-2">
-                DigiGPIOtalInterrupts
-              </h3>
-              <table class="mb-4 table-auto border border-black">
-                <tr>
-                  <th class="border border-black p-2">
-                    Get
-                  </th>
-                  <td class="border border-black p-2">
-                    <div class="flex">
-                      <label class="pr-2 py-2 text-right">Pin:</label>
-                      <number-input
-                        v-model="getPin"
-                        class="mr-2"
-                        :input-id="'get_pin_' + board.name"
-                      />
-                      <viam-button
-                        class="mr-2"
-                        group
-                        @click="getGPIO(board.name)"
-                      >
-                        Get
-                      </viam-button>
-                      <span
-                        :id="'get_pin_value_' + board.name"
-                        class="py-2"
-                      />
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <th class="border border-black p-2">
-                    Set
-                  </th>
-                  <td class="p-2">
-                    <div class="flex">
-                      <label class="pr-2 py-2  text-right">Pin:</label>
-                      <number-input
-                        v-model="setPin"
-                        class="mr-2"
-                        :input-id="'set_pin_' + board.name"
-                      />
-                      <select
-                        :id="'set_pin_v_' + board.name"
-                        class="bg-white border border-black mr-2"
-                        style="height: 38px"
-                      >
-                        <option>low</option>
-                        <option>high</option>
-                      </select>
-                      <viam-button
-                        group
-                        @click="setGPIO(board.name)"
-                      >
-                        Set
-                      </viam-button>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </div>
-          </template>
-        </Collapse>
-      </div>
+        </template>
+      </Collapse>
+    </div>
 
-      <!-- sensors -->
-      <div
-        v-if="nonEmpty(sensorNames)"
-        class="pb-8"
-      >
-        <Collapse>
-          <div class="flex">
-            <h2 class="p-4 text-xl">
-              Sensors
-            </h2>
-          </div>
-          <template #content>
-            <div class="border border-black border-t-0 p-4">
-              <table class="table-auto border border-black">
-                <tr>
-                  <th class="border border-black p-2">
-                    Name
-                  </th>
-                  <th class="border border-black p-2">
-                    Type
-                  </th>
-                  <th class="border border-black p-2">
-                    Readings
-                  </th>
-                  <th class="border border-black p-2 text-center">
-                    <viam-button
-                      group
-                      @click="getReadings(sensorNames)"
-                    >
-                      Get All Readings
-                    </viam-button>
-                  </th>
-                </tr>
-                <tr v-for="name in sensorNames">
-                  <td class="border border-black p-2">
-                    {{ name.name }}
-                  </td>
-                  <td class="border border-black p-2">
-                    {{ name.subtype }}
-                  </td>
-                  <td class="border border-black p-2">
-                    {{ sensorReadings[resourceNameToString(name)] }}
-                  </td>
-                  <td class="border border-black p-2 text-center">
-                    <viam-button
-                      group
-                      @click="getReadings([name])"
-                    >
-                      Get Readings
-                    </viam-button>
-                  </td>
-                </tr>
-              </table>
-            </div>
-          </template>
-        </Collapse>
-      </div>
-
-      <!-- get segments -->
-      <div
-        v-if="filterResources('rdk', 'service', 'navigation').length > 0"
-        id="map-container"
-        class="pb-8"
-      >
-        <Collapse>
-          <div class="flex">
-            <h2 class="p-4 text-xl">
-              Get Segments
-            </h2>
-          </div>
-          <template #content>
-            <div class="border border-black border-t-0 p-4">
-              <div class="mb-2">
-                <viam-button
-                  group
-                  @click="setNavigationMode('manual')"
-                >
-                  Manual
-                </viam-button>
-                <viam-button
-                  group
-                  @click="setNavigationMode('waypoint')"
-                >
-                  Waypoint
-                </viam-button>
-              </div>
-              <div class="mb-2">
-                <viam-button
-                  group
-                  @click="setNavigationLocation('nav-set-location')"
-                >
-                  Try Set Location
-                </viam-button>
-              </div>
-              <div
-                id="map"
-                v-map-mounted
-                class="mb-2"
+    <!-- current operations -->
+    <v-collapse
+      title="Current Operations"
+      class="pb-8"
+    >
+      <div class="border border-black border-t-0 p-4">
+        <table class="w-full table-auto border border-black">
+          <tr>
+            <th class="border border-black p-2">
+              id
+            </th>
+            <th class="border border-black p-2">
+              method
+            </th>
+            <th class="border border-black p-2">
+              elapsed time
+            </th>
+            <th class="border border-black p-2" />
+          </tr>
+          <tr
+            v-for="o in currentOps"
+            :key="o.id"
+          >
+            <td class="border border-black p-2">
+              {{ o.id }}
+            </td>
+            <td class="border border-black p-2">
+              {{ o.method }}
+            </td>
+            <td class="border border-black p-2">
+              {{ Date.now() - (o.started.seconds * 1000) }}ms
+            </td>
+            <td class="border border-black p-2 text-center">
+              <v-button
+                label="Kill"
+                @click="killOp(o.id)"
               />
-              <viam-input
-                v-model="locationValue"
-                input-id="nav-set-location"
-              />
-            </div>
-          </template>
-        </Collapse>
+            </td>
+          </tr>
+        </table>
       </div>
+    </v-collapse>
 
-      <!-- current operations -->
-      <div class="pb-8">
-        <Collapse>
-          <div class="flex">
-            <h2 class="p-4 text-xl">
-              Current Operations
-            </h2>
-          </div>
-          <template #content>
-            <div class="border border-black border-t-0 p-4">
-              <table class="w-full table-auto border border-black">
-                <tr>
-                  <th class="border border-black p-2">
-                    id
-                  </th>
-                  <th class="border border-black p-2">
-                    method
-                  </th>
-                  <th class="border border-black p-2">
-                    elapsed time
-                  </th>
-                  <th class="border border-black p-2" />
-                </tr>
-                <tr
-                  v-for="o in currentOps"
-                  :key="o.id"
-                >
-                  <td class="border border-black p-2">
-                    {{ o.id }}
-                  </td>
-                  <td class="border border-black p-2">
-                    {{ o.method }}
-                  </td>
-                  <td class="border border-black p-2">
-                    {{ (new Date()).getTime() - (o.started.seconds * 1000) }}ms
-                  </td>
-                  <td class="border border-black p-2 text-center">
-                    <viam-button @click="killOp(o.id)">
-                      Kill
-                    </viam-button>
-                  </td>
-                </tr>
-              </table>
-            </div>
-          </template>
-        </Collapse>
-      </div>
+    <!-- ******* CAMERAS *******  -->
+    <Camera
+      v-for="streamName in streamNames"
+      :key="streamName"
+      :stream-name="streamName"
+      :crumbs="[streamName]"
+      :x="pcdClick.x"
+      :y="pcdClick.y"
+      :z="pcdClick.z"
+      :pcd-click="pcdClick"
+      :segmenter-names="segmenterNames"
+      :segmenter-parameters="segmenterParameters"
+      :segmenter-parameter-names="segmenterParameterNames"
+      :parameter-type="parameterType"
+      :segment-algo="segmentAlgo"
+      :segment-objects="objects"
+      :find-status="pcdClick.calculatingSegments"
+      @full-image="doPCDLoad(fullcloud)"
+      @center-pcd="doCenterPCDLoad(fullcloud)"
+      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
+      @change-segmenter="getSegmenterParameters"
+      @toggle-camera="viewCamera(streamName)"
+      @refresh-camera="viewCameraFrame"
+      @selected-camera-view="viewCameraFrame"
+      @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
+      @pcd-click="grabClick"
+      @pcd-move="doPCDMove"
+      @point-load="doPointLoad"
+      @segment-load="doSegmentLoad"
+      @bounding-box-load="doBoundingBoxLoad"
+      @download-screenshot="renderFrame(streamName)"
+      @download-raw-data="doPCDDownload(fullcloud)"
+      @select-object="doSelectObject"
+    />
 
-      <!-- ******* CAMERAS *******  -->
-      <div
-        v-for="streamName in streamNames"
-        :key="streamName"
-        class="camera pb-8"
-      >
-        <camera
-          :stream-name="streamName"
-          :crumbs="[streamName]"
-          :x="pcdClick.x"
-          :y="pcdClick.y"
-          :z="pcdClick.z"
-          :pcd-click="pcdClick"
-          :segmenter-names="segmenterNames"
-          :segmenter-parameters="segmenterParameters"
-          :segmenter-parameter-names="segmenterParameterNames"
-          :parameter-type="parameterType"
-          :segment-algo="segmentAlgo"
-          :segment-objects="objects"
-          :find-status="pcdClick.calculatingSegments"
-          @full-image="doPCDLoad(fullcloud)"
-          @center-pcd="doCenterPCDLoad(fullcloud)"
-          @find-segments="findSegments(segmentAlgo, segmenterParameters)"
-          @change-segmenter="getSegmenterParameters"
-          @toggle-camera="viewCamera(streamName)"
-          @refresh-camera="viewCameraFrame"
-          @selected-camera-view="viewCameraFrame"
-          @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
-          @pcd-click="grabClick"
-          @pcd-move="doPCDMove"
-          @point-load="doPointLoad"
-          @segment-load="doSegmentLoad"
-          @bounding-box-load="doBoundingBoxLoad"
-          @download-screenshot="renderFrame(streamName)"
-          @download-raw-data="doPCDDownload(fullcloud)"
-          @select-object="doSelectObject"
-        />
-      </div>
-
-      <!-- ******* SLAM *******  -->
-      <div
-        v-if="filterResources('rdk', 'service', 'slam').length > 0"
-        class="slam pb-8"
-      >
-        <slam
-          :image-map="imageMapTemp"
-          :pcd-map="pcdMapTemp"
-          @refresh-image-map="viewSLAMImageMap"
-          @refresh-pcd-map="viewSLAMPCDMap"
-        />
-      </div>
+    <!-- ******* SLAM *******  -->
+    <div
+      v-if="filterResources('rdk', 'service', 'slam').length > 0"
+      class="slam pb-8"
+    >
+      <slam
+        :image-map="imageMapTemp"
+        :pcd-map="pcdMapTemp"
+        @refresh-image-map="viewSLAMImageMap"
+        @refresh-pcd-map="viewSLAMPCDMap"
+      />
     </div>
   </div>
 </template>
