@@ -344,12 +344,12 @@ func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return ua.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs TODO.
 func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return ua.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal))
 }
 
 // AddToLog TODO.
@@ -394,12 +394,12 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 				ua.logger.Debugf("isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
 					state.RobotModeData.IsRobotPowerOn,
 					state.RobotModeData.IsEmergencyStopped || state.RobotModeData.IsProtectiveStopped,
-					state.Joints[0].AngleDegrees(),
-					state.Joints[1].AngleDegrees(),
-					state.Joints[2].AngleDegrees(),
-					state.Joints[3].AngleDegrees(),
-					state.Joints[4].AngleDegrees(),
-					state.Joints[5].AngleDegrees(),
+					state.Joints[0].AngleValues(),
+					state.Joints[1].AngleValues(),
+					state.Joints[2].AngleValues(),
+					state.Joints[3].AngleValues(),
+					state.Joints[4].AngleValues(),
+					state.Joints[5].AngleValues(),
 					state.CartesianInfo.X,
 					state.CartesianInfo.Y,
 					state.CartesianInfo.Z,

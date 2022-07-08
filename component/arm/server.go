@@ -68,8 +68,8 @@ func (s *subtypeServer) GetJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	convertedPos := &pb.JointPositions{Degrees: pos.Degrees}
-	return &pb.GetJointPositionsResponse{PositionDegs: convertedPos}, nil
+	convertedPos := &pb.JointPositions{Values: pos.Values}
+	return &pb.GetJointPositionsResponse{Positions: convertedPos}, nil
 }
 
 // MoveToPosition returns the position of the arm specified.
@@ -92,7 +92,7 @@ func (s *subtypeServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.PositionDegs)
+	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.Positions)
 }
 
 // Stop stops the arm specified.

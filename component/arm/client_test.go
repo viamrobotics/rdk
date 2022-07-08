@@ -36,7 +36,7 @@ func TestClient(t *testing.T) {
 	)
 
 	pos1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
-	jointPos1 := &componentpb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
+	jointPos1 := &componentpb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
 	injectArm := &inject.Arm{}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos1, nil
@@ -58,7 +58,7 @@ func TestClient(t *testing.T) {
 	}
 
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
-	jointPos2 := &componentpb.JointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
+	jointPos2 := &componentpb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
 	injectArm2 := &inject.Arm{}
 	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos2, nil
