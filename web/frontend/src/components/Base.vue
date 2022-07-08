@@ -1,196 +1,182 @@
 <template>
-  <div>
-    <Collapse>
-      <div class="flex float-left">
-        <h2 class="p-4 text-xl">{{ baseName }}</h2>
-        <Breadcrumbs :crumbs="crumbs" disabled="true"></Breadcrumbs>
-      </div>
-      <div class="p-2 float-right">
-        <ViamButton color="danger" group variant="primary" @click="baseStop">
-          <template v-slot:icon>
-            <ViamIcon color="white" :path="mdiCloseOctagonOutline"
-              >STOP</ViamIcon
+  <v-collapse :title="baseName">
+    <v-breadcrumbs slot="header" :crumbs="crumbs.join(',')" />
+
+    <v-button slot="header" variant="danger" icon="stop" label="STOP" @click="baseStop" />
+
+      <div
+        class="border border-t-0 border-black pt-2 pb-4 h-80"
+        v-click-outside="removeKeyboardListeners"
+        :style="{ height: height }"
+      >
+        <div>
+          <Tabs>
+            <Tab
+              :selected="selectedItem === 'keyboard'"
+              @select="selectedItem = 'keyboard'"
+              @click="$emit('base-change-tab', selectedItem)"
+              >Keyboard</Tab
             >
-          </template>
-          STOP
-        </ViamButton>
-      </div>
-      <template v-slot:content>
+            <Tab
+              :selected="selectedItem === 'discrete'"
+              @select="selectedItem = 'discrete'"
+              @click="resetDiscreteState()"
+              >Discrete</Tab
+            >
+          </Tabs>
+        </div>
         <div
-          class="border border-t-0 border-black pt-2 pb-4 h-80"
-          v-click-outside="removeKeyboardListeners"
+          v-if="selectedItem === 'keyboard'"
+          class="p-4"
           :style="{ height: height }"
         >
           <div>
-            <Tabs>
-              <Tab
-                :selected="selectedItem === 'keyboard'"
-                @select="selectedItem = 'keyboard'"
-                @click="$emit('base-change-tab', selectedItem)"
-                >Keyboard</Tab
-              >
-              <Tab
-                :selected="selectedItem === 'discrete'"
-                @select="selectedItem = 'discrete'"
-                @click="resetDiscreteState()"
-                >Discrete</Tab
-              >
-            </Tabs>
-          </div>
-          <div
-            v-if="selectedItem === 'keyboard'"
-            class="p-4"
-            :style="{ height: height }"
-          >
             <div>
-              <div>
-                <div class="grid grid-cols-2">
-                  <div class="flex pt-6">
-                    <KeyboardInput
-                      @keyboard-ctl="keyboardCtl"
-                      ref="keyboardRef"
-                    >
-                    </KeyboardInput>
-                  </div>
-                  <div class="flex" v-if="camera">
-                    <div class="pr-4">
-                      <div class="w-64">
-                        <p
-                          class="mb-1 text-gray-800 font-label dark:text-gray-200"
+              <div class="grid grid-cols-2">
+                <div class="flex pt-6">
+                  <KeyboardInput
+                    @keyboard-ctl="keyboardCtl"
+                    ref="keyboardRef"
+                  >
+                  </KeyboardInput>
+                </div>
+                <div class="flex" v-if="camera">
+                  <div class="pr-4">
+                    <div class="w-64">
+                      <p
+                        class="mb-1 text-gray-800 font-label dark:text-gray-200"
+                      >
+                        Select Camera
+                      </p>
+                      <div class="relative">
+                        <ViamSelect
+                          :options="cameraOptions"
+                          v-model="selectedValue"
+                          @selected="$emit('show-base-camera')"
                         >
-                          Select Camera
-                        </p>
-                        <div class="relative">
-                          <ViamSelect
-                            :options="cameraOptions"
-                            v-model="selectedValue"
-                            @selected="$emit('show-base-camera')"
-                          >
-                          </ViamSelect>
-                        </div>
+                        </ViamSelect>
                       </div>
                     </div>
-                    <div
-                      class="w-48 h-48 transition-all duration-300 ease-in-out"
-                      v-if="selectedValue !== 'NoCamera'"
-                      :id="streamId"
-                    ></div>
                   </div>
+                  <div
+                    class="w-48 h-48 transition-all duration-300 ease-in-out"
+                    v-if="selectedValue !== 'NoCamera'"
+                    :id="streamId"
+                  ></div>
                 </div>
               </div>
-            </div>
-          </div>
-          <div
-            v-if="selectedItem === 'discrete'"
-            class="pr-4 pl-4 pt-4 flex"
-            :style="{ height: height }"
-          >
-            <div class="flex-grow">
-              <div>
-                <div class="column">
-                  <p class="text-xs">Movement Mode</p>
-                  <RadioButtons
-                    :options="['Straight', 'Spin']"
-                    defaultOption="Straight"
-                    :disabledOptions="[]"
-                    v-on:selectOption="setMovementMode($event)"
-                  />
-                </div>
-              </div>
-              <div
-                :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
-                class="items-center pt-4"
-              >
-                <div class="column pr-2" v-if="movementMode === 'Straight'">
-                  <p class="text-xs">Movement Type</p>
-                  <RadioButtons
-                    :options="['Continuous', 'Discrete']"
-                    defaultOption="Continuous"
-                    :disabledOptions="[]"
-                    v-on:selectOption="setMovementType($event)"
-                  />
-                </div>
-                <div v-if="movementMode === 'Straight'" class="column pr-2">
-                  <p class="text-xs">Direction</p>
-                  <RadioButtons
-                    :options="['Forwards', 'Backwards']"
-                    defaultOption="Forwards"
-                    :disabledOptions="[]"
-                    v-on:selectOption="setDirection($event)"
-                  />
-                </div>
-                <NumberInput
-                  v-model="speed"
-                  class="mr-2"
-                  inputId="speed"
-                  label="Speed (mm/sec)"
-                  v-if="movementMode === 'Straight'"
-                ></NumberInput>
-                <NumberInput
-                  v-model="increment"
-                  class="mr-2"
-                  inputId="distance"
-                  :disabled="movementType === 'Continuous'"
-                  label="Distance (mm)"
-                  v-if="movementMode === 'Straight'"
-                ></NumberInput>
-                <NumberInput
-                  v-model="spinSpeed"
-                  class="mr-2"
-                  inputId="spinspeed"
-                  label="Speed (deg/sec)"
-                  v-if="movementMode === 'Spin'"
-                ></NumberInput>
-              </div>
-              <div
-                :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
-                class="pt-4"
-                v-if="movementMode === 'Spin'"
-              >
-                <div class="column pr-2">
-                  <p class="text-xs">Movement Type</p>
-                  <RadioButtons
-                    data-cy="movement-type-radio"
-                    :options="['Clockwise', 'Counterclockwise']"
-                    defaultOption="Clockwise"
-                    :disabledOptions="[]"
-                    v-on:selectOption="setSpinType($event)"
-                  />
-                </div>
-                <div class="column pl-4">
-                  <Range
-                    id="angle"
-                    :min="0"
-                    :key="movementMode"
-                    :max="360"
-                    :step="90"
-                    v-model="angle"
-                    unit="°"
-                    name="Angle"
-                  ></Range>
-                </div>
-              </div>
-            </div>
-            <div class="self-end">
-              <ViamButton
-                color="success"
-                group
-                variant="primary"
-                @click="baseRun()"
-              >
-                <template v-slot:icon>
-                  <ViamIcon color="white" :path="mdiPlayCircleOutline"
-                    >RUN</ViamIcon
-                  >
-                </template>
-                RUN
-              </ViamButton>
             </div>
           </div>
         </div>
-      </template>
-    </Collapse>
-  </div>
+        <div
+          v-if="selectedItem === 'discrete'"
+          class="pr-4 pl-4 pt-4 flex"
+          :style="{ height: height }"
+        >
+          <div class="flex-grow">
+            <div>
+              <div class="column">
+                <p class="text-xs">Movement Mode</p>
+                <RadioButtons
+                  :options="['Straight', 'Spin']"
+                  defaultOption="Straight"
+                  :disabledOptions="[]"
+                  v-on:selectOption="setMovementMode($event)"
+                />
+              </div>
+            </div>
+            <div
+              :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
+              class="items-center pt-4"
+            >
+              <div class="column pr-2" v-if="movementMode === 'Straight'">
+                <p class="text-xs">Movement Type</p>
+                <RadioButtons
+                  :options="['Continuous', 'Discrete']"
+                  defaultOption="Continuous"
+                  :disabledOptions="[]"
+                  v-on:selectOption="setMovementType($event)"
+                />
+              </div>
+              <div v-if="movementMode === 'Straight'" class="column pr-2">
+                <p class="text-xs">Direction</p>
+                <RadioButtons
+                  :options="['Forwards', 'Backwards']"
+                  defaultOption="Forwards"
+                  :disabledOptions="[]"
+                  v-on:selectOption="setDirection($event)"
+                />
+              </div>
+              <NumberInput
+                v-model="speed"
+                class="mr-2"
+                inputId="speed"
+                label="Speed (mm/sec)"
+                v-if="movementMode === 'Straight'"
+              ></NumberInput>
+              <NumberInput
+                v-model="increment"
+                class="mr-2"
+                inputId="distance"
+                :disabled="movementType === 'Continuous'"
+                label="Distance (mm)"
+                v-if="movementMode === 'Straight'"
+              ></NumberInput>
+              <NumberInput
+                v-model="spinSpeed"
+                class="mr-2"
+                inputId="spinspeed"
+                label="Speed (deg/sec)"
+                v-if="movementMode === 'Spin'"
+              ></NumberInput>
+            </div>
+            <div
+              :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
+              class="pt-4"
+              v-if="movementMode === 'Spin'"
+            >
+              <div class="column pr-2">
+                <p class="text-xs">Movement Type</p>
+                <RadioButtons
+                  data-cy="movement-type-radio"
+                  :options="['Clockwise', 'Counterclockwise']"
+                  defaultOption="Clockwise"
+                  :disabledOptions="[]"
+                  v-on:selectOption="setSpinType($event)"
+                />
+              </div>
+              <div class="column pl-4">
+                <Range
+                  id="angle"
+                  :min="0"
+                  :key="movementMode"
+                  :max="360"
+                  :step="90"
+                  v-model="angle"
+                  unit="°"
+                  name="Angle"
+                ></Range>
+              </div>
+            </div>
+          </div>
+          <div class="self-end">
+            <ViamButton
+              color="success"
+              group
+              variant="primary"
+              @click="baseRun()"
+            >
+              <template v-slot:icon>
+                <ViamIcon color="white" :path="mdiPlayCircleOutline"
+                  >RUN</ViamIcon
+                >
+              </template>
+              RUN
+            </ViamButton>
+          </div>
+        </div>
+      </div>
+  </v-collapse>
 </template>
 
 <script lang="ts">
