@@ -253,7 +253,7 @@ export default {
       resources: [],
       sensorNames: [],
       streamNames: [],
-      intervalId: null,
+      cameraFrameIntervalId: null,
       segmenterNames: [],
       segmenterParameterNames: [],
       segmenterParameters: {},
@@ -654,15 +654,15 @@ export default {
       });
     },
     viewCameraFrame(time) {
-        clearInterval(this.intervalId);
-        const cameraName = this.streamNames[0];
-        if (time === 'manual' ) {
-            this.viewManualFrame(cameraName);
-        } else if (time === 'live') {
-            this.viewCamera(cameraName);
-        } else {
-            this.viewIntervalFrame(cameraName, time);
-        }
+      clearInterval(this.cameraFrameIntervalId);
+      const cameraName = this.streamNames[0];
+      if (time === 'manual' ) {
+          this.viewManualFrame(cameraName);
+      } else if (time === 'live') {
+          this.viewCamera(cameraName);
+      } else {
+          this.viewIntervalFrame(cameraName, time);
+      }
     },
     viewManualFrame(cameraName) {
       req = new cameraApi.RenderFrameRequest();
@@ -689,30 +689,28 @@ export default {
       });
     },
     viewIntervalFrame(cameraName, time) {
-      const { grpcCallback } = this;
-        this.intervalId = setInterval(() => {
-          req = new cameraApi.RenderFrameRequest();
-          req.setName(cameraName);
-          const mimeType = 'image/jpeg';
-          req.setMimeType(mimeType);
-          cameraService.renderFrame(req, {}, (err, resp) => {
-            grpcCallback(err, resp, false);
-            if (err) {
-              return;
-            }
-            const streamContainer = document.getElementById(`stream-${cameraName}`);
-            if (streamContainer && streamContainer.getElementsByTagName('video').length > 0) {
-                streamContainer.getElementsByTagName('video')[0].remove();
-            }
-            if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
-                streamContainer.getElementsByTagName('img')[0].remove();
-            }
-            const image = new Image();
-            const blob = new Blob([resp.getData_asU8()], { type: mimeType });
-            image.src = URL.createObjectURL(blob);
-            streamContainer.append(image);
-          });
-        }, +time * 1000);
+      this.cameraFrameIntervalId = window.setInterval(() => {
+        const req = new cameraApi.RenderFrameRequest();
+        req.setName(cameraName);
+        req.setMimeType('image/jpeg');
+        cameraService.renderFrame(req, {}, (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (err) {
+            return;
+          }
+          const streamContainer = document.getElementById(`stream-${cameraName}`);
+          if (streamContainer && streamContainer.getElementsByTagName('video').length > 0) {
+              streamContainer.getElementsByTagName('video')[0].remove();
+          }
+          if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
+              streamContainer.getElementsByTagName('img')[0].remove();
+          }
+          const image = new Image();
+          const blob = new Blob([resp.getData_asU8()], { type: 'image/jpeg' });
+          image.src = URL.createObjectURL(blob);
+          streamContainer.append(image);
+        });
+      }, +time * 1000);
     },
     renderPCD(cameraName) {
       this.$nextTick(() => {
@@ -721,10 +719,9 @@ export default {
         this.initPCDIfNeeded();
         pcdGlobal.cameraName = cameraName;
 
-        req = new cameraApi.GetPointCloudRequest();
+        const req = new cameraApi.GetPointCloudRequest();
         req.setName(cameraName);
-        const mimeType = 'pointcloud/pcd';
-        req.setMimeType(mimeType);
+        req.setMimeType('pointcloud/pcd');
         cameraService.getPointCloud(req, {}, (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (err) {
@@ -732,44 +729,39 @@ export default {
           }
           console.log('loading pcd');
           this.fullcloud = resp.getPointCloud_asB64();
-          pcdLoad(`data:${mimeType};base64,${this.fullcloud}`);
+          pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
         });
       });
     },
     viewSLAMImageMap() {
-      req = new slamApi.GetMapRequest();
+      const req = new slamApi.GetMapRequest();
       req.setName('UI');
-      const mimeType = 'image/jpeg';
-      req.setMimeType(mimeType);
+      req.setMimeType('image/jpeg');
       slamService.getMap(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
         }
-        console.log('loading image map');
-        const blob = new Blob([resp.getImage_asU8()], { type: mimeType });
+        const blob = new Blob([resp.getImage_asU8()], { type: 'image/jpeg' });
         this.imageMapTemp = URL.createObjectURL(blob);
       });
     },
     viewSLAMPCDMap() {
-      req = new slamApi.GetMapRequest();
+      const req = new slamApi.GetMapRequest();
       req.setName('UI');
-      const mimeType = 'pointcloud/pcd';
-      req.setMimeType(mimeType);
+      req.setMimeType('pointcloud/pcd');
       this.initPCDIfNeeded();
       slamService.getMap(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
         }
-        console.log('loading pcd map');
-        pcObject = resp.getPointCloud();
+        const pcObject = resp.getPointCloud();
         this.fullcloud = pcObject.getPointCloud_asB64();
-        pcdLoad(`data:${mimeType};base64,${this.fullcloud}`);
+        pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
       });
     },
     getReadings(sensorNames) {
-      const { grpcCallback } = this;
       const req = new sensorsApi.GetReadingsRequest();
       const names = sensorNames.map((name) => {
         const resourceName = new commonApi.ResourceName();
@@ -781,7 +773,7 @@ export default {
       });
       req.setSensorNamesList(names);
       sensorsService.getReadings(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
           return;
         }
@@ -791,7 +783,7 @@ export default {
         }
       });
     },
-    processFunctionResults: function (err, resp) {
+    processFunctionResults(err, resp) {
       this.grpcCallback(err, resp, false);
       if (err) {
         document.getElementById('function_results').value = `${err}`;
@@ -875,7 +867,7 @@ export default {
         if (err) {
           return Promise.reject(err);
         }
-        return Promise.resolve(resp).then(console.log(`move success: ${ resp.getSuccess()}`));
+        return Promise.resolve(resp).then(() => console.log(`move success: ${ resp.getSuccess()}`));
       });
     },
     findSegments(segmenterName, segmenterParams) {
@@ -913,56 +905,56 @@ export default {
       console.log(p);
       setPoint(p);
       setBoundingBox(box, p);
-      const mimeType = 'pointcloud/pcd';
-      pcdLoad(`data:${mimeType};base64,${data}`);
+      pcdLoad(`data:pointcloud/pcd;base64,${data}`);
     },
     doPointLoad (i) {
       const segment = this.objects[i];
       const center = segment.getGeometries().getGeometriesList()[0].getCenter();
-      const p = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
-      console.log(p);
-      setPoint(p);
+      setPoint({
+        x: center.getX() / 1000,
+        y: center.getY() / 1000,
+        z: center.getZ() / 1000
+      });
     },
     doBoundingBoxLoad (i) {
       const segment = this.objects[i];
       const center = segment.getGeometries().getGeometriesList()[0].getCenter();
       const box = segment.getGeometries().getGeometriesList()[0].getBox();
-      const centerP = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
+      const centerP = {
+        x: center.getX() / 1000,
+        y: center.getY() / 1000,
+        z: center.getZ() / 1000
+      };
       setBoundingBox(box, centerP);
     },
     doPCDLoad (data) {
-      const mimeType = 'pointcloud/pcd';
-      pcdLoad(`data:${mimeType};base64,${data}`);
+      pcdLoad(`data:pointcloud/pcd;base64,${data}`);
     },
     doCenterPCDLoad (data) {
-      const mimeType = 'pointcloud/pcd';
-      pcdLoad(`data:${mimeType};base64,${data}`);
+      pcdLoad(`data:pointcloud/pcd;base64,${data}`);
       const p = { x: 0 / 1000, y: 0 / 1000, z: 0 / 1000 };
       console.log(p);
       setPoint(p);
     },
-    doPCDDownload: function(data) {
-      const mimeType = 'pointcloud/pcd';
-      window.open(`data:${mimeType};base64,${data}`);
+    doPCDDownload(data) {
+      window.open(`data:pointcloud/pcd;base64,${data}`);
     },
-    doSelectObject: function (selection, index) {
-        console.log(selection);
-        console.log(index);
-        switch (selection) {
-          case 'Center Point':
-            this.doSegmentLoad(index);
-            break;
-          case 'Bounding Box':
-            this.doBoundingBoxLoad(index);
-            break;
-          case 'Cropped':
-            this.doPointLoad(index);
-            break;
-          default:
-            break;
-        }
+    doSelectObject(selection, index) {
+      switch (selection) {
+        case 'Center Point':
+          this.doSegmentLoad(index);
+          break;
+        case 'Bounding Box':
+          this.doBoundingBoxLoad(index);
+          break;
+        case 'Cropped':
+          this.doPointLoad(index);
+          break;
+        default:
+          break;
+      }
     },
-    setNavigationMode: function (mode) {
+    setNavigationMode(mode) {
       let pbMode = navigationApi.Mode.MODE_UNSPECIFIED;
       switch (mode) {
         case 'manual':
@@ -1006,9 +998,8 @@ export default {
       const streamContainer = document.getElementById(`stream-${name}`);
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
-      const { grpcCallback } = this;
       streamService.addStream(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
             streamContainer.getElementsByTagName('img')[0].remove();
         }
@@ -1021,9 +1012,8 @@ export default {
     viewPreviewCamera(name) {
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
-      const { grpcCallback } = this;
       streamService.addStream(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
           this.error = 'no live camera device found';
           return;
@@ -1040,7 +1030,7 @@ export default {
       }
       return d.toFixed(1);
     },
-    getGPIO: function (boardName) {
+    getGPIO (boardName) {
       const pin = document.getElementById(`get_pin_${ boardName}`).value;
       BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
         if (err) {
