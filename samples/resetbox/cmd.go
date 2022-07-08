@@ -56,17 +56,17 @@ const (
 var (
 	vibeLevel = float64(0.7)
 
-	safeDumpPos  = &componentpb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
-	cubeReadyPos = &componentpb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
-	cube1grab    = &componentpb.JointPositions{Degrees: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
-	cube2grab    = &componentpb.JointPositions{Degrees: []float64{-182.6, 7.3, -36.9, 0, 17.6, 0}}
-	cube1place   = &componentpb.JointPositions{Degrees: []float64{50, 20, -35, -0.5, 3.0, 0}}
-	cube2place   = &componentpb.JointPositions{Degrees: []float64{-130, 30.5, -28.7, -0.5, -32.2, 0}}
-	duckgrabFW   = &componentpb.JointPositions{Degrees: []float64{-180.5, 27.7, -79.7, -2.8, 76.20, 180}}
-	duckgrabREV  = &componentpb.JointPositions{Degrees: []float64{-180.5, 28.3, -76.8, -2.8, 65.45, 180}}
-	duckReadyPos = &componentpb.JointPositions{Degrees: []float64{-180.5, 0.0, -60.0, -2.8, 65.45, 180}}
-	duckplaceFW  = &componentpb.JointPositions{Degrees: []float64{-21.3, 14.9, -39.0, 6.8, 22.0, 49.6}}
-	duckplaceREV = &componentpb.JointPositions{Degrees: []float64{-19.2, 18, -41.0, 6.3, 22.7, 230}}
+	safeDumpPos  = &componentpb.JointPositions{Values: []float64{0, -43, -71, 0, 98, 0}}
+	cubeReadyPos = &componentpb.JointPositions{Values: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
+	cube1grab    = &componentpb.JointPositions{Values: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
+	cube2grab    = &componentpb.JointPositions{Values: []float64{-182.6, 7.3, -36.9, 0, 17.6, 0}}
+	cube1place   = &componentpb.JointPositions{Values: []float64{50, 20, -35, -0.5, 3.0, 0}}
+	cube2place   = &componentpb.JointPositions{Values: []float64{-130, 30.5, -28.7, -0.5, -32.2, 0}}
+	duckgrabFW   = &componentpb.JointPositions{Values: []float64{-180.5, 27.7, -79.7, -2.8, 76.20, 180}}
+	duckgrabREV  = &componentpb.JointPositions{Values: []float64{-180.5, 28.3, -76.8, -2.8, 65.45, 180}}
+	duckReadyPos = &componentpb.JointPositions{Values: []float64{-180.5, 0.0, -60.0, -2.8, 65.45, 180}}
+	duckplaceFW  = &componentpb.JointPositions{Values: []float64{-21.3, 14.9, -39.0, 6.8, 22.0, 49.6}}
+	duckplaceREV = &componentpb.JointPositions{Values: []float64{-19.2, 18, -41.0, 6.3, 22.7, 230}}
 )
 
 // LinearAxis is one or more motors whose motion is converted to linear movement via belts, screw drives, etc.

@@ -3,6 +3,7 @@ package arm
 
 import (
 	"context"
+	"errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -13,6 +14,8 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 )
+
+var errArmClientInputsNotSupport = errors.New("arm client does not support inputs directly")
 
 // serviceClient is a client satisfies the arm.proto contract.
 type serviceClient struct {
@@ -77,15 +80,15 @@ func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldS
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPositions, extra map[string]interface{}) error {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return err
 	}
 	_, err = c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
-		Name:         c.name,
-		PositionDegs: positionDegs,
-		Extra:        ext,
+		Name:      c.name,
+		Positions: positions,
+		Extra:     ext,
 	})
 	return err
 }
@@ -102,7 +105,7 @@ func (c *client) GetJointPositions(ctx context.Context, extra map[string]interfa
 	if err != nil {
 		return nil, err
 	}
-	return resp.PositionDegs, nil
+	return resp.Positions, nil
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
@@ -123,15 +126,11 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.GetJointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return referenceframe.JointPosToInputs(res), nil
+	return nil, errArmClientInputsNotSupport
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return c.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal), nil)
+	return errArmClientInputsNotSupport
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

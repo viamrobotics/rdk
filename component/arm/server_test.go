@@ -42,7 +42,7 @@ func TestServer(t *testing.T) {
 	)
 
 	pose1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
-	positionDegs1 := &pb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
+	positionDegs1 := &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
 	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		extraOptions = extra
 		return pose1, nil
@@ -68,7 +68,7 @@ func TestServer(t *testing.T) {
 	}
 
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
-	positionDegs2 := &pb.JointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
+	positionDegs2 := &pb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
 	injectArm2.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return nil, errors.New("can't get pose")
 	}
@@ -137,7 +137,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: testArmName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.PositionDegs.String(), test.ShouldResemble, positionDegs1.String())
+		test.That(t, resp.Positions.String(), test.ShouldResemble, positionDegs1.String())
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "GetJointPositions"})
 
 		_, err = armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: failArmName})
@@ -149,7 +149,7 @@ func TestServer(t *testing.T) {
 	t.Run("move to joint position", func(t *testing.T) {
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),
-			&pb.MoveToJointPositionsRequest{Name: missingArmName, PositionDegs: positionDegs2},
+			&pb.MoveToJointPositionsRequest{Name: missingArmName, Positions: positionDegs2},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
@@ -158,7 +158,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),
-			&pb.MoveToJointPositionsRequest{Name: testArmName, PositionDegs: positionDegs2, Extra: ext},
+			&pb.MoveToJointPositionsRequest{Name: testArmName, Positions: positionDegs2, Extra: ext},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs2.String())
@@ -166,7 +166,7 @@ func TestServer(t *testing.T) {
 
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),
-			&pb.MoveToJointPositionsRequest{Name: failArmName, PositionDegs: positionDegs1},
+			&pb.MoveToJointPositionsRequest{Name: failArmName, Positions: positionDegs1},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to joint positions")
