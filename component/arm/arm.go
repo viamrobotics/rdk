@@ -198,7 +198,12 @@ func (r *reconfigurableArm) GetEndPosition(ctx context.Context, extra map[string
 	return r.actual.GetEndPosition(ctx, extra)
 }
 
-func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (r *reconfigurableArm) MoveToPosition(
+	ctx context.Context,
+	pose *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveToPosition(ctx, pose, worldState, extra)

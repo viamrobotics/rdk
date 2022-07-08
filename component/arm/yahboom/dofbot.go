@@ -135,7 +135,12 @@ func (a *Dofbot) GetEndPosition(ctx context.Context, extra map[string]interface{
 }
 
 // MoveToPosition moves the arm to the given absolute position.
-func (a *Dofbot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (a *Dofbot) MoveToPosition(
+	ctx context.Context,
+	pos *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, a.robot, a, pos, worldState)
