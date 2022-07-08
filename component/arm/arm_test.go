@@ -2,6 +2,7 @@ package arm_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 
@@ -267,17 +268,26 @@ func TestReconfigurableArm(t *testing.T) {
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm1, test.ShouldNotBeNil)
+	clientArm1 := reconfArm1
+	fmt.Println(&reconfArm1)
+	fmt.Println(&clientArm1)
 
 	actualArm2 := &mockLocal{Name: testArmName2}
 	reconfArm2, err := arm.WrapWithReconfigurable(actualArm2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm2, test.ShouldNotBeNil)
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
+	clientArm2 := reconfArm2
+	fmt.Println(&reconfArm2)
+	fmt.Println(&clientArm2)
 
 	err = reconfArm1.Reconfigure(context.Background(), reconfArm2)
 	test.That(t, err, test.ShouldBeNil)
+	fmt.Println(&reconfArm1)
+	fmt.Println(&clientArm1)
 	test.That(t, reconfArm1, test.ShouldResemble, reconfArm2)
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 2)
+	test.That(t, clientArm1, test.ShouldResemble, clientArm2)
 
 	test.That(t, actualArm1.endPosCount, test.ShouldEqual, 0)
 	test.That(t, actualArm2.endPosCount, test.ShouldEqual, 0)

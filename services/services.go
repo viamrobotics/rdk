@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"sync"
 
 	"go.viam.com/rdk/resource"
@@ -16,14 +18,14 @@ import (
 
 type ReconfigurableService struct {
 	mu     sync.RWMutex
-	Actual interface{}
+	Actual *interface{}
 }
 
 var (
 	_ = resource.Reconfigurable(&ReconfigurableService{})
 )
 
-//function so that it can be passed into here
+// function so that it can be passed into here
 func (svc *ReconfigurableService) Reconfigure(ctx context.Context, newService resource.Reconfigurable) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
@@ -34,7 +36,18 @@ func (svc *ReconfigurableService) Reconfigure(ctx context.Context, newService re
 	if err := viamutils.TryClose(ctx, svc.Actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	svc.Actual = rSvc.Actual
+
+	// check that the old and the new services are of the same type
+	if reflect.TypeOf(rSvc.Actual) != reflect.TypeOf(svc.Actual) {
+		return utils.NewUnexpectedTypeError(svc.Actual, rSvc.Actual)
+	}
+	fmt.Println(*(svc.Actual))
+	fmt.Println(*(rSvc.Actual))
+	fmt.Println(&(*(svc.Actual)))
+	fmt.Println(&(*(rSvc.Actual)))
+	*(svc.Actual) = *(rSvc.Actual)
+	fmt.Println(*(svc.Actual))
+	fmt.Println((svc.Actual))
 	return nil
 }
 
@@ -45,5 +58,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	return &ReconfigurableService{Actual: s}, nil
+	return &ReconfigurableService{Actual: &s}, nil
 }
