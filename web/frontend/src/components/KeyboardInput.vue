@@ -12,10 +12,10 @@ interface Emits {
 const emit = defineEmits<Emits>();
 
 const pressedKeysMap = {
-  87: 'forward',
-  83: 'backward',
-  65: 'left',
-  68: 'right',
+  w: 'forward',
+  s: 'backward',
+  a: 'left',
+  d: 'right',
 } as const;
 
 const pressedKeys = ref({
@@ -50,7 +50,7 @@ const setKeyPressed = (key: keyof typeof pressedKeys.value, value = true) => {
 };
 
 const onUseKeyboardNav = (event: KeyboardEvent) => {
-  const key = pressedKeysMap[event.keyCode];
+  const key = pressedKeysMap[event.key as 'w' | 's' | 'a' | 'd'];
 
   if (!key) {
     return; 

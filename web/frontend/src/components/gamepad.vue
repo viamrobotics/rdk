@@ -183,8 +183,10 @@ const tick = () => {
         class="row"
         style="margin-right: 0; align-items: center"
       >
-        <div class="header">
-          <h2>WebGamepad</h2>
+        <div class="flex flex-row content-center items-center gap-2">
+          <h2 class="m-0">
+            WebGamepad
+          </h2>
           <span
             v-if="gamepadConnected && enabled"
             class="pill green"
@@ -199,7 +201,7 @@ const tick = () => {
           class="row"
           style="justify-content: flex-end; flex-grow: 1; margin-right: 0"
         >
-          <div class="column">
+          <div class="ml-0 flex flex-col">
             <label class="subtitle">Connection</label>
             <v-switch
               :value="enabled ? 'on' : 'off'"
@@ -216,9 +218,9 @@ const tick = () => {
         <div
           v-for="(value, name) of curStates"
           :key="name"
-          class="column control"
+          class="ml-0 flex w-[8ex] flex-col"
         >
-          <p class="subtitle">
+          <p class="subtitle m-0">
             {{ name }}
           </p>
           {{ /X|Y|Z$/.test(name) ? value.toFixed(4) : value.toFixed(0) }}
@@ -229,19 +231,6 @@ const tick = () => {
 </template>
 
 <style scoped>
-p,
-h2,
-h3 {
-  margin: 0;
-}
-
-.header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  align-content: center;
-  gap: 8px;
-}
 
 .row {
   display: flex;
@@ -255,17 +244,4 @@ h3 {
   color: var(--black-70);
 }
 
-.column {
-  display: flex;
-  flex-direction: column;
-  margin-left: 0px;
-}
-
-.control {
-  width: 8ex;
-}
-
-.margin-bottom {
-  margin-bottom: 32px;
-}
 </style>

@@ -4,8 +4,6 @@ import "./index.css";
 import InputController from '../src/components/InputController';
 import ViamIcon from '../src/components/ViamIcon';
 import Range from '../src/components/Range';
-import ViamSelect from '../src/components/ViamSelect';
-import ViamInput from '../src/components/ViamInput';
 import Collapse from '../src/components/Collapse';
 import KeyboardInput from '../src/components/KeyboardInput';
 import NumberInput from '../src/components/NumberInput';
@@ -24,9 +22,7 @@ library.add(faCheckSquare)
 Vue.component('font-awesome-icon', FontAwesomeIcon);
 Vue.component('InputController', InputController);
 Vue.component('Range', Range);
-Vue.component('ViamSelect', ViamSelect);
 Vue.component('ViamIcon', ViamIcon);
-Vue.component('ViamInput', ViamInput);
 Vue.component('Collapse', Collapse);
 Vue.component('KeyboardInput', KeyboardInput);
 Vue.component('NumberInput', NumberInput);

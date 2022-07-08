@@ -14,11 +14,9 @@ import Range from "./components/Range.vue";
 import Tab from "./components/Tab.vue";
 import Tabs from "./components/Tabs.vue";
 import ViamIcon from "./components/ViamIcon.vue";
-import ViamInput from "./components/ViamInput.vue";
 import ViamBase from "./components/Base.vue";
 import KeyboardInput from "./components/KeyboardInput.vue";
 import Camera from "./components/Camera.vue";
-import ViamSelect from "./components/ViamSelect.vue";
 import NumberInput from "./components/NumberInput.vue";
 import Slam from "./components/Slam.vue";
 import ClickOutside from "./directives/clickOutside";
@@ -33,11 +31,9 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   Tab,
   Container,
   Range,
-  ViamInput,
   ViamBase,
   KeyboardInput,
   Camera,
-  ViamSelect,
   NumberInput,
   Slam,
 };
