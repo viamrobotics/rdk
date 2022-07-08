@@ -453,6 +453,7 @@
               }
             },
             servoMove: function (name, amount) {
+              console.log('servo move: ', name, amount);
               const servo = theApp.rawResourceStatusByName(name);
               var oldAngle = servo["position_deg"] || 0;
               let angle = oldAngle + amount;
@@ -1657,9 +1658,11 @@
                     <div class="border border-black p-4 w-1/2 mr-4" v-if="armToggle[arm.name]">
                       <h3 class="mb-2">END POSITION (mms)</h3>
                       <div class="grid grid-cols-2 gap-1 pb-1">
-                        <template v-for="cc in armToggle[arm.name].pos_pieces" :key="cc.endPosition[0]">
-                          <label class="pr-2 py-1 text-right">${cc.endPosition[1]}</label>
-                          <input class="border border-black py-1 px-4" v-model="cc.endPositionValue">
+                        <template v-for="cc in armToggle[arm.name].pos_pieces">
+                          <div :key="cc.endPosition[0]">
+                            <label class="pr-2 py-1 text-right">${cc.endPosition[1]}</label>
+                            <input class="border border-black py-1 px-4" v-model="cc.endPositionValue">
+                          </div>
                         </template>
                       </div>
                       <div class="flex mt-2">
@@ -1674,9 +1677,11 @@
                     <div class="border border-black p-4 w-1/2" v-if="armToggle[arm.name]">
                       <h3 class="mb-2">JOINTS (degrees)</h3>
                       <div class="grid grid-cols-2 gap-1 pb-1">
-                        <template v-for="bb in armToggle[arm.name].joint_pieces" :key="bb.joint">
-                          <label class="pr-2 py-1 text-right">Joint ${bb.joint}</label>
-                          <input class="border border-black py-1 px-4" v-model="bb.jointValue">
+                        <template v-for="bb in armToggle[arm.name].joint_pieces">
+                          <div :key="bb.joint">
+                            <label class="pr-2 py-1 text-right">Joint ${bb.joint}</label>
+                            <input class="border border-black py-1 px-4" v-model="bb.jointValue">
+                          </div>
                         </template>
                       </div>
                       <div class="flex mt-2">
@@ -1694,13 +1699,15 @@
                     <div class="border border-black p-4 w-1/2 mr-4" v-if="resourceStatusByName(arm)">
                       <h3 class="mb-2">END POSITION (mms)</h3>
                       <div class="grid grid-cols-6 gap-1 pb-1">
-                        <template v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.endPosition[0]">
-                          <h4 class="pr-2 py-1 text-right">${aa.endPosition[1]}</h4>
-                          <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
-                          <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
-                          <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
-                          <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
-                          <h4 class="py-1">${aa.endPositionValue.toFixed(2)}</h4>
+                        <template v-for="aa in resourceStatusByName(arm).pos_pieces">
+                          <div>
+                            <h4 class="pr-2 py-1 text-right">${aa.endPosition[1]}</h4>
+                            <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
+                            <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
+                            <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
+                            <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
+                            <h4 class="py-1">${aa.endPositionValue.toFixed(2)}</h4>
+                          </div>
                         </template>
                       </div>
                       <div class="flex mt-2">
@@ -1715,13 +1722,15 @@
                     <div class="border border-black p-4 w-1/2" v-if="resourceStatusByName(arm)">
                       <h3 class="mb-2">JOINTS (degrees)</h3>
                       <div class="grid grid-cols-6 gap-1 pb-1">
-                        <template v-for="aa in resourceStatusByName(arm).joint_pieces" :key="aa.joint">
-                          <h4 class="pr-2 py-1 text-right whitespace-nowrap">Joint ${aa.joint}</h4>
-                          <viam-button v-on:click="armJointInc( arm, aa.joint, -10 )">--</viam-button>
-                          <viam-button v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
-                          <viam-button v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
-                          <viam-button v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
-                          <h4 class="pl-2 py-1">${aa.jointValue.toFixed(2)}</h4>
+                        <template v-for="aa in resourceStatusByName(arm).joint_pieces">
+                          <div>
+                            <h4 class="pr-2 py-1 text-right whitespace-nowrap">Joint ${aa.joint}</h4>
+                            <viam-button v-on:click="armJointInc( arm, aa.joint, -10 )">--</viam-button>
+                            <viam-button v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
+                            <viam-button v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
+                            <viam-button v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
+                            <h4 class="pl-2 py-1">${aa.jointValue.toFixed(2)}</h4>
+                          </div>
                         </template>
                       </div>
                       <div class="flex mt-2">
@@ -1738,25 +1747,6 @@
               </template>
             </Collapse>
           </div>
-
-          <!-- ******* template *******  -->
-          <!-- <div class="pb-8" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
-            <Collapse>
-              <div class="flex">
-                <h2 class="p-4 text-xl">Arm ${arm.name}</h2>
-              </div>
-              <template v-slot:content>
-                <div class="flex border border-black border-t-0 p-4">
-                  <div class="w-1/2 grid grid-cols-3 gap-4">
-                    
-                  </div>
-                  <div class="w-1/2 grid grid-cols-3 gap-4">
-                    
-                  </div>
-                </div>
-              </template>
-            </Collapse>
-          </div> -->
 
           <!-- ******* GRIPPER *******  -->
           <div class="pb-8">
@@ -1776,30 +1766,14 @@
           <!-- ******* SERVO *******  -->
           <div class="pb-8" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name"
             v-if="resourceStatusByName(servo)">
-            <Collapse>
-              <div class="flex">
-                <h2 class="p-4 text-xl">Servo ${servo.name}</h2>
-              </div>
-              <template v-slot:content>
-                <div class="flex border border-black border-t-0 p-4">
-                  <table  class="table-auto border-collapse border border-black">
-                    <tr>
-                      <td class="border border-black p-2">Angle</td>
-                      <td class="border border-black p-2">${resourceStatusByName(servo).positionDeg}</td>
-                    </tr>
-                    <tr>
-                       <td class="border border-black p-2"></td>
-                       <td class="border border-black p-2">
-                        <viam-button group v-on:click="servoMove(servo, -10)">-10</viam-button>
-                        <viam-button group v-on:click="servoMove(servo, -1)">-1</viam-button>
-                        <viam-button group v-on:click="servoMove(servo, 1)">1</viam-button>
-                        <viam-button group v-on:click="servoMove(servo, 10)">10</viam-button>
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-              </template>
-            </Collapse>
+            <viam-servo
+            :servo-name="servo.name"
+            :servo-angle="resourceStatusByName(servo).positionDeg"
+            @servo-minus-one="this.servoMove(servo, -1)"
+            @servo-minus-ten="servoMove(servo, -10)"
+            @servo-plus-one="servoMove(servo, 1)"
+            @servo-plus-ten="servoMove(servo, 10)"
+          ></viam-servo>
           </div>
 
           <!-- ******* MOTOR *******  -->
