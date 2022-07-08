@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"sort"
 )
