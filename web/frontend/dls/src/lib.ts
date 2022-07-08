@@ -8,11 +8,9 @@ import "./index.css";
 import MotorDetail from "./components/MotorDetail.vue";
 import InputController from "./components/InputController.vue";
 import WebGamepad from "./components/WebGamepad.vue";
-import ViamButton from "./components/Button.vue";
 import Collapse from "./components/Collapse.vue";
 import Container from "./components/Container.vue";
 import Range from "./components/Range.vue";
-import ViamSwitch from "./components/Switch.vue";
 import Tab from "./components/Tab.vue";
 import Tabs from "./components/Tabs.vue";
 import ViamIcon from "./components/ViamIcon.vue";
@@ -30,11 +28,9 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   InputController,
   WebGamepad,
   Collapse,
-  ViamSwitch,
   ViamIcon,
   Tabs,
   Tab,
-  ViamButton,
   Container,
   Range,
   ViamInput,

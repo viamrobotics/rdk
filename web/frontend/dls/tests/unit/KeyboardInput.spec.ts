@@ -2,7 +2,7 @@ import { enableAutoDestroy, mount } from "@vue/test-utils";
 import KeyboardInput from "@/components/KeyboardInput.vue";
 import ClickOutside from "@/directives/clickOutside";
 
-describe("ViamButton", () => {
+describe("KeyboardInput", () => {
   enableAutoDestroy(afterEach);
 
   const testEventFire = (keys: string[], eventName: string) => {

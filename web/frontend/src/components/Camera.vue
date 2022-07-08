@@ -300,128 +300,122 @@ const togglePCDExpand = () => {
                         :key="param.getName()"
                         class="column w-1/3 flex-auto pr-2"
                       >
-                        <ViamInput
-                          id="param.getName()"
-                          v-model.number="
-                            segmenterParameters[param.getName()]
-                          "
+                        <v-input
+                          :id="param.getName()"
+                          :label="param.getName()"
+                          :value="segmenterParameters![param.getName()]"
                           color="primary"
                           group="False"
                           variant="primary"
                           class="text-xs"
                           :type="parameterType(param.getType())"
-                          :v-model="segmenterParameters[param.getName()]"
-                        >
-                          {{ param.getName() }}
-                        </ViamInput>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="float-right p-4">
-                  <v-button
-                    :loading="findStatus"
-                    :disabled="selectedSegmenterValue === ''"
-                    label="FIND SEGMENTS"
-                    @click="findSegments"
-                  />
-                </div>
-              </div>
-              <div class="pt-4">
-                <div class="grid grid-cols-2">
-                  <div>
-                    <div>
-                      <span class="text-xs">Selected Point Position</span>
-                    </div>
-                    <div class="flex">
-                      <ViamInput
-                        type="number"
-                        color="primary"
-                        group="False"
-                        variant="primary"
-                        class="w-32 pr-2 text-xs"
-                        disabled
-                        :value="x"
-                      >
-                        X
-                      </ViamInput>
-                      <ViamInput
-                        type="number"
-                        color="primary"
-                        group="False"
-                        variant="primary"
-                        class="w-32 pr-2 text-xs"
-                        disabled
-                        :value="y"
-                      >
-                        Y
-                      </ViamInput>
-                      <ViamInput
-                        type="number"
-                        color="primary"
-                        group="False"
-                        variant="primary"
-                        class="w-32 pr-2 text-xs"
-                        disabled
-                        :value="z"
-                      >
-                        Z
-                      </ViamInput>
-                      <div class="p-4">
-                        <v-button
-                          label="Move"
-                          @click="pcdMove"
+                          @input="segmenterParameters[param.getName()] = Number($event.detail.value)"
                         />
                       </div>
                     </div>
                   </div>
-                  <div class="grid grid-cols-1">
-                    <span class="text-xs">Distance From Camera</span>
-                    <span class="pt-4">{{ distanceFromCamera() }}mm</span>
-                  </div>
-                </div>
-                <div class="flex pt-4 pb-8">
-                  <div class="column">
-                    <p class="text-xs">
-                      Selection Type
-                    </p>
-                    <v-radio
-                      options="Center Point, Bounding Box, Cropped"
-                      @input="selectObject($event.detail.selected)"
+                  <div class="float-right p-4">
+                    <v-button
+                      :loading="findStatus"
+                      :disabled="selectedSegmenterValue === ''"
+                      label="FIND SEGMENTS"
+                      @click="findSegments"
                     />
                   </div>
-                  <div class="pl-8">
-                    <p class="text-xs">
-                      Segmented Objects
-                    </p>
-                    <select
-                      v-model="selectedObject"
-                      class="dark:border-black-700 block w-full appearance-none border border-gray-300 pr-8 leading-tight transition-colors duration-150 ease-in-out focus:outline-none"
-                      :class="['py-2 pl-2']"
-                      @change="changeObject"
-                    >
-                      <option
-                        disabled
-                        selected
-                        value=""
-                      >
-                        Select Object
-                      </option>
-                      <option
-                        v-for="(seg, i) in segmentObjects"
-                        :key="seg[0]"
-                        :value="i"
-                      >
-                        Object {{ i }}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="pl-8">
+                </div>
+                <div class="pt-4">
+                  <div class="grid grid-cols-2">
+                    <div>
+                      <div>
+                        <span class="text-xs">Selected Point Position</span>
+                      </div>
+                      <div class="flex">
+                        <v-input
+                          type="number"
+                          color="primary"
+                          group="False"
+                          variant="primary"
+                          class="w-32 pr-2 text-xs"
+                          disabled
+                          label="X"
+                          :value="x"
+                        />
+                        <v-input
+                          type="number"
+                          color="primary"
+                          group="False"
+                          variant="primary"
+                          class="w-32 pr-2 text-xs"
+                          disabled
+                          label="Y"
+                          :value="y"
+                        />
+                        <v-input
+                          type="number"
+                          color="primary"
+                          group="False"
+                          variant="primary"
+                          class="w-32 pr-2 text-xs"
+                          disabled
+                          label="Z"
+                          :value="z"
+                        />
+                        <div class="p-4">
+                          <v-button
+                            label="Move"
+                            @click="pcdMove"
+                          />
+                        </div>
+                      </div>
+                    </div>
                     <div class="grid grid-cols-1">
-                      <span class="text-xs">Object Points</span>
-                      <span class="pt-2">{{
-                        segmentObjects ? segmentObjects.length : "null"
-                      }}</span>
+                      <span class="text-xs">Distance From Camera</span>
+                      <span class="pt-4">{{ distanceFromCamera() }}mm</span>
+                    </div>
+                  </div>
+                  <div class="flex pt-4 pb-8">
+                    <div class="column">
+                      <p class="text-xs">
+                        Selection Type
+                      </p>
+                      <v-radio
+                        options="Center Point, Bounding Box, Cropped"
+                        @input="selectObject($event.detail.selected)"
+                      />
+                    </div>
+                    <div class="pl-8">
+                      <p class="text-xs">
+                        Segmented Objects
+                      </p>
+                      <select
+                        v-model="selectedObject"
+                        class="dark:border-black-700 block w-full appearance-none border border-gray-300 pr-8 leading-tight transition-colors duration-150 ease-in-out focus:outline-none"
+                        :class="['py-2 pl-2']"
+                        @change="changeObject"
+                      >
+                        <option
+                          disabled
+                          selected
+                          value=""
+                        >
+                          Select Object
+                        </option>
+                        <option
+                          v-for="(seg, i) in segmentObjects"
+                          :key="seg[0]"
+                          :value="i"
+                        >
+                          Object {{ i }}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="pl-8">
+                      <div class="grid grid-cols-1">
+                        <span class="text-xs">Object Points</span>
+                        <span class="pt-2">{{
+                          segmentObjects ? segmentObjects.length : "null"
+                        }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

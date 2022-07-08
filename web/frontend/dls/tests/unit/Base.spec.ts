@@ -6,7 +6,6 @@ import Collapse from "@/components/Collapse.vue";
 import ViamIcon from "@/components/ViamIcon.vue";
 import Tabs from "@/components/Tabs.vue";
 import Tab from "@/components/Tab.vue";
-import ViamButton from "@/components/Button.vue";
 import KeyboardInput from "@/components/KeyboardInput.vue";
 import Range from "@/components/Range.vue";
 import ClickOutside from "@/directives/clickOutside";
@@ -26,7 +25,6 @@ describe("Base", () => {
         ViamIcon,
         Tabs,
         Tab,
-        ViamButton,
         KeyboardInput,
         ViamSelect,
         ViamInput,
@@ -52,7 +50,6 @@ describe("Base", () => {
         ViamIcon,
         Tabs,
         Tab,
-        ViamButton,
         KeyboardInput,
         ViamSelect,
         ViamInput,
@@ -90,7 +87,6 @@ describe("Base", () => {
         ViamIcon,
         Tabs,
         Tab,
-        ViamButton,
         KeyboardInput,
         ViamSelect,
         ViamInput,
@@ -122,7 +118,6 @@ describe("Base", () => {
         ViamIcon,
         Tabs,
         Tab,
-        ViamButton,
         KeyboardInput,
         ViamSelect,
         ViamInput,
@@ -155,7 +150,6 @@ describe("Base", () => {
         ViamIcon,
         Tabs,
         Tab,
-        ViamButton,
         KeyboardInput,
         ViamSelect,
         ViamInput,

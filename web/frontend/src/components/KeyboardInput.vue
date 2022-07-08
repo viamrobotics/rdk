@@ -3,8 +3,6 @@ import { ref } from 'vue';
 import { throttle, debounce } from "lodash";
 import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
 // import ViamIcon from "./icon.vue";
-// import ViamButton from "./Button.vue";
-// import ViamSwitch from "./Switch.vue";
 
 interface Emits {
   (event: "keyboard-ctl"): void
