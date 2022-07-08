@@ -273,14 +273,16 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	if err != nil {
 		return nil, err
 	}
-	sourcePointList := make([]spatialmath.Pose, 0, pcSrc.Size())
-	targetPointList := make([]r3.Vector, 0, target.Size())
+	sourcePointList := make([]spatialmath.Pose, pcSrc.Size())
+	targetPointList := make([]r3.Vector, target.Size())
 
 	pointNum := 0
 	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
 		sourcePointList[pointNum] = spatialmath.NewPoseFromPoint(p)
 		nearest, _, _, _ := target.NearestNeighbor(p)
 		targetPointList[pointNum] = nearest
+		pointNum++
+		// utils.Logger.Debugf("sourcePointList[%d] = %v", pointNum, sourcePointList[pointNum])
 		return true
 	})
 
@@ -288,11 +290,17 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	optFunc := func(x []float64) float64 {
 		// x is an 7-vector used to create a pose
 		point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
-		quat := spatialmath.QuatToOV(quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]})
-		pose := spatialmath.NewPoseFromOrientationVector(point, quat)
+		quat := quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]}
+		euler := spatialmath.QuatToEulerAngles(quat)
+
+		pose := spatialmath.NewPoseFromOrientation(point, euler)
+
+		// pose := spatialmath.NewPoseFromAxisAngle(point, axis.Normalize(), rotAxis.Theta)
 		// compute the error
 		var dist float64
+		// utils.Logger.Debugf("size of sourcePointList = %d", len(sourcePointList))
 		for i := 0; i < len(sourcePointList); i++ {
+			// utils.Logger.Debugf("sourcePointList[%d] = %v", i, sourcePointList[i])
 			transformedP := spatialmath.Compose(pose, sourcePointList[i]).Point()
 			dist += math.Sqrt(math.Pow((transformedP.X-targetPointList[i].X), 2) +
 				math.Pow((transformedP.Y-targetPointList[i].Y), 2) +
@@ -321,6 +329,8 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Jmag
 	x0[6] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Kmag
 
+	// utils.Logger.Debugf("x0 = %v", x0)
+
 	prob := optimize.Problem{Func: optFunc, Grad: grad, Hess: hess}
 
 	// setup optimizer
@@ -328,18 +338,21 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 		GradientThreshold: 0,
 		Converger: &optimize.FunctionConverge{
 			Relative:   1e-6,
-			Absolute:   1e-8,
+			Absolute:   1e-6,
 			Iterations: 100,
 		},
 	}
 
-	method := &optimize.GradientDescent{
-		StepSizer:         &optimize.FirstOrderStepSize{},
-		GradStopThreshold: 1e-8,
-	}
+	// method := &optimize.GradientDescent{
+	// 	StepSizer:         &optimize.FirstOrderStepSize{},
+	// 	GradStopThreshold: 1e-8,
+	// }
+
+	method := &optimize.Newton{}
 
 	// run optimization
 	res, err := optimize.Minimize(prob, x0, settings, method)
+	utils.Logger.Debugf("res = %v", res)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +406,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 
 	finalPointCloud := pointcloud.NewKDTree(targetPointCloud)
 	for i := range jpcs.sourceCameras {
-		if jpcs.sourceNames[i] == jpcs.targetName {
+		if i == targetIndex {
 			continue
 		}
 
@@ -414,7 +427,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 
 	}
 
-	return nil, newMergeMethodUnsupportedError(string(jpcs.mergeMethod))
+	return finalPointCloud, nil
 }
 
 // initalizeInputs gets all the input positions for the robot components in order to calculate the frame system offsets.
