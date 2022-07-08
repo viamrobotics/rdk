@@ -2120,106 +2120,100 @@ const mapReady = new Promise((resolve) => {
       v-for="board in filterResources('rdk', 'component', 'board')"
       v-if="resourceStatusByName(board)"
       :key="board.name"
+      :title="`Board ${board.name}`"
     >
-      <div class="flex">
-        <h2 class="p-4 text-xl">
-          Board {{ board.name }}
-        </h2>
+      <div class="border border-black border-t-0 p-4">
+        <h3 class="mb-2">
+          Analogs
+        </h3>
+        <table class="mb-4 table-auto border border-black">
+          <tr
+            v-for="(analog, name) in resourceStatusByName(board).analogsMap"
+            :key="name"
+          >
+            <th class="border border-black p-2">
+              {{ name }}
+            </th>
+            <td class="border border-black p-2">
+              {{ analog.value || 0 }}
+            </td>
+          </tr>
+        </table>
+        <h3 class="mb-2">
+          GPIO
+        </h3>
+        <table class="mb-4 table-auto border border-black">
+          <tr
+            v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
+            :key="name"
+          >
+            <th class="border border-black p-2">
+              {{ name }}
+            </th>
+            <td class="border border-black p-2">
+              {{ di.value || 0 }}
+            </td>
+          </tr>
+        </table>
+        <h3 class="mb-2">
+          DigiGPIOtalInterrupts
+        </h3>
+        <table class="mb-4 table-auto border border-black">
+          <tr>
+            <th class="border border-black p-2">
+              Get
+            </th>
+            <td class="border border-black p-2">
+              <div class="flex">
+                <label class="pr-2 py-2 text-right">Pin:</label>
+                <number-input
+                  v-model="getPin"
+                  class="mr-2"
+                  :input-id="'get_pin_' + board.name"
+                />
+                <v-button
+                  class="mr-2"
+                  group
+                  label="Get"
+                  @click="getGPIO(board.name)"
+                />
+                <span
+                  :id="'get_pin_value_' + board.name"
+                  class="py-2"
+                />
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <th class="border border-black p-2">
+              Set
+            </th>
+            <td class="p-2">
+              <div class="flex">
+                <label class="pr-2 py-2  text-right">Pin:</label>
+                <number-input
+                  v-model="setPin"
+                  class="mr-2"
+                  :input-id="'set_pin_' + board.name"
+                />
+                <select
+                  :id="'set_pin_v_' + board.name"
+                  class="bg-white border border-black mr-2"
+                  style="height: 38px"
+                >
+                  <option>low</option>
+                  <option>high</option>
+                </select>
+                <v-button
+                  group
+                  label="Set"
+                  @click="setGPIO(board.name)"
+                />
+              </div>
+            </td>
+          </tr>
+        </table>
       </div>
-      <template #content>
-        <div class="border border-black border-t-0 p-4">
-          <h3 class="mb-2">
-            Analogs
-          </h3>
-          <table class="mb-4 table-auto border border-black">
-            <tr
-              v-for="(analog, name) in resourceStatusByName(board).analogsMap"
-              :key="name"
-            >
-              <th class="border border-black p-2">
-                {{ name }}
-              </th>
-              <td class="border border-black p-2">
-                {{ analog.value || 0 }}
-              </td>
-            </tr>
-          </table>
-          <h3 class="mb-2">
-            GPIO
-          </h3>
-          <table class="mb-4 table-auto border border-black">
-            <tr
-              v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
-              :key="name"
-            >
-              <th class="border border-black p-2">
-                {{ name }}
-              </th>
-              <td class="border border-black p-2">
-                {{ di.value || 0 }}
-              </td>
-            </tr>
-          </table>
-          <h3 class="mb-2">
-            DigiGPIOtalInterrupts
-          </h3>
-          <table class="mb-4 table-auto border border-black">
-            <tr>
-              <th class="border border-black p-2">
-                Get
-              </th>
-              <td class="border border-black p-2">
-                <div class="flex">
-                  <label class="pr-2 py-2 text-right">Pin:</label>
-                  <number-input
-                    v-model="getPin"
-                    class="mr-2"
-                    :input-id="'get_pin_' + board.name"
-                  />
-                  <v-button
-                    class="mr-2"
-                    group
-                    label="Get"
-                    @click="getGPIO(board.name)"
-                  />
-                  <span
-                    :id="'get_pin_value_' + board.name"
-                    class="py-2"
-                  />
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <th class="border border-black p-2">
-                Set
-              </th>
-              <td class="p-2">
-                <div class="flex">
-                  <label class="pr-2 py-2  text-right">Pin:</label>
-                  <number-input
-                    v-model="setPin"
-                    class="mr-2"
-                    :input-id="'set_pin_' + board.name"
-                  />
-                  <select
-                    :id="'set_pin_v_' + board.name"
-                    class="bg-white border border-black mr-2"
-                    style="height: 38px"
-                  >
-                    <option>low</option>
-                    <option>high</option>
-                  </select>
-                  <v-button
-                    group
-                    label="Set"
-                    @click="setGPIO(board.name)"
-                  />
-                </div>
-              </td>
-            </tr>
-          </table>
-        </div>
-      </template>
     </v-collapse>
 
     <!-- sensors -->
