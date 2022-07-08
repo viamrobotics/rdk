@@ -45,6 +45,7 @@ import {
 } from './rc/control_helpers';
 
 import Gamepad from './components/gamepad.vue'
+import InputController from './components/input-controller.vue'
 import Slam from './components/slam.vue'
 
 const { webrtcHost } = window;
@@ -80,8 +81,7 @@ const connect = async (authEntity, creds) => {
 		transportFactory = webRTCConn.transportFactory;
 		window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
 		
-		// eslint-disable-next-line require-await
-		webRTCConn.peerConnection.ontrack = async event => {
+		webRTCConn.peerConnection.ontrack = (event) => {
 			const video = document.createElement('video');
 			video.srcObject = event.streams[0];
 			video.autoplay = true;
@@ -133,15 +133,8 @@ const connect = async (authEntity, creds) => {
 	// save authEntity, creds
 	window.connect = () => connect(authEntity, creds);
 };
+
 window.connect = connect;
-
-window.rcDebug = false;
-
-window.rcLogConditionally = function (req) {
-	if (rcDebug) {
-		console.log('gRPC call:', req);
-	}
-};
 
 function roundTo2Decimals(num) {
   return Math.round(num * 100) / 100;
@@ -1224,8 +1217,8 @@ export default {
       window.robotService.getOperations(req, {}, (err, resp) => {
         const lst = resp.toObject().operationsList;
         this.currentOps = lst;
+        this.currentOpsTimerId = window.setTimeout(this.loadCurrentOps, 500);
       });
-      setTimeout(this.loadCurrentOps, 500);
     },
     async doConnect(authEntity, creds, onError) {
       console.debug('connecting');
@@ -1283,25 +1276,15 @@ export default {
         });
       }
     },
-    async queryStreams () {
-      let pResolve;
-      let pReject;
-      const p = new Promise((resolve, reject) => {
-        pResolve = resolve;
-        pReject = reject;
-      });
+    queryStreams () {
       streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
-        if (err) {
-          pReject(err);
-          return;
+        if (!err) {
+          const streamNames = resp.toObject().namesList;
+          this.streamNames = streamNames;
         }
-        const streamNames = resp.toObject().namesList;
-        this.streamNames = streamNames;
-        pResolve(null);
+        setTimeout(() => this.queryStreams(), 500);
       });
-      await p;
-      setTimeout(() => this.queryStreams(), 500);
     },
     initPCDIfNeeded() {
       if (pcdGlobal) {
@@ -2102,7 +2085,7 @@ const mapReady = new Promise((resolve) => {
     />
 
     <!-- ******* INPUT VIEW *******  -->
-    <input-controller
+    <InputController
       v-for="controller in filteredInputControllerList()"
       v-if="resourceStatusByName(controller)"
       :key="'new-' + controller.name"

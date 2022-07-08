@@ -20,7 +20,6 @@ import Camera from '../src/components/Camera';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { faCheckSquare } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import ViamInfoButton from '../src/components/ViamInfoButton';
 import ClickOutside from "../src/directives/clickOutside";
 import MotorDetail from '../src/components/MotorDetail';
 
@@ -43,7 +42,6 @@ Vue.component('Tab', Tab);
 Vue.component('Tabs', Tabs);
 Vue.component('Base', Base);
 Vue.component('Camera', Camera);
-Vue.component('ViamInfoButton', ViamInfoButton);
 Vue.directive("click-outside", ClickOutside);
 Vue.component('MotorDetail', MotorDetail);
 

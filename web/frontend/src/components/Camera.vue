@@ -96,11 +96,11 @@
             </div>
             <div class="pt-4">
               <span class="pr-2">Point Cloud Data</span>
-              <ViamInfoButton
+              <InfoButton
                 :iconPath="mdiInformationOutline"
                 :infoRows="['When turned on, point cloud will be recalculated']"
               >
-              </ViamInfoButton>
+              </InfoButton>
               <ViamSwitch
                 centered
                 name="pcd"
@@ -151,11 +151,11 @@
                 <div class="table relative pb-6" id="pcd" @click="pcdClick">
                   <div class="absolute r-0 bottom-0 right-0 whitespace-nowrap">
                     <span class="text-xs">Controls</span>
-                    <ViamInfoButton
+                    <InfoButton
                       :iconPath="mdiInformationOutline"
                       :infoRows="infoControls"
                     >
-                    </ViamInfoButton>
+                    </InfoButton>
                   </div>
                 </div>
                 <div class="grid grid-cols-1 divide-y clear-both">
@@ -343,7 +343,7 @@ import Collapse from "./Collapse.vue";
 import Breadcrumbs from "./Breadcrumbs.vue";
 import ViamSwitch from "./Switch.vue";
 import ViamIcon from "./ViamIcon.vue";
-import ViamInfoButton from "./ViamInfoButton.vue";
+import InfoButton from "./info-button.vue";
 
 import RadioButtons from "./RadioButtons.vue";
 import {
@@ -361,7 +361,7 @@ import {
     ViamSwitch,
     ViamIcon,
     RadioButtons,
-    ViamInfoButton,
+    InfoButton,
   },
 })
 export default class Base extends Vue {
