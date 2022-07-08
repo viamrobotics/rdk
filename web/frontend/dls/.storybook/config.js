@@ -5,7 +5,7 @@ import InputController from '../src/components/InputController';
 import ViamIcon from '../src/components/ViamIcon';
 import Range from '../src/components/Range';
 import Collapse from '../src/components/Collapse';
-import KeyboardInput from '../src/components/KeyboardInput';
+import KeyboardInput from '../src/components/keyboard-input';
 import NumberInput from '../src/components/NumberInput';
 import Tab from '../src/components/Tab';
 import Tabs from '../src/components/Tabs';
