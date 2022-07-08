@@ -11,7 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/grpc/client"
-	"go.viam.com/rdk/resource"
+	// "go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
@@ -59,7 +59,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	// plan
-	d, waypoints, err := plan(ctx, config)
+	_, waypoints, err := plan(ctx, config)
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
@@ -69,35 +69,37 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		logger.Fatal(err.Error())
 	}
 
-	limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
+	// limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
 
-	limo1 := limo.(base.Base)
+	// limo1 := limo.(base.Base)
 
 	//   x1, y1, x2, y2, dir := 0., 0., 0., 0., 0.
 
-	start := make([]float64, 3)
-	next := make([]float64, 3)
+	// start := make([]float64, 3)
+	// next := make([]float64, 3)
 
-	for i, wp := range waypoints {
-		if i == 0 {
-			for j := 0; j < 3; j++ {
-				start[j] = wp[j].Value
-			}
-		} else {
-			for j := 0; j < 3; j++ {
-				next[j] = wp[j].Value
-			}
+	// for i, wp := range waypoints {
+	// 	if i == 0 {
+	// 		for j := 0; j < 3; j++ {
+	// 			start[j] = wp[j].Value
+	// 		}
+	// 	} else {
+	// 		for j := 0; j < 3; j++ {
+	// 			next[j] = wp[j].Value
+	// 		}
 
-			pathOptions := d.AllOptions(start, next, true)[0]
+	// 		pathOptions := d.AllOptions(start, next, true)[0]
 
-			dubinsPath := pathOptions.DubinsPath
-			straight := pathOptions.Straight
+	// 		dubinsPath := pathOptions.DubinsPath
+	// 		straight := pathOptions.Straight
 
-			MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
+	// 		MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
 
-			start = next
-		}
-	}
+	// 		start = next
+	// 	}
+	// }
+
+	// limo1.MoveStraight(ctx, 1000, 100)
 
 	return nil
 
