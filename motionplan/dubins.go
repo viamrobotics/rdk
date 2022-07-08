@@ -7,14 +7,14 @@ import (
 )
 
 type Dubins struct {
-	Radius           float64
-	PointSeparation	 float64
+	Radius          float64
+	PointSeparation float64
 }
 
 type DubinOption struct {
-	totalLen   float64
-	dubinsPath []float64
-	straight   bool
+	TotalLen   float64
+	DubinsPath []float64
+	Straight   bool
 }
 
 func NewDubins(radius float64, point_separation float64) (*Dubins, error) {
@@ -51,7 +51,7 @@ func (d *Dubins) lsl(start []float64, end []float64, center_0 []float64, center_
 	path[1] = beta_2
 	path[2] = straight_dist
 
-	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
 
 	return dubin
 }
@@ -68,7 +68,7 @@ func (d *Dubins) rsr(start []float64, end []float64, center_0 []float64, center_
 	path[1] = -beta_2
 	path[2] = straight_dist
 
-	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
 
 	return dubin
 }
@@ -79,7 +79,7 @@ func (d *Dubins) rsl(start []float64, end []float64, center_0 []float64, center_
 	half_intercenter := d.norm(median_point)
 	if half_intercenter < d.Radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := DubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
+		dubin := DubinOption{TotalLen: math.Inf(1), DubinsPath: zeros, Straight: true}
 		return dubin
 	}
 	alpha := math.Acos(d.Radius / half_intercenter)
@@ -93,7 +93,7 @@ func (d *Dubins) rsl(start []float64, end []float64, center_0 []float64, center_
 	path[1] = beta_2
 	path[2] = straight_dist
 
-	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
 
 	return dubin
 }
@@ -104,7 +104,7 @@ func (d *Dubins) lsr(start []float64, end []float64, center_0 []float64, center_
 	half_intercenter := d.norm(median_point)
 	if half_intercenter < d.Radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := DubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
+		dubin := DubinOption{TotalLen: math.Inf(1), DubinsPath: zeros, Straight: true}
 		return dubin
 	}
 	alpha := math.Acos(d.Radius / half_intercenter)
@@ -118,7 +118,7 @@ func (d *Dubins) lsr(start []float64, end []float64, center_0 []float64, center_
 	path[1] = -beta_2
 	path[2] = straight_dist
 
-	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
 
 	return dubin
 }
@@ -129,7 +129,7 @@ func (d *Dubins) lrl(start []float64, end []float64, center_0 []float64, center_
 	psia := math.Atan2(intercenter[1], intercenter[0])
 	if 2*d.Radius < dist_intercenter && dist_intercenter > 4*d.Radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := DubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
+		dubin := DubinOption{TotalLen: math.Inf(1), DubinsPath: zeros, Straight: true}
 		return dubin
 	}
 	gamma := 2 * math.Asin(dist_intercenter/(4*d.Radius))
@@ -142,7 +142,7 @@ func (d *Dubins) lrl(start []float64, end []float64, center_0 []float64, center_
 	path[1] = beta_1
 	path[2] = 2*math.Pi - gamma
 
-	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
 
 	return dubin
 }
@@ -153,7 +153,7 @@ func (d *Dubins) rlr(start []float64, end []float64, center_0 []float64, center_
 	psia := math.Atan2(intercenter[1], intercenter[0])
 	if 2*d.Radius < dist_intercenter && dist_intercenter > 4*d.Radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := DubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
+		dubin := DubinOption{TotalLen: math.Inf(1), DubinsPath: zeros, Straight: true}
 		return dubin
 	}
 	gamma := 2 * math.Asin(dist_intercenter/(4*d.Radius))
@@ -166,13 +166,12 @@ func (d *Dubins) rlr(start []float64, end []float64, center_0 []float64, center_
 	path[1] = beta_1
 	path[2] = 2*math.Pi - gamma
 
-	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
 
 	return dubin
 }
 
-
-func (d *Dubins) AllOptions(start []float64, end []float64, sorts bool) ([]DubinOption){
+func (d *Dubins) AllOptions(start []float64, end []float64, sorts bool) []DubinOption {
 	center_0_left := d.FindCenter(start, "L")
 	center_0_right := d.FindCenter(start, "R")
 	center_2_left := d.FindCenter(end, "L")
@@ -187,14 +186,14 @@ func (d *Dubins) AllOptions(start []float64, end []float64, sorts bool) ([]Dubin
 	if sorts {
 		//sort by first element in options
 		sort.SliceStable(options, func(i, j int) bool {
-			return options[i].totalLen < options[j].totalLen
+			return options[i].TotalLen < options[j].TotalLen
 		})
 	}
 	return options
 }
 
 func (d *Dubins) GeneratePointsStraight(start []float64, end []float64, path []float64) [][]float64 {
-	total := d.Radius*(math.Abs(path[1])+math.Abs(path[0]))+path[2]
+	total := d.Radius*(math.Abs(path[1])+math.Abs(path[0])) + path[2]
 
 	center_0 := d.FindCenter(start, "R")
 	center_2 := d.FindCenter(end, "R")
@@ -252,14 +251,14 @@ func (d *Dubins) GeneratePointsStraight(start []float64, end []float64, path []f
 }
 
 func (d *Dubins) GeneratePointsCurve(start []float64, end []float64, path []float64) [][]float64 {
-	total := d.Radius*(math.Abs(path[1])+math.Abs(path[0]))+path[2]
+	total := d.Radius*(math.Abs(path[1])+math.Abs(path[0])) + path[2]
 
 	center_0 := d.FindCenter(start, "R")
 	center_2 := d.FindCenter(end, "R")
 	if path[0] > 0 {
 		center_0 = d.FindCenter(start, "L")
 		center_2 = d.FindCenter(end, "L")
-	} 
+	}
 
 	intercenter := d.dist(center_0, center_2)
 	center_1 := d.mul(d.add(center_0, center_2), 0.5)
@@ -314,15 +313,15 @@ func (d *Dubins) GeneratePoints(start []float64, end []float64, DubinsPath []flo
 	return d.GeneratePointsCurve(start, end, DubinsPath)
 }
 
-func (d *Dubins) DubinsPath(start []float64, end []float64) ([][]float64) {
+func (d *Dubins) DubinsPath(start []float64, end []float64) [][]float64 {
 	options := d.AllOptions(start, end, false)
 	//sort by first element in options
 	sort.SliceStable(options, func(i, j int) bool {
-		return options[i].totalLen < options[j].totalLen
+		return options[i].TotalLen < options[j].TotalLen
 	})
-	DubinsPath, straight := options[0].dubinsPath, options[0].straight
+	DubinsPath, straight := options[0].DubinsPath, options[0].Straight
 	return d.GeneratePoints(start, end, DubinsPath, straight)
-} 
+}
 
 //Helper functions
 func (d *Dubins) dist(p1 []float64, p2 []float64) float64 {

@@ -149,13 +149,13 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 		targetConnected := false
 		options := dm.selectOptions(ctxWithCancel, target, seedMap, 10)
 		for node, o := range options {
-			if o.totalLen == math.Inf(1) {
+			if o.TotalLen == math.Inf(1) {
 				break
 			}
 
 			if mp.CheckPath(node, target, opt, dm, o) {
 				seedMap[target] = node
-				pathLenMap[target] = pathLenMap[node] + o.totalLen
+				pathLenMap[target] = pathLenMap[node] + o.TotalLen
 				targetConnected = true
 				break
 			}
@@ -172,9 +172,9 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				end := configuration2slice(n)
 
 				bestOption := dm.d.AllOptions(start, end, true)[0]
-				if pathLenMap[target]+bestOption.totalLen < pathLenMap[n] {
+				if pathLenMap[target]+bestOption.TotalLen < pathLenMap[n] {
 					seedMap[n] = target
-					pathLenMap[n] = pathLenMap[target] + bestOption.totalLen
+					pathLenMap[n] = pathLenMap[target] + bestOption.TotalLen
 				}
 			}
 		}
@@ -210,7 +210,7 @@ func (mp *dubinsRRTMotionPlanner) CheckPath(
 ) bool {
 	start := configuration2slice(from)
 	end := configuration2slice(to)
-	path := dm.d.GeneratePoints(start, end, o.dubinsPath, o.straight)
+	path := dm.d.GeneratePoints(start, end, o.DubinsPath, o.Straight)
 
 	pathOk := true
 	p1, p2 := path[0], path[1]
@@ -262,7 +262,7 @@ type nodeToOption struct {
 type nodeToOptionList []nodeToOption
 
 func (p nodeToOptionList) Len() int           { return len(p) }
-func (p nodeToOptionList) Less(i, j int) bool { return p[i].value.totalLen < p[j].value.totalLen }
+func (p nodeToOptionList) Less(i, j int) bool { return p[i].value.TotalLen < p[j].value.TotalLen }
 func (p nodeToOptionList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (dm *dubinOptionManager) selectOptions(
