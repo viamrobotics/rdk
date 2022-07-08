@@ -32,7 +32,7 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     open-pull-requests-limit: 0
   - package-ecosystem: "npm"
-    directory: "web/frontend/dls"
+    directory: "web/frontend"
     schedule:
       interval: "daily"
     allow:

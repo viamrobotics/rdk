@@ -47,6 +47,7 @@ import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
+import MotorDetail from './components/motor-detail.vue';
 import Slam from './components/slam.vue';
 
 const {
@@ -252,6 +253,7 @@ export default {
     Camera,
     Gamepad,
     InputController,
+    MotorDetail,
     Slam,
   },
   data() {
@@ -2087,7 +2089,7 @@ function setBoundingBox(box, centerPoint) {
     </v-collapse>
 
     <!-- ******* MOTOR *******  -->
-    <motor-detail 
+    <MotorDetail
       v-for="motor in filterResources('rdk', 'component', 'motor')"
       v-if="resourceStatusByName(motor)"
       :key="'new-' + motor.name"
