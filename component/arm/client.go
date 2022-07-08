@@ -14,6 +14,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
+var errArmClientInputsNotSupport = errors.New("arm client does not support inputs directly")
+
 // serviceClient is a client satisfies the arm.proto contract.
 type serviceClient struct {
 	conn   rpc.ClientConn
@@ -98,11 +100,11 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	return nil, errors.New("arm client does not support inputs directly")
+	return nil, errArmClientInputsNotSupport
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return errors.New("arm client does not support inputs directly")
+	return errArmClientInputsNotSupport
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
