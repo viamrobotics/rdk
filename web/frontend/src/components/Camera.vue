@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
-import { ref } from 'vue'
-import InfoButton from "./info-button.vue";
+import { ref } from 'vue';
+import InfoButton from './info-button.vue';
 
 interface Props {
   streamName: string
@@ -21,19 +21,21 @@ interface Props {
 }
 
 interface Emits {
+  (event: 'download-screenshot'): void
+  (event: 'download-raw-data'): void
   (event: 'toggle-camera', camera: boolean): void
-  (event: "selected-camera-view", value: string): void
-  (event: "refresh-camera", value: string): void
-  (event: "pcd-click", event: Event): void
-  (event: "full-image", event: Event): void
-  (event: "change-segmenter", value: string): void
-  (event: "find-segments", value: string, params: Record<string, unknown>): void
-  (event: "center-pcd", event: Event): void
-  (event: "select-object", event: string, object: string): void
-  (event: "point-load", index: number): void
-  (event: "segment-load", index: number): void
-  (event: "bounding-box-load", index: number): void
-  (event: "toggle-pcd", pcd: boolean): void
+  (event: 'selected-camera-view', value: string): void
+  (event: 'refresh-camera', value: string): void
+  (event: 'pcd-click', e: Event): void
+  (event: 'pcd-move', e: Event): void
+  (event: 'full-image', e: Event): void
+  (event: 'change-segmenter', value: string): void
+  (event: 'find-segments', value: string, params: Record<string, unknown>): void
+  (event: 'center-pcd', e: Event): void
+  (event: 'select-object', e: string, object: string): void
+  (event: 'segment-load', index: number): void
+  (event: 'bounding-box-load', index: number): void
+  (event: 'toggle-pcd', pcd: boolean): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,27 +44,21 @@ const props = withDefaults(defineProps<Props>(), {
   x: 0,
   y: 0,
   z: 0,
-  findStatus: false
-})
+  findStatus: false,
+});
 
-const emit = defineEmits<Emits>()
-
-const infoControls = [
-  "Rotate - Left/Click + Drag",
-  "Pan - Right/Two Finger Click + Drag",
-  "Zoom - Wheel/Two Finger Scroll",
-];
+const emit = defineEmits<Emits>();
 
 const camera = ref(props.connectedCamera);
 const pcd = ref(props.connectedPCD);
-const selectedValue = ref("live");
-const selectedSegmenterValue = ref("");
-const selectedObject = ref("");
+const selectedValue = ref('live');
+const selectedSegmenterValue = ref('');
+const selectedObject = ref('');
 
 const toggleExpand = () => {
   camera.value = !camera.value;
-  emit("toggle-camera", camera.value);
-}
+  emit('toggle-camera', camera.value);
+};
 
 const distanceFromCamera = () => {
   return (
@@ -72,23 +68,23 @@ const distanceFromCamera = () => {
       )
     ) || 0
   );
-}
+};
 
 const selectCameraView = () => {
-  emit("selected-camera-view", selectedValue.value);
-}
+  emit('selected-camera-view', selectedValue.value);
+};
 
 const refreshCamera = () => {
-  emit("refresh-camera", selectedValue.value);
-}
+  emit('refresh-camera', selectedValue.value);
+};
 
 const pcdMove = (e: Event) => {
-  emit("pcd-move", e);
-}
+  emit('pcd-move', e);
+};
 
 const changeSegmenter = () => {
-  emit("change-segmenter", selectedSegmenterValue.value);
-}
+  emit('change-segmenter', selectedSegmenterValue.value);
+};
 
 const findSegments = () => {
   if (props.pcdObject) {
@@ -96,51 +92,42 @@ const findSegments = () => {
   }
   
   emit(
-    "find-segments",
+    'find-segments',
     selectedSegmenterValue.value,
     props.segmenterParameters
   );
-}
+};
 
 const fullImage = (event: Event) => {
-  emit("full-image", event);
-}
+  emit('full-image', event);
+};
 
 const centerPCD = (event: Event) => {
-  emit("center-pcd", event);
-}
+  emit('center-pcd', event);
+};
 
 const selectObject = (event: string) => {
-  emit("select-object", event, selectedObject.value);
-}
+  emit('select-object', event, selectedObject.value);
+};
 
-const changeObject = (event: string) => {
-  emit("select-object", event, "Center Point");
-}
-
-const pointLoad = (index: number) => {
-  emit("point-load", index);
-}
-
-const segmentLoad = (index: number) => {
-  emit("segment-load", index);
-}
-
-const boundingBoxLoad = (index: number) => {
-  emit("bounding-box-load", index);
-}
+const changeObject = (event: Event) => {
+  emit('select-object', (event.currentTarget as HTMLSelectElement).value, 'Center Point');
+};
 
 const togglePCDExpand = () => {
   pcd.value = !pcd.value;
-  emit("toggle-pcd", pcd.value);
-}
+  emit('toggle-pcd', pcd.value);
+};
 
 </script>
 
 <template>
   <v-collapse :title="streamName">
-    <v-breadcrumbs slot="header" :crumbs="crumbs.join(',')" />
-    <div class="h-auto border-l border-r border-b border-black p-2">
+    <v-breadcrumbs
+      slot="header"
+      :crumbs="crumbs.join(',')"
+    />
+    <div class="h-auto border-x border-b border-black p-2">
       <div class="container mx-auto">
         <div class="pt-4">
           <span class="pr-2">View Camera</span>
@@ -151,22 +138,35 @@ const togglePCDExpand = () => {
           />
           <div class="float-right pb-4">
             <div class="flex">
-              <div class="w-64" v-if="camera">
-                <p class="mb-1 text-gray-800 font-label dark:text-gray-200">
+              <div
+                v-if="camera"
+                class="w-64"
+              >
+                <p class="font-label mb-1 text-gray-800 dark:text-gray-200">
                   Refresh frequency
                 </p>
                 <div class="relative">
                   <select
-                    class="form-select appearance-none block w-full px-3 py-1.5 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none"
-                    aria-label="Default select example"
                     v-model="selectedValue"
+                    class="form-select m-0 block w-full appearance-none rounded border border-solid border-gray-300 bg-white bg-clip-padding bg-no-repeat px-3 py-1.5 text-base font-normal text-gray-700 transition ease-in-out focus:border-blue-600 focus:bg-white focus:text-gray-700 focus:outline-none"
+                    aria-label="Default select example"
                     @change="selectCameraView()"
                   >
-                    <option value="manual">Manual Refresh</option>
-                    <option value="30">Every 30 seconds</option>
-                    <option value="10">Every 10 seconds</option>
-                    <option value="1">Every second</option>
-                    <option value="live">Live</option>
+                    <option value="manual">
+                      Manual Refresh
+                    </option>
+                    <option value="30">
+                      Every 30 seconds
+                    </option>
+                    <option value="10">
+                      Every 10 seconds
+                    </option>
+                    <option value="1">
+                      Every second
+                    </option>
+                    <option value="live">
+                      Live
+                    </option>
                   </select>
                   <div
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
@@ -184,7 +184,7 @@ const togglePCDExpand = () => {
                   </div>
                 </div>
               </div>
-              <div class="pl-2 pr-2 pt-7">
+              <div class="px-2 pt-7">
                 <v-button
                   v-if="camera"
                   icon="refresh"
@@ -197,7 +197,7 @@ const togglePCDExpand = () => {
                   v-if="camera"
                   icon="camera"
                   label="Export Screenshot"
-                  @click="$emit('download-screenshot')"
+                  @click="emit('download-screenshot')"
                 />
               </div>
             </div>
@@ -210,12 +210,15 @@ const togglePCDExpand = () => {
         </div>
         <div class="pt-4">
           <span class="pr-2">Point Cloud Data</span>
-          <InfoButton :infoRows="['When turned on, point cloud will be recalculated']" />
+          <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />
           <v-switch
             :value="pcd ? 'on' : 'off'"
             @input="togglePCDExpand()"
           />
-          <div v-if="pcd" class="transition-all duration-300 ease-in-out">
+          <div
+            v-if="pcd"
+            class="transition-all duration-300 ease-in-out"
+          >
             <div class="float-right pb-4">
               <v-button
                 icon="refresh"
@@ -230,14 +233,18 @@ const togglePCDExpand = () => {
               <v-button
                 icon="download"
                 label="Download Raw Data"
-                @click="$emit('download-raw-data')"
+                @click="emit('download-raw-data')"
               />
             </div>
-            <div class="table relative pb-6" id="pcd" @click="emit('pcd-click', $event)">
-              <div class="absolute r-0 bottom-0 right-0 whitespace-nowrap">
+            <div
+              id="pcd"
+              class="relative table pb-6"
+              @click="emit('pcd-click', $event)"
+            >
+              <div class="r-0 absolute bottom-0 right-0 whitespace-nowrap">
                 <span class="text-xs">Controls</span>
                 <InfoButton
-                  :infoRows="[
+                  :info-rows="[
                     'Rotate - Left/Click + Drag',
                     'Pan - Right/Two Finger Click + Drag',
                     'Zoom - Wheel/Two Finger Scroll',
@@ -245,22 +252,28 @@ const togglePCDExpand = () => {
                 />
               </div>
             </div>
-            <div class="grid grid-cols-1 divide-y clear-both">
+            <div class="clear-both grid grid-cols-1 divide-y">
               <div>
                 <div class="container mx-auto pt-4">
                   <div>
                     <h2>Segmentation Settings</h2>
                     <div class="relative">
                       <select
-                        class="form-select appearance-none block w-full px-3 py-1.5 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none"
+                        v-model="selectedSegmenterValue"
+                        class="form-select m-0 block w-full appearance-none rounded border border-solid border-gray-300 bg-white bg-clip-padding bg-no-repeat px-3 py-1.5 text-base font-normal text-gray-700 transition ease-in-out focus:border-blue-600 focus:bg-white focus:text-gray-700 focus:outline-none"
                         aria-label="Select segmenter"
                         @change="changeSegmenter"
-                        v-model="selectedSegmenterValue"
                       >
-                        <option value="" selected disabled>Choose</option>
+                        <option
+                          value=""
+                          selected
+                          disabled
+                        >
+                          Choose
+                        </option>
                         <option
                           v-for="segmenter in segmenterNames"
-                          v-bind:key="segmenter"
+                          :key="segmenter"
                           :value="segmenter"
                         >
                           {{ segmenter }}
@@ -283,28 +296,29 @@ const togglePCDExpand = () => {
                     </div>
                     <div class="row flex">
                       <div
-                        class="column flex-auto pr-2 w-1/3"
                         v-for="param in segmenterParameterNames"
                         :key="param.getName()"
+                        class="column w-1/3 flex-auto pr-2"
                       >
                         <ViamInput
+                          id="param.getName()"
+                          v-model.number="
+                            segmenterParameters[param.getName()]
+                          "
                           color="primary"
                           group="False"
                           variant="primary"
                           class="text-xs"
                           :type="parameterType(param.getType())"
                           :v-model="segmenterParameters[param.getName()]"
-                          id="param.getName()"
-                          v-model.number="
-                            segmenterParameters[param.getName()]
-                          "
-                          >{{ param.getName() }}</ViamInput
                         >
+                          {{ param.getName() }}
+                        </ViamInput>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div class="p-4 float-right">
+                <div class="float-right p-4">
                   <v-button
                     :loading="findStatus"
                     :disabled="selectedSegmenterValue === ''"
@@ -325,30 +339,33 @@ const togglePCDExpand = () => {
                         color="primary"
                         group="False"
                         variant="primary"
-                        class="text-xs pr-2 w-32"
+                        class="w-32 pr-2 text-xs"
                         disabled
                         :value="x"
-                        >X
+                      >
+                        X
                       </ViamInput>
                       <ViamInput
                         type="number"
                         color="primary"
                         group="False"
                         variant="primary"
-                        class="text-xs pr-2 w-32"
+                        class="w-32 pr-2 text-xs"
                         disabled
                         :value="y"
-                        >Y
+                      >
+                        Y
                       </ViamInput>
                       <ViamInput
                         type="number"
                         color="primary"
                         group="False"
                         variant="primary"
-                        class="text-xs pr-2 w-32"
+                        class="w-32 pr-2 text-xs"
                         disabled
                         :value="z"
-                        >Z
+                      >
+                        Z
                       </ViamInput>
                       <div class="p-4">
                         <v-button
@@ -365,21 +382,29 @@ const togglePCDExpand = () => {
                 </div>
                 <div class="flex pt-4 pb-8">
                   <div class="column">
-                    <p class="text-xs">Selection Type</p>
+                    <p class="text-xs">
+                      Selection Type
+                    </p>
                     <v-radio
                       options="Center Point, Bounding Box, Cropped"
                       @input="selectObject($event.detail.selected)"
                     />
                   </div>
                   <div class="pl-8">
-                    <p class="text-xs">Segmented Objects</p>
+                    <p class="text-xs">
+                      Segmented Objects
+                    </p>
                     <select
-                      class="block appearance-none w-full border border-gray-300 dark:border-black-700 pr-8 leading-tight focus:outline-none transition-colors duration-150 ease-in-out"
-                      :class="['py-2 pl-2']"
                       v-model="selectedObject"
+                      class="dark:border-black-700 block w-full appearance-none border border-gray-300 pr-8 leading-tight transition-colors duration-150 ease-in-out focus:outline-none"
+                      :class="['py-2 pl-2']"
                       @change="changeObject"
                     >
-                      <option disabled selected value="">
+                      <option
+                        disabled
+                        selected
+                        value=""
+                      >
                         Select Object
                       </option>
                       <option
