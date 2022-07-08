@@ -15,7 +15,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   size: 18,
   rotate: 0,
-  ?: false,
+  spin: false,
 })
 
 const viewBox = computed(() => {
@@ -43,12 +43,8 @@ const isNumeric = (value: string) => {
     viewBox="0 0 24 24"
     :fill="color"
   >
-    <template v-if="?">
-      <title>{{ title }}</title>
-    </template>
-    <template v-if="?">
-      <description>{{ description }}</description>
-    </template>
+    <title v-if="title">{{ title }}</title>
+    <description v-if="description">{{ description }}</description>
     <g :transform="rotation">
       <path :d="path" />
     </g>
