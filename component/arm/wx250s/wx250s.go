@@ -130,8 +130,8 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, r robot.Robot, 
 }
 
 // GetEndPosition computes and returns the current cartesian position.
-func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx)
+func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -139,14 +139,14 @@ func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
-func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	if len(jp.Degrees) > len(a.JointOrder()) {
@@ -166,12 +166,12 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 }
 
 // GetJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
-func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	return &pb.JointPositions{}, nil
 }
 
 // Stop is unimplemented for wx250s.
-func (a *Arm) Stop(ctx context.Context) error {
+func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
 }
@@ -367,7 +367,7 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +376,7 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 // GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal), nil)
 }
 
 // WaitForMovement takes some servos, and will block until the servos are done moving.
