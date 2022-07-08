@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -464,13 +465,35 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 			r.Logger().Errorw("resource not found", "error", utils.NewResourceNotFoundError(name))
 			continue
 		}
-		if updateable, ok := svc.(resource.Updateable); ok {
+
+		reconfigurableSvc, ok := svc.(*services.ReconfigurableService)
+		if !ok {
+			if updateable, ok := svc.(resource.Updateable); ok {
+				if err := updateable.Update(ctx, resources); err != nil {
+					r.Logger().Errorw("failed to update resource", "resource", name, "error", err)
+					continue
+				}
+			}
+			if configUpdateable, ok := svc.(ConfigUpdateable); ok {
+				if err := configUpdateable.Update(ctx, r.config); err != nil {
+					r.Logger().Errorw("config for service failed to update", "resource", name, "error", err)
+					continue
+				}
+			}
+		}
+		fmt.Println("is a reconfigurable service")
+		if reconfigurableSvc == nil {
+			r.Logger().Errorw("resource is nil", "resource", name)
+			continue
+		}
+		actualSvc := reconfigurableSvc.Actual
+		if updateable, ok := actualSvc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
 				r.Logger().Errorw("failed to update resource", "resource", name, "error", err)
 				continue
 			}
 		}
-		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
+		if configUpdateable, ok := actualSvc.(ConfigUpdateable); ok {
 			if err := configUpdateable.Update(ctx, r.config); err != nil {
 				r.Logger().Errorw("config for service failed to update", "resource", name, "error", err)
 				continue
