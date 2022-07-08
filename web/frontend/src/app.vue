@@ -44,6 +44,7 @@ import {
   computeKeyboardBaseControls,
 } from './rc/control_helpers';
 
+import Camera from './components/camera.vue'
 import Gamepad from './components/gamepad.vue'
 import InputController from './components/input-controller.vue'
 import Slam from './components/slam.vue'
@@ -237,6 +238,7 @@ export default {
   },
   components: {
     // ViamBase,
+    Camera,
     Gamepad,
     Slam,
   },
