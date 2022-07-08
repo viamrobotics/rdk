@@ -40,7 +40,7 @@ func TestValidate(t *testing.T) {
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only serial, I2C, and ntrip are supported correction sources")
 
-	//ntrip
+	// ntrip
 	fakecfg.CorrectionSource = "ntrip"
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty ntrip address")
@@ -49,7 +49,7 @@ func TestValidate(t *testing.T) {
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
-	//serial
+	// serial
 	fakecfg.CorrectionSource = "serial"
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must specify serial path")
@@ -58,11 +58,10 @@ func TestValidate(t *testing.T) {
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
-	//I2C
+	// I2C
 	fakecfg.CorrectionSource = "I2C"
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for rtk station")
-
 }
 
 func TestRTK(t *testing.T) {
