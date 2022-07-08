@@ -15,5 +15,5 @@ func TestRun(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motion.Translation.At(0, 0), test.ShouldBeLessThan, -2.0)
 	test.That(t, motion.Translation.At(1, 0), test.ShouldBeGreaterThan, 0.0)
-	test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -1.0)
+	test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -0.8)
 }
