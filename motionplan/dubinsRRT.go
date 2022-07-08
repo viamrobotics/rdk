@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"math/rand"
 	"sort"
@@ -12,7 +11,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
-	"golang.org/x/exp/shiny/widget/node"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -118,8 +116,12 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 
 	corners := map[*configuration]bool{}
 
+	seedConfig := &configuration{seed}
 	seedMap := make(map[*configuration]*configuration)
-	seedMap[&configuration{seed}] = nil
+	seedMap[seedConfig] = nil
+
+	pathLenMap := make(map[*configuration]float64)
+	pathLenMap[seedConfig] = 0
 
 	goalInputs := make([]referenceframe.Input, 3)
 	goalInputs[0], goalInputs[1], goalInputs[2] = referenceframe.Input{goal.X}, referenceframe.Input{goal.Y}, referenceframe.Input{goal.Theta}
@@ -136,7 +138,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		var target *configuration
-		if (rand.Float64() > 1- goalRate) {
+		if (rand.Float64() > 1 - goalRate) || i == 0 {
 			target = goalConfig
 		} else {
 			input2D := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
@@ -151,49 +153,29 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				break
 			}
 
-			start := configuration2slice(node)
-			end := configuration2slice(target)
-			path := dm.d.GeneratePoints(start, end, o.dubinsPath, o.straight)
-
-			pathOk := true
-			p1, p2 := path[0], path[1]
-			for _, p := range path[1:] {
-				p2 = p
-
-				pose1 := spatial.NewPoseFromPoint(r3.Vector{X: p1[0], Y: p1[1], Z: 0})
-				pose2 := spatial.NewPoseFromPoint(r3.Vector{X: p2[0], Y: p2[1], Z: 0})
-				input1 := make([]referenceframe.Input, 2)
-				input1[0], input1[1] = referenceframe.Input{p1[0]}, referenceframe.Input{p1[1]}
-				input2 := make([]referenceframe.Input, 2)
-				input2[0], input2[1] = referenceframe.Input{p2[0]}, referenceframe.Input{p2[1]}
-
-				ci := &ConstraintInput{
-					StartPos: pose1,
-					EndPos: pose2,
-					StartInput: input1,
-					EndInput: input2,
-					Frame: mp.frame,
-				}
-
-				if ok, _ := opt.CheckConstraintPath(ci, mp.Resolution()); !ok {
-					pathOk = false
-					break
-				}
-
-				p1 = p2
+			if mp.CheckPath(node, target, opt, dm, o) {
+				seedMap[target] = node
+				pathLenMap[target] = pathLenMap[node] + o.totalLen
+				targetConnected = true
+				break
 			}
-
-			if !pathOk {
-				continue
-			}
-
-			seedMap[target] = node
-			targetConnected = true
-			break
 		}
 
 		if targetConnected && target != goalConfig {
 			corners[target] = true
+
+			// reroute near neighbors through new node if it shortens the path
+			neighbors := findNearNeighbors(target, seedMap, 10)
+			for _, n := range neighbors {
+				start := configuration2slice(target)
+				end := configuration2slice(n)
+
+				bestOption := dm.d.AllOptions(start, end, true)[0]
+				if pathLenMap[target] + bestOption.totalLen < pathLenMap[n] {
+					seedMap[n] = target
+					pathLenMap[n] = pathLenMap[target] + bestOption.totalLen
+				}
+			}
 		}
 
 		if targetConnected && target == goalConfig {
@@ -211,8 +193,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
 			}
 
-			finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
-			solutionChan <- &planReturn{steps: finalSteps}
+			solutionChan <- &planReturn{steps: inputSteps}
 			return
 		}
 	}
@@ -220,10 +201,51 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
+func (mp *dubinsRRTMotionPlanner) CheckPath(
+	from, to *configuration,
+	opt *PlannerOptions,
+	dm *dubinOptionManager,
+	o dubinOption,
+) bool {
+	start := configuration2slice(from)
+	end := configuration2slice(to)
+	path := dm.d.GeneratePoints(start, end, o.dubinsPath, o.straight)
+
+	pathOk := true
+	p1, p2 := path[0], path[1]
+	for _, p := range path[1:] {
+		p2 = p
+
+		pose1 := spatial.NewPoseFromPoint(r3.Vector{X: p1[0], Y: p1[1], Z: 0})
+		pose2 := spatial.NewPoseFromPoint(r3.Vector{X: p2[0], Y: p2[1], Z: 0})
+		input1 := make([]referenceframe.Input, 2)
+		input1[0], input1[1] = referenceframe.Input{p1[0]}, referenceframe.Input{p1[1]}
+		input2 := make([]referenceframe.Input, 2)
+		input2[0], input2[1] = referenceframe.Input{p2[0]}, referenceframe.Input{p2[1]}
+
+		ci := &ConstraintInput{
+			StartPos: pose1,
+			EndPos: pose2,
+			StartInput: input1,
+			EndInput: input2,
+			Frame: mp.frame,
+		}
+
+		if ok, _ := opt.CheckConstraintPath(ci, mp.Resolution()); !ok {
+			pathOk = false
+			break
+		}
+
+		p1 = p2
+	}
+
+	return pathOk
+}
+
 // Used for coordinating parallel computations of dubins options
 type dubinOptionManager struct {
 	optKeys    	chan *configuration
-	options 	chan *pair
+	options 	chan *nodeToOption
 	optLock    	sync.RWMutex
 	sample   	*configuration
 	ready     	bool
@@ -231,16 +253,16 @@ type dubinOptionManager struct {
 	d	 	  	Dubins
 }
 
-type pair struct {
+type nodeToOption struct {
 	key 		*configuration
 	value 		dubinOption
 }
   
-type pairList []pair
+type nodeToOptionList []nodeToOption
 
-func (p pairList) Len() int { return len(p) }
-func (p pairList) Less(i, j int) bool { return p[i].value.totalLen < p[j].value.totalLen }
-func (p pairList) Swap(i, j int){ p[i], p[j] = p[j], p[i] }
+func (p nodeToOptionList) Len() int { return len(p) }
+func (p nodeToOptionList) Less(i, j int) bool { return p[i].value.totalLen < p[j].value.totalLen }
+func (p nodeToOptionList) Swap(i, j int){ p[i], p[j] = p[j], p[i] }
 
 func (dm *dubinOptionManager) selectOptions(
 	ctx context.Context,
@@ -254,14 +276,14 @@ func (dm *dubinOptionManager) selectOptions(
 	}
 	
 	// get all options from all nodes
-	pl := make(pairList, 0)
+	pl := make(nodeToOptionList, 0)
 	for node := range rrtMap {
 		start := configuration2slice(node)
 		end := configuration2slice(sample)
-		allOpts := dm.d.AllOptions(start, end, true)
+		allOpts := dm.d.AllOptions(start, end, false)
 
 		for _, opt := range allOpts {
-			pl = append(pl, pair{node, opt})
+			pl = append(pl, nodeToOption{node, opt})
 		}
 	}
 	sort.Sort(pl)
@@ -295,7 +317,7 @@ func (dm *dubinOptionManager) parallelselectOptions(
 	dm.optLock.Lock()
 	dm.ready = true
 	dm.optLock.Unlock()
-	pl := make(pairList, 0)
+	pl := make(nodeToOptionList, 0)
 	returned := 0
 	for returned < dm.nCPU {
 		select {
@@ -323,7 +345,7 @@ func (dm *dubinOptionManager) parallelselectOptions(
 }
 
 func (dm *dubinOptionManager) startOptWorkers(ctx context.Context) {
-	dm.options = make(chan *pair, dm.nCPU)
+	dm.options = make(chan *nodeToOption, dm.nCPU)
 	dm.optKeys = make(chan *configuration, dm.nCPU)
 	for i := 0; i < dm.nCPU; i++ {
 		utils.PanicCapturingGo(func() {
@@ -333,7 +355,7 @@ func (dm *dubinOptionManager) startOptWorkers(ctx context.Context) {
 }
 
 func (dm *dubinOptionManager) optWorker(ctx context.Context) {
-	pl := make(pairList, 0)
+	pl := make(nodeToOptionList, 0)
 
 	for {
 		select {
@@ -348,11 +370,11 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 				dm.optLock.RLock()
 				start := configuration2slice(k)
 				end := configuration2slice(dm.sample)
-				allOpts := dm.d.AllOptions(start, end, true)
+				allOpts := dm.d.AllOptions(start, end, false)
 				dm.optLock.RUnlock()
 
 				for _, opt := range allOpts {
-					pl = append(pl, pair{k, opt})
+					pl = append(pl, nodeToOption{k, opt})
 				}
 			}
 		default:
@@ -372,6 +394,29 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 
 func mobile2DInputDist(from, to []referenceframe.Input) (float64) {
 	return math.Pow(from[0].Value - to[0].Value, 2)
+}
+
+func mobile2DConfigDist(from, to *configuration) (float64) {
+	return math.Pow(from.inputs[0].Value - to.inputs[0].Value, 2)
+}
+
+func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configuration, nbNeighbors int) []*configuration {
+	keys := make([]*configuration, 0, len(rrtMap))
+  
+    for key := range rrtMap {
+        keys = append(keys, key)
+    }
+
+	sort.SliceStable(keys, func(i, j int) bool{
+        return mobile2DConfigDist(rrtMap[keys[i]], sample) < mobile2DConfigDist(rrtMap[keys[j]], sample)
+    })
+
+	topn := nbNeighbors
+	if len(rrtMap) < nbNeighbors {
+		topn = len(rrtMap)
+	}
+
+	return keys[:topn]
 }
 
 func configuration2slice(c *configuration) ([]float64) {
