@@ -10,6 +10,7 @@ import (
 	"go.uber.org/multierr"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -168,6 +169,34 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 		return nil, err
 	}
 	return tf.(*frame.PoseInFrame).Pose(), nil
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (sf *solverFrame) InputFromProtobuf(jp *pb.JointPositions) []frame.Input {
+	inputs := make([]frame.Input, 0, len(jp.Degrees))
+	posIdx := 0
+	for _, transform := range sf.frames {
+		dof := len(transform.DoF()) + posIdx
+		jPos := jp.Degrees[posIdx:dof]
+		posIdx = dof
+
+		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Degrees: jPos})...)
+	}
+
+	return inputs
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (sf *solverFrame) ProtobufFromInput(input []frame.Input) *pb.JointPositions {
+	jPos := &pb.JointPositions{}
+	posIdx := 0
+	for _, transform := range sf.frames {
+		dof := len(transform.DoF()) + posIdx
+		jPos.Degrees = append(jPos.Degrees, transform.ProtobufFromInput(input[posIdx:dof]).Degrees...)
+		posIdx = dof
+	}
+
+	return jPos
 }
 
 // Geometry takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the

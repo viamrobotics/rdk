@@ -347,11 +347,11 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return e.model.InputFromProtobuf(res), nil
 }
 
 func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return e.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return e.MoveToJointPositions(ctx, e.model.ProtobufFromInput(goal))
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.

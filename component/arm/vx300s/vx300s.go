@@ -407,11 +407,11 @@ func (a *myArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, erro
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 func (a *myArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal))
 }
 
 // TODO: Map out *all* servo defaults so that they are always set correctly.
