@@ -340,7 +340,7 @@ func (x *xArm) Close(ctx context.Context) error {
 }
 
 // MoveToJointPositions moves the arm to the requested joint positions.
-func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
 	if !x.started {
@@ -349,7 +349,7 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 		}
 	}
 	to := referenceframe.JointPosToInputs(newPositions)
-	curPos, err := x.GetJointPositions(ctx)
+	curPos, err := x.GetJointPositions(ctx, extra)
 	if err != nil {
 		return err
 	}
@@ -386,8 +386,8 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 }
 
 // GetEndPosition computes and returns the current cartesian position.
-func (x *xArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := x.GetJointPositions(ctx)
+func (x *xArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := x.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -395,7 +395,7 @@ func (x *xArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
 	if !x.started {
@@ -414,7 +414,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldStat
 }
 
 // GetJointPositions returns the current positions of all joints.
-func (x *xArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (x *xArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
 	jData, err := x.send(ctx, c, true)
@@ -431,7 +431,7 @@ func (x *xArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error
 }
 
 // Stop stops the xArm but also reinitializes the arm so it can take commands again.
-func (x *xArm) Stop(ctx context.Context) error {
+func (x *xArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
 	x.started = false

@@ -215,8 +215,8 @@ type armV1 struct {
 }
 
 // GetEndPosition computes and returns the current cartesian position.
-func (a *armV1) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx)
+func (a *armV1) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (a *armV1) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, a.robot, a, pos, worldState)
@@ -244,7 +244,7 @@ func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, 
 }
 
 // MoveToJointPositions TODO.
-func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
+func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 
@@ -252,7 +252,7 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.Joint
 		return errors.New("need exactly 2 joints")
 	}
 
-	cur, err := a.GetJointPositions(ctx)
+	cur, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return err
 	}
@@ -301,7 +301,7 @@ func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error
 }
 
 // GetJointPositions TODO.
-func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.JointPositions, error) {
+func (a *armV1) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
 	var e1, e2 error
 	joints := &componentpb.JointPositions{Degrees: make([]float64, 2)}
 	joints.Degrees[0], e1 = jointToDegrees(ctx, a.j0Motor, a.j0)
@@ -311,7 +311,7 @@ func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.JointPositi
 	return joints, multierr.Combine(e1, e2)
 }
 
-func (a *armV1) Stop(ctx context.Context) error {
+func (a *armV1) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
 }
@@ -325,7 +325,7 @@ func (a *armV1) ModelFrame() referenceframe.Model {
 }
 
 func (a *armV1) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +333,7 @@ func (a *armV1) CurrentInputs(ctx context.Context) ([]referenceframe.Input, erro
 }
 
 func (a *armV1) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal), nil)
 }
 
 func computeInnerJointAngle(j0, j1 float64) float64 {

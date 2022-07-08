@@ -63,7 +63,7 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 	injectedArm := &inject.Arm{}
-	injectedArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectedArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
 	}
 	rs[arm.Named(armKey)] = injectedArm
