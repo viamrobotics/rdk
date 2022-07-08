@@ -253,7 +253,7 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
                 @input="setSpinType($event.detail.value)"
               />
             </div>
-            <div class="column pl-4">
+            <div class="column w-10 pl-4">
               <v-slider
                 :min="0"
                 :max="360"
