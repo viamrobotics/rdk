@@ -1,9 +1,15 @@
 <template>
-  <v-collapse title="SLAM" class="slam">
-    <div class="flex mb-4">
-      <table class="border border-slate-300 mr-4">
+  <v-collapse
+    title="SLAM"
+    class="slam"
+  >
+    <div class="mb-4 flex">
+      <table class="mr-4 border border-slate-300">
         <tr>
-          <th colspan="1" class="border border-slate-300">
+          <th
+            colspan="1"
+            class="border border-slate-300"
+          >
             <h5>
               View SLAM Map (JPEG)
               <v-button
@@ -15,19 +21,25 @@
           </th>
         </tr>
         <tr>
-          <th colspan="1" class="border border-slate-300">
+          <th
+            colspan="1"
+            class="border border-slate-300"
+          >
             <img
               v-if="imageMap"
               :src="imageMap"
               width="500"
               height="500"
-            />
+            >
           </th>
         </tr>
       </table>
-      <table class="border border-slate-300 mr-4">
+      <table class="mr-4 border border-slate-300">
         <tr>
-          <th colspan="1" class="border border-slate-300">
+          <th
+            colspan="1"
+            class="border border-slate-300"
+          >
             <h5>
               View SLAM Map (PCD)
               <v-button
@@ -39,8 +51,15 @@
           </th>
         </tr>
         <tr>
-          <th colspan="1" class="border border-slate-300">
-            <div id="pcd" width="400" height="400" />
+          <th
+            colspan="1"
+            class="border border-slate-300"
+          >
+            <div
+              id="pcd"
+              width="400"
+              height="400"
+            />
           </th>
         </tr>
       </table>
@@ -59,7 +78,7 @@ interface Emits {
   (event: 'refresh-pcd-map'): void
 }
 
-defineProps<Props>()
-const emit = defineEmits<Emits>()
+defineProps<Props>();
+const emit = defineEmits<Emits>();
 
 </script>
