@@ -44,6 +44,7 @@ import {
   computeKeyboardBaseControls,
 } from './rc/control_helpers';
 
+import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
@@ -234,7 +235,7 @@ function fixServoStatus(old) {
 
 export default {
   components: {
-    // ViamBase,
+    BaseComponent,
     Camera,
     Gamepad,
     InputController,
@@ -274,6 +275,7 @@ export default {
   },
   async mounted() {
     this.grpcCallback = this.grpcCallback.bind(this);
+    this.loadMaps();
     await this.waitForClientAndStart();
 
     if (window.streamService) {
@@ -281,10 +283,21 @@ export default {
     }
 
     this.imuRefresh();
-    this.queryMetadata();
+    await this.queryMetadata();
     this.initNavigation();
   },
   methods: {
+    loadMaps() {
+      if (document.querySelector('#google-maps')) {
+        return;
+      }
+      const script = document.createElement('script');
+      script.id = 'google-maps';
+      // TODO(RSDK-51): remove api key once going into production
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly';
+      script.async = true;
+      document.head.append(script);
+    },
     fixRawStatus(name, status) {
       switch (this.resourceNameToSubtypeString(name)) {
       // TODO (APP-146): generate these using constants
@@ -1112,7 +1125,7 @@ export default {
       const { grpcCallback } = this;
 
       await mapReady;
-      window.map = new google.maps.Map(document.querySelector('#map'), { zoom: 18 });
+      window.map = new google.maps.Map(this.$refs.map, { zoom: 18 });
       window.map.addListener('click', (e) => {
         const req = new navigationApi.AddWaypointRequest();
         const point = new commonApi.GeoPoint();
@@ -1574,7 +1587,7 @@ function setBoundingBox(box, centerPoint) {
     >
       <div v-if="streamNames.length === 0">
         <div class="camera">
-          <viam-base
+          <BaseComponent
             :base-name="base.name"
             :connected-camera="false"
             :crumbs="['base', base.name]"
@@ -1591,7 +1604,7 @@ function setBoundingBox(box, centerPoint) {
           :key="streamName"
           class="camera"
         >
-          <viam-base
+          <BaseComponent
             :base-name="base.name"
             :stream-name="streamName"
             :crumbs="['base', base.name]"
@@ -2267,7 +2280,7 @@ function setBoundingBox(box, centerPoint) {
         </div>
         <div
           id="map"
-          v-map-mounted
+          ref="map"
           class="mb-2"
         />
         <viam-input
