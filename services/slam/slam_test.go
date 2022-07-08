@@ -454,6 +454,8 @@ func TestCartographerDataProcess(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_lidar")
 	})
 
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+
 	closeOutSLAMService(t, name)
 }
 
