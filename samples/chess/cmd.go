@@ -236,7 +236,7 @@ func moveJointDelta(ctx context.Context, myArm arm.Arm, joint int, degAngle floa
 	if err != nil {
 		return err
 	}
-	joints.Degrees[joint] += degAngle
+	joints.Values[joint] += degAngle
 	return myArm.MoveToJointPositions(ctx, joints)
 }
 

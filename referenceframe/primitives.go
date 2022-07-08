@@ -36,8 +36,8 @@ func InputsToFloats(inputs []Input) []float64 {
 // JointPositionsToRadians converts the given positions into a slice
 // of radians.
 func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
-	n := make([]float64, len(jp.Degrees))
-	for idx, d := range jp.Degrees {
+	n := make([]float64, len(jp.Values))
+	for idx, d := range jp.Values {
 		n[idx] = utils.DegToRad(d)
 	}
 	return n
@@ -50,7 +50,7 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 	for idx, a := range radians {
 		n[idx] = utils.RadToDeg(a)
 	}
-	return &pb.JointPositions{Degrees: n}
+	return &pb.JointPositions{Values: n}
 }
 
 // InputEnabled is a standard interface for all things that interact with the frame system

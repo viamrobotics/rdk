@@ -282,8 +282,8 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Degrees))
-	for idx, d := range jp.Degrees {
+	n := make([]Input, len(jp.Values))
+	for idx, d := range jp.Values {
 		n[idx] = Input{d}
 	}
 	return n
@@ -295,7 +295,7 @@ func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPosition
 	for idx, a := range input {
 		n[idx] = a.Value
 	}
-	return &pb.JointPositions{Degrees: n}
+	return &pb.JointPositions{Values: n}
 }
 
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.
@@ -368,8 +368,8 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (rf *rotationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Degrees))
-	for idx, d := range jp.Degrees {
+	n := make([]Input, len(jp.Values))
+	for idx, d := range jp.Values {
 		n[idx] = Input{utils.DegToRad(d)}
 	}
 	return n
@@ -381,7 +381,7 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	for idx, a := range input {
 		n[idx] = utils.RadToDeg(a.Value)
 	}
-	return &pb.JointPositions{Degrees: n}
+	return &pb.JointPositions{Values: n}
 }
 
 // Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
@@ -453,8 +453,8 @@ func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (mf *mobile2DFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Degrees))
-	for idx, d := range jp.Degrees {
+	n := make([]Input, len(jp.Values))
+	for idx, d := range jp.Values {
 		n[idx] = Input{d}
 	}
 	return n
@@ -466,7 +466,7 @@ func (mf *mobile2DFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	for idx, a := range input {
 		n[idx] = a.Value
 	}
-	return &pb.JointPositions{Degrees: n}
+	return &pb.JointPositions{Values: n}
 }
 
 func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {

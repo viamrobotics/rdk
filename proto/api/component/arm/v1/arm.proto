@@ -60,10 +60,10 @@ message GetEndPositionResponse {
 }
 
 message JointPositions {
-  // A list of joint positions represented in degrees
+  // A list of joint positions. Rotations values are in degrees, translational values in mm.
   // The numbers are ordered spatially from the base toward the end effector
   // This is used in GetJointPositionsResponse and MoveToJointPositionsRequest
-  repeated double degrees = 1;
+  repeated double values = 1;
 }
 
 message GetJointPositionsRequest {
@@ -73,7 +73,7 @@ message GetJointPositionsRequest {
 
 message GetJointPositionsResponse {
   //a list JointPositions
-  JointPositions position_degs = 1;
+  JointPositions positions = 1;
 }
 
 message MoveToPositionRequest {
@@ -88,9 +88,9 @@ message MoveToPositionResponse {}
 message MoveToJointPositionsRequest {
   // Name of an arm
   string name = 1;
-  // A list of joint positions represented in degrees
-  // There should be 1 entry in the list per joint, ordered spatially from the base toward the end effector
-  JointPositions position_degs = 2;
+  // A list of joint positions
+  // There should be 1 entry in the list per joint DOF, ordered spatially from the base toward the end effector
+  JointPositions positions = 2;
 }
 
 message MoveToJointPositionsResponse {}

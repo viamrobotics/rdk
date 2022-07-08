@@ -60,7 +60,7 @@ type joint struct {
 	degMin, degMax float64
 }
 
-func (j joint) positionToDegrees(pos float64) float64 {
+func (j joint) positionToValues(pos float64) float64 {
 	pos = (pos - j.posMin) / (j.posMax - j.posMin) // now is 0 -> 1 in percent
 	pos *= (j.degMax - j.degMin)
 	pos += j.degMin
@@ -230,9 +230,9 @@ func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSta
 	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
-func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, curDegrees, gotoDegrees float64) error {
-	curPos := j.degreesToPosition(curDegrees)
-	gotoPos := j.degreesToPosition(gotoDegrees)
+func (a *armV1) moveJointToValues(ctx context.Context, m motor.Motor, j joint, curValues, gotoValues float64) error {
+	curPos := j.degreesToPosition(curValues)
+	gotoPos := j.degreesToPosition(gotoValues)
 
 	delta := gotoPos - curPos
 
@@ -248,7 +248,7 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.Joint
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 
-	if len(pos.Degrees) != 2 {
+	if len(pos.Values) != 2 {
 		return errors.New("need exactly 2 joints")
 	}
 
@@ -258,8 +258,8 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.Joint
 	}
 
 	err = multierr.Combine(
-		a.moveJointToDegrees(ctx, a.j0Motor, a.j0, cur.Degrees[0], pos.Degrees[0]),
-		a.moveJointToDegrees(ctx, a.j1Motor, a.j1, cur.Degrees[1], pos.Degrees[1]),
+		a.moveJointToValues(ctx, a.j0Motor, a.j0, cur.Values[0], pos.Values[0]),
+		a.moveJointToValues(ctx, a.j1Motor, a.j1, cur.Values[1], pos.Values[1]),
 	)
 	if err != nil {
 		return err
@@ -291,23 +291,23 @@ func (a *armV1) IsOn(ctx context.Context) (bool, error) {
 	return on0 || on1, multierr.Combine(err0, err1)
 }
 
-func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error) {
+func jointToValues(ctx context.Context, m motor.Motor, j joint) (float64, error) {
 	pos, err := m.GetPosition(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	return j.positionToDegrees(pos), nil
+	return j.positionToValues(pos), nil
 }
 
 // GetJointPositions TODO.
 func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.JointPositions, error) {
 	var e1, e2 error
-	joints := &componentpb.JointPositions{Degrees: make([]float64, 2)}
-	joints.Degrees[0], e1 = jointToDegrees(ctx, a.j0Motor, a.j0)
-	joints.Degrees[1], e2 = jointToDegrees(ctx, a.j1Motor, a.j1)
+	joints := &componentpb.JointPositions{Values: make([]float64, 2)}
+	joints.Values[0], e1 = jointToValues(ctx, a.j0Motor, a.j0)
+	joints.Values[1], e2 = jointToValues(ctx, a.j1Motor, a.j1)
 
-	joints.Degrees[1] = (joints.Degrees[1] - joints.Degrees[0])
+	joints.Values[1] = (joints.Values[1] - joints.Values[0])
 	return joints, multierr.Combine(e1, e2)
 }
 
