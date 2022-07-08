@@ -49,7 +49,7 @@ var joints = []jointConfig{
 	{2200, 180, 100, 0},
 }
 
-func (jc jointConfig) toDegrees(n int) float64 {
+func (jc jointConfig) toValues(n int) float64 {
 	d := float64(n) - jc.z
 	d /= jc.x
 	d *= jc.y
@@ -148,8 +148,8 @@ func (a *Dofbot) MoveToJointPositions(ctx context.Context, pos *componentpb.Join
 
 	a.muMove.Lock()
 	defer a.muMove.Unlock()
-	if len(pos.Degrees) > 5 {
-		return fmt.Errorf("yahboom wrong number of degrees got %d, need at most 5", len(pos.Degrees))
+	if len(pos.Values) > 5 {
+		return fmt.Errorf("yahboom wrong number of degrees got %d, need at most 5", len(pos.Values))
 	}
 
 	for j := 0; j < 100; j++ {
@@ -164,8 +164,8 @@ func (a *Dofbot) MoveToJointPositions(ctx context.Context, pos *componentpb.Join
 
 			movedAny := false
 
-			for i, d := range pos.Degrees {
-				delta := math.Abs(current.Degrees[i] - d)
+			for i, d := range pos.Values {
+				delta := math.Abs(current.Values[i] - d)
 
 				if delta < .5 {
 					continue
@@ -232,7 +232,7 @@ func (a *Dofbot) getJointPositionsInLock(ctx context.Context) (*componentpb.Join
 		if err != nil {
 			return nil, err
 		}
-		pos.Degrees = append(pos.Degrees, x)
+		pos.Values = append(pos.Values, x)
 	}
 
 	return &pos, nil
@@ -255,7 +255,7 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 	time.Sleep(3 * time.Millisecond)
 
 	res = (res >> 8 & 0xff) | (res << 8 & 0xff00)
-	return joints[joint-1].toDegrees(int(res)), nil
+	return joints[joint-1].toValues(int(res)), nil
 }
 
 // Stop is unimplemented for the dofbot.
@@ -364,12 +364,12 @@ func (a *Dofbot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal))
 }
 
 // Close closes the arm.

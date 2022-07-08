@@ -42,7 +42,7 @@ func NewArm(cfg config.Component) (arm.LocalArm, error) {
 	return &Arm{
 		Name:     name,
 		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}},
 		model:    model,
 	}, nil
 }
@@ -100,12 +100,12 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal))
 }
 
 // Close does nothing.

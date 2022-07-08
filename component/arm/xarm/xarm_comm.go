@@ -348,12 +348,12 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 			return err
 		}
 	}
-	to := referenceframe.JointPosToInputs(newPositions)
+	to := x.model.InputFromProtobuf(newPositions)
 	curPos, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
-	from := referenceframe.JointPosToInputs(curPos)
+	from := x.model.InputFromProtobuf(curPos)
 
 	diff := getMaxDiff(from, to)
 	nSteps := int((diff / float64(x.speed)) * x.moveHZ)

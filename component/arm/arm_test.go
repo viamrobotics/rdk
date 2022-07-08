@@ -121,7 +121,7 @@ func TestNamesFromRobot(t *testing.T) {
 func TestStatusValid(t *testing.T) {
 	status := &pb.Status{
 		EndPosition:    pose,
-		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
 	map1, err := protoutils.InterfaceToMap(status)
@@ -134,7 +134,7 @@ func TestStatusValid(t *testing.T) {
 		test.ShouldResemble,
 		map[string]interface{}{
 			"end_position":    map[string]interface{}{"x": 1.0, "y": 2.0, "z": 3.0},
-			"joint_positions": map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
+			"joint_positions": map[string]interface{}{"values": []interface{}{1.1, 2.2, 3.3}},
 			"is_moving":       true,
 		},
 	)
@@ -153,7 +153,7 @@ func TestCreateStatus(t *testing.T) {
 
 	status := &pb.Status{
 		EndPosition:    pose,
-		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
 
@@ -162,7 +162,7 @@ func TestCreateStatus(t *testing.T) {
 		return pose, nil
 	}
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return &pb.JointPositions{Degrees: status.JointPositions.Degrees}, nil
+		return &pb.JointPositions{Values: status.JointPositions.Values}, nil
 	}
 	injectArm.IsMovingFunc = func(context.Context) (bool, error) {
 		return true, nil
@@ -186,7 +186,7 @@ func TestCreateStatus(t *testing.T) {
 
 		status2 := &pb.Status{
 			EndPosition:    pose,
-			JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+			JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 			IsMoving:       false,
 		}
 		status1, err := arm.CreateStatus(context.Background(), injectArm)
@@ -260,6 +260,17 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm2, test.ShouldEqual, reconfArm1)
+
+	var actualArm2 arm.LocalArm = &mockLocal{Name: testArmName}
+	reconfArm3, err := arm.WrapWithReconfigurable(actualArm2)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfArm4, err := arm.WrapWithReconfigurable(reconfArm3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfArm4, test.ShouldResemble, reconfArm3)
+
+	_, ok := reconfArm4.(arm.LocalArm)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestReconfigurableArm(t *testing.T) {
@@ -304,6 +315,15 @@ func TestReconfigurableArm(t *testing.T) {
 	err = reconfArm3.Reconfigure(context.Background(), reconfArm1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm3, reconfArm1))
+
+	actualArm4 := &mock{Name: testArmName2}
+	reconfArm4, err := arm.WrapWithReconfigurable(actualArm4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfArm4, test.ShouldNotBeNil)
+
+	err = reconfArm3.Reconfigure(context.Background(), reconfArm4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfArm3, test.ShouldResemble, reconfArm4)
 }
 
 func TestStop(t *testing.T) {
