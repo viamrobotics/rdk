@@ -22,7 +22,6 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const keyboard = ref();
 const camera = ref(props.connectedCamera);
 const selectedValue = ref('NoCamera');
 const selectedItem = ref<'Keyboard' | 'Discrete'>('Keyboard');
@@ -173,17 +172,15 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
         class="flex h-auto px-4 pt-4"
       >
         <div class="grow">
-          <div>
-            <div class="column">
-              <p class="text-xs">
-                Movement Mode
-              </p>
-              <v-radio
-                options="Straight, Spin"
-                :selected="movementMode"
-                @input="setMovementMode($event.detail.value)"
-              />
-            </div>
+          <div class="column">
+            <p class="text-xs">
+              Movement Mode
+            </p>
+            <v-radio
+              options="Straight, Spin"
+              :selected="movementMode"
+              @input="setMovementMode($event.detail.value)"
+            />
           </div>
           <div
             :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
@@ -257,15 +254,14 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
               />
             </div>
             <div class="column pl-4">
-              <Range
-                id="angle"
-                :key="movementMode"
-                v-model="angle"
+              <v-slider
                 :min="0"
                 :max="360"
                 :step="90"
                 unit="°"
                 name="Angle"
+                :value="angle"
+                @input="angle = $event.detail.value"
               />
             </div>
           </div>

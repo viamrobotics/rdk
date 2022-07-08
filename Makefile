@@ -20,8 +20,7 @@ build-go: buf-go
 
 build-web: buf-web
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
-	cd web/frontend/dls && npm ci && npm run build:prod && \
-	cd .. && npm ci --audit=false && npm run build
+	cd web/frontend && npm ci --audit=false && npm run build
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \

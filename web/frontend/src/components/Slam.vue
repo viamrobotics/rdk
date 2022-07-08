@@ -79,6 +79,7 @@ interface Emits {
 }
 
 defineProps<Props>();
+
 const emit = defineEmits<Emits>();
 
 </script>

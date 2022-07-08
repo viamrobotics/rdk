@@ -241,14 +241,12 @@ const motorStop = () => {
           </div>
         </div>
         <div class="flex flex-row-reverse">
-          <div>
-            <v-button
-              icon="play-outline"
-              variant="success"
-              label="RUN"
-              @click="motorRun()"
-            />
-          </div>
+          <v-button
+            icon="play-outline"
+            variant="success"
+            label="RUN"
+            @click="motorRun()"
+          />
         </div>
       </div>
     </div>

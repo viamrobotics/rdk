@@ -5,7 +5,6 @@ import { computed } from 'vue';
 interface Props {
   path: string
   title?: string
-  description?: string
   size?: number | string
   rotate?: number | string
   color?: string
@@ -41,7 +40,6 @@ const isNumeric = (value: string) => {
     :fill="color"
   >
     <title v-if="title">{{ title }}</title>
-    <description v-if="description">{{ description }}</description>
     <g :transform="rotation">
       <path :d="path" />
     </g>
