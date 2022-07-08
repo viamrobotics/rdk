@@ -8,6 +8,5 @@
     "point-sep": 2,
     "obstacles":
         [
-            {"center": [0, 0], "dims": [2, 2]}
         ]
 }

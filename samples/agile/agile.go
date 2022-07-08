@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
@@ -26,7 +27,7 @@ import (
 var logger = golog.NewDevelopmentLogger("agile")
 
 const (
-	gridConversion = 500 // mm per grid square
+	gridConversion = 1000 // mm per grid square
 )
 
 func main() {
@@ -58,7 +59,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	// plan
-	waypoints, err := plan(ctx, config)
+	d, waypoints, err := plan(ctx, config)
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
@@ -68,37 +69,35 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		logger.Fatal(err.Error())
 	}
 
-	//   limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
+	limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
 
-	//   limo1 := limo.(base.Base)
+	limo1 := limo.(base.Base)
 
 	//   x1, y1, x2, y2, dir := 0., 0., 0., 0., 0.
 
-	//   start := make([]float64, 3)
-	//   next := make([]float64, 3)
+	start := make([]float64, 3)
+	next := make([]float64, 3)
 
-	//   for i, wp := range waypoints {
-	//     if i == 0 {
-	// 		for j:=0; j<3; j++ {
-	// 			start[j] = wp[j].Value
-	// 		}
-	//     } else {
-	// 		for j:=0; j<3; j++ {
-	// 			end[j] = wp[j].Value
-	// 		}
+	for i, wp := range waypoints {
+		if i == 0 {
+			for j := 0; j < 3; j++ {
+				start[j] = wp[j].Value
+			}
+		} else {
+			for j := 0; j < 3; j++ {
+				next[j] = wp[j].Value
+			}
 
-	// 	  _, dubinsPath, straight := motionplan.AllOptions(start, end, true)[0]
+			pathOptions := d.AllOptions(start, next, true)[0]
 
-	//       dir,err = MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
-	//   logger.Infof("degrees: %d", dir)
-	//   if err!=nil {
-	//     logger.Debug(err)
-	//     return err
-	//   }
+			dubinsPath := pathOptions.DubinsPath
+			straight := pathOptions.Straight
 
-	//   start = end
-	//     }
-	//   }
+			MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
+
+			start = next
+		}
+	}
 
 	return nil
 
@@ -110,7 +109,7 @@ func MoveToWaypointDubins(ctx context.Context, limo base.Base, path []float64, s
 
 	//second turn/straight
 	if straight {
-		limo.MoveStraight(ctx, int(path[2]*gridConversion), 40)
+		limo.MoveStraight(ctx, int(path[2]*gridConversion), 100)
 	} else {
 		limo.Spin(ctx, path[2]*180/math.Pi, 20)
 	}
@@ -157,13 +156,13 @@ type mobileRobotPlanConfig struct {
 	Obstacles []obstacle `json:"obstacles"`
 }
 
-func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, error) {
+func plan(ctx context.Context, config *mobileRobotPlanConfig) (motionplan.Dubins, [][]frame.Input, error) {
 	// parse input
 	start := frame.FloatsToInputs(config.Start)
 	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: config.Goal[0], Y: config.Goal[1], Z: 0}))
 	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: config.RobotDims[0], Y: config.RobotDims[1], Z: 1}, spatial.NewZeroPose())
 	if err != nil {
-		return nil, err
+		return motionplan.Dubins{}, nil, err
 	}
 	limits := []frame.Limit{{Min: config.Xlim[0], Max: config.Xlim[1]}, {Min: config.YLim[0], Max: config.YLim[1]}}
 	// TODO(rb) add logic to parse limit input to check for infinite limits
@@ -174,7 +173,7 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 			r3.Vector{X: o.Center[0], Y: o.Center[1], Z: 0}),
 			r3.Vector{X: o.Dims[0], Y: o.Dims[1], Z: 1})
 		if err != nil {
-			return nil, err
+			return motionplan.Dubins{}, nil, err
 		}
 		obstacleGeometries[strconv.Itoa(i)] = box
 	}
@@ -182,14 +181,14 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 	// build model
 	model, err := frame.NewMobile2DFrame("mobile-base", limits, robotGeometry)
 	if err != nil {
-		return nil, err
+		return motionplan.Dubins{}, nil, err
 	}
 
 	// setup planner
 	d := motionplan.Dubins{Radius: config.Radius, PointSeparation: config.PointSep}
 	dubins, err := motionplan.NewDubinsRRTMotionPlanner(model, 1, logger, d)
 	if err != nil {
-		return nil, err
+		return motionplan.Dubins{}, nil, err
 	}
 	opt := motionplan.NewDefaultPlannerOptions()
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(model, obstacleGeometries, map[string]spatial.Geometry{}))
@@ -197,10 +196,10 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 	// plan
 	waypoints, err := dubins.Plan(ctx, goal, start, opt)
 	if err != nil {
-		return nil, err
+		return motionplan.Dubins{}, nil, err
 	}
 
-	return waypoints, nil
+	return d, waypoints, nil
 }
 
 func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {
