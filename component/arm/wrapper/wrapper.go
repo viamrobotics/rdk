@@ -126,10 +126,10 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return wrapper.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return wrapper.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal), nil)
+	return wrapper.MoveToJointPositions(ctx, wrapper.model.ProtobufFromInput(goal), nil)
 }

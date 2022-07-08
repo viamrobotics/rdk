@@ -241,7 +241,7 @@ func TestConfigRemote(t *testing.T) {
 
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -485,7 +485,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			armStatus := &armpb.Status{
 				EndPosition:    &commonpb.Pose{},
-				JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+				JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
 			}
 			convMap := &armpb.Status{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -675,7 +675,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -1043,7 +1043,7 @@ func TestGetStatusRemote(t *testing.T) {
 	}
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
+		JointPositions: &armpb.JointPositions{Values: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
 	}
 	injectRobot1.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
