@@ -142,7 +142,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 			target = goalConfig
 		} else {
 			input2D := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
-			inputDubins := append(input2D, referenceframe.Input{rand.Float64() * 2 * math.Pi})
+			inputDubins := append(input2D, referenceframe.Input{Value: rand.Float64() * 2 * math.Pi})
 			target = &configuration{inputDubins}
 		}
 
@@ -205,7 +205,7 @@ func (mp *dubinsRRTMotionPlanner) CheckPath(
 	from, to *configuration,
 	opt *PlannerOptions,
 	dm *dubinOptionManager,
-	o dubinOption,
+	o DubinOption,
 ) bool {
 	start := configuration2slice(from)
 	end := configuration2slice(to)
@@ -219,9 +219,9 @@ func (mp *dubinsRRTMotionPlanner) CheckPath(
 		pose1 := spatial.NewPoseFromPoint(r3.Vector{X: p1[0], Y: p1[1], Z: 0})
 		pose2 := spatial.NewPoseFromPoint(r3.Vector{X: p2[0], Y: p2[1], Z: 0})
 		input1 := make([]referenceframe.Input, 2)
-		input1[0], input1[1] = referenceframe.Input{p1[0]}, referenceframe.Input{p1[1]}
+		input1[0], input1[1] = referenceframe.Input{Value: p1[0]}, referenceframe.Input{Value: p1[1]}
 		input2 := make([]referenceframe.Input, 2)
-		input2[0], input2[1] = referenceframe.Input{p2[0]}, referenceframe.Input{p2[1]}
+		input2[0], input2[1] = referenceframe.Input{Value: p2[0]}, referenceframe.Input{Value: p2[1]}
 
 		ci := &ConstraintInput{
 			StartPos: pose1,
@@ -255,7 +255,7 @@ type dubinOptionManager struct {
 
 type nodeToOption struct {
 	key 		*configuration
-	value 		dubinOption
+	value 		DubinOption
 }
   
 type nodeToOptionList []nodeToOption
@@ -269,7 +269,7 @@ func (dm *dubinOptionManager) selectOptions(
 	sample *configuration,
 	rrtMap map[*configuration]*configuration,
 	nbOptions int,
-) map[*configuration]dubinOption {
+) map[*configuration]DubinOption {
 	if len(rrtMap) > 1000 {
 		// If the map is large, calculate distances in parallel
 		return dm.parallelselectOptions(ctx, sample, rrtMap, nbOptions)
@@ -289,7 +289,7 @@ func (dm *dubinOptionManager) selectOptions(
 	sort.Sort(pl)
 
 	// Sort and choose best nbOptions options
-	var options map[*configuration]dubinOption
+	var options map[*configuration]DubinOption
 	for _, p := range pl[:nbOptions] {
 		options[p.key] = p.value
 	}
@@ -302,7 +302,7 @@ func (dm *dubinOptionManager) parallelselectOptions(
 	sample *configuration,
 	rrtMap map[*configuration]*configuration,
 	nbOptions int,
-) map[*configuration]dubinOption {
+) map[*configuration]DubinOption {
 	dm.ready = false
 	dm.startOptWorkers(ctx)
 	defer close(dm.optKeys)
@@ -336,7 +336,7 @@ func (dm *dubinOptionManager) parallelselectOptions(
 
 	// Sort and choose best nbOptions options
 	sort.Sort(pl)
-	var options map[*configuration]dubinOption
+	var options map[*configuration]DubinOption
 	for _, p := range pl[:nbOptions] {
 		options[p.key] = p.value
 	}
