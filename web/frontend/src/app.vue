@@ -1,7 +1,6 @@
 <script>
 
 // import ViamBase from './components/Base.vue'
-import Gamepad from './components/gamepad.vue'
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
@@ -44,6 +43,9 @@ import {
   BoardControlHelper,
   computeKeyboardBaseControls,
 } from './rc/control_helpers';
+
+import Gamepad from './components/gamepad.vue'
+import Slam from './components/slam.vue'
 
 const { webrtcHost } = window;
 
@@ -243,6 +245,7 @@ export default {
   components: {
     // ViamBase,
     Gamepad,
+    Slam,
   },
   data() {
     return {
@@ -274,7 +277,6 @@ export default {
       getPin: '',
       locationValue: '40.745297,-74.010916',
       imageMapTemp: '',
-      pcdMapTemp: null,
     };
   },
   async mounted() {
@@ -2385,17 +2387,12 @@ const mapReady = new Promise((resolve) => {
     />
 
     <!-- ******* SLAM *******  -->
-    <div
+    <Slam
       v-if="filterResources('rdk', 'service', 'slam').length > 0"
-      class="slam pb-8"
-    >
-      <Slam
-        :image-map="imageMapTemp"
-        :pcd-map="pcdMapTemp"
-        @refresh-image-map="viewSLAMImageMap"
-        @refresh-pcd-map="viewSLAMPCDMap"
-      />
-    </div>
+      :image-map="imageMapTemp"
+      @refresh-image-map="viewSLAMImageMap"
+      @refresh-pcd-map="viewSLAMPCDMap"
+    />
   </div>
 </template>
 
