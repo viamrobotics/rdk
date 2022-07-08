@@ -11,12 +11,13 @@
     "@viamrobotics/rpc": "0.1.20",
     "@vitejs/plugin-vue": "^2.3.3",
     "@vueuse/core": "^8.9.0",
+    "eslint-plugin-tailwindcss": "^3.6.0",
     "google-protobuf": "^3.14.0",
     "rollup-plugin-copy": "^3.4.0",
     "three": "^0.137.0",
     "vite": "^2.9.13",
     "vue": "^3.2.37",
-    "vue-popperjs": "^2.3.0"
+    "vue3-popper": "^1.5.0"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.30.5",

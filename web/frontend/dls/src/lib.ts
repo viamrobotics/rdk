@@ -23,7 +23,6 @@ import ViamBase from "./components/Base.vue";
 import KeyboardInput from "./components/KeyboardInput.vue";
 import Camera from "./components/Camera.vue";
 import ViamSelect from "./components/ViamSelect.vue";
-import Popper from "vue-popperjs";
 import NumberInput from "./components/NumberInput.vue";
 import Slam from "./components/Slam.vue";
 import ClickOutside from "./directives/clickOutside";
@@ -47,7 +46,6 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   KeyboardInput,
   Camera,
   ViamSelect,
-  Popper,
   NumberInput,
   Slam,
 };

@@ -208,7 +208,6 @@ import {
 import Tabs from "./Tabs.vue";
 import Tab from "./Tab.vue";
 import RadioButtons from "./RadioButtons.vue";
-import "vue-popperjs/dist/vue-popper.css";
 import ViamButton from "./Button.vue";
 
 @Component({
