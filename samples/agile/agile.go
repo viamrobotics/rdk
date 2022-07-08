@@ -25,6 +25,9 @@ import (
 
 var logger = golog.NewDevelopmentLogger("agile")
 
+const (
+	gridConversion		= 		500			// mm per grid square
+)
 
 
 func main() {
@@ -72,28 +75,50 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 //   x1, y1, x2, y2, dir := 0., 0., 0., 0., 0.
 
+  start := make([]float64, 3)
+  next := make([]float64, 3)
 
-//   for i, wp := range waypoints {
-//     if i == 0 {
-//       x1 = wp[0].Value
-//       y1 = wp[1].Value
-//     } else {
-//       x2 = wp[0].Value
-//       y2 = wp[1].Value
-//       dir,err = MoveToWaypoint(ctx, limo1, x1, y1, x2, y2, dir)
-//       logger.Infof("degrees: %d", dir)
-//       if err!=nil {
-//         logger.Debug(err)
-//         return err
-//       }
+  for i, wp := range waypoints {
+    if i == 0 {
+		for j:=0; j<3; j++ {
+			start[j] = wp[j].Value
+		}
+    } else {
+		for j:=0; j<3; j++ {
+			end[j] = wp[j].Value
+		}
 
-//       x1, y1 = x2, y2
-//     }
-//   }
+	  _, dubinsPath, straight := motionplan.AllOptions(start, end, true)[0]
+	  
 
-  MoveToWaypoint(ctx, limo1, -1, -1, 0, 0, 0)
+      dir,err = MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
+    //   logger.Infof("degrees: %d", dir)
+    //   if err!=nil {
+    //     logger.Debug(err)
+    //     return err
+    //   }
+
+      start = end
+    }
+  }
+
   return nil
   
+}
+
+func MoveToWaypointDubins(ctx context.Context, limo base.Base, path []float64, straight bool) {
+	//first turn
+	base.Spin(ctx, int(path[0]*180/math.Pi), 20)		//convert to degrees
+
+	//second turn/straight
+	if straight {
+		base.MoveStraight(ctx, path[2]*gridConversion, 40)	
+	} else {
+		base.Spin(ctx, int(path[2]*180/math.Pi), 20)
+	}
+
+	//last turn
+	base.Spin(ctx, int(path[1]*180/math.Pi), 40)
 }
 
 func MoveToWaypoint(ctx context.Context, limo base.Base, x1 float64, y1 float64, x2 float64, y2 float64, dir float64) (float64, error) {
@@ -173,6 +198,7 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 	if err != nil {
 		return nil, err
 	}
+
 	return waypoints, nil
 }
 
@@ -192,10 +218,10 @@ func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {
 
 	// assert correctness of json
 	wrongDimsError := errors.New("need array of floats to have exactly 2 elements")
-	if len(config.Start) != 2 {
+	if len(config.Start) != 3 {
 		return nil, errors.Wrap(wrongDimsError, "config error in start field")
 	}
-	if len(config.Goal) != 2 {
+	if len(config.Goal) != 3 {
 		return nil, errors.Wrap(wrongDimsError, "config error in start field")
 	}
 	if len(config.Xlim) != 2 {
@@ -208,7 +234,7 @@ func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {
 		return nil, errors.Wrap(wrongDimsError, "config error in robot-dims field")
 	}
 	for _, o := range config.Obstacles {
-		if len(o.Center) != 2 {
+		if len(o.Center) != 3 {
 			return nil, errors.Wrap(wrongDimsError, "config error in obstacles.center field")
 		}
 		if len(o.Dims) != 2 {
