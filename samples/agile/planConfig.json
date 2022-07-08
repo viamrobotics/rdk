@@ -1,9 +1,11 @@
 {
-    "start": [-2, -2],
-    "goal": [2, 2],
+    "start": [-2, -2, 0],
+    "goal": [2, 2, 0],
     "robot-dims": [1, 1],
     "xlim": [-10, 10],
     "ylim": [-10, 10],
+    "radius": 0.6,
+    "point-sep": 2,
     "obstacles":
         [
         ]

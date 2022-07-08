@@ -74,7 +74,7 @@ func (mp *dubinsRRTMotionPlanner) Plan(ctx context.Context,
 	solutionChan := make(chan *planReturn, 1)
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed)
+		seedPos, err := mp.frame.Transform(seed[:2])
 		if err != nil {
 			solutionChan <- &planReturn{err: err}
 			return nil, err
@@ -124,7 +124,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	pathLenMap[seedConfig] = 0
 
 	goalInputs := make([]referenceframe.Input, 3)
-	goalInputs[0], goalInputs[1], goalInputs[2] = referenceframe.Input{goal.X}, referenceframe.Input{goal.Y}, referenceframe.Input{goal.Theta}
+	goalInputs[0], goalInputs[1], goalInputs[2] = referenceframe.Input{Value: goal.X}, referenceframe.Input{Value: goal.Y}, referenceframe.Input{Value: goal.Theta}
 	goalConfig := &configuration{goalInputs}
 
 	dm := &dubinOptionManager{nCPU: mp.nCPU, d: mp.d}

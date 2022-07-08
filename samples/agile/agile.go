@@ -16,7 +16,7 @@ import (
   utilsrdk "go.viam.com/rdk/utils"
   "go.viam.com/utils/rpc"
   "go.viam.com/rdk/component/base"
-  "go.viam.com/rdk/resource"
+//   "go.viam.com/rdk/resource"
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -66,9 +66,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		logger.Fatal(err.Error())
 	}
 
-  limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
+//   limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
 
-  limo1 := limo.(base.Base)
+//   limo1 := limo.(base.Base)
 
 //   x1, y1, x2, y2, dir := 0., 0., 0., 0., 0.
 
@@ -91,7 +91,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 //     }
 //   }
 
-  MoveToWaypoint(ctx, limo1, -1, -1, 0, 0, 0)
+//   MoveToWaypoint(ctx, limo1, -1, -1, 0, 0, 0)
   return nil
   
 }
@@ -125,6 +125,8 @@ type mobileRobotPlanConfig struct {
 
 	// robot params
 	RobotDims []float64 `json:"robot-dims"`
+	Radius float64 `json:"radius"`
+	PointSep float64 `json:"point-sep"`
 
 	// map definition
 	Xlim      []float64  `json:"xlim"`
@@ -161,7 +163,8 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 	}
 
 	// setup planner
-	cbert, err := motionplan.NewCBiRRTMotionPlanner(model, 1, logger)
+	d := motionplan.Dubins{Radius: config.Radius, PointSeparation: config.PointSep}
+	dubins, err := motionplan.NewDubinsRRTMotionPlanner(model, 1, logger, d)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +172,7 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(model, obstacleGeometries, map[string]spatial.Geometry{}))
 
 	// plan
-	waypoints, err := cbert.Plan(ctx, goal, start, opt)
+	waypoints, err := dubins.Plan(ctx, goal, start, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -192,11 +195,12 @@ func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {
 
 	// assert correctness of json
 	wrongDimsError := errors.New("need array of floats to have exactly 2 elements")
-	if len(config.Start) != 2 {
-		return nil, errors.Wrap(wrongDimsError, "config error in start field")
+	wrongDimsError3 := errors.New("need array of floats to have exactly 3 elements")
+	if len(config.Start) != 3 {
+		return nil, errors.Wrap(wrongDimsError3, "config error in start field")
 	}
-	if len(config.Goal) != 2 {
-		return nil, errors.Wrap(wrongDimsError, "config error in start field")
+	if len(config.Goal) != 3 {
+		return nil, errors.Wrap(wrongDimsError3, "config error in start field")
 	}
 	if len(config.Xlim) != 2 {
 		return nil, errors.Wrap(wrongDimsError, "config error in xlim field")
