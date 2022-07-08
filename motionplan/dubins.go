@@ -234,22 +234,20 @@ func (d *Dubins) GeneratePointsStraight(start []float64, end []float64, path []f
 
 	//generate all points
 	// points_len := int(total/d.PointSeparation)
-	var points = make([][]float64, 0)
+	points := make([][]float64, 0)
 	x := 0.0
-	ind := 0
 	for x < total {
 		if x < math.Abs(path[0])*d.Radius {
-			points[ind] = d.circle_arc(start, path[0], center_0, x)
+			points = append(points, d.circle_arc(start, path[0], center_0, x))
 		} else if x > total-math.Abs(path[1])*d.Radius {
-			points[ind] = d.circle_arc(end, path[1], center_2, x-total)
+			points = append(points, d.circle_arc(end, path[1], center_2, x-total))
 		} else {
 			coeff := (x - math.Abs(path[0])*d.Radius) / dist_straight
-			points[ind] = d.add(d.mul(fin, coeff), d.mul(ini, (1-coeff)))
+			points = append(points, d.add(d.mul(fin, coeff), d.mul(ini, (1-coeff))))
 		}
 		x += d.PointSeparation
-		ind++
 	}
-	points[ind] = end[:2]
+	points = append(points, end[:2])
 	return points
 }
 
@@ -274,14 +272,13 @@ func (d *Dubins) GeneratePointsCurve(start []float64, end []float64, path []floa
 
 	//generate all points
 	// points_len := int(total/d.PointSeparation)
-	var points = make([][]float64, 0)
+	points := make([][]float64, 0)
 	x := 0.0
-	ind := 0
 	for x < total {
 		if x < math.Abs(path[0])*d.Radius {
-			points[ind] = d.circle_arc(start, path[0], center_0, x)
+			points = append(points, d.circle_arc(start, path[0], center_0, x))
 		} else if x > total-math.Abs(path[1])*d.Radius {
-			points[ind] = d.circle_arc(end, path[1], center_2, x-total)
+			points = append(points, d.circle_arc(end, path[1], center_2, x-total))
 		} else {
 			angle := psi_0
 			if path[0] > 0 {
@@ -290,12 +287,11 @@ func (d *Dubins) GeneratePointsCurve(start []float64, end []float64, path []floa
 				angle -= (x/d.Radius - math.Abs(path[0]))
 			}
 			sides := []float64{math.Cos(angle), math.Sin(angle)}
-			points[ind] = d.add(center_1, d.mul(sides, d.Radius))
+			points = append(points, d.add(center_1, d.mul(sides, d.Radius)))
 		}
 		x += d.PointSeparation
-		ind++
 	}
-	points[ind] = end[:2]
+	points = append(points, end[:2])
 	return points
 }
 
@@ -345,7 +341,7 @@ func (d *Dubins) ortho(vect []float64) []float64 {
 
 // element wise subtraction
 func (d *Dubins) sub(vect1 []float64, vect2 []float64) []float64 {
-	var subv []float64
+	subv := make([]float64, len(vect1))
 	for i, _ := range vect1 {
 		subv[i] = vect1[i] - vect2[i]
 	}
@@ -354,7 +350,7 @@ func (d *Dubins) sub(vect1 []float64, vect2 []float64) []float64 {
 
 // element wise addition
 func (d *Dubins) add(vect1 []float64, vect2 []float64) []float64 {
-	var addv []float64
+	addv := make([]float64, len(vect1))
 	for i, _ := range vect1 {
 		addv[i] = vect1[i] + vect2[i]
 	}
@@ -363,7 +359,7 @@ func (d *Dubins) add(vect1 []float64, vect2 []float64) []float64 {
 
 // element wise multiplication by a scalar
 func (d *Dubins) mul(vect1 []float64, scalar float64) []float64 {
-	var mulv []float64
+	mulv := make([]float64, len(vect1))
 	for i, x := range vect1 {
 		mulv[i] = x * scalar
 	}

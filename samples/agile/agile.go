@@ -236,7 +236,7 @@ func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {
 		return nil, errors.Wrap(wrongDimsError, "config error in robot-dims field")
 	}
 	for _, o := range config.Obstacles {
-		if len(o.Center) != 3 {
+		if len(o.Center) != 2 {
 			return nil, errors.Wrap(wrongDimsError, "config error in obstacles.center field")
 		}
 		if len(o.Dims) != 2 {
