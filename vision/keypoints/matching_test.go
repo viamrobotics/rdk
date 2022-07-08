@@ -172,7 +172,8 @@ func TestOrbMatching(t *testing.T) {
 	orb2, _, err = sortDescriptorsByPoint(orb2, kps2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	matches := MatchKeypoints(orb1, orb2, matchingConf, logger)
-	test.That(t, len(matches.Indices), test.ShouldEqual, 302)
+	test.That(t, matches.Indices[0].Idx1, test.ShouldEqual, 822)
+	test.That(t, matches.Indices[0].Idx2, test.ShouldEqual, 714)
 }
 
 func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger) (Descriptors, KeyPoints, error) {
