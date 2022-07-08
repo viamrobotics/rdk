@@ -71,7 +71,7 @@ test-go:
 	./etc/test.sh
 
 test-web: build-web
-	cd web/frontend/dls && npm run test:unit
+	cd web/frontend && npm run test:unit
 
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
