@@ -329,7 +329,7 @@ func TestSVAvsDH(t *testing.T) {
 
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < numTests; i++ {
-		joints := frame.InputsToJointPos(frame.RandomFrameInputs(mSVA, seed))
+		joints := mSVA.ProtobufFromInput(frame.RandomFrameInputs(mSVA, seed))
 
 		posSVA, err := ComputePosition(mSVA, joints)
 		test.That(t, err, test.ShouldBeNil)

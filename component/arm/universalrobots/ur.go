@@ -344,12 +344,12 @@ func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return ua.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs TODO.
 func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return ua.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal))
 }
 
 // AddToLog TODO.

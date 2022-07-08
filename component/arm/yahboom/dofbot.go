@@ -364,12 +364,12 @@ func (a *Dofbot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal))
 }
 
 // Close closes the arm.

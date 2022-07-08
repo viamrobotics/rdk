@@ -24,7 +24,7 @@ func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (*co
 		)
 	}
 
-	pose, err := model.Transform(referenceframe.JointPosToInputs(joints))
+	pose, err := model.Transform(model.InputFromProtobuf(joints))
 	if err != nil {
 		return nil, err
 	}

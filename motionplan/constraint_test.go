@@ -157,8 +157,8 @@ func TestLineFollow(t *testing.T) {
 	opt.AddConstraint("whiteboard", validFunc)
 	ok, lastGood := opt.CheckConstraintPath(
 		&ConstraintInput{
-			StartInput: frame.JointPosToInputs(mp1),
-			EndInput:   frame.JointPosToInputs(mp2),
+			StartInput: sf.InputFromProtobuf(mp1),
+			EndInput:   sf.InputFromProtobuf(mp2),
 			Frame:      sf,
 		},
 		1,

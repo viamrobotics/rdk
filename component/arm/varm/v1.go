@@ -329,11 +329,11 @@ func (a *armV1) CurrentInputs(ctx context.Context) ([]referenceframe.Input, erro
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 func (a *armV1) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal))
 }
 
 func computeInnerJointAngle(j0, j1 float64) float64 {
