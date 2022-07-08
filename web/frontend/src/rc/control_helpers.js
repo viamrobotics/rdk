@@ -10,9 +10,9 @@ import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 window.rcDebug = false;
 
 const rcLogConditionally = (req) => {
-	if (rcDebug) {
-		console.log('gRPC call:', req);
-	}
+  if (rcDebug) {
+    console.log('gRPC call:', req);
+  }
 };
 
 // Base control helpers
@@ -38,13 +38,13 @@ export const BaseControlHelper = {
   },
 
   setPower(name, linearVector, angularVector, cb) {
-      const req = new baseApi.SetPowerRequest();
-      req.setName(name);
-      req.setLinear(linearVector);
-      req.setAngular(angularVector);
+    const req = new baseApi.SetPowerRequest();
+    req.setName(name);
+    req.setLinear(linearVector);
+    req.setAngular(angularVector);
 
-      rcLogConditionally(req);
-      window.baseService.setPower(req, {}, cb);
+    rcLogConditionally(req);
+    window.baseService.setPower(req, {}, cb);
   },
 
   setVelocity(name, linearVector, angularVector, cb) {
@@ -64,22 +64,22 @@ export const BaseControlHelper = {
 * Output: linearY and angularZ throttle
 */
 export const computeKeyboardBaseControls = (keysPressed) => {
-    let linear = 0;
-    let angular = 0;
+  let linear = 0;
+  let angular = 0;
 
-    if (keysPressed.forward) {
-        linear = 1;
-    } else if (keysPressed.backward) {
-        linear = -1;
-    } 
+  if (keysPressed.forward) {
+    linear = 1;
+  } else if (keysPressed.backward) {
+    linear = -1;
+  } 
     
-    if (keysPressed.right) {
-        angular = -1;
-    } else if (keysPressed.left) {
-        angular = 1;
-    } 
+  if (keysPressed.right) {
+    angular = -1;
+  } else if (keysPressed.left) {
+    angular = 1;
+  } 
     
-    return {linear, angular};
+  return { linear, angular };
 };
 
 // Simple motor control helpers
