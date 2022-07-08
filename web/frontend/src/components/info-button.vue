@@ -1,3 +1,16 @@
+<script setup lang="ts">
+import Popper from "vue-popperjs";
+import Icon from "./icon.vue";
+
+interface Props {
+  iconPath: string
+  infoRows?: string[]
+}
+
+defineProps<Props>()
+
+</script>
+
 <template>
   <Popper
     trigger="hover"
@@ -15,7 +28,7 @@
             data-cy="viam-info-row-item"
             class="text-left"
             :key="i"
-            v-for="(line, i) in infoRows"
+            v-for="(line, i) in infoRows ?? []"
           >
             {{ line }}
           </li>
@@ -26,26 +39,11 @@
     </div>
 
     <button data-cy="viam-info-button-container" slot="reference">
-      <ViamIcon color="grey" :path="iconPath"></ViamIcon>
+      <Icon color="grey" :path="iconPath" />
     </button>
   </Popper>
 </template>
-<script lang="ts">
-import Popper from "vue-popperjs";
-import { Component, Prop, Vue } from "vue-property-decorator";
-import ViamIcon from "./ViamIcon.vue";
 
-@Component({
-  components: {
-    Popper,
-    ViamIcon,
-  },
-})
-export default class ViamInfoButton extends Vue {
-  @Prop({ default: () => [], type: Array }) infoRows!: Array<string>;
-  @Prop({ required: true, type: String }) iconPath!: string;
-}
-</script>
 <style>
 .viam-info-popper .popper__arrow {
   display: none;

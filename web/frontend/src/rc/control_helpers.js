@@ -7,6 +7,14 @@
 import boardApi from '../gen/proto/api/component/board/v1/board_pb.esm';
 import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 
+window.rcDebug = false;
+
+const rcLogConditionally = (req) => {
+	if (rcDebug) {
+		console.log('gRPC call:', req);
+	}
+};
+
 // Base control helpers
 export const BaseControlHelper = {
   moveStraight(name, distance_mm, speed_mm_s, cb) {

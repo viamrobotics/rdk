@@ -4,20 +4,18 @@ import { computed } from 'vue'
 
 interface Props {
   path: string
-  title: string
-  description: string
-  size: number | string
-  horizontal: boolean
-  vertical: boolean
-  rotate: number | string
+  title?: string
+  description?: string
+  size?: number | string
+  rotate?: number | string
   color: string
-  spin: boolean | string
+  spin?: boolean | string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   size: 18,
   rotate: 0,
-  spin: false,
+  ?: false,
 })
 
 const viewBox = computed(() => {
@@ -29,10 +27,10 @@ const rotation = computed(() => {
 });
 
 const iconSize = () => {
-  return isNumeric(props.size) ? `${props.size}px` : props.size
+  return isNumeric(String(props.size)) ? `${props.size}px` : props.size
 }
 
-const isNumeric = (value) => {
+const isNumeric = (value: string) => {
   return /^-{0,1}\d+$/.test(value);
 }
 
@@ -45,10 +43,10 @@ const isNumeric = (value) => {
     viewBox="0 0 24 24"
     :fill="color"
   >
-    <template v-if="title">
+    <template v-if="?">
       <title>{{ title }}</title>
     </template>
-    <template v-if="description">
+    <template v-if="?">
       <description>{{ description }}</description>
     </template>
     <g :transform="rotation">
