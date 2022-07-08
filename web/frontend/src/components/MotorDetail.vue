@@ -38,15 +38,14 @@
             <div class="grid">
               <div class="column">
                 <p class="text-xs pb-2">Set Power</p>
-                <RadioButtons
+                <v-radio
                   :options="
                     motorStatus.positionReporting
-                      ? ['Go', 'Go For', 'Go To']
-                      : ['Go']
+                      ? 'Go, Go For, Go To'
+                      : 'Go'
                   "
-                  defaultOption="Go"
-                  :disabledOptions="[]"
-                  v-on:selectOption="setMovementType($event)"
+                  :selected="movementType"
+                  @input="setMovementType($event.detail.value)"
                 />
               </div>
               <div class="flex pt-4" v-if="movementType === 'Go To'">
@@ -105,11 +104,10 @@
                 </ViamInput>
                 <div class="column pr-4">
                   <p class="text-xs mb-1">Direction of Rotation</p>
-                  <RadioButtons
-                    :options="['Forwards', 'Backwards']"
-                    defaultOption="Forwards"
-                    :disabledOptions="[]"
-                    v-on:selectOption="setDirection($event)"
+                  <v-radio
+                    options="Forwards, Backwards"
+                    :selected="direction === 1 ? 'Forwards' : 'Backwards'"
+                    @input="setDirection($event.detail.value)"
                   />
                 </div>
                 <ViamInput
@@ -136,11 +134,10 @@
                 </div>
                 <div class="column pr-4">
                   <p class="text-xs pb-2 pt-1">Direction of Rotation</p>
-                  <RadioButtons
-                    :options="['Forwards', 'Backwards']"
-                    defaultOption="Forwards"
-                    :disabledOptions="[]"
-                    v-on:selectOption="setDirection($event)"
+                  <v-radio
+                    options="Forwards, Backwards"
+                    :selected="direction === 1 ? 'Forwards' : 'Backwards'"
+                    @input="setDirection($event.detail.value)"
                   />
                 </div>
                 <Range
@@ -193,7 +190,6 @@ import {
 } from "@mdi/js";
 import Tabs from "./Tabs.vue";
 import Tab from "./Tab.vue";
-import RadioButtons from "./RadioButtons.vue";
 import ViamButton from "./Button.vue";
 import { Status } from "proto/api/component/motor/v1/motor_pb";
 
@@ -202,7 +198,6 @@ import { Status } from "proto/api/component/motor/v1/motor_pb";
     Collapse,
     Breadcrumbs,
     ViamIcon,
-    RadioButtons,
     Tabs,
     Tab,
     ViamButton,
