@@ -28,6 +28,7 @@
   'api/component/gripper/v1/gripper_pb_service',
   'api/component/imu/v1/imu_pb',
   'api/component/imu/v1/imu_pb_service',
+  'api/component/inputcontroller/v1/input_controller_pb',
   'api/component/inputcontroller/v1/input_controller_pb_service',
   'api/component/motor/v1/motor_pb',
   'api/component/motor/v1/motor_pb_service',
