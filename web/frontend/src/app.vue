@@ -51,6 +51,13 @@ import Slam from './components/slam.vue';
 
 const { webrtcHost } = window;
 
+let mapReadyResolve;
+const mapReady = new Promise((resolve) => {
+  mapReadyResolve = resolve;
+});
+
+window.initMap = () => mapReadyResolve();
+
 const rtcConfig = {
   iceServers: [
     {
@@ -226,16 +233,6 @@ function fixServoStatus(old) {
 }
 
 export default {
-  directives: {
-    // TODO(APP-82): replace with vue component after naveed work done
-    mapMounted() {
-      if (this.mapOnce) {
-        return;
-      }
-      this.mapOnce = true;
-      this.initNavigation();
-    },
-  },
   components: {
     // ViamBase,
     Camera,
@@ -285,6 +282,7 @@ export default {
 
     this.imuRefresh();
     this.queryMetadata();
+    this.initNavigation();
   },
   methods: {
     fixRawStatus(name, status) {
@@ -1519,13 +1517,6 @@ function setBoundingBox(box, centerPoint) {
   pcdGlobal.cube = cube;
   pcdGlobal.scene.add(cube);
 }
-
-window.initMap = () => mapReadyResolve();
-
-let mapReadyResolve;
-const mapReady = new Promise((resolve) => {
-  mapReadyResolve = resolve;
-});
 
 </script>
 

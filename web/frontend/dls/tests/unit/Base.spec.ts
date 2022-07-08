@@ -3,7 +3,6 @@ import Base from "@/components/Base.vue";
 import ViamSelect from "@/components/ViamSelect.vue";
 import ViamInput from "@/components/ViamInput.vue";
 import Collapse from "@/components/Collapse.vue";
-import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import ViamIcon from "@/components/ViamIcon.vue";
 import Tabs from "@/components/Tabs.vue";
 import Tab from "@/components/Tab.vue";
@@ -24,7 +23,6 @@ describe("Base", () => {
       },
       components: {
         Collapse,
-        Breadcrumbs,
         ViamIcon,
         Tabs,
         Tab,
@@ -51,7 +49,6 @@ describe("Base", () => {
       },
       components: {
         Collapse,
-        Breadcrumbs,
         ViamIcon,
         Tabs,
         Tab,
@@ -90,7 +87,6 @@ describe("Base", () => {
       },
       components: {
         Collapse,
-        Breadcrumbs,
         ViamIcon,
         Tabs,
         Tab,
@@ -123,7 +119,6 @@ describe("Base", () => {
       },
       components: {
         Collapse,
-        Breadcrumbs,
         ViamIcon,
         Tabs,
         Tab,
@@ -157,7 +152,6 @@ describe("Base", () => {
       },
       components: {
         Collapse,
-        Breadcrumbs,
         ViamIcon,
         Tabs,
         Tab,
