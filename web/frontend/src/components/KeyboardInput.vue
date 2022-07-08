@@ -1,40 +1,77 @@
+<template>
+  <div class="h-23 flex flex-col">
+    <div class="flex pb-4">
+      <v-switch
+        class="pr-4"
+        :value="isActive ? 'on' : 'off'"
+        @input="toggleKeyboard()"
+      />
+      <h3 v-if="isActive">
+        Keyboard active
+      </h3>
+      <h3 v-else>
+        Keyboard disabled
+      </h3>
+    </div>
+    <div
+      v-for="(lineKeys, index) in keysLayout"
+      :key="index"
+      class="flex flex-row justify-center"
+    >
+      <v-button
+        v-for="key in lineKeys"
+        :key="key"
+        icon="check"
+        :label="keyLetters[key]"
+        class="w-15 m-1 h-10 border-gray-500 bg-white dark:bg-gray-900"
+        :class="{
+          'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 keyboard-button-pressed':
+            pressedKeys[key],
+          'keyboard-button-not-pressed': !pressedKeys[key],
+        }"
+        @pointerdown="setKeyPressed(key, true)"
+        @pointerup="setKeyPressed(key, false)"
+      >
+        <Icon :path="keyIcons[key]">
+          Check
+        </Icon>
+      </v-button>
+    </div>
+  </div>
+</template>
 <script setup lang="ts">
+
 import { ref } from 'vue';
-import { throttle, debounce } from "lodash";
-import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from "@mdi/js";
-// import ViamIcon from "./icon.vue";
+import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from '@mdi/js';
+import Icon from './icon.vue';
 
 interface Emits {
-  (event: "keyboard-ctl"): void
+  (event: 'keyboard-ctl', pressedKeys: unknown): void
 }
 
-const emit = defineEmits<Emits>()
+const emit = defineEmits<Emits>();
 
-const PressedKeysMap = {
-  "87": "forward",
-  "83": "backward",
-  "65": "left",
-  "68": "right",
+const pressedKeysMap = {
+  87: 'forward',
+  83: 'backward',
+  65: 'left',
+  68: 'right',
 } as const;
 
-// TODO: remove debounce if not needed
-const inputDelay = 0;
-const eventsDelay = 0;
-
-const pressedKeys = {
+const pressedKeys = ref({
   forward: false,
   left: false,
   backward: false,
   right: false,
-} as const;
+});
 
 const isActive = ref(false);
 
 const keyLetters = {
-  forward: "W",
-  left: "A",
-  backward: "S",
-  right: "D",
+  forward: 'W',
+  left: 'A',
+  backward: 'S',
+  right: 'D',
 };
 
 const keyIcons = {
@@ -44,107 +81,53 @@ const keyIcons = {
   right: mdiReload,
 };
 
-  //for template section
-const keysLayout = [["forward"], ["left", "backward", "right"]];
+const keysLayout = [['forward'], ['left', 'backward', 'right']] as const;
 
-const sendKeysState = debounce(() => {
-  emit("keyboard-ctl");
-}, inputDelay);
-
-const emitEvent = throttle((eventName: string) => {
-  this.emitEventInstantly(eventName);
-}, eventsDelay);
-
-const emitEventInstantly = (eventName: string) => {
-  emit(eventName, this.pressedKeys);
-};
-  
-const setKeyPressed = (key: string, value = true) => {
-  this.pressedKeys[key] = value;
-  this.sendKeysState();
+const setKeyPressed = (key: keyof typeof pressedKeys.value, value = true) => {
+  pressedKeys.value[key] = value;
+  emit('keyboard-ctl', pressedKeys.value);
 };
 
 const onUseKeyboardNav = (event: KeyboardEvent) => {
-  const key = PressedKeysMap[event.keyCode];
-  if (!key) return;
-  this.setKeyPressed(key, event.type === "keydown");
+  const key = pressedKeysMap[event.keyCode];
+
+  if (!key) {
+    return; 
+  }
+
+  setKeyPressed(key, event.type === 'keydown');
   event.preventDefault();
 };
 
 const toggleKeyboard = () => {
-  if (this.const  === true) {
-    this.removeKeyboardListeners();
+  if (isActive.value) {
+    removeKeyboardListeners();
   } else {
-    this.addKeyboardListeners();
+    addKeyboardListeners();
   }
-}
+};
 
 const addKeyboardListeners = () => {
   isActive.value = true;
-  window.addEventListener("keydown", this.onUseKeyboardNav, false);
-  window.addEventListener("keyup", this.onUseKeyboardNav, false);
-}
+  window.addEventListener('keydown', onUseKeyboardNav, false);
+  window.addEventListener('keyup', onUseKeyboardNav, false);
+};
 
 const removeKeyboardListeners = () => {
   isActive.value = false;
-  window.removeEventListener("keydown", this.onUseKeyboardNav);
-  window.removeEventListener("keyup", this.onUseKeyboardNav);
-}
+  window.removeEventListener('keydown', onUseKeyboardNav);
+  window.removeEventListener('keyup', onUseKeyboardNav);
+};
 
 </script>
 
-<template>
-  <div class="flex flex-col h-23">
-    <div class="flex pb-4">
-      <v-switch
-        :value="isActive ? 'on' : 'off'"
-        class="pr-4"
-        @change="toggleKeyboard()"
-      />
-      <h3 v-if="isActive">{{ isActive ? 'Keyboard active' : 'Keyboard disabled' }}</h3>
-    </div>
-    <div
-      v-for="(lineKeys, index) in keysLayout"
-      :key="index"
-      class="flex flex-row justify-center"
-    >
-      <template v-for="key in lineKeys" :key="key">
-        <v-button
-          variant="primary"
-          label="label"
-          @pointerdown="setKeyPressed(this.key, true)"
-          @pointerup="setKeyPressed(this.key, false)"
-        >
-        </v-button>
-      </template>
-      <!-- <ViamButton
-        v-for="key in lineKeys"
-        
-        color="primary"
-        group
-        variant="primary"
-        
-        class="w-15 h-10 m-1 bg-white dark:bg-gray-900 border-gray-500"
-        :class="{
-          'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 keyboard-button-pressed':
-            pressedKeys[key],
-          'keyboard-button-not-pressed': !pressedKeys[key],
-        }"
-      >
-        <template v-slot:icon>
-          <ViamIcon :path="keyIcons[key]">Check</ViamIcon>
-        </template>
-        <span class="text-2xl">{{ keyLetters[key] }}</span>
-      </ViamButton> -->
-    </div>
-  </div>
-</template>
-
 <style>
+
 .keyboard-button-not-pressed:focus {
   background-color: white;
 }
 .keyboard-button-pressed:focus {
   background-color: rgba(228, 228, 231, 1);
 }
+
 </style>
