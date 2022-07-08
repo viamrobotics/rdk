@@ -88,9 +88,9 @@ for (const ctrl of controlOrder) {
         <div
           v-for="control in controls"
           :key="control[0]"
-          class="column control"
+          class="ml-0 flex w-[8ex] flex-col"
         >
-          <p class="subtitle">
+          <p class="subtitle m-0">
             {{ control[0] }}
           </p>
           {{ control[1] }}
@@ -101,20 +101,9 @@ for (const ctrl of controlOrder) {
 </template>
 
 <style scoped>
-p,
-h2,
-h3 {
-  margin: 0;
-}
 
 .subtitle {
   color: var(--black-70);
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  margin-left: 0px;
 }
 
 </style>
