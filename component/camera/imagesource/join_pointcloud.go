@@ -4,10 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image"
-<<<<<<< HEAD
 	"image/color"
-=======
->>>>>>> 36e859c3 (Add ICP registration method)
 	"math"
 	"strings"
 	"sync"
@@ -21,10 +18,6 @@ import (
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/diff/fd"
 	"gonum.org/v1/gonum/mat"
-<<<<<<< HEAD
-=======
-	"gonum.org/v1/gonum/num/quat"
->>>>>>> 36e859c3 (Add ICP registration method)
 	"gonum.org/v1/gonum/optimize"
 
 	"go.viam.com/rdk/component/camera"
@@ -275,16 +268,11 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 	return pcTo, nil
 }
 
-<<<<<<< HEAD
 func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem, inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree) (pointcloud.PointCloud, error) {
-=======
-func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem, inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree) (*pointcloud.PointCloud, error) {
->>>>>>> 36e859c3 (Add ICP registration method)
 	pcSrc, err := jpcs.sourceCameras[sourceIndex].NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}
-<<<<<<< HEAD
 
 	sourcePointList := make([]r3.Vector, pcSrc.Size())
 	nearestNeighborBuffer := make([]r3.Vector, pcSrc.Size())
@@ -321,34 +309,6 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 		}
 
 		return dist / float64(pcSrc.Size())
-=======
-	sourcePointList := make([]spatialmath.Pose, 0, pcSrc.Size())
-	targetPointList := make([]r3.Vector, 0, target.Size())
-
-	pointNum := 0
-	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		sourcePointList[pointNum] = spatialmath.NewPoseFromPoint(p)
-		nearest, _, _, _ := target.NearestNeighbor(p)
-		targetPointList[pointNum] = nearest
-		return true
-	})
-
-	// create optimization problem
-	optFunc := func(x []float64) float64 {
-		// x is an 7-vector used to create a pose
-		point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
-		quat := spatialmath.QuatToOV(quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]})
-		pose := spatialmath.NewPoseFromOrientationVector(point, quat)
-		// compute the error
-		var dist float64
-		for i := 0; i < len(sourcePointList); i++ {
-			transformedP := spatialmath.Compose(pose, sourcePointList[i]).Point()
-			dist += math.Sqrt(math.Pow((transformedP.X-targetPointList[i].X), 2) +
-				math.Pow((transformedP.Y-targetPointList[i].Y), 2) +
-				math.Pow((transformedP.Z-targetPointList[i].Z), 2))
-		}
-		return dist / float64(len(sourcePointList))
->>>>>>> 36e859c3 (Add ICP registration method)
 	}
 	grad := func(grad, x []float64) {
 		fd.Gradient(grad, optFunc, x, nil)
@@ -362,7 +322,6 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	if err != nil {
 		return nil, err
 	}
-<<<<<<< HEAD
 	x0 := make([]float64, 6)
 	x0[0] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().X
 	x0[1] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Y
@@ -372,16 +331,6 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Yaw
 
 	utils.Logger.Debugf("x0 = %v", x0)
-=======
-	x0 := make([]float64, 7)
-	x0[0] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().X
-	x0[1] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Y
-	x0[2] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Z
-	x0[3] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Real
-	x0[4] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Imag
-	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Jmag
-	x0[6] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Kmag
->>>>>>> 36e859c3 (Add ICP registration method)
 
 	prob := optimize.Problem{Func: optFunc, Grad: grad, Hess: hess}
 
@@ -389,7 +338,6 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	settings := &optimize.Settings{
 		GradientThreshold: 0,
 		Converger: &optimize.FunctionConverge{
-<<<<<<< HEAD
 			Relative:   1e-10,
 			Absolute:   1e-10,
 			Iterations: 100,
@@ -410,36 +358,18 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 		Linesearcher: &optimize.Bisection{
 			CurvatureFactor: 0.9,
 		},
-=======
-			Relative:   1e-6,
-			Absolute:   1e-8,
-			Iterations: 100,
-		},
-	}
-
-	method := &optimize.GradientDescent{
-		StepSizer:         &optimize.FirstOrderStepSize{},
-		GradStopThreshold: 1e-8,
->>>>>>> 36e859c3 (Add ICP registration method)
 	}
 
 	// run optimization
 	res, err := optimize.Minimize(prob, x0, settings, method)
-<<<<<<< HEAD
 	utils.Logger.Debugf("res = %v, err = %v", res, err)
 	// if err != nil {
 	// 	return nil, err
 	// }
-=======
-	if err != nil {
-		return nil, err
-	}
->>>>>>> 36e859c3 (Add ICP registration method)
 	x := res.Location.X
 
 	// create the new pose
 	point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
-<<<<<<< HEAD
 	orient := spatialmath.EulerAngles{Roll: x[3], Pitch: x[4], Yaw: x[5]}
 	pose := spatialmath.NewPoseFromOrientation(point, &orient)
 
@@ -457,21 +387,6 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	})
 
 	return registeredPointCloud, nil
-=======
-	quat := spatialmath.QuatToOV(quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]})
-	pose := spatialmath.NewPoseFromOrientationVector(point, quat)
-
-	// transform the pointcloud
-	registeredPointCloud := pointcloud.NewAppendOnlyOnlyPointsPointCloud(pcSrc.Size())
-	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		posePoint := spatialmath.NewPoseFromPoint(p)
-		transformedP := spatialmath.Compose(pose, posePoint).Point()
-		registeredPointCloud.Set(transformedP, d)
-		return true
-	})
-
-	return &registeredPointCloud, nil
->>>>>>> 36e859c3 (Add ICP registration method)
 }
 
 func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -505,11 +420,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 
 	finalPointCloud := pointcloud.NewKDTree(targetPointCloud)
 	for i := range jpcs.sourceCameras {
-<<<<<<< HEAD
 		if i == targetIndex {
-=======
-		if jpcs.sourceNames[i] == jpcs.targetName {
->>>>>>> 36e859c3 (Add ICP registration method)
 			continue
 		}
 
@@ -518,7 +429,6 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 			panic(err) // TODO(erh) is there something better to do?
 		}
 
-<<<<<<< HEAD
 		utils.Logger.Debugf("registeredPointCloud Size = %d", registeredPointCloud.Size())
 
 		var ok bool
@@ -530,25 +440,13 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 				finalPointCloud.Set(p, pointcloud.NewColoredData(color.NRGBA{R: 0, G: 255, B: 0, A: 255}))
 			} else {
 				finalPointCloud.Set(p, pointcloud.NewColoredData(color.NRGBA{R: 255, G: 0, B: 0, A: 255}))
-=======
-		var ok bool
-		// TODO(aidanglickman) this loop is highly parallelizable, not yet making use
-		(*registeredPointCloud).Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-			_, ok = finalPointCloud.At(p.X, p.Y, p.Z)
-			if !ok {
-				finalPointCloud.Set(p, d)
->>>>>>> 36e859c3 (Add ICP registration method)
 			}
 			return true
 		})
 
 	}
 
-<<<<<<< HEAD
 	return finalPointCloud, nil
-=======
-	return nil, newMergeMethodUnsupportedError(string(jpcs.mergeMethod))
->>>>>>> 36e859c3 (Add ICP registration method)
 }
 
 // initalizeInputs gets all the input positions for the robot components in order to calculate the frame system offsets.
