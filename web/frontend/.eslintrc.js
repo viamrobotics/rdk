@@ -78,7 +78,7 @@ module.exports = {
     // Vue
     'vue/script-setup-uses-vars': 'error',
     'vue/no-undef-components': ['error', {
-      ignorePatterns: [],
+      ignorePatterns: ['v-'],
     }],
 
     // Import
