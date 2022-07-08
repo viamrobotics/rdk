@@ -1,6 +1,5 @@
 <script setup lang="ts">
 
-import { onClickOutside } from '@vueuse/core';
 import { ref } from 'vue';
 import KeyboardInput from './KeyboardInput.vue';
 
@@ -23,7 +22,6 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const root = ref();
 const keyboard = ref();
 const camera = ref(props.connectedCamera);
 const selectedValue = ref('NoCamera');
@@ -104,8 +102,6 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
   emit('show-base-camera');
 };
 
-onClickOutside(root, () => keyboard.value.removeKeyboardListeners());
-
 </script>
 
 <template>
@@ -123,10 +119,7 @@ onClickOutside(root, () => keyboard.value.removeKeyboardListeners());
       @click="emit('base-stop')"
     />
 
-    <div
-      ref="root"
-      class="h-80 border border-t-0 border-black pt-2 pb-4"
-    >
+    <div class="h-80 border border-t-0 border-black pt-2 pb-4">
       <v-tabs
         tabs="Keyboard, Discrete"
         :selected="selectedItem"
@@ -142,7 +135,6 @@ onClickOutside(root, () => keyboard.value.removeKeyboardListeners());
             <div class="grid grid-cols-2">
               <div class="flex pt-6">
                 <KeyboardInput
-                  ref="keyboard"
                   @keyboard-ctl="keyboardCtl"
                 />
               </div>

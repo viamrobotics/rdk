@@ -6,6 +6,7 @@
 
 import boardApi from '../gen/proto/api/component/board/v1/board_pb.esm';
 import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
+import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 
 window.rcDebug = false;
 

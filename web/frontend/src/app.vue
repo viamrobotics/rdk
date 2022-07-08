@@ -982,8 +982,8 @@ export default {
       req.setMode(pbMode);
       navigationService.setMode(req, {}, this.grpcCallback);
     },
-    setNavigationLocation (elId) {
-      const posSplit = document.querySelector(`#${elId}`).value.split(',');
+    setNavigationLocation () {
+      const posSplit = this.locationValue.split(',');
       if (posSplit.length !== 2) {
         return;
       }
@@ -1056,7 +1056,7 @@ export default {
       });
     },
     setGPIO (boardName) {
-      const pin = document.querySelector(`#set_pin_${boardName}`).value;
+      const pin = this.setPin;
       const v = document.querySelector(`#set_pin_v_${boardName}`).value;
       BoardControlHelper.setGPIO(boardName, pin, v === 'high', this.grpcCallback);
     },
@@ -1574,8 +1574,8 @@ function setBoundingBox(box, centerPoint) {
     </template>
   </div>
   
-  <div class="flex flex-col gap-2 p-2">
-    <div style="color: red;">
+  <div class="flex flex-col gap-4 p-3">
+    <div v-if="error" style="color: red;">
       {{ error }}
     </div>
 
@@ -1583,7 +1583,7 @@ function setBoundingBox(box, centerPoint) {
     <div
       v-for="base in filterResources('rdk', 'component', 'base')"
       :key="base.name"
-      class="base pb-8"
+      class="base"
     >
       <div v-if="streamNames.length === 0">
         <div class="camera">
@@ -1625,7 +1625,6 @@ function setBoundingBox(box, centerPoint) {
       v-if="resourceStatusByName(gantry)"
       :key="gantry.name"
       :title="`Gantry ${gantry.name}`"
-      class="pb-8"
     >
       <div class="border border-t-0 border-black p-4">
         <table class="border border-t-0 border-black p-4">
@@ -1831,7 +1830,6 @@ function setBoundingBox(box, centerPoint) {
       v-for="arm in filterResources('rdk', 'component', 'arm')"
       :key="arm.name"
       :title="`Arm ${arm.name}`"
-      class="pb-8"
     >
       <div class="mb-2 flex">
         <div
@@ -2010,7 +2008,6 @@ function setBoundingBox(box, centerPoint) {
       v-for="gripper in filterResources('rdk', 'component', 'gripper')"
       :key="gripper.name"
       :title="`Gripper ${gripper.name}`"
-      class="pb-8"
     >
       <div class="flex gap-2 border border-t-0 border-black p-4">
         <v-button
@@ -2088,7 +2085,6 @@ function setBoundingBox(box, centerPoint) {
       v-for="controller in filteredInputControllerList()"
       v-if="resourceStatusByName(controller)"
       :key="'new-' + controller.name"
-      class="pb-8"
       :controller-name="controller.name"
       :controller-status="resourceStatusByName(controller)"
     />
@@ -2096,7 +2092,6 @@ function setBoundingBox(box, centerPoint) {
     <!-- ******* WEB CONTROLS *******  -->
     <Gamepad
       v-if="hasWebGamepad()"
-      class="pb-8"
       style="max-width: 1080px;"
       @execute="inputInject($event)"
     />
@@ -2177,10 +2172,11 @@ function setBoundingBox(box, centerPoint) {
             <td class="p-2">
               <div class="flex">
                 <label class="py-2 pr-2  text-right">Pin:</label>
-                <number-input
-                  v-model="setPin"
+                <v-input
+                  type="number"
                   class="mr-2"
-                  :input-id="'set_pin_' + board.name"
+                  :value="setPin"
+                  @input="setPin = $event.detail.value"
                 />
                 <select
                   :id="'set_pin_v_' + board.name"
@@ -2205,7 +2201,6 @@ function setBoundingBox(box, centerPoint) {
     <!-- sensors -->
     <v-collapse
       v-if="nonEmpty(sensorNames)"
-      class="pb-8"
       title="Sensors"
     >
       <div class="border border-t-0 border-black p-4">
@@ -2275,7 +2270,7 @@ function setBoundingBox(box, centerPoint) {
           <v-button
             group
             label="Try Set Location"
-            @click="setNavigationLocation('nav-set-location')"
+            @click="setNavigationLocation()"
           />
         </div>
         <div
@@ -2283,18 +2278,15 @@ function setBoundingBox(box, centerPoint) {
           ref="map"
           class="mb-2"
         />
-        <viam-input
-          v-model="locationValue"
-          input-id="nav-set-location"
+        <v-input
+          :value="locationValue"
+          @input="locationValue = $event.detail.value"
         />
       </div>
     </v-collapse>
 
     <!-- current operations -->
-    <v-collapse
-      title="Current Operations"
-      class="pb-8"
-    >
+    <v-collapse title="Current Operations">
       <div class="border border-t-0 border-black p-4">
         <table class="w-full table-auto border border-black">
           <tr>
