@@ -191,4 +191,30 @@ var GamepadMappings = map[string]Mapping{
 			297: input.ButtonStart,
 		},
 	},
+	//PS4 Controller
+	"Wireless Controller": {
+		Axes: map[evdev.AbsoluteType]input.Control{
+			0:  input.AbsoluteX,
+			1:  input.AbsoluteY,
+			2:  input.AbsoluteZ,
+			3:  input.AbsoluteRX,
+			4:  input.AbsoluteRY,
+			5:  input.AbsoluteRZ,
+			16: input.AbsoluteHat0X,
+			17: input.AbsoluteHat0Y,
+		},
+		Buttons: map[evdev.KeyType]input.Control{
+			304: input.ButtonSouth,
+			305: input.ButtonEast,
+			307: input.ButtonNorth,
+			308: input.ButtonWest,
+			310: input.ButtonLT,
+			311: input.ButtonRT,
+			314: input.ButtonSelect,
+			315: input.ButtonStart,
+			317: input.ButtonLThumb,
+			318: input.ButtonRThumb,
+			316: input.ButtonMenu,
+		},
+	},
 }
