@@ -8,7 +8,6 @@ import "./index.css";
 import MotorDetail from "./components/MotorDetail.vue";
 import InputController from "./components/InputController.vue";
 import WebGamepad from "./components/WebGamepad.vue";
-import ViamBadge from "./components/Badge.vue";
 import Breadcrumbs from "./components/Breadcrumbs.vue";
 import ViamButton from "./components/Button.vue";
 import Collapse from "./components/Collapse.vue";
@@ -37,7 +36,6 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   ViamIcon,
   Tabs,
   Tab,
-  ViamBadge,
   ViamButton,
   Container,
   Range,
