@@ -1,6 +1,5 @@
 <script>
 
-// import ViamBase from './components/Base.vue'
 import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
@@ -50,7 +49,17 @@ import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
 import Slam from './components/slam.vue';
 
-const { webrtcHost } = window;
+const {
+  webrtcEnabled,
+  webrtcHost,
+  webrtcAdditionalICEServers,
+  webrtcSignalingAddress,
+} = window as unknown as {
+  webrtcEnabled: boolean
+  webrtcHost: string
+
+  webrtcSignalingAddress: string
+};
 
 let mapReadyResolve;
 const mapReady = new Promise((resolve) => {
@@ -67,11 +76,14 @@ const rtcConfig = {
   ],
 };
 
-if (window.webrtcAdditionalICEServers) {
-  rtcConfig.iceServers = [...rtcConfig.iceServers, ...window.webrtcAdditionalICEServers];
+if (webrtcAdditionalICEServers) {
+  rtcConfig.iceServers = [...rtcConfig.iceServers, ...webrtcAdditionalICEServers];
 }
 
-const connect = async (authEntity, creds) => {
+let savedAuthEntity;
+let savedCreds;
+
+const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   let transportFactory;
   const opts = { 
     authEntity,
@@ -79,17 +91,14 @@ const connect = async (authEntity, creds) => {
     webrtcOptions: { rtcConfig },
   };
   const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
-  if (window.webrtcEnabled) {
-    if (!window.webrtcSignalingAddress) {
-      window.webrtcSignalingAddress = impliedURL;
-    }
+  
+  if (webrtcEnabled) {
     opts.webrtcOptions.signalingAuthEntity = opts.authEntity;
     opts.webrtcOptions.signalingCredentials = opts.credentials;
 
-    const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, opts);
+    const webRTCConn = await dialWebRTC(webrtcSignalingAddress || impliedURL, webrtcHost, opts);
     transportFactory = webRTCConn.transportFactory;
-    window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
-		
+
     webRTCConn.peerConnection.ontrack = (event) => {
       const video = document.createElement('video');
       video.srcObject = event.streams[0];
@@ -121,6 +130,7 @@ const connect = async (authEntity, creds) => {
     transportFactory = await dialDirect(impliedURL, opts);
   }
 
+  window.streamService = new StreamServiceClient(webrtcHost, { transport: transportFactory });
   window.robotService = new RobotServiceClient(webrtcHost, { transport: transportFactory });
   // TODO(RSDK-144): these should be created as needed
   window.armService = new ArmServiceClient(webrtcHost, { transport: transportFactory });
@@ -140,17 +150,21 @@ const connect = async (authEntity, creds) => {
   window.slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
 
   // save authEntity, creds
-  window.connect = () => connect(authEntity, creds);
+  savedAuthEntity = authEntity
+  savedCreds = creds
 };
 
-window.connect = connect;
-
-function roundTo2Decimals(num) {
+function roundTo2Decimals(num: number) {
   return Math.round(num * 100) / 100;
 }
 
 function fixArmStatus(old) {
-  const newStatus = { pos_pieces: [], joint_pieces: [], is_moving: old.is_moving || false };
+  const newStatus = {
+    pos_pieces: [],
+    joint_pieces: [],
+    is_moving: old.is_moving || false,
+  };
+
   const fieldSetters = [
     ['x', 'X'],
     ['y', 'Y'],
@@ -171,11 +185,11 @@ function fixArmStatus(old) {
     );
   }
 
-  for (let j = 0; j < old.joint_positions.degrees.length; j++) {
+  for (let j = 0; j < old.joint_positions.values.length; j++) {
     newStatus.joint_pieces.push(
       { 
         joint: j,
-        jointValue: old.joint_positions.degrees[j] || 0,
+        jointValue: old.joint_positions.values[j] || 0,
       }
     );
   }
@@ -201,20 +215,24 @@ function fixGantryStatus(old) {
   }
 
   for (let i = 0; i < old.lengths_mm.length; i++) {
-    newStatus.parts.push({ axis: i, pos: old.positions_mm[i], length: old.lengths_mm[i] });
+    newStatus.parts.push({
+      axis: i,
+      pos: old.positions_mm[i],
+      length: old.lengths_mm[i],
+    });
   }
 
   return newStatus;
 }
 
-function fixInputStatus(old) {
+function fixInputStatus(old: any) {
   const events = old.events || [];
-  const eventsList = events.map((e) => {
+  const eventsList = events.map((event) => {
     return {
-      time: e.time || {},
-      event: e.event || '',
-      control: e.control || '',
-      value: e.value || 0,
+      time: event.time || {},
+      event: event.event || '',
+      control: event.control || '',
+      value: event.value || 0,
     };
   });
   return { eventsList };
@@ -463,25 +481,25 @@ export default {
     armJointInc(name, field, amount) {
       const arm = this.rawResourceStatusByName(name);
       const newPositionDegs = new armApi.JointPositions();
-      const newList = arm.joint_positions.degrees;
+      const newList = arm.joint_positions.values;
       newList[field] += amount;
-      newPositionDegs.setDegreesList(newList);
+      newPositionDegs.setValuesList(newList);
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
-      req.setPositionDegs(newPositionDegs);
+      req.setPositions(newPositionDegs);
       armService.moveToJointPositions(req, {}, this.grpcCallback);
     },
     armHome(name) {
       const arm = this.rawResourceStatusByName(name);
       const newPositionDegs = new armApi.JointPositions();
-      const newList = arm.joint_positions.degrees;
+      const newList = arm.joint_positions.values;
       for (let i = 0; i < newList.length; i++) {
         newList[i] = 0;
       }
-      newPositionDegs.setDegreesList(newList);
+      newPositionDegs.setValuesList(newList);
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
-      req.setPositionDegs(newPositionDegs);
+      req.setPositions(newPositionDegs);
       armService.moveToJointPositions(req, {}, this.grpcCallback);
     },
     armModifyAll(name) {
@@ -524,16 +542,16 @@ export default {
     armModifyAllDoJoint(name) {
       const arm = this.rawResourceStatusByName(name);
       const newPositionDegs = new armApi.JointPositions();
-      const newList = arm.joint_positions.degrees;
+      const newList = arm.joint_positions.values;
       const newPieces = this.armToggle[name.name].joint_pieces;
       for (let i = 0; i < newPieces.length && i < newList.length; i++) {
         newList[newPieces[i].joint] = newPieces[i].jointValue;
       }
 
-      newPositionDegs.setDegreesList(newList);
+      newPositionDegs.setValuesList(newList);
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
-      req.setPositionDegs(newPositionDegs);
+      req.setPositions(newPositionDegs);
       armService.moveToJointPositions(req, {}, this.grpcCallback);
       delete this.armToggle[name.name];
     },
@@ -605,7 +623,7 @@ export default {
       req.setId(id);
       window.robotService.killOperation(req, {}, this.grpcCallback);
     },
-    baseKeyboardCtl: function(name, controls) {
+    baseKeyboardCtl(name, controls) {
       if (Object.values(controls).every((item) => item === false)) {
         console.log('All keyboard inputs false, stopping base.');
         this.handleBaseActionStop(name);
@@ -651,7 +669,7 @@ export default {
       }
     },
     renderFrame(cameraName) {
-      req = new cameraApi.RenderFrameRequest();
+      const req = new cameraApi.RenderFrameRequest();
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
@@ -677,7 +695,7 @@ export default {
       }
     },
     viewManualFrame(cameraName) {
-      req = new cameraApi.RenderFrameRequest();
+      const req = new cameraApi.RenderFrameRequest();
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
@@ -741,7 +759,7 @@ export default {
           }
           console.log('loading pcd');
           this.fullcloud = resp.getPointCloud_asB64();
-          pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
+          this.pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
         });
       });
 
@@ -772,7 +790,7 @@ export default {
         }
         const pcObject = resp.getPointCloud();
         this.fullcloud = pcObject.getPointCloud_asB64();
-        pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
+        this.pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
       });
     },
     getReadings(sensorNames) {
@@ -798,9 +816,11 @@ export default {
       });
     },
     processFunctionResults(err, resp) {
+      const el = document.querySelector('#function_results')
+
       this.grpcCallback(err, resp, false);
       if (err) {
-        document.querySelector('#function_results').value = `${err}`;
+        if (el) el.value = `${err}`;
         return;
       }
       const results = resp.getResultsList();
@@ -815,7 +835,8 @@ export default {
       }
       resultStr += `StdOut: ${resp.getStdOut()}\n`;
       resultStr += `StdErr: ${resp.getStdErr()}\n`;
-      document.querySelector('#function_results').value = resultStr;
+      
+      if (el) el.value = resultStr;
     },
     nonEmpty(object) {
       return Object.keys(object).length > 0;
@@ -846,7 +867,7 @@ export default {
 
       if (p !== null) {
         console.log(p.point);
-        setPoint(p.point);
+        this.setPoint(p.point);
       } else {
         console.log('no point intersected');
       }
@@ -917,14 +938,14 @@ export default {
       const box = segment.getGeometries().getGeometriesList()[0].getBox();
       const p = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
       console.log(p);
-      setPoint(p);
+      this.setPoint(p);
       setBoundingBox(box, p);
-      pcdLoad(`data:pointcloud/pcd;base64,${data}`);
+      this.pcdLoad(`data:pointcloud/pcd;base64,${data}`);
     },
     doPointLoad (i) {
       const segment = this.objects[i];
       const center = segment.getGeometries().getGeometriesList()[0].getCenter();
-      setPoint({
+      this.setPoint({
         x: center.getX() / 1000,
         y: center.getY() / 1000,
         z: center.getZ() / 1000,
@@ -942,13 +963,13 @@ export default {
       setBoundingBox(box, centerP);
     },
     doPCDLoad (data) {
-      pcdLoad(`data:pointcloud/pcd;base64,${data}`);
+      this.pcdLoad(`data:pointcloud/pcd;base64,${data}`);
     },
     doCenterPCDLoad (data) {
-      pcdLoad(`data:pointcloud/pcd;base64,${data}`);
+      this.pcdLoad(`data:pointcloud/pcd;base64,${data}`);
       const p = { x: 0 / 1000, y: 0 / 1000, z: 0 / 1000 };
       console.log(p);
-      setPoint(p);
+      this.setPoint(p);
     },
     doPCDDownload(data) {
       window.open(`data:pointcloud/pcd;base64,${data}`);
@@ -1232,7 +1253,7 @@ export default {
       alertError.innerHTML = '';
       document.querySelector('#connecting').classList.remove('hidden');
       try {
-        await window.connect(authEntity, creds);
+        await connect(authEntity, creds);
         this.loadCurrentOps();
       } catch (error) {
         const msg = `failed to connect: ${error}`;
@@ -1575,7 +1596,10 @@ function setBoundingBox(box, centerPoint) {
   </div>
   
   <div class="flex flex-col gap-4 p-3">
-    <div v-if="error" style="color: red;">
+    <div
+      v-if="error"
+      style="color: red;"
+    >
       {{ error }}
     </div>
 

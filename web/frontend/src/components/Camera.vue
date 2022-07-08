@@ -148,7 +148,7 @@ const togglePCDExpand = () => {
                 <div class="relative">
                   <select
                     v-model="selectedValue"
-                    class="form-select m-0 block w-full appearance-none rounded border border-solid border-gray-300 bg-white bg-clip-padding bg-no-repeat px-3 py-1.5 text-base font-normal text-gray-700 transition ease-in-out focus:border-blue-600 focus:bg-white focus:text-gray-700 focus:outline-none"
+                    class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
                     aria-label="Default select example"
                     @change="selectCameraView()"
                   >
@@ -215,11 +215,8 @@ const togglePCDExpand = () => {
             :value="pcd ? 'on' : 'off'"
             @input="togglePCDExpand()"
           />
-          <div
-            v-if="pcd"
-            class="transition-all duration-300 ease-in-out"
-          >
-            <div class="float-right pb-4">
+          <div v-if="pcd">
+            <div class="flex gap-2 justify-end">
               <v-button
                 icon="refresh"
                 label="Refresh"
@@ -260,7 +257,7 @@ const togglePCDExpand = () => {
                     <div class="relative">
                       <select
                         v-model="selectedSegmenterValue"
-                        class="form-select m-0 block w-full appearance-none rounded border border-solid border-gray-300 bg-white bg-clip-padding bg-no-repeat px-3 py-1.5 text-base font-normal text-gray-700 transition ease-in-out focus:border-blue-600 focus:bg-white focus:text-gray-700 focus:outline-none"
+                        class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
                         aria-label="Select segmenter"
                         @change="changeSegmenter"
                       >
@@ -389,7 +386,7 @@ const togglePCDExpand = () => {
                       </p>
                       <select
                         v-model="selectedObject"
-                        class="dark:border-black-700 block w-full appearance-none border border-gray-300 pr-8 leading-tight transition-colors duration-150 ease-in-out focus:outline-none"
+                        class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
                         :class="['py-2 pl-2']"
                         @change="changeObject"
                       >
