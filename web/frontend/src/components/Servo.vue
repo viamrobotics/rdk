@@ -1,9 +1,8 @@
 <script setup lang="ts">
 
-import { ref } from "vue";
-import RadioButtons from "./RadioButtons.vue";
-import type { Status } from "../gen/proto/api/component/motor/v1/motor_pb.esm";
-import InfoButton from "./info-button.vue";
+import { ref } from 'vue';
+import type { Status } from '../gen/proto/api/component/motor/v1/motor_pb.esm';
+import InfoButton from './info-button.vue';
 
 interface Props {
   motorName: string
@@ -16,48 +15,48 @@ interface Emits {
   (event: 'motor-stop'): void
 }
 
-defineProps<Props>()
-const emit = defineEmits<Emits>()
+defineProps<Props>();
+const emit = defineEmits<Emits>();
 
-const movementType = ref("Go");
+const movementType = ref('Go');
 const direction = ref<-1 | 1>(1);
 const position = ref(0);
 const rpm = ref(0);
 const power = ref(25);
-const type = ref("go");
+const type = ref('go');
 const speed = ref(0);
 const revolutions = ref(0);
 
 const setMovementType = (input: string) => {
   movementType.value = input;
   switch (input) {
-    case "Go":
-      type.value = "go";
-      break;
-    case "Go For":
-      type.value = "goFor";
-      break;
-    case "Go To":
-      type.value = "goTo";
-      break;
+  case 'Go':
+    type.value = 'go';
+    break;
+  case 'Go For':
+    type.value = 'goFor';
+    break;
+  case 'Go To':
+    type.value = 'goTo';
+    break;
   }
-}
+};
 
 const setDirection = (input: string) => {
   switch (input) {
-    case "Forwards":
-      direction.value = 1;
-      break;
-    case "Backwards":
-      direction.value = -1;
-      break;
-    default:
-      direction.value = 1;
+  case 'Forwards':
+    direction.value = 1;
+    break;
+  case 'Backwards':
+    direction.value = -1;
+    break;
+  default:
+    direction.value = 1;
   }
-}
+};
 
 const motorRun = () => { 
-  emit("motor-run", {
+  emit('motor-run', {
     direction: direction.value,
     position: position.value,
     rpm: rpm.value,
@@ -66,146 +65,159 @@ const motorRun = () => {
     speed: speed.value,
     revolutions: revolutions.value,
   });
-}
+};
 
-const motorStop = (e: Event) => {
-  emit("motor-stop");
-}
+const motorStop = () => {
+  emit('motor-stop');
+};
 
 </script>
 
 <template>
   <v-collapse :title="motorName">
-    <div slot="header" class="flex">
+    <div
+      slot="header"
+      class="flex"
+    >
       <v-breadcrumbs :crumbs="crumbs.join(',')" />
       <div
-        class="p-4 flex items-center flex-wrap"
         v-if="motorStatus.positionReporting"
+        class="flex flex-wrap items-center p-4"
       >
         <p
-          class="flex items-center border border-black rounded-full px-2 leading-tight"
+          class="flex items-center rounded-full border border-black px-2 leading-tight"
         >
           Position {{ motorStatus.position }}
         </p>
       </div>
-      <div class="p-4 flex items-center flex-wrap">
-        <v-badge color="green" label="Running" v-if="motorStatus.isPowered" />
-        <v-badge color="gray" label="Idle" v-if="!motorStatus.isPowered" />
+      <div class="flex flex-wrap items-center p-4">
+        <v-badge
+          v-if="motorStatus.isPowered"
+          color="green"
+          label="Running"
+        />
+        <v-badge
+          v-if="!motorStatus.isPowered"
+          color="gray"
+          label="Idle"
+        />
       </div>
-      <v-button variant="danger" label="STOP" @click="motorStop" />
+      <v-button
+        variant="danger"
+        label="STOP"
+        @click="motorStop"
+      />
     </div>
 
     <div class="h-[500px]">
-      <div class="h-full border border-black border-t-0 p-4 grid grid-cols-1">
+      <div class="grid h-full grid-cols-1 border border-t-0 border-black p-4">
         <div class="grid">
           <div class="column">
-            <p class="text-xs pb-2">Set Power</p>
-            <RadioButtons
+            <p class="pb-2 text-xs">
+              Set Power
+            </p>
+            <v-radio
               :options="
                 motorStatus.positionReporting
-                  ? ['Go', 'Go For', 'Go To']
-                  : ['Go']
+                  ? 'Go, Go For, Go To'
+                  : 'Go'
               "
-              defaultOption="Go"
-              :disabledOptions="[]"
-              v-on:selectOption="setMovementType($event)"
+              :selected="movementType"
+              @input="setMovementType($event.detail.value)"
             />
           </div>
-          <div class="flex pt-4" v-if="movementType === 'Go To'">
+          <div
+            v-if="movementType === 'Go To'"
+            class="flex pt-4"
+          >
             <div class="place-self-end pr-2">
               <span class="text-2xl">{{ movementType }}</span>
               <InfoButton
                 class="pb-2"
-                :infoRows="['Relative to Home']"
+                :info-rows="['Relative to Home']"
               />
             </div>
-            <ViamInput
+            <v-input
               type="number"
-              color="primary"
-              group="False"
-              variant="primary"
-              class="pr-2 w-48"
-              inputId="distance"
-              v-model="position"
-            >
-              <span class="text-xs">Position in Revolutions</span>
-            </ViamInput>
-            <ViamInput
+              class="w-48 pr-2"
+              label="Position in Revolutions"
+              :value="position"
+              @input="position = $event.detail.value"
+            />
+            <v-input
               type="number"
-              color="primary"
-              group="False"
-              variant="primary"
-              class="pr-2 w-32"
-              inputId="distance"
-              v-model="rpm"
-            >
-              <span class="text-xs">RPM</span>
-            </ViamInput>
+              class="w-32 pr-2"
+              label="RPM"
+              :value="rpm"
+              @input="rpm = $event.detail.value"
+            />
           </div>
-          <div class="flex pt-4" v-if="movementType === 'Go For'">
+          <div
+            v-if="movementType === 'Go For'"
+            class="flex pt-4"
+          >
             <div class="place-self-end pr-2">
               <span class="text-2xl">{{ movementType }}</span>
               <InfoButton
                 class="pb-2"
-                :infoRows="['Relative to where the robot is currently']"
+                :info-rows="['Relative to where the robot is currently']"
               />
             </div>
-            <ViamInput
+            <v-input
               type="number"
-              color="primary"
-              group="False"
-              variant="primary"
-              class="pr-2 w-32"
-              inputId="distance"
-              v-model="revolutions"
-            >
-              <span class="text-xs"># in Revolutions</span>
-            </ViamInput>
+              class="w-32 pr-2"
+              label="# in Revolutions"
+              :value="revolutions"
+              @input="revolutions = $event.detail.value"
+            />
             <div class="column pr-4">
-              <p class="text-xs mb-1">Direction of Rotation</p>
-              <RadioButtons
-                :options="['Forwards', 'Backwards']"
-                defaultOption="Forwards"
-                :disabledOptions="[]"
-                v-on:selectOption="setDirection($event)"
+              <p class="mb-1 text-xs">
+                Direction of Rotation
+              </p>
+              <v-radio
+                options="Forwards, Backwards"
+                default-option="Forwards"
+                :selected="direction === 1 ? 'Forwards' : 'Backwards'"
+                @input="setDirection($event.detail.value)"
               />
             </div>
-            <ViamInput
+            <v-input
               type="number"
-              color="primary"
-              group="False"
-              variant="primary"
-              class="pr-2 w-32"
-              inputId="distance"
-              v-model="rpm"
-            >
-              <span class="text-xs">RPM</span>
-            </ViamInput>
+              class="w-32 pr-2"
+              label="RPM"
+              :value="rpm"
+              @input="rpm = $event.detail.value"
+            />
           </div>
-          <div class="flex items-start pt-4" v-if="movementType === 'Go'">
+          <div
+            v-if="movementType === 'Go'"
+            class="flex items-start pt-4"
+          >
             <div class="place-self-end pr-2">
               <span class="text-2xl">{{ movementType }}</span>
               <InfoButton
                 class="pb-2"
-                :infoRows="['Continuously moves']"
+                :info-rows="['Continuously moves']"
               />
             </div>
             <div class="column pr-4">
-              <p class="text-xs pb-2 pt-1">Direction of Rotation</p>
-              <RadioButtons
-                :options="['Forwards', 'Backwards']"
-                defaultOption="Forwards"
-                :disabledOptions="[]"
-                v-on:selectOption="setDirection($event)"
+              <p class="pb-2 pt-1 text-xs">
+                Direction of Rotation
+              </p>
+              <v-radio
+                options="Forwards, Backwards"
+                default-option="Forwards"
+                :selected="direction === 1 ? 'Forwards' : 'Backwards'"
+                @input="setDirection($event.detail.value)"
               />
             </div>
             <Range
-              class="pt-2"
               id="power"
+              v-model="power"
+              class="pt-2"
               :min="0"
               :max="100"
               :step="1"
-              v-model="power"
               unit="%"
               name="Power %"
             />
@@ -213,8 +225,8 @@ const motorStop = (e: Event) => {
         </div>
         <div class="flex flex-row-reverse">
           <v-button
-            @click="motorRun()"
             label="RUN"
+            @click="motorRun()"
           />
         </div>
       </div>
