@@ -281,10 +281,10 @@ func (dm *dubinOptionManager) selectOptions(
 	for node := range rrtMap {
 		start := configuration2slice(node)
 		end := configuration2slice(sample)
-		allOpts := dm.d.AllOptions(start, end, false)
+		allOpts := dm.d.AllOptions(start, end, true)
 
-		for _, opt := range allOpts {
-			pl = append(pl, nodeToOption{node, opt})
+		if len(allOpts) > 0 {
+			pl = append(pl, nodeToOption{node, allOpts[0]})
 		}
 	}
 	sort.Sort(pl)
@@ -371,16 +371,16 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 		}
 
 		select {
-		case k := <-dm.optKeys:
-			if k != nil {
+		case node := <-dm.optKeys:
+			if node != nil {
 				dm.optLock.RLock()
-				start := configuration2slice(k)
+				start := configuration2slice(node)
 				end := configuration2slice(dm.sample)
-				allOpts := dm.d.AllOptions(start, end, false)
+				allOpts := dm.d.AllOptions(start, end, true)
 				dm.optLock.RUnlock()
 
-				for _, opt := range allOpts {
-					pl = append(pl, nodeToOption{k, opt})
+				if len(allOpts) > 0 {
+					pl = append(pl, nodeToOption{node, allOpts[0]})
 				}
 			}
 		default:
