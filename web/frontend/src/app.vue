@@ -54,12 +54,7 @@ const {
   webrtcHost,
   webrtcAdditionalICEServers,
   webrtcSignalingAddress,
-} = window as unknown as {
-  webrtcEnabled: boolean
-  webrtcHost: string
-
-  webrtcSignalingAddress: string
-};
+} = window;
 
 let mapReadyResolve;
 const mapReady = new Promise((resolve) => {
@@ -154,7 +149,7 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   savedCreds = creds
 };
 
-function roundTo2Decimals(num: number) {
+function roundTo2Decimals(num) {
   return Math.round(num * 100) / 100;
 }
 
@@ -225,7 +220,7 @@ function fixGantryStatus(old) {
   return newStatus;
 }
 
-function fixInputStatus(old: any) {
+function fixInputStatus(old) {
   const events = old.events || [];
   const eventsList = events.map((event) => {
     return {

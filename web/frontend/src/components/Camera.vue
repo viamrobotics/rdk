@@ -215,7 +215,7 @@ const togglePCDExpand = () => {
             :value="pcd ? 'on' : 'off'"
             @input="togglePCDExpand()"
           />
-          <div v-if="pcd">
+          <div v-if="pcd" class="flex flex-col gap-4">
             <div class="flex gap-2 justify-end">
               <v-button
                 icon="refresh"
@@ -235,7 +235,7 @@ const togglePCDExpand = () => {
             </div>
             <div
               id="pcd"
-              class="relative table pb-6"
+              class="relative pb-6"
               @click="emit('pcd-click', $event)"
             >
               <div class="r-0 absolute bottom-0 right-0 whitespace-nowrap">
