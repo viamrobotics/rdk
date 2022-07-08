@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
-
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -1167,7 +1166,8 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	r0Arm, ok := r0arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
 	err = r0Arm.GoToInputs(context.Background(), []referenceframe.Input{
-		{10}})
+		{10},
+	})
 	test.That(t, err, test.ShouldBeNil)
 	p0Arm1, err := r0Arm.GetJointPositions(context.Background())
 	test.That(t, err, test.ShouldBeNil)
