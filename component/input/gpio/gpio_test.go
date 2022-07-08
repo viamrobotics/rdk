@@ -495,7 +495,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 7+i)
 		})
 		axisMu.RLock()
-		test.That(t, axis2Time.Sub(startTime), test.ShouldBeBetween, 0*time.Millisecond, 30*time.Millisecond)
+		test.That(t, axis2Time.Sub(startTime), test.ShouldBeBetween, 0*time.Millisecond, 40*time.Millisecond)
 		axisMu.RUnlock()
 	}
 }
