@@ -44,7 +44,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	// setup planning problem - the idea is to move from one position to the other while avoiding obstalces
 	position1 := r3.Vector{0, -600, 100}
-	position2 := r3.Vector{-600, -300, 100}
+	position2 := r3.Vector{0, -600, 300}
+	// position2 := r3.Vector{-600, -300, 100}
 	box, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{-400, -550, 150}), r3.Vector{300, 300, 300})
 	table, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 50})
 	ws, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 1000})
@@ -82,7 +83,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	// move it to the goal
-	solution, err := arm.Plan(ctx, robotClient, xArm, goal, worldState)
+	solution, err := arm.Plan(ctx, robotClient, xArm, goal, nil)
 	if err != nil {
 		return err
 	}

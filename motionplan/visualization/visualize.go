@@ -3,9 +3,10 @@ package visualization
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"strconv"
 
@@ -13,8 +14,10 @@ import (
 
 	pb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/utils"
 )
+
+//go:embed visualize.py
+var vviz []byte
 
 type stepData map[string][][]r3.Vector
 
@@ -44,7 +47,7 @@ func getStepData(model referenceframe.Frame, worldState *pb.WorldState, inputs [
 	}
 	if model != nil && inputs != nil {
 		modelGeometries, err := model.Geometries(inputs)
-		if err == nil {
+		if err != nil {
 			entities["model"] = getVertices(modelGeometries)
 		}
 	}
@@ -53,26 +56,34 @@ func getStepData(model referenceframe.Frame, worldState *pb.WorldState, inputs [
 
 func visualize(plan []stepData) error {
 	// write entities to temporary file
-	tempFile := utils.ResolveFile("motionplan/visualization/temp.json")
+	dataFile, err := ioutil.TempFile("", "vvizdata*.json")
+	if err != nil {
+		return err
+	}
+	// nolint:errcheck
+	defer os.Remove(dataFile.Name())
 	bytes, err := json.MarshalIndent(plan, "", " ")
 	if err != nil {
-		return errors.New("could not marshal JSON")
+		return err
 	}
-	// nolint:gosec
-	if err := ioutil.WriteFile(tempFile, bytes, 0o644); err != nil {
-		return errors.New("could not write JSON to file")
+	if _, err := dataFile.Write(bytes); err != nil {
+		return err
+	}
+
+	// write script bytes to temporary file
+	scriptFile, err := ioutil.TempFile("", "vviz*.py")
+	if err != nil {
+		return err
+	}
+	// nolint:errcheck
+	defer os.Remove(scriptFile.Name())
+	if _, err := scriptFile.Write(vviz); err != nil {
+		return err
 	}
 
 	// call python visualizer
 	// nolint:gosec
-	_, err = exec.Command("python3", utils.ResolveFile("motionplan/visualization/visualize.py"), tempFile).Output()
-	if err != nil {
-		return err
-	}
-
-	// clean up
-	// nolint:gosec
-	_, err = exec.Command("rm", tempFile).Output()
+	_, err = exec.Command("python3", scriptFile.Name(), dataFile.Name()).Output()
 	return err
 }
 
