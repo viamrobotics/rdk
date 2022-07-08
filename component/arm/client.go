@@ -69,10 +69,10 @@ func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldS
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPositions) error {
 	_, err := c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
-		Name:         c.name,
-		PositionDegs: positionDegs,
+		Name:      c.name,
+		Positions: positions,
 	})
 	return err
 }
@@ -84,7 +84,7 @@ func (c *client) GetJointPositions(ctx context.Context) (*pb.JointPositions, err
 	if err != nil {
 		return nil, err
 	}
-	return resp.PositionDegs, nil
+	return resp.Positions, nil
 }
 
 func (c *client) Stop(ctx context.Context) error {

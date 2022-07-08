@@ -73,9 +73,9 @@ type Arm struct {
 	opMgr    operation.SingleOperationManager
 }
 
-// servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
+// servoPosToValues takes a 360 degree 0-4096 servo position, centered at 2048,
 // and converts it to degrees, centered at 0.
-func servoPosToDegrees(pos float64) float64 {
+func servoPosToValues(pos float64) float64 {
 	return ((pos - 2048) * 180) / 2048
 }
 
@@ -149,7 +149,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState
 func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	if len(jp.Degrees) > len(a.JointOrder()) {
+	if len(jp.Values) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
 	}
 
@@ -157,7 +157,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 
 	// TODO(pl): make block configurable
 	block := false
-	for i, pos := range jp.Degrees {
+	for i, pos := range jp.Values {
 		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
 	}
 
@@ -246,7 +246,7 @@ func (a *Arm) PrintPositions() error {
 		if err != nil {
 			return err
 		}
-		posString = fmt.Sprintf("%s || %d : %d, %f degrees", posString, i, pos, servoPosToDegrees(float64(pos)))
+		posString = fmt.Sprintf("%s || %d : %d, %f degrees", posString, i, pos, servoPosToValues(float64(pos)))
 	}
 	return nil
 }

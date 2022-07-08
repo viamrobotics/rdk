@@ -52,7 +52,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 	return &ArmIK{
 		Name:     name,
 		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}},
 		mp:       mp,
 		model:    model,
 	}, nil
