@@ -47,7 +47,12 @@ func TestClient(t *testing.T) {
 		extraOptions = extra
 		return jointPos1, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+	injectArm.MoveToPositionFunc = func(
+		ctx context.Context,
+		ap *commonpb.Pose,
+		worldState *commonpb.WorldState,
+		extra map[string]interface{},
+	) error {
 		capArmPos = ap
 		extraOptions = extra
 		return nil
@@ -72,7 +77,12 @@ func TestClient(t *testing.T) {
 	injectArm2.GetJointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
 		return jointPos2, nil
 	}
-	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+	injectArm2.MoveToPositionFunc = func(
+		ctx context.Context,
+		ap *commonpb.Pose,
+		worldState *commonpb.WorldState,
+		extra map[string]interface{},
+	) error {
 		capArmPos = ap
 		return nil
 	}

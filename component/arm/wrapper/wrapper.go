@@ -84,7 +84,12 @@ func (wrapper *Arm) GetEndPosition(ctx context.Context, extra map[string]interfa
 }
 
 // MoveToPosition sets the position.
-func (wrapper *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (wrapper *Arm) MoveToPosition(
+	ctx context.Context,
+	pos *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, wrapper.robot, wrapper, pos, worldState)

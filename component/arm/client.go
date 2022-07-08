@@ -66,7 +66,12 @@ func (c *client) GetEndPosition(ctx context.Context, extra map[string]interface{
 	return resp.Pose, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (c *client) MoveToPosition(
+	ctx context.Context,
+	pose *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return err

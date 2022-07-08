@@ -84,7 +84,12 @@ func (a *ArmIK) GetEndPosition(ctx context.Context, extra map[string]interface{}
 }
 
 // MoveToPosition sets the position.
-func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (a *ArmIK) MoveToPosition(
+	ctx context.Context,
+	pos *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return err
