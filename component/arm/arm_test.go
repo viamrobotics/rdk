@@ -121,7 +121,7 @@ func TestNamesFromRobot(t *testing.T) {
 func TestStatusValid(t *testing.T) {
 	status := &pb.Status{
 		EndPosition:    pose,
-		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
 	map1, err := protoutils.InterfaceToMap(status)
@@ -134,7 +134,7 @@ func TestStatusValid(t *testing.T) {
 		test.ShouldResemble,
 		map[string]interface{}{
 			"end_position":    map[string]interface{}{"x": 1.0, "y": 2.0, "z": 3.0},
-			"joint_positions": map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
+			"joint_positions": map[string]interface{}{"values": []interface{}{1.1, 2.2, 3.3}},
 			"is_moving":       true,
 		},
 	)
@@ -153,7 +153,7 @@ func TestCreateStatus(t *testing.T) {
 
 	status := &pb.Status{
 		EndPosition:    pose,
-		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
 
@@ -162,7 +162,7 @@ func TestCreateStatus(t *testing.T) {
 		return pose, nil
 	}
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return &pb.JointPositions{Degrees: status.JointPositions.Degrees}, nil
+		return &pb.JointPositions{Values: status.JointPositions.Values}, nil
 	}
 	injectArm.IsMovingFunc = func(context.Context) (bool, error) {
 		return true, nil
@@ -186,7 +186,7 @@ func TestCreateStatus(t *testing.T) {
 
 		status2 := &pb.Status{
 			EndPosition:    pose,
-			JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+			JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 			IsMoving:       false,
 		}
 		status1, err := arm.CreateStatus(context.Background(), injectArm)

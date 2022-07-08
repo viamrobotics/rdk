@@ -79,14 +79,14 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	inputs := make([]Input, 0, len(jp.Degrees))
+	inputs := make([]Input, 0, len(jp.Values))
 	posIdx := 0
 	for _, transform := range m.OrdTransforms {
 		dof := len(transform.DoF()) + posIdx
-		jPos := jp.Degrees[posIdx:dof]
+		jPos := jp.Values[posIdx:dof]
 		posIdx = dof
 
-		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Degrees: jPos})...)
+		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Values: jPos})...)
 	}
 
 	return inputs
@@ -98,7 +98,7 @@ func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 	posIdx := 0
 	for _, transform := range m.OrdTransforms {
 		dof := len(transform.DoF()) + posIdx
-		jPos.Degrees = append(jPos.Degrees, transform.ProtobufFromInput(input[posIdx:dof]).Degrees...)
+		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
 		posIdx = dof
 	}
 
