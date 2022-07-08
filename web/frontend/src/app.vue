@@ -1668,30 +1668,26 @@ const mapReady = new Promise((resolve) => {
                 {{ pp.axis }}
               </th>
               <td class="border border-black p-2">
-                <viam-button
+                <v-button
                   group
+                  label="--"
                   @click="gantryInc( gantry, pp.axis, -10 )"
-                >
-                  --
-                </viam-button>
-                <viam-button
+                />
+                <v-button
                   group
+                  label="-"
                   @click="gantryInc( gantry, pp.axis, -1 )"
-                >
-                  -
-                </viam-button>
-                <viam-button
+                />
+                <v-button
                   group
+                  label="+"
                   @click="gantryInc( gantry, pp.axis, 1 )"
-                >
-                  +
-                </viam-button>
-                <viam-button
+                />
+                <v-button
                   group
+                  label="++"
                   @click="gantryInc( gantry, pp.axis, 10 )"
-                >
-                  ++
-                </viam-button>
+                />
               </td>
               <td class="border border-black p-2">
                 {{ pp.pos.toFixed(2) }}
@@ -1706,152 +1702,143 @@ const mapReady = new Promise((resolve) => {
     </v-collapse>
 
     <!-- ******* IMU *******  -->
-    <div
+    <v-collapse
       v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()"
       :key="imu[1].name"
-      class="pb-8"
+      :title="`IMU: ${imu[1].name}`"
     >
-      <Collapse>
-        <div class="flex">
-          <h2 class="p-4 text-xl">
-            IMU: {{ imu[1].name }}
-          </h2>
-        </div>
-        <template #content>
-          <div class="flex border border-black border-t-0 p-4">
-            <template v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
-              <div class="w-1/4 mr-4">
-                <h3 class="mb-1">
-                  Orientation (degrees)
-                </h3>
-                <table class="w-full border border-black border-t-0 p-4">
-                  <tr>
-                    <th class="border border-black p-2">
-                      Roll
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].orientation.rollDeg.toFixed(2) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th class="border border-black p-2">
-                      Pitch
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].orientation.pitchDeg.toFixed(2) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th class="border border-black p-2">
-                      Yaw
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].orientation.yawDeg.toFixed(2) }}
-                    </td>
-                  </tr>
-                </table>
-              </div>
+      <div class="flex border border-black border-t-0 p-4">
+        <template v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
+          <div class="w-1/4 mr-4">
+            <h3 class="mb-1">
+              Orientation (degrees)
+            </h3>
+            <table class="w-full border border-black border-t-0 p-4">
+              <tr>
+                <th class="border border-black p-2">
+                  Roll
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].orientation.rollDeg.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Pitch
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].orientation.pitchDeg.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Yaw
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].orientation.yawDeg.toFixed(2) }}
+                </td>
+              </tr>
+            </table>
+          </div>
                 
-              <div class="w-1/4 mr-4">
-                <h3 class="mb-1">
-                  Angular Velocity (degrees/second)
-                </h3>
-                <table class="w-full border border-black border-t-0 p-4">
-                  <tr>
-                    <th class="border border-black p-2">
-                      X
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th class="border border-black p-2">
-                      Y
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th class="border border-black p-2">
-                      Z
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2) }}
-                    </td>
-                  </tr>
-                </table>
-              </div>
+          <div class="w-1/4 mr-4">
+            <h3 class="mb-1">
+              Angular Velocity (degrees/second)
+            </h3>
+            <table class="w-full border border-black border-t-0 p-4">
+              <tr>
+                <th class="border border-black p-2">
+                  X
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Y
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Z
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2) }}
+                </td>
+              </tr>
+            </table>
+          </div>
                 
-              <div class="w-1/4 mr-4">
-                <h3 class="mb-1">
-                  Acceleration (mm/second/second)
-                </h3>
-                <table class="w-full border border-black border-t-0 p-4">
-                  <tr>
-                    <th class="border border-black p-2">
-                      X
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th class="border border-black p-2">
-                      Y
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th class="border border-black p-2">
-                      Z
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2) }}
-                    </td>
-                  </tr>
-                </table>
-              </div>
+          <div class="w-1/4 mr-4">
+            <h3 class="mb-1">
+              Acceleration (mm/second/second)
+            </h3>
+            <table class="w-full border border-black border-t-0 p-4">
+              <tr>
+                <th class="border border-black p-2">
+                  X
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Y
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Z
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2) }}
+                </td>
+              </tr>
+            </table>
+          </div>
                 
-              <div class="w-1/4">
-                <h3 class="mb-1">
-                  Magnetometer (gauss)
-                </h3>
-                <table class="w-full border border-black border-t-0 p-4">
-                  <tr>
-                    <th class="border border-black p-2">
-                      X
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].magnetometer.xGauss.toFixed(2) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th class="border border-black p-2">
-                      Y
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].magnetometer.yGauss.toFixed(2) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th class="border border-black p-2">
-                      Z
-                    </th>
-                    <td class="border border-black p-2">
-                      {{ imuData[imu[1].name].magnetometer.zGauss.toFixed(2) }}
-                    </td>
-                  </tr>
-                </table>
-              </div>
-            </template>
+          <div class="w-1/4">
+            <h3 class="mb-1">
+              Magnetometer (gauss)
+            </h3>
+            <table class="w-full border border-black border-t-0 p-4">
+              <tr>
+                <th class="border border-black p-2">
+                  X
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].magnetometer.xGauss.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Y
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].magnetometer.yGauss.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Z
+                </th>
+                <td class="border border-black p-2">
+                  {{ imuData[imu[1].name].magnetometer.zGauss.toFixed(2) }}
+                </td>
+              </tr>
+            </table>
           </div>
         </template>
-      </Collapse>
-    </div>
+      </div>
+    </v-collapse>
 
     <!-- ******* ARM *******  -->
     <v-collapse
@@ -2052,63 +2039,50 @@ const mapReady = new Promise((resolve) => {
     </v-collapse>
 
     <!-- ******* SERVO *******  -->
-    <div
+    <v-collapse
       v-for="servo in filterResources('rdk', 'component', 'servo')"
       v-if="resourceStatusByName(servo)"
       :key="servo.name"
-      class="pb-8"
+      :title="`Servo ${servo.name}`"
     >
-      <Collapse>
-        <div class="flex">
-          <h2 class="p-4 text-xl">
-            Servo {{ servo.name }}
-          </h2>
-        </div>
-        <template #content>
-          <div class="flex border border-black border-t-0 p-4">
-            <table class="table-auto border-collapse border border-black">
-              <tr>
-                <td class="border border-black p-2">
-                  Angle
-                </td>
-                <td class="border border-black p-2">
-                  {{ resourceStatusByName(servo).positionDeg }}
-                </td>
-              </tr>
-              <tr>
-                <td class="border border-black p-2" />
-                <td class="border border-black p-2">
-                  <viam-button
-                    group
-                    @click="servoMove(servo, -10)"
-                  >
-                    -10
-                  </viam-button>
-                  <viam-button
-                    group
-                    @click="servoMove(servo, -1)"
-                  >
-                    -1
-                  </viam-button>
-                  <viam-button
-                    group
-                    @click="servoMove(servo, 1)"
-                  >
-                    1
-                  </viam-button>
-                  <viam-button
-                    group
-                    @click="servoMove(servo, 10)"
-                  >
-                    10
-                  </viam-button>
-                </td>
-              </tr>
-            </table>
-          </div>
-        </template>
-      </Collapse>
-    </div>
+      <div class="flex border border-black border-t-0 p-4">
+        <table class="table-auto border-collapse border border-black">
+          <tr>
+            <td class="border border-black p-2">
+              Angle
+            </td>
+            <td class="border border-black p-2">
+              {{ resourceStatusByName(servo).positionDeg }}
+            </td>
+          </tr>
+          <tr>
+            <td class="border border-black p-2" />
+            <td class="border border-black p-2">
+              <v-button
+                group
+                label="-10"
+                @click="servoMove(servo, -10)"
+              />
+              <v-button
+                group
+                label="-1"
+                @click="servoMove(servo, -1)"
+              />
+              <v-button
+                group
+                label="1"
+                @click="servoMove(servo, 1)"
+              />
+              <v-button
+                group
+                label="10"
+                @click="servoMove(servo, 10)"
+              />
+            </td>
+          </tr>
+        </table>
+      </div>
+    </v-collapse>
 
     <!-- ******* MOTOR *******  -->
     <motor-detail 
@@ -2142,116 +2116,111 @@ const mapReady = new Promise((resolve) => {
     />
 
     <!-- ******* BOARD *******  -->
-    <div
+    <v-collapse
       v-for="board in filterResources('rdk', 'component', 'board')"
       v-if="resourceStatusByName(board)"
       :key="board.name"
-      class="pb-8"
     >
-      <Collapse>
-        <div class="flex">
-          <h2 class="p-4 text-xl">
-            Board {{ board.name }}
-          </h2>
+      <div class="flex">
+        <h2 class="p-4 text-xl">
+          Board {{ board.name }}
+        </h2>
+      </div>
+      <template #content>
+        <div class="border border-black border-t-0 p-4">
+          <h3 class="mb-2">
+            Analogs
+          </h3>
+          <table class="mb-4 table-auto border border-black">
+            <tr
+              v-for="(analog, name) in resourceStatusByName(board).analogsMap"
+              :key="name"
+            >
+              <th class="border border-black p-2">
+                {{ name }}
+              </th>
+              <td class="border border-black p-2">
+                {{ analog.value || 0 }}
+              </td>
+            </tr>
+          </table>
+          <h3 class="mb-2">
+            GPIO
+          </h3>
+          <table class="mb-4 table-auto border border-black">
+            <tr
+              v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
+              :key="name"
+            >
+              <th class="border border-black p-2">
+                {{ name }}
+              </th>
+              <td class="border border-black p-2">
+                {{ di.value || 0 }}
+              </td>
+            </tr>
+          </table>
+          <h3 class="mb-2">
+            DigiGPIOtalInterrupts
+          </h3>
+          <table class="mb-4 table-auto border border-black">
+            <tr>
+              <th class="border border-black p-2">
+                Get
+              </th>
+              <td class="border border-black p-2">
+                <div class="flex">
+                  <label class="pr-2 py-2 text-right">Pin:</label>
+                  <number-input
+                    v-model="getPin"
+                    class="mr-2"
+                    :input-id="'get_pin_' + board.name"
+                  />
+                  <v-button
+                    class="mr-2"
+                    group
+                    label="Get"
+                    @click="getGPIO(board.name)"
+                  />
+                  <span
+                    :id="'get_pin_value_' + board.name"
+                    class="py-2"
+                  />
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th class="border border-black p-2">
+                Set
+              </th>
+              <td class="p-2">
+                <div class="flex">
+                  <label class="pr-2 py-2  text-right">Pin:</label>
+                  <number-input
+                    v-model="setPin"
+                    class="mr-2"
+                    :input-id="'set_pin_' + board.name"
+                  />
+                  <select
+                    :id="'set_pin_v_' + board.name"
+                    class="bg-white border border-black mr-2"
+                    style="height: 38px"
+                  >
+                    <option>low</option>
+                    <option>high</option>
+                  </select>
+                  <v-button
+                    group
+                    label="Set"
+                    @click="setGPIO(board.name)"
+                  />
+                </div>
+              </td>
+            </tr>
+          </table>
         </div>
-        <template #content>
-          <div class="border border-black border-t-0 p-4">
-            <h3 class="mb-2">
-              Analogs
-            </h3>
-            <table class="mb-4 table-auto border border-black">
-              <tr
-                v-for="(analog, name) in resourceStatusByName(board).analogsMap"
-                :key="name"
-              >
-                <th class="border border-black p-2">
-                  {{ name }}
-                </th>
-                <td class="border border-black p-2">
-                  {{ analog.value || 0 }}
-                </td>
-              </tr>
-            </table>
-            <h3 class="mb-2">
-              GPIO
-            </h3>
-            <table class="mb-4 table-auto border border-black">
-              <tr
-                v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
-                :key="name"
-              >
-                <th class="border border-black p-2">
-                  {{ name }}
-                </th>
-                <td class="border border-black p-2">
-                  {{ di.value || 0 }}
-                </td>
-              </tr>
-            </table>
-            <h3 class="mb-2">
-              DigiGPIOtalInterrupts
-            </h3>
-            <table class="mb-4 table-auto border border-black">
-              <tr>
-                <th class="border border-black p-2">
-                  Get
-                </th>
-                <td class="border border-black p-2">
-                  <div class="flex">
-                    <label class="pr-2 py-2 text-right">Pin:</label>
-                    <number-input
-                      v-model="getPin"
-                      class="mr-2"
-                      :input-id="'get_pin_' + board.name"
-                    />
-                    <viam-button
-                      class="mr-2"
-                      group
-                      @click="getGPIO(board.name)"
-                    >
-                      Get
-                    </viam-button>
-                    <span
-                      :id="'get_pin_value_' + board.name"
-                      class="py-2"
-                    />
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Set
-                </th>
-                <td class="p-2">
-                  <div class="flex">
-                    <label class="pr-2 py-2  text-right">Pin:</label>
-                    <number-input
-                      v-model="setPin"
-                      class="mr-2"
-                      :input-id="'set_pin_' + board.name"
-                    />
-                    <select
-                      :id="'set_pin_v_' + board.name"
-                      class="bg-white border border-black mr-2"
-                      style="height: 38px"
-                    >
-                      <option>low</option>
-                      <option>high</option>
-                    </select>
-                    <viam-button
-                      group
-                      @click="setGPIO(board.name)"
-                    >
-                      Set
-                    </viam-button>
-                  </div>
-                </td>
-              </tr>
-            </table>
-          </div>
-        </template>
-      </Collapse>
-    </div>
+      </template>
+    </v-collapse>
 
     <!-- sensors -->
     <v-collapse
@@ -2305,54 +2274,41 @@ const mapReady = new Promise((resolve) => {
     </v-collapse>
 
     <!-- get segments -->
-    <div
+    <v-collapse
       v-if="filterResources('rdk', 'service', 'navigation').length > 0"
-      id="map-container"
-      class="pb-8"
+      title="Get Segments"
     >
-      <Collapse>
-        <div class="flex">
-          <h2 class="p-4 text-xl">
-            Get Segments
-          </h2>
+      <div class="border border-black border-t-0 p-4">
+        <div class="mb-2">
+          <v-button
+            group
+            label="Manual"
+            @click="setNavigationMode('manual')"
+          />
+          <v-button
+            group
+            label="Waypoint"
+            @click="setNavigationMode('waypoint')"
+          />
         </div>
-        <template #content>
-          <div class="border border-black border-t-0 p-4">
-            <div class="mb-2">
-              <viam-button
-                group
-                @click="setNavigationMode('manual')"
-              >
-                Manual
-              </viam-button>
-              <viam-button
-                group
-                @click="setNavigationMode('waypoint')"
-              >
-                Waypoint
-              </viam-button>
-            </div>
-            <div class="mb-2">
-              <viam-button
-                group
-                @click="setNavigationLocation('nav-set-location')"
-              >
-                Try Set Location
-              </viam-button>
-            </div>
-            <div
-              id="map"
-              v-map-mounted
-              class="mb-2"
-            />
-            <viam-input
-              v-model="locationValue"
-              input-id="nav-set-location"
-            />
-          </div>
-        </template>
-      </Collapse>
-    </div>
+        <div class="mb-2">
+          <v-button
+            group
+            label="Try Set Location"
+            @click="setNavigationLocation('nav-set-location')"
+          />
+        </div>
+        <div
+          id="map"
+          v-map-mounted
+          class="mb-2"
+        />
+        <viam-input
+          v-model="locationValue"
+          input-id="nav-set-location"
+        />
+      </div>
+    </v-collapse>
 
     <!-- current operations -->
     <v-collapse
@@ -2437,7 +2393,7 @@ const mapReady = new Promise((resolve) => {
       v-if="filterResources('rdk', 'service', 'slam').length > 0"
       class="slam pb-8"
     >
-      <slam
+      <Slam
         :image-map="imageMapTemp"
         :pcd-map="pcdMapTemp"
         @refresh-image-map="viewSLAMImageMap"
@@ -2446,3 +2402,19 @@ const mapReady = new Promise((resolve) => {
     </div>
   </div>
 </template>
+
+<style>
+  #source {
+    position: relative;
+    width: 50%;
+    height: 50%;
+  }
+  #map {
+    height: 400px;
+    width: 100%;
+  }
+  h3 {
+    margin: 0.1em;
+    margin-block-end: 0.1em;
+  }
+</style>
