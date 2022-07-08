@@ -65,8 +65,6 @@ func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.
 	}
 	indices1 := rangeInt(len(desc1), 0, 1)
 	indices2 := utils.GetArgMinDistancesPerRow(distances)
-	logger.Debugf("indices1 n: %d", len(indices1))
-	logger.Debugf("indices2 n: %d", len(indices2))
 	// mask for valid indices
 	maskIdx := make([]int, len(desc1))
 	for i := range maskIdx {
@@ -106,8 +104,6 @@ func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.
 			idx2 = append(idx2, indices2[i])
 		}
 	}
-	logger.Debugf("idx1 n: %d", len(idx1))
-	logger.Debugf("idx2 n: %d", len(idx2))
 	// get minimum distances per selected pair of descriptor
 	dist := make([]float64, len(idx1))
 	for i := range dist {
