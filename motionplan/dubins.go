@@ -11,7 +11,7 @@ type Dubins struct {
 	point_separation float64
 }
 
-type dubinOption struct {
+type DubinOption struct {
 	totalLen   float64
 	dubinsPath []float64
 	straight   bool
@@ -39,7 +39,7 @@ func (d *Dubins) FindCenter(point []float64, side string) []float64 {
 	return center
 }
 
-func (d *Dubins) lsl(start []float64, end []float64, center_0 []float64, center_2 []float64) dubinOption {
+func (d *Dubins) lsl(start []float64, end []float64, center_0 []float64, center_2 []float64) DubinOption {
 	straight_dist := d.dist(center_0, center_2)
 	alpha := math.Atan2(d.sub(center_2, center_0)[1], d.sub(center_2, center_0)[0])
 	beta_2 := math.Mod((end[2] - alpha), 2*math.Pi)
@@ -51,12 +51,12 @@ func (d *Dubins) lsl(start []float64, end []float64, center_0 []float64, center_
 	path[1] = beta_2
 	path[2] = straight_dist
 
-	dubin := dubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
 
 	return dubin
 }
 
-func (d *Dubins) rsr(start []float64, end []float64, center_0 []float64, center_2 []float64) dubinOption {
+func (d *Dubins) rsr(start []float64, end []float64, center_0 []float64, center_2 []float64) DubinOption {
 	straight_dist := d.dist(center_0, center_2)
 	alpha := math.Atan2(d.sub(center_2, center_0)[1], d.sub(center_2, center_0)[0])
 	beta_2 := math.Mod((-end[2] + alpha), 2*math.Pi)
@@ -68,18 +68,18 @@ func (d *Dubins) rsr(start []float64, end []float64, center_0 []float64, center_
 	path[1] = -beta_2
 	path[2] = straight_dist
 
-	dubin := dubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
 
 	return dubin
 }
 
-func (d *Dubins) rsl(start []float64, end []float64, center_0 []float64, center_2 []float64) dubinOption {
+func (d *Dubins) rsl(start []float64, end []float64, center_0 []float64, center_2 []float64) DubinOption {
 	median_point := []float64{d.sub(center_2, center_0)[0] / 2, d.sub(center_2, center_0)[1] / 2}
 	psia := math.Atan2(median_point[1], median_point[0])
 	half_intercenter := d.norm(median_point)
 	if half_intercenter < d.radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := dubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
+		dubin := DubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
 		return dubin
 	}
 	alpha := math.Acos(d.radius / half_intercenter)
@@ -93,18 +93,18 @@ func (d *Dubins) rsl(start []float64, end []float64, center_0 []float64, center_
 	path[1] = beta_2
 	path[2] = straight_dist
 
-	dubin := dubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
 
 	return dubin
 }
 
-func (d *Dubins) lsr(start []float64, end []float64, center_0 []float64, center_2 []float64) dubinOption {
+func (d *Dubins) lsr(start []float64, end []float64, center_0 []float64, center_2 []float64) DubinOption {
 	median_point := []float64{d.sub(center_2, center_0)[0] / 2, d.sub(center_2, center_0)[1] / 2}
 	psia := math.Atan2(median_point[1], median_point[0])
 	half_intercenter := d.norm(median_point)
 	if half_intercenter < d.radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := dubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
+		dubin := DubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
 		return dubin
 	}
 	alpha := math.Acos(d.radius / half_intercenter)
@@ -118,18 +118,18 @@ func (d *Dubins) lsr(start []float64, end []float64, center_0 []float64, center_
 	path[1] = -beta_2
 	path[2] = straight_dist
 
-	dubin := dubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
 
 	return dubin
 }
 
-func (d *Dubins) lrl(start []float64, end []float64, center_0 []float64, center_2 []float64) dubinOption {
+func (d *Dubins) lrl(start []float64, end []float64, center_0 []float64, center_2 []float64) DubinOption {
 	dist_intercenter := d.dist(center_0, center_2)
 	intercenter := []float64{d.sub(center_2, center_0)[0] / 2, d.sub(center_2, center_0)[1] / 2}
 	psia := math.Atan2(intercenter[1], intercenter[0])
 	if 2*d.radius < dist_intercenter && dist_intercenter > 4*d.radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := dubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
+		dubin := DubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
 		return dubin
 	}
 	gamma := 2 * math.Asin(dist_intercenter/(4*d.radius))
@@ -142,18 +142,18 @@ func (d *Dubins) lrl(start []float64, end []float64, center_0 []float64, center_
 	path[1] = beta_1
 	path[2] = 2*math.Pi - gamma
 
-	dubin := dubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
 
 	return dubin
 }
 
-func (d *Dubins) rlr(start []float64, end []float64, center_0 []float64, center_2 []float64) dubinOption {
+func (d *Dubins) rlr(start []float64, end []float64, center_0 []float64, center_2 []float64) DubinOption {
 	dist_intercenter := d.dist(center_0, center_2)
 	intercenter := []float64{d.sub(center_2, center_0)[0] / 2, d.sub(center_2, center_0)[1] / 2}
 	psia := math.Atan2(intercenter[1], intercenter[0])
 	if 2*d.radius < dist_intercenter && dist_intercenter > 4*d.radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := dubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
+		dubin := DubinOption{totalLen: math.Inf(1), dubinsPath: zeros, straight: true}
 		return dubin
 	}
 	gamma := 2 * math.Asin(dist_intercenter/(4*d.radius))
@@ -166,19 +166,19 @@ func (d *Dubins) rlr(start []float64, end []float64, center_0 []float64, center_
 	path[1] = beta_1
 	path[2] = 2*math.Pi - gamma
 
-	dubin := dubinOption{totalLen: total_len, dubinsPath: path, straight: true}
+	dubin := DubinOption{totalLen: total_len, dubinsPath: path, straight: true}
 
 	return dubin
 }
 
 
-func (d *Dubins) AllOptions(start []float64, end []float64, sorts bool) ([]dubinOption){
+func (d *Dubins) AllOptions(start []float64, end []float64, sorts bool) ([]DubinOption){
 	center_0_left := d.FindCenter(start, "L")
 	center_0_right := d.FindCenter(start, "R")
 	center_2_left := d.FindCenter(end, "L")
 	center_2_right := d.FindCenter(end, "R")
 
-	options := []dubinOption{d.lsl(start, end, center_0_left, center_2_left),
+	options := []DubinOption{d.lsl(start, end, center_0_left, center_2_left),
 		d.rsr(start, end, center_0_right, center_2_right),
 		d.rsl(start, end, center_0_right, center_2_left),
 		d.lsr(start, end, center_0_left, center_2_right),
