@@ -215,8 +215,11 @@ const togglePCDExpand = () => {
             :value="pcd ? 'on' : 'off'"
             @input="togglePCDExpand()"
           />
-          <div v-if="pcd" class="flex flex-col gap-4">
-            <div class="flex gap-2 justify-end">
+          <div
+            v-if="pcd"
+            class="flex flex-col gap-4"
+          >
+            <div class="flex justify-end gap-2">
               <v-button
                 icon="refresh"
                 label="Refresh"
