@@ -1,53 +1,55 @@
 package main
 
 import (
-  "context"
-  "math"
-  "encoding/json"
+	"context"
+	"encoding/json"
 	"io/ioutil"
+	"math"
 	"strconv"
 
-  "github.com/edaniels/golog"
-  "go.viam.com/rdk/grpc/client"
-  "go.viam.com/utils"
-  "github.com/golang/geo/r3"
+	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/utils"
 
-  utilsrdk "go.viam.com/rdk/utils"
-  "go.viam.com/utils/rpc"
-  "go.viam.com/rdk/component/base"
-//   "go.viam.com/rdk/resource"
+	"go.viam.com/rdk/component/base"
+	utilsrdk "go.viam.com/rdk/utils"
+	"go.viam.com/utils/rpc"
+
+	//   "go.viam.com/rdk/resource"
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
-
 )
 
 var logger = golog.NewDevelopmentLogger("agile")
 
-
+const (
+	gridConversion = 500 // mm per grid square
+)
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-  robot, err := client.New(
-      ctx,
-      "agilex-limo-main.60758fe0f6.viam.cloud",
-      logger,
-      client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
-          Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
-          Payload: "pem1epjv07fq2cz2z5723gq6ntuyhue5t30boohkiz3iqht4",
-      })),
-  )
-  if err != nil {
-      logger.Debug(err)
-      return err
-  }
-  defer robot.Close(ctx)
-  logger.Info("Resources:")
-  logger.Info(robot.ResourceNames())
+	robot, err := client.New(
+		ctx,
+		"agilex-limo-main.60758fe0f6.viam.cloud",
+		logger,
+		client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
+			Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
+			Payload: "pem1epjv07fq2cz2z5723gq6ntuyhue5t30boohkiz3iqht4",
+		})),
+	)
+	if err != nil {
+		logger.Debug(err)
+		return err
+	}
+	defer robot.Close(ctx)
+	logger.Info("Resources:")
+	logger.Info(robot.ResourceNames())
 
 	// read config
 	config, err := parseJSONFile("samples/agile/planConfig.json")
@@ -66,50 +68,71 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		logger.Fatal(err.Error())
 	}
 
-//   limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
+	//   limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
 
-//   limo1 := limo.(base.Base)
+	//   limo1 := limo.(base.Base)
 
-//   x1, y1, x2, y2, dir := 0., 0., 0., 0., 0.
+	//   x1, y1, x2, y2, dir := 0., 0., 0., 0., 0.
 
+	//   start := make([]float64, 3)
+	//   next := make([]float64, 3)
 
-//   for i, wp := range waypoints {
-//     if i == 0 {
-//       x1 = wp[0].Value
-//       y1 = wp[1].Value
-//     } else {
-//       x2 = wp[0].Value
-//       y2 = wp[1].Value
-//       dir,err = MoveToWaypoint(ctx, limo1, x1, y1, x2, y2, dir)
-//       logger.Infof("degrees: %d", dir)
-//       if err!=nil {
-//         logger.Debug(err)
-//         return err
-//       }
+	//   for i, wp := range waypoints {
+	//     if i == 0 {
+	// 		for j:=0; j<3; j++ {
+	// 			start[j] = wp[j].Value
+	// 		}
+	//     } else {
+	// 		for j:=0; j<3; j++ {
+	// 			end[j] = wp[j].Value
+	// 		}
 
-//       x1, y1 = x2, y2
-//     }
-//   }
+	// 	  _, dubinsPath, straight := motionplan.AllOptions(start, end, true)[0]
 
-//   MoveToWaypoint(ctx, limo1, -1, -1, 0, 0, 0)
-  return nil
-  
+	//       dir,err = MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
+	//   logger.Infof("degrees: %d", dir)
+	//   if err!=nil {
+	//     logger.Debug(err)
+	//     return err
+	//   }
+
+	//   start = end
+	//     }
+	//   }
+
+	return nil
+
+}
+
+func MoveToWaypointDubins(ctx context.Context, limo base.Base, path []float64, straight bool) {
+	//first turn
+	limo.Spin(ctx, path[0]*180/math.Pi, 20) //convert to degrees
+
+	//second turn/straight
+	if straight {
+		limo.MoveStraight(ctx, int(path[2]*gridConversion), 40)
+	} else {
+		limo.Spin(ctx, path[2]*180/math.Pi, 20)
+	}
+
+	//last turn
+	limo.Spin(ctx, path[1]*180/math.Pi, 40)
 }
 
 func MoveToWaypoint(ctx context.Context, limo base.Base, x1 float64, y1 float64, x2 float64, y2 float64, dir float64) (float64, error) {
-  dist := math.Sqrt(math.Pow((y2-y1), 2) + math.Pow((x2-x1), 2)) //in grid values
-  theta := math.Acos((x2-x1)/dist)*(180/math.Pi)  //angle to x axis in degrees
+	dist := math.Sqrt(math.Pow((y2-y1), 2) + math.Pow((x2-x1), 2)) //in grid values
+	theta := math.Acos((x2-x1)/dist) * (180 / math.Pi)             //angle to x axis in degrees
 
-//   turnRadius := int(322/math.Tan(.48869)) //in mm, turning angle is about 28 degrees right now
+	//   turnRadius := int(322/math.Tan(.48869)) //in mm, turning angle is about 28 degrees right now
 
-  newAngle := dir-theta
-  moves := base.Move{DistanceMm: int(dist)*1000, MmPerSec: 100, AngleDeg: newAngle, DegsPerSec: 20}
-  err := base.DoMove(ctx, moves, limo)
-  if err!=nil {
-    return dir, err
-  }
+	newAngle := dir - theta
+	moves := base.Move{DistanceMm: int(dist) * 1000, MmPerSec: 100, AngleDeg: newAngle, DegsPerSec: 20}
+	err := base.DoMove(ctx, moves, limo)
+	if err != nil {
+		return dir, err
+	}
 
-  return math.Mod((dir + newAngle), 360), nil
+	return math.Mod((dir + newAngle), 360), nil
 
 }
 
@@ -125,8 +148,8 @@ type mobileRobotPlanConfig struct {
 
 	// robot params
 	RobotDims []float64 `json:"robot-dims"`
-	Radius float64 `json:"radius"`
-	PointSep float64 `json:"point-sep"`
+	Radius    float64   `json:"radius"`
+	PointSep  float64   `json:"point-sep"`
 
 	// map definition
 	Xlim      []float64  `json:"xlim"`
@@ -176,6 +199,7 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 	if err != nil {
 		return nil, err
 	}
+
 	return waypoints, nil
 }
 
@@ -212,7 +236,7 @@ func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {
 		return nil, errors.Wrap(wrongDimsError, "config error in robot-dims field")
 	}
 	for _, o := range config.Obstacles {
-		if len(o.Center) != 2 {
+		if len(o.Center) != 3 {
 			return nil, errors.Wrap(wrongDimsError, "config error in obstacles.center field")
 		}
 		if len(o.Dims) != 2 {
@@ -232,4 +256,3 @@ func writeJSONFile(filename string, data interface{}) error {
 	}
 	return nil
 }
-
