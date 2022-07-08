@@ -23,7 +23,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// AttrConfig is used for converting oneAxis config attributes.
+// AttrConfig is used for converting RTK GPS config attributes.
 type AttrConfig struct {
 	CorrectionSource string `json:"correction_source"`
 	// ntrip
