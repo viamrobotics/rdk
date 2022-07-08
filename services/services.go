@@ -4,56 +4,46 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 	viamutils "go.viam.com/utils"
 )
 
-type Service interface {
-	Close(ctx context.Context) error
+// type Service interface {
+// 	Close(ctx context.Context) error
+// }
 
-	New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error)
-}
-
-type reconfigurableService struct {
+type ReconfigurableService struct {
 	mu     sync.RWMutex
-	actual Service
+	Actual interface{}
 }
 
 var (
-	_ = resource.Reconfigurable(&reconfigurableService{})
+	_ = resource.Reconfigurable(&ReconfigurableService{})
 )
 
 //function so that it can be passed into here
-func (svc *reconfigurableService) Reconfigure(ctx context.Context, newService resource.Reconfigurable) error {
+func (svc *ReconfigurableService) Reconfigure(ctx context.Context, newService resource.Reconfigurable) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	rSvc, ok := newService.(*reconfigurableService)
+	rSvc, ok := newService.(*ReconfigurableService)
 	if !ok {
 		return utils.NewUnexpectedTypeError(svc, newService)
 	}
-	if err := viamutils.TryClose(ctx, svc.actual); err != nil {
+	if err := viamutils.TryClose(ctx, svc.Actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	svc.actual = rSvc.actual
+	svc.Actual = rSvc.Actual
 	return nil
 }
 
 // WrapWithReconfigurable converts a service implementation to a reconfigurableService
 // If service is already a Reconfigurable, then nothing is done.
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
-	svc, ok := s.(Service)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Service", s)
-	}
-
-	if reconfigurable, ok := svc.(resource.Reconfigurable); ok {
+	if reconfigurable, ok := s.(resource.Reconfigurable); ok {
 		return reconfigurable, nil
 	}
 
-	return &reconfigurableService{actual: svc}, nil
+	return &ReconfigurableService{Actual: s}, nil
 }

@@ -4,6 +4,7 @@ package vision
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
@@ -254,4 +255,9 @@ func (vs *visionService) registerSegmenterFromDetector(detName string, logger go
 		return err
 	}
 	return vs.segReg.registerSegmenter(detName, SegmenterRegistration{detSegmenter, params}, logger)
+}
+
+func (vs *visionService) Close(ctx context.Context) error {
+	fmt.Println("try to close vision")
+	return nil
 }

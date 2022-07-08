@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"strings"
 
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services"
 	"go.viam.com/rdk/services/datamanager"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -851,6 +853,13 @@ func (manager *resourceManager) updateComponentsGraph(addedComponents []config.C
 func (manager *resourceManager) ResourceByName(name resource.Name) (interface{}, error) {
 	robotPart, ok := manager.resources.Nodes[name]
 	if ok {
+		fmt.Println(name.Subtype.ResourceType)
+		if name.Subtype.ResourceType == resource.ResourceTypeService {
+			reconfigurablePart, ok := robotPart.(*services.ReconfigurableService)
+			if ok {
+				return reconfigurablePart.Actual, nil
+			}
+		}
 		return robotPart, nil
 	}
 	return nil, rutils.NewResourceNotFoundError(name)
