@@ -486,7 +486,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 			r.Logger().Errorw("resource is nil", "resource", name)
 			continue
 		}
-		actualSvc := reconfigurableSvc.Actual
+		actualSvc := *(reconfigurableSvc.Actual)
 		if updateable, ok := actualSvc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
 				r.Logger().Errorw("failed to update resource", "resource", name, "error", err)
