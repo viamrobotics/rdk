@@ -32,7 +32,7 @@ type dubinsRRTMotionPlanner struct {
 	nCPU            int
 	stepSize        float64
 	randseed        *rand.Rand
-	d 				Dubins
+	d               Dubins
 }
 
 // NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object.
@@ -138,7 +138,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		var target *configuration
-		if (rand.Float64() > 1 - goalRate) || i == 0 {
+		if (rand.Float64() > 1-goalRate) || i == 0 {
 			target = goalConfig
 		} else {
 			input2D := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
@@ -159,6 +159,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				targetConnected = true
 				break
 			}
+
 		}
 
 		if targetConnected && target != goalConfig {
@@ -171,7 +172,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				end := configuration2slice(n)
 
 				bestOption := dm.d.AllOptions(start, end, true)[0]
-				if pathLenMap[target] + bestOption.totalLen < pathLenMap[n] {
+				if pathLenMap[target]+bestOption.totalLen < pathLenMap[n] {
 					seedMap[n] = target
 					pathLenMap[n] = pathLenMap[target] + bestOption.totalLen
 				}
@@ -224,11 +225,11 @@ func (mp *dubinsRRTMotionPlanner) CheckPath(
 		input2[0], input2[1] = referenceframe.Input{Value: p2[0]}, referenceframe.Input{Value: p2[1]}
 
 		ci := &ConstraintInput{
-			StartPos: pose1,
-			EndPos: pose2,
+			StartPos:   pose1,
+			EndPos:     pose2,
 			StartInput: input1,
-			EndInput: input2,
-			Frame: mp.frame,
+			EndInput:   input2,
+			Frame:      mp.frame,
 		}
 
 		if ok, _ := opt.CheckConstraintPath(ci, mp.Resolution()); !ok {
@@ -244,25 +245,25 @@ func (mp *dubinsRRTMotionPlanner) CheckPath(
 
 // Used for coordinating parallel computations of dubins options
 type dubinOptionManager struct {
-	optKeys    	chan *configuration
-	options 	chan *nodeToOption
-	optLock    	sync.RWMutex
-	sample   	*configuration
-	ready     	bool
-	nCPU      	int
-	d	 	  	Dubins
+	optKeys chan *configuration
+	options chan *nodeToOption
+	optLock sync.RWMutex
+	sample  *configuration
+	ready   bool
+	nCPU    int
+	d       Dubins
 }
 
 type nodeToOption struct {
-	key 		*configuration
-	value 		DubinOption
+	key   *configuration
+	value DubinOption
 }
-  
+
 type nodeToOptionList []nodeToOption
 
-func (p nodeToOptionList) Len() int { return len(p) }
+func (p nodeToOptionList) Len() int           { return len(p) }
 func (p nodeToOptionList) Less(i, j int) bool { return p[i].value.totalLen < p[j].value.totalLen }
-func (p nodeToOptionList) Swap(i, j int){ p[i], p[j] = p[j], p[i] }
+func (p nodeToOptionList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (dm *dubinOptionManager) selectOptions(
 	ctx context.Context,
@@ -274,7 +275,7 @@ func (dm *dubinOptionManager) selectOptions(
 		// If the map is large, calculate distances in parallel
 		return dm.parallelselectOptions(ctx, sample, rrtMap, nbOptions)
 	}
-	
+
 	// get all options from all nodes
 	pl := make(nodeToOptionList, 0)
 	for node := range rrtMap {
@@ -289,8 +290,13 @@ func (dm *dubinOptionManager) selectOptions(
 	sort.Sort(pl)
 
 	// Sort and choose best nbOptions options
-	var options map[*configuration]DubinOption
-	for _, p := range pl[:nbOptions] {
+	options := make(map[*configuration]DubinOption)
+	topn := nbOptions
+	if len(pl) < nbOptions {
+		topn = len(pl)
+	}
+
+	for _, p := range pl[:topn] {
 		options[p.key] = p.value
 	}
 
@@ -391,25 +397,24 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 	}
 }
 
-
-func mobile2DInputDist(from, to []referenceframe.Input) (float64) {
-	return math.Pow(from[0].Value - to[0].Value, 2)
+func mobile2DInputDist(from, to []referenceframe.Input) float64 {
+	return math.Pow(from[0].Value-to[0].Value, 2)
 }
 
-func mobile2DConfigDist(from, to *configuration) (float64) {
-	return math.Pow(from.inputs[0].Value - to.inputs[0].Value, 2)
+func mobile2DConfigDist(from, to *configuration) float64 {
+	return math.Pow(from.inputs[0].Value-to.inputs[0].Value, 2)
 }
 
 func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configuration, nbNeighbors int) []*configuration {
 	keys := make([]*configuration, 0, len(rrtMap))
-  
-    for key := range rrtMap {
-        keys = append(keys, key)
-    }
 
-	sort.SliceStable(keys, func(i, j int) bool{
-        return mobile2DConfigDist(rrtMap[keys[i]], sample) < mobile2DConfigDist(rrtMap[keys[j]], sample)
-    })
+	for key := range rrtMap {
+		keys = append(keys, key)
+	}
+
+	sort.SliceStable(keys, func(i, j int) bool {
+		return mobile2DConfigDist(keys[i], sample) < mobile2DConfigDist(keys[j], sample)
+	})
 
 	topn := nbNeighbors
 	if len(rrtMap) < nbNeighbors {
@@ -419,7 +424,7 @@ func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configu
 	return keys[:topn]
 }
 
-func configuration2slice(c *configuration) ([]float64) {
+func configuration2slice(c *configuration) []float64 {
 	s := make([]float64, 0)
 	for _, v := range c.inputs {
 		s = append(s, v.Value)
