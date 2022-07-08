@@ -3,7 +3,6 @@ import Popper from "vue-popperjs";
 import Icon from "./icon.vue";
 
 interface Props {
-  iconPath: string
   infoRows?: string[]
 }
 
@@ -39,7 +38,7 @@ defineProps<Props>()
     </div>
 
     <button data-cy="viam-info-button-container" slot="reference">
-      <Icon color="grey" :path="iconPath" />
+      <Icon color="grey" path="M11.016 9v-2.016h1.969v2.016h-1.969zM12 20.016q3.281 0 5.648-2.367t2.367-5.648-2.367-5.648-5.648-2.367-5.648 2.367-2.367 5.648 2.367 5.648 5.648 2.367zM12 2.016q4.125 0 7.055 2.93t2.93 7.055-2.93 7.055-7.055 2.93-7.055-2.93-2.93-7.055 2.93-7.055 7.055-2.93zM11.016 17.016v-6h1.969v6h-1.969z" />
     </button>
   </Popper>
 </template>
