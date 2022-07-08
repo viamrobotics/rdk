@@ -11,6 +11,7 @@ message ResourceName {
   string type = 2;
   string subtype = 3;
   string name = 4;
+  string remote = 5;
 }
 
 message BoardStatus {

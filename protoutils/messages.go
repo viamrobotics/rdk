@@ -3,9 +3,10 @@ package protoutils
 
 import (
 	"fmt"
-	"google.golang.org/protobuf/types/known/structpb"
 	"reflect"
 	"strings"
+
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -19,12 +20,14 @@ func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 		Type:      string(name.ResourceType),
 		Subtype:   string(name.ResourceSubtype),
 		Name:      name.Name,
+		Remote:    string(name.Remote.Remote),
 	}
 }
 
 // ResourceNameFromProto converts a proto ResourceName to its rdk counterpart.
 func ResourceNameFromProto(name *commonpb.ResourceName) resource.Name {
-	return resource.NewName(
+	return resource.NewRemoteName(
+		resource.RemoteName(name.Remote),
 		resource.Namespace(name.Namespace),
 		resource.TypeName(name.Type),
 		resource.SubtypeName(name.Subtype),

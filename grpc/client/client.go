@@ -403,7 +403,7 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	for _, v := range rc.resourceNames {
 		names = append(
 			names,
-			resource.NewName(
+			resource.NewRemoteName(v.Remote.Remote,
 				v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name,
 			),
 		)
