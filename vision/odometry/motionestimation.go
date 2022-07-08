@@ -56,25 +56,23 @@ func NewMotion3DFromRotationTranslation(rotation, translation *mat.Dense) *Motio
 
 // EstimateMotionFrom2Frames estimates the 3D motion of the camera between frame img1 and frame img2.
 func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationConfig, logger golog.Logger, display bool,
-) (*Motion3D, string, error) {
+) (*Motion3D, error) {
 	var err error
-	tempDir := ""
-	if display {
-		tempDir, err = os.MkdirTemp("", "motion_keypoint_matching")
-		if err != nil {
-			return nil, "", err
-		}
-		logger.Infof("writing motion keypoint files to %s", tempDir)
+	tempDir, err := os.MkdirTemp("", "motion_keypoint_matching")
+	if err != nil {
+		return nil, err
 	}
+	defer os.RemoveAll(tempDir)
 	// Convert both images to gray
 	im1 := rimage.MakeGray(img1)
 	im2 := rimage.MakeGray(img2)
 	// compute keypoints
 	orb1, kps1, err := keypoints.ComputeORBKeypoints(im1, cfg.KeyPointCfg)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if display {
+		logger.Infof("writing motion keypoint files to %s", tempDir)
 		err = keypoints.PlotKeypoints(im1, kps1, tempDir+"/img1_orb_points.png")
 		if err != nil {
 			logger.Warnf("%s/img1_orb_points.png could not be saved", tempDir)
@@ -82,7 +80,7 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	}
 	orb2, kps2, err := keypoints.ComputeORBKeypoints(im2, cfg.KeyPointCfg)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if display {
 		err = keypoints.PlotKeypoints(im2, kps2, tempDir+"/img2_orb_points.png")
@@ -105,7 +103,7 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 		}
 	}
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	// get intrinsics matrix
 	k := cfg.CamIntrinsics.GetCameraMatrix()
@@ -115,13 +113,13 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	matchedKps2Float := convertImagePointSliceToFloatPointSlice(matchedKps2)
 	pose, err := transform.EstimateNewPose(matchedKps1Float, matchedKps2Float, k)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	// Rescale motion
 	estimatedCamHeight, err := EstimateCameraHeight(matchedKps1Float, matchedKps2Float, pose, cfg.ScaleEstimatorCfg, cfg.CamIntrinsics)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	scale := cfg.CamHeightGround / estimatedCamHeight
 
@@ -131,7 +129,7 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	return &Motion3D{
 		Rotation:    pose.Rotation,
 		Translation: &rescaledTranslation,
-	}, tempDir, nil
+	}, nil
 }
 
 // convertImagePointSliceToFloatPointSlice is a helper to convert slice of image.Point to a slice of r2.Point.
