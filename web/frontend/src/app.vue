@@ -1,6 +1,10 @@
 <script>
 
 // import ViamBase from './components/Base.vue'
+import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
+import * as THREE from 'three';
+import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
@@ -33,10 +37,6 @@ import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
 import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
-import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
-import * as THREE from 'three';
-import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import {
   BaseControlHelper,
   MotorControlHelper,
@@ -44,74 +44,74 @@ import {
   computeKeyboardBaseControls,
 } from './rc/control_helpers';
 
-import Camera from './components/camera.vue'
-import Gamepad from './components/gamepad.vue'
-import InputController from './components/input-controller.vue'
-import Slam from './components/slam.vue'
+import Camera from './components/camera.vue';
+import Gamepad from './components/gamepad.vue';
+import InputController from './components/input-controller.vue';
+import Slam from './components/slam.vue';
 
 const { webrtcHost } = window;
 
 const rtcConfig = {
-	iceServers: [
-		{
-			urls: 'stun:global.stun.twilio.com:3478?transport=udp',
-		},
-	],
+  iceServers: [
+    {
+      urls: 'stun:global.stun.twilio.com:3478?transport=udp',
+    },
+  ],
 };
 
 if (window.webrtcAdditionalICEServers) {
-	rtcConfig.iceServers = rtcConfig.iceServers.concat(window.webrtcAdditionalICEServers);
+  rtcConfig.iceServers = [...rtcConfig.iceServers, ...window.webrtcAdditionalICEServers];
 }
 
 const connect = async (authEntity, creds) => {
-	let transportFactory;
-	const opts = { 
-		authEntity,
-		credentials: creds,
-		webrtcOptions: { rtcConfig },
-	};
-	const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${ location.port}` : ''}`;
-	if (window.webrtcEnabled) {
-		if (!window.webrtcSignalingAddress) {
-			window.webrtcSignalingAddress = impliedURL;
-		}
-		opts.webrtcOptions.signalingAuthEntity = opts.authEntity;
-		opts.webrtcOptions.signalingCredentials = opts.credentials;
+  let transportFactory;
+  const opts = { 
+    authEntity,
+    credentials: creds,
+    webrtcOptions: { rtcConfig },
+  };
+  const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
+  if (window.webrtcEnabled) {
+    if (!window.webrtcSignalingAddress) {
+      window.webrtcSignalingAddress = impliedURL;
+    }
+    opts.webrtcOptions.signalingAuthEntity = opts.authEntity;
+    opts.webrtcOptions.signalingCredentials = opts.credentials;
 
-		const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, opts);
-		transportFactory = webRTCConn.transportFactory;
-		window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
+    const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, opts);
+    transportFactory = webRTCConn.transportFactory;
+    window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
 		
-		webRTCConn.peerConnection.ontrack = (event) => {
-			const video = document.createElement('video');
-			video.srcObject = event.streams[0];
-			video.autoplay = true;
-			video.controls = false;
-			video.playsInline = true;
-			const streamName = event.streams[0].id;
-			const streamContainer = document.getElementById(`stream-${streamName}`);
-			if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
-				streamContainer.querySelectorAll('video')[0].remove();
-			}
-			if (streamContainer) {
-				streamContainer.append(video);
-			}
-			const videoPreview = document.createElement('video');
-			videoPreview.srcObject = event.streams[0];
-			videoPreview.autoplay = true;
-			videoPreview.controls = false;
-			videoPreview.playsInline = true;
-			const streamPreviewContainer = document.getElementById(`stream-preview-${streamName}`);
-			if (streamPreviewContainer && streamPreviewContainer.querySelectorAll('video').length > 0) {
-				streamPreviewContainer.querySelectorAll('video')[0].remove();
-			}
-			if (streamPreviewContainer) {
-				streamPreviewContainer.append(videoPreview);
-			}
-		};
-	} else {
-		transportFactory = await dialDirect(impliedURL, opts);
-	}
+    webRTCConn.peerConnection.ontrack = (event) => {
+      const video = document.createElement('video');
+      video.srcObject = event.streams[0];
+      video.autoplay = true;
+      video.controls = false;
+      video.playsInline = true;
+      const streamName = event.streams[0].id;
+      const streamContainer = document.querySelector(`#stream-${streamName}`);
+      if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
+        streamContainer.querySelectorAll('video')[0].remove();
+      }
+      if (streamContainer) {
+        streamContainer.append(video);
+      }
+      const videoPreview = document.createElement('video');
+      videoPreview.srcObject = event.streams[0];
+      videoPreview.autoplay = true;
+      videoPreview.controls = false;
+      videoPreview.playsInline = true;
+      const streamPreviewContainer = document.querySelector(`#stream-preview-${streamName}`);
+      if (streamPreviewContainer && streamPreviewContainer.querySelectorAll('video').length > 0) {
+        streamPreviewContainer.querySelectorAll('video')[0].remove();
+      }
+      if (streamPreviewContainer) {
+        streamPreviewContainer.append(videoPreview);
+      }
+    };
+  } else {
+    transportFactory = await dialDirect(impliedURL, opts);
+  }
 
   window.robotService = new RobotServiceClient(webrtcHost, { transport: transportFactory });
   // TODO(RSDK-144): these should be created as needed
@@ -131,8 +131,8 @@ const connect = async (authEntity, creds) => {
   window.servoService = new ServoServiceClient(webrtcHost, { transport: transportFactory });
   window.slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
 
-	// save authEntity, creds
-	window.connect = () => connect(authEntity, creds);
+  // save authEntity, creds
+  window.connect = () => connect(authEntity, creds);
 };
 
 window.connect = connect;
@@ -142,7 +142,7 @@ function roundTo2Decimals(num) {
 }
 
 function fixArmStatus(old) {
-  const newStatus = { pos_pieces : [], joint_pieces : [], is_moving: old['is_moving'] || false };
+  const newStatus = { pos_pieces: [], joint_pieces: [], is_moving: old.is_moving || false };
   const fieldSetters = [
     ['x', 'X'],
     ['y', 'Y'],
@@ -157,17 +157,17 @@ function fixArmStatus(old) {
     const endPositionField = fieldSetter[0];
     newStatus.pos_pieces.push(
       { 
-        endPosition : fieldSetter,
-        endPositionValue : old['end_position'][endPositionField] || 0,
+        endPosition: fieldSetter,
+        endPositionValue: old.end_position[endPositionField] || 0,
       }
     );
   }
 
-  for (let j = 0; j < old['joint_positions']['degrees'].length; j++ ){
+  for (let j = 0; j < old.joint_positions.degrees.length; j++) {
     newStatus.joint_pieces.push(
       { 
-        joint : j,
-        jointValue : old['joint_positions']['degrees'][j] || 0,
+        joint: j,
+        jointValue: old.joint_positions.degrees[j] || 0,
       }
     );
   }
@@ -177,36 +177,36 @@ function fixArmStatus(old) {
 
 function fixBoardStatus(old) {
   return {
-    analogsMap: old['analogs'] || [],
-    digitalInterruptsMap: old['digital_interrupts'] || [],
+    analogsMap: old.analogs || [],
+    digitalInterruptsMap: old.digital_interrupts || [],
   };
 }
 
 function fixGantryStatus(old) {
   const newStatus = {
     parts: [],
-    is_moving: old['is_moving'] || false,
+    is_moving: old.is_moving || false,
   };
 
-  if (old['lengths_mm'].length !== old['positions_mm'].length) {
+  if (old.lengths_mm.length !== old.positions_mm.length) {
     throw 'gantry lists different lengths';
   }
 
-  for (let i = 0; i < old['lengths_mm'].length; i++) {
-    newStatus.parts.push({ axis: i, pos: old['positions_mm'][i], length: old['lengths_mm'][i] });
+  for (let i = 0; i < old.lengths_mm.length; i++) {
+    newStatus.parts.push({ axis: i, pos: old.positions_mm[i], length: old.lengths_mm[i] });
   }
 
   return newStatus;
 }
 
 function fixInputStatus(old) {
-  const events = old['events'] || [];
+  const events = old.events || [];
   const eventsList = events.map((e) => {
     return {
-      time: e['time'] || {},
-      event: e['event'] || '',
-      control: e['control'] || '',
-      value: e['value'] || 0,
+      time: e.time || {},
+      event: e.event || '',
+      control: e.control || '',
+      value: e.value || 0,
     };
   });
   return { eventsList };
@@ -214,15 +214,15 @@ function fixInputStatus(old) {
 
 function fixMotorStatus(old) {
   return {
-    isPowered: old['is_powered'] || false,
-    positionReporting: old['position_reporting'] || false,
-    position: old['position'] || 0,
-    isMoving: old['is_moving'] || false,
+    isPowered: old.is_powered || false,
+    positionReporting: old.position_reporting || false,
+    position: old.position || 0,
+    isMoving: old.is_moving || false,
   };
 }
 
 function fixServoStatus(old) {
-  return { positionDeg: old['position_deg'] || 0, is_moving: old['is_moving'] || false };
+  return { positionDeg: old.position_deg || 0, is_moving: old.is_moving || false };
 }
 
 export default {
@@ -240,6 +240,7 @@ export default {
     // ViamBase,
     Camera,
     Gamepad,
+    InputController,
     Slam,
   },
   data() {
@@ -288,19 +289,19 @@ export default {
   methods: {
     fixRawStatus(name, status) {
       switch (this.resourceNameToSubtypeString(name)) {
-        // TODO (APP-146): generate these using constants
-        case 'rdk:component:arm':
-          return fixArmStatus(status);
-        case 'rdk:component:board':
-          return fixBoardStatus(status);
-        case 'rdk:component:gantry':
-          return fixGantryStatus(status);
-        case 'rdk:component:input_controller':
-          return fixInputStatus(status);
-        case 'rdk:component:motor':
-          return fixMotorStatus(status);
-        case 'rdk:component:servo':
-          return fixServoStatus(status);
+      // TODO (APP-146): generate these using constants
+      case 'rdk:component:arm':
+        return fixArmStatus(status);
+      case 'rdk:component:board':
+        return fixBoardStatus(status);
+      case 'rdk:component:gantry':
+        return fixGantryStatus(status);
+      case 'rdk:component:input_controller':
+        return fixInputStatus(status);
+      case 'rdk:component:motor':
+        return fixMotorStatus(status);
+      case 'rdk:component:servo':
+        return fixServoStatus(status);
       }
       return status;
     },
@@ -344,7 +345,7 @@ export default {
       visionService.getSegmenterParameters(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
-          console.log(`error getting segmenter parameters for ${ name}`);
+          console.log(`error getting segmenter parameters for ${name}`);
           console.log(err);
           return;
         }
@@ -422,7 +423,7 @@ export default {
     armEndPositionInc(name, getterSetter, amount) {
       const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
       const arm = this.rawResourceStatusByName(name);
-      const old = arm['end_position'];
+      const old = arm.end_position;
       const newPose = new commonApi.Pose();
       const fieldSetters = [
         ['x', 'X'],
@@ -451,7 +452,7 @@ export default {
     armJointInc(name, field, amount) {
       const arm = this.rawResourceStatusByName(name);
       const newPositionDegs = new armApi.JointPositions();
-      const newList = arm['joint_positions']['degrees'];
+      const newList = arm.joint_positions.degrees;
       newList[field] += amount;
       newPositionDegs.setDegreesList(newList);
       const req = new armApi.MoveToJointPositionsRequest();
@@ -462,7 +463,7 @@ export default {
     armHome(name) {
       const arm = this.rawResourceStatusByName(name);
       const newPositionDegs = new armApi.JointPositions();
-      const newList = arm['joint_positions']['degrees'];
+      const newList = arm.joint_positions.degrees;
       for (let i = 0; i < newList.length; i++) {
         newList[i] = 0;
       }
@@ -512,7 +513,7 @@ export default {
     armModifyAllDoJoint(name) {
       const arm = this.rawResourceStatusByName(name);
       const newPositionDegs = new armApi.JointPositions();
-      const newList = arm['joint_positions']['degrees'];
+      const newList = arm.joint_positions.degrees;
       const newPieces = this.armToggle[name.name].joint_pieces;
       for (let i = 0; i < newPieces.length && i < newList.length; i++) {
         newList[newPieces[i].joint] = newPieces[i].jointValue;
@@ -529,21 +530,21 @@ export default {
     gripperAction(name, action) {
       let req;
       switch (action) {
-        case 'open':
-          req = new gripperApi.OpenRequest();
-          req.setName(name);
-          gripperService.open(req, {}, this.grpcCallback);
-          break;
-        case 'grab':
-          req = new gripperApi.GrabRequest();
-          req.setName(name);
-          gripperService.grab(req, {}, this.grpcCallback);
-          break;
+      case 'open':
+        req = new gripperApi.OpenRequest();
+        req.setName(name);
+        gripperService.open(req, {}, this.grpcCallback);
+        break;
+      case 'grab':
+        req = new gripperApi.GrabRequest();
+        req.setName(name);
+        gripperService.grab(req, {}, this.grpcCallback);
+        break;
       }
     },
     servoMove(name, amount) {
       const servo = this.rawResourceStatusByName(name);
-      const oldAngle = servo['position_deg'] || 0;
+      const oldAngle = servo.position_deg || 0;
       const angle = oldAngle + amount;
       const req = new servoApi.MoveRequest();
       req.setName(name.name);
@@ -552,15 +553,15 @@ export default {
     },
     motorCommand(name, inputs) {
       switch (inputs.type) {
-        case 'go':
-          MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, this.grpcCallback);
-          break;
-        case 'goFor':
-          MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, this.grpcCallback);
-          break;
-        case 'goTo':
-          MotorControlHelper.goTo(name, inputs.rpm, inputs.position, this.grpcCallback);
-          break;
+      case 'go':
+        MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, this.grpcCallback);
+        break;
+      case 'goFor':
+        MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, this.grpcCallback);
+        break;
+      case 'goTo':
+        MotorControlHelper.goTo(name, inputs.rpm, inputs.position, this.grpcCallback);
+        break;
       }
     },
     motorStop(name) {
@@ -656,12 +657,12 @@ export default {
     viewCameraFrame(time) {
       clearInterval(this.cameraFrameIntervalId);
       const cameraName = this.streamNames[0];
-      if (time === 'manual' ) {
-          this.viewManualFrame(cameraName);
+      if (time === 'manual') {
+        this.viewManualFrame(cameraName);
       } else if (time === 'live') {
-          this.viewCamera(cameraName);
+        this.viewCamera(cameraName);
       } else {
-          this.viewIntervalFrame(cameraName, time);
+        this.viewIntervalFrame(cameraName, time);
       }
     },
     viewManualFrame(cameraName) {
@@ -675,12 +676,12 @@ export default {
         if (err) {
           return;
         }
-        const streamContainer = document.getElementById(`stream-${cameraName}`);
-        if (streamContainer && streamContainer.getElementsByTagName('video').length > 0) {
-            streamContainer.getElementsByTagName('video')[0].remove();
+        const streamContainer = document.querySelector(`#stream-${cameraName}`);
+        if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
+          streamContainer.querySelectorAll('video')[0].remove();
         }
-        if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
-            streamContainer.getElementsByTagName('img')[0].remove();
+        if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+          streamContainer.querySelectorAll('img')[0].remove();
         }
         const image = new Image();
         const blob = new Blob([resp.getData_asU8()], { type: mimeType });
@@ -698,19 +699,19 @@ export default {
           if (err) {
             return;
           }
-          const streamContainer = document.getElementById(`stream-${cameraName}`);
-          if (streamContainer && streamContainer.getElementsByTagName('video').length > 0) {
-              streamContainer.getElementsByTagName('video')[0].remove();
+          const streamContainer = document.querySelector(`#stream-${cameraName}`);
+          if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
+            streamContainer.querySelectorAll('video')[0].remove();
           }
-          if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
-              streamContainer.getElementsByTagName('img')[0].remove();
+          if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+            streamContainer.querySelectorAll('img')[0].remove();
           }
           const image = new Image();
           const blob = new Blob([resp.getData_asU8()], { type: 'image/jpeg' });
           image.src = URL.createObjectURL(blob);
           streamContainer.append(image);
         });
-      }, +time * 1000);
+      }, Number(time) * 1000);
     },
     renderPCD(cameraName) {
       this.$nextTick(() => {
@@ -732,6 +733,8 @@ export default {
           pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
         });
       });
+
+      this.getSegmenterNames();
     },
     viewSLAMImageMap() {
       const req = new slamApi.GetMapRequest();
@@ -786,7 +789,7 @@ export default {
     processFunctionResults(err, resp) {
       this.grpcCallback(err, resp, false);
       if (err) {
-        document.getElementById('function_results').value = `${err}`;
+        document.querySelector('#function_results').value = `${err}`;
         return;
       }
       const results = resp.getResultsList();
@@ -801,7 +804,7 @@ export default {
       }
       resultStr += `StdOut: ${resp.getStdOut()}\n`;
       resultStr += `StdErr: ${resp.getStdErr()}\n`;
-      document.getElementById('function_results').value = resultStr;
+      document.querySelector('#function_results').value = resultStr;
     },
     nonEmpty(object) {
       return Object.keys(object).length > 0;
@@ -860,14 +863,14 @@ export default {
       componentName.setSubtype(gripperName.subtype);
       componentName.setName(gripperName.name);
       req.setComponentName(componentName);
-      console.log(`making move attempt using ${ gripperName}`);
+      console.log(`making move attempt using ${gripperName}`);
 
       motionService.move(req, {}, (err, resp) => {
         this.grpcCallback(err, resp);
         if (err) {
           return Promise.reject(err);
         }
-        return Promise.resolve(resp).then(() => console.log(`move success: ${ resp.getSuccess()}`));
+        return Promise.resolve(resp).then(() => console.log(`move success: ${resp.getSuccess()}`));
       });
     },
     findSegments(segmenterName, segmenterParams) {
@@ -913,7 +916,7 @@ export default {
       setPoint({
         x: center.getX() / 1000,
         y: center.getY() / 1000,
-        z: center.getZ() / 1000
+        z: center.getZ() / 1000,
       });
     },
     doBoundingBoxLoad (i) {
@@ -923,7 +926,7 @@ export default {
       const centerP = {
         x: center.getX() / 1000,
         y: center.getY() / 1000,
-        z: center.getZ() / 1000
+        z: center.getZ() / 1000,
       };
       setBoundingBox(box, centerP);
     },
@@ -941,35 +944,35 @@ export default {
     },
     doSelectObject(selection, index) {
       switch (selection) {
-        case 'Center Point':
-          this.doSegmentLoad(index);
-          break;
-        case 'Bounding Box':
-          this.doBoundingBoxLoad(index);
-          break;
-        case 'Cropped':
-          this.doPointLoad(index);
-          break;
-        default:
-          break;
+      case 'Center Point':
+        this.doSegmentLoad(index);
+        break;
+      case 'Bounding Box':
+        this.doBoundingBoxLoad(index);
+        break;
+      case 'Cropped':
+        this.doPointLoad(index);
+        break;
+      default:
+        break;
       }
     },
     setNavigationMode(mode) {
       let pbMode = navigationApi.Mode.MODE_UNSPECIFIED;
       switch (mode) {
-        case 'manual':
-          pbMode = navigationApi.Mode.MODE_MANUAL;
-          break;
-        case 'waypoint':
-          pbMode = navigationApi.Mode.MODE_WAYPOINT;
-          break;
+      case 'manual':
+        pbMode = navigationApi.Mode.MODE_MANUAL;
+        break;
+      case 'waypoint':
+        pbMode = navigationApi.Mode.MODE_WAYPOINT;
+        break;
       }
       const req = new navigationApi.SetModeRequest();
       req.setMode(pbMode);
       navigationService.setMode(req, {}, this.grpcCallback);
     },
     setNavigationLocation (elId) {
-      const posSplit = document.getElementById(elId).value.split(',');
+      const posSplit = document.querySelector(`#${elId}`).value.split(',');
       if (posSplit.length !== 2) {
         return;
       }
@@ -995,17 +998,17 @@ export default {
       window.robotService.resourceRunCommand(req, {}, this.grpcCallback);
     },
     viewCamera(name) {
-      const streamContainer = document.getElementById(`stream-${name}`);
+      const streamContainer = document.querySelector(`#stream-${name}`);
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
       streamService.addStream(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
-        if (streamContainer && streamContainer.getElementsByTagName('img').length > 0) {
-            streamContainer.getElementsByTagName('img')[0].remove();
+        if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+          streamContainer.querySelectorAll('img')[0].remove();
         }
         if (err) {
           this.error = 'no live camera device found';
-          return;
+          
         }
       });
     },
@@ -1016,7 +1019,7 @@ export default {
         this.grpcCallback(err, resp, false);
         if (err) {
           this.error = 'no live camera device found';
-          return;
+          
         }
       });
     },
@@ -1031,19 +1034,19 @@ export default {
       return d.toFixed(1);
     },
     getGPIO (boardName) {
-      const pin = document.getElementById(`get_pin_${ boardName}`).value;
+      const pin = document.querySelector(`#get_pin_${boardName}`).value;
       BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
         if (err) {
           console.log(err);
           return;
         }
         const x = resp.toObject();
-        document.getElementById(`get_pin_value_${ boardName}`).innerHTML = `Pin: ${ pin } is ${ x.high ? 'high' : 'low'}`;
+        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin: ${pin} is ${x.high ? 'high' : 'low'}`;
       });
     },
     setGPIO (boardName) {
-      const pin = document.getElementById(`set_pin_${ boardName}`).value;
-      const v = document.getElementById(`set_pin_v_${ boardName}`).value;
+      const pin = document.querySelector(`#set_pin_${boardName}`).value;
+      const v = document.querySelector(`#set_pin_v_${boardName}`).value;
       BoardControlHelper.setGPIO(boardName, pin, v === 'high', this.grpcCallback);
     },
     isWebRtcEnabled() {
@@ -1111,7 +1114,7 @@ export default {
       const { grpcCallback } = this;
 
       await mapReady;
-      window.map = new google.maps.Map(document.getElementById('map'), { zoom: 18 });
+      window.map = new google.maps.Map(document.querySelector('#map'), { zoom: 18 });
       window.map.addListener('click', (e) => {
         const req = new navigationApi.AddWaypointRequest();
         const point = new commonApi.GeoPoint();
@@ -1214,9 +1217,9 @@ export default {
     },
     async doConnect(authEntity, creds, onError) {
       console.debug('connecting');
-      const alertError = document.getElementById('connecting-error');
+      const alertError = document.querySelector('#connecting-error');
       alertError.innerHTML = '';
-      document.getElementById('connecting').classList.remove('hidden');
+      document.querySelector('#connecting').classList.remove('hidden');
       try {
         await window.connect(authEntity, creds);
         this.loadCurrentOps();
@@ -1230,7 +1233,7 @@ export default {
         return;
       }
       console.debug('connected');
-      document.getElementById('pre-app').classList.add('hidden');
+      document.querySelector('#pre-app').classList.add('hidden');
     },
     async waitForClientAndStart() {
       if (window.supportedAuthTypes.length === 0) {
@@ -1250,9 +1253,9 @@ export default {
         }
       };
       for (authType of window.supportedAuthTypes) {
-        const authDiv = document.getElementById(`auth-${authType}`);
-        const input = authDiv.getElementsByTagName('input')[0];
-        const button = authDiv.getElementsByTagName('button')[0];
+        const authDiv = document.querySelector(`#auth-${authType}`);
+        const input = authDiv.querySelectorAll('input')[0];
+        const button = authDiv.querySelectorAll('button')[0];
         authElems.push(input, button);
         const doLogin = () => {
           disableAll();
@@ -1296,7 +1299,7 @@ export default {
       };
 
       pcdGlobal.renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
-      document.getElementById('pcd').append(pcdGlobal.renderer.domElement);
+      document.querySelector('#pcd').append(pcdGlobal.renderer.domElement);
 
       pcdGlobal.controls = new OrbitControls(pcdGlobal.camera, pcdGlobal.renderer.domElement);
       pcdGlobal.camera.position.set(0, 0, 0);
@@ -1427,7 +1430,7 @@ export default {
       let resourceNames = [];
       // get all relevant resource names
       for (const subtype of relevantSubtypesForStatus) {
-        resourceNames = resourceNames.concat(this.filterResources('rdk', 'component', subtype));
+        resourceNames = [...resourceNames, ...this.filterResources('rdk', 'component', subtype)];
       }
 
       const names = resourceNames.map((name) => {
@@ -1530,13 +1533,13 @@ const mapReady = new Promise((resolve) => {
   <div id="pre-app">
     <div
       id="connecting-error"
-      class="hidden border-l-4 border-danger-500 bg-gray-100 px-4 py-3"
+      class="border-danger-500 hidden border-l-4 bg-gray-100 px-4 py-3"
       role="alert"
     />
 
     <div
       id="connecting"
-      class="hidden border-l-4 border-greendark bg-gray-100 px-4 py-3"
+      class="border-greendark hidden border-l-4 bg-gray-100 px-4 py-3"
     >
       Connecting via <template v-if="isWebRtcEnabled()">
         WebRTC
@@ -1555,11 +1558,11 @@ const mapReady = new Promise((resolve) => {
         class="w-96"
       >
         <input
-          class="mb-2 appearance-none block w-full border text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition-colors duration-150 ease-in-out p-2"
+          class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none dark:text-gray-200 dark:placeholder:text-gray-500"
           type="password"
         >
         <button
-          class="relative leading-tight font-button transition-colors duration-150 focus:outline-none shadow-sm text-black border border-black bg-primary hover:border-black hover:bg-gray-200 focus:bg-gray-400 active:bg-gray-400 cursor-pointer px-5 py-2"
+          class="font-button bg-primary relative cursor-pointer border border-black px-5 py-2 leading-tight text-black shadow-sm transition-colors duration-150 hover:border-black hover:bg-gray-200 focus:bg-gray-400 focus:outline-none active:bg-gray-400"
         >
           Login
         </button>
@@ -1620,8 +1623,8 @@ const mapReady = new Promise((resolve) => {
       :title="`Gantry ${gantry.name}`"
       class="pb-8"
     >
-      <div class="border border-black border-t-0 p-4">
-        <table class="border border-black border-t-0 p-4">
+      <div class="border border-t-0 border-black p-4">
+        <table class="border border-t-0 border-black p-4">
           <thead>
             <tr>
               <th class="border border-black p-2">
@@ -1682,17 +1685,17 @@ const mapReady = new Promise((resolve) => {
 
     <!-- ******* IMU *******  -->
     <v-collapse
-      v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()"
+      v-for="imu in filterResources('rdk', 'component', 'imu').entries()"
       :key="imu[1].name"
       :title="`IMU: ${imu[1].name}`"
     >
-      <div class="flex border border-black border-t-0 p-4">
+      <div class="flex border border-t-0 border-black p-4">
         <template v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
-          <div class="w-1/4 mr-4">
+          <div class="mr-4 w-1/4">
             <h3 class="mb-1">
               Orientation (degrees)
             </h3>
-            <table class="w-full border border-black border-t-0 p-4">
+            <table class="w-full border border-t-0 border-black p-4">
               <tr>
                 <th class="border border-black p-2">
                   Roll
@@ -1720,11 +1723,11 @@ const mapReady = new Promise((resolve) => {
             </table>
           </div>
                 
-          <div class="w-1/4 mr-4">
+          <div class="mr-4 w-1/4">
             <h3 class="mb-1">
               Angular Velocity (degrees/second)
             </h3>
-            <table class="w-full border border-black border-t-0 p-4">
+            <table class="w-full border border-t-0 border-black p-4">
               <tr>
                 <th class="border border-black p-2">
                   X
@@ -1752,11 +1755,11 @@ const mapReady = new Promise((resolve) => {
             </table>
           </div>
                 
-          <div class="w-1/4 mr-4">
+          <div class="mr-4 w-1/4">
             <h3 class="mb-1">
               Acceleration (mm/second/second)
             </h3>
-            <table class="w-full border border-black border-t-0 p-4">
+            <table class="w-full border border-t-0 border-black p-4">
               <tr>
                 <th class="border border-black p-2">
                   X
@@ -1788,7 +1791,7 @@ const mapReady = new Promise((resolve) => {
             <h3 class="mb-1">
               Magnetometer (gauss)
             </h3>
-            <table class="w-full border border-black border-t-0 p-4">
+            <table class="w-full border border-t-0 border-black p-4">
               <tr>
                 <th class="border border-black p-2">
                   X
@@ -1826,10 +1829,10 @@ const mapReady = new Promise((resolve) => {
       :title="`Arm ${arm.name}`"
       class="pb-8"
     >
-      <div class="flex mb-2">
+      <div class="mb-2 flex">
         <div
           v-if="armToggle[arm.name]"
-          class="border border-black p-4 w-1/2 mr-4"
+          class="mr-4 w-1/2 border border-black p-4"
         >
           <h3 class="mb-2">
             END POSITION (mms)
@@ -1839,14 +1842,14 @@ const mapReady = new Promise((resolve) => {
               v-for="cc in armToggle[arm.name].pos_pieces"
               :key="cc.endPosition[0]"
             >
-              <label class="pr-2 py-1 text-right">{{ cc.endPosition[1] }}</label>
+              <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
               <input
                 v-model="cc.endPositionValue"
                 class="border border-black py-1 px-4"
               >
             </template>
           </div>
-          <div class="flex mt-2">
+          <div class="mt-2 flex">
             <v-button
               class="mr-4 whitespace-nowrap"
               label="Go To End Position"
@@ -1862,7 +1865,7 @@ const mapReady = new Promise((resolve) => {
         </div>
         <div
           v-if="armToggle[arm.name]"
-          class="border border-black p-4 w-1/2"
+          class="w-1/2 border border-black p-4"
         >
           <h3 class="mb-2">
             JOINTS (degrees)
@@ -1872,14 +1875,14 @@ const mapReady = new Promise((resolve) => {
               v-for="bb in armToggle[arm.name].joint_pieces"
               :key="bb.joint"
             >
-              <label class="pr-2 py-1 text-right">Joint {{ bb.joint }}</label>
+              <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
               <input
                 v-model="bb.jointValue"
                 class="border border-black py-1 px-4"
               >
             </template>
           </div>
-          <div class="flex mt-2">
+          <div class="mt-2 flex">
             <v-button
               label="Go To Joints"
               @click="armModifyAllDoJoint(arm)"
@@ -1894,10 +1897,10 @@ const mapReady = new Promise((resolve) => {
         </div>
       </div>
 
-      <div class="flex mb-2">
+      <div class="mb-2 flex">
         <div
           v-if="resourceStatusByName(arm)"
-          class="border border-black p-4 w-1/2 mr-4"
+          class="mr-4 w-1/2 border border-black p-4"
         >
           <h3 class="mb-2">
             END POSITION (mms)
@@ -1907,7 +1910,7 @@ const mapReady = new Promise((resolve) => {
               v-for="aa in resourceStatusByName(arm).pos_pieces"
               :key="aa.endPosition[0]"
             >
-              <h4 class="pr-2 py-1 text-right">
+              <h4 class="py-1 pr-2 text-right">
                 {{ aa.endPosition[1] }}
               </h4>
               <v-button
@@ -1931,7 +1934,7 @@ const mapReady = new Promise((resolve) => {
               </h4>
             </template>
           </div>
-          <div class="flex mt-2">
+          <div class="mt-2 flex">
             <v-button
               label="Home"
               @click="armHome(arm)"
@@ -1947,7 +1950,7 @@ const mapReady = new Promise((resolve) => {
         </div>
         <div
           v-if="resourceStatusByName(arm)"
-          class="border border-black p-4 w-1/2"
+          class="w-1/2 border border-black p-4"
         >
           <h3 class="mb-2">
             JOINTS (degrees)
@@ -1957,7 +1960,7 @@ const mapReady = new Promise((resolve) => {
               v-for="aa in resourceStatusByName(arm).joint_pieces"
               :key="aa.joint"
             >
-              <h4 class="pr-2 py-1 text-right whitespace-nowrap">
+              <h4 class="whitespace-nowrap py-1 pr-2 text-right">
                 Joint {{ aa.joint }}
               </h4>
               <v-button
@@ -1976,12 +1979,12 @@ const mapReady = new Promise((resolve) => {
                 label="++"
                 @click="armJointInc( arm, aa.joint, 10 )"
               />
-              <h4 class="pl-2 py-1">
+              <h4 class="py-1 pl-2">
                 {{ aa.jointValue.toFixed(2) }}
               </h4>
             </template>
           </div>
-          <div class="flex mt-2">
+          <div class="mt-2 flex">
             <v-button
               label="Home"
               @click="armHome(arm)"
@@ -2005,7 +2008,7 @@ const mapReady = new Promise((resolve) => {
       :title="`Gripper ${gripper.name}`"
       class="pb-8"
     >
-      <div class="flex gap-2 border border-black border-t-0 p-4">
+      <div class="flex gap-2 border border-t-0 border-black p-4">
         <v-button
           label="Open"
           @click="gripperAction( gripper.name, 'open')"
@@ -2024,7 +2027,7 @@ const mapReady = new Promise((resolve) => {
       :key="servo.name"
       :title="`Servo ${servo.name}`"
     >
-      <div class="flex border border-black border-t-0 p-4">
+      <div class="flex border border-t-0 border-black p-4">
         <table class="table-auto border-collapse border border-black">
           <tr>
             <td class="border border-black p-2">
@@ -2101,7 +2104,7 @@ const mapReady = new Promise((resolve) => {
       :key="board.name"
       :title="`Board ${board.name}`"
     >
-      <div class="border border-black border-t-0 p-4">
+      <div class="border border-t-0 border-black p-4">
         <h3 class="mb-2">
           Analogs
         </h3>
@@ -2144,7 +2147,7 @@ const mapReady = new Promise((resolve) => {
             </th>
             <td class="border border-black p-2">
               <div class="flex">
-                <label class="pr-2 py-2 text-right">Pin:</label>
+                <label class="py-2 pr-2 text-right">Pin:</label>
                 <number-input
                   v-model="getPin"
                   class="mr-2"
@@ -2169,7 +2172,7 @@ const mapReady = new Promise((resolve) => {
             </th>
             <td class="p-2">
               <div class="flex">
-                <label class="pr-2 py-2  text-right">Pin:</label>
+                <label class="py-2 pr-2  text-right">Pin:</label>
                 <number-input
                   v-model="setPin"
                   class="mr-2"
@@ -2177,7 +2180,7 @@ const mapReady = new Promise((resolve) => {
                 />
                 <select
                   :id="'set_pin_v_' + board.name"
-                  class="bg-white border border-black mr-2"
+                  class="mr-2 border border-black bg-white"
                   style="height: 38px"
                 >
                   <option>low</option>
@@ -2201,7 +2204,7 @@ const mapReady = new Promise((resolve) => {
       class="pb-8"
       title="Sensors"
     >
-      <div class="border border-black border-t-0 p-4">
+      <div class="border border-t-0 border-black p-4">
         <table class="table-auto border border-black">
           <tr>
             <th class="border border-black p-2">
@@ -2251,7 +2254,7 @@ const mapReady = new Promise((resolve) => {
       v-if="filterResources('rdk', 'service', 'navigation').length > 0"
       title="Get Segments"
     >
-      <div class="border border-black border-t-0 p-4">
+      <div class="border border-t-0 border-black p-4">
         <div class="mb-2">
           <v-button
             group
@@ -2288,7 +2291,7 @@ const mapReady = new Promise((resolve) => {
       title="Current Operations"
       class="pb-8"
     >
-      <div class="border border-black border-t-0 p-4">
+      <div class="border border-t-0 border-black p-4">
         <table class="w-full table-auto border border-black">
           <tr>
             <th class="border border-black p-2">
@@ -2350,7 +2353,7 @@ const mapReady = new Promise((resolve) => {
       @toggle-camera="viewCamera(streamName)"
       @refresh-camera="viewCameraFrame"
       @selected-camera-view="viewCameraFrame"
-      @toggle-pcd="renderPCD(streamName); getSegmenterNames()"
+      @toggle-pcd="renderPCD(streamName)"
       @pcd-click="grabClick"
       @pcd-move="doPCDMove"
       @point-load="doPointLoad"
