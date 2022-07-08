@@ -107,17 +107,16 @@ onClickOutside(root, () => {
     <div
       v-for="(lineKeys, index) in keysLayout"
       :key="index"
-      class="flex flex-row justify-center"
+      class="my-1 flex flex-row justify-center gap-2"
     >
       <v-button
         v-for="key in lineKeys"
         :key="key"
         icon="check"
         :label="keyLetters[key]"
-        class="w-15 m-1 h-10 border-gray-500 bg-white dark:bg-gray-900"
+        class="border-gray-500 bg-white dark:bg-gray-900"
         :class="{
-          'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 keyboard-button-pressed':
-            pressedKeys[key],
+          'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 keyboard-button-pressed': pressedKeys[key],
           'keyboard-button-not-pressed': !pressedKeys[key],
         }"
         @pointerdown="setKeyPressed(key, true)"
