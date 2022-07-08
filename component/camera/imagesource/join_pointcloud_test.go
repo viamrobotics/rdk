@@ -4,10 +4,13 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/camera"
@@ -102,13 +105,14 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	return r
 }
 
-func TestJoinPointCloud(t *testing.T) {
+func TestJoinPointCloudNaive(t *testing.T) {
 	r := makeFakeRobot(t)
 	// PoV from base1
 	attrs := &JoinAttrs{
 		AttrConfig:    &camera.AttrConfig{},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "base1",
+		MergeMethod:   "naive",
 	}
 	joinedCam, err := newJoinPointCloudSource(context.Background(), r, attrs)
 	test.That(t, err, test.ShouldBeNil)
@@ -137,6 +141,7 @@ func TestJoinPointCloud(t *testing.T) {
 		AttrConfig:    &camera.AttrConfig{},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "cam1",
+		MergeMethod:   "naive",
 	}
 	joinedCam, err = newJoinPointCloudSource(context.Background(), r, attrs)
 	test.That(t, err, test.ShouldBeNil)
@@ -159,4 +164,103 @@ func TestJoinPointCloud(t *testing.T) {
 	img, _, err = joinedCam.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1, 100))
+}
+
+func makeFakeRobotICP(t *testing.T) robot.Robot {
+	pcdFile, err := os.Open(artifact.MustPath("pointcloud/test.pcd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pc, err := pointcloud.ReadPCD(pcdFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	startPC := pointcloud.NewWithPrealloc(100)
+
+	transformedPC := pointcloud.NewWithPrealloc(100)
+	transformPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 100})
+
+	counter := 100
+	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		if counter > 0 {
+			startPC.Set(p, d)
+			pointPose := spatialmath.NewPoseFromPoint(p)
+			transPoint := spatialmath.Compose(transformPose, pointPose)
+			transformedPC.Set(transPoint.Point(), d)
+			counter--
+		}
+		return true
+	})
+	t.Helper()
+	logger := golog.NewTestLogger(t)
+	cam1 := &inject.Camera{}
+	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return startPC, nil
+	}
+	cam2 := &inject.Camera{}
+	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return transformedPC, nil
+	}
+	base1 := &inject.Base{}
+
+	r := &inject.Robot{}
+	fsParts := framesystemparts.Parts{
+		{
+			Name:        "base1",
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+		},
+		{
+			Name:        "cam1",
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{100, 0, 0}},
+		},
+		{
+			Name:        "cam2",
+			FrameConfig: &config.Frame{Parent: "cam1", Translation: spatialmath.TranslationConfig{0, 0, 100}},
+		},
+		{
+			Name:        "cam3",
+			FrameConfig: &config.Frame{Parent: "cam2", Translation: spatialmath.TranslationConfig{0, 100, 0}},
+		},
+	}
+	r.FrameSystemConfigFunc = func(
+		ctx context.Context, additionalTransforms []*commonpb.Transform,
+	) (framesystemparts.Parts, error) {
+		return fsParts, nil
+	}
+
+	r.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), base.Named("base1")}
+	}
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+		switch n.Name {
+		case "cam1":
+			return cam1, nil
+		case "cam2":
+			return cam2, nil
+		case "base1":
+			return base1, nil
+		default:
+			return nil, rdkutils.NewResourceNotFoundError(n)
+		}
+	}
+	return r
+}
+
+func TestPointCloudICP(t *testing.T) {
+	r := makeFakeRobotICP(t)
+	// PoV from base1
+	attrs := &JoinAttrs{
+		SourceCameras: []string{"cam1", "cam2"},
+		TargetFrame:   "base1",
+		MergeMethod:   "icp",
+	}
+	joinedCam, err := newJoinPointCloudSource(r, attrs)
+	test.That(t, err, test.ShouldBeNil)
+	pc, err := joinedCam.NextPointCloud(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc.Size(), test.ShouldEqual, 100)
 }
