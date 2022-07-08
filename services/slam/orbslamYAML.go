@@ -15,9 +15,10 @@ import (
 )
 
 // orbCamMaker takes in the camera intrinsics and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
-func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamService) (ORBsettings, error) {
+func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamService) (*ORBsettings, error) {
 	var err error
-	orbslam := ORBsettings{
+
+	orbslam := &ORBsettings{
 		CamType:        "PinHole",
 		Width:          intrinics.Width,
 		Height:         intrinics.Height,
@@ -39,23 +40,23 @@ func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamServ
 	}
 	orbslam.NFeatures, err = slamSvc.orbConfigToInt("orb_n_features", 1250)
 	if err != nil {
-		return ORBsettings{}, err
+		return nil, err
 	}
 	orbslam.ScaleFactor, err = slamSvc.orbConfigToFloat("orb_scale_factor", 1.2)
 	if err != nil {
-		return ORBsettings{}, err
+		return nil, err
 	}
 	orbslam.NLevels, err = slamSvc.orbConfigToInt("orb_n_levels", 8)
 	if err != nil {
-		return ORBsettings{}, err
+		return nil, err
 	}
 	orbslam.IniThFAST, err = slamSvc.orbConfigToInt("orb_n_ini_th_fast", 20)
 	if err != nil {
-		return ORBsettings{}, err
+		return nil, err
 	}
 	orbslam.MinThFAST, err = slamSvc.orbConfigToInt("orb_n_min_th_fast", 7)
 	if err != nil {
-		return ORBsettings{}, err
+		return nil, err
 	}
 	return orbslam, nil
 }
@@ -103,7 +104,7 @@ func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
 	}
 	yamlData, err := yaml.Marshal(&orbslam)
 	if err != nil {
-		return errors.Errorf("Error while Marshaling YAML file. %v", err)
+		return errors.Wrap(err, "Error while Marshaling YAML file")
 	}
 
 	timeStamp := time.Now().UTC().Format("2006-01-02T15_04_05.0000")
@@ -126,17 +127,21 @@ func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
 	return outfile.Close()
 }
 
-func (slamSvc *slamService) orbConfigToInt(attr string, def int) (int, error) {
-	var val int
-	if attr == "" {
-		val = def
-	} else {
-		var err error
-		val, err = strconv.Atoi(attr)
-		if err != nil {
-			return 0, err
-		}
+func (slamSvc *slamService) orbConfigToInt(key string, def int) (int, error) {
+	valStr, ok := slamSvc.configParams[key]
+	if !ok {
+		slamSvc.logger.Debugf("Parameter %s not found, using default value %f", key, def)
+		return def, nil
 	}
+	if valStr == "" {
+		slamSvc.logger.Debugf("Parameter %s was left empty, using default %f", key, def)
+		return def, nil
+	}
+	val, err := strconv.Atoi(valStr)
+	if err != nil {
+		return 0, err
+	}
+
 	return val, nil
 }
 
