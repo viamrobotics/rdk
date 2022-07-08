@@ -21,7 +21,7 @@ build-go: buf-go
 build-web: buf-web
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
 	cd web/frontend/dls && npm ci && npm run build:prod && \
-	cd .. && npm ci && npm run build
+	cd .. && npm ci --audit=false && npm run build
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -61,8 +61,7 @@ lint-go: tool-install
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 lint-web:
-	cd web/frontend/dls && npm ci && npm run lint
-	cd web/frontend && npm ci && npm run lint
+	cd web/frontend && npm ci --audit=false && npm run lint
 
 cover:
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
