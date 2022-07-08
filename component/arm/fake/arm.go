@@ -42,7 +42,7 @@ func NewArm(cfg config.Component) (arm.LocalArm, error) {
 	return &Arm{
 		Name:     name,
 		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}},
 		model:    model,
 	}, nil
 }

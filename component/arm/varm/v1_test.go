@@ -21,9 +21,9 @@ func TestArmMath1(t *testing.T) {
 		degMax: 90.0,
 	}
 
-	test.That(t, j.positionToDegrees(0.0), test.ShouldAlmostEqual, 0.0, epsilon)
-	test.That(t, j.positionToDegrees(0.5), test.ShouldAlmostEqual, 45, epsilon)
-	test.That(t, j.positionToDegrees(1.0), test.ShouldAlmostEqual, 90, epsilon)
+	test.That(t, j.positionToValues(0.0), test.ShouldAlmostEqual, 0.0, epsilon)
+	test.That(t, j.positionToValues(0.5), test.ShouldAlmostEqual, 45, epsilon)
+	test.That(t, j.positionToValues(1.0), test.ShouldAlmostEqual, 90, epsilon)
 
 	test.That(t, j.degreesToPosition(0.0), test.ShouldAlmostEqual, 0.0, epsilon)
 	test.That(t, j.degreesToPosition(45.0), test.ShouldAlmostEqual, 0.5, epsilon)
