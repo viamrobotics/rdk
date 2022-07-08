@@ -1063,7 +1063,7 @@ export default {
       return d.toFixed(1);
     },
     getGPIO (boardName) {
-      const pin = document.querySelector(`#get_pin_${boardName}`).value;
+      const pin = this.getPin;
       BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
         if (err) {
           console.log(err);
@@ -2092,8 +2092,7 @@ function setBoundingBox(box, centerPoint) {
     <MotorDetail
       v-for="motor in filterResources('rdk', 'component', 'motor')"
       v-if="resourceStatusByName(motor)"
-      :key="'new-' + motor.name"
-      class="pb-8"  
+      :key="'new-' + motor.name" 
       :motor-name="motor.name" 
       :crumbs="['motor', motor.name]" 
       :motor-status="resourceStatusByName(motor)"
@@ -2168,10 +2167,11 @@ function setBoundingBox(box, centerPoint) {
             <td class="border border-black p-2">
               <div class="flex">
                 <label class="py-2 pr-2 text-right">Pin:</label>
-                <number-input
-                  v-model="getPin"
+                <v-input
+                  type="number"
                   class="mr-2"
-                  :input-id="'get_pin_' + board.name"
+                  :value="getPin"
+                  @input="getPin = $event.detail.value"
                 />
                 <v-button
                   class="mr-2"
