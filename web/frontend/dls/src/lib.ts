@@ -13,7 +13,6 @@ import Breadcrumbs from "./components/Breadcrumbs.vue";
 import ViamButton from "./components/Button.vue";
 import Collapse from "./components/Collapse.vue";
 import Container from "./components/Container.vue";
-import Grid from "./components/Grid.vue";
 import Range from "./components/Range.vue";
 import ViamSwitch from "./components/Switch.vue";
 import Tab from "./components/Tab.vue";
@@ -43,7 +42,6 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   ViamBadge,
   ViamButton,
   Container,
-  Grid,
   Range,
   ViamInput,
   ViamBase,
