@@ -20,11 +20,12 @@ type SamplingType int
 const (
 	uniform SamplingType = iota // 0
 	normal                      // 1
+	fixed                       // 2
 )
 
 // BRIEFConfig stores the parameters.
 type BRIEFConfig struct {
-	N              int          `json:"n"` // size of descriptor
+	N              int          `json:"n"` // number of samples taken
 	Sampling       SamplingType `json:"sampling"`
 	UseOrientation bool         `json:"use_orientation"`
 	PatchSize      int          `json:"patch_size"`
@@ -55,6 +56,8 @@ func sampleIntegers(patchSize int, n int, sampling SamplingType) []int {
 		return utils.SampleNIntegersUniform(n, vMin, vMax)
 	case normal:
 		return utils.SampleNIntegersNormal(n, vMin, vMax)
+	case fixed:
+		return utils.SampleNRegularlySpaced(n, vMin, vMax)
 	default:
 		return utils.SampleNIntegersUniform(n, vMin, vMax)
 	}
@@ -71,9 +74,9 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 	}
 	// sample positions
 	xs0 := sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling)
-	ys0 := sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling)
-	xs1 := sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling)
-	ys1 := sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling)
+	ys0 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), cfg.N/4)
+	xs1 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), cfg.N/2)
+	ys1 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), 3*cfg.N/4)
 
 	// compute descriptors
 	descriptors := make(Descriptors, len(kps.Points))
