@@ -521,6 +521,11 @@
               req.setName(name);
               baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
             },
+            handleServoActionStop: function(name) {
+              let req = new servoApi.StopRequest();
+              req.setName(name);
+              servoService.StopRequest(req, {}, (err, resp) => grpcCallback(err, resp));
+            },
             handleBaseSpin: function(name, event) {
                   BaseControlHelper.spin(name, 
                     event.angle * event.direction,
@@ -1769,10 +1774,11 @@
             <viam-servo
             :servo-name="servo.name"
             :servo-angle="resourceStatusByName(servo).positionDeg"
-            @servo-minus-one="this.servoMove(servo, -1)"
+            @servo-minus-one="servoMove(servo, -1)"
             @servo-minus-ten="servoMove(servo, -10)"
             @servo-plus-one="servoMove(servo, 1)"
             @servo-plus-ten="servoMove(servo, 10)"
+            @servo-stop="handleServoActionStop(servo.name)"
           ></viam-servo>
           </div>
 
