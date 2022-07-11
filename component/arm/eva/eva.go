@@ -103,7 +103,7 @@ type eva struct {
 	opMgr operation.SingleOperationManager
 }
 
-func (e *eva) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (e *eva) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -112,8 +112,8 @@ func (e *eva) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 }
 
 // GetEndPosition computes and returns the current cartesian position.
-func (e *eva) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := e.GetJointPositions(ctx)
+func (e *eva) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := e.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -121,13 +121,13 @@ func (e *eva) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, e.robot, e, pos, worldState)
 }
 
-func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 
@@ -277,7 +277,7 @@ func (e *eva) resetErrors(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (e *eva) Stop(ctx context.Context) error {
+func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
 }
@@ -343,15 +343,15 @@ func (e *eva) ModelFrame() referenceframe.Model {
 }
 
 func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := e.GetJointPositions(ctx)
+	res, err := e.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return e.model.InputFromProtobuf(res), nil
 }
 
 func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return e.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return e.MoveToJointPositions(ctx, e.model.ProtobufFromInput(goal), nil)
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
