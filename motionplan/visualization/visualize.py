@@ -29,7 +29,7 @@ class Box():
             if np.round(np.linalg.norm(face[0] - face[2]), 6) != np.round(np.linalg.norm(face[1] - face[3]), 6):
                 print("Error: invalid face in Box")
                 sys.exit(1)     
-        
+
         # draw the box
         self.artist.set_verts(faces)
         self.artist.do_3d_projection()
@@ -57,16 +57,28 @@ class EntityGroup():
 class Scene():
     def __init__(self, ax, example_data):
         # TODO: account for multiple types of obstacles
-        self.obstacles = EntityGroup(ax, example_data["obstacles0"], 'b')
-        self.model = EntityGroup(ax, example_data["model"], 'r')
+        artists = []
+        if "obstacles0" in example_data:
+            self.obstacles = EntityGroup(ax, example_data["obstacles0"], 'b')
+            artists.append(self.obstacles)
+
+        if "model" in example_data:
+            self.model = EntityGroup(ax, example_data["model"], 'r')
+            artists.append(self.model)
+        
         self.artists = list(itertools.chain.from_iterable([self.obstacles.artists, self.model.artists]))
 
     def draw(self, data):
         # TODO: fix draw order of entities in the scene
         # TODO: add some error checking here
-        obstacle_artist = self.obstacles.draw(data["obstacles0"])
-        model_artist = self.model.draw(data["model"])
-        self.artists = list(itertools.chain.from_iterable([obstacle_artist, model_artist]))
+        artists = []
+        if "obstacles0" in data:
+            obstacle_artist = self.obstacles.draw(data["obstacles0"])
+            artists.append(obstacle_artist)
+        if "model" in data:
+            model_artist = self.model.draw(data["model"])
+            artists.append(model_artist)
+        self.artists = list(itertools.chain.from_iterable(artists))
         return self.artists
 
 
@@ -196,10 +208,10 @@ class Video():
         ax.set_box_aspect(np.ptp([ax.get_xlim(), ax.get_ylim(), ax.get_zlim()], axis=1))
 
         # start video
-        player = Player(fig, self.play, num_frames=len(self.frames), interval=1000/fps)
-        plt.show()
+        player = Player(fig, self.draw, num_frames=len(self.frames), interval=1000/fps)
+        plt.show(block=True)
 
-    def play(self, frame):
+    def draw(self, frame):
         self.scene.draw(self.frames[frame])
 
 
@@ -208,3 +220,4 @@ if __name__ == "__main__":
         print("Error: must provide a single .json file to display as a command line argument")
         sys.exit(1)
     video = Video(sys.argv[1])
+    
