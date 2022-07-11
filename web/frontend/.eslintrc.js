@@ -110,6 +110,7 @@ module.exports = {
     // Vue
     'vue/multi-word-component-names': 'off',
     'vue/no-deprecated-slot-attribute': 'off',
+    'vue/require-default-prop': 'off',
     'vue/no-undef-components': ['error', { ignorePatterns: ['v-'] }],
 
     // Import
