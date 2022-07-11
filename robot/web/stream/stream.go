@@ -1,4 +1,4 @@
-// Package provides controls for streaming from the web server.
+// Package webstream provides controls for streaming from the web server.
 package webstream
 
 import (
@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/edaniels/gostream"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/rlog"
 )
 
 // StreamSource starts a stream from an image source with a throttled error handler.
@@ -22,7 +23,7 @@ func StreamSource(ctx context.Context, source gostream.ImageSource, stream gostr
 // to reduce the number of errors logged in the case of minor dicontinuity
 // in the camera stream.
 // The number of milliseconds slept at a particular attempt i is determined by
-// min(ExpBase^(i) + Offset, MaxSleepMilliSec)
+// min(ExpBase^(i) + Offset, MaxSleepMilliSec).
 type BackoffTuningOptions struct {
 	// ExpBase is a tuning parameter for backoff used as described above
 	ExpBase float64
@@ -36,6 +37,7 @@ type BackoffTuningOptions struct {
 	MaxSleepAttempts int
 }
 
+// GetSleepTimeFromErrorCount returns a sleep time from an error count.
 func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errCount int) int {
 	expBackoffMillisec := math.Pow(opts.ExpBase, float64(errCount)) + opts.Offset
 	expBackoffNanosec := expBackoffMillisec * math.Pow10(6)
@@ -43,29 +45,30 @@ func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errCount int) int {
 	return int(math.Min(expBackoffNanosec, maxSleepNanosec))
 }
 
-func (backoffOpts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Context, error) bool {
+func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Context, error) bool {
 	var prevErr error
 	errorCount := 0
 
 	return func(ctx context.Context, err error) bool {
 		if err != nil {
-			if prevErr == nil {
+			switch {
+			case prevErr == nil:
 				prevErr = err
-			} else if errors.Is(prevErr, err) {
-				errorCount += 1
-			} else {
+			case errors.Is(prevErr, err):
+				errorCount++
+			default:
 				errorCount = 0
 			}
-			canSleep := (errorCount > 0) && (errorCount < backoffOpts.MaxSleepAttempts)
-			if canSleep && (backoffOpts != nil) {
+
+			canSleep := (errorCount > 0) && (errorCount < opts.MaxSleepAttempts)
+			if canSleep && (opts != nil) {
 				rlog.Logger.Debugw("error getting frame", "error", err)
-				dur := backoffOpts.GetSleepTimeFromErrorCount(errorCount)
+				dur := opts.GetSleepTimeFromErrorCount(errorCount)
 				utils.SelectContextOrWait(ctx, time.Duration(dur))
 			}
 			return true
-		} else {
-			errorCount = 0
-			return false
 		}
+		errorCount = 0
+		return false
 	}
 }
