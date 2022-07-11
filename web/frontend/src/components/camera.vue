@@ -6,8 +6,6 @@ import InfoButton from './info-button.vue';
 interface Props {
   streamName: string
   crumbs: string[]
-  connectedCamera: boolean
-  connectedPCD: boolean
   x: number
   y: number
   z: number
@@ -39,8 +37,6 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  connectedCamera: false,
-  connectedPCD: false,
   x: 0,
   y: 0,
   z: 0,
@@ -49,8 +45,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>();
 
-const camera = ref(props.connectedCamera);
-const pcd = ref(props.connectedPCD);
+const camera = ref(false);
+const pcd = ref(false);
 const selectedValue = ref('live');
 const selectedSegmenterValue = ref('');
 const selectedObject = ref('');

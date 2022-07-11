@@ -19,6 +19,7 @@
     "three": "^0.137.0",
     "vite": "^2.9.14",
     "vue": "^3.2.37",
+    "vue-toast-notification": "^3.0.4",
     "vue3-popper": "^1.5.0"
   },
   "devDependencies": {

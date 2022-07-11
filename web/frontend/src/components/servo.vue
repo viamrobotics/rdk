@@ -211,15 +211,16 @@ const motorStop = () => {
                 @input="setDirection($event.detail.value)"
               />
             </div>
-            <Range
+            <v-slider
               id="power"
-              v-model="power"
+              value="power"
               class="pt-2"
               :min="0"
               :max="100"
               :step="1"
               unit="%"
               name="Power %"
+              @input="power = $event.detail.value"
             />
           </div>
         </div>
