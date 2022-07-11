@@ -211,7 +211,7 @@ func (ua *URArm) State() (RobotState, error) {
 }
 
 // GetJointPositions TODO.
-func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (ua *URArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -224,8 +224,8 @@ func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, err
 }
 
 // GetEndPosition computes and returns the current cartesian position.
-func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := ua.GetJointPositions(ctx)
+func (ua *URArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := ua.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -233,19 +233,24 @@ func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (ua *URArm) MoveToPosition(
+	ctx context.Context,
+	pos *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, ua.robot, ua, pos, worldState)
 }
 
 // MoveToJointPositions TODO.
-func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 
 // Stop stops the arm with some deceleration.
-func (ua *URArm) Stop(ctx context.Context) error {
+func (ua *URArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	_, done := ua.opMgr.New(ctx)
 	defer done()
 	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speed)
@@ -340,7 +345,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 // CurrentInputs TODO.
 func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := ua.GetJointPositions(ctx)
+	res, err := ua.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +354,7 @@ func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs TODO.
 func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal))
+	return ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal), nil)
 }
 
 // AddToLog TODO.
