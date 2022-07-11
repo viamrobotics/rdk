@@ -116,7 +116,9 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 
 	seedConfig := &configuration{seed}
 	seedMap := make(map[*configuration]*configuration)
+	childMap := make(map[*configuration][]*configuration)
 	seedMap[seedConfig] = nil
+	childMap[seedConfig] = make([]*configuration, 0)
 
 	pathLenMap := make(map[*configuration]float64)
 	pathLenMap[seedConfig] = 0
@@ -153,7 +155,12 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 
 			if mp.CheckPath(node, target, opt, dm, o) {
 				seedMap[target] = node
+				if o.TotalLen < 0 {
+					continue
+				}
 				pathLenMap[target] = pathLenMap[node] + o.TotalLen
+				childMap[node] = append(childMap[node], target)
+				childMap[target] = make([]*configuration, 0)
 				targetConnected = true
 				break
 			}
@@ -168,23 +175,37 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				end := configuration2slice(n)
 
 				bestOption := dm.d.AllOptions(start, end, true)[0]
+				if bestOption.TotalLen < 0 {
+					continue
+				}
+
 				if pathLenMap[target]+bestOption.TotalLen < pathLenMap[n] {
-					seedMap[n] = target
-					if n == target {
-						fmt.Println(target, n)
-						fmt.Println("Old len: ", pathLenMap[n])
-						fmt.Println("New len: ", pathLenMap[target]+bestOption.TotalLen)
-						fmt.Println("Connection Len: ", bestOption.TotalLen)
-						fmt.Println("To target len: ", pathLenMap[target])
-						mp.logger.Fatalf("STAHP")
+					// Remove n from it's parent's children
+					parentChildList := childMap[seedMap[n]]
+					for i, child := range parentChildList {
+						if child == n {
+							parentChildList[i] = parentChildList[len(parentChildList)-1]
+							parentChildList[len(parentChildList)-1] = nil
+							break
+						}
 					}
-					pathLenMap[n] = pathLenMap[target] + bestOption.TotalLen
+					childMap[seedMap[n]] = parentChildList[:len(parentChildList)-1]
+
+					// Add n to target's children
+					childMap[target] = append(childMap[target], n)
+
+					// Set target as n's parent
+					seedMap[n] = target
+
+					// Update path lengths of n and its children
+					diff := pathLenMap[n] - (pathLenMap[target] + bestOption.TotalLen)
+
+					updateChildren(n, pathLenMap, childMap, diff)
 				}
 			}
 		}
 
 		if targetConnected && target == goalConfig {
-			fmt.Println("goal reached")
 			cancel()
 
 			// extract the path to the seed
@@ -192,16 +213,12 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 			for seedReached != nil {
 				inputSteps = append(inputSteps, seedReached)
 				seedReached = seedMap[seedReached]
-				fmt.Println(seedReached)
 			}
-
-			fmt.Println("path extracted")
 
 			// reverse the slice
 			for i, j := 0, len(inputSteps)-1; i < j; i, j = i+1, j-1 {
 				inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
 			}
-			fmt.Println("slice reversed")
 
 			solutionChan <- &planReturn{steps: inputSteps}
 			for _, step := range inputSteps {
@@ -214,6 +231,18 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
+func updateChildren(
+	relinkedNode *configuration, 
+	pathLenMap map[*configuration]float64, 
+	childMap map[*configuration][]*configuration, 
+	diff float64,
+) {
+	pathLenMap[relinkedNode] -= diff
+	for _, child := range childMap[relinkedNode] {
+		updateChildren(child, pathLenMap, childMap, diff)
+	}
+}
+
 func (mp *dubinsRRTMotionPlanner) CheckPath(
 	from, to *configuration,
 	opt *PlannerOptions,
@@ -223,8 +252,6 @@ func (mp *dubinsRRTMotionPlanner) CheckPath(
 	start := configuration2slice(from)
 	end := configuration2slice(to)
 	path := dm.d.GeneratePoints(start, end, o.DubinsPath, o.Straight)
-
-	fmt.Println("Path between ", start, "and", end, ":", path)
 
 	pathOk := true
 	p1, p2 := path[0], path[1]
@@ -429,6 +456,9 @@ func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configu
 	keys := make([]*configuration, 0, len(rrtMap))
 
 	for key := range rrtMap {
+		if key == sample {
+			continue
+		}
 		keys = append(keys, key)
 	}
 
@@ -437,8 +467,8 @@ func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configu
 	})
 
 	topn := nbNeighbors
-	if len(rrtMap) < nbNeighbors {
-		topn = len(rrtMap)
+	if len(keys) < nbNeighbors {
+		topn = len(keys)
 	}
 
 	return keys[:topn]
