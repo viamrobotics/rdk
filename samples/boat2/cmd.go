@@ -342,6 +342,20 @@ func (b *boat) GetWidth(ctx context.Context) (int, error) {
 	return 600, nil
 }
 
+func (b *boat) IsMoving(ctx context.Context) (bool, error) {
+	motors := []motor.Motor{b.starboard, b.port, b.thrust}
+	for _, m := range motors {
+		isMoving, err := m.IsPowered(ctx)
+		if isMoving {
+			return isMoving, nil
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+	return false, nil
+}
+
 func (b *boat) Close(ctx context.Context) error {
 	return b.Stop(ctx)
 }

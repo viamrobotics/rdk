@@ -87,31 +87,44 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
-	solutionChan := make(chan *planReturn, 1)
-	if opt == nil {
-		opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed)
-		if err != nil {
-			solutionChan <- &planReturn{err: err}
-			return nil, err
+	if opt != nil {
+		solutionChan := make(chan *planReturn, 1)
+		utils.PanicCapturingGo(func() {
+			mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
+		})
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case plan := <-solutionChan:
+			finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
+			for _, step := range plan.steps {
+				finalSteps = append(finalSteps, step.inputs)
+			}
+			return finalSteps, plan.err
 		}
-		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
-		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
 	}
 
-	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
-	})
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case plan := <-solutionChan:
-		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
-		for _, step := range plan.steps {
-			finalSteps = append(finalSteps, step.inputs)
-		}
-		return finalSteps, plan.err
+	seedPos, err := mp.frame.Transform(seed)
+	if err != nil {
+		return nil, err
 	}
+	goalPos := spatial.NewPoseFromProtobuf(goal)
+
+	numSteps := GetSteps(seedPos, goalPos, pathStepSize)
+	goals := make([]spatial.Pose, 0, numSteps)
+	for i := 1; i < numSteps; i++ {
+		by := float64(i) / float64(numSteps)
+		goals = append(goals, spatial.Interpolate(seedPos, goalPos, by))
+	}
+	goals = append(goals, goalPos)
+
+	// We want to make this of len(goals), not len(0) so that indexing does not fail
+	opts := make([]*PlannerOptions, len(goals))
+	results, err := RunPlannerWithWaypoints(ctx, mp, goals, seed, opts, 0)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
 }
 
 // planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
@@ -125,6 +138,18 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 ) {
 	defer close(solutionChan)
 	inputSteps := []*configuration{}
+
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+		seedPos, err := mp.frame.Transform(seed)
+		if err != nil {
+			solutionChan <- &planReturn{err: err}
+			return
+		}
+		goalPos := spatial.NewPoseFromProtobuf(goal)
+
+		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
