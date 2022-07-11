@@ -62,7 +62,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	// determine which position to assign the start and which the goal
-	currentPose, err := xArm.GetEndPosition(ctx)
+	currentPose, err := xArm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	// ensure that the arm starts in the correct position
-	if err := xArm.MoveToPosition(ctx, start, worldState); err != nil {
+	if err := xArm.MoveToPosition(ctx, start, worldState, nil); err != nil {
 		return err
 	}
 
