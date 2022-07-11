@@ -255,3 +255,8 @@ func (vs *visionService) registerSegmenterFromDetector(detName string, logger go
 	}
 	return vs.segReg.registerSegmenter(detName, SegmenterRegistration{detSegmenter, params}, logger)
 }
+
+func (vs *visionService) Close(ctx context.Context) error {
+	detectors, error := vs.GetDetectorNames(ctx)
+	return nil
+}
