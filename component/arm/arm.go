@@ -421,7 +421,7 @@ func Plan(
 
 	model := a.ModelFrame()
 	if model == nil {
-		return errors.New("arm did not provide a valid model")
+		return nil, errors.New("arm did not provide a valid model")
 	}
 
 	// conduct planning query
