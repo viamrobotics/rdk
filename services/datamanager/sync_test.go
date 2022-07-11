@@ -62,8 +62,7 @@ func toProto(r interface{}) *structpb.Struct {
 	return msg
 }
 
-// Writes the protobuf message to the file passed into method. Returns the number of bytes written and any errors that
-// are raised.
+// Writes the protobuf message to the file passed into method. Returns any errors that are raised.
 func writeBinarySensorData(f *os.File, toWrite [][]byte) error {
 	for _, bytes := range toWrite {
 		msg := &v1.SensorData{
