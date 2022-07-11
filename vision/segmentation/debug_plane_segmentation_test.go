@@ -57,16 +57,16 @@ func (h *segmentTestHelper) Process(
 
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
-	fixed, err := h.cameraParams.AlignColorAndDepthImage(ii.Color, ii.Depth)
+	fixedColor, fixedDepth, err := h.cameraParams.AlignColorAndDepthImage(ii.Color, ii.Depth)
 	test.That(t, err, test.ShouldBeNil)
-	fixed, err = rimage.PreprocessDepthMap(fixed)
+	fixedDepth, err = rimage.PreprocessDepthMap(fixedDepth, fixedColor)
 	test.That(t, err, test.ShouldBeNil)
 
-	pCtx.GotDebugImage(fixed.Overlay(), "overlay")
+	pCtx.GotDebugImage(rimage.Overlay(fixedColor, fixedDepth), "overlay")
 
-	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
+	pCtx.GotDebugImage(fixedDepth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(fixed)
+	cloud, err := h.cameraParams.RGBDToPointCloud(fixedColor, fixedDepth)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create an image where all the planes in the point cloud are color-coded
@@ -163,13 +163,13 @@ func (h *gripperPlaneTestHelper) Process(
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth")
 
 	// Pre-process the depth map to smooth the noise out and fill holes
-	ii, err = rimage.PreprocessDepthMap(ii)
+	ii.Depth, err = rimage.PreprocessDepthMap(ii.Depth, ii.Color)
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
 	// Get the point cloud
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
+	cloud, err := h.cameraParams.RGBDToPointCloud(ii.Color, ii.Depth)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
