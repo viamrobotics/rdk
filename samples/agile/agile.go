@@ -28,7 +28,7 @@ import (
 var logger = golog.NewDevelopmentLogger("agile")
 
 const (
-	gridConversion = 500 // mm per grid square
+	gridConversion = 250 // mm per grid square
 )
 
 func main() {
