@@ -1165,11 +1165,10 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	r0Arm, ok := r0arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	err = r0Arm.GoToInputs(context.Background(), []referenceframe.Input{
-		{10},
-	})
+	tPos := referenceframe.JointPositionsFromRadians([]float64{10.0})
+	err = r0Arm.MoveToJointPositions(context.Background(), tPos, nil)
 	test.That(t, err, test.ShouldBeNil)
-	p0Arm1, err := r0Arm.GetJointPositions(context.Background())
+	p0Arm1, err := r0Arm.GetJointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteConfig := &config.Config{
@@ -1227,9 +1226,9 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	rrArm1, ok := arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err := rrArm1.GetJointPositions(ctx)
+	pos, err := rrArm1.GetJointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.Degrees, test.ShouldResemble, p0Arm1.Degrees)
+	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {
