@@ -3,7 +3,7 @@ package odometry
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"math/rand"
 	"os"
@@ -70,7 +70,7 @@ func readJSONGroundTruth() *poseGroundTruth {
 	logger.Info("Ground Truth json file successfully loaded")
 	defer jsonFile.Close()
 	// read our opened jsonFile as a byte array.
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 
 	// initialize poseGroundTruth
 	var gt poseGroundTruth
