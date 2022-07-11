@@ -135,30 +135,6 @@ window.BoardControlHelper = {
   // TODO: Add PWM
 };
 
-/*
-* Base keyboard control calculations.
-* Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
-* Output: linearY and angularZ throttle
-*/
-window.computeKeyboardBaseControls = function(keysPressed) {
-  let linear = 0;
-  let angular = 0;
-
-  if (keysPressed.forward) {
-      linear = 1;
-  } else if (keysPressed.backward) {
-      linear = -1;
-  } 
-  
-  if (keysPressed.right) {
-      angular = -1;
-  } else if (keysPressed.left) {
-      angular = 1;
-  } 
-  
-  return {linear, angular};
-};
-
 // Servo control helpers
 // todo: add the rest
 window.ServoControlHelper = {
