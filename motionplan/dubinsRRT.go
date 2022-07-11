@@ -114,8 +114,6 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	corners := map[*configuration]bool{}
-
 	seedConfig := &configuration{seed}
 	seedMap := make(map[*configuration]*configuration)
 	seedMap[seedConfig] = nil
@@ -163,8 +161,6 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		if targetConnected && target != goalConfig {
-			corners[target] = true
-
 			// reroute near neighbors through new node if it shortens the path
 			neighbors := findNearNeighbors(target, seedMap, 10)
 			for _, n := range neighbors {
@@ -174,12 +170,21 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				bestOption := dm.d.AllOptions(start, end, true)[0]
 				if pathLenMap[target]+bestOption.TotalLen < pathLenMap[n] {
 					seedMap[n] = target
+					if n == target {
+						fmt.Println(target, n)
+						fmt.Println("Old len: ", pathLenMap[n])
+						fmt.Println("New len: ", pathLenMap[target]+bestOption.TotalLen)
+						fmt.Println("Connection Len: ", bestOption.TotalLen)
+						fmt.Println("To target len: ", pathLenMap[target])
+						mp.logger.Fatalf("STAHP")
+					}
 					pathLenMap[n] = pathLenMap[target] + bestOption.TotalLen
 				}
 			}
 		}
 
 		if targetConnected && target == goalConfig {
+			fmt.Println("goal reached")
 			cancel()
 
 			// extract the path to the seed
@@ -187,12 +192,16 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 			for seedReached != nil {
 				inputSteps = append(inputSteps, seedReached)
 				seedReached = seedMap[seedReached]
+				fmt.Println(seedReached)
 			}
+
+			fmt.Println("path extracted")
 
 			// reverse the slice
 			for i, j := 0, len(inputSteps)-1; i < j; i, j = i+1, j-1 {
 				inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
 			}
+			fmt.Println("slice reversed")
 
 			solutionChan <- &planReturn{steps: inputSteps}
 			for _, step := range inputSteps {
