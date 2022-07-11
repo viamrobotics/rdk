@@ -13,7 +13,8 @@ import (
 
 // AlignColorAndDepthImage takes in a RGB image and Depth map and aligns them according to the Aligner,
 // returning a new Image and DepthMap.
-func (dcie *DepthColorIntrinsicsExtrinsics) AlignColorAndDepthImage(c *rimage.Image, d *rimage.DepthMap) (*rimage.Image, *rimage.DepthMap, error) {
+func (dcie *DepthColorIntrinsicsExtrinsics) AlignColorAndDepthImage(c *rimage.Image, d *rimage.DepthMap,
+) (*rimage.Image, *rimage.DepthMap, error) {
 	if c == nil {
 		return nil, nil, errors.New("no color image present to align")
 	}
