@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/multierr"
 
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -74,6 +75,34 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 		return nil, err
 	}
 	return frames[0].transform, err
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	inputs := make([]Input, 0, len(jp.Values))
+	posIdx := 0
+	for _, transform := range m.OrdTransforms {
+		dof := len(transform.DoF()) + posIdx
+		jPos := jp.Values[posIdx:dof]
+		posIdx = dof
+
+		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Values: jPos})...)
+	}
+
+	return inputs
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
+	jPos := &pb.JointPositions{}
+	posIdx := 0
+	for _, transform := range m.OrdTransforms {
+		dof := len(transform.DoF()) + posIdx
+		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
+		posIdx = dof
+	}
+
+	return jPos
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.

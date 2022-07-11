@@ -30,7 +30,7 @@ func newGetEndPositionCollector(resource interface{}, params data.CollectorParam
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := arm.GetEndPosition(ctx)
+		v, err := arm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getEndPosition.String(), err)
 		}
@@ -46,7 +46,7 @@ func newGetJointPositionsCollector(resource interface{}, params data.CollectorPa
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := arm.GetJointPositions(ctx)
+		v, err := arm.GetJointPositions(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getJointPositions.String(), err)
 		}
