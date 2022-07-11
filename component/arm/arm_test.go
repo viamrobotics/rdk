@@ -78,7 +78,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, a, test.ShouldNotBeNil)
 
-	pose1, err := a.GetEndPosition(context.Background())
+	pose1, err := a.GetEndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose1, test.ShouldResemble, pose)
 
@@ -98,7 +98,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, a, test.ShouldNotBeNil)
 
-	pose1, err := a.GetEndPosition(context.Background())
+	pose1, err := a.GetEndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose1, test.ShouldResemble, pose)
 
@@ -121,7 +121,7 @@ func TestNamesFromRobot(t *testing.T) {
 func TestStatusValid(t *testing.T) {
 	status := &pb.Status{
 		EndPosition:    pose,
-		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
 	map1, err := protoutils.InterfaceToMap(status)
@@ -134,7 +134,7 @@ func TestStatusValid(t *testing.T) {
 		test.ShouldResemble,
 		map[string]interface{}{
 			"end_position":    map[string]interface{}{"x": 1.0, "y": 2.0, "z": 3.0},
-			"joint_positions": map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
+			"joint_positions": map[string]interface{}{"values": []interface{}{1.1, 2.2, 3.3}},
 			"is_moving":       true,
 		},
 	)
@@ -153,16 +153,16 @@ func TestCreateStatus(t *testing.T) {
 
 	status := &pb.Status{
 		EndPosition:    pose,
-		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
 
 	injectArm := &inject.Arm{}
-	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose, nil
 	}
-	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return &pb.JointPositions{Degrees: status.JointPositions.Degrees}, nil
+	injectArm.GetJointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+		return &pb.JointPositions{Values: status.JointPositions.Values}, nil
 	}
 	injectArm.IsMovingFunc = func(context.Context) (bool, error) {
 		return true, nil
@@ -186,7 +186,7 @@ func TestCreateStatus(t *testing.T) {
 
 		status2 := &pb.Status{
 			EndPosition:    pose,
-			JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+			JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 			IsMoving:       false,
 		}
 		status1, err := arm.CreateStatus(context.Background(), injectArm)
@@ -196,7 +196,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on GetJointPositions", func(t *testing.T) {
 		errFail := errors.New("can't get joint positions")
-		injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+		injectArm.GetJointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 			return nil, errFail
 		}
 		_, err = arm.CreateStatus(context.Background(), injectArm)
@@ -205,7 +205,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on GetEndPosition", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 			return nil, errFail
 		}
 		_, err = arm.CreateStatus(context.Background(), injectArm)
@@ -292,7 +292,7 @@ func TestReconfigurableArm(t *testing.T) {
 
 	test.That(t, actualArm1.endPosCount, test.ShouldEqual, 0)
 	test.That(t, actualArm2.endPosCount, test.ShouldEqual, 0)
-	pose1, err := reconfArm1.(arm.Arm).GetEndPosition(context.Background())
+	pose1, err := reconfArm1.(arm.Arm).GetEndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose1, test.ShouldResemble, pose)
 	test.That(t, actualArm1.endPosCount, test.ShouldEqual, 0)
@@ -332,7 +332,7 @@ func TestStop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualArm1.stopCount, test.ShouldEqual, 0)
-	test.That(t, reconfArm1.(arm.Arm).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, reconfArm1.(arm.Arm).Stop(context.Background(), nil), test.ShouldBeNil)
 	test.That(t, actualArm1.stopCount, test.ShouldEqual, 1)
 }
 
@@ -370,6 +370,17 @@ func TestArmPositionDiff(t *testing.T) {
 	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{OX: 1, OY: 1, OZ: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 3)
 }
 
+func TestExtraOptions(t *testing.T) {
+	actualArm1 := &mockLocal{Name: testArmName}
+	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualArm1.extra, test.ShouldEqual, nil)
+
+	reconfArm1.(arm.Arm).GetEndPosition(context.Background(), map[string]interface{}{"foo": "bar"})
+	test.That(t, actualArm1.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+}
+
 var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
 type mock struct {
@@ -378,7 +389,10 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }
+func (m *mock) Close(ctx context.Context, extra map[string]interface{}) error {
+	m.reconfCount++
+	return nil
+}
 
 type mockLocal struct {
 	arm.LocalArm
@@ -386,15 +400,18 @@ type mockLocal struct {
 	endPosCount int
 	reconfCount int
 	stopCount   int
+	extra       map[string]interface{}
 }
 
-func (m *mockLocal) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+func (m *mockLocal) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	m.endPosCount++
+	m.extra = extra
 	return pose, nil
 }
 
-func (m *mockLocal) Stop(ctx context.Context) error {
+func (m *mockLocal) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stopCount++
+	m.extra = extra
 	return nil
 }
 

@@ -1,10 +1,9 @@
 package keypoints
 
 import (
-	"errors"
-
 	"github.com/edaniels/golog"
 	"github.com/gonum/floats"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
@@ -57,7 +56,7 @@ func convertDescriptorsToFloats(desc Descriptors) [][]float64 {
 }
 
 // MatchKeypoints takes 2 sets of descriptors and performs matching.
-func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig) *DescriptorMatches {
+func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.Logger) *DescriptorMatches {
 	d1 := convertDescriptorsToFloats(desc1)
 	d2 := convertDescriptorsToFloats(desc2)
 	distances, err := utils.PairwiseDistance(d1, d2, utils.Hamming)
