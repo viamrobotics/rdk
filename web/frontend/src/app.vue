@@ -2175,6 +2175,7 @@ function setBoundingBox(box, centerPoint) {
       @download-screenshot="renderFrame(streamName)"
       @download-raw-data="doPCDDownload(fullcloud)"
       @select-object="doSelectObject"
+      @segmenter-parameters-input="(name, value) => segmenterParameters[name] = Number(value)"
     />
 
     <!-- ******* SLAM *******  -->

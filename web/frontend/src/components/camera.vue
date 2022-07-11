@@ -9,7 +9,6 @@ interface Props {
   x: number
   y: number
   z: number
-  pcdObject?: Record<string, unknown>
   segmenterNames?: string[]
   segmentObjects?: Record<string, unknown>[]
   segmenterParameterNames?: {
@@ -37,6 +36,7 @@ interface Emits {
   (event: 'segment-load', index: number): void
   (event: 'bounding-box-load', index: number): void
   (event: 'toggle-pcd', pcd: boolean): void
+  (event: 'segmenter-parameters-input', name: string, value: string): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -86,10 +86,6 @@ const changeSegmenter = () => {
 };
 
 const findSegments = () => {
-  if (props.pcdObject) {
-    props.pcdObject.calculatingSegments = true;
-  }
-  
   emit(
     'find-segments',
     selectedSegmenterValue.value,
@@ -301,14 +297,10 @@ const togglePCDExpand = () => {
                       >
                         <v-input
                           :id="param.getName()"
+                          :type="parameterType(param.getType())"
                           :label="param.getName()"
                           :value="segmenterParameters![param.getName()]"
-                          color="primary"
-                          group="False"
-                          variant="primary"
-                          class="text-xs"
-                          :type="parameterType(param.getType())"
-                          @input="segmenterParameters[param.getName()] = Number($event.detail.value)"
+                          @input="emit('segmenter-parameters-input', param.getName(), $event.detail.value)"
                         />
                       </div>
                     </div>
