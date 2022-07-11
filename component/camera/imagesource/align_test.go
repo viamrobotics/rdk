@@ -157,14 +157,14 @@ func (h *alignTestHelper) Process(
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay_"+h.name)
 
 	// get pointcloud
-	pc, err := h.attrs.CameraParameters.ImageWithDepthToPointCloud(fixed)
+	pc, err := h.attrs.CameraParameters.RGBDToPointCloud(fixed.Color, fixed.Depth)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud_"+h.name)
 
 	// go back to image with depth
-	roundTrip, err := h.attrs.CameraParameters.PointCloudToImageWithDepth(pc)
+	roundTripColor, roundTripDepth, err := h.attrs.CameraParameters.PointCloudToRGBD(pc)
 	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(roundTrip.Overlay(), "from-pointcloud_"+h.name)
+	pCtx.GotDebugImage(rimage.Overlay(roundTripColor, roundTripDepth), "from-pointcloud_"+h.name)
 
 	return nil
 }
