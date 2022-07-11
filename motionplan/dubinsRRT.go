@@ -3,13 +3,13 @@ package motionplan
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"math/rand"
 	"sort"
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -195,6 +195,9 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 			}
 
 			solutionChan <- &planReturn{steps: inputSteps}
+			for _, step := range inputSteps {
+				fmt.Println(*step)
+			}
 			return
 		}
 	}
@@ -212,17 +215,25 @@ func (mp *dubinsRRTMotionPlanner) CheckPath(
 	end := configuration2slice(to)
 	path := dm.d.GeneratePoints(start, end, o.DubinsPath, o.Straight)
 
+	fmt.Println("Path between ", start, "and", end, ":", path)
+
 	pathOk := true
 	p1, p2 := path[0], path[1]
 	for _, p := range path[1:] {
 		p2 = p
 
-		pose1 := spatial.NewPoseFromPoint(r3.Vector{X: p1[0], Y: p1[1], Z: 0})
-		pose2 := spatial.NewPoseFromPoint(r3.Vector{X: p2[0], Y: p2[1], Z: 0})
 		input1 := make([]referenceframe.Input, 2)
 		input1[0], input1[1] = referenceframe.Input{Value: p1[0]}, referenceframe.Input{Value: p1[1]}
+		pose1, err := mp.frame.Transform(input1)
+		if err != nil {
+			mp.logger.Error("Transform failed")
+		}
 		input2 := make([]referenceframe.Input, 2)
 		input2[0], input2[1] = referenceframe.Input{Value: p2[0]}, referenceframe.Input{Value: p2[1]}
+		pose2, err := mp.frame.Transform(input2)
+		if err != nil {
+			mp.logger.Error("Transform failed")
+		}
 
 		ci := &ConstraintInput{
 			StartPos:   pose1,
