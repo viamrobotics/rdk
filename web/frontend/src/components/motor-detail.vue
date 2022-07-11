@@ -199,7 +199,6 @@ const motorStop = () => {
               />
             </div>
             <v-input
-              v-model="rpm"
               type="number"
               label="RPM"
               class="w-32 pr-2"
