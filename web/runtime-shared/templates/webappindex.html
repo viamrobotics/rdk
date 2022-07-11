@@ -92,12 +92,12 @@
               }
             );
         }
-        for (var j=0; j<old["joint_positions"]["degrees"].length; j++ ){
+        for (var j=0; j<old["joint_positions"]["values"].length; j++ ){
             let endPositionField = fieldSetters[j][0];
             newStatus.joint_pieces.push(
               { 
                 joint : j,
-                jointValue : old["joint_positions"]["degrees"][j] || 0,
+                jointValue : old["joint_positions"]["values"][j] || 0,
               }
             );
         }
@@ -361,26 +361,26 @@
               const arm = theApp.rawResourceStatusByName(name);
               let old = arm["joint_positions"];
               var newPositionDegs = new armApi.JointPositions();
-              var newList = arm["joint_positions"]["degrees"];
+              var newList = arm["joint_positions"]["values"];
               newList[field] += amount;
-              newPositionDegs.setDegreesList(newList);
+              newPositionDegs.setValuesList(newList);
               const req = new armApi.MoveToJointPositionsRequest();
               req.setName(name.name);
-              req.setPositionDegs(newPositionDegs);
+              req.setPositions(newPositionDegs);
               armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             armHome: function (name) {
               const arm = theApp.rawResourceStatusByName(name);
               let old = arm["joint_positions"];
               var newPositionDegs = new armApi.JointPositions();
-              var newList = arm["joint_positions"]["degrees"];
+              var newList = arm["joint_positions"]["values"];
               for (var i = 0; i < newList.length; i++) {
                 newList[i] = 0;
               }
-              newPositionDegs.setDegreesList(newList);
+              newPositionDegs.setValuesList(newList);
               const req = new armApi.MoveToJointPositionsRequest();
               req.setName(name.name);
-              req.setPositionDegs(newPositionDegs);
+              req.setPositions(newPositionDegs);
               armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             armModifyAll: function (name) {
@@ -423,16 +423,16 @@
             armModifyAllDoJoint: function (name) {
               const arm = theApp.rawResourceStatusByName(name);
               var newPositionDegs = new armApi.JointPositions();
-              var newList = arm["joint_positions"]["degrees"];
+              var newList = arm["joint_positions"]["values"];
               var newPieces = theData.armToggle[name.name].joint_pieces;
               for (var i = 0; i < newPieces.length && i < newList.length; i++) {
                 newList[newPieces[i].joint] = newPieces[i].jointValue;
               }
 
-              newPositionDegs.setDegreesList(newList);
+              newPositionDegs.setValuesList(newList);
               const req = new armApi.MoveToJointPositionsRequest();
               req.setName(name.name);
-              req.setPositionDegs(newPositionDegs);
+              req.setPositions(newPositionDegs);
               armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
               delete theData.armToggle[name.name];
             },
