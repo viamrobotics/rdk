@@ -210,11 +210,11 @@ func TestConfigRemote(t *testing.T) {
 
 	arm1, err := r2.ResourceByName(arm.Named("bar:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos1, err := arm1.(arm.Arm).GetEndPosition(ctx)
+	pos1, err := arm1.(arm.Arm).GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	arm2, err := r2.ResourceByName(arm.Named("foo:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos2, err := arm2.(arm.Arm).GetEndPosition(ctx)
+	pos2, err := arm2.(arm.Arm).GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm.PositionGridDiff(pos1, pos2), test.ShouldAlmostEqual, 0)
 
@@ -240,7 +240,7 @@ func TestConfigRemote(t *testing.T) {
 
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -484,7 +484,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			armStatus := &armpb.Status{
 				EndPosition:    &commonpb.Pose{},
-				JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+				JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
 			}
 			convMap := &armpb.Status{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -674,7 +674,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -1042,7 +1042,7 @@ func TestGetStatusRemote(t *testing.T) {
 	}
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
+		JointPositions: &armpb.JointPositions{Values: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
 	}
 	injectRobot1.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
