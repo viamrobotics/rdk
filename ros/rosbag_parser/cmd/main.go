@@ -60,7 +60,7 @@ func extractPlanes(ctx context.Context, imgWd *rimage.ImageWithDepth) (*segmenta
 	}
 
 	// Get the pointcloud from the image-with-depth
-	pcl, err := camera.ImageWithDepthToPointCloud(imgWd)
+	pcl, err := camera.RGBDToPointCloud(imgWd.Color, imgWd.Depth)
 	if err != nil {
 		return nil, err
 	}

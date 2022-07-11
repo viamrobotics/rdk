@@ -257,11 +257,11 @@ func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func()
 	if err != nil {
 		return nil, nil, err
 	}
-	iwd, err := proj.PointCloudToImageWithDepth(pc)
+	img, dm, err := proj.PointCloudToRGBD(pc)
 	if err != nil {
 		return nil, nil, err
 	}
-
+	iwd := rimage.MakeImageWithDepth(img, dm, true)
 	return iwd, func() {}, nil
 }
 
