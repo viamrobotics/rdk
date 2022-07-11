@@ -1,9 +1,11 @@
+<!-- eslint-disable require-atomic-updates -->
 <script>
 
 import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
@@ -36,6 +38,7 @@ import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
 import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
+
 import {
   BaseControlHelper,
   MotorControlHelper,
@@ -146,8 +149,8 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   window.slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
 
   // save authEntity, creds
-  savedAuthEntity = authEntity
-  savedCreds = creds
+  savedAuthEntity = authEntity;
+  savedCreds = creds;
 };
 
 function roundTo2Decimals(num) {

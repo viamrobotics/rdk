@@ -129,41 +129,37 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
         v-if="selectedItem === 'Keyboard'"
         class="h-auto p-4"
       >
-        <div>
-          <div>
-            <div class="grid grid-cols-2">
-              <div class="flex pt-6">
-                <KeyboardInput
-                  @keyboard-ctl="keyboardCtl"
-                />
-              </div>
-              <div
-                v-if="camera"
-                class="flex"
-              >
-                <div class="pr-4">
-                  <div class="w-64">
-                    <p
-                      class="font-label mb-1 text-gray-800 dark:text-gray-200"
-                    >
-                      Select Camera
-                    </p>
-                    <div class="relative">
-                      <v-select
-                        :options="cameraOptions.join(',')"
-                        :selected="selectedValue"
-                        @input="handleCameraOptionsInput"
-                      />
-                    </div>
-                  </div>
+        <div class="grid grid-cols-2">
+          <div class="flex pt-6">
+            <KeyboardInput
+              @keyboard-ctl="keyboardCtl"
+            />
+          </div>
+          <div
+            v-if="camera"
+            class="flex"
+          >
+            <div class="pr-4">
+              <div class="w-64">
+                <p
+                  class="font-label mb-1 text-gray-800 dark:text-gray-200"
+                >
+                  Select Camera
+                </p>
+                <div class="relative">
+                  <v-select
+                    :options="cameraOptions.join(',')"
+                    :selected="selectedValue"
+                    @input="handleCameraOptionsInput"
+                  />
                 </div>
-                <div
-                  v-if="selectedValue !== 'NoCamera'"
-                  :id="`stream-preview-${props.streamName}`"
-                  class="h-48 w-48 transition-all duration-300 ease-in-out"
-                />
               </div>
             </div>
+            <div
+              v-if="selectedValue !== 'NoCamera'"
+              :id="`stream-preview-${props.streamName}`"
+              class="h-48 w-48 transition-all duration-300 ease-in-out"
+            />
           </div>
         </div>
       </div>
