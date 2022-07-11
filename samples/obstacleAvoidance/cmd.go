@@ -78,6 +78,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	// ensure that the arm starts in the correct position
+	inputs, err := xArm.GetJointPositions(ctx, nil)
+	visualization.VisualizeStep(xArm.ModelFrame(), worldState, xArm.ModelFrame().InputFromProtobuf(inputs))
 	if err := xArm.MoveToPosition(ctx, start, worldState, nil); err != nil {
 		return err
 	}
