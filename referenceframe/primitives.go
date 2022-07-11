@@ -33,22 +33,11 @@ func InputsToFloats(inputs []Input) []float64 {
 	return floats
 }
 
-// InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
-func InputsToJointPos(inputs []Input) *pb.JointPositions {
-	return JointPositionsFromRadians(InputsToFloats(inputs))
-}
-
-// JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs.
-func JointPosToInputs(jp *pb.JointPositions) []Input {
-	floats := JointPositionsToRadians(jp)
-	return FloatsToInputs(floats)
-}
-
 // JointPositionsToRadians converts the given positions into a slice
 // of radians.
 func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
-	n := make([]float64, len(jp.Degrees))
-	for idx, d := range jp.Degrees {
+	n := make([]float64, len(jp.Values))
+	for idx, d := range jp.Values {
 		n[idx] = utils.DegToRad(d)
 	}
 	return n
@@ -61,7 +50,7 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 	for idx, a := range radians {
 		n[idx] = utils.RadToDeg(a)
 	}
-	return &pb.JointPositions{Degrees: n}
+	return &pb.JointPositions{Values: n}
 }
 
 // InputEnabled is a standard interface for all things that interact with the frame system
