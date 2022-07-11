@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -84,6 +85,10 @@ func visualize(plan []stepData) error {
 	// call python visualizer
 	// nolint:gosec
 	_, err = exec.Command("python3", scriptFile.Name(), dataFile.Name()).Output()
+	// nolint:errorlint
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		return errors.New(string(exitErr.Stderr))
+	}
 	return err
 }
 
