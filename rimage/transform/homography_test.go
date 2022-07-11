@@ -25,10 +25,13 @@ func (h *homographyTestHelper) Process(
 ) error {
 	t.Helper()
 	var err error
-	ii := rimage.ConvertToImageWithDepth(img)
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth_homography")
+	// currently the input image is still probably an ImageWithDepth, so conversion
+	im := rimage.ConvertImage(img)
+	dm, err := rimage.ConvertImageToDepthMap(img)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "depth_homography")
 
-	imgFixed, dmFixed, err := h.params.AlignColorAndDepthImage(ii.Color, ii.Depth)
+	imgFixed, dmFixed, err := h.params.AlignColorAndDepthImage(im, dm)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(imgFixed, "color-fixed_homography")
 	pCtx.GotDebugImage(dmFixed.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed_homography")
