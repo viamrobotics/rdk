@@ -56,17 +56,17 @@ const (
 var (
 	vibeLevel = float64(0.7)
 
-	safeDumpPos  = &componentpb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
-	cubeReadyPos = &componentpb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
-	cube1grab    = &componentpb.JointPositions{Degrees: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
-	cube2grab    = &componentpb.JointPositions{Degrees: []float64{-182.6, 7.3, -36.9, 0, 17.6, 0}}
-	cube1place   = &componentpb.JointPositions{Degrees: []float64{50, 20, -35, -0.5, 3.0, 0}}
-	cube2place   = &componentpb.JointPositions{Degrees: []float64{-130, 30.5, -28.7, -0.5, -32.2, 0}}
-	duckgrabFW   = &componentpb.JointPositions{Degrees: []float64{-180.5, 27.7, -79.7, -2.8, 76.20, 180}}
-	duckgrabREV  = &componentpb.JointPositions{Degrees: []float64{-180.5, 28.3, -76.8, -2.8, 65.45, 180}}
-	duckReadyPos = &componentpb.JointPositions{Degrees: []float64{-180.5, 0.0, -60.0, -2.8, 65.45, 180}}
-	duckplaceFW  = &componentpb.JointPositions{Degrees: []float64{-21.3, 14.9, -39.0, 6.8, 22.0, 49.6}}
-	duckplaceREV = &componentpb.JointPositions{Degrees: []float64{-19.2, 18, -41.0, 6.3, 22.7, 230}}
+	safeDumpPos  = &componentpb.JointPositions{Values: []float64{0, -43, -71, 0, 98, 0}}
+	cubeReadyPos = &componentpb.JointPositions{Values: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
+	cube1grab    = &componentpb.JointPositions{Values: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
+	cube2grab    = &componentpb.JointPositions{Values: []float64{-182.6, 7.3, -36.9, 0, 17.6, 0}}
+	cube1place   = &componentpb.JointPositions{Values: []float64{50, 20, -35, -0.5, 3.0, 0}}
+	cube2place   = &componentpb.JointPositions{Values: []float64{-130, 30.5, -28.7, -0.5, -32.2, 0}}
+	duckgrabFW   = &componentpb.JointPositions{Values: []float64{-180.5, 27.7, -79.7, -2.8, 76.20, 180}}
+	duckgrabREV  = &componentpb.JointPositions{Values: []float64{-180.5, 28.3, -76.8, -2.8, 65.45, 180}}
+	duckReadyPos = &componentpb.JointPositions{Values: []float64{-180.5, 0.0, -60.0, -2.8, 65.45, 180}}
+	duckplaceFW  = &componentpb.JointPositions{Values: []float64{-21.3, 14.9, -39.0, 6.8, 22.0, 49.6}}
+	duckplaceREV = &componentpb.JointPositions{Values: []float64{-19.2, 18, -41.0, 6.3, 22.7, 230}}
 )
 
 // LinearAxis is one or more motors whose motion is converted to linear movement via belts, screw drives, etc.
@@ -545,7 +545,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		errArm <- multierr.Combine(
 			b.gripper.Open(ctx),
 			<-errTable,
-			b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+			b.arm.MoveToJointPositions(ctx, cubeReadyPos, nil),
 		)
 	}()
 
@@ -613,7 +613,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 			errArm <- errL
 			return
 		}
-		errArm <- b.arm.MoveToJointPositions(ctx, duckReadyPos)
+		errArm <- b.arm.MoveToJointPositions(ctx, duckReadyPos, nil)
 	}()
 
 	go func() {
@@ -664,7 +664,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	if errs != nil && errs.Error() == "missed the duck twice" {
 		go func() {
 			errArm <- b.gripper.Open(ctx)
-			errArm <- b.arm.MoveToJointPositions(ctx, duckReadyPos)
+			errArm <- b.arm.MoveToJointPositions(ctx, duckReadyPos, nil)
 		}()
 		errs = multierr.Combine(
 			// Squish to reorient if possible
@@ -705,7 +705,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 
 func (b *ResetBox) armHome(ctx context.Context) error {
 	return multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, safeDumpPos),
+		b.arm.MoveToJointPositions(ctx, safeDumpPos, nil),
 		b.gripper.Open(ctx),
 	)
 }
@@ -736,8 +736,8 @@ func (b *ResetBox) pickCube1(ctx context.Context) error {
 	// Grab cube 1 and reset it on the field
 	errs := multierr.Combine(
 		b.gripper.Open(ctx),
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-		b.arm.MoveToJointPositions(ctx, cube1grab),
+		b.arm.MoveToJointPositions(ctx, cubeReadyPos, nil),
+		b.arm.MoveToJointPositions(ctx, cube1grab, nil),
 	)
 	if errs != nil {
 		return errs
@@ -754,22 +754,22 @@ func (b *ResetBox) pickCube1(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
+	return b.arm.MoveToJointPositions(ctx, cubeReadyPos, nil)
 }
 
 func (b *ResetBox) placeCube1(ctx context.Context) error {
 	return multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, cube1place),
+		b.arm.MoveToJointPositions(ctx, cube1place, nil),
 		b.gripper.Open(ctx),
-		b.arm.MoveToJointPositions(ctx, safeDumpPos),
+		b.arm.MoveToJointPositions(ctx, safeDumpPos, nil),
 	)
 }
 
 func (b *ResetBox) pickCube2(ctx context.Context) error {
 	errs := multierr.Combine(
 		b.gripper.Open(ctx),
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
-		b.arm.MoveToJointPositions(ctx, cube2grab),
+		b.arm.MoveToJointPositions(ctx, cubeReadyPos, nil),
+		b.arm.MoveToJointPositions(ctx, cube2grab, nil),
 	)
 	if errs != nil {
 		return errs
@@ -783,12 +783,12 @@ func (b *ResetBox) pickCube2(ctx context.Context) error {
 	} else if !utils.SelectContextOrWait(ctx, moment) {
 		return ctx.Err()
 	}
-	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
+	return b.arm.MoveToJointPositions(ctx, cubeReadyPos, nil)
 }
 
 func (b *ResetBox) placeCube2(ctx context.Context) error {
 	return multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, cube2place),
+		b.arm.MoveToJointPositions(ctx, cube2place, nil),
 		b.gripper.Open(ctx),
 	)
 }
@@ -796,8 +796,8 @@ func (b *ResetBox) placeCube2(ctx context.Context) error {
 func (b *ResetBox) placeDuck(ctx context.Context) error {
 	errs := multierr.Combine(
 		b.gripper.Open(ctx),
-		b.arm.MoveToJointPositions(ctx, duckReadyPos),
-		b.arm.MoveToJointPositions(ctx, duckgrabFW),
+		b.arm.MoveToJointPositions(ctx, duckReadyPos, nil),
+		b.arm.MoveToJointPositions(ctx, duckgrabFW, nil),
 	)
 	if errs != nil {
 		return errs
@@ -811,8 +811,8 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 		}
 		multierr.Combine(
 			errs,
-			b.arm.MoveToJointPositions(ctx, duckReadyPos),
-			b.arm.MoveToJointPositions(ctx, duckplaceFW),
+			b.arm.MoveToJointPositions(ctx, duckReadyPos, nil),
+			b.arm.MoveToJointPositions(ctx, duckplaceFW, nil),
 			b.gripper.Open(ctx),
 		)
 		if errs != nil {
@@ -821,9 +821,9 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 	} else {
 		// Duck was facing backwards. Grab where the backwards-facing head should be
 		multierr.Combine(
-			b.arm.MoveToJointPositions(ctx, duckReadyPos),
+			b.arm.MoveToJointPositions(ctx, duckReadyPos, nil),
 			b.gripper.Open(ctx),
-			b.arm.MoveToJointPositions(ctx, duckgrabREV),
+			b.arm.MoveToJointPositions(ctx, duckgrabREV, nil),
 		)
 		if errs != nil {
 			return errs
@@ -839,8 +839,8 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 			return ctx.Err()
 		}
 		multierr.Combine(
-			b.arm.MoveToJointPositions(ctx, duckReadyPos),
-			b.arm.MoveToJointPositions(ctx, duckplaceREV),
+			b.arm.MoveToJointPositions(ctx, duckReadyPos, nil),
+			b.arm.MoveToJointPositions(ctx, duckplaceREV, nil),
 			b.gripper.Open(ctx),
 		)
 	}

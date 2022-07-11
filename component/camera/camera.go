@@ -173,7 +173,7 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 
 	_, toPcdSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ImageWithDepthToPointCloud")
 	defer toPcdSpan.End()
-	return iswp.projector.ImageWithDepthToPointCloud(imageWithDepth)
+	return iswp.projector.RGBDToPointCloud(imageWithDepth.Color, imageWithDepth.Depth)
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
