@@ -24,7 +24,6 @@ import imuApi from './gen/proto/api/component/imu/v1/imu_pb.esm';
 import { IMUServiceClient } from './gen/proto/api/component/imu/v1/imu_pb_service.esm';
 import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
 import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service.esm';
-import navigationApi from './gen/proto/api/service/navigation/v1/navigation_pb.esm';
 import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service.esm';
 import motionApi from './gen/proto/api/service/motion/v1/motion_pb.esm';
 import { MotionServiceClient } from './gen/proto/api/service/motion/v1/motion_pb_service.esm';
@@ -40,6 +39,12 @@ import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
 
 import {
+  resourceNameToSubtypeString,
+  resourceNameToString,
+  filterResources,
+  filterRdkComponentsWithStatus,
+} from './lib/resource';
+import {
   BaseControlHelper,
   MotorControlHelper,
   BoardControlHelper,
@@ -51,6 +56,7 @@ import Camera from './components/camera.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
 import MotorDetail from './components/motor-detail.vue';
+import Navigation from './components/navigation.vue';
 import Slam from './components/slam.vue';
 
 const {
@@ -59,13 +65,6 @@ const {
   webrtcAdditionalICEServers,
   webrtcSignalingAddress,
 } = window;
-
-let mapReadyResolve;
-const mapReady = new Promise((resolve) => {
-  mapReadyResolve = resolve;
-});
-
-window.initMap = () => mapReadyResolve();
 
 const rtcConfig = {
   iceServers: [
@@ -257,10 +256,12 @@ export default {
     Gamepad,
     InputController,
     MotorDetail,
+    Navigation,
     Slam,
   },
   data() {
     return {
+      supportedAuthTypes: window.supportedAuthTypes,
       error: '',
       res: {},
       rawStatus: {},
@@ -287,13 +288,11 @@ export default {
       currentOps: [],
       setPin: '',
       getPin: '',
-      locationValue: '40.745297,-74.010916',
       imageMapTemp: '',
     };
   },
   async mounted() {
     this.grpcCallback = this.grpcCallback.bind(this);
-    this.loadMaps();
     await this.waitForClientAndStart();
 
     if (window.streamService) {
@@ -302,22 +301,14 @@ export default {
 
     this.imuRefresh();
     await this.queryMetadata();
-    this.initNavigation();
   },
   methods: {
-    loadMaps() {
-      if (document.querySelector('#google-maps')) {
-        return;
-      }
-      const script = document.createElement('script');
-      script.id = 'google-maps';
-      // TODO(RSDK-51): remove api key once going into production
-      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly';
-      script.async = true;
-      document.head.append(script);
-    },
+    filterResources,
+    filterRdkComponentsWithStatus,
+    resourceNameToString,
+    
     fixRawStatus(name, status) {
-      switch (this.resourceNameToSubtypeString(name)) {
+      switch (resourceNameToSubtypeString(name)) {
       // TODO (APP-146): generate these using constants
       case 'rdk:component:arm':
         return fixArmStatus(status);
@@ -382,37 +373,6 @@ export default {
         this.segmenterParameters = {};
       });
     },
-    filterResources(namespace, type, subtype) {
-      return this.resources.filter((elem) => {
-        return elem.namespace === namespace && elem.type === type && elem.subtype === subtype;
-      }).sort((a, b) => {
-        if (a.name < b.name) {
-          return -1;
-        }
-        if (a.name > b.name) {
-          return 1;
-        }
-        return 0;
-      });
-    },
-    resourceNameToSubtypeString(name) {
-      if (!name) {
-        return '';
-      }
-
-      return `${name.namespace}:${name.type}:${name.subtype}`;
-    },
-    resourceNameToString(name) {
-      if (!name) {
-        return '';
-      }
-
-      let strName = this.resourceNameToSubtypeString(name);
-      if (name.name !== '') {
-        strName += `/${name.name}`;
-      }
-      return strName;
-    },
     stringToResourceName(nameStr) {
       const nameParts = nameStr.split('/');
       let name = '';
@@ -431,10 +391,10 @@ export default {
       return { namespace: subtypeParts[0], type: subtypeParts[1], subtype: subtypeParts[2], name };
     },
     resourceStatusByName(name) {
-      return this.status[this.resourceNameToString(name)];
+      return this.status[resourceNameToString(name)];
     },
     rawResourceStatusByName(name) {
-      return this.rawStatus[this.resourceNameToString(name)];
+      return this.rawStatus[resourceNameToString(name)];
     },
     gantryInc(name, axis, amount) {
       const g = this.resourceStatusByName(name);
@@ -612,7 +572,8 @@ export default {
         elem.namespace === 'rdk' &&
         elem.type === 'component' &&
         elem.subtype === 'input_controller' &&
-        elem.name !== 'WebGamepad'
+        elem.name !== 'WebGamepad' &&
+        resourceStatusByName(elem)
       );
     },
     inputInject(req) {
@@ -673,9 +634,8 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
-      const { grpcCallback } = this;
       cameraService.renderFrame(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
           return;
         }
@@ -699,9 +659,8 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
-      const { grpcCallback } = this;
       cameraService.renderFrame(req, {}, (err, resp) => {
-        grpcCallback(err, resp, false);
+        this.grpcCallback(err, resp, false);
         if (err) {
           return;
         }
@@ -811,16 +770,18 @@ export default {
         }
         for (const r of resp.getReadingsList()) {
           const readings = r.getReadingsList().map((v) => v.toJavaScript());
-          this.sensorReadings[this.resourceNameToString(r.getName().toObject())] = readings;
+          this.sensorReadings[resourceNameToString(r.getName().toObject())] = readings;
         }
       });
     },
     processFunctionResults(err, resp) {
-      const el = document.querySelector('#function_results')
+      const el = document.querySelector('#function_results');
 
       this.grpcCallback(err, resp, false);
       if (err) {
-        if (el) el.value = `${err}`;
+        if (el) {
+          el.value = `${err}`;
+        }
         return;
       }
       const results = resp.getResultsList();
@@ -836,7 +797,9 @@ export default {
       resultStr += `StdOut: ${resp.getStdOut()}\n`;
       resultStr += `StdErr: ${resp.getStdErr()}\n`;
       
-      if (el) el.value = resultStr;
+      if (el) {
+        el.value = resultStr;
+      }
     },
     nonEmpty(object) {
       return Object.keys(object).length > 0;
@@ -873,7 +836,7 @@ export default {
       }
     },
     doPCDMove() {
-      const gripperName = this.filterResources('rdk', 'component', 'gripper')[0];
+      const gripperName = filterResources(this.resources, 'rdk', 'component', 'gripper')[0];
       const cameraName = pcdGlobal.cameraName;
       const cameraPointX = this.pcdClick.x;
       const cameraPointY = this.pcdClick.y;
@@ -989,46 +952,6 @@ export default {
         break;
       }
     },
-    setNavigationMode(mode) {
-      let pbMode = navigationApi.Mode.MODE_UNSPECIFIED;
-      switch (mode) {
-      case 'manual':
-        pbMode = navigationApi.Mode.MODE_MANUAL;
-        break;
-      case 'waypoint':
-        pbMode = navigationApi.Mode.MODE_WAYPOINT;
-        break;
-      }
-      const req = new navigationApi.SetModeRequest();
-      req.setMode(pbMode);
-      navigationService.setMode(req, {}, this.grpcCallback);
-    },
-    setNavigationLocation () {
-      const posSplit = this.locationValue.split(',');
-      if (posSplit.length !== 2) {
-        return;
-      }
-      const lat = Number.parseFloat(posSplit[0]);
-      const lng = Number.parseFloat(posSplit[1]);
-      const req = new robotApi.ResourceRunCommandRequest();
-      let gpsName = '';
-      gpses = this.filterResources('rdk', 'component', 'gps');
-      if (gpses.length > 0) {
-        gpsName = gpses[0].name;
-      } else {
-        this.error = 'no gps device found';
-        return;
-      }
-      req.setResourceName(gpsName);
-      req.setCommandName('set_location');
-      req.setArgs(
-        proto.google.protobuf.Struct.fromJavaScript({
-          latitude: lat,
-          longitude: lng,
-        })
-      );
-      window.robotService.resourceRunCommand(req, {}, this.grpcCallback);
-    },
     viewCamera(name) {
       const streamContainer = document.querySelector(`#stream-${name}`);
       const req = new streamApi.AddStreamRequest();
@@ -1104,8 +1027,6 @@ export default {
         const resources = resp.toObject().resourcesList;
 
         // if resource list has changed, flag that
-        const resourceNameToString = this.resourceNameToString.bind(this);
-
         const differences = new Set(this.resources.map((name) => resourceNameToString(name)));
         const resourceSet = new Set(resources.map((name) => resourceNameToString(name)));
         for (const elem of resourceSet) {
@@ -1141,94 +1062,6 @@ export default {
         }
       }
       setTimeout(() => this.queryMetadata(), 500);
-    },
-    async initNavigation() {
-      const { grpcCallback } = this;
-
-      await mapReady;
-      window.map = new google.maps.Map(this.$refs.map, { zoom: 18 });
-      window.map.addListener('click', (e) => {
-        const req = new navigationApi.AddWaypointRequest();
-        const point = new commonApi.GeoPoint();
-        point.setLatitude(e.latLng.lat());
-        point.setLongitude(e.latLng.lng());
-        req.setLocation(point);
-        navigationService.addWaypoint(req, {}, grpcCallback);
-      });
-
-      let centered = false;
-      const knownWaypoints = {};
-      let localLabelCounter = 0;
-      
-      const updateWaypoints = function () {
-        const req = new navigationApi.GetWaypointsRequest();
-        navigationService.getWaypoints(req, {}, (err, resp) => {
-          grpcCallback(err, resp, false);
-          if (err) {
-            setTimeout(updateWaypoints, 1000);
-            return;
-          }
-          let waypoints = [];
-          if (resp) {
-            waypoints = resp.getWaypointsList();
-          }
-          const currentWaypoints = {};
-          for (const waypoint of waypoints) {
-            const pos = { lat: waypoint.getLocation().getLatitude(), lng: waypoint.getLocation().getLongitude() };
-            const posStr = JSON.stringify(pos);
-            if (knownWaypoints[posStr]) {
-              currentWaypoints[posStr] = knownWaypoints[posStr];
-              continue;
-            }
-            const marker = new google.maps.Marker({
-              position: pos,
-              map: window.map,
-              label: `${localLabelCounter++}`,
-            });
-            currentWaypoints[posStr] = marker;
-            knownWaypoints[posStr] = marker;
-            marker.addListener('click', () => {
-              console.log('clicked on marker', pos);
-            });
-            marker.addListener('dblclick', () => {
-              const req = new navigationApi.RemoveWaypointRequest();
-              req.setId(waypoint.getId());
-              navigationService.removeWaypoint(req, {}, grpcCallback);
-            });
-          }
-          const waypointsToDelete = Object.keys(knownWaypoints).filter((elem) => {
-            return !(elem in currentWaypoints);
-          });
-          for (key of waypointsToDelete) {
-            const marker = knownWaypoints[key];
-            marker.setMap(null);
-            delete knownWaypoints[key];
-          }
-          setTimeout(updateWaypoints, 1000);
-        });
-      };
-      updateWaypoints();
-
-      const locationMarker = new google.maps.Marker({ label: 'robot' });
-      const updateLocation = () => {
-        const req = new navigationApi.GetLocationRequest();
-        navigationService.getLocation(req, {}, (err, resp) => {
-          grpcCallback(err, resp, false);
-          if (err) {
-            setTimeout(updateLocation, 1000);
-            return;
-          }
-          const pos = { lat: resp.getLocation().getLatitude(), lng: resp.getLocation().getLongitude() };
-          if (!centered) {
-            centered = true;
-            window.map.setCenter(pos);
-          }
-          locationMarker.setPosition(pos);
-          locationMarker.setMap(window.map);
-          setTimeout(updateLocation, 1000);
-        });
-      };
-      updateLocation();
     },
     querySensors() {
       sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, (err, resp) => {
@@ -1368,8 +1201,7 @@ export default {
       pcdGlobal.sphere.position.copy(point);
     },
     imuRefresh() {
-      const all = this.filterResources('rdk', 'component', 'imu');
-      for (const x of all) {
+      for (const x of filterResources(this.resources, 'rdk', 'component', 'imu')) {
         const name = x.name;
 
         if (!this.imuData[name]) {
@@ -1440,7 +1272,7 @@ export default {
         const statusJs = s.getStatus().toJavaScript();
         const fixed = this.fixRawStatus(nameObj, statusJs);
 
-        const nameStr = this.resourceNameToString(nameObj);
+        const nameStr = resourceNameToString(nameObj);
         rawStatus[nameStr] = statusJs;
         status[nameStr] = fixed;
       }
@@ -1462,7 +1294,7 @@ export default {
       let resourceNames = [];
       // get all relevant resource names
       for (const subtype of relevantSubtypesForStatus) {
-        resourceNames = [...resourceNames, ...this.filterResources('rdk', 'component', subtype)];
+        resourceNames = [...resourceNames, ...filterResources(this.resources, 'rdk', 'component', subtype)];
       }
 
       const names = resourceNames.map((name) => {
@@ -1605,7 +1437,7 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* BASE *******  -->
     <div
-      v-for="base in filterResources('rdk', 'component', 'base')"
+      v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
       :key="base.name"
       class="base"
     >
@@ -1632,6 +1464,7 @@ function setBoundingBox(box, centerPoint) {
             :base-name="base.name"
             :stream-name="streamName"
             :crumbs="['base', base.name]"
+            :connected-camera="true"
             @base-change-tab="viewPreviewCamera(streamName)"
             @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
             @base-spin="handleBaseSpin(base.name, $event)"
@@ -1645,8 +1478,7 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* GANTRY *******  -->
     <v-collapse
-      v-for="gantry in filterResources('rdk', 'component', 'gantry')"
-      v-if="resourceStatusByName(gantry)"
+      v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
       :key="gantry.name"
       :title="`Gantry ${gantry.name}`"
     >
@@ -1712,12 +1544,12 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* IMU *******  -->
     <v-collapse
-      v-for="imu in filterResources('rdk', 'component', 'imu').entries()"
-      :key="imu[1].name"
-      :title="`IMU: ${imu[1].name}`"
+      v-for="imu in filterResources(resources, 'rdk', 'component', 'imu')"
+      :key="imu.name"
+      :title="`IMU: ${imu.name}`"
     >
       <div class="flex border border-t-0 border-black p-4">
-        <template v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
+        <template v-if="imuData[imu.name] && imuData[imu.name].angularVelocity">
           <div class="mr-4 w-1/4">
             <h3 class="mb-1">
               Orientation (degrees)
@@ -1728,7 +1560,7 @@ function setBoundingBox(box, centerPoint) {
                   Roll
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].orientation.rollDeg.toFixed(2) }}
+                  {{ imuData[imu.name].orientation.rollDeg.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1736,7 +1568,7 @@ function setBoundingBox(box, centerPoint) {
                   Pitch
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].orientation.pitchDeg.toFixed(2) }}
+                  {{ imuData[imu.name].orientation.pitchDeg.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1744,7 +1576,7 @@ function setBoundingBox(box, centerPoint) {
                   Yaw
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].orientation.yawDeg.toFixed(2) }}
+                  {{ imuData[imu.name].orientation.yawDeg.toFixed(2) }}
                 </td>
               </tr>
             </table>
@@ -1760,7 +1592,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].angularVelocity.xDegsPerSec.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1768,7 +1600,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].angularVelocity.yDegsPerSec.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1776,7 +1608,7 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].angularVelocity.zDegsPerSec.toFixed(2) }}
                 </td>
               </tr>
             </table>
@@ -1792,7 +1624,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].acceleration.xMmPerSecPerSec.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1800,7 +1632,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].acceleration.yMmPerSecPerSec.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1808,7 +1640,7 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].acceleration.zMmPerSecPerSec.toFixed(2) }}
                 </td>
               </tr>
             </table>
@@ -1824,7 +1656,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].magnetometer.xGauss.toFixed(2) }}
+                  {{ imuData[imu.name].magnetometer.xGauss.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1832,7 +1664,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].magnetometer.yGauss.toFixed(2) }}
+                  {{ imuData[imu.name].magnetometer.yGauss.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1840,7 +1672,7 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu[1].name].magnetometer.zGauss.toFixed(2) }}
+                  {{ imuData[imu.name].magnetometer.zGauss.toFixed(2) }}
                 </td>
               </tr>
             </table>
@@ -1851,7 +1683,7 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* ARM *******  -->
     <v-collapse
-      v-for="arm in filterResources('rdk', 'component', 'arm')"
+      v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
       :key="arm.name"
       :title="`Arm ${arm.name}`"
     >
@@ -2029,7 +1861,7 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* GRIPPER *******  -->
     <v-collapse
-      v-for="gripper in filterResources('rdk', 'component', 'gripper')"
+      v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
       :key="gripper.name"
       :title="`Gripper ${gripper.name}`"
     >
@@ -2047,8 +1879,7 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* SERVO *******  -->
     <v-collapse
-      v-for="servo in filterResources('rdk', 'component', 'servo')"
-      v-if="resourceStatusByName(servo)"
+      v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
       :key="servo.name"
       :title="`Servo ${servo.name}`"
     >
@@ -2093,8 +1924,7 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* MOTOR *******  -->
     <MotorDetail
-      v-for="motor in filterResources('rdk', 'component', 'motor')"
-      v-if="resourceStatusByName(motor)"
+      v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
       :key="'new-' + motor.name" 
       :motor-name="motor.name" 
       :crumbs="['motor', motor.name]" 
@@ -2106,7 +1936,6 @@ function setBoundingBox(box, centerPoint) {
     <!-- ******* INPUT VIEW *******  -->
     <InputController
       v-for="controller in filteredInputControllerList()"
-      v-if="resourceStatusByName(controller)"
       :key="'new-' + controller.name"
       :controller-name="controller.name"
       :controller-status="resourceStatusByName(controller)"
@@ -2121,8 +1950,7 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* BOARD *******  -->
     <v-collapse
-      v-for="board in filterResources('rdk', 'component', 'board')"
-      v-if="resourceStatusByName(board)"
+      v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
       :key="board.name"
       :title="`Board ${board.name}`"
     >
@@ -2273,41 +2101,10 @@ function setBoundingBox(box, centerPoint) {
     </v-collapse>
 
     <!-- get segments -->
-    <v-collapse
-      v-if="filterResources('rdk', 'service', 'navigation').length > 0"
-      title="Get Segments"
-    >
-      <div class="border border-t-0 border-black p-4">
-        <div class="mb-2">
-          <v-button
-            group
-            label="Manual"
-            @click="setNavigationMode('manual')"
-          />
-          <v-button
-            group
-            label="Waypoint"
-            @click="setNavigationMode('waypoint')"
-          />
-        </div>
-        <div class="mb-2">
-          <v-button
-            group
-            label="Try Set Location"
-            @click="setNavigationLocation()"
-          />
-        </div>
-        <div
-          id="map"
-          ref="map"
-          class="mb-2"
-        />
-        <v-input
-          :value="locationValue"
-          @input="locationValue = $event.detail.value"
-        />
-      </div>
-    </v-collapse>
+    <Navigation
+      v-if="filterResources(resources, 'rdk', 'service', 'navigation').length > 0"
+      :resources="resources"
+    />
 
     <!-- current operations -->
     <v-collapse title="Current Operations">
@@ -2386,7 +2183,7 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* SLAM *******  -->
     <Slam
-      v-if="filterResources('rdk', 'service', 'slam').length > 0"
+      v-if="filterResources(resources, 'rdk', 'service', 'slam').length > 0"
       :image-map="imageMapTemp"
       @refresh-image-map="viewSLAMImageMap"
       @refresh-pcd-map="viewSLAMPCDMap"
@@ -2399,10 +2196,6 @@ function setBoundingBox(box, centerPoint) {
     position: relative;
     width: 50%;
     height: 50%;
-  }
-  #map {
-    height: 400px;
-    width: 100%;
   }
   h3 {
     margin: 0.1em;

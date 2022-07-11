@@ -84,39 +84,27 @@ const motorStop = () => {
 
 <template>
   <v-collapse :title="motorName">
-    <div class="float-left flex">
-      <v-breadcrumbs
-        slot="header"
-        :crumbs="crumbs.join(',')"
-      />
-      <div
-        v-if="motorStatus.positionReporting"
-        slot="header"
-        class="flex flex-wrap items-center p-4"
-      >
-        <p
-          class="flex items-center rounded-full border border-black px-2 leading-tight"
-        >
-          Position {{ motorStatus.position }}
-        </p>
-      </div>
-      <div class="flex flex-wrap items-center p-4">
-        <v-badge
-          v-if="motorStatus.isPowered"
-          variant="green"
-          label="Running"
-        />
-        <v-badge
-          v-if="!motorStatus.isPowered"
-          variant="gray"
-          label="Idle"
-        /> 
-      </div>
-    </div>
     <div
       slot="header"
-      class="float-right p-2"
+      class="flex items-center justify-between gap-2"
     >
+      <v-breadcrumbs
+        :crumbs="crumbs.join(',')"
+      />
+      <v-badge
+        v-if="motorStatus.positionReporting"
+        :label="`Position ${motorStatus.position}`"
+      />
+      <v-badge
+        v-if="motorStatus.isPowered"
+        variant="green"
+        label="Running"
+      />
+      <v-badge
+        v-else-if="!motorStatus.isPowered"
+        variant="gray"
+        label="Idle"
+      />
       <v-button
         variant="danger"
         icon="stop"
@@ -227,15 +215,16 @@ const motorStop = () => {
                 @input="setDirection($event.detail.value)"
               />
             </div>
-            <Range
+            <v-slider
               id="power"
-              v-model="power"
               class="pt-2"
               :min="0"
               :max="100"
               :step="1"
               unit="%"
               name="Power %"
+              :value="power"
+              @input="power = $event.detail.value"
             />
           </div>
         </div>
