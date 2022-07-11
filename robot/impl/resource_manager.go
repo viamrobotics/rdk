@@ -857,7 +857,7 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (interface{},
 		if name.Subtype.ResourceType == resource.ResourceTypeService {
 			reconfigurablePart, ok := robotPart.(*services.ReconfigurableService)
 			if ok {
-				return *(reconfigurablePart.Actual), nil
+				return (reconfigurablePart.Actual), nil
 			}
 		}
 		return robotPart, nil
