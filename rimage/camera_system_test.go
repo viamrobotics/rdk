@@ -28,7 +28,7 @@ func TestParallelProjection(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.New("no depth map to project to pointcloud"))
 	// not the same size
 	_, err = pp.RGBDToPointCloud(img2, dm)
-	test.That(t, err.String(), test.ShouldContainSubstring, "rgb image and depth map are not the same size")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "rgb image and depth map are not the same size")
 
 	// parallel projection
 	vec3d, err := pp.ImagePointTo3DPoint(image.Point{4, 5}, 10)
@@ -37,16 +37,16 @@ func TestParallelProjection(t *testing.T) {
 
 	pc, err := pp.RGBDToPointCloud(img, dm)
 	test.That(t, err, test.ShouldBeNil)
-	data, got := pc.At(140, 500, float64(iwd.Depth.GetDepth(140, 500)))
+	data, got := pc.At(140, 500, float64(dm.GetDepth(140, 500)))
 	test.That(t, got, test.ShouldBeTrue)
-	test.That(t, NewColorFromColor(data.Color()), test.ShouldResemble, iwd.Color.GetXY(140, 500))
+	test.That(t, NewColorFromColor(data.Color()), test.ShouldResemble, img.GetXY(140, 500))
 
 	pc2, err := pp.RGBDToPointCloud(img, dm, image.Rectangle{image.Point{130, 490}, image.Point{150, 510}})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc2.Size(), test.ShouldEqual, 400)
-	data, got = pc2.At(140, 500, float64(iwd.Depth.GetDepth(140, 500)))
+	data, got = pc2.At(140, 500, float64(dm.GetDepth(140, 500)))
 	test.That(t, got, test.ShouldBeTrue)
-	test.That(t, NewColorFromColor(data.Color()), test.ShouldResemble, iwd.Color.GetXY(140, 500))
+	test.That(t, NewColorFromColor(data.Color()), test.ShouldResemble, img.GetXY(140, 500))
 
 	_, err = pp.RGBDToPointCloud(img, dm, image.Rectangle{image.Point{130, 490}, image.Point{150, 510}}, image.Rectangle{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "more than one cropping rectangle")

@@ -29,15 +29,19 @@ func TestRGBDToPointCloud(t *testing.T) {
 	dct, err := NewDepthColorWarpTransforms(config, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := dct.RGBDToPointCloud(iwd.Color, iwd.Depth)
+	// align images first
+	col, dm, err := dct.AlignColorAndDepthImage(iwd.Color, iwd.Depth)
+	test.That(t, err, test.ShouldBeNil)
+	// project
+	pc, err := dct.RGBDToPointCloud(col, dm)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldNotBeNil)
 	// crop
-	pcCrop, err := dct.RGBDToPointCloud(iwd.Color, iwd.Depth, image.Rectangle{image.Point{20, 20}, image.Point{40, 40}})
+	pcCrop, err := dct.RGBDToPointCloud(col, dm, image.Rectangle{image.Point{20, 20}, image.Point{40, 40}})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pcCrop.Size(), test.ShouldEqual, 400)
 	// crop error
-	_, err = dct.RGBDToPointCloud(iwd.Color, iwd.Depth, image.Rectangle{image.Point{20, 20}, image.Point{40, 40}}, image.Rectangle{})
+	_, err = dct.RGBDToPointCloud(col, dm, image.Rectangle{image.Point{20, 20}, image.Point{40, 40}}, image.Rectangle{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "more than one cropping rectangle")
 
 	// image with depth with depth missing should return error
