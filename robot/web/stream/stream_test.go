@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"image"
-	"math"
 	"testing"
 	"time"
+
+	"go.viam.com/test"
 
 	"github.com/edaniels/gostream"
 	"github.com/pion/webrtc/v3"
@@ -64,18 +65,26 @@ func (mS *mockStream) TrackLocal() webrtc.TrackLocal {
 	return nil
 }
 
+func parseDuration(t *testing.T, s string) time.Duration {
+	t.Helper()
+
+	d, err := time.ParseDuration(s)
+	test.That(t, err, test.ShouldBeNil)
+	return d
+}
+
 func TestStreamSourceErrorBackoff(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
+
 	backoffOpts := &webstream.BackoffTuningOptions{
-		ExpBase:          6.0,
-		Offset:           0,
-		MaxSleepMilliSec: math.Pow10(6) * 2, // two seconds
-		MaxSleepAttempts: 3,
+		BaseSleep:        parseDuration(t, "500ms"),
+		MaxSleep:         parseDuration(t, "2s"),
+		MaxSleepAttempts: 5,
 	}
 	imgSrc := &mockErrorImageSource{maxCalls: 5}
-	totalExpectedSleep := 0
+	totalExpectedSleep := int64(0)
 	for i := 1; i < imgSrc.MaxCalls(); i++ {
-		totalExpectedSleep += backoffOpts.GetSleepTimeFromErrorCount(i)
+		totalExpectedSleep += backoffOpts.GetSleepTimeFromErrorCount(i).Nanoseconds()
 	}
 	str := &mockStream{}
 	readyChan := make(chan struct{})
