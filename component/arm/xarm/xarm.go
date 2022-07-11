@@ -148,15 +148,15 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := x.GetJointPositions(ctx)
+	res, err := x.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return x.model.InputFromProtobuf(res), nil
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return x.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
 }
 
 // ModelFrame returns the dynamic frame of the model.

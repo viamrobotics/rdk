@@ -72,9 +72,9 @@ type myArm struct {
 	opMgr    operation.SingleOperationManager
 }
 
-// servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
+// servoPosToValues takes a 360 degree 0-4096 servo position, centered at 2048,
 // and converts it to degrees, centered at 0.
-func servoPosToDegrees(pos float64) float64 {
+func servoPosToValues(pos float64) float64 {
 	return ((pos - 2048) * 180) / 2048
 }
 
@@ -128,8 +128,8 @@ func newArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger) 
 }
 
 // GetEndPosition computes and returns the current cartesian position.
-func (a *myArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx)
+func (a *myArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -137,17 +137,22 @@ func (a *myArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (a *myArm) MoveToPosition(
+	ctx context.Context,
+	pos *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
-func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
+func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	if len(jp.Degrees) > len(a.JointOrder()) {
+	if len(jp.Values) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
 	}
 
@@ -155,7 +160,7 @@ func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions)
 
 	// TODO(pl): make block configurable
 	block := false
-	for i, pos := range jp.Degrees {
+	for i, pos := range jp.Values {
 		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
 	}
 
@@ -164,7 +169,7 @@ func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions)
 }
 
 // GetJointPositions returns an empty struct, because the vx300s should use joint angles from kinematics.
-func (a *myArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *myArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -172,14 +177,14 @@ func (a *myArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, erro
 
 	positions := make([]float64, 0, len(a.JointOrder()))
 	for i, jointName := range a.JointOrder() {
-		positions[i] = servoPosToDegrees(angleMap[jointName])
+		positions[i] = servoPosToValues(angleMap[jointName])
 	}
 
-	return &pb.JointPositions{Degrees: positions}, nil
+	return &pb.JointPositions{Values: positions}, nil
 }
 
 // Stop is unimplemented for vx300s.
-func (a *myArm) Stop(ctx context.Context) error {
+func (a *myArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
 }
@@ -253,7 +258,7 @@ func (a *myArm) PrintPositions() error {
 		if err != nil {
 			return err
 		}
-		posString = fmt.Sprintf("%s || %d : %d, %f degrees", posString, i, pos, servoPosToDegrees(float64(pos)))
+		posString = fmt.Sprintf("%s || %d : %d, %f degrees", posString, i, pos, servoPosToValues(float64(pos)))
 	}
 	return nil
 }
@@ -403,15 +408,15 @@ func (a *myArm) ModelFrame() referenceframe.Model {
 }
 
 func (a *myArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 func (a *myArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
 }
 
 // TODO: Map out *all* servo defaults so that they are always set correctly.
