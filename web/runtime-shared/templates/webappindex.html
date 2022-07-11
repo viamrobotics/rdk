@@ -478,6 +478,9 @@
             motorStop: function(name) {
               MotorControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
             },
+            servoStop: function(name) {
+              ServoControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
+            },
             hasWebGamepad: function () {
               // TODO (APP-146): replace these with constants
               return theData.resources.some((elem) => elem.namespace == "rdk" && elem.type == "component" && elem.subtype == "input_controller" && elem.name == "WebGamepad");
@@ -520,11 +523,6 @@
               let req = new baseApi.StopRequest();
               req.setName(name);
               baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
-            },
-            handleServoActionStop: function(name) {
-              let req = new servoApi.StopRequest();
-              req.setName(name);
-              servoService.StopRequest(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             handleBaseSpin: function(name, event) {
                   BaseControlHelper.spin(name, 
@@ -1778,7 +1776,7 @@
             @servo-minus-ten="servoMove(servo, -10)"
             @servo-plus-one="servoMove(servo, 1)"
             @servo-plus-ten="servoMove(servo, 10)"
-            @servo-stop="handleServoActionStop(servo.name)"
+            @servo-stop="servoStop(servo.name)"
           ></viam-servo>
           </div>
 
