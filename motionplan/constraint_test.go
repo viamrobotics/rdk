@@ -54,6 +54,8 @@ func TestConstraintPath(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	ci := &ConstraintInput{StartInput: homePos, EndInput: toPos, Frame: modelXarm}
+	err = resolveInputsToPositions(ci)
+	test.That(t, err, test.ShouldBeNil)
 
 	handler := &constraintHandler{}
 
@@ -63,7 +65,8 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating
-	handler.AddConstraint("interp", NewInterpolatingConstraint(0.5))
+	constraint, _ := NewLinearInterpolatingConstraint(ci.StartPos, ci.EndPos, 0.01)
+	handler.AddConstraint("interp", constraint)
 	ok, failCI = handler.CheckConstraintPath(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -72,8 +75,10 @@ func TestConstraintPath(t *testing.T) {
 
 	badInterpPos := frame.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
 	ciBad := &ConstraintInput{StartInput: homePos, EndInput: badInterpPos, Frame: modelXarm}
+	err = resolveInputsToPositions(ciBad)
+	test.That(t, err, test.ShouldBeNil)
 	ok, failCI = handler.CheckConstraintPath(ciBad, 0.5)
-	test.That(t, failCI, test.ShouldBeNil)
+	test.That(t, failCI, test.ShouldNotBeNil) // With linear constraint, should be valid at the first step
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
@@ -116,8 +121,7 @@ func TestLineFollow(t *testing.T) {
 		OY: -1,
 	})
 
-	validOV := &spatial.OrientationVector{OY: -1}
-	validFunc, gradFunc := NewLineConstraint(p1.Point(), p2.Point(), validOV, 0., 0.001)
+	validFunc, gradFunc := NewLineConstraint(p1.Point(), p2.Point(), 0.001)
 
 	pointGrad := gradFunc(query, query)
 	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
@@ -153,8 +157,8 @@ func TestLineFollow(t *testing.T) {
 	opt.AddConstraint("whiteboard", validFunc)
 	ok, lastGood := opt.CheckConstraintPath(
 		&ConstraintInput{
-			StartInput: frame.JointPosToInputs(mp1),
-			EndInput:   frame.JointPosToInputs(mp2),
+			StartInput: sf.InputFromProtobuf(mp1),
+			EndInput:   sf.InputFromProtobuf(mp2),
 			Frame:      sf,
 		},
 		1,

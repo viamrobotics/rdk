@@ -7,14 +7,17 @@ package robotimpl
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -60,6 +63,12 @@ type localRobot struct {
 
 	// services internal to a localRobot. Currently just web, more to come.
 	internalServices map[internalServiceName]interface{}
+
+	activeBackgroundWorkers *sync.WaitGroup
+	cancelBackgroundWorkers func()
+
+	remotesChanged chan resource.Name
+	closeContext   context.Context
 }
 
 // webService returns the localRobot's web service. Raises if the service has not been initialized.
@@ -135,6 +144,12 @@ func (r *localRobot) Close(ctx context.Context) error {
 		}
 	}
 
+	if r.cancelBackgroundWorkers != nil {
+		close(r.remotesChanged)
+		r.cancelBackgroundWorkers()
+		r.cancelBackgroundWorkers = nil
+	}
+	r.activeBackgroundWorkers.Wait()
 	return r.manager.Close(ctx)
 }
 
@@ -210,25 +225,11 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 		if !ok {
 			continue
 		}
-		remote, ok := r.RemoteByName(remoteName)
-		if !ok {
-			// should never happen
-			r.Logger().Errorw("remote robot not found while creating status", "remote", remoteName)
-			continue
-		}
-		rRobot, ok := remote.(*remoteRobot)
-		if !ok {
-			// should never happen
-			r.Logger().Errorw("remote robot not a *remoteRobot while creating status", "remote", remoteName)
-			continue
-		}
-		unprefixed := rRobot.unprefixResourceName(name)
-
 		mappings, ok := groupedResources[remoteName]
 		if !ok {
 			mappings = make(map[resource.Name]resource.Name)
 		}
-		mappings[unprefixed] = name
+		mappings[name.PopRemote()] = name
 		groupedResources[remoteName] = mappings
 	}
 	// make requests and map it back to the local resource name
@@ -295,6 +296,7 @@ func newWithResources(
 	resources map[resource.Name]interface{},
 	logger golog.Logger,
 ) (robot.LocalRobot, error) {
+	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{
@@ -305,8 +307,12 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations: operation.NewManager(),
-		logger:     logger,
+		operations:              operation.NewManager(),
+		logger:                  logger,
+		remotesChanged:          make(chan resource.Name),
+		activeBackgroundWorkers: &sync.WaitGroup{},
+		closeContext:            closeCtx,
+		cancelBackgroundWorkers: cancel,
 	}
 
 	var successful bool
@@ -318,7 +324,6 @@ func newWithResources(
 		}
 	}()
 	r.config = cfg
-
 	// default services
 	for _, name := range defaultSvc {
 		cfg := config.Service{
@@ -333,6 +338,25 @@ func newWithResources(
 		r.manager.addResource(name, svc)
 	}
 
+	r.activeBackgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		for {
+			if closeCtx.Err() != nil {
+				return
+			}
+			select {
+			case <-closeCtx.Done():
+				return
+			case n, ok := <-r.remotesChanged:
+				if !ok {
+					return
+				}
+				r.manager.updateRemoteResourceNames(ctx, n, r)
+				r.updateDefaultServices(ctx)
+			}
+		}
+	}, r.activeBackgroundWorkers.Done)
+
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
@@ -344,7 +368,6 @@ func newWithResources(
 	}
 
 	r.updateDefaultServices(ctx)
-	r.manager.updateResourceRemoteNames()
 	successful = true
 	return r, nil
 }
@@ -364,11 +387,11 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
-// component configuration. We don't use the resource manager for this information since it
-// is not be constructed at this point.
+// component configuration. We don't use the resource manager for this information since
+// it is not be constructed at this point.
 func (r *localRobot) getDependencies(config config.Component) (registry.Dependencies, error) {
 	deps := make(registry.Dependencies)
-	for _, dep := range config.DependsOn {
+	for _, dep := range config.Dependencies() {
 		if c := r.config.FindComponent(dep); c != nil {
 			res, err := r.ResourceByName(c.ResourceName())
 			if err != nil {
@@ -540,4 +563,36 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Quer
 		}
 	}
 	return discoveries, nil
+}
+
+func dialRobotClient(ctx context.Context,
+	config config.Remote,
+	logger golog.Logger,
+	dialOpts ...rpc.DialOption,
+) (*client.RobotClient, error) {
+	var outerError error
+	connectionCheckInterval := config.ConnectionCheckInterval
+	if connectionCheckInterval == 0 {
+		connectionCheckInterval = 10 * time.Second
+	}
+	reconnectInterval := config.ReconnectInterval
+	if reconnectInterval == 0 {
+		reconnectInterval = 1 * time.Second
+	}
+	for attempt := 0; attempt < 3; attempt++ {
+		robotClient, err := client.New(
+			ctx,
+			config.Address,
+			logger,
+			client.WithDialOptions(dialOpts...),
+			client.WithCheckConnectedEvery(connectionCheckInterval),
+			client.WithReconnectEvery(reconnectInterval),
+		)
+		if err != nil {
+			outerError = err
+			continue
+		}
+		return robotClient, nil
+	}
+	return nil, outerError
 }

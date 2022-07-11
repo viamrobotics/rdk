@@ -76,12 +76,10 @@ func TestWriteViam(t *testing.T) {
 	steps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame.Name(), fs.World().Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
-
 	goToGoal := func(seedMap map[string][]frame.Input, goal spatial.Pose) map[string][]frame.Input {
 		curPos, _ = fs.Transform(seedMap, frame.NewPoseInFrame(moveFrame.Name(), spatial.NewZeroPose()), frame.World)
 
-		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.(*frame.PoseInFrame).Pose().Point(), goal.Point(), validOV, 0.3, 0.05)
+		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.(*frame.PoseInFrame).Pose().Point(), goal.Point(), 0.3)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
 
 		opt := motionplan.NewDefaultPlannerOptions()
