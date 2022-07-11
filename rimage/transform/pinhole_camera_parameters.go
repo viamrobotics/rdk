@@ -41,7 +41,8 @@ func (dm *DistortionModel) Transform(x, y float64) (float64, float64) {
 	return resX, resY
 }
 
-// PinholeCameraIntrinsics TODO.
+// PinholeCameraIntrinsics holds the parameters necessary to do a perspective projection of a 3D scene to the 2D plane,
+// as well as the DistortionModel necessary to do corrections.
 type PinholeCameraIntrinsics struct {
 	Width      int             `json:"width"`
 	Height     int             `json:"height"`
@@ -52,13 +53,15 @@ type PinholeCameraIntrinsics struct {
 	Distortion DistortionModel `json:"distortion"`
 }
 
-// Extrinsics TODO.
+// Extrinsics holds the rotation matrix and the translation vector necessary to transform from the camera's origin to
+// another reference frame.
 type Extrinsics struct {
 	RotationMatrix    []float64 `json:"rotation"`
 	TranslationVector []float64 `json:"translation"`
 }
 
-// DepthColorIntrinsicsExtrinsics TODO.
+// DepthColorIntrinsicsExtrinsics holds the intrinsics for a color camera, a depth camera, and the pose transformation that
+// transforms a point from being in the reference frame of the depth camera to the reference frame of the color camera.
 type DepthColorIntrinsicsExtrinsics struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
@@ -76,7 +79,7 @@ func (params *PinholeCameraIntrinsics) CheckValid() error {
 	return nil
 }
 
-// CheckValid TODO.
+// CheckValid checks if the fields for DepthColorIntrinsicsExtrinsics have valid inputs.
 func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 	if dcie == nil {
 		return errors.New("pointer to DepthColorIntrinsicsExtrinsics is nil")
@@ -90,7 +93,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 	return nil
 }
 
-// NewEmptyDepthColorIntrinsicsExtrinsics TODO.
+// NewEmptyDepthColorIntrinsicsExtrinsics creates an zero initialized DepthColorIntrinsicsExtrinsics.
 func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	return &DepthColorIntrinsicsExtrinsics{
 		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
@@ -99,7 +102,7 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	}
 }
 
-// NewDepthColorIntrinsicsExtrinsicsFromBytes TODO.
+// NewDepthColorIntrinsicsExtrinsicsFromBytes reads a JSON byte stream and turns it into DepthColorIntrinsicsExtrinsics.
 func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorIntrinsicsExtrinsics, error) {
 	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
 	// Parse into map
@@ -111,7 +114,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 	return intrinsics, nil
 }
 
-// NewDepthColorIntrinsicsExtrinsicsFromJSONFile TODO.
+// NewDepthColorIntrinsicsExtrinsicsFromJSONFile takes in a file path to a JSON and turns it into DepthColorIntrinsicsExtrinsics.
 func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
 	// open json file
 	//nolint:gosec
@@ -130,7 +133,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 	return NewDepthColorIntrinsicsExtrinsicsFromBytes(byteValue)
 }
 
-// NewPinholeCameraIntrinsicsFromJSONFile TODO.
+// NewPinholeCameraIntrinsicsFromJSONFile takes in a file path to a JSON and turns it into PinholeCameraIntrinsics.
 func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*PinholeCameraIntrinsics, error) {
 	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
 	// open json file
@@ -334,7 +337,8 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 }
 
 // intrinsics2DTo3D uses the camera's intrinsic matrix to project the 2D image and depth map to a 3D point cloud.
-func intrinsics2DTo3D(img *rimage.Image, dm *rimage.DepthMap, pci *PinholeCameraIntrinsics, crop *image.Rectangle) (pointcloud.PointCloud, error) {
+func intrinsics2DTo3D(img *rimage.Image, dm *rimage.DepthMap, pci *PinholeCameraIntrinsics, crop *image.Rectangle,
+) (pointcloud.PointCloud, error) {
 	if img == nil {
 		return nil, errors.New("no rgb channel. Cannot project to Pointcloud")
 	}

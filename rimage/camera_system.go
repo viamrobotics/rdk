@@ -80,7 +80,7 @@ func (pp *ParallelProjection) RGBDToPointCloud(img *Image, dm *DepthMap, crop ..
 	return pc, nil
 }
 
-// PointCloudToImageWithDepth assumes the x,y coordinates are the same as the x,y pixels.
+// PointCloudToRGBD assumes the x,y coordinates are the same as the x,y pixels.
 func (pp *ParallelProjection) PointCloudToRGBD(cloud pointcloud.PointCloud) (*Image, *DepthMap, error) {
 	meta := cloud.MetaData()
 	// Needs to be a pointcloud with color

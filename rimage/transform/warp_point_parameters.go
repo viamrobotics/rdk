@@ -80,7 +80,8 @@ func (dct *DepthColorWarpTransforms) RGBDToPointCloud(
 }
 
 // AlignColorAndDepthImage will warp the color and depth map in order to have them aligned on top of each other.
-func (dct *DepthColorWarpTransforms) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap) (*rimage.Image, *rimage.DepthMap, error) {
+func (dct *DepthColorWarpTransforms) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap,
+) (*rimage.Image, *rimage.DepthMap, error) {
 	if col == nil {
 		return nil, nil, errors.New("no color image present to align")
 	}

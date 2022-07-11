@@ -12,7 +12,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// Overlay overlays an rgb image over a depth map
+// Overlay overlays an rgb image over a depth map.
 func Overlay(i *Image, dm *DepthMap) *image.NRGBA {
 	const minAlpha = 32.0
 
