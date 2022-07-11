@@ -210,11 +210,11 @@ func TestConfigRemote(t *testing.T) {
 
 	arm1, err := r2.ResourceByName(arm.Named("bar:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos1, err := arm1.(arm.Arm).GetEndPosition(ctx)
+	pos1, err := arm1.(arm.Arm).GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	arm2, err := r2.ResourceByName(arm.Named("foo:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos2, err := arm2.(arm.Arm).GetEndPosition(ctx)
+	pos2, err := arm2.(arm.Arm).GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm.PositionGridDiff(pos1, pos2), test.ShouldAlmostEqual, 0)
 

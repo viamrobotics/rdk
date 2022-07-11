@@ -3,6 +3,7 @@ syntax = "proto3";
 package proto.api.component.arm.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
 
 option go_package = "go.viam.com/rdk/proto/api/component/arm/v1";
@@ -51,6 +52,8 @@ service ArmService {
 message GetEndPositionRequest {
   // Name of an arm
   string name = 1;
+  // Additional arguments to the method.
+  google.protobuf.Struct extra = 99;
 }
 
 message GetEndPositionResponse {
@@ -69,6 +72,8 @@ message JointPositions {
 message GetJointPositionsRequest {
   // Name of an arm
   string name = 1;
+  // Additional arguments to the method.
+  google.protobuf.Struct extra = 99;
 }
 
 message GetJointPositionsResponse {
@@ -81,6 +86,8 @@ message MoveToPositionRequest {
   string name = 1;
   common.v1.Pose to = 2;
   optional common.v1.WorldState world_state = 3;
+  // Additional arguments to the method.
+  google.protobuf.Struct extra = 99;
 }
 
 message MoveToPositionResponse {}
@@ -91,6 +98,8 @@ message MoveToJointPositionsRequest {
   // A list of joint positions
   // There should be 1 entry in the list per joint DOF, ordered spatially from the base toward the end effector
   JointPositions positions = 2;
+  // Additional arguments to the method.
+  google.protobuf.Struct extra = 99;
 }
 
 message MoveToJointPositionsResponse {}
@@ -98,6 +107,8 @@ message MoveToJointPositionsResponse {}
 message StopRequest {
   // Name of an arm
   string name = 1;
+  // Additional arguments to the method.
+  google.protobuf.Struct extra = 99;
 }
 
 message StopResponse {}

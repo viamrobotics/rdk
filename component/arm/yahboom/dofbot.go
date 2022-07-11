@@ -116,7 +116,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 
 	// sanity check if init succeeded
 	var pos *componentpb.JointPositions
-	pos, err = a.GetJointPositions(ctx)
+	pos, err = a.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error reading joint positions during init: %w", err)
 	}
@@ -126,8 +126,8 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 }
 
 // GetEndPosition returns the current position of the arm.
-func (a *Dofbot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx)
+func (a *Dofbot) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
@@ -135,14 +135,19 @@ func (a *Dofbot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the given absolute position.
-func (a *Dofbot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (a *Dofbot) MoveToPosition(
+	ctx context.Context,
+	pos *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.
-func (a *Dofbot) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
+func (a *Dofbot) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 
@@ -218,7 +223,7 @@ func (a *Dofbot) moveJointInLock(ctx context.Context, joint int, degrees float64
 }
 
 // GetJointPositions returns the current joint positions of the arm.
-func (a *Dofbot) GetJointPositions(ctx context.Context) (*componentpb.JointPositions, error) {
+func (a *Dofbot) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -259,7 +264,7 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 }
 
 // Stop is unimplemented for the dofbot.
-func (a *Dofbot) Stop(ctx context.Context) error {
+func (a *Dofbot) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop for arm
 	return arm.ErrStopUnimplemented
 }
@@ -360,7 +365,7 @@ func (a *Dofbot) Grab(ctx context.Context) (bool, error) {
 
 // CurrentInputs returns the current inputs of the arm.
 func (a *Dofbot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +374,7 @@ func (a *Dofbot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
 }
 
 // Close closes the arm.

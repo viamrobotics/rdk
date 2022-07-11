@@ -71,12 +71,12 @@ func getCoord(chess string) pos {
 
 func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis int64) error {
 	// first make sure in safe position
-	where, err := myArm.GetEndPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
 	where.Z = SafeMoveHeight + float64(heightModMillis)
-	err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 		where.X = float64(f.x)
 		where.Y = float64(f.y)
 	}
-	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 }
 
 func movePiece(
@@ -134,12 +134,12 @@ func movePiece(
 	}
 
 	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO(erh): change to something more intelligent
-	where, err := myArm.GetEndPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
 	where.Z = BoardHeight + height + 10
-	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 
 	// grab piece
 	for {
@@ -157,7 +157,7 @@ func movePiece(
 			return err
 		}
 		logger.Debug("no piece")
-		where, err = myArm.GetEndPosition(ctx)
+		where, err = myArm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func movePiece(
 		if where.Z <= BoardHeight {
 			return errors.New("no piece")
 		}
-		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 	}
 
 	saveZ := where.Z // save the height to bring the piece down to
@@ -196,22 +196,22 @@ func movePiece(
 	}
 
 	// drop piece
-	where, err = myArm.GetEndPosition(ctx)
+	where, err = myArm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
 
 	where.Z = saveZ
-	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 	myGripper.Open(ctx)
 
 	if to != "-" {
-		where, err = myArm.GetEndPosition(ctx)
+		where, err = myArm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
 		where.Z = SafeMoveHeight
-		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 		moveOutOfWay(ctx, myArm)
 	}
 	return nil
@@ -220,7 +220,7 @@ func movePiece(
 func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
 
-	where, err := myArm.GetEndPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -228,16 +228,16 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	where.Y = float64(foo.y)
 	where.Z = SafeMoveHeight + 300 // HARD CODED
 
-	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 }
 
 func moveJointDelta(ctx context.Context, myArm arm.Arm, joint int, degAngle float64) error {
-	joints, err := myArm.GetJointPositions(ctx)
+	joints, err := myArm.GetJointPositions(ctx, nil)
 	if err != nil {
 		return err
 	}
 	joints.Values[joint] += degAngle
-	return myArm.MoveToJointPositions(ctx, joints)
+	return myArm.MoveToJointPositions(ctx, joints, nil)
 }
 
 func initArm(ctx context.Context, myArm arm.Arm) error {
@@ -251,7 +251,7 @@ func initArm(ctx context.Context, myArm arm.Arm) error {
 		OY:    0,
 		OZ:    0,
 	}
-	err := myArm.MoveToPosition(ctx, target, &commonpb.WorldState{})
+	err := myArm.MoveToPosition(ctx, target, &commonpb.WorldState{}, nil)
 	if err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func lookForBoardAdjust(
 ) error {
 	debugNumber := 100
 	for {
-		where, err := myArm.GetEndPosition(ctx)
+		where, err := myArm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -358,7 +358,7 @@ func lookForBoardAdjust(
 
 		where.X += xMove * 1000
 		where.Y += yMove * 1000
-		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 		if err != nil {
 			return err
 		}
@@ -381,7 +381,7 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
 		// HARD CODED
-		where, err := myArm.GetEndPosition(ctx)
+		where, err := myArm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -392,7 +392,7 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 		where.OX = -2.600206
 		where.OY = -0.007839
 		where.OZ = -0.061827
-		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 		if err != nil {
 			return err
 		}
@@ -436,7 +436,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 	}
 
 	for {
-		where, err := arm.GetEndPosition(ctx)
+		where, err := arm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -481,7 +481,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 
 		rlog.Logger.Infof("\t moving to %v,%v\n", where.X, where.Y)
 
-		err = arm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		err = arm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 		if err != nil {
 			return err
 		}
