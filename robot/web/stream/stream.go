@@ -52,11 +52,11 @@ func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Contex
 
 	return func(ctx context.Context, err error) bool {
 		if err != nil {
-			if !errors.Is(prevErr, err) {
+			if errors.Is(prevErr, err) {
+				errorCount++
+			} else {
 				prevErr = err
 				errorCount = 1
-			} else {
-				errorCount++
 			}
 
 			if errorCount <= opts.MaxSleepAttempts {
