@@ -12,9 +12,12 @@ interface Props {
   pcdObject?: Record<string, unknown>
   segmenterNames?: string[]
   segmentObjects?: Record<string, unknown>[]
-  segmenterParameterNames?: string[]
-  parameterType?: (type: string) => string
-  segmenterParameters?: Record<string, unknown>
+  segmenterParameterNames?: {
+    getName(): string
+    getType(): string
+  }[]
+  parameterType: (type: string) => string
+  segmenterParameters: Record<string, unknown>
   findStatus?: boolean
 }
 
@@ -397,11 +400,11 @@ const togglePCDExpand = () => {
                           Select Object
                         </option>
                         <option
-                          v-for="(seg, i) in segmentObjects"
-                          :key="seg[0]"
-                          :value="i"
+                          v-for="(seg, index) in segmentObjects"
+                          :key="index"
+                          :value="index"
                         >
-                          Object {{ i }}
+                          Object {{ index }}
                         </option>
                       </select>
                     </div>

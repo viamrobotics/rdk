@@ -53,7 +53,7 @@ const setNavigationLocation = () => {
   req.setResourceName(gpsName);
   req.setCommandName('set_location');
   req.setArgs(
-    proto.google.protobuf.Struct.fromJavaScript({
+    (window as any).proto.google.protobuf.Struct.fromJavaScript({
       latitude: lat,
       longitude: lng,
     })
