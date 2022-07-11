@@ -23,7 +23,7 @@ type mockErrorImageSource struct {
 
 func (imageSource *mockErrorImageSource) Next(ctx context.Context) (image.Image, func(), error) {
 	if imageSource.called < imageSource.maxCalls {
-		imageSource.called += 1
+		imageSource.called++
 	}
 	return nil, nil, errImageRetrieval
 }
@@ -90,9 +90,7 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 	readyChan <- struct{}{}
 	time.Sleep(time.Duration(totalExpectedSleep) + 1000)
 	cancel()
-	timesCalled := imgSrc.Called()
-	expectedCalls := imgSrc.MaxCalls()
-	if imgSrc.Called() != imgSrc.MaxCalls() {
-		t.Errorf("expected %d sleep calls but got %d", timesCalled, expectedCalls)
+	if calls, expectedCalls := imgSrc.Called(), imgSrc.MaxCalls(); calls != expectedCalls {
+		t.Errorf("expected %d sleep calls but got %d", expectedCalls, calls)
 	}
 }
