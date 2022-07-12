@@ -34,7 +34,7 @@ type BackoffTuningOptions struct {
 
 // GetSleepTimeFromErrorCount returns a sleep time from an error count.
 func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errorCount int) time.Duration {
-	if errorCount < 1 {
+	if errorCount < 1 || opts == nil {
 		return time.Duration(0)
 	}
 	multiplier := math.Pow(2, float64(errorCount-1))
