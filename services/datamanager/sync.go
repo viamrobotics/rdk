@@ -38,7 +38,7 @@ type syncer struct {
 	client            v1.DataSyncService_UploadClient
 	logger            golog.Logger
 	progressTracker   progressTracker
-	uploadFn          uploadFnPt
+	uploadFn          uploadFn
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
@@ -47,13 +47,13 @@ type syncer struct {
 type getNextRequestFn func(context.Context, *os.File) (*v1.UploadRequest, error)
 type updateProgressFn func(progressTracker, string) error
 type deleteProgressFn func(progressTracker, string) error
-type uploadFnPt func(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error
+type uploadFn func(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error
 
 //type uploadFnNew func(path string) error
 
 // TODO DATA-206: instantiate a client
 // newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
-func newSyncer(logger golog.Logger, uploadFunc uploadFnPt, partID string) *syncer {
+func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		logger: logger,
