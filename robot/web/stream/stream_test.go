@@ -24,12 +24,12 @@ type mockErrorImageSource struct {
 
 func newMockErrorImageSource(expectedCalls int) *mockErrorImageSource {
 	mock := &mockErrorImageSource{callsLeft: expectedCalls}
-	mock.wg.Add(expectedCalls + 1)
+	mock.wg.Add(expectedCalls)
 	return mock
 }
 
 func (imageSource *mockErrorImageSource) Next(ctx context.Context) (image.Image, func(), error) {
-	if imageSource.callsLeft >= 0 {
+	if imageSource.callsLeft > 0 {
 		imageSource.wg.Done()
 	} else {
 		panic("mock image source was called too many times")
@@ -77,8 +77,10 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 	imgSrc := newMockErrorImageSource(calls)
 
 	totalExpectedSleep := int64(0)
-	for i := 0; i < calls; i++ {
-		totalExpectedSleep += backoffOpts.GetSleepTimeFromErrorCount(i + 1).Nanoseconds()
+	// Note that we do not add the expected sleep duration for the last error since the
+	// streaming context will be cancelled during that error.
+	for i := 1; i < calls; i++ {
+		totalExpectedSleep += backoffOpts.GetSleepTimeFromErrorCount(i).Nanoseconds()
 	}
 	str := &mockStream{}
 	readyChan := make(chan struct{})
