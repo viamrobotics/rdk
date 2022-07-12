@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/test"
-
 	"github.com/edaniels/gostream"
 	"github.com/pion/webrtc/v3"
+	"go.viam.com/test"
 
 	webstream "go.viam.com/rdk/robot/web/stream"
 )
