@@ -29,7 +29,7 @@ type AttrConfig struct {
 	// ntrip
 	NtripAddr            string `json:"ntrip_addr"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
-	NtripMountpoint      string `json:"limit_pin_enabled_high,omitempty"`
+	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
 	// serial

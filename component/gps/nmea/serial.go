@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"errors"
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
@@ -19,6 +20,22 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
+
+// SerialAttrConfig is used for converting Serial NMEA GPS config attributes.
+type SerialAttrConfig struct {
+	// Serial
+	SerialPath string `json:"path"`
+	CorrectionPath string `json:"correction_path"`
+}
+
+// ValidateSerial ensures all parts of the config are valid.
+func (config *SerialAttrConfig) ValidateSerial(path string) error {
+	if len(config.SerialPath) == 0 {
+		return errors.New("expected nonempty path")
+	}
+
+	return nil
+}
 
 func init() {
 	registry.RegisterComponent(

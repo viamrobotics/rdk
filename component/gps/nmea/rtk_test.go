@@ -30,6 +30,20 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	return deps
 }
 
+func TestValidate(t *testing.T) {
+	fakecfg := &RTKAttrConfig{}
+	err := fakecfg.ValidateRTK("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty ntrip address")
+
+	fakecfg.NtripAddr = "http://fakeurl"
+	err = fakecfg.ValidateRTK("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "Expected either nonempty ntrip path, serial path, or I2C board, bus, and address")
+
+	fakecfg.NtripPath = "some-ntrip-path"
+	err = fakecfg.ValidateRTK("path")
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestConnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()

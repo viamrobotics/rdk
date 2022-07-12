@@ -17,6 +17,29 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
+// I2CAttrConfig is used for converting Serial NMEA GPS config attributes.
+type I2CAttrConfig struct {
+	// I2C
+	Board   string `json:"board"`
+	Bus     string `json:"bus"`
+	I2cAddr int    `json:"i2c_addr"`
+}
+
+// ValidateI2C ensures all parts of the config are valid.
+func (config *I2CAttrConfig) ValidateI2C(path string) error {
+	if len(config.Board) == 0 {
+		return errors.New("expected nonempty board")
+	}
+	if len(config.Bus) == 0 {
+		return errors.New("expected nonempty bus")
+	}
+	if config.I2cAddr == 0 {
+		return errors.New("expected nonempty i2c address")
+	}
+
+	return nil
+}
+
 func init() {
 	registry.RegisterComponent(
 		gps.Subtype,
