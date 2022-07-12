@@ -15,6 +15,8 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -48,6 +50,17 @@ func TestServer(t *testing.T) {
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	var projA rimage.Projector
+	intrinsics := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
+		Width:  1280,
+		Height: 720,
+		Fx:     200,
+		Fy:     200,
+		Ppx:    100,
+		Ppy:    100,
+	}
+	projA = intrinsics
+
 	var imageReleased bool
 	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return img, func() { imageReleased = true }, nil
@@ -55,12 +68,18 @@ func TestServer(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
+	injectCamera.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return projA, nil
+	}
 
 	injectCamera2.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, errors.New("can't generate next frame")
 	}
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
+	}
+	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return nil, errors.New("can't get camera properties")
 	}
 	t.Run("GetFrame", func(t *testing.T) {
 		_, err := cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: missingCameraName})
@@ -160,5 +179,24 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
+	})
+
+	t.Run("GetProperties", func(t *testing.T) {
+		_, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: missingCameraName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+
+		_, err = cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: fakeCameraName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a camera")
+
+		resp, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: testCameraName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.IntrinsicParameters.WidthPixels, test.ShouldEqual, 1280)
+		test.That(t, resp.IntrinsicParameters.HeightPixels, test.ShouldEqual, 720)
+		test.That(t, resp.IntrinsicParameters.FocalXPixels, test.ShouldEqual, 200)
+		test.That(t, resp.IntrinsicParameters.FocalYPixels, test.ShouldEqual, 200)
+		test.That(t, resp.IntrinsicParameters.CenterXPixels, test.ShouldEqual, 100)
+		test.That(t, resp.IntrinsicParameters.CenterYPixels, test.ShouldEqual, 100)
 	})
 }
