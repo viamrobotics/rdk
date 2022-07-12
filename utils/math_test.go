@@ -263,6 +263,38 @@ func TestSampleNIntegersNormal(t *testing.T) {
 	test.That(t, nMean, test.ShouldBeGreaterThanOrEqualTo, nAbove)
 }
 
+func TestCycleIntSlice(t *testing.T) {
+	s := []int{1, 2, 3, 4, 5, 6, 7}
+	res := CycleIntSliceByN(s, 0)
+	test.That(t, res, test.ShouldResemble, []int{1, 2, 3, 4, 5, 6, 7})
+	res = CycleIntSliceByN(s, 7)
+	test.That(t, res, test.ShouldResemble, []int{1, 2, 3, 4, 5, 6, 7})
+	res = CycleIntSliceByN(s, 14)
+	test.That(t, res, test.ShouldResemble, []int{1, 2, 3, 4, 5, 6, 7})
+	res = CycleIntSliceByN(s, 1)
+	test.That(t, res, test.ShouldResemble, []int{2, 3, 4, 5, 6, 7, 1})
+	res = CycleIntSliceByN(s, 15)
+	test.That(t, res, test.ShouldResemble, []int{2, 3, 4, 5, 6, 7, 1})
+}
+
+func TestNRegularlySpaced(t *testing.T) {
+	n := 13
+	vMin, vMax := 0.0, 13.0
+	res := SampleNRegularlySpaced(n, vMin, vMax)
+	test.That(t, res, test.ShouldResemble, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12})
+
+	vMin, vMax = -5.0, 20.0
+	res = SampleNRegularlySpaced(n, vMin, vMax)
+	test.That(t, res, test.ShouldResemble, []int{-5, -3, -1, 1, 3, 5, 7, 8, 10, 12, 14, 16, 18})
+
+	vMin, vMax = -5.0, 5.0
+	res = SampleNRegularlySpaced(n, vMin, vMax)
+	test.That(t, res, test.ShouldResemble, []int{-5, -4, -3, -3, -2, -1, 0, 0, 1, 2, 3, 3, 4})
+
+	vMin, vMax = 5.0, -5.0
+	test.That(t, func() { SampleNRegularlySpaced(n, vMin, vMax) }, test.ShouldPanic)
+}
+
 func TestSampleNIntegersUniform(t *testing.T) {
 	samples1 := SampleNIntegersUniform(256, -7, 8)
 	test.That(t, len(samples1), test.ShouldEqual, 256)

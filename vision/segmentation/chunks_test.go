@@ -119,7 +119,7 @@ func (cid *chunkImageDebug) Process(
 		pCtx.GotDebugImage(x2, "depth-interesting")
 
 		pp := rimage.ParallelProjection{}
-		pc, err := pp.ImageWithDepthToPointCloud(iwd)
+		pc, err := pp.RGBDToPointCloud(iwd.Color, iwd.Depth)
 		if err != nil {
 			t.Fatal(err)
 		}

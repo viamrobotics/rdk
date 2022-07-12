@@ -53,7 +53,7 @@ func TestWebStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-	arm1Position, err := arm1.GetEndPosition(ctx)
+	arm1Position, err := arm1.GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
@@ -85,7 +85,7 @@ func TestWebStartOptions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-	arm1Position, err := arm1.GetEndPosition(ctx)
+	arm1Position, err := arm1.GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
@@ -180,7 +180,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-				arm1Position, err := arm1.GetEndPosition(ctx)
+				arm1Position, err := arm1.GetEndPosition(ctx, nil)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
@@ -197,7 +197,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-				arm1Position, err = arm1.GetEndPosition(ctx)
+				arm1Position, err = arm1.GetEndPosition(ctx, nil)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
@@ -215,7 +215,7 @@ func TestWebWithAuth(t *testing.T) {
 
 				arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-				arm1Position, err := arm1.GetEndPosition(ctx)
+				arm1Position, err := arm1.GetEndPosition(ctx, nil)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
@@ -233,7 +233,7 @@ func TestWebWithAuth(t *testing.T) {
 
 				arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-				arm1Position, err = arm1.GetEndPosition(ctx)
+				arm1Position, err = arm1.GetEndPosition(ctx, nil)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
@@ -323,7 +323,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 
 	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-	arm1Position, err := arm1.GetEndPosition(ctx)
+	arm1Position, err := arm1.GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -337,7 +337,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 
 	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-	arm1Position, err = arm1.GetEndPosition(ctx)
+	arm1Position, err = arm1.GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -351,7 +351,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 
 	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-	arm1Position, err = arm1.GetEndPosition(ctx)
+	arm1Position, err = arm1.GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -372,7 +372,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
-	arm1Position, err = arm1.GetEndPosition(ctx)
+	arm1Position, err = arm1.GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -397,7 +397,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 
 	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-	arm1Position, err = arm1.GetEndPosition(ctx)
+	arm1Position, err = arm1.GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
@@ -468,7 +468,7 @@ func TestWebUpdate(t *testing.T) {
 
 	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-	arm1Position, err := arm1.GetEndPosition(ctx)
+	arm1Position, err := arm1.GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -476,7 +476,7 @@ func TestWebUpdate(t *testing.T) {
 	// add arm to robot and then update
 	injectArm := &inject.Arm{}
 	newPos := &commonpb.Pose{X: 1, Y: 3, Z: 6}
-	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return newPos, nil
 	}
 	rs := map[resource.Name]interface{}{arm.Named(arm1String): injectArm}
@@ -488,7 +488,7 @@ func TestWebUpdate(t *testing.T) {
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	aClient := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
-	position, err := aClient.GetEndPosition(context.Background())
+	position, err := aClient.GetEndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, newPos)
 
@@ -513,7 +513,7 @@ func TestWebUpdate(t *testing.T) {
 
 	arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
-	arm1Position, err = arm1.GetEndPosition(ctx)
+	arm1Position, err = arm1.GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, newPos)
 
@@ -521,7 +521,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	aClient2 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 	test.That(t, err, test.ShouldBeNil)
-	position, err = aClient2.GetEndPosition(context.Background())
+	position, err = aClient2.GetEndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, newPos)
 
@@ -529,7 +529,7 @@ func TestWebUpdate(t *testing.T) {
 	arm2 := "arm2"
 	injectArm2 := &inject.Arm{}
 	pos2 := &commonpb.Pose{X: 2, Y: 3, Z: 4}
-	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm2.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pos2, nil
 	}
 	rs[arm.Named(arm2)] = injectArm2
@@ -538,13 +538,13 @@ func TestWebUpdate(t *testing.T) {
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
-	position, err = aClient2.GetEndPosition(context.Background())
+	position, err = aClient2.GetEndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, newPos)
 
 	aClient3 := arm.NewClientFromConn(context.Background(), conn, arm2, logger)
 	test.That(t, err, test.ShouldBeNil)
-	position, err = aClient3.GetEndPosition(context.Background())
+	position, err = aClient3.GetEndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos2)
 
@@ -671,7 +671,7 @@ func TestWebAddFirstStream(t *testing.T) {
 
 func setupRobotCtx() (context.Context, robot.Robot) {
 	injectArm := &inject.Arm{}
-	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pos, nil
 	}
 	injectRobot := &inject.Robot{}

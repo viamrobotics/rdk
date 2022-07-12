@@ -56,7 +56,7 @@ func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(),
 	if ii.Depth == nil {
 		return nil, nil, errors.New("no depth")
 	}
-	ii, err = rimage.PreprocessDepthMap(ii)
+	ii.Depth, err = rimage.PreprocessDepthMap(ii.Depth, ii.Color)
 	if ii.Depth == nil {
 		return nil, nil, err
 	}

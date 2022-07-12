@@ -84,16 +84,6 @@ func init() {
 		&AttrConfig{})
 }
 
-// XArmModel returns the kinematics model of the xArm, also has all Frame information.
-func xArmModel(dof int) (referenceframe.Model, error) {
-	if dof == 6 {
-		return referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
-	} else if dof == 7 {
-		return referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
-	}
-	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
-}
-
 // NewxArm returns a new xArm with the specified dof.
 func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
 	armCfg := cfg.ConvertedAttributes.(*AttrConfig)
@@ -116,10 +106,20 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 	if err != nil {
 		return nil, err
 	}
-	model, err := xArmModel(dof)
+
+	var model referenceframe.Model
+	switch dof {
+	case 6:
+		model, err = referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
+	case 7:
+		model, err = referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
+	default:
+		err = errors.New("no kinematics model for xarm with specified degrees of freedom")
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	nCPU := runtime.NumCPU()
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
 	if err != nil {
@@ -148,15 +148,15 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := x.GetJointPositions(ctx)
+	res, err := x.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return x.model.InputFromProtobuf(res), nil
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return x.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
 }
 
 // ModelFrame returns the dynamic frame of the model.

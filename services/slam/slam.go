@@ -18,6 +18,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -274,6 +275,9 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 
 // setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, func() error, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::setupGRPCConnection")
+	defer span.End()
+
 	// This takes about 1 second, so the timeout should be sufficient.
 	ctx, timeoutCancel := context.WithTimeout(ctx, dialMaxTimeoutSec*time.Second)
 	defer timeoutCancel()
@@ -291,6 +295,9 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 // GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
 // it is unpacked into a PoseInFrame.
 func (slamSvc *slamService) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::GetPosition")
+	defer span.End()
+
 	req := &pb.GetPositionRequest{Name: name}
 
 	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
@@ -306,6 +313,9 @@ func (slamSvc *slamService) GetPosition(ctx context.Context, name string) (*refe
 func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
 	string, image.Image, *vision.Object, error,
 ) {
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::GetMap")
+	defer span.End()
+
 	var cameraPosition *v1.Pose
 	if cp != nil {
 		cameraPosition = referenceframe.PoseInFrameToProtobuf(cp).Pose
@@ -353,6 +363,9 @@ func (slamSvc *slamService) GetMap(ctx context.Context, name, mimeType string, c
 
 // New returns a new slam service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
+	defer span.End()
+
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
@@ -524,6 +537,9 @@ func (slamSvc *slamService) GetSLAMProcessConfig() pexec.ProcessConfig {
 
 // startSLAMProcess starts up the SLAM library process by calling the executable binary and giving it the necessary arguments.
 func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::StartSLAMProcess")
+	defer span.End()
+
 	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, slamSvc.GetSLAMProcessConfig())
 	if err != nil {
 		return errors.Wrap(err, "problem adding slam process")
@@ -549,6 +565,9 @@ func (slamSvc *slamService) StopSLAMProcess() error {
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
 func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cam camera.Camera) (string, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::getAndSaveDataSparse")
+	defer span.End()
+
 	img, _, err := cam.Next(ctx)
 	if err != nil {
 		if err.Error() == "bad scan: OpTimeout" {
@@ -606,6 +625,9 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cam camera
 // getAndSaveDataDense implements the data extraction for dense algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
 func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context, cam camera.Camera) (string, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::getAndSaveDataDense")
+	defer span.End()
+
 	pointcloud, err := cam.NextPointCloud(ctx)
 	if err != nil {
 		if err.Error() == "bad scan: OpTimeout" {
