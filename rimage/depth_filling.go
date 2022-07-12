@@ -13,8 +13,9 @@ import (
 
 // FillDepthMap finds regions of connected missing data, and for those below a certain size, fills them in with
 // an average of the surrounding pixels by using 16-point ray-marching, taking care of regions that are on the
-// boundaries between objects.
-func FillDepthMap(iwd *ImageWithDepth) error {
+// boundaries between objects. Assumes rgb image and depth map are aligned.
+func FillDepthMap(dm *DepthMap, img *Image) (*DepthMap, error) {
+	iwd := &ImageWithDepth{img, dm, true}
 	validData := MissingDepthData(iwd.Depth)
 	missingData := invertGrayImage(validData)
 	holeMap := segmentBinaryImage(missingData)
@@ -28,7 +29,7 @@ func FillDepthMap(iwd *ImageWithDepth) error {
 					rayPoints := pointsFromRayMarching(point.X, point.Y, 8, sixteenPoints, iwd)
 					clusterDepths, clusterColors, err := clusterEdgePoints(rayPoints, iwd)
 					if err != nil {
-						return err
+						return nil, err
 					}
 					val := matchDepthToClosestColor(iwd.Color.Get(point), clusterColors[0], clusterColors[1], clusterDepths[0], clusterDepths[1])
 					iwd.Depth.Set(point.X, point.Y, val)
@@ -41,7 +42,7 @@ func FillDepthMap(iwd *ImageWithDepth) error {
 			}
 		}
 	}
-	return nil
+	return iwd.Depth, nil
 }
 
 // directions for ray-marching.

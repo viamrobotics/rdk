@@ -88,7 +88,7 @@ func detectionsToPointClouds(dets []objectdetection.Detection,
 		if bb == nil {
 			return nil, errors.New("detection bounding box cannot be nil")
 		}
-		pc, err := proj.ImageWithDepthToPointCloud(iwd, *bb)
+		pc, err := proj.RGBDToPointCloud(iwd.Color, iwd.Depth, *bb)
 		if err != nil {
 			return nil, err
 		}
