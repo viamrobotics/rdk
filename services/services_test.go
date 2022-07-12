@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"testing"
 
-	"go.viam.com/rdk/resource"
 	"go.viam.com/test"
 )
 
@@ -49,6 +48,12 @@ type mockMock struct {
 
 type mockMock2 struct {
 	actual *interface{}
+}
+
+type mock3 struct {
+	num1 int
+	num2 float64
+	num3 []int
 }
 
 func TestM(t *testing.T) {
@@ -166,9 +171,63 @@ func TestServiceWrapWithReconfigure(t *testing.T) {
 
 }
 
+func TestDiffSizes(t *testing.T) {
+	actualA := mock{a: 1}
+	rand1 := 0
+	rand2 := 5.2
+	fmt.Println("test address of random variables")
+	fmt.Printf("address of actualA %p \n", &actualA)
+	fmt.Printf("val of actualA %v \n", &actualA)
+	fmt.Println(&rand1)
+	fmt.Println(&rand2)
+	reconfigA, err := WrapWithReconfigurable(actualA) // this is already a pointer
+	test.That(t, err, test.ShouldBeNil)
+
+	fmt.Println("test if allocating to interface changes")
+	reconfReconfigA := reconfigA.(*ReconfigurableService) // this is the part that gets fucked up
+	//fmt.Println(reconfReconfigA.Actual)
+	fmt.Println(&reconfReconfigA)
+	fmt.Println(&(reconfReconfigA.Actual))
+
+	reconfReconfigC := reconfigA.(*ReconfigurableService) // this is the part that gets fucked up
+	//fmt.Println(reconfReconfigB.Actual)
+	fmt.Println(&reconfReconfigC)
+	fmt.Println(&(reconfReconfigC.Actual))
+
+	fmt.Println("end test")
+	// test.That(t, ok, test.ShouldBeTrue)
+	actualActual := reconfReconfigA.Actual // reference to pointer
+
+	fmt.Printf("actualActual addy %p \n", &actualActual)
+	fmt.Printf("actualActual val %v \n", actualActual)
+	// mockActual, ok := (*actualActual).(Mock)
+
+	// actualAA := *actualActual
+
+	actualB := mock3{num1: 2, num2: 5.2, num3: []int{0, 5, 1, 6, 2, 4}}
+	reconfigB, err := WrapWithReconfigurable(actualB)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfReconfigB, _ := reconfigB.(*ReconfigurableService)
+	fmt.Println(reconfReconfigB.Actual)
+	actualActualB := reconfReconfigB.Actual
+
+	reconfReconfigA.Reconfigure(context.Background(), reconfReconfigB)
+	fmt.Println(reconfReconfigA.Actual)
+	fmt.Println(*(reconfReconfigA.Actual))
+	mockActual, ok := (*actualActual).(mock3)
+	if !ok {
+		fmt.Println("failed to be mock3")
+	}
+	mockActualB := (*actualActualB).(mock3)
+
+	test.That(t, mockActual.num1, test.ShouldEqual, mockActualB.num1)
+	// test.That(t, actualActual, test.ShouldEqual, actualActualB)
+
+}
+
 type mock struct {
 	a int
-	resource.Updateable
 }
 
 func (m *mock) Get() int {

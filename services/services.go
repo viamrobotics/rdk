@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 
 	"go.viam.com/rdk/resource"
@@ -11,10 +10,6 @@ import (
 	"go.viam.com/rdk/utils"
 	viamutils "go.viam.com/utils"
 )
-
-// type Service interface {
-// 	Close(ctx context.Context) error
-// }
 
 type ReconfigurableService struct {
 	mu     sync.RWMutex
@@ -29,6 +24,7 @@ var (
 func (svc *ReconfigurableService) Reconfigure(ctx context.Context, newService resource.Reconfigurable) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	fmt.Println("in reconfigure")
 	rSvc, ok := newService.(*ReconfigurableService)
 	if !ok {
 		return utils.NewUnexpectedTypeError(svc, newService)
@@ -38,9 +34,11 @@ func (svc *ReconfigurableService) Reconfigure(ctx context.Context, newService re
 	}
 
 	// check that the old and the new services are of the same type
-	if reflect.TypeOf(rSvc.Actual) != reflect.TypeOf(svc.Actual) {
-		return utils.NewUnexpectedTypeError(svc.Actual, rSvc.Actual)
-	}
+	// if reflect.TypeOf(rSvc.Actual) != reflect.TypeOf(svc.Actual) {
+	// 	return utils.NewUnexpectedTypeError(svc.Actual, rSvc.Actual)
+	// }
+
+	// see if this fails if they are actually different sizes
 	fmt.Println(*(svc.Actual))
 	fmt.Println(*(rSvc.Actual))
 	fmt.Println(&(*(svc.Actual)))
@@ -48,6 +46,7 @@ func (svc *ReconfigurableService) Reconfigure(ctx context.Context, newService re
 	*(svc.Actual) = *(rSvc.Actual)
 	fmt.Println(*(svc.Actual))
 	fmt.Println((svc.Actual))
+	fmt.Println("done reconfigure")
 	return nil
 }
 
