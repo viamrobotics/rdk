@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -298,7 +299,11 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
-	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
+	nameR := name.Name
+	if name.Remote.Remote != "" {
+		nameR = fmt.Sprintf("%s:%s", string(name.Remote.Remote), nameR)
+	}
+	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
 	return resourceClient, nil
 }
 
