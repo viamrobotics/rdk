@@ -2,6 +2,7 @@
 package subtype
 
 import (
+	"strings"
 	"sync"
 
 	"go.viam.com/rdk/resource"
@@ -43,10 +44,13 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	defer s.mu.Unlock()
 	resources := make(map[string]interface{}, len(r))
 	for n, v := range r {
-		if n.Name == "" {
+		switch {
+		case n.Name == "":
 			resources[n.String()] = v
-		} else {
+		case n.Remote.Remote == "":
 			resources[n.Name] = v
+		default:
+			resources[strings.Join([]string{string(n.Remote.Remote), n.Name}, ":")] = v
 		}
 	}
 	s.resources = resources
