@@ -7,6 +7,7 @@
 import boardApi from '../gen/proto/api/component/board/v1/board_pb.esm';
 import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
+import servoApi from '../gen/proto/api/component/servo/v1/servo_pb.esm';
 
 window.rcDebug = false;
 
@@ -145,4 +146,16 @@ export const BoardControlHelper = {
   },
 
   // TODO: Add PWM
+};
+
+// Servo control helpers
+// todo: add the rest
+window.ServoControlHelper = {
+  stop: function(name, cb) {
+    const req = new servoApi.StopRequest();
+    req.setName(name);
+
+    rcLogConditionally(req);
+    servoService.stop(req, {}, cb);
+  },
 };
