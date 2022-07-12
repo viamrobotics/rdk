@@ -121,7 +121,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 }
 
 // Builds syncer used in tests.
-func newTestSyncer(t *testing.T, mc *mockClient, uploadFn uploadFnPt) *syncer {
+func newTestSyncer(t *testing.T, mc *mockClient, uploadFn uploadFn) *syncer {
 	t.Helper()
 	l := golog.NewTestLogger(t)
 
