@@ -49,14 +49,14 @@ func TestValidateI2C(t *testing.T) {
 
 func TestNewI2CGPS(t *testing.T) {
 	deps := setupDependencies(t)
-	
+
 	cfig := config.Component{
 		Name:  "gps1",
 		Model: "nmea-pmtkI2C",
 		Type:  gps.SubtypeName,
 		Attributes: config.AttributeMap{
-			"board": "",
-			"bus": "",
+			"board":    "",
+			"bus":      "",
 			"i2c_addr": "",
 		},
 	}
@@ -73,8 +73,8 @@ func TestNewI2CGPS(t *testing.T) {
 		Model: "nmea-serial",
 		Type:  gps.SubtypeName,
 		Attributes: config.AttributeMap{
-			"board": testBoardName,
-			"bus": testBusName,
+			"board":    testBoardName,
+			"bus":      testBusName,
 			"i2c_addr": "",
 		},
 	}

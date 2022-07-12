@@ -25,7 +25,7 @@ import (
 // RTKAttrConfig is used for converting Serial NMEA GPS config attributes.
 type RTKAttrConfig struct {
 	// Serial
-	SerialPath string `json:"path"`
+	SerialPath     string `json:"path"`
 	CorrectionPath string `json:"correction_path"`
 
 	// I2C
@@ -39,9 +39,9 @@ type RTKAttrConfig struct {
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
-	NtripPath			 string `json:"ntrip_path,omitempty"`
-	NtripBaud			 string `json:"ntrip_baud,omitempty"`
-	NtripInputProtocol	 string `json:"ntrip_input_protocol,omitempty"`
+	NtripPath            string `json:"ntrip_path,omitempty"`
+	NtripBaud            string `json:"ntrip_baud,omitempty"`
+	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
 // ValidateRTK ensures all parts of the config are valid.
@@ -52,7 +52,7 @@ func (config *RTKAttrConfig) ValidateRTK(path string) error {
 
 	if (len(config.NtripPath) == 0 && len(config.SerialPath) == 0) &&
 		(len(config.Board) == 0 || len(config.Bus) == 0 || config.I2cAddr == 0) {
-		return errors.New("Expected either nonempty ntrip path, serial path, or I2C board, bus, and address")
+		return errors.New("expected either nonempty ntrip path, serial path, or I2C board, bus, and address")
 	}
 
 	return nil
@@ -105,7 +105,6 @@ type ntripInfo struct {
 	writepath          string
 	wbaud              int
 	addr               byte // for i2c only
-	sendNMEA           bool
 	client             *ntrip.Client
 	stream             io.ReadCloser
 	maxConnectAttempts int
