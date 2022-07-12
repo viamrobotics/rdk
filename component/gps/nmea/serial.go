@@ -4,10 +4,10 @@ package nmea
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
-	"errors"
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
@@ -24,7 +24,7 @@ import (
 // SerialAttrConfig is used for converting Serial NMEA GPS config attributes.
 type SerialAttrConfig struct {
 	// Serial
-	SerialPath string `json:"path"`
+	SerialPath     string `json:"path"`
 	CorrectionPath string `json:"correction_path"`
 }
 

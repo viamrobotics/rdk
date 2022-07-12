@@ -37,13 +37,13 @@ func TestValidateSerial(t *testing.T) {
 
 func TestNewSerialGPS(t *testing.T) {
 	path := "somepath"
-	
+
 	cfig := config.Component{
 		Name:  "gps1",
 		Model: "nmea-serial",
 		Type:  gps.SubtypeName,
 		Attributes: config.AttributeMap{
-			"path": "",
+			"path":            "",
 			"correction_path": "",
 		},
 	}
@@ -60,7 +60,7 @@ func TestNewSerialGPS(t *testing.T) {
 		Model: "nmea-serial",
 		Type:  gps.SubtypeName,
 		Attributes: config.AttributeMap{
-			"path": path,
+			"path":            path,
 			"correction_path": "",
 		},
 	}
