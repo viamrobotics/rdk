@@ -69,6 +69,11 @@ type Camera interface {
 	gostream.ImageSource
 	generic.Generic
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	GetProperties(ctx context.Context) (rimage.Projector, error)
+}
+
+type PointCloudSource interface {
+	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
 // WithProjector is a camera with the capability to project images to 3D.
@@ -125,10 +130,14 @@ func (is *imageSource) Close(ctx context.Context) error {
 func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imageSource::NextPointCloud")
 	defer span.End()
-	if c, ok := is.ImageSource.(Camera); ok {
+	if c, ok := is.ImageSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}
 	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
+}
+
+func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it")
 }
 
 // ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
@@ -152,7 +161,7 @@ func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
 func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud")
 	defer span.End()
-	if c, ok := iswp.ImageSource.(Camera); ok {
+	if c, ok := iswp.ImageSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}
 	img, closer, err := iswp.Next(ctx)
@@ -174,6 +183,10 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	_, toPcdSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ImageWithDepthToPointCloud")
 	defer toPcdSpan.End()
 	return iswp.projector.ImageWithDepthToPointCloud(imageWithDepth)
+}
+
+func (iswp *imageSourceWithProjector) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	return iswp.projector, nil
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
@@ -246,6 +259,12 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.NextPointCloud(ctx)
+}
+
+func (c *reconfigurableCamera) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.GetProperties(ctx)
 }
 
 func (c *reconfigurableCamera) Close(ctx context.Context) error {

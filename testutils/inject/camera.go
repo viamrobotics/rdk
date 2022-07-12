@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
 )
 
 // Camera is an injected camera.
@@ -16,6 +17,7 @@ type Camera struct {
 	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	NextFunc           func(ctx context.Context) (image.Image, func(), error)
 	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
+	GetPropertiesFunc  func(ctx context.Context) (rimage.Projector, error)
 	CloseFunc          func(ctx context.Context) error
 }
 
@@ -33,6 +35,14 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return c.Camera.NextPointCloud(ctx)
 	}
 	return c.NextPointCloudFunc(ctx)
+}
+
+// GetProperties calls the injected GetProperties or the real version.
+func (c *Camera) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	if c.NextFunc == nil {
+		return c.Camera.GetProperties(ctx)
+	}
+	return c.GetPropertiesFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.
