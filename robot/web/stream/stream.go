@@ -38,9 +38,9 @@ func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errorCount int) tim
 		return time.Duration(0)
 	}
 	multiplier := math.Pow(2, float64(errorCount-1))
-	uncappedSleepNanosec := float64(opts.BaseSleep.Nanoseconds()) * multiplier
-	sleepNanosec := math.Min(uncappedSleepNanosec, float64(opts.MaxSleep.Nanoseconds()))
-	return time.Duration(int64(sleepNanosec))
+	uncappedSleep := opts.BaseSleep * time.Duration(multiplier)
+	sleep := math.Min(float64(uncappedSleep), float64(opts.MaxSleep))
+	return time.Duration(sleep)
 }
 
 func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Context, error) bool {

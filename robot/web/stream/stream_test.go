@@ -29,14 +29,6 @@ func (imageSource *mockErrorImageSource) Next(ctx context.Context) (image.Image,
 	return nil, nil, errImageRetrieval
 }
 
-func (imageSource *mockErrorImageSource) Called() int {
-	return imageSource.called
-}
-
-func (imageSource *mockErrorImageSource) MaxCalls() int {
-	return imageSource.maxCalls
-}
-
 type mockStream struct {
 	name               string
 	streamingReadyFunc func() <-chan struct{}
@@ -65,24 +57,16 @@ func (mS *mockStream) TrackLocal() webrtc.TrackLocal {
 	return nil
 }
 
-func parseDuration(t *testing.T, s string) time.Duration {
-	t.Helper()
-
-	d, err := time.ParseDuration(s)
-	test.That(t, err, test.ShouldBeNil)
-	return d
-}
-
 func TestStreamSourceErrorBackoff(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	backoffOpts := &webstream.BackoffTuningOptions{
-		BaseSleep: parseDuration(t, "50us"),
-		MaxSleep:  parseDuration(t, "250ms"),
+		BaseSleep: 50 * time.Microsecond,
+		MaxSleep:  250 * time.Millisecond,
 	}
 	imgSrc := &mockErrorImageSource{maxCalls: 25}
 	totalExpectedSleep := int64(0)
-	for i := 0; i < imgSrc.MaxCalls(); i++ {
+	for i := 0; i < imgSrc.maxCalls; i++ {
 		totalExpectedSleep += backoffOpts.GetSleepTimeFromErrorCount(i + 1).Nanoseconds()
 	}
 	str := &mockStream{}
@@ -99,10 +83,8 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 
 	// Wait for the expect timeout duration, with some padding.
 	time.Sleep(time.Duration(totalExpectedSleep))
-	time.Sleep(parseDuration(t, "1ms"))
+	time.Sleep(1 * time.Millisecond)
 
 	cancel()
-	if calls, expectedCalls := imgSrc.Called(), imgSrc.MaxCalls(); calls != expectedCalls {
-		t.Errorf("expected %d sleep calls but got %d", expectedCalls, calls)
-	}
+	test.That(t, imgSrc.called, test.ShouldEqual, imgSrc.maxCalls)
 }
