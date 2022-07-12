@@ -3436,19 +3436,12 @@
       "hash": "fe232f8768a4a5c90fb20a7a54e4b453",
       "size": 481292
     },
+<<<<<<< HEAD
     "bun90.pcd": {
       "hash": "dfebe03896ca235803cce73cbaf9c367",
-      "size": 364720
-    },
-    "pc1.pcd": {
-      "hash": "a6ff18af1d34d3a0627ead6cd02b0e12",
-      "size": 4704236
-    },
-    "pc2.pcd": {
-      "hash": "7f773479aaef8bc17ad60a9a22d0a93d",
+>>>>>>> 7b70d7bd (WIP: Continue ICP testing, currently has a lot of debug code)
+    "pc1.pcd": {},
       "size": 4752604
-    },
-    "test.las": {
       "hash": "4d23d5d99191210d6a312fd138bb5f08",
       "size": 218973
     },

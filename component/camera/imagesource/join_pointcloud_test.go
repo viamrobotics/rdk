@@ -352,7 +352,6 @@ func TestTwinPointCloudICP(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-
 	filename := "test_twin_" + time.Now().Format(time.RFC3339) + "*.pcd"
 	file, err := os.CreateTemp("/tmp", filename)
 	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
