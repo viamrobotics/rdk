@@ -57,7 +57,7 @@ func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Contex
 			}
 
 			sleep := opts.GetSleepTimeFromErrorCount(errorCount)
-			rlog.Logger.Debugw("error getting frame", "error", err)
+			rlog.Logger.Debugw("error getting frame", "error", err, "count", errorCount)
 			utils.SelectContextOrWait(ctx, sleep)
 
 			return true
