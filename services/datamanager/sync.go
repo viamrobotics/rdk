@@ -38,21 +38,23 @@ type syncer struct {
 	client            v1.DataSyncService_UploadClient
 	logger            golog.Logger
 	progressTracker   progressTracker
-	uploadFn          uploadFn
+	uploadFn          uploadFnPt
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
 }
 
-type uploadFn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error
+type getNextRequestFn func(context.Context, *os.File) (*v1.UploadRequest, error)
+type updateProgressFn func(progressTracker, string) error
+type deleteProgressFn func(progressTracker, string) error
+type uploadFnPt func(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error
+
+//type uploadFnNew func(path string) error
 
 // TODO DATA-206: instantiate a client
 // newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
-func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer {
+func newSyncer(logger golog.Logger, uploadFunc uploadFnPt, partID string) *syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	if uploadFunc == nil {
-		uploadFunc = viamUpload
-	}
 	ret := syncer{
 		logger: logger,
 		progressTracker: progressTracker{
@@ -63,9 +65,12 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer 
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
-		uploadFn:          uploadFunc,
 	}
-
+	if uploadFunc == nil {
+		uploadFunc = uploadFile
+		// uploadFunc = uploadFile
+	}
+	ret.uploadFn = uploadFunc
 	return &ret
 }
 
@@ -86,7 +91,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 		defer s.backgroundWorkers.Done()
 		uploadErr := exponentialRetry(
 			ctx,
-			func(ctx context.Context) error { return s.uploadFn(ctx, s.client, path, s.partID) },
+			func(ctx context.Context) error { return s.uploadFn(ctx, s.progressTracker, s.client, path, s.partID) },
 			s.logger,
 		)
 		if uploadErr != nil {
@@ -102,192 +107,10 @@ func (s *syncer) upload(ctx context.Context, path string) {
 	})
 }
 
-// Create progress file (.json) that stores file upload information.
-func (s *syncer) createProgressFile(path string, md *v1.UploadMetadata) error { return nil }
-
-// Delete progress file (.json) that stores file upload information.
-func (s *syncer) deleteProgressFile(path string) error { return nil }
-
-// Update progress file (.json) that stores file upload information with the next sensordata message index to be uploaded.
-func (s *syncer) updateIndexProgressFile(path string, index int) error { return nil }
-
-// Returns data type of file that is being uploaded.
-func (s *syncer) getDataType(path string) v1.DataType { return v1.DataType_DATA_TYPE_UNSPECIFIED }
-
-// Returns the index of next sensordata message to upload or -1 if the file upload has not been attempted.
-func (s *syncer) progressFileIndex(path string) int { return 0 }
-
-// Sets the next read/write pointer in a data capture file to the next sensordata message.
-func skipSensordataMessage(f *os.File) error {
-	_, err := f.Seek(0, 0) // This is incorrect implementation, but f.Seek(a,b) needs to be used here. Figure out correct implementation.
-	return err
-}
-
-func (s *syncer) uploadFile(path string) error {
-	//nolint
-	f, err := os.Open(path)
-	if err != nil {
-		return errors.Wrapf(err, "error while opening file %s", path)
-	}
-	// Resets file pointer.
-	if _, err = f.Seek(0, 0); err != nil {
-		return err
-	}
-
-	// NEW LOGIC BEGIN
-	progressFileName := f.Name() + "_progress"
-	updateIndex := s.progressFileIndex(progressFileName)
-	if updateIndex == -1 {
-		// NEW LOGIC END
-
-		var md *v1.UploadMetadata
-		if isDataCaptureFile(f) {
-			syncMD, err := readDataCaptureMetadata(f)
-			if err != nil {
-				return err
-			}
-			md = &v1.UploadMetadata{
-				PartId:           s.partID,
-				ComponentType:    syncMD.GetComponentType(),
-				ComponentName:    syncMD.GetComponentName(),
-				MethodName:       syncMD.GetMethodName(),
-				Type:             syncMD.GetType(),
-				FileName:         filepath.Base(f.Name()),
-				MethodParameters: syncMD.GetMethodParameters(),
-			}
-		} else {
-			md = &v1.UploadMetadata{
-				PartId:   s.partID,
-				Type:     v1.DataType_DATA_TYPE_FILE,
-				FileName: filepath.Base(f.Name()),
-			}
-		}
-
-		// Construct the Metadata
-		req := &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_Metadata{
-				Metadata: md,
-			},
-		}
-		if err := s.client.Send(req); err != nil {
-			return errors.Wrap(err, "error while sending upload metadata")
-		}
-
-		// NEW LOGIC BEGIN
-		if err = s.createProgressFile(progressFileName, md); err != nil {
-			return err
-		}
-	}
-	// NEW LOGIC END
-
-	var getNextRequest func(context.Context, *os.File) (*v1.UploadRequest, error)
-
-	// NEW DELETED BEGIN
-	// switch md.GetType() {
-	// NEW DELETED END
-
-	// NEW LOGIC BEGIN
-	switch s.getDataType(progressFileName) {
-	// NEW LOGIC END
-
-	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		getNextRequest = getNextSensorUploadRequest
-	case v1.DataType_DATA_TYPE_FILE:
-		getNextRequest = getNextFileUploadRequest
-	case v1.DataType_DATA_TYPE_UNSPECIFIED:
-		return errors.New("no data type specified in upload metadata")
-	default:
-		return errors.New("no data type specified in upload metadata")
-	}
-
-	// NEW LOGIC BEGIN
-	resumeProgressIndex := updateIndex
-	// NEW LOGIC END
-
-	// Loop until there is no more content to be read from file.
-	for {
-
-		// NEW LOGIC BEGIN
-		if resumeProgressIndex > 0 {
-			skipSensordataMessage(f)
-			resumeProgressIndex--
-			continue
-		}
-		// NEW LOGIC END
-
-		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextRequest(s.cancelCtx, f)
-		// If the error is EOF, break from loop.
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
-			continue
-		}
-		// If there is any other error, return it.
-		if err != nil {
-			return err
-		}
-		// Finally, send the UploadRequest to the client.
-		if err := s.client.Send(uploadReq); err != nil {
-			return errors.Wrap(err, "error while sending uploadRequest")
-		}
-
-		// NEW LOGIC BEGIN
-		updateIndex++
-		if err = s.updateIndexProgressFile(progressFileName, updateIndex); err != nil {
-			updateIndex--
-			return err
-		}
-		// NEW LOGIC END
-	}
-
-	if err = f.Close(); err != nil {
-		return err
-	}
-	// Close stream and receive response.
-	if _, err := s.client.CloseAndRecv(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-			"sync service backend")
-	}
-
-	// NEW LOGIC BEGIN
-	if err = s.deleteProgressFile(progressFileName); err != nil {
-		return err
-	}
-	// NEW LOGIC END
-
-	return nil
-}
-
 func (s *syncer) Sync(paths []string) {
 	for _, p := range paths {
 		s.upload(s.cancelCtx, p)
 	}
-}
-
-type progressTracker struct {
-	lock *sync.Mutex
-	m    map[string]struct{}
-}
-
-func (p *progressTracker) inProgress(k string) bool {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	_, ok := p.m[k]
-	return ok
-}
-
-func (p *progressTracker) mark(k string) {
-	p.lock.Lock()
-	p.m[k] = struct{}{}
-	p.lock.Unlock()
-}
-
-func (p *progressTracker) unmark(k string) {
-	p.lock.Lock()
-	delete(p.m, k)
-	p.lock.Unlock()
 }
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
@@ -341,7 +164,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error {
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
@@ -385,13 +208,22 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
-	var getNextRequest func(context.Context, *os.File) (*v1.UploadRequest, error)
+	var getNextRequestFn getNextRequestFn
+	var updateProgressFn updateProgressFn
+	var deleteProgressFn deleteProgressFn
 
 	switch md.GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		getNextRequest = getNextSensorUploadRequest
+		getNextRequestFn = getNextSensorUploadRequest
+		if err := initDataCaptureUpload(ctx, f, pt, f.Name(), md); err != nil {
+			return err
+		}
+		updateProgressFn = updateProgress
+		deleteProgressFn = deleteProgress
 	case v1.DataType_DATA_TYPE_FILE:
-		getNextRequest = getNextFileUploadRequest
+		getNextRequestFn = getNextFileUploadRequest
+		updateProgressFn = func(progressTracker, string) error { return nil }
+		deleteProgressFn = func(progressTracker, string) error { return nil }
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return errors.New("no data type specified in upload metadata")
 	default:
@@ -400,8 +232,9 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 
 	// Loop until there is no more content to be read from file.
 	for {
+
 		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextRequest(ctx, f)
+		uploadReq, err := getNextRequestFn(ctx, f)
 		// If the error is EOF, break from loop.
 		if errors.Is(err, io.EOF) {
 			break
@@ -417,15 +250,64 @@ func viamUpload(ctx context.Context, client v1.DataSyncService_UploadClient, pat
 		if err := client.Send(uploadReq); err != nil {
 			return errors.Wrap(err, "error while sending uploadRequest")
 		}
+
+		updateProgressFn(pt, f.Name()+"_progress")
 	}
 
 	if err = f.Close(); err != nil {
 		return err
 	}
 	// Close stream and receive response.
-	if _, err := client.CloseAndRecv(); err != nil {
+	if _, err = client.CloseAndRecv(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
 			"sync service backend")
+	}
+
+	deleteProgressFn(pt, f.Name()+"_progress")
+
+	return nil
+}
+
+func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
+	progressFileName := dcFileName + "_progress"
+	progressIndex := pt.getIndexProgressFile(progressFileName)
+	if progressIndex == -1 {
+		if err := pt.createProgressFile(progressFileName, md); err != nil {
+			return err
+		}
+		return nil
+	}
+	if err := skipSensordataMessages(ctx, f, progressIndex); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Sets the next read/write pointer in a data capture file to the next sensordata message that needs to be uploaded.
+func skipSensordataMessages(ctx context.Context, f *os.File, nextMessageIndex int) error {
+	if _, err := f.Seek(0, 0); err != nil {
+		return err
+	}
+	for i := 0; i < nextMessageIndex; i++ {
+		if _, err := getNextSensorUploadRequest(ctx, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Wrapper function around pt.updateIndexProgressFile
+func updateProgress(pt progressTracker, progressFileName string) error {
+	if err := pt.updateIndexProgressFile(progressFileName); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Wrapper function around pt.deleteProgressFile
+func deleteProgress(pt progressTracker, progressFileName string) error {
+	if err := pt.deleteProgressFile(progressFileName); err != nil {
+		return err
 	}
 	return nil
 }
