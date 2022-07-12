@@ -5,32 +5,14 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 )
 
-const (
-	testBoardName = "board1"
-	testBusName   = "i2c1"
-)
-
-func setupDependencies(t *testing.T) registry.Dependencies {
-	t.Helper()
-
-	deps := make(registry.Dependencies)
-
-	actualBoard := newBoard(testBoardName)
-	deps[board.Named(testBoardName)] = actualBoard
-
-	return deps
-}
-
-func TestValidate(t *testing.T) {
+func TestValidateRTK(t *testing.T) {
 	fakecfg := &RTKAttrConfig{}
 	err := fakecfg.ValidateRTK("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty ntrip address")
@@ -185,19 +167,7 @@ func TestNewRTKGPS(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-var (
-	loc        = geo.NewPoint(90, 1)
-	alt        = 50.5
-	speed      = 5.4
-	activeSats = 1
-	totalSats  = 2
-	hAcc       = 0.7
-	vAcc       = 0.8
-	valid      = true
-	fix        = 1
-)
-
-func TestReadings(t *testing.T) {
+func TestReadingsRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -256,7 +226,7 @@ func TestReadings(t *testing.T) {
 	test.That(t, readings, test.ShouldResemble, correctReadings)
 }
 
-func TestClose(t *testing.T) {
+func TestCloseRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
