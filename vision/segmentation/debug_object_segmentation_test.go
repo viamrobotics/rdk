@@ -43,7 +43,7 @@ func (h *segmentObjectTestHelper) Process(
 
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
+	cloud, err := h.cameraParams.RGBDToPointCloud(ii.Color, ii.Depth)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
 	injectCamera := &inject.Camera{}
@@ -110,13 +110,13 @@ func (h *gripperSegmentTestHelper) Process(
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth")
 
 	// Pre-process the depth map to smooth the noise out and fill holes
-	ii, err = rimage.PreprocessDepthMap(ii)
+	ii.Depth, err = rimage.PreprocessDepthMap(ii.Depth, ii.Color)
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
 	// Get the point cloud
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
+	cloud, err := h.cameraParams.RGBDToPointCloud(ii.Color, ii.Depth)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 	injectCamera := &inject.Camera{}

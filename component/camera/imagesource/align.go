@@ -205,9 +205,10 @@ func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), erro
 		}
 	}
 
-	aligned, err := acd.alignmentCamera.AlignColorAndDepthImage(rimage.ConvertImage(c), dm)
+	alignedColor, alignedDepth, err := acd.alignmentCamera.AlignColorAndDepthImage(rimage.ConvertImage(c), dm)
 	if err != nil {
 		return nil, nil, err
 	}
+	aligned := rimage.MakeImageWithDepth(alignedColor, alignedDepth, true)
 	return aligned, func() {}, err
 }
