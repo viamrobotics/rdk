@@ -161,7 +161,7 @@ func (g *Graph) Node(node Name) (interface{}, bool) {
 	return iface, ok
 }
 
-// Names returns the all reosurce graph names.
+// Names returns the all resource graph names.
 func (g *Graph) Names() []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -174,7 +174,7 @@ func (g *Graph) Names() []Name {
 	return names
 }
 
-// GetAllChildrenOf returns all direct childrend of a node.
+// GetAllChildrenOf returns all direct children of a node.
 func (g *Graph) GetAllChildrenOf(node Name) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -214,7 +214,7 @@ func (g *Graph) addNode(node Name, iface interface{}) {
 	g.transitiveClosureMatrix[node][node] = 1
 }
 
-// RenameNode rename a node from old to new keeping dependencies alive.
+// RenameNode rename a node from old to new keeping it's dependencies. On success the old node is destroyed.
 func (g *Graph) RenameNode(old, _new Name) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
