@@ -84,13 +84,14 @@ const motorStop = () => {
 
 <template>
   <v-collapse :title="motorName">
+    <v-breadcrumbs
+      slot="title"
+      :crumbs="crumbs.join(',')"
+    />
     <div
       slot="header"
       class="flex items-center justify-between gap-2"
     >
-      <v-breadcrumbs
-        :crumbs="crumbs.join(',')"
-      />
       <v-badge
         v-if="motorStatus.positionReporting"
         :label="`Position ${motorStatus.position}`"
@@ -119,10 +120,8 @@ const motorStop = () => {
       >
         <div class="grid">
           <div class="column">
-            <p class="pb-2 text-xs">
-              Set Power
-            </p>
             <v-radio
+              label="Set Power"
               :options="
                 motorStatus.positionReporting
                   ? 'Go, Go For, Go To'
@@ -177,10 +176,8 @@ const motorStop = () => {
               @input="revolutions = $event.detail.value"
             />
             <div class="column pr-4">
-              <p class="mb-1 text-xs">
-                Direction of Rotation
-              </p>
               <v-radio
+                label="Direction of Rotation"
                 options="Forwards, Backwards"
                 :selected="direction === 1 ? 'Forwards' : 'Backwards'"
                 @input="setDirection($event.detail.value)"
@@ -206,26 +203,26 @@ const motorStop = () => {
               />
             </div>
             <div class="column pr-4">
-              <p class="pb-2 pt-1 text-xs">
-                Direction of Rotation
-              </p>
               <v-radio
+                label="Direction of Rotation"
                 options="Forwards, Backwards"
                 :selected="direction === 1 ? 'Forwards' : 'Backwards'"
                 @input="setDirection($event.detail.value)"
               />
             </div>
-            <v-slider
-              id="power"
-              class="pt-2"
-              :min="0"
-              :max="100"
-              :step="1"
-              unit="%"
-              name="Power %"
-              :value="power"
-              @input="power = $event.detail.value"
-            />
+            <div class="min-w-[400px]">
+              <v-slider
+                id="power"
+                class="pt-2"
+                :min="0"
+                :max="100"
+                :step="1"
+                unit="%"
+                name="Power %"
+                :value="power"
+                @input="power = $event.detail.value"
+              />
+            </div>
           </div>
         </div>
         <div class="flex flex-row-reverse">

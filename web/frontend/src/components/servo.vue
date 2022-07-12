@@ -75,11 +75,14 @@ const motorStop = () => {
 
 <template>
   <v-collapse :title="motorName">
+    <v-breadcrumbs
+      slot="title"
+      :crumbs="crumbs.join(',')" 
+    />
     <div
       slot="header"
       class="flex"
     >
-      <v-breadcrumbs :crumbs="crumbs.join(',')" />
       <div
         v-if="motorStatus.positionReporting"
         class="flex flex-wrap items-center p-4"
@@ -113,10 +116,8 @@ const motorStop = () => {
       <div class="grid h-full grid-cols-1 border border-t-0 border-black p-4">
         <div class="grid">
           <div class="column">
-            <p class="pb-2 text-xs">
-              Set Power
-            </p>
             <v-radio
+              label="Set Power"
               :options="
                 motorStatus.positionReporting
                   ? 'Go, Go For, Go To'
@@ -171,10 +172,8 @@ const motorStop = () => {
               @input="revolutions = $event.detail.value"
             />
             <div class="column pr-4">
-              <p class="mb-1 text-xs">
-                Direction of Rotation
-              </p>
               <v-radio
+                label="Direction of Rotation"
                 options="Forwards, Backwards"
                 default-option="Forwards"
                 :selected="direction === 1 ? 'Forwards' : 'Backwards'"
@@ -201,10 +200,8 @@ const motorStop = () => {
               />
             </div>
             <div class="column pr-4">
-              <p class="pb-2 pt-1 text-xs">
-                Direction of Rotation
-              </p>
               <v-radio
+                label="Direction of Rotation"
                 options="Forwards, Backwards"
                 default-option="Forwards"
                 :selected="direction === 1 ? 'Forwards' : 'Backwards'"

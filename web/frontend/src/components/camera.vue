@@ -119,7 +119,7 @@ const togglePCDExpand = () => {
 <template>
   <v-collapse :title="streamName">
     <v-breadcrumbs
-      slot="header"
+      slot="title"
       :crumbs="crumbs.join(',')"
     />
     <div class="h-auto border-x border-b border-black p-2">
@@ -366,10 +366,8 @@ const togglePCDExpand = () => {
                   </div>
                   <div class="flex pt-4 pb-8">
                     <div class="column">
-                      <p class="text-xs">
-                        Selection Type
-                      </p>
                       <v-radio
+                        label="Selection Type"
                         options="Center Point, Bounding Box, Cropped"
                         @input="selectObject($event.detail.selected)"
                       />
