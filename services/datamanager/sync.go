@@ -46,7 +46,6 @@ type syncer struct {
 
 type getNextRequestFn func(context.Context, *os.File) (*v1.UploadRequest, error)
 type updateProgressFn func(progressTracker, string) error
-type deleteProgressFn func(progressTracker, string) error
 type uploadFn func(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error
 
 //type uploadFnNew func(path string) error
@@ -103,6 +102,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger.Errorw("error while deleting file", "error", err)
 		} else {
 			s.progressTracker.unmark(path)
+			s.progressTracker.deleteProgressFile(path + "_progress")
 		}
 	})
 }
@@ -210,7 +210,6 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 
 	var getNextRequestFn getNextRequestFn
 	var updateProgressFn updateProgressFn
-	var deleteProgressFn deleteProgressFn
 
 	switch md.GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
@@ -219,11 +218,9 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 			return err
 		}
 		updateProgressFn = updateProgress
-		deleteProgressFn = deleteProgress
 	case v1.DataType_DATA_TYPE_FILE:
 		getNextRequestFn = getNextFileUploadRequest
 		updateProgressFn = func(progressTracker, string) error { return nil }
-		deleteProgressFn = func(progressTracker, string) error { return nil }
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return errors.New("no data type specified in upload metadata")
 	default:
@@ -263,8 +260,6 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 			"sync service backend")
 	}
 
-	deleteProgressFn(pt, f.Name()+"_progress")
-
 	return nil
 }
 
@@ -299,14 +294,6 @@ func skipSensordataMessages(ctx context.Context, f *os.File, nextMessageIndex in
 // Wrapper function around pt.updateIndexProgressFile
 func updateProgress(pt progressTracker, progressFileName string) error {
 	if err := pt.updateIndexProgressFile(progressFileName); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Wrapper function around pt.deleteProgressFile
-func deleteProgress(pt progressTracker, progressFileName string) error {
-	if err := pt.deleteProgressFile(progressFileName); err != nil {
 		return err
 	}
 	return nil
