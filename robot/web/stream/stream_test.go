@@ -97,9 +97,10 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 	}
 	go webstream.StreamSource(ctx, imgSrc, str, backoffOpts)
 	readyChan <- struct{}{}
+
 	// Wait for the expect timeout duration, with some padding.
 	time.Sleep(time.Duration(totalExpectedSleep))
-	time.Sleep(parseDuration(t, "2ms"))
+	time.Sleep(parseDuration(t, "1ms"))
 
 	cancel()
 	if calls, expectedCalls := imgSrc.Called(), imgSrc.MaxCalls(); calls != expectedCalls {
