@@ -77,9 +77,8 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	backoffOpts := &webstream.BackoffTuningOptions{
-		BaseSleep:        parseDuration(t, "50us"),
-		MaxSleep:         parseDuration(t, "250ms"),
-		MaxSleepAttempts: 25,
+		BaseSleep: parseDuration(t, "50us"),
+		MaxSleep:  parseDuration(t, "250ms"),
 	}
 	imgSrc := &mockErrorImageSource{maxCalls: 25}
 	totalExpectedSleep := int64(0)
