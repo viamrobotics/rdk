@@ -478,8 +478,6 @@ type ConfigUpdateable interface {
 }
 
 func (r *localRobot) updateDefaultServices(ctx context.Context) {
-	// TODO(npemard) this function uses config should only provide relevant objects
-	// grab all resources
 	resources := map[resource.Name]interface{}{}
 	for _, n := range r.ResourceNames() {
 		// TODO(RSDK-333) if not found, could mean a name clash or a remote service

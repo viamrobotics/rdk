@@ -128,7 +128,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 			unknownTypeName,
 			resource.SubtypeName(""), res.Name)
 		if _, ok := visited[asUnk]; ok {
-			manager.logger.Infof("ok we have an unk res %q that we are converting to %q", asUnk, res)
+			manager.logger.Infof("we have an unk res %q that we are converting to %q", asUnk, res)
 			visited[asUnk] = true
 			if err := manager.resources.RenameNode(asUnk, res); err != nil {
 				manager.logger.Errorw("fail to rename node", "node", asUnk, "error", err)
@@ -145,7 +145,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 			manager.logger.Debugf("deleting res %q", res)
 			err := manager.markChildrenForUpdate(ctx, res, lr)
 			if err != nil {
-				manager.logger.Errorw("failed to mark childrens of remote for update", "resource", res, "reason", err)
+				manager.logger.Errorw("failed to mark children of remote for update", "resource", res, "reason", err)
 				continue
 			}
 			if len(manager.resources.GetAllChildrenOf(res)) > 0 {
@@ -198,7 +198,7 @@ func (manager *resourceManager) anyResourcesNotConfigured() bool {
 		if !ok {
 			continue
 		}
-		if _, ok := iface.(*resourcePlaceholder); ok {
+		if _, ok := iface.(*resourcePlaceholder); ok || iface == nil {
 			return true
 		}
 	}
@@ -368,7 +368,7 @@ func (manager *resourceManager) completeConfig(
 
 // processModifiedConfig ingests a given config and constructs all constituent parts.
 
-// cleanAppImageEnv attempts to revert environent variable changes so
+// cleanAppImageEnv attempts to revert environment variable changes so
 // normal, non-AppImage processes can be executed correctly.
 func cleanAppImageEnv() error {
 	_, isAppImage := os.LookupEnv("APPIMAGE")
@@ -664,7 +664,7 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 		}
 		return nr, nil
 	default:
-		return old, errors.New("unhandeled case of reconfigure action")
+		return old, errors.New("un-handeled case of reconfigure action")
 	}
 }
 
@@ -715,7 +715,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 		}
 		if err := manager.resources.AddChildren(name, parent); err != nil {
 			manager.logger.Errorw("cannot add dependency", "error", err)
-			manager.resources.Remove(name) // TODO leave or take??
+			manager.resources.Remove(name)
 			return err
 		}
 	}
