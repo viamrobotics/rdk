@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 	"strings"
 	"sync"
@@ -268,13 +269,13 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 	return pcTo, nil
 }
 
-func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem, inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree) (*pointcloud.PointCloud, error) {
+func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem, inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree) (pointcloud.PointCloud, error) {
 	pcSrc, err := jpcs.sourceCameras[sourceIndex].NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}
 	sourcePointList := make([]spatialmath.Pose, pcSrc.Size())
-	targetPointList := make([]r3.Vector, target.Size())
+	targetPointList := make([]r3.Vector, pcSrc.Size())
 
 	pointNum := 0
 	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
@@ -329,7 +330,7 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Jmag
 	x0[6] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Kmag
 
-	// utils.Logger.Debugf("x0 = %v", x0)
+	utils.Logger.Debugf("x0 = %v", x0)
 
 	prob := optimize.Problem{Func: optFunc, Grad: grad, Hess: hess}
 
@@ -344,18 +345,21 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	}
 
 	// method := &optimize.GradientDescent{
-	// 	StepSizer:         &optimize.FirstOrderStepSize{},
+	// StepSizer:         &optimize.FirstOrderStepSize{},
 	// 	GradStopThreshold: 1e-8,
 	// }
 
-	method := &optimize.Newton{}
+	method := &optimize.Newton{
+		// Increase:          1.1,
+		// GradStopThreshold: 1e-8,
+	}
 
 	// run optimization
 	res, err := optimize.Minimize(prob, x0, settings, method)
 	utils.Logger.Debugf("res = %v", res)
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 	x := res.Location.X
 
 	// create the new pose
@@ -364,15 +368,19 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	pose := spatialmath.NewPoseFromOrientationVector(point, quat)
 
 	// transform the pointcloud
-	registeredPointCloud := pointcloud.NewAppendOnlyOnlyPointsPointCloud(pcSrc.Size())
+	registeredPointCloud := pointcloud.NewWithPrealloc(pcSrc.Size())
 	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
 		posePoint := spatialmath.NewPoseFromPoint(p)
 		transformedP := spatialmath.Compose(pose, posePoint).Point()
-		registeredPointCloud.Set(transformedP, d)
+		err := registeredPointCloud.Set(transformedP, d)
+		if err != nil {
+			utils.Logger.Debugf("error = %v", err)
+			return false
+		}
 		return true
 	})
 
-	return &registeredPointCloud, nil
+	return registeredPointCloud, nil
 }
 
 func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -415,12 +423,17 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 			panic(err) // TODO(erh) is there something better to do?
 		}
 
+		utils.Logger.Debugf("registeredPointCloud Size = %d", registeredPointCloud.Size())
+
 		var ok bool
 		// TODO(aidanglickman) this loop is highly parallelizable, not yet making use
-		(*registeredPointCloud).Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
 			_, ok = finalPointCloud.At(p.X, p.Y, p.Z)
 			if !ok {
-				finalPointCloud.Set(p, d)
+				// finalPointCloud.Set(p, d)
+				finalPointCloud.Set(p, pointcloud.NewColoredData(color.NRGBA{R: 0, G: 255, B: 0, A: 255}))
+			} else {
+				finalPointCloud.Set(p, pointcloud.NewColoredData(color.NRGBA{R: 255, G: 0, B: 0, A: 255}))
 			}
 			return true
 		})
