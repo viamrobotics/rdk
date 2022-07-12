@@ -72,6 +72,7 @@ type Camera interface {
 	GetProperties(ctx context.Context) (rimage.Projector, error)
 }
 
+// A PointCloudSource is a source that can generate pointclouds.
 type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
