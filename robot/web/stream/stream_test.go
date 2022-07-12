@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,14 +18,23 @@ import (
 var errImageRetrieval = errors.New("image retrieval failed")
 
 type mockErrorImageSource struct {
-	called   int
-	maxCalls int
+	callsLeft int
+	wg        sync.WaitGroup
+}
+
+func newMockErrorImageSource(expectedCalls int) *mockErrorImageSource {
+	mock := &mockErrorImageSource{callsLeft: expectedCalls}
+	mock.wg.Add(expectedCalls + 1)
+	return mock
 }
 
 func (imageSource *mockErrorImageSource) Next(ctx context.Context) (image.Image, func(), error) {
-	if imageSource.called < imageSource.maxCalls {
-		imageSource.called++
+	if imageSource.callsLeft >= 0 {
+		imageSource.wg.Done()
+	} else {
+		panic("mock image source was called too many times")
 	}
+	imageSource.callsLeft--
 	return nil, nil, errImageRetrieval
 }
 
@@ -63,9 +73,11 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 		BaseSleep: 50 * time.Microsecond,
 		MaxSleep:  250 * time.Millisecond,
 	}
-	imgSrc := &mockErrorImageSource{maxCalls: 25}
+	calls := 25
+	imgSrc := newMockErrorImageSource(calls)
+
 	totalExpectedSleep := int64(0)
-	for i := 0; i < imgSrc.maxCalls; i++ {
+	for i := 0; i < calls; i++ {
 		totalExpectedSleep += backoffOpts.GetSleepTimeFromErrorCount(i + 1).Nanoseconds()
 	}
 	str := &mockStream{}
@@ -77,13 +89,13 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 	str.inputFramesFunc = func() chan<- gostream.FrameReleasePair {
 		return inputChan
 	}
+
 	go webstream.StreamSource(ctx, imgSrc, str, backoffOpts)
+	start := time.Now()
 	readyChan <- struct{}{}
-
-	// Wait for the expect timeout duration, with some padding.
-	time.Sleep(time.Duration(totalExpectedSleep))
-	time.Sleep(1 * time.Millisecond)
-
+	imgSrc.wg.Wait()
 	cancel()
-	test.That(t, imgSrc.called, test.ShouldEqual, imgSrc.maxCalls)
+
+	duration := time.Since(start).Nanoseconds()
+	test.That(t, duration, test.ShouldBeGreaterThanOrEqualTo, totalExpectedSleep)
 }
