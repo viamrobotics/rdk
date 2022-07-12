@@ -653,6 +653,7 @@
               req.setName("UI");
               const mimeType = "image/jpeg";
               req.setMimeType(mimeType);
+              req.setIncludeRobotMarker(true);
               slamService.getMap(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
