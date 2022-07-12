@@ -50,8 +50,8 @@ func (config *RTKAttrConfig) ValidateRTK(path string) error {
 		return errors.New("expected nonempty ntrip address")
 	}
 
-	if len(config.NtripPath) == 0 && len(config.SerialPath) == 0 ||
-		len(config.Board) == 0 || len(config.Bus) == 0 || config.I2cAddr == 0 {
+	if (len(config.NtripPath) == 0 && len(config.SerialPath) == 0) &&
+		(len(config.Board) == 0 || len(config.Bus) == 0 || config.I2cAddr == 0) {
 		return errors.New("Expected either nonempty ntrip path, serial path, or I2C board, bus, and address")
 	}
 

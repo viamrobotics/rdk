@@ -4,54 +4,67 @@ import (
 	"context"
 	"testing"
 
-	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 )
 
-var (
-	loc        = geo.NewPoint(90, 1)
-	alt        = 50.5
-	speed      = 5.4
-	activeSats = 1
-	totalSats  = 2
-	hAcc       = 0.7
-	vAcc       = 0.8
-	valid      = true
-	fix        = 1
+const (
+	testBoardName = "board1"
+	testBusName   = "i2c1"
 )
 
-func TestValidateSerial(t *testing.T) {
-	fakecfg := &SerialAttrConfig{}
-	err := fakecfg.ValidateSerial("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty path")
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
 
-	fakecfg.SerialPath = "some-path"
-	err = fakecfg.ValidateSerial("path")
+	deps := make(registry.Dependencies)
+
+	actualBoard := newBoard(testBoardName)
+	deps[board.Named(testBoardName)] = actualBoard
+
+	return deps
+}
+
+func TestValidateI2C(t *testing.T) {
+	fakecfg := &I2CAttrConfig{}
+	err := fakecfg.ValidateI2C("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty board")
+
+	fakecfg.Board = "some-board"
+	err = fakecfg.ValidateI2C("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty bus")
+
+	fakecfg.Bus = "some-bus"
+	err = fakecfg.ValidateI2C("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty i2c address")
+
+	fakecfg.I2cAddr = 66
+	err = fakecfg.ValidateI2C("path")
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestNewSerialGPS(t *testing.T) {
-	path := "somepath"
+func TestNewI2CGPS(t *testing.T) {
+	deps := setupDependencies(t)
 	
 	cfig := config.Component{
 		Name:  "gps1",
-		Model: "nmea-serial",
+		Model: "nmea-pmtkI2C",
 		Type:  gps.SubtypeName,
 		Attributes: config.AttributeMap{
-			"path": "",
-			"correction_path": "",
+			"board": "",
+			"bus": "",
+			"i2c_addr": "",
 		},
 	}
 
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newSerialNMEAGPS(ctx, cfig, logger)
+	g, err := newPmtkI2CNMEAGPS(ctx, deps, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -60,23 +73,24 @@ func TestNewSerialGPS(t *testing.T) {
 		Model: "nmea-serial",
 		Type:  gps.SubtypeName,
 		Attributes: config.AttributeMap{
-			"path": path,
-			"correction_path": "",
+			"board": testBoardName,
+			"bus": testBusName,
+			"i2c_addr": "",
 		},
 	}
-	g, err = newSerialNMEAGPS(ctx, cfig, logger)
-	passErr := "open " + path + ": no such file or directory"
+	g, err = newPmtkI2CNMEAGPS(ctx, deps, cfig, logger)
+	passErr := "board " + cfig.Attributes.String("board") + " is not local"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, g, test.ShouldNotBeNil)
 	}
 }
 
-func TestReadingsSerial(t *testing.T) {
+func TestReadingsI2C(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &SerialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &PmtkI2CNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	g.data = gpsData{
 		location:   loc,
 		alt:        alt,
@@ -89,11 +103,12 @@ func TestReadingsSerial(t *testing.T) {
 		fixQuality: fix,
 	}
 
-	path := "somepath"
-	g.correctionPath = path
+	g.bus = nil
+	g.addr = 66
 
-	correctionPath := g.GetCorrectionPath()
-	test.That(t, correctionPath, test.ShouldEqual, path)
+	bus, addr := g.GetBusAddr()
+	test.That(t, bus, test.ShouldBeNil)
+	test.That(t, addr, test.ShouldEqual, 66)
 
 	loc1, err := g.ReadLocation(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -131,20 +146,12 @@ func TestReadingsSerial(t *testing.T) {
 	test.That(t, readings, test.ShouldResemble, correctReadings)
 }
 
-func TestCloseSerial(t *testing.T) {
+func TestCloseI2C(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &SerialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &PmtkI2CNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestToPoint(t *testing.T) {
-	a := nmea.GLL{Longitude: loc.Lng(), Latitude: loc.Lat()}
-
-	point := toPoint(a)
-	test.That(t, point.Lng(), test.ShouldEqual, loc.Lng())
-	test.That(t, point.Lat(), test.ShouldEqual, loc.Lat())
 }
