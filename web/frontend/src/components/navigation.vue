@@ -41,7 +41,7 @@ const setNavigationLocation = () => {
   }
   const lat = Number.parseFloat(posSplit[0]);
   const lng = Number.parseFloat(posSplit[1]);
-  const req = new robotApi.ResourceRunCommandRequest();
+  const req = new (robotApi as any).ResourceRunCommandRequest();
   let gpsName = '';
   const gpses = filterResources(props.resources, 'rdk', 'component', 'gps');
   if (gpses.length > 0) {

@@ -106,7 +106,7 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
 <template>
   <v-collapse :title="baseName">
     <v-breadcrumbs
-      slot="header"
+      slot="title"
       :crumbs="crumbs.join(',')"
     />
 
@@ -148,7 +148,7 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
                 </p>
                 <div class="relative">
                   <v-select
-                    :options="cameraOptions.join(',')"
+                    :options="cameraOptions.map(option => option.label).join(',')"
                     :selected="selectedValue"
                     @input="handleCameraOptionsInput"
                   />
@@ -169,10 +169,8 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
       >
         <div class="grow">
           <div class="column">
-            <p class="text-xs">
-              Movement Mode
-            </p>
             <v-radio
+              label="Movement Mode"
               options="Straight, Spin"
               :selected="movementMode"
               @input="setMovementMode($event.detail.value)"
@@ -186,10 +184,8 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
               v-if="movementMode === 'Straight'"
               class="column pr-2"
             >
-              <p class="text-xs">
-                Movement Type
-              </p>
               <v-radio
+                label="Movement Type"
                 options="Continuous, Discrete"
                 :selected="movementType"
                 @input="setMovementType($event.detail.value)"
@@ -199,10 +195,8 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
               v-if="movementMode === 'Straight'"
               class="column pr-2"
             >
-              <p class="text-xs">
-                Direction
-              </p>
               <v-radio
+                label="Direction"
                 options="Forwards, Backwards"
                 :selected="direction"
                 @input="setDirection($event.detail.value)"
@@ -240,16 +234,14 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
             class="pt-4"
           >
             <div class="column pr-2">
-              <p class="text-xs">
-                Movement Type
-              </p>
               <v-radio
+                label="Movement Type"
                 options="Clockwise, Counterclockwise"
                 :selected="spinType"
                 @input="setSpinType($event.detail.value)"
               />
             </div>
-            <div class="column w-10 pl-4">
+            <div class="column w-40 pl-4">
               <v-slider
                 :min="0"
                 :max="360"
