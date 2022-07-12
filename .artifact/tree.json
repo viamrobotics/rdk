@@ -3416,9 +3416,29 @@
     }
   },
   "pointcloud": {
+    "bun0.pcd": {
+      "hash": "2a8eeb771a594acc62d68b2032b62349",
+      "size": 483200
+    },
+    "bun45.pcd": {
+      "hash": "fe232f8768a4a5c90fb20a7a54e4b453",
+      "size": 481292
+    },
+    "pc1.pcd": {
+      "hash": "a6ff18af1d34d3a0627ead6cd02b0e12",
+      "size": 4704236
+    },
+    "pc2.pcd": {
+      "hash": "7f773479aaef8bc17ad60a9a22d0a93d",
+      "size": 4752604
+    },
     "test.las": {
       "hash": "4d23d5d99191210d6a312fd138bb5f08",
       "size": 218973
+    },
+    "test.pcd": {
+      "hash": "6eb977c07e0b40d9535318d94ba6db2e",
+      "size": 4693948
     }
   },
   "preprocessing": {
