@@ -37,7 +37,7 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Confirm end effector starts at 300, 0, 360.25
 	expect := []float64{300, 0, 360.25, 0, 1, 0, 0}
-	pos, err := ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0}})
+	pos, err := ComputePosition(m, &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0}})
 	test.That(t, err, test.ShouldBeNil)
 	actual := poseToSlice(pos)
 
@@ -49,26 +49,26 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Confirm end effector starts at 365, 0, 360.25
 	expect = []float64{365, 0, 360.25, 0, 1, 0, 0}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
+	pos, err = ComputePosition(m, &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}})
 	test.That(t, err, test.ShouldBeNil)
 	actual = poseToSlice(pos)
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	// Test incorrect joints
-	_, err = ComputePosition(m, &pb.JointPositions{Degrees: []float64{}})
+	_, err = ComputePosition(m, &pb.JointPositions{Values: []float64{}})
 	test.That(t, err, test.ShouldNotBeNil)
-	_, err = ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0, 0}})
+	_, err = ComputePosition(m, &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0, 0}})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	newPos := []float64{45, -45, 0, 0, 0, 0}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, err, test.ShouldBeNil)
 	actual = poseToSlice(pos)
 	expect = []float64{57.5, 57.5, 545.1208197765168, 0, 0.5, 0.5, 0.707}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 
 	newPos = []float64{-45, 0, 0, 0, 0, 45}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, err, test.ShouldBeNil)
 	actual = poseToSlice(pos)
 	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
@@ -76,7 +76,7 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Test out of bounds. Note that ComputePosition will return nil on OOB.
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, pos, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 }
@@ -329,7 +329,7 @@ func TestSVAvsDH(t *testing.T) {
 
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < numTests; i++ {
-		joints := frame.InputsToJointPos(frame.RandomFrameInputs(mSVA, seed))
+		joints := mSVA.ProtobufFromInput(frame.RandomFrameInputs(mSVA, seed))
 
 		posSVA, err := ComputePosition(mSVA, joints)
 		test.That(t, err, test.ShouldBeNil)
