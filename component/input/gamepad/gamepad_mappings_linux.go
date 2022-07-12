@@ -191,7 +191,7 @@ var GamepadMappings = map[string]Mapping{
 			297: input.ButtonStart,
 		},
 	},
-	//PS4 Controller
+	// PS4 Controller
 	"Wireless Controller": {
 		Axes: map[evdev.AbsoluteType]input.Control{
 			0:  input.AbsoluteX,
