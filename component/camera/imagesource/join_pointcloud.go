@@ -273,6 +273,11 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	if err != nil {
 		return nil, err
 	}
+<<<<<<< HEAD
+=======
+	sourcePointList := make([]spatialmath.Pose, pcSrc.Size())
+	targetPointList := make([]r3.Vector, pcSrc.Size())
+>>>>>>> 7b70d7bd (WIP: Continue ICP testing, currently has a lot of debug code)
 
 	sourcePointList := make([]r3.Vector, pcSrc.Size())
 	nearestNeighborBuffer := make([]r3.Vector, pcSrc.Size())
@@ -352,17 +357,27 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	// 	GradStopThreshold: 1e-8,
 	// }
 
+<<<<<<< HEAD
 	method := &optimize.BFGS{
 		// Increase:          1.1,
 		// GradStopThreshold: 1e-8,
 		Linesearcher: &optimize.Bisection{
 			CurvatureFactor: 0.9,
 		},
+=======
+	method := &optimize.Newton{
+		// Increase:          1.1,
+		// GradStopThreshold: 1e-8,
+>>>>>>> 7b70d7bd (WIP: Continue ICP testing, currently has a lot of debug code)
 	}
 
 	// run optimization
 	res, err := optimize.Minimize(prob, x0, settings, method)
+<<<<<<< HEAD
 	utils.Logger.Debugf("res = %v, err = %v", res, err)
+=======
+	utils.Logger.Debugf("res = %v", res)
+>>>>>>> 7b70d7bd (WIP: Continue ICP testing, currently has a lot of debug code)
 	// if err != nil {
 	// 	return nil, err
 	// }
