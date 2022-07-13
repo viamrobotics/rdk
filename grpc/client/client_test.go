@@ -1267,3 +1267,35 @@ func TestNewRobotClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestClientStopAll(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer1 := grpc.NewServer()
+	resourcesFunc := func() []resource.Name { return []resource.Name{} }
+	stopAllCalled := false
+	injectRobot1 := &inject.Robot{
+		ResourceNamesFunc:       resourcesFunc,
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+		StopAllFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			fmt.Println("HERE I AM")
+			stopAllCalled = true
+			return nil
+		},
+	}
+	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
+
+	go gServer1.Serve(listener1)
+	defer gServer1.Stop()
+
+	client, err := New(context.Background(), listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = client.StopAll(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stopAllCalled, test.ShouldBeTrue)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
