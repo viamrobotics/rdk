@@ -48,21 +48,22 @@ func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Contex
 	var errorCount int
 
 	return func(ctx context.Context, err error) bool {
-		if err != nil {
-			if errors.Is(prevErr, err) {
-				errorCount++
-			} else {
-				prevErr = err
-				errorCount = 1
-			}
-
-			sleep := opts.GetSleepTimeFromErrorCount(errorCount)
-			rlog.Logger.Debugw("error getting frame", "error", err, "count", errorCount)
-			utils.SelectContextOrWait(ctx, sleep)
-
-			return true
+		if err == nil {
+			errorCount = 0
+			return false
 		}
-		errorCount = 0
-		return false
+
+		if errors.Is(prevErr, err) {
+			errorCount++
+		} else {
+			prevErr = err
+			errorCount = 1
+		}
+
+		sleep := opts.GetSleepTimeFromErrorCount(errorCount)
+		rlog.Logger.Debugw("error getting frame", "error", err, "count", errorCount)
+		utils.SelectContextOrWait(ctx, sleep)
+
+		return true
 	}
 }
