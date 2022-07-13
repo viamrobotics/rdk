@@ -366,8 +366,6 @@ func (manager *resourceManager) completeConfig(
 	}
 }
 
-// processModifiedConfig ingests a given config and constructs all constituent parts.
-
 // cleanAppImageEnv attempts to revert environment variable changes so
 // normal, non-AppImage processes can be executed correctly.
 func cleanAppImageEnv() error {
