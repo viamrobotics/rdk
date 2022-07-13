@@ -1968,7 +1968,7 @@ function setBoundingBox(box, centerPoint) {
           </tr>
         </table>
         <h3 class="mb-2">
-          GPIO
+          Digital Interrupts
         </h3>
         <table class="mb-4 table-auto border border-black">
           <tr
@@ -1984,7 +1984,7 @@ function setBoundingBox(box, centerPoint) {
           </tr>
         </table>
         <h3 class="mb-2">
-          DigiGPIOtalInterrupts
+          GPIO
         </h3>
         <table class="mb-4 table-auto border border-black">
           <tr>
