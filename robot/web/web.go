@@ -873,7 +873,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 
 	fqName := resource.Name{
 		Subtype: foundType.Subtype,
-		Remote:  resource.Remote{Remote: ""}, Name: name,
+		Remote:  "", Name: name,
 	}
 
 	resource, err := svc.r.ResourceByName(fqName)

@@ -47,10 +47,10 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 		switch {
 		case n.Name == "":
 			resources[n.String()] = v
-		case n.Remote.Remote == "":
+		case n.Remote == "":
 			resources[n.Name] = v
 		default:
-			resources[strings.Join([]string{string(n.Remote.Remote), n.Name}, ":")] = v
+			resources[strings.Join([]string{string(n.Remote), n.Name}, ":")] = v
 		}
 	}
 	s.resources = resources
