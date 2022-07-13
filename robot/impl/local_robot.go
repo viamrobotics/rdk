@@ -167,6 +167,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) 
 		resource, err := r.ResourceByName(name)
 		if err != nil {
 			resourceErrs = append(resourceErrs, name.Name)
+			continue
 		}
 
 		// New function definition with the `extra` param
@@ -177,6 +178,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) 
 			err = nsr.Stop(ctx, extra)
 			if err != nil {
 				resourceErrs = append(resourceErrs, name.Name)
+				continue
 			}
 		}
 
@@ -188,6 +190,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) 
 			err = osr.Stop(ctx)
 			if err != nil {
 				resourceErrs = append(resourceErrs, name.Name)
+				continue
 			}
 		}
 	}
