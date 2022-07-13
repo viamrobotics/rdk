@@ -57,7 +57,7 @@ func (g *Graph) getAllParentOf(node Name) resourceNode {
 	return out
 }
 
-func copynodes(s resourceNode) resourceNode {
+func copyNodes(s resourceNode) resourceNode {
 	out := make(resourceNode, len(s))
 	for k, v := range s {
 		out[k] = v
@@ -68,7 +68,7 @@ func copynodes(s resourceNode) resourceNode {
 func copyNodeMap(m resourceDependencies) resourceDependencies {
 	out := make(resourceDependencies, len(m))
 	for k, v := range m {
-		out[k] = copynodes(v)
+		out[k] = copyNodes(v)
 	}
 	return out
 }
@@ -114,7 +114,7 @@ func (g *Graph) Clone() *Graph {
 func (g *Graph) clone() *Graph {
 	return &Graph{
 		children:                copyNodeMap(g.children),
-		nodes:                   copynodes(g.nodes),
+		nodes:                   copyNodes(g.nodes),
 		parents:                 copyNodeMap(g.parents),
 		transitiveClosureMatrix: copyTransitiveClosureMatrix(g.transitiveClosureMatrix),
 	}
@@ -215,32 +215,32 @@ func (g *Graph) addNode(node Name, iface interface{}) {
 }
 
 // RenameNode rename a node from old to new keeping it's dependencies. On success the old node is destroyed.
-func (g *Graph) RenameNode(old, _new Name) error {
+func (g *Graph) RenameNode(old, newName Name) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.renameNode(old, _new)
+	return g.renameNode(old, newName)
 }
 
-func (g *Graph) renameNode(old, _new Name) error {
+func (g *Graph) renameNode(old, newName Name) error {
 	if _, ok := g.nodes[old]; !ok {
 		return errors.Errorf("old node %q doesn't exists", old)
 	}
-	if _, ok := g.nodes[_new]; ok {
-		return errors.Errorf("new node %q already exists", _new)
+	if _, ok := g.nodes[newName]; ok {
+		return errors.Errorf("new node %q already exists", newName)
 	}
 	oldParents := g.getAllParentOf(old)
 	oldChildren := g.getAllChildrenOf(old)
 
-	g.addNode(_new, g.nodes[old])
+	g.addNode(newName, g.nodes[old])
 	for p := range oldParents {
 		g.removeChildren(old, p)
-		if err := g.addChildren(_new, p); err != nil {
+		if err := g.addChildren(newName, p); err != nil {
 			return err
 		}
 	}
 	for c := range oldChildren {
 		g.removeChildren(c, old)
-		if err := g.addChildren(c, _new); err != nil {
+		if err := g.addChildren(c, newName); err != nil {
 			return err
 		}
 	}

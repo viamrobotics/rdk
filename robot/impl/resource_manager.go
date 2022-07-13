@@ -123,21 +123,21 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 				"reason", err)
 			continue
 		}
-		asUnk := resource.NewRemoteName(res.Remote.Remote,
+		asUnknown := resource.NewRemoteName(res.Remote.Remote,
 			resource.ResourceNamespaceRDK,
 			unknownTypeName,
 			resource.SubtypeName(""), res.Name)
-		if _, ok := visited[asUnk]; ok {
-			manager.logger.Infof("we have an unk res %q that we are converting to %q", asUnk, res)
-			visited[asUnk] = true
-			if err := manager.resources.RenameNode(asUnk, res); err != nil {
-				manager.logger.Errorw("fail to rename node", "node", asUnk, "error", err)
+		if _, ok := visited[asUnknown]; ok {
+			manager.logger.Infow("we have an unknown res that we are converting to", "unknown", asUnknown, "new name", res)
+			visited[asUnknown] = true
+			if err := manager.resources.RenameNode(asUnknown, res); err != nil {
+				manager.logger.Errorw("fail to rename node", "node", asUnknown, "error", err)
 			}
 		}
 		manager.addResource(res, iface)
 		err = manager.resources.AddChildren(res, remoteName)
 		if err != nil {
-			manager.logger.Errorf("error while trying add %q as a dependency of remote %q", res, remoteName)
+			manager.logger.Errorw("error while trying add node as a dependency of remote", "node", res, "remote", remoteName)
 		}
 	}
 	for res, visit := range visited {
@@ -149,14 +149,14 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 				continue
 			}
 			if len(manager.resources.GetAllChildrenOf(res)) > 0 {
-				asUnk := resource.NewRemoteName(res.Remote.Remote,
+				asUnknown := resource.NewRemoteName(res.Remote.Remote,
 					resource.ResourceNamespaceRDK,
 					unknownTypeName,
 					resource.SubtypeName(""), res.Name)
-				if err := manager.resources.RenameNode(res, asUnk); err != nil {
+				if err := manager.resources.RenameNode(res, asUnknown); err != nil {
 					manager.logger.Errorw("error while renaming node", "error", err)
 				}
-				manager.resources.AddNode(asUnk, nil)
+				manager.resources.AddNode(asUnknown, nil)
 				continue
 			}
 			manager.resources.Remove(res)
@@ -329,7 +329,7 @@ func (manager *resourceManager) completeConfig(
 		if !ok {
 			continue
 		}
-		manager.logger.Infof("we are now handling the resource %q %+v", r.Name, wrap.config)
+		manager.logger.Infow("we are now handling the resource ", "resource", r.Name)
 		if c, ok := wrap.config.(config.Component); ok {
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
@@ -469,7 +469,7 @@ func (manager *resourceManager) processRemote(ctx context.Context,
 	config config.Remote,
 ) (*client.RobotClient, error) {
 	dialOpts := remoteDialOptions(config, manager.opts)
-	manager.logger.Infof("connecting now to %q", config.Name)
+	manager.logger.Debugw("connecting now to remote", "remote", config.Name)
 	robotClient, err := dialRobotClient(ctx, config, manager.logger, dialOpts...)
 	if err != nil {
 		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
@@ -481,7 +481,7 @@ func (manager *resourceManager) processRemote(ctx context.Context,
 		}
 		return nil, errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 	}
-	manager.logger.Infof("connected now to %q", config.Name)
+	manager.logger.Debugw("connected now to remote", "remote", config.Name)
 	return robotClient, nil
 }
 
@@ -492,7 +492,7 @@ func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
 	if iface, ok := manager.resources.Node(rName); ok {
 		part, ok := iface.(robot.Robot)
 		if !ok {
-			manager.logger.Errorf("tried to access remote '%q' but its not a robot interface its %T", name, iface)
+			manager.logger.Errorw("tried to access remote but its not a robot interface", "remote_name", name, "type", iface)
 		}
 		return part, ok
 	}
@@ -681,7 +681,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 		}
 	}
 	if old, ok := manager.resources.FindNodeByName(name.Name); ok && old.ResourceType == unknownTypeName {
-		manager.logger.Infof("renaming resource %q with %q", old, name)
+		manager.logger.Debugw("renaming resource with ", "old", old, "new", name)
 		if err := manager.resources.RenameNode(*old, name); err != nil {
 			manager.logger.Errorw("error renaming a resource", "error", err)
 		}
@@ -699,7 +699,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 		} else if p, ok := manager.resources.FindNodeByName(dep); ok {
 			parent = *p
 		} else {
-			manager.logger.Errorf("the dependency %q for resource %q doesn't exist, no dependency will be added", dep, name)
+			manager.logger.Errorw("the dependency for resource  doesn't exist, no dependency will be added", "dependency", dep, "resource", name)
 			continue
 		}
 		if _, ok := mapParents[parent]; ok {

@@ -100,6 +100,7 @@ func (config *Component) String() string {
 }
 
 // ResourceName returns the  ResourceName for the component.
+// TODO(npmemard) Before merge should remove this also the service one.
 func (config *Component) ResourceName() resource.Name {
 	remotes := strings.Split(config.Name, ":")
 	cType := string(config.Type)
