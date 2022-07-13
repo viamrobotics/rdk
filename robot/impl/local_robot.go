@@ -154,7 +154,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 	return r.manager.Close(ctx)
 }
 
-// StopAll cancels all current and outstanding operations for the robot and stop all actuators and movement.
+// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) error {
 	// Stop all operations
 	for _, op := range r.OperationManager().All() {
