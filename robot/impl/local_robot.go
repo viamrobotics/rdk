@@ -364,9 +364,8 @@ func newWithResources(
 				if !ok {
 					return
 				}
-				rr, ok := r.manager.RemoteByName(n)
-				rn := fromRemoteNameToRemoteNodeName(n)
-				if ok {
+				if rr, ok := r.manager.RemoteByName(n); ok {
+					rn := fromRemoteNameToRemoteNodeName(n)
 					r.manager.updateRemoteResourceNames(ctx, rn, rr, r)
 					r.updateDefaultServices(ctx)
 				}
@@ -664,7 +663,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 			}
 		}
 		// we don't know what this is :(
-		r.logger.Warnf("processing unknown  resource %q", name)
+		r.logger.Debugw("processing unknown  resource", "name", name)
 		return resource.NameFromSubtype(unknownSubtype, name), true
 	})
 	if err != nil {
