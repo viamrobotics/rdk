@@ -124,6 +124,11 @@ func (draft *draftRobot) Close(ctx context.Context) error {
 	return draft.original.Close(ctx)
 }
 
+// StopAll will stop all current and outstanding operations for the robot and stop all actuators and movement.
+func (draft *draftRobot) StopAll(ctx context.Context, extra map[string]interface{}) error {
+	return draft.original.StopAll(ctx, extra)
+}
+
 func (draft *draftRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
 	return draft.original.newService(ctx, config)
 }

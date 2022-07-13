@@ -687,6 +687,82 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
+type dummyArm struct {
+	arm.LocalArm
+	stopCount int
+}
+
+func (da *dummyArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	return nil, errors.New("fake error")
+}
+
+func (da *dummyArm) MoveToPosition(
+	ctx context.Context,
+	pose *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
+	return nil
+}
+
+func (da *dummyArm) MoveToJointPositions(ctx context.Context, positionDegs *armpb.JointPositions, extra map[string]interface{}) error {
+	return nil
+}
+
+func (da *dummyArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
+	return nil, errors.New("fake error")
+}
+
+func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) error {
+	da.stopCount++
+	return nil
+}
+
+func TestStopAll(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	modelName := utils.RandomAlphaString(8)
+	var dummyArm1 dummyArm
+	registry.RegisterComponent(
+		arm.Subtype,
+		modelName,
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			deps registry.Dependencies,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return &dummyArm1, nil
+		}})
+
+	armConfig := fmt.Sprintf(`{
+		"components": [
+			{
+				"model": "%[1]s",
+				"name": "arm1",
+				"type": "arm"
+			}
+		]
+	}
+	`, modelName)
+
+	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+	r, err := robotimpl.New(ctx, cfg, logger)
+	defer func() {
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 0)
+
+	err = r.StopAll(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 1)
+}
+
 type dummyBoard struct {
 	board.LocalBoard
 	closeCount int

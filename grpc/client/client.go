@@ -528,7 +528,7 @@ func (rc *RobotClient) GetStatus(ctx context.Context, resourceNames []resource.N
 	return statuses, nil
 }
 
-// StopAll cancels all current and outstanding operations for the robot and stop all actuators and movement
+// StopAll cancels all current and outstanding operations for the robot and stop all actuators and movement.
 func (rc *RobotClient) StopAll(ctx context.Context, extra map[string]interface{}) error {
 	e, err := structpb.NewStruct(extra)
 	if err != nil {

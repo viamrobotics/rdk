@@ -1279,7 +1279,6 @@ func TestClientStopAll(t *testing.T) {
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 		StopAllFunc: func(ctx context.Context, extra map[string]interface{}) error {
-			fmt.Println("HERE I AM")
 			stopAllCalled = true
 			return nil
 		},
