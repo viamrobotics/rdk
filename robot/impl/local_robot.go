@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -151,6 +152,44 @@ func (r *localRobot) Close(ctx context.Context) error {
 	}
 	r.activeBackgroundWorkers.Wait()
 	return r.manager.Close(ctx)
+}
+
+// StopAll cancels all current and outstanding operations for the robot and stop all actuators and movement
+func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) error {
+	// Stop all operations
+	for _, op := range r.OperationManager().All() {
+		op.Cancel()
+	}
+
+	// Stop all stoppable resources
+	resourceErrs := []string{}
+	for _, name := range r.ResourceNames() {
+		resource, err := r.ResourceByName(name)
+		if err != nil {
+			resourceErrs = append(resourceErrs, name.Name)
+		}
+
+		// New function definition with the `extra` param
+		nsr, ok := resource.(interface {
+			Stop(ctx context.Context, extra map[string]interface{}) error
+		})
+		if ok {
+			nsr.Stop(ctx, extra)
+		}
+
+		// Old function definition without the `extra` param
+		osr, ok := resource.(interface {
+			Stop(ctx context.Context) error
+		})
+		if ok {
+			osr.Stop(ctx)
+		}
+	}
+
+	if len(resourceErrs) > 0 {
+		return errors.Errorf("failed to stop components named %s", strings.Join(resourceErrs, ","))
+	}
+	return nil
 }
 
 // Config returns the config used to construct the robot. Only local resources are returned.
