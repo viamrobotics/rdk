@@ -22,6 +22,7 @@ import Tabs from "./components/Tabs.vue";
 import ViamIcon from "./components/ViamIcon.vue";
 import ViamInput from "./components/ViamInput.vue";
 import ViamBase from "./components/Base.vue";
+import ViamServo from "./components/Servo.vue";
 import KeyboardInput from "./components/KeyboardInput.vue";
 import Camera from "./components/Camera.vue";
 import ViamSelect from "./components/ViamSelect.vue";
@@ -49,6 +50,7 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
   Range,
   ViamInput,
   ViamBase,
+  ViamServo,
   KeyboardInput,
   Camera,
   ViamSelect,
