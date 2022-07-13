@@ -57,6 +57,7 @@ import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
 import MotorDetail from './components/motor-detail.vue';
 import Navigation from './components/navigation.vue';
+import ServoComponent from './components/servo.vue';
 import Slam from './components/slam.vue';
 
 const {
@@ -257,6 +258,7 @@ export default {
     InputController,
     MotorDetail,
     Navigation,
+    ServoComponent,
     Slam,
   },
   data() {
@@ -535,6 +537,9 @@ export default {
       req.setName(name.name);
       req.setAngleDeg(angle);
       servoService.move(req, {}, this.grpcCallback);
+    },
+    servoStop: function(name) {
+      ServoControlHelper.stop(name, (err, resp) => this.grpcCallback(err, resp));
     },
     motorCommand(name, inputs) {
       switch (inputs.type) {
@@ -1874,49 +1879,14 @@ function setBoundingBox(box, centerPoint) {
     </v-collapse>
 
     <!-- ******* SERVO *******  -->
-    <v-collapse
+    <ServoComponent
       v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
       :key="servo.name"
-      :title="`Servo ${servo.name}`"
-    >
-      <div class="flex border border-t-0 border-black p-4">
-        <table class="table-auto border-collapse border border-black">
-          <tr>
-            <td class="border border-black p-2">
-              Angle
-            </td>
-            <td class="border border-black p-2">
-              {{ resourceStatusByName(servo).positionDeg }}
-            </td>
-          </tr>
-          <tr>
-            <td class="border border-black p-2" />
-            <td class="border border-black p-2">
-              <v-button
-                group
-                label="-10"
-                @click="servoMove(servo, -10)"
-              />
-              <v-button
-                group
-                label="-1"
-                @click="servoMove(servo, -1)"
-              />
-              <v-button
-                group
-                label="1"
-                @click="servoMove(servo, 1)"
-              />
-              <v-button
-                group
-                label="10"
-                @click="servoMove(servo, 10)"
-              />
-            </td>
-          </tr>
-        </table>
-      </div>
-    </v-collapse>
+      :servo-name="servo.name"
+      :servo-angle="resourceStatusByName(servo).positionDeg"
+      @servo-move="(amount) => servoMove(servo, amount)"
+      @servo-stop="servoStop(servo.name)"
+    />
 
     <!-- ******* MOTOR *******  -->
     <MotorDetail
