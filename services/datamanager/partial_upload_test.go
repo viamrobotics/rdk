@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	messageShutdownLimit = 3
+	messageShutdownLimit = 2
 )
 
 type mockClientWithShutdown struct {
@@ -28,6 +28,7 @@ type mockClientWithShutdown struct {
 
 func (m *mockClientWithShutdown) Send(req *v1.UploadRequest) error {
 	m.lock.Lock()
+	println("m.sent (actual) length", len(m.sent))
 	if len(m.sent) < messageShutdownLimit {
 		m.sent = append(m.sent, req)
 		m.lock.Unlock()
@@ -90,7 +91,7 @@ func TestPartialUpload(t *testing.T) {
 			lock: sync.Mutex{},
 		}
 
-		tf, err := ioutil.TempFile("", "")
+		tf, err := ioutil.TempFile("", "*.capture")
 		if err != nil {
 			t.Errorf("%s: cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
