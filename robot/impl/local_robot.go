@@ -154,7 +154,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 	return r.manager.Close(ctx)
 }
 
-// StopAll cancels all current and outstanding operations for the robot and stop all actuators and movement
+// StopAll cancels all current and outstanding operations for the robot and stop all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) error {
 	// Stop all operations
 	for _, op := range r.OperationManager().All() {
@@ -174,7 +174,10 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) 
 			Stop(ctx context.Context, extra map[string]interface{}) error
 		})
 		if ok {
-			nsr.Stop(ctx, extra)
+			err = nsr.Stop(ctx, extra)
+			if err != nil {
+				resourceErrs = append(resourceErrs, name.Name)
+			}
 		}
 
 		// Old function definition without the `extra` param
@@ -182,7 +185,10 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) 
 			Stop(ctx context.Context) error
 		})
 		if ok {
-			osr.Stop(ctx)
+			err = osr.Stop(ctx)
+			if err != nil {
+				resourceErrs = append(resourceErrs, name.Name)
+			}
 		}
 	}
 
