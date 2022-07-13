@@ -256,7 +256,11 @@ func (vs *visionService) registerSegmenterFromDetector(detName string, logger go
 	return vs.segReg.registerSegmenter(detName, SegmenterRegistration{detSegmenter, params}, logger)
 }
 
-func (vs *visionService) Close(ctx context.Context) error {
-	detectors, error := vs.GetDetectorNames(ctx)
+// Close removes all existing detectors from the vision service.
+func (vs *visionService) Close() error {
+	detectors := vs.detReg.detectorNames()
+	for _, detectorName := range detectors {
+		vs.detReg.removeDetector(detectorName, vs.logger)
+	}
 	return nil
 }
