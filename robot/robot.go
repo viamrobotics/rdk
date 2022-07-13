@@ -64,7 +64,7 @@ type Robot interface {
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error
 
-	// StopAll cancels all current and outstanding operations for the robot and stop all actuators and movement
+	// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement
 	StopAll(ctx context.Context, extra map[string]interface{}) error
 }
 

@@ -273,7 +273,7 @@ func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.Robot
 	}
 }
 
-// StopAll will stop all current and outstanding operations for the robot and stop all actuators and movement.
+// StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement.
 func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopAllResponse, error) {
 	err := s.r.StopAll(ctx, req.Extra.AsMap())
 	if err != nil {

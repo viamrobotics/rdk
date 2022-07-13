@@ -37,7 +37,7 @@ type RobotServiceClient interface {
 	GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error)
 	// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
 	StreamStatus(ctx context.Context, in *StreamStatusRequest, opts ...grpc.CallOption) (RobotService_StreamStatusClient, error)
-	// StopAll will stop all current and outstanding operations for the robot and stop all actuators and movement
+	// StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement
 	StopAll(ctx context.Context, in *StopAllRequest, opts ...grpc.CallOption) (*StopAllResponse, error)
 }
 
@@ -190,7 +190,7 @@ type RobotServiceServer interface {
 	GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error)
 	// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
 	StreamStatus(*StreamStatusRequest, RobotService_StreamStatusServer) error
-	// StopAll will stop all current and outstanding operations for the robot and stop all actuators and movement
+	// StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement
 	StopAll(context.Context, *StopAllRequest) (*StopAllResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
