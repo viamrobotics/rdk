@@ -16,7 +16,7 @@ import (
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
 func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 	nameR := name.Name
-	if name.Remote.Remote != "" {
+	if name.Remote != "" {
 		nameR = fmt.Sprintf("%s:%s", name.Remote, nameR)
 	}
 	return &commonpb.ResourceName{

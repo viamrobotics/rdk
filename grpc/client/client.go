@@ -300,8 +300,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 	}
 	// pass in conn
 	nameR := name.Name
-	if name.Remote.Remote != "" {
-		nameR = fmt.Sprintf("%s:%s", string(name.Remote.Remote), nameR)
+	if name.Remote != "" {
+		nameR = fmt.Sprintf("%s:%s", string(name.Remote), nameR)
 	}
 	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
 	return resourceClient, nil
@@ -408,7 +408,7 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	for _, v := range rc.resourceNames {
 		names = append(
 			names,
-			resource.NewRemoteName(v.Remote.Remote,
+			resource.NewRemoteName(v.Remote,
 				v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name,
 			),
 		)
