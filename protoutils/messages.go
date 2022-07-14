@@ -15,27 +15,21 @@ import (
 
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
 func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
-	nameR := name.Name
-	if name.Remote != "" {
-		nameR = fmt.Sprintf("%s:%s", name.Remote, nameR)
-	}
 	return &commonpb.ResourceName{
 		Namespace: string(name.Namespace),
 		Type:      string(name.ResourceType),
 		Subtype:   string(name.ResourceSubtype),
-		Name:      nameR,
+		Name:      name.ShortName(),
 	}
 }
 
 // ResourceNameFromProto converts a proto ResourceName to its rdk counterpart.
 func ResourceNameFromProto(name *commonpb.ResourceName) resource.Name {
-	r := strings.Split(name.Name, ":")
-	return resource.NewRemoteName(
-		resource.RemoteName(strings.Join(r[0:len(r)-1], ":")),
+	return resource.NewName(
 		resource.Namespace(name.Namespace),
 		resource.TypeName(name.Type),
 		resource.SubtypeName(name.Subtype),
-		r[len(r)-1],
+		name.Name,
 	)
 }
 

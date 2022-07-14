@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -299,10 +298,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
-	nameR := name.Name
-	if name.Remote != "" {
-		nameR = fmt.Sprintf("%s:%s", string(name.Remote), nameR)
-	}
+	nameR := name.ShortName()
 	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
 	return resourceClient, nil
 }
@@ -406,11 +402,10 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	}
 	names := make([]resource.Name, 0, len(rc.resourceNames))
 	for _, v := range rc.resourceNames {
+		rName := resource.NewName(v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name)
 		names = append(
 			names,
-			resource.NewRemoteName(v.Remote,
-				v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name,
-			),
+			rName.PrependRemote(v.Remote),
 		)
 	}
 	return names
