@@ -44,11 +44,13 @@ type syncer struct {
 	cancelFunc        func()
 }
 
-type getNextRequestFn func(context.Context, *os.File) (*v1.UploadRequest, error)
-type updateProgressFn func(progressTracker, string) error
-type uploadFn func(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error
+type (
+	getNextRequestFn func(context.Context, *os.File) (*v1.UploadRequest, error)
+	updateProgressFn func(progressTracker, string) error
+	uploadFn         func(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error
+)
 
-//type uploadFnNew func(path string) error
+// type uploadFnNew func(path string) error
 
 // TODO DATA-206: instantiate a client
 // newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
@@ -70,15 +72,20 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer 
 		// uploadFunc = uploadFile
 	}
 	ret.uploadFn = uploadFunc
+	// nolint
 	initProgressTrackerDir()
 	return &ret
 }
 
 // Create progressTracker directory in filesystem if it does not already exist.
-func initProgressTrackerDir() {
-	if _, err := os.Stat(progress_dir); os.IsNotExist(err) {
-		_ = os.Mkdir(progress_dir, os.ModePerm)
+func initProgressTrackerDir() error {
+	if _, err := os.Stat(progressDir); os.IsNotExist(err) {
+		err = os.Mkdir(progressDir, os.ModePerm)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // Close closes all resources (goroutines) associated with s.
@@ -110,7 +117,9 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger.Errorw("error while deleting file", "error", err)
 		} else {
 			s.progressTracker.unmark(path)
-			s.progressTracker.deleteProgressFile(path)
+			if err := s.progressTracker.deleteProgressFile(path); err != nil {
+				return
+			}
 		}
 	})
 }
@@ -237,7 +246,6 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 
 	// Loop until there is no more content to be read from file.
 	for {
-
 		// Get the next UploadRequest from the file.
 		uploadReq, err := getNextRequestFn(ctx, f)
 		// If the error is EOF, break from loop.
@@ -256,7 +264,9 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 			return errors.Wrap(err, "error while sending uploadRequest")
 		}
 
-		updateProgressFn(pt, f.Name())
+		if err := updateProgressFn(pt, f.Name()); err != nil {
+			return err
+		}
 	}
 
 	if err = f.Close(); err != nil {
@@ -272,7 +282,7 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 }
 
 func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
-	progressFilePath := filepath.Join(progress_dir, filepath.Base(dcFileName))
+	progressFilePath := filepath.Join(progressDir, filepath.Base(dcFileName))
 	progressIndex, err := pt.getIndexProgressFile(progressFilePath)
 	if err != nil {
 		return err
@@ -302,9 +312,9 @@ func skipSensordataMessages(ctx context.Context, f *os.File, nextMessageIndex in
 	return nil
 }
 
-// Wrapper function around pt.updateIndexProgressFile
+// Wrapper function around pt.updateIndexProgressFile.
 func updateProgress(pt progressTracker, dcFileName string) error {
-	if err := pt.updateIndexProgressFile(filepath.Join(progress_dir, filepath.Base(dcFileName))); err != nil {
+	if err := pt.updateIndexProgressFile(filepath.Join(progressDir, filepath.Base(dcFileName))); err != nil {
 		return err
 	}
 	return nil

@@ -2,7 +2,6 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -19,9 +18,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	messageShutdownLimit = 2
-)
+var messageShutdownLimit = 2
 
 type mockClientWithShutdown struct {
 	sent []*v1.UploadRequest
@@ -85,7 +82,6 @@ func TestPartialUpload(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-
 		mc := &mockClientWithShutdown{
 			sent: []*v1.UploadRequest{},
 			lock: sync.Mutex{},
@@ -137,12 +133,10 @@ func TestPartialUpload(t *testing.T) {
 
 		compareUploadRequests(t, false, mc.sent, expectedMsgsAfterShutdown)
 		verifyFileExistence(t, path, false)
-
 	}
-
 }
 
-// NEED TO IMPLEMENT ONCE WE'VE DECIDED ON AN FILE TYPE & ORGANIZATION FOR PROGRESS FILE
+// NEED TO IMPLEMENT ONCE WE'VE DECIDED ON AN FILE TYPE & ORGANIZATION FOR PROGRESS FILE.
 func getProgressFromProgressFile(progressFileName string) (*progress, error) {
 	bs, err := ioutil.ReadFile(progressFileName)
 	if err != nil {
@@ -155,7 +149,7 @@ func getProgressFromProgressFile(progressFileName string) (*progress, error) {
 	return &progress{nextSensorReadingIndex: i}, nil
 }
 
-// WAITING ON `getProgressFromProgressFile`
+// WAITING ON `getProgressFromProgressFile`.
 func verifyProgressFile(t *testing.T, progressAtBreakpoint progress, progressFileName string) {
 	t.Helper()
 	progress, _ := getProgressFromProgressFile(progressFileName)
@@ -164,13 +158,14 @@ func verifyProgressFile(t *testing.T, progressAtBreakpoint progress, progressFil
 	test.That(t, reflect.DeepEqual(progressAtBreakpoint, *progress), test.ShouldBeTrue)
 }
 
+//nolint
 func printProgress(p progress, isActual bool) {
 	if isActual {
-		fmt.Println("\n...Actual value...")
+		println("\n...Actual value...")
 	} else {
-		fmt.Println("\n...Expected value...")
+		println("\n...Expected value...")
 	}
-	fmt.Println("next sensor reading index: ", p.nextSensorReadingIndex)
+	println("next sensor reading index: ", p.nextSensorReadingIndex)
 }
 
 func verifyFileExistence(t *testing.T, fileName string, shouldExist bool) {
@@ -179,7 +174,7 @@ func verifyFileExistence(t *testing.T, fileName string, shouldExist bool) {
 	test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldNotEqual, shouldExist)
 }
 
-// build expected messages from test case input that begins with proper metadata message
+// build expected messages from test case input that begins with proper metadata message.
 func buildExpMsgs(expData [][]byte, fileName string) []*v1.UploadRequest {
 	var expMsgs []*v1.UploadRequest
 	expMsgs = append(expMsgs, &v1.UploadRequest{
