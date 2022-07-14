@@ -250,9 +250,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"with remotes",
 			"rdk:component:gps/remote1:gps1",
 			resource.Name{
-				Remote: resource.Remote{
-					Remote: "remote1",
-				},
+				Remote: "remote1",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
@@ -268,9 +266,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"with remotes 2",
 			"rdk:component:gps/remote1:remote2:gps1",
 			resource.Name{
-				Remote: resource.Remote{
-					Remote: "remote1:remote2",
-				},
+				Remote: "remote1:remote2",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
@@ -454,7 +450,7 @@ func TestRemoteResource(t *testing.T) {
 	n1 := n.PrependRemote("remote1")
 
 	test.That(t, n1.IsRemoteResource(), test.ShouldBeTrue)
-	test.That(t, n1.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
+	test.That(t, n1.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
 	test.That(t, n1.String(), test.ShouldResemble, "rdk:component:gps/remote1:gps1")
 
 	test.That(t, n1, test.ShouldNotResemble, n)
@@ -462,18 +458,18 @@ func TestRemoteResource(t *testing.T) {
 	n2 := n1.PrependRemote("remote2")
 
 	test.That(t, n2.IsRemoteResource(), test.ShouldBeTrue)
-	test.That(t, n2.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote2:remote1"))
+	test.That(t, n2.Remote, test.ShouldResemble, resource.RemoteName("remote2:remote1"))
 	test.That(t, n2.String(), test.ShouldResemble, "rdk:component:gps/remote2:remote1:gps1")
 
 	n3 := n2.PopRemote()
 	test.That(t, n3.IsRemoteResource(), test.ShouldBeTrue)
-	test.That(t, n3.Remote.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
+	test.That(t, n3.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
 	test.That(t, n3, test.ShouldResemble, n1)
 	test.That(t, n3.String(), test.ShouldResemble, "rdk:component:gps/remote1:gps1")
 
 	n4 := n3.PopRemote()
 	test.That(t, n4.IsRemoteResource(), test.ShouldBeFalse)
-	test.That(t, n4.Remote.Remote, test.ShouldResemble, resource.RemoteName(""))
+	test.That(t, n4.Remote, test.ShouldResemble, resource.RemoteName(""))
 	test.That(t, n4, test.ShouldResemble, n)
 	test.That(t, n4.String(), test.ShouldResemble, "rdk:component:gps/gps1")
 
