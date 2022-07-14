@@ -6,13 +6,16 @@ import (
 	"io/ioutil"
 	"math"
 	"strconv"
+	"fmt"
+	"encoding/csv"
+	"os"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/grpc/client"
 
-	// "go.viam.com/rdk/resource"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
@@ -21,7 +24,6 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -36,7 +38,10 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	robot, err := client.New(
+	withAgile := false
+
+	if withAgile {
+		robot, err := client.New(
 		ctx,
 		"agilex-limo-main.60758fe0f6.viam.cloud",
 		logger,
@@ -44,37 +49,105 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
 			Payload: "pem1epjv07fq2cz2z5723gq6ntuyhue5t30boohkiz3iqht4",
 		})),
-	)
+		)
+		if err != nil {
+			logger.Debug(err)
+			return err
+		}
+		defer robot.Close(ctx)
+		logger.Info("Resources:")
+		logger.Info(robot.ResourceNames())
+
+		// read config
+		config, err := parseJSONFile("samples/agile/planConfig.json")
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		// plan
+		d, waypoints, err := plan(ctx, config)
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		// write output
+		if err := writeJSONFile("samples/agile/planOutput.json", waypoints); err != nil {
+			logger.Fatal(err.Error())
+		}
+
+
+
+		limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
+
+		limo1 := limo.(base.Base)
+
+		start := make([]float64, 3)
+		next := make([]float64, 3)
+
+
+		for i, wp := range waypoints {
+			if i == 0 {
+				for j := 0; j < 3; j++ {
+					start[j] = wp[j].Value
+				}
+			} else {
+				for j := 0; j < 3; j++ {
+					next[j] = wp[j].Value
+				}
+
+				pathOptions := d.AllOptions(start, next, true)[0]
+
+				dubinsPath := pathOptions.DubinsPath
+				straight := pathOptions.Straight
+
+				fmt.Println("start: ", start)
+				fmt.Println("next: ", next)
+
+				// fmt.Println("angle1: ", fixAngle(dubinsPath[0]))
+				// fmt.Println("straight: ", dubinsPath[2])
+				// fmt.Println("angle2: ", fixAngle(dubinsPath[1]))
+
+				MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
+
+				for j := 0; j < 3; j++ {
+					start[j] = next[j]
+				}
+			}
+		}
+
+	} else {
+		// read config
+		config, err := parseJSONFile("samples/agile/planConfig.json")
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		// plan
+		d, waypoints, err := plan(ctx, config)
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		// write output
+		if err := writeJSONFile("samples/agile/planOutput.json", waypoints); err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		savePath(d, waypoints)
+	}
+
+	return nil
+
+}
+
+func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
+	withAgile := false
+
+	csvFile, err := os.Create("/home/skarpoor12/data/motion/path.csv")
 	if err != nil {
-		logger.Debug(err)
 		return err
 	}
-	defer robot.Close(ctx)
-	logger.Info("Resources:")
-	logger.Info(robot.ResourceNames())
-
-	// read config
-	config, err := parseJSONFile("samples/agile/planConfig.json")
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
-
-	// plan
-	d, waypoints, err := plan(ctx, config)
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
-
-	// write output
-	if err := writeJSONFile("samples/agile/planOutput.json", waypoints); err != nil {
-		logger.Fatal(err.Error())
-	}
-
-	limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
-
-	limo1 := limo.(base.Base)
-
-	//   x1, y1, x2, y2, dir := 0., 0., 0., 0., 0.
+	csvwriter := csv.NewWriter(csvFile)
 
 	start := make([]float64, 3)
 	next := make([]float64, 3)
@@ -89,37 +162,66 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				next[j] = wp[j].Value
 			}
 
+
 			pathOptions := d.AllOptions(start, next, true)[0]
 
 			dubinsPath := pathOptions.DubinsPath
-			straight := pathOptions.Straight
 
-			logger.Info("hello")
-			MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
+			sstra := "0"
+			last := fixAngle(dubinsPath[2], withAgile)
+			if pathOptions.Straight {
+				sstra = "1"
+				last = dubinsPath[2]
+			}
 
-			start = next
+			writeData := []string {fmt.Sprintf("%f", fixAngle(start[0], withAgile)), fmt.Sprintf("%f",fixAngle(start[1], withAgile)), fmt.Sprintf("%f",fixAngle(start[2], withAgile)), fmt.Sprintf("%f",fixAngle(dubinsPath[0], withAgile)), fmt.Sprintf("%f",fixAngle(dubinsPath[1], withAgile)), fmt.Sprintf("%f",last), sstra}
+			_ = csvwriter.Write(writeData)
+				
+			for j := 0; j < 3; j++ {
+				start[j] = next[j]
+			}
 		}
 	}
+	//last point
+	writeData := []string {fmt.Sprintf("%f",start[0]), fmt.Sprintf("%f",start[1]), fmt.Sprintf("%f",start[2]), fmt.Sprintf("%d",0), fmt.Sprintf("%d",0), fmt.Sprintf("%d",0), fmt.Sprintf("%d",0)}
+	_ = csvwriter.Write(writeData)
 
-	// limo1.MoveStraight(ctx, 1000, 100)
-
+	csvwriter.Flush()
+	csvFile.Close()
 	return nil
+}
+
+func fixAngle(ang float64, withAgile bool) float64 {
+	// angle should be between principle of values: -90 to 90 degrees
+	for ang > math.Pi/2 {
+		ang -= 2*math.Pi
+	}
+
+	for ang < -math.Pi {
+		ang += 2*math.Pi
+	}
+
+	if !withAgile {
+		return ang
+	}
+	deg := ang*180/math.Pi
+	return deg
 
 }
 
 func MoveToWaypointDubins(ctx context.Context, limo base.Base, path []float64, straight bool) {
 	//first turn
-	limo.Spin(ctx, path[0]*180/math.Pi, 20) //convert to degrees
+	limo.Spin(ctx, -fixAngle(path[0], true), 20) //base is currently configured backwards
 
 	//second turn/straight
 	if straight {
 		limo.MoveStraight(ctx, int(path[2]*gridConversion), 100)
 	} else {
-		limo.Spin(ctx, path[2]*180/math.Pi, 20)
+		limo.Spin(ctx, -fixAngle(path[2], true), 20)
 	}
 
 	//last turn
-	limo.Spin(ctx, path[1]*180/math.Pi, 40)
+	limo.Spin(ctx, -fixAngle(path[1], true), 40)
 }
 
 func MoveToWaypoint(ctx context.Context, limo base.Base, x1 float64, y1 float64, x2 float64, y2 float64, dir float64) (float64, error) {
