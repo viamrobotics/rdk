@@ -131,15 +131,18 @@ func (c *client) GetProperties(ctx context.Context) (rimage.Projector, error) {
 		return nil, err
 	}
 	intrinsics := &transform.PinholeCameraIntrinsics{
-		Width:      int(resp.IntrinsicParameters.WidthPixels),
-		Height:     int(resp.IntrinsicParameters.HeightPixels),
-		Fx:         resp.IntrinsicParameters.FocalXPixels,
-		Fy:         resp.IntrinsicParameters.FocalYPixels,
-		Ppx:        resp.IntrinsicParameters.CenterXPixels,
-		Ppy:        resp.IntrinsicParameters.CenterYPixels,
+		Width:      int(resp.IntrinsicParameters.WidthPx),
+		Height:     int(resp.IntrinsicParameters.HeightPx),
+		Fx:         resp.IntrinsicParameters.FocalXPx,
+		Fy:         resp.IntrinsicParameters.FocalYPx,
+		Ppx:        resp.IntrinsicParameters.CenterXPx,
+		Ppy:        resp.IntrinsicParameters.CenterYPx,
 		Distortion: transform.DistortionModel{},
 	}
-
+	err = intrinsics.CheckValid()
+	if err != nil {
+		return nil, err
+	}
 	proj = intrinsics
 	return proj, nil
 }

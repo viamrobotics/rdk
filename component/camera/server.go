@@ -216,20 +216,19 @@ func (s *subtypeServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	if proj == nil {
-		return nil, errors.New("error camera intrinsics were not defined properly")
+	intrinsics := proj.(*transform.PinholeCameraIntrinsics)
+	err = intrinsics.CheckValid()
+	if err != nil {
+		return nil, err
 	}
-	intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
-	if !ok {
-		return nil, errors.New("error camera intrinsics were not defined properly")
-	}
+
 	camIntrinsics := &pb.IntrinsicParameters{
-		WidthPixels:   uint32(intrinsics.Width),
-		HeightPixels:  uint32(intrinsics.Height),
-		FocalXPixels:  intrinsics.Fx,
-		FocalYPixels:  intrinsics.Fy,
-		CenterXPixels: intrinsics.Ppx,
-		CenterYPixels: intrinsics.Ppy,
+		WidthPx:   uint32(intrinsics.Width),
+		HeightPx:  uint32(intrinsics.Height),
+		FocalXPx:  intrinsics.Fx,
+		FocalYPx:  intrinsics.Fy,
+		CenterXPx: intrinsics.Ppx,
+		CenterYPx: intrinsics.Ppy,
 	}
 	return &pb.GetPropertiesResponse{
 		IntrinsicParameters: camIntrinsics,
