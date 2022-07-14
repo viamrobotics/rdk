@@ -1119,6 +1119,118 @@ func TestGetStatusRemote(t *testing.T) {
 	}
 }
 
+func TestGetRemoteResourceAndGrandFather(t *testing.T) {
+	// set up remotes
+	port1, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	addr1 := fmt.Sprintf("localhost:%d", port1)
+	test.That(t, err, test.ShouldBeNil)
+	port2, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	addr2 := fmt.Sprintf("localhost:%d", port2)
+
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	remoteRemoteConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "arm1",
+				Type:      arm.SubtypeName,
+				Model:     "fake",
+			},
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "arm2",
+				Type:      arm.SubtypeName,
+				Model:     "fake",
+			},
+		},
+		Services: []config.Service{},
+		Remotes:  []config.Remote{},
+	}
+
+	r0, err := robotimpl.New(ctx, remoteRemoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
+	}()
+	options := weboptions.New()
+	options.Network.BindAddress = addr1
+	err = r0.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	r0arm1, err := r0.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	r0Arm, ok := r0arm1.(arm.Arm)
+	test.That(t, ok, test.ShouldBeTrue)
+	tPos := referenceframe.JointPositionsFromRadians([]float64{10.0})
+	err = r0Arm.MoveToJointPositions(context.Background(), tPos, nil)
+	test.That(t, err, test.ShouldBeNil)
+	p0Arm1, err := r0Arm.GetJointPositions(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteConfig := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: addr2,
+			},
+		},
+	}
+
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	cfg.Remotes = append(cfg.Remotes, config.Remote{
+		Name:    "foo",
+		Address: addr1,
+	})
+	r1, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r1.Close(context.Background()), test.ShouldBeNil)
+	}()
+	options = weboptions.New()
+	options.Network.BindAddress = addr2
+	err = r1.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(ctx, remoteConfig, logger)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(
+		t,
+		rtestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		rtestutils.NewResourceNameSet(
+			vision.Name, sensors.Name, datamanager.Name,
+			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
+			arm.Named("remote:pieceArm"),
+			camera.Named("remote:cameraOver"),
+			gps.Named("remote:gps1"),
+			gps.Named("remote:gps2"),
+			gripper.Named("remote:pieceGripper"),
+			vision.Named("remote:"),
+			sensors.Named("remote:"),
+			datamanager.Named("remote:"),
+			vision.Named("remote:foo:"),
+			sensors.Named("remote:foo:"),
+			datamanager.Named("remote:foo:"),
+		),
+	)
+	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	rrArm1, ok := arm1.(arm.Arm)
+	test.That(t, ok, test.ShouldBeTrue)
+	pos, err := rrArm1.GetJointPositions(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
+}
+
 func TestResourceStartsOnReconfigure(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()

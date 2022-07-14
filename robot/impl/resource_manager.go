@@ -123,10 +123,10 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 				"reason", err)
 			continue
 		}
-		asUnknown := resource.NewRemoteName(res.Remote.Remote,
-			resource.ResourceNamespaceRDK,
+		asUnknown := resource.NewName(resource.ResourceNamespaceRDK,
 			unknownTypeName,
 			resource.SubtypeName(""), res.Name)
+		asUnknown = asUnknown.PrependRemote(res.Remote)
 		if _, ok := visited[asUnknown]; ok {
 			manager.logger.Infow("we have an unknown res that we are converting to", "unknown", asUnknown, "new name", res)
 			visited[asUnknown] = true
@@ -149,10 +149,10 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 				continue
 			}
 			if len(manager.resources.GetAllChildrenOf(res)) > 0 {
-				asUnknown := resource.NewRemoteName(res.Remote.Remote,
-					resource.ResourceNamespaceRDK,
+				asUnknown := resource.NewName(resource.ResourceNamespaceRDK,
 					unknownTypeName,
 					resource.SubtypeName(""), res.Name)
+				asUnknown = asUnknown.PrependRemote(res.Remote)
 				if err := manager.resources.RenameNode(res, asUnknown); err != nil {
 					manager.logger.Errorw("error while renaming node", "error", err)
 				}
