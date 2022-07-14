@@ -194,6 +194,8 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 			return ctx.Err()
 		}
 	}
+
+	// For ORBSLAM, generate a new yaml file based off the camera configuration and presence of maps
 	if slamSvc.slamLib.AlgoName == "orbslamv3" {
 		err = orbGenYAML(slamSvc, cam)
 		if err != nil {

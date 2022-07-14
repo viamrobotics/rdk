@@ -14,8 +14,21 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
+const (
+	// defines if images are RGB or BGR.
+	rgbFlag = 1
+	// stereo baseline in meters.
+	stereoB = 0
+	// stereo baselines used to classify a point as close or far.
+	stereoThDepth = 30.0
+	// factor to transform depth map to meters.
+	depthMapFactor = 1000.0
+	// file version needed by ORBSLAM.
+	fileVersion = "1.0"
+)
+
 // orbCamMaker takes in the camera intrinsics and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
-func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamService) (*ORBsettings, error) {
+func (slamSvc *slamService) orbCamMaker(intrinics *transform.PinholeCameraIntrinsics) (*ORBsettings, error) {
 	var err error
 
 	orbslam := &ORBsettings{
@@ -31,12 +44,12 @@ func orbCamMaker(intrinics *transform.PinholeCameraIntrinsics, slamSvc *slamServ
 		RadialK3:       intrinics.Distortion.RadialK3,
 		TangentialP1:   intrinics.Distortion.TangentialP1,
 		TangentialP2:   intrinics.Distortion.TangentialP2,
-		RGBflag:        1,
-		Stereob:        0,
-		StereoThDepth:  40.0,
-		DepthMapFactor: 1000.0,
+		RGBflag:        rgbFlag,
+		Stereob:        stereoB,
+		StereoThDepth:  stereoThDepth,
+		DepthMapFactor: depthMapFactor,
 		FPSCamera:      int8(slamSvc.dataRateMs),
-		FileVersion:    "1.0",
+		FileVersion:    fileVersion,
 	}
 	orbslam.NFeatures, err = slamSvc.orbConfigToInt("orb_n_features", 1250)
 	if err != nil {
@@ -98,7 +111,7 @@ func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
 	if !ok {
 		return errors.New("error camera intrinsics were not defined properly")
 	}
-	orbslam, err := orbCamMaker(intrinsics, slamSvc)
+	orbslam, err := slamSvc.orbCamMaker(intrinsics)
 	if err != nil {
 		return err
 	}
