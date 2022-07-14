@@ -107,7 +107,6 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 		default:
 			frame := rtcm3.EncapsulateMessage(msg)
 			byteMsg := frame.Serialize()
-			byteMsg = append(byteMsg)
 			_, err := w.Write(byteMsg)
 			if err != nil {
 				s.logger.Fatalf("Error writing RTCM message: %s", err)

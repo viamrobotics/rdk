@@ -94,7 +94,7 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 		logger:         logger,
 		path:           serialPath,
 		correctionPath: correctionPath,
-		data: 			gpsData{},
+		data:           gpsData{},
 	}
 
 	g.Start(ctx)
