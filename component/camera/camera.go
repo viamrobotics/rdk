@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
@@ -138,7 +139,7 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 }
 
 func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
-	return nil, NewNoIntrinsicsError()
+	return nil, transform.NewNoIntrinsicsError("No features in config")
 }
 
 // ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
@@ -293,9 +294,4 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 	}
 	c.actual = actual.actual
 	return nil
-}
-
-// NewNoIntrinsicsError is used when the intriniscs are not defined.
-func NewNoIntrinsicsError() error {
-	return errors.New("Intrinisics are not properly defined")
 }
