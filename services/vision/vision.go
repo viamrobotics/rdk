@@ -260,7 +260,10 @@ func (vs *visionService) registerSegmenterFromDetector(detName string, logger go
 func (vs *visionService) Close() error {
 	detectors := vs.detReg.detectorNames()
 	for _, detectorName := range detectors {
-		vs.detReg.removeDetector(detectorName, vs.logger)
+		err := vs.detReg.removeDetector(detectorName, vs.logger)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
