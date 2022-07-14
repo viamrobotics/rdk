@@ -3,15 +3,14 @@ package datamanager
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 
 	"github.com/pkg/errors"
 )
 
-var (
-	progress_dir = "progress_dir"
-)
+var progressDir = "progress_dir"
 
 type progressTracker struct {
 	lock *sync.Mutex
@@ -51,7 +50,7 @@ func bytesToInt(bs []byte) (int, error) {
 
 // Create progress file that stores file upload information.
 func (pt *progressTracker) createProgressFile(path string, progress int) error {
-	err := ioutil.WriteFile(path, intToBytes(progress), os.FileMode((0777)))
+	err := ioutil.WriteFile(path, intToBytes(progress), os.FileMode((0o777)))
 	if err != nil {
 		return err
 	}
@@ -77,7 +76,7 @@ func (pt *progressTracker) updateIndexProgressFile(path string) error {
 
 // Returns the index of next sensordata message to upload or -1 if the file upload has not been attempted.
 func (pt *progressTracker) getIndexProgressFile(path string) (int, error) {
-	bs, err := ioutil.ReadFile(path)
+	bs, err := ioutil.ReadFile(filepath.Clean(path))
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil
 	}
