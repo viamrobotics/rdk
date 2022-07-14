@@ -24,6 +24,30 @@ type serialCorrectionSource struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+type pipeReader struct {
+	pr *io.PipeReader
+}
+
+func (r pipeReader) Read(p []byte) (int, error) {
+	return r.pr.Read(p)
+}
+
+func (r pipeReader) Close() error {
+	return r.pr.Close()
+}
+
+type pipeWriter struct {
+	pw *io.PipeWriter
+}
+
+func (r pipeWriter) Write(p []byte) (int, error) {
+	return r.pw.Write(p)
+}
+
+func (r pipeWriter) Close() error {
+	return r.pw.Close()
+}
+
 const (
 	correctionPathName = "correction_path"
 )
@@ -53,7 +77,9 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	defer s.activeBackgroundWorkers.Done()
 
 	var w io.Writer
-	s.correctionReader, w = io.Pipe()
+	pr, pw := io.Pipe()
+	s.correctionReader = pipeReader{pr: pr}
+	w = pipeWriter{pw: pw}
 	ready <- true
 
 	// read from s.port and write rctm messages into w, discard other messages in loop
@@ -75,7 +101,10 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 		case rtcm3.MessageUnknown:
 			continue
 		default:
-			_, err = w.Write(msg.Serialize())
+			frame := rtcm3.EncapsulateMessage(msg)
+			byteMsg := frame.Serialize()
+			byteMsg = append(byteMsg)
+			_, err := w.Write(byteMsg)
 			if err != nil {
 				s.logger.Fatalf("Error writing RTCM message: %s", err)
 			}

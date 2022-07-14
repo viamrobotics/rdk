@@ -65,9 +65,6 @@ func (config *AttrConfig) Validate(path string) error {
 		if len(config.Board) == 0 {
 			return errors.New("cannot find board for rtk station")
 		}
-
-		// deps = append(deps, config.Board)
-
 		if len(config.Bus) == 0 {
 			return errors.New("cannot find i2c board for rtk station")
 		}
@@ -226,7 +223,8 @@ func (r *rtkStation) Start(ctx context.Context) {
 			}
 
 			buf := make([]byte, 1100)
-			_, err := reader.Read(buf)
+			n, err := reader.Read(buf)
+			r.logger.Debugf("Reading %d bytes", n)
 			if err != nil {
 				if err.Error() == "io: read/write on closed pipe" {
 					r.logger.Debug("Pipe closed")
