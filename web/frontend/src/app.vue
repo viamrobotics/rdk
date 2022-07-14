@@ -5,6 +5,7 @@ import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { toast } from './lib/toast';
 
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
@@ -57,6 +58,7 @@ import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
 import MotorDetail from './components/motor-detail.vue';
 import Navigation from './components/navigation.vue';
+import ServoComponent from './components/servo.vue';
 import Slam from './components/slam.vue';
 
 const {
@@ -257,6 +259,7 @@ export default {
     InputController,
     MotorDetail,
     Navigation,
+    ServoComponent,
     Slam,
   },
   data() {
@@ -284,6 +287,8 @@ export default {
       currentOps: [],
       setPin: '',
       getPin: '',
+      pwm: '',
+      pwmFrequency: '',
       imageMapTemp: '',
     };
   },
@@ -535,6 +540,9 @@ export default {
       req.setName(name.name);
       req.setAngleDeg(angle);
       servoService.move(req, {}, this.grpcCallback);
+    },
+    servoStop: function(name) {
+      ServoControlHelper.stop(name, (err, resp) => this.grpcCallback(err, resp));
     },
     motorCommand(name, inputs) {
       switch (inputs.type) {
@@ -988,7 +996,7 @@ export default {
       const pin = this.getPin;
       BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
         if (err) {
-          console.log(err);
+          toast.error(err);
           return;
         }
         const x = resp.toObject();
@@ -999,6 +1007,38 @@ export default {
       const pin = this.setPin;
       const v = document.querySelector(`#set_pin_v_${boardName}`).value;
       BoardControlHelper.setGPIO(boardName, pin, v === 'high', this.grpcCallback);
+    },
+    getPWM (boardName) {
+      const pin = this.getPin;
+      BoardControlHelper.getPWM(boardName, pin, (err, resp) => {
+        if (err) {
+          toast.error(err);
+          return;
+        }
+        const { dutyCyclePct } = resp.toObject();
+        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s duty cycle is ${dutyCyclePct * 100}%.`;
+      });
+    },
+    setPWM (boardName) {
+      const pin = this.setPin;
+      const v = this.pwm / 100;
+      BoardControlHelper.setPWM(boardName, pin, v, this.grpcCallback);
+    },
+    getPWMFrequency (boardName) {
+      const pin = this.getPin;
+      BoardControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
+        if (err) {
+          toast.error(err);
+          return;
+        }
+        const { frequencyHz } = resp.toObject();
+        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s frequency is ${frequencyHz}Hz.`;
+      });
+    },
+    setPWMFrequency (boardName) {
+      const pin = this.setPin;
+      const v = this.pwmFrequency;
+      BoardControlHelper.setPWMFrequency(boardName, pin, v, this.grpcCallback);
     },
     isWebRtcEnabled() {
       return window.webrtcEnabled;
@@ -1874,49 +1914,14 @@ function setBoundingBox(box, centerPoint) {
     </v-collapse>
 
     <!-- ******* SERVO *******  -->
-    <v-collapse
+    <ServoComponent
       v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
       :key="servo.name"
-      :title="`Servo ${servo.name}`"
-    >
-      <div class="flex border border-t-0 border-black p-4">
-        <table class="table-auto border-collapse border border-black">
-          <tr>
-            <td class="border border-black p-2">
-              Angle
-            </td>
-            <td class="border border-black p-2">
-              {{ resourceStatusByName(servo).positionDeg }}
-            </td>
-          </tr>
-          <tr>
-            <td class="border border-black p-2" />
-            <td class="border border-black p-2">
-              <v-button
-                group
-                label="-10"
-                @click="servoMove(servo, -10)"
-              />
-              <v-button
-                group
-                label="-1"
-                @click="servoMove(servo, -1)"
-              />
-              <v-button
-                group
-                label="1"
-                @click="servoMove(servo, 1)"
-              />
-              <v-button
-                group
-                label="10"
-                @click="servoMove(servo, 10)"
-              />
-            </td>
-          </tr>
-        </table>
-      </div>
-    </v-collapse>
+      :servo-name="servo.name"
+      :servo-angle="resourceStatusByName(servo).positionDeg"
+      @servo-move="(amount) => servoMove(servo, amount)"
+      @servo-stop="servoStop(servo.name)"
+    />
 
     <!-- ******* MOTOR *******  -->
     <MotorDetail
@@ -1968,7 +1973,7 @@ function setBoundingBox(box, centerPoint) {
           </tr>
         </table>
         <h3 class="mb-2">
-          GPIO
+          Digital Interrupts
         </h3>
         <table class="mb-4 table-auto border border-black">
           <tr
@@ -1984,7 +1989,7 @@ function setBoundingBox(box, centerPoint) {
           </tr>
         </table>
         <h3 class="mb-2">
-          DigiGPIOtalInterrupts
+          GPIO
         </h3>
         <table class="mb-4 table-auto border border-black">
           <tr>
@@ -1992,9 +1997,9 @@ function setBoundingBox(box, centerPoint) {
               Get
             </th>
             <td class="border border-black p-2">
-              <div class="flex">
-                <label class="py-2 pr-2 text-right">Pin:</label>
+              <div class="flex items-end">
                 <v-input
+                  label="Pin"
                   type="number"
                   class="mr-2"
                   :value="getPin"
@@ -2003,8 +2008,20 @@ function setBoundingBox(box, centerPoint) {
                 <v-button
                   class="mr-2"
                   group
-                  label="Get"
+                  label="Get Pin State"
                   @click="getGPIO(board.name)"
+                />
+                <v-button
+                  class="mr-2"
+                  group
+                  label="Get PWM"
+                  @click="getPWM(board.name)"
+                />
+                <v-button
+                  class="mr-2"
+                  group
+                  label="Get PWM Frequency"
+                  @click="getPWMFrequency(board.name)"
                 />
                 <span
                   :id="'get_pin_value_' + board.name"
@@ -2018,26 +2035,50 @@ function setBoundingBox(box, centerPoint) {
               Set
             </th>
             <td class="p-2">
-              <div class="flex">
-                <label class="py-2 pr-2  text-right">Pin:</label>
+              <div class="flex items-end">
                 <v-input
                   type="number"
                   class="mr-2"
+                  label="Pin"
                   :value="setPin"
                   @input="setPin = $event.detail.value"
                 />
                 <select
                   :id="'set_pin_v_' + board.name"
-                  class="mr-2 border border-black bg-white"
-                  style="height: 38px"
+                  class="mr-2 h-[30px] border border-black bg-white text-sm"
                 >
                   <option>low</option>
                   <option>high</option>
                 </select>
                 <v-button
+                  class="mr-2"
                   group
-                  label="Set"
+                  label="Set Pin State"
                   @click="setGPIO(board.name)"
+                />
+                <v-input
+                  v-model="pwm"
+                  label="PWM"
+                  type="number"
+                  class="mr-2"
+                />
+                <v-button
+                  class="mr-2"
+                  group
+                  label="Set PWM"
+                  @click="setPWM(board.name)"
+                />
+                <v-input
+                  v-model="pwmFrequency"
+                  label="PWM Frequency"
+                  type="number"
+                  class="mr-2"
+                />
+                <v-button
+                  class="mr-2"
+                  group
+                  label="Set PWM Frequency"
+                  @click="setPWMFrequency(board.name)"
                 />
               </div>
             </td>
