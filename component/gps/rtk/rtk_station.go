@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"encoding/csv"
-	"os"
-	"time"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -102,7 +99,6 @@ type rtkStation struct {
 	serialPorts    []io.Writer
 	serialWriter   io.Writer
 	gpsNames       []string
-	flog		   []*os.File
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -163,19 +159,11 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 	// Init gps correction input addresses
 	r.logger.Debug("Init gps")
 	r.serialPorts = make([]io.Writer, 0)
-	r.flog = make([]*os.File, 0)
 
 	for _, gpsName := range r.gpsNames {
 		gps, err := gps.FromDependencies(deps, gpsName)
 		localgps := rdkutils.UnwrapProxy(gps)
 		if err != nil {
-			return nil, err
-		}
-
-		//save a logging file for each child gps
-		fName := fmt.Sprintf("/home/evelyn-fu/data/new_corrected/%s-log.csv", gpsName)
-		f, err := os.Create(fName)
-		if err!=nil {
 			return nil, err
 		}
 
@@ -186,7 +174,6 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 			if err != nil {
 				return nil, err
 			}
-			r.flog = append(r.flog, f)
 
 			r.serialPorts = append(r.serialPorts, port)
 		case *nmea.PmtkI2CNMEAGPS:
@@ -203,42 +190,12 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 	r.serialWriter = io.MultiWriter(r.serialPorts...)
 	r.logger.Debug("Starting")
 
-	r.Start(ctx, deps)
+	r.Start(ctx)
 	return r, nil
 }
 
-func (r *rtkStation) log(ctx context.Context, deps registry.Dependencies) {
-	gpss := make([]*nmea.SerialNMEAGPS, 0)
-	for _, gpsName := range r.gpsNames {
-		gps, _ := gps.FromDependencies(deps, gpsName)
-		localgps := rdkutils.UnwrapProxy(gps)
-		switch t := localgps.(type) {
-		case *nmea.SerialNMEAGPS:
-			gpss = append(gpss, t)
-		default:
-		}
-	}
-	for range time.Tick(time.Second * 1) {
-		for i, f := range(r.flog) {
-			
-			w := csv.NewWriter(f)
-	
-			data := make([]string, 0, 2)
-			r.logger.Debugf("%T", gpss[i])
-			plswork := gpss[i]
-			loc,_ := plswork.ReadLocation(ctx)
-			r.logger.Debugf("%T", loc)
-			data = append(data, fmt.Sprintf("%f", loc.Lat()))
-			data = append(data, fmt.Sprintf("%f", loc.Lng()))
-	
-			w.Write(data)
-			w.Flush()
-		}
-	}
-}
-
 // Start starts reading from the correction source and sends corrections to the child gps's.
-func (r *rtkStation) Start(ctx context.Context, deps registry.Dependencies) {
+func (r *rtkStation) Start(ctx context.Context) {
 	r.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer r.activeBackgroundWorkers.Done()
@@ -258,9 +215,6 @@ func (r *rtkStation) Start(ctx context.Context, deps registry.Dependencies) {
 		if r.correctionType == ntripStr {
 			r.correction.(*ntripCorrectionSource).ntripStatus = true
 		}
-
-		// call the logger on a separate process
-		go r.log(ctx, deps)
 
 		// write corrections to all open ports and i2c handles
 		for {
