@@ -1002,7 +1002,7 @@ export default {
       const v = document.querySelector(`#set_pin_v_${boardName}`).value;
       BoardControlHelper.setGPIO(boardName, pin, v === 'high', this.grpcCallback);
     },
-    getPWM: function (boardName) {
+    getPWM (boardName) {
       const pin = this.getPin;
       BoardControlHelper.getPWM(boardName, pin, (err, resp) => {
         if (err) {
@@ -1013,12 +1013,12 @@ export default {
         document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s duty cycle is ${dutyCyclePct * 100}%.`
       });
     },
-    setPWM: function (boardName) {
+    setPWM (boardName) {
       const pin = this.setPin;
       const v = document.querySelector(`#set_pwm_pin_v_${boardName}`).value / 100;
       BoardControlHelper.setPWM(boardName, pin, v, this.grpcCallback);
     },
-    getPWMFrequency: function (boardName) {
+    getPWMFrequency (boardName) {
       const pin = this.getPin;
       BoardControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
         if (err) {
@@ -1029,7 +1029,7 @@ export default {
         document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s frequency is ${frequencyHz}Hz.`
       });
     },
-    setPWMFrequency: function (boardName) {
+    setPWMFrequency (boardName) {
       const pin = this.setPin;
       const v = document.querySelector(`#set_pwm_freq_v_${boardName}`).value;
       BoardControlHelper.setPWMFrequency(boardName, pin, v, this.grpcCallback);
