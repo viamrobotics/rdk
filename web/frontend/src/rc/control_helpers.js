@@ -145,7 +145,7 @@ export const BoardControlHelper = {
     window.boardService.setGPIO(req, {}, cb);
   },
 
-  getPWM: function (name, pin, cb) {
+  getPWM (name, pin, cb) {
     const req = new boardApi.PWMRequest();
     req.setName(name);
     req.setPin(pin);
@@ -154,7 +154,7 @@ export const BoardControlHelper = {
     boardService.pWM(req, {}, cb);
   },
 
-  setPWM: function (name, pin, value, cb) {
+  setPWM (name, pin, value, cb) {
     const req = new boardApi.SetPWMRequest();
     req.setName(name);
     req.setPin(pin);
@@ -186,20 +186,8 @@ export const BoardControlHelper = {
 
 // Servo control helpers
 // todo: add the rest
-window.ServoControlHelper = {
-  stop: function(name, cb) {
-    const req = new servoApi.StopRequest();
-    req.setName(name);
-
-    rcLogConditionally(req);
-    servoService.stop(req, {}, cb);
-  },
-};
-
-// Servo control helpers
-// todo: add the rest
-window.ServoControlHelper = {
-  stop: function(name, cb) {
+export const ServoControlHelper = {
+  stop(name, cb) {
     const req = new servoApi.StopRequest();
     req.setName(name);
 
