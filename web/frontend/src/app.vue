@@ -2075,8 +2075,7 @@ function setBoundingBox(box, centerPoint) {
                 />
                 <select
                   :id="'set_pin_v_' + board.name"
-                  class="mr-2 border border-black bg-white text-sm"
-                  style="height: 30px"
+                  class="mr-2 h-[30px] border border-black bg-white text-sm"
                 >
                   <option>low</option>
                   <option>high</option>
