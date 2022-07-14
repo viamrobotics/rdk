@@ -284,6 +284,8 @@ export default {
       currentOps: [],
       setPin: '',
       getPin: '',
+      pwm: '',
+      pwmFrequency: '',
       imageMapTemp: '',
     };
   },
@@ -999,6 +1001,39 @@ export default {
       const pin = this.setPin;
       const v = document.querySelector(`#set_pin_v_${boardName}`).value;
       BoardControlHelper.setGPIO(boardName, pin, v === 'high', this.grpcCallback);
+    },
+    // Needs to be updated to follow above conventions (GPIO)
+    getPWM: function (boardName) {
+      const pin = this.getPin;
+      BoardControlHelper.getPWM(boardName, pin, (err, resp) => {
+        if (err) {
+          console.log(err);
+          return;
+        }
+        const { dutyCyclePct } = resp.toObject();
+        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s duty cycle is ${dutyCyclePct * 100}%.`
+      });
+    },
+    setPWM: function (boardName) {
+      const pin = this.setPin;
+      const v = document.querySelector(`#set_pwm_pin_v_${boardName}`).value / 100;
+      BoardControlHelper.setPWM(boardName, pin, v, this.grpcCallback);
+    },
+    getPWMFrequency: function (boardName) {
+      const pin = this.getPin;
+      BoardControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
+        if (err) {
+          console.log(err);
+          return;
+        }
+        const { frequencyHz } = resp.toObject();
+        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s frequency is ${frequencyHz}Hz.`
+      });
+    },
+    setPWMFrequency: function (boardName) {
+      const pin = this.setPin;
+      const v = document.querySelector(`#set_pwm_freq_v_${boardName}`).value;
+      BoardControlHelper.setPWMFrequency(boardName, pin, v, this.grpcCallback);
     },
     isWebRtcEnabled() {
       return window.webrtcEnabled;
@@ -2003,8 +2038,20 @@ function setBoundingBox(box, centerPoint) {
                 <v-button
                   class="mr-2"
                   group
-                  label="Get"
+                  label="Get Pin State"
                   @click="getGPIO(board.name)"
+                />
+                <v-button
+                  class="mr-2"
+                  group
+                  label="Get PWM"
+                  @click="getPWM(board.name)"
+                />
+                <v-button
+                  class="mr-2"
+                  group
+                  label="Get PWM Frequency"
+                  @click="getPWMFrequency(board.name)"
                 />
                 <span
                   :id="'get_pin_value_' + board.name"
@@ -2028,16 +2075,45 @@ function setBoundingBox(box, centerPoint) {
                 />
                 <select
                   :id="'set_pin_v_' + board.name"
-                  class="mr-2 border border-black bg-white"
-                  style="height: 38px"
+                  class="mr-2 border border-black bg-white text-sm"
+                  style="height: 30px"
                 >
                   <option>low</option>
                   <option>high</option>
                 </select>
                 <v-button
+                  class="mr-2"
                   group
-                  label="Set"
+                  label="Set Pin State"
                   @click="setGPIO(board.name)"
+                />
+                <label class="py-2 pr-2  text-right">PWM:</label>
+                <v-input
+                  :id="'set_pwm_pin_v_' + board.name"
+                  type="number"
+                  class="mr-2"
+                  :value="pwm"
+                  @input="pwm = $event.detail.value"
+                />
+                <v-button
+                  class="mr-2"
+                  group
+                  label="Set PWM"
+                  @click="setPWM(board.name)"
+                />
+                <label class="py-2 pr-2  text-right">PWM Frequency:</label>
+                <v-input
+                  :id="'set_pwm_freq_v_' + board.name"
+                  type="number"
+                  class="mr-2"
+                  :value="pwmFrequency"
+                  @input="pwmFrequency = $event.detail.value"
+                />
+                <v-button
+                  class="mr-2"
+                  group
+                  label="Set PWM Frequency"
+                  @click="setPWMFrequency(board.name)"
                 />
               </div>
             </td>
