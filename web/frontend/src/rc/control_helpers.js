@@ -142,10 +142,46 @@ export const BoardControlHelper = {
     req.setHigh(value);
 
     rcLogConditionally(req);
-    widnow.boardService.setGPIO(req, {}, cb);
+    window.boardService.setGPIO(req, {}, cb);
   },
 
-  // TODO: Add PWM
+  getPWM: function (name, pin, cb) {
+    const req = new boardApi.PWMRequest();
+    req.setName(name);
+    req.setPin(pin);
+
+    rcLogConditionally(req);
+    boardService.pWM(req, {}, cb);
+  },
+
+  setPWM: function (name, pin, value, cb) {
+    const req = new boardApi.SetPWMRequest();
+    req.setName(name);
+    req.setPin(pin);
+    req.setDutyCyclePct(value);
+
+    rcLogConditionally(req);
+    boardService.setPWM(req, {}, cb);
+  },
+
+  getPWMFrequency: function (name, pin, cb) {
+    const req = new boardApi.PWMFrequencyRequest();
+    req.setName(name);
+    req.setPin(pin);
+
+    rcLogConditionally(req);
+    boardService.pWMFrequency(req, {}, cb);
+  },
+
+  setPWMFrequency: function (name, pin, value, cb) {
+    const req = new boardApi.SetPWMFrequencyRequest();
+    req.setName(name);
+    req.setPin(pin);
+    req.setFrequencyHz(value);
+
+    rcLogConditionally(req);
+    boardService.setPWMFrequency(req, {}, cb);
+  },
 };
 
 // Servo control helpers
