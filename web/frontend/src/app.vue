@@ -49,6 +49,7 @@ import {
   BaseControlHelper,
   MotorControlHelper,
   BoardControlHelper,
+  ServoControlHelper,
   computeKeyboardBaseControls,
 } from './rc/control_helpers';
 
@@ -541,7 +542,7 @@ export default {
       req.setAngleDeg(angle);
       servoService.move(req, {}, this.grpcCallback);
     },
-    servoStop: function(name) {
+    servoStop(name) {
       ServoControlHelper.stop(name, (err, resp) => this.grpcCallback(err, resp));
     },
     motorCommand(name, inputs) {
