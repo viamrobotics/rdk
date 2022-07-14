@@ -43,10 +43,11 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	defer s.mu.Unlock()
 	resources := make(map[string]interface{}, len(r))
 	for n, v := range r {
-		if n.Name == "" {
+		switch {
+		case n.Name == "":
 			resources[n.String()] = v
-		} else {
-			resources[n.Name] = v
+		default:
+			resources[n.ShortName()] = v
 		}
 	}
 	s.resources = resources
