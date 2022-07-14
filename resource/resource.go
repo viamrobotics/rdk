@@ -106,18 +106,21 @@ type Name struct {
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
 	isService := rType == ResourceTypeService
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
-	nameIdent := name
+	r := strings.Split(name, ":")
+	remote := RemoteName(strings.Join(r[0:len(r)-1], ":"))
+	nameIdent := r[len(r)-1]
 	if isService {
 		nameIdent = ""
 	}
 	return Name{
 		Subtype: resourceSubtype,
 		Name:    nameIdent,
+		Remote:  remote,
 	}
 }
 
-// NewRemoteName creates a new Name for a resource attached to a remote.
-func NewRemoteName(remote RemoteName, namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
+// newRemoteName creates a new Name for a resource attached to a remote.
+func newRemoteName(remote RemoteName, namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
 	n := NewName(namespace, rType, subtype, name)
 	n.Remote = remote
 	return n
@@ -144,7 +147,7 @@ func NewFromString(resourceName string) (Name, error) {
 	if len(remote) > 0 {
 		remote = remote[:len(remote)-1]
 	}
-	return NewRemoteName(RemoteName(remote), Namespace(rSubtypeParts[0]),
+	return newRemoteName(RemoteName(remote), Namespace(rSubtypeParts[0]),
 		TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]), matches[3]), nil
 }
 
@@ -153,7 +156,7 @@ func (n Name) PrependRemote(remote RemoteName) Name {
 	if len(n.Remote) > 0 {
 		remote = RemoteName(strings.Join([]string{string(remote), string(n.Remote)}, ":"))
 	}
-	return NewRemoteName(
+	return newRemoteName(
 		remote,
 		n.Namespace,
 		n.ResourceType,
@@ -167,7 +170,7 @@ func (n Name) PopRemote() Name {
 		return n
 	}
 	remotes := strings.Split(string(n.Remote), ":")
-	return NewRemoteName(
+	return newRemoteName(
 		RemoteName(strings.Join(remotes[1:], ":")),
 		n.Namespace,
 		n.ResourceType,
@@ -178,6 +181,15 @@ func (n Name) PopRemote() Name {
 // IsRemoteResource return true if the resource is a remote resource.
 func (n Name) IsRemoteResource() bool {
 	return len(n.Remote) > 0
+}
+
+// ShortName returns the short name on Name n in the form of <remote>:<name>.
+func (n Name) ShortName() string {
+	nameR := n.Name
+	if n.Remote != "" {
+		nameR = fmt.Sprintf("%s:%s", n.Remote, nameR)
+	}
+	return nameR
 }
 
 // Validate ensures that important fields exist and are valid.
