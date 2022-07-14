@@ -45,6 +45,8 @@ type resourceManager struct {
 	logger         golog.Logger
 }
 
+// resourcePlaceholder we use resourcePlaceholder during a reconfiguration
+// it holds the former resource interface (nil if added) and it's most recent configuration.
 type resourcePlaceholder struct {
 	real   interface{}
 	config interface{}
@@ -102,6 +104,12 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 	return filtered
 }
 
+// updateRemoteResourceNames this function is called when the Remote robot has changed (either connection or disconnection)
+// it will pull the current remote resources and update the resource tree adding or removing nodes accordingly
+// If any local resources are dependent on a remote resource two things can happen
+// 1) The remote resource already is in the tree as an unknown type, it will be renamed
+// 2) A remote resource is being deleted but a local resource depends on it.
+// It will be renamed as unknown and its local children are going to be destroyed.
 func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, remoteName resource.Name, rr robot.Robot, lr *localRobot) {
 	visited := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
@@ -315,6 +323,8 @@ func (manager *resourceManager) processConfig(
 	manager.newProcesses(ctx, config.Processes)
 }
 
+// completeConfig process the tree in reverse order and attempts to build
+// or reconfigure resources that are wrapped in a placeholderResource.
 func (manager *resourceManager) completeConfig(
 	ctx context.Context,
 	robot *localRobot,
@@ -340,7 +350,7 @@ func (manager *resourceManager) completeConfig(
 		} else if s, ok := wrap.config.(config.Service); ok {
 			iface, err := manager.processService(ctx, s, wrap.real, robot)
 			if err != nil {
-				manager.logger.Errorw("error building component", "error", err)
+				manager.logger.Errorw("error building service", "error", err)
 				continue
 			}
 			manager.resources.AddNode(r, iface)
@@ -666,6 +676,9 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 	}
 }
 
+// wrapResource creates a resourcePlaceholder associating the former resource object (if it exists) and it's configuration.
+// It will also look for dependencies and link them properly.
+// once done we should have all the information we need to build this resource later on when we call completeConfig.
 func (manager *resourceManager) wrapResource(name resource.Name, config interface{}, deps []string, fn translateToName) error {
 	var wrapper *resourcePlaceholder
 	part, _ := manager.resources.Node(name)
@@ -678,6 +691,8 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 			config: config,
 		}
 	}
+	// the first thing we need to do is seek if the resource name already exists as an unknownType, if so
+	// we need to replace it
 	if old, ok := manager.resources.FindNodeByName(name.Name); ok && old.ResourceType == unknownTypeName {
 		manager.logger.Debugw("renaming resource with ", "old", old, "new", name)
 		if err := manager.resources.RenameNode(*old, name); err != nil {
@@ -697,7 +712,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 		} else if p, ok := manager.resources.FindNodeByName(dep); ok {
 			parent = *p
 		} else {
-			manager.logger.Errorw("the dependency for resource  doesn't exist, no dependency will be added", "dependency", dep, "resource", name)
+			manager.logger.Errorw("the dependency for resource  doesn't exist, it will not be added", "dependency", dep, "resource", name)
 			continue
 		}
 		if _, ok := mapParents[parent]; ok {
@@ -705,6 +720,8 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 			continue
 		}
 		if parent.IsRemoteResource() {
+			// when a local resource depends on a remote then it's possible the remote wasn't added yet.
+			// it's ok, it will be added by addChildren and properly configured later on
 			remote, _ := remoteNameByResource(parent)
 			if err := manager.resources.AddChildren(parent,
 				fromRemoteNameToRemoteNodeName(remote)); err != nil {
@@ -726,6 +743,9 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 	return nil
 }
 
+// updateResourceGraph using the difference between current config
+// and next we create resource wrappers to be consumed ny completeConfig later on
+// Ideally at the end of this function we should have a complete graph representation of the configuration.
 func (manager *resourceManager) updateResourceGraph(
 	config *config.Diff,
 	fn translateToName,
@@ -733,7 +753,7 @@ func (manager *resourceManager) updateResourceGraph(
 	var allErrs error
 	for _, c := range config.Added.Components {
 		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, c, c.DependsOn, fn))
+		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, c, c.Dependencies(), fn))
 	}
 	for _, s := range config.Added.Services {
 		rName := s.ResourceName()
@@ -745,7 +765,7 @@ func (manager *resourceManager) updateResourceGraph(
 	}
 	for _, c := range config.Modified.Components {
 		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, c, c.DependsOn, fn))
+		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, c, c.Dependencies(), fn))
 	}
 	for _, s := range config.Modified.Services {
 		rName := s.ResourceName()

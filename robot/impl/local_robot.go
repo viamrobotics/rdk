@@ -71,7 +71,7 @@ type localRobot struct {
 
 	remotesChanged chan string
 	closeContext   context.Context
-	configChanged  chan struct{}
+	configChanged  chan bool
 	configTimer    *time.Ticker
 }
 
@@ -325,7 +325,7 @@ func newWithResources(
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		closeContext:            closeCtx,
 		cancelBackgroundWorkers: cancel,
-		configChanged:           make(chan struct{}),
+		configChanged:           make(chan bool),
 		configTimer:             nil,
 	}
 
@@ -352,6 +352,7 @@ func newWithResources(
 	}
 
 	r.activeBackgroundWorkers.Add(1)
+	// this goroutine listen for changes in connection status of a remote
 	goutils.ManagedGo(func() {
 		for {
 			if closeCtx.Err() != nil {
@@ -375,6 +376,7 @@ func newWithResources(
 
 	r.activeBackgroundWorkers.Add(1)
 	r.configTimer = time.NewTicker(25 * time.Second)
+	// this goroutine tries to complete the config if any resources are still unconfigured, it execute on a timer or via a channel
 	goutils.ManagedGo(func() {
 		for {
 			if closeCtx.Err() != nil {
@@ -642,27 +644,33 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if diff.ResourcesEqual {
 		return
 	}
-
+	// First we remove resources and their children that are not in the graph.
 	filtered, err := r.manager.FilterFromConfig(ctx, diff.Removed, r.logger)
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+	// This step is still around until we move Processes in the new config format
 	leftovers, err := r.manager.UpdateConfig(ctx, diff.Added, diff.Modified)
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+	// Second we update the resource graph.
+	// We pass a search function to look for dependencies, we should find them either in the current config or in the modified.
 	err = r.manager.updateResourceGraph(diff, func(name string) (resource.Name, bool) {
+		// first look in the current config if anything can be found
 		for _, c := range r.config.Components {
 			if c.Name == name {
 				return c.ResourceName(), true
 			}
 		}
+		// then look into what was added
 		for _, c := range diff.Added.Components {
 			if c.Name == name {
 				return c.ResourceName(), true
 			}
 		}
-		// we don't know what this is :(
+		// we are trying to locate a resource that is set as a dependency but exist yet
+		// in this case this we assume its a remote resource that we haven't found yet.
 		r.logger.Debugw("processing unknown  resource", "name", name)
 		return resource.NameFromSubtype(unknownSubtype, name), true
 	})
@@ -671,12 +679,11 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 	r.config = newConfig
 	allErrs = multierr.Combine(allErrs, filtered.Close(ctx))
+	// this step will be removed once processes are brought into the dependency tree
 	for _, p := range leftovers.ReplacedProcesses {
 		allErrs = multierr.Combine(allErrs, p.Stop())
 	}
-	if allErrs != nil {
-		r.logger.Errorw("some errors were encountered while reconfiguring", "errors", allErrs)
-	}
+	// Third we attempt to complete the config (see function for details)
 	r.manager.completeConfig(ctx, r)
 	r.updateDefaultServices(ctx)
 	if allErrs != nil {
