@@ -76,6 +76,12 @@ func (params *PinholeCameraIntrinsics) CheckValid() error {
 	if params.Width == 0 || params.Height == 0 {
 		return errors.Errorf("invalid size (%#v, %#v)", params.Width, params.Height)
 	}
+	if params.Fx <= 0 {
+		return errors.Errorf("invalid focal length  %#v", params.Fx)
+	}
+	if params.Fy <= 0 {
+		return errors.Errorf("invalid focal length ( %#v)", params.Fy)
+	}
 	return nil
 }
 

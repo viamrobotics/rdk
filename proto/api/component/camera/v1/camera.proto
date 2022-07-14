@@ -118,10 +118,10 @@ message Video {
 }
 
 message IntrinsicParameters {
-  uint32 width_pixels = 1;
-  uint32 height_pixels = 2;
-  double focal_x_pixels = 3;
-  double focal_y_pixels = 4;
-  double center_x_pixels = 5;
-  double center_y_pixels = 6;
+  uint32 width_px = 1;
+  uint32 height_px = 2;
+  double focal_x_px = 3;
+  double focal_y_px = 4;
+  double center_x_px = 5;
+  double center_y_px = 6;
 }

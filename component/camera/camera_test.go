@@ -313,7 +313,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	_, err = noProj.NextPointCloud(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector/Camera Intrinsics associated with it")
 	_, err = noProj.GetProperties(context.Background())
-	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector/Camera Intrinsics associated with it")
+	test.That(t, err, test.ShouldBeError, camera.NewNoIntrinsicsError())
 
 	// make a camera with a NextPointCloudFunction
 	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}

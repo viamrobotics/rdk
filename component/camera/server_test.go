@@ -192,11 +192,11 @@ func TestServer(t *testing.T) {
 
 		resp, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: testCameraName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.IntrinsicParameters.WidthPixels, test.ShouldEqual, 1280)
-		test.That(t, resp.IntrinsicParameters.HeightPixels, test.ShouldEqual, 720)
-		test.That(t, resp.IntrinsicParameters.FocalXPixels, test.ShouldEqual, 200)
-		test.That(t, resp.IntrinsicParameters.FocalYPixels, test.ShouldEqual, 200)
-		test.That(t, resp.IntrinsicParameters.CenterXPixels, test.ShouldEqual, 100)
-		test.That(t, resp.IntrinsicParameters.CenterYPixels, test.ShouldEqual, 100)
+		test.That(t, resp.IntrinsicParameters.WidthPx, test.ShouldEqual, 1280)
+		test.That(t, resp.IntrinsicParameters.HeightPx, test.ShouldEqual, 720)
+		test.That(t, resp.IntrinsicParameters.FocalXPx, test.ShouldEqual, 200)
+		test.That(t, resp.IntrinsicParameters.FocalYPx, test.ShouldEqual, 200)
+		test.That(t, resp.IntrinsicParameters.CenterXPx, test.ShouldEqual, 100)
+		test.That(t, resp.IntrinsicParameters.CenterYPx, test.ShouldEqual, 100)
 	})
 }

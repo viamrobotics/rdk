@@ -138,7 +138,7 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 }
 
 func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
-	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it")
+	return nil, NewNoIntrinsicsError()
 }
 
 // ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
@@ -293,4 +293,9 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 	}
 	c.actual = actual.actual
 	return nil
+}
+
+// NewNoIntrinsicsError is used when the intriniscs are not defined.
+func NewNoIntrinsicsError() error {
+	return errors.New("Intrinisics are not properly defined")
 }
