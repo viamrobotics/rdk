@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/edaniels/golog"
@@ -16,7 +17,9 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/utils"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // PCDType is the format of a pcd file.
@@ -27,6 +30,8 @@ const (
 	PCDAscii PCDType = 0
 	// PCDBinary binary format for pcd.
 	PCDBinary PCDType = 1
+	// PCDCompressed binary format for pcd.
+	PCDCompressed PCDType = 2
 )
 
 // NewFromFile returns a pointcloud read in from the given file.
@@ -78,7 +83,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 				"point", data, "range", fmt.Sprintf("[%f,%f]", minPreciseFloat64, maxPreciseFloat64))
 		}
 
-		v := r3.Vector{x, y, z}
+		v := r3.Vector{X: x, Y: y, Z: z}
 		var dd Data
 		if lf.Header.PointFormatID == 2 && p.RgbData() != nil {
 			r := uint8(p.RgbData().Red / 256)
@@ -227,99 +232,98 @@ func _pcdIntToColor(c int) color.NRGBA {
 	return color.NRGBA{r, g, b, 255}
 }
 
-// ToPCD Writes a PointCloud in PCD format.
 func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 	var err error
 
-	_, err = fmt.Fprintf(out, "VERSION .7\n"+
-		"FIELDS x y z rgb\n"+
-		"SIZE 4 4 4 4\n"+
-		"TYPE F F F I\n"+
-		"COUNT 1 1 1 1\n"+
-		"WIDTH %d\n"+
-		"HEIGHT %d\n"+
-		"VIEWPOINT 0 0 0 1 0 0 0\n"+
+	_, err = fmt.Fprintf(out, "VERSION .7\n")
+	if err != nil {
+		return err
+	}
+	switch cloud.MetaData().HasColor {
+	case true:
+		_, err = fmt.Fprintf(out, "FIELDS x y z rgb\n"+
+			"SIZE 4 4 4 4\n"+
+			"TYPE F F F I\n"+
+			"COUNT 1 1 1 1\n")
+	case false:
+		_, err = fmt.Fprintf(out, "FIELDS x y z\n"+
+			"SIZE 4 4 4\n"+
+			"TYPE F F F\n"+
+			"COUNT 1 1 1\n")
+	}
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "WIDTH %d\n"+
+		"HEIGHT %d\n"+ // TODO (aidanglickman): If we support structured PointClouds, update this
+		"VIEWPOINT 0 0 0 1 0 0 0\n"+ // TODO (aidanglickman): When PointClouds support transfom metadata update this
 		"POINTS %d\n",
 		cloud.Size(),
 		1,
-		cloud.Size(),
-	)
-
+		cloud.Size())
 	if err != nil {
 		return err
 	}
 
 	switch outputType {
-	case PCDAscii:
-		_, err = out.Write([]byte("DATA ascii\n"))
-		if err != nil {
-			return err
-		}
-
-		cloud.Iterate(0, 0, func(position r3.Vector, d Data) bool {
-			// Our point clouds are in mm, PCD files expect meters
-			width := position.X / 1000.
-			height := position.Y / 1000.
-			depth := position.Z / 1000.
-
-			_, err = fmt.Fprintf(out, "%f %f %f %d\n",
-				width,
-				height,
-				depth,
-				_colorToPCDInt(d))
-			return err == nil
-		})
 	case PCDBinary:
-		_, err = out.Write([]byte("DATA binary\n"))
+		_, err = fmt.Fprintf(out, "DATA binary\n")
 		if err != nil {
 			return err
 		}
-
-		buf := make([]byte, 16)
-		cloud.Iterate(0, 0, func(position r3.Vector, d Data) bool {
-			// Our point clouds are in mm, PCD files expect meters
-			width := float32(position.X / 1000.0)
-			height := float32(position.Y / 1000.)
-			depth := float32(position.Z / 1000.)
-
-			binary.LittleEndian.PutUint32(buf, math.Float32bits(width))
-			binary.LittleEndian.PutUint32(buf[4:], math.Float32bits(height))
-			binary.LittleEndian.PutUint32(buf[8:], math.Float32bits(depth))
-			binary.LittleEndian.PutUint32(buf[12:], uint32(_colorToPCDInt(d)))
-			_, err = out.Write(buf)
-			return err == nil
-		})
-	default:
-		return fmt.Errorf("unknown pcd type %d", outputType)
+	case PCDAscii:
+		_, err = fmt.Fprintf(out, "DATA ascii\n")
+		if err != nil {
+			return err
+		}
+	case PCDCompressed:
+		// _, err = fmt.Fprintf(out, "DATA binary_compressed\n")
+		// if err != nil {
+		// 	return err
+		// }
+		return fmt.Errorf("compressed PCD not yet implemented")
 	}
-
+	err = writePCDData(cloud, out, outputType)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func readPcdHeaderLine(in *bufio.Reader, name string) (string, error) {
-	l, err := in.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-
-	if !strings.HasPrefix(l, name) {
-		return "", fmt.Errorf("line is supposed to start with %s but is %s", name, l)
-	}
-
-	return strings.TrimSpace(l[len(name)+1:]), nil
-}
-
-func readPcdHeaderLineCheck(in *bufio.Reader, name string, value string) error {
-	l, err := readPcdHeaderLine(in, name)
-	if err != nil {
-		return err
-	}
-	if l != value {
-		return fmt.Errorf("header (%s) supposed to be %s but is %s", name, value, l)
-	}
+func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
+	cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
+		var err error
+		x := pos.X / 1000.
+		y := pos.Y / 1000.
+		z := pos.Z / 1000.
+		switch cloud.MetaData().HasColor {
+		case true:
+			c := _colorToPCDInt(d)
+			switch pcdtype {
+			case PCDBinary:
+				buf := make([]byte, 16)
+				binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(x)))
+				binary.LittleEndian.PutUint32(buf[4:], math.Float32bits(float32(y)))
+				binary.LittleEndian.PutUint32(buf[8:], math.Float32bits(float32(z)))
+				binary.LittleEndian.PutUint32(buf[12:], uint32(c))
+				_, err = out.Write(buf)
+			case PCDAscii:
+				_, err = fmt.Fprintf(out, "%f %f %f %d\n", x, y, z, c)
+			}
+		case false:
+			switch pcdtype {
+			case PCDBinary:
+				buf := make([]byte, 12)
+				binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(x)))
+				binary.LittleEndian.PutUint32(buf[4:], math.Float32bits(float32(y)))
+				binary.LittleEndian.PutUint32(buf[8:], math.Float32bits(float32(z)))
+				_, err = out.Write(buf)
+			case PCDAscii:
+				_, err = fmt.Fprintf(out, "%f %f %f\n", x, y, z)
+			}
+		}
+		return err == nil
+	})
 	return nil
 }
 
@@ -328,123 +332,242 @@ func readFloat(n uint32) float64 {
 	return math.Round(f*10000) / 10000
 }
 
-// ReadPCD reads a pcd file format and returns a pointcloud. Very restrictive on the format for now.
+type pcdFieldType int
+
+const (
+	pcdPointOnly  pcdFieldType = 3
+	pcdPointColor pcdFieldType = 4
+)
+
+type pcdValType string
+
+const (
+	pcdValFloat pcdValType = "F"
+	pcdValInt   pcdValType = "I"
+	pcdValUInt  pcdValType = "U"
+)
+
+type pcdHeader struct {
+	fields    pcdFieldType
+	size      []uint64
+	type_     []pcdValType
+	count     []uint64
+	width     uint64
+	height    uint64
+	viewpoint spatialmath.Pose
+	points    uint64
+	data      PCDType
+}
+
+const PCD_COMMENT_CHAR = "#"
+
+var PCD_HEADER_FIELDS = []string{"VERSION", "FIELDS", "SIZE", "TYPE", "COUNT", "WIDTH", "HEIGHT", "VIEWPOINT", "POINTS", "DATA"}
+
+func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
+	var err error
+	name := PCD_HEADER_FIELDS[index]
+	field, value, _ := strings.Cut(line, " ")
+	tokens := strings.Split(value, " ")
+	if field != name {
+		return fmt.Errorf("line is supposed to start with %s but is %s", name, line)
+	}
+
+	switch name {
+	case "VERSION":
+		if value != ".7" { // This can be expanded later if desired, though I doubt we will need/want that
+			return fmt.Errorf("unsupported pcd version %s", value)
+		}
+	case "FIELDS":
+		switch value {
+		case "x y z":
+			pcdHeader.fields = pcdPointOnly
+		case "x y z rgb":
+			pcdHeader.fields = pcdPointColor
+		default:
+			return fmt.Errorf("unsupported pcd fields %s", value)
+		}
+	case "SIZE":
+		if len(tokens) != int(pcdHeader.fields) {
+			return fmt.Errorf("unexpected number of fields in SIZE line")
+		}
+		pcdHeader.size = make([]uint64, len(tokens))
+		for i, token := range tokens {
+			pcdHeader.size[i], err = strconv.ParseUint(token, 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid SIZE field %s", token)
+			}
+		}
+	case "TYPE":
+		if len(tokens) != int(pcdHeader.fields) {
+			return fmt.Errorf("unexpected number of fields in TYPE line")
+		}
+		pcdHeader.type_ = make([]pcdValType, len(tokens))
+		for i, token := range tokens {
+			pcdHeader.type_[i] = pcdValType(token)
+		}
+	case "COUNT":
+		if len(tokens) != int(pcdHeader.fields) {
+			return fmt.Errorf("unexpected number of fields in COUNT line")
+		}
+		pcdHeader.count = make([]uint64, len(tokens))
+		for i, token := range tokens {
+			pcdHeader.count[i], err = strconv.ParseUint(token, 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid COUNT field %s: %s", token, err)
+			}
+		}
+	case "WIDTH":
+		pcdHeader.width, err = strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid WIDTH field %s: %s", value, err)
+		}
+	case "HEIGHT":
+		pcdHeader.height, err = strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid HEIGHT field %s: %s", value, err)
+		}
+	case "VIEWPOINT":
+		if len(tokens) != 7 {
+			return fmt.Errorf("unexpected number of fields in VIEWPOINT line. Expected 7, got %d", len(tokens))
+		}
+		viewpoint := [7]float64{}
+		for i, token := range tokens {
+			viewpoint[i], err = strconv.ParseFloat(token, 64)
+			if err != nil {
+				return fmt.Errorf("invalid VIEWPOINT field %s: %s", token, err)
+			}
+		}
+		pcdHeader.viewpoint = spatialmath.NewPoseFromOrientationVector(
+			r3.Vector{X: viewpoint[0], Y: viewpoint[1], Z: viewpoint[2]},
+			spatialmath.QuatToOV(quat.Number{Real: viewpoint[3], Imag: viewpoint[4], Jmag: viewpoint[5], Kmag: viewpoint[6]}),
+		)
+	case "POINTS":
+		var points uint64
+		points, err = strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid POINTS field %s: %s", value, err)
+		}
+		if points != pcdHeader.width*pcdHeader.height {
+			return fmt.Errorf("POINTS field %d does not match WIDTH*HEIGHT %d", points, pcdHeader.width*pcdHeader.height)
+		}
+		pcdHeader.points = points
+	case "DATA":
+		switch value {
+		case "ascii":
+			pcdHeader.data = PCDAscii
+		case "binary":
+			pcdHeader.data = PCDBinary
+		case "binary_compressed":
+			pcdHeader.data = PCDCompressed
+		}
+	}
+
+	return nil
+}
+
 func ReadPCD(inRaw io.Reader) (PointCloud, error) {
+	header := pcdHeader{}
 	in := bufio.NewReader(inRaw)
-
-	err := readPcdHeaderLineCheck(in, "VERSION", ".7")
-	if err != nil {
-		return nil, err
-	}
-
-	err = readPcdHeaderLineCheck(in, "FIELDS", "x y z rgb")
-	if err != nil {
-		return nil, err
-	}
-
-	err = readPcdHeaderLineCheck(in, "SIZE", "4 4 4 4")
-	if err != nil {
-		return nil, err
-	}
-
-	err = readPcdHeaderLineCheck(in, "TYPE", "F F F I")
-	if err != nil {
-		return nil, err
-	}
-
-	err = readPcdHeaderLineCheck(in, "COUNT", "1 1 1 1")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = readPcdHeaderLine(in, "WIDTH")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = readPcdHeaderLine(in, "HEIGHT")
-	if err != nil {
-		return nil, err
-	}
-
-	err = readPcdHeaderLineCheck(in, "VIEWPOINT", "0 0 0 1 0 0 0")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = readPcdHeaderLine(in, "POINTS")
-	if err != nil {
-		return nil, err
-	}
-
-	outputTypeString, err := readPcdHeaderLine(in, "DATA")
-	if err != nil {
-		return nil, err
-	}
-
-	pc := New()
-
-	switch outputTypeString {
-	case "ascii":
-		for {
-			l, err := in.ReadString('\n')
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-
-			var x, y, z float64
-			var color int
-
-			n, err := fmt.Sscanf(l, "%f %f %f %d", &x, &y, &z, &color)
-			if err != nil {
-				return nil, err
-			}
-			if n != 4 {
-				return nil, fmt.Errorf("didn't find the correct number of things, got %d", n)
-			}
-
-			err = pc.Set(r3.Vector{x * 1000, y * 1000, z * 1000}, NewColoredData(_pcdIntToColor(color)))
-			if err != nil {
-				return nil, err
-			}
+	var line string
+	var err error
+	headerLineCount := 0
+	for headerLineCount < len(PCD_HEADER_FIELDS) {
+		line, err = in.ReadString('\n')
+		if err != nil {
+			return nil, fmt.Errorf("error reading header line %d: %s", headerLineCount, err)
 		}
-	case "binary":
-		buf := make([]byte, 16)
-		for {
-			read, err := in.Read(buf)
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-			if read < 16 {
-				read2, err := in.Read(buf[read:])
-				if err != nil {
-					return nil, err
-				}
-				read += read2
-			}
-			if read != 16 {
-				return nil, fmt.Errorf("invalid pcd binary, read %d", read)
-			}
-
-			x := readFloat(binary.LittleEndian.Uint32(buf))
-			y := readFloat(binary.LittleEndian.Uint32(buf[4:]))
-			z := readFloat(binary.LittleEndian.Uint32(buf[8:]))
-			color := int(binary.LittleEndian.Uint32(buf[12:]))
-
-			err = pc.Set(r3.Vector{x * 1000, y * 1000, z * 1000}, NewColoredData(_pcdIntToColor(color)))
-			if err != nil {
-				return nil, err
-			}
+		line, _, _ = strings.Cut(line, PCD_COMMENT_CHAR)
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
 		}
+		err := parsePCDHeaderLine(line, headerLineCount, &header)
+		if err != nil {
+			return nil, err
+		}
+		headerLineCount++
+	}
+	switch header.data {
+	case PCDAscii:
+		return readPCDAscii(in, header)
+	case PCDBinary:
+		return readPCDBinary(in, header)
+	case PCDCompressed:
+		// return readPCDCompressed(in, header)
+		return nil, fmt.Errorf("compressed pcd not yet supported")
 	default:
-		return nil, fmt.Errorf("unknown pcd data type: %s", outputTypeString)
+		return nil, fmt.Errorf("unsupported pcd data type %v", header.data)
 	}
+}
 
+func readPCDAscii(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
+	pc := NewWithPrealloc(int(header.points))
+	for i := 0; i < int(header.points); i++ {
+		line, err := in.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+		line = strings.TrimSpace(line)
+		tokens := strings.Split(line, " ")
+		if len(tokens) != int(header.fields) {
+			return nil, fmt.Errorf("unexpected number of fields in point %d", i)
+		}
+		point := make([]float64, len(tokens))
+		for j, token := range tokens {
+			point[j], err = strconv.ParseFloat(token, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid point %d field %s: %s", i, token, err)
+			}
+		}
+		pcPoint, data, err := readSliceToPoint(point, header)
+		if err != nil {
+			return nil, err
+		}
+		pc.Set(pcPoint, data)
+	}
 	return pc, nil
+}
+
+func readPCDBinary(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
+	var err error
+	var read int
+	pc := NewWithPrealloc(int(header.points))
+	for i := 0; i < int(header.points); i++ {
+		pointBuf := make([]float64, int(header.fields))
+		for j := 0; j < int(header.fields); j++ {
+			buf := make([]byte, header.size[j])
+			read, err = in.Read(buf)
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+			if read != int(header.size[j]) {
+				return nil, fmt.Errorf("unexpected number of bytes read %d", read)
+			}
+			pointBuf[j] = readFloat(binary.LittleEndian.Uint32(buf))
+		}
+		point, data, err := readSliceToPoint(pointBuf, header)
+		if err != nil {
+			return nil, err
+		}
+		pc.Set(point, data)
+	}
+	return pc, nil
+}
+
+func readSliceToPoint(slice []float64, header pcdHeader) (r3.Vector, Data, error) {
+	pos := r3.Vector{X: 1000. * slice[0], Y: 1000. * slice[1], Z: 1000. * slice[2]}
+	switch header.fields {
+	// This can be expanded to support more field types if needed.
+	case pcdPointOnly:
+		return pos, NewBasicData(), nil
+
+	case pcdPointColor:
+		color := NewColoredData(_pcdIntToColor(int(slice[3])))
+		return pos, color, nil
+	default:
+		return r3.Vector{}, nil, fmt.Errorf("unsupported pcd field type %d", header.fields)
+	}
 }

@@ -67,6 +67,69 @@ func TestPCD(t *testing.T) {
 
 	testASCIIRoundTrip(t, cloud)
 	testBinaryRoundTrip(t, cloud)
+	testPCDNoColor(t)
+}
+
+func testPCDNoColor(t *testing.T) {
+	cloud := New()
+	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewBasicData()), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(582, 12, 0), NewBasicData()), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(7, 6, 1), NewBasicData()), test.ShouldBeNil)
+	test.That(t, cloud.Size(), test.ShouldEqual, 3)
+
+	testNoColorASCIIRoundTrip(t, cloud)
+	testNoColorBinaryRoundTrip(t, cloud)
+}
+
+func testNoColorASCIIRoundTrip(t *testing.T, cloud PointCloud) {
+	t.Helper()
+	// write to .pcd
+	var buf bytes.Buffer
+	err := ToPCD(cloud, &buf, PCDAscii)
+	test.That(t, err, test.ShouldBeNil)
+	gotPCD := buf.String()
+	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 3")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "HEIGHT 1")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA ascii")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "FIELDS x y z")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "-0.001000 -0.002000 0.005000\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 0.012000 0.000000\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 0.006000 0.001000\n")
+
+	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
+	test.That(t, err, test.ShouldBeNil)
+	testPCDOutput(t, cloud2)
+
+	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func testNoColorBinaryRoundTrip(t *testing.T, cloud PointCloud) {
+	t.Helper()
+	// write to .pcd
+	var buf bytes.Buffer
+	err := ToPCD(cloud, &buf, PCDBinary)
+	test.That(t, err, test.ShouldBeNil)
+	gotPCD := buf.String()
+	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 3")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "HEIGHT 1")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "FIELDS x y z")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA binary")
+
+	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
+	test.That(t, err, test.ShouldBeNil)
+	testPCDOutput(t, cloud2)
+
+	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func testPCDOutput(t *testing.T, cloud2 PointCloud) {
