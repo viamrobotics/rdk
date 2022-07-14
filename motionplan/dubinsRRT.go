@@ -253,6 +253,8 @@ func (mp *dubinsRRTMotionPlanner) CheckPath(
 	end := configuration2slice(to)
 	path := dm.d.GeneratePoints(start, end, o.DubinsPath, o.Straight)
 
+	fmt.Println(path)
+
 	pathOk := true
 	p1, p2 := path[0], path[1]
 	for _, p := range path[1:] {

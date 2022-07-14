@@ -45,11 +45,24 @@ func (d *Dubins) arc(angle float64) float64{
 }
 
 func (d *Dubins) lsl(start []float64, end []float64, center_0 []float64, center_2 []float64) DubinOption {
-	straight_dist := d.dist(center_0, center_2)
 	alpha := math.Atan2(d.sub(center_2, center_0)[1], d.sub(center_2, center_0)[0])
 	beta_2 := math.Mod((end[2] - alpha), 2*math.Pi)
 	beta_0 := math.Mod((alpha - start[2]), 2*math.Pi)
 
+	// straight distance calculation
+	// start of straight
+	ini := start[:2] // if less than 0
+	angle := start[2]
+	angle += (math.Abs(beta_0) - math.Pi/2)
+	sides := []float64{math.Cos(angle), math.Sin(angle)}
+	ini = d.add(center_0, d.mul(sides, d.Radius))
+	// end of straight
+	fin := end[:2]
+	angle2 := end[2] + (-math.Abs(beta_2) - math.Pi/2)
+	angle2 += (-math.Abs(beta_2) - math.Pi/2)
+	sides2 := []float64{math.Cos(angle2), math.Sin(angle2)}
+	fin = d.add(center_2, sides2)
+	straight_dist := d.dist(ini, fin)
 	total_len := d.arc(beta_2) + d.arc(beta_0) + straight_dist
 	// total_len := d.Radius*(beta_2+beta_0) + straight_dist	// both
 
@@ -57,31 +70,30 @@ func (d *Dubins) lsl(start []float64, end []float64, center_0 []float64, center_
 	path[0] = beta_0
 	path[1] = beta_2
 	path[2] = straight_dist
-
-	if total_len < 0 {
-		fmt.Println("LSL: ", total_len)
-	}
 	
 	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
+
+	fmt.Println("len: ", straight_dist)
 
 	return dubin
 }
 
 func (d *Dubins) rsr(start []float64, end []float64, center_0 []float64, center_2 []float64) DubinOption {
-	straight_dist := d.dist(center_0, center_2)
 	alpha := math.Atan2(d.sub(center_2, center_0)[1], d.sub(center_2, center_0)[0])
 	beta_2 := math.Mod((-end[2] + alpha), 2*math.Pi)
 	beta_0 := math.Mod((-alpha + start[2]), 2*math.Pi)
+
+	//start of straight
+	ini := start[:2] //if less than 0
+	//end of straight
+	fin := end[:2]
+	straight_dist := d.dist(ini, fin)
 	total_len := d.arc(beta_2) + d.arc(beta_0) + straight_dist
 
 	path := make([]float64, 3)
 	path[0] = -beta_0
 	path[1] = -beta_2
 	path[2] = straight_dist
-
-	if total_len < 0 {
-		fmt.Println("RSR: ", total_len)
-	}
 
 	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
 
@@ -100,7 +112,18 @@ func (d *Dubins) rsl(start []float64, end []float64, center_0 []float64, center_
 	alpha := math.Acos(d.Radius / half_intercenter)
 	beta_0 := -math.Mod((psia + alpha - start[2] - math.Pi/2), 2*math.Pi)
 	beta_2 := math.Mod(math.Pi+end[2]-math.Pi/2-alpha-psia, 2*math.Pi)
-	straight_dist := 2 * math.Sqrt((math.Pow(half_intercenter, 2) - math.Pow(d.Radius, 2)))
+	// straight_dist := 2 * math.Sqrt((math.Pow(half_intercenter, 2) - math.Pow(d.Radius, 2)))
+
+	//start of straight
+	ini := start[:2] //if less than 0
+	//end of straight
+	fin := end[:2]
+	angle := end[2] + (-math.Abs(beta_2) - math.Pi/2)
+	angle += (-math.Abs(beta_2) - math.Pi/2)
+	sides := []float64{math.Cos(angle), math.Sin(angle)}
+	fin = d.add(center_2, sides)
+
+	straight_dist := d.dist(ini, fin)
 	total_len := d.arc(beta_2) + d.arc(beta_0) + straight_dist
 
 	path := make([]float64, 3)
@@ -129,7 +152,18 @@ func (d *Dubins) lsr(start []float64, end []float64, center_0 []float64, center_
 	alpha := math.Acos(d.Radius / half_intercenter)
 	beta_0 := math.Mod((psia - alpha - start[2] + math.Pi/2), 2*math.Pi)
 	beta_2 := math.Mod(math.Pi/2-end[2]-alpha+psia, 2*math.Pi)
-	straight_dist := 2 * math.Sqrt((math.Pow(half_intercenter, 2) - math.Pow(d.Radius, 2)))
+	// straight_dist := 2 * math.Sqrt((math.Pow(half_intercenter, 2) - math.Pow(d.Radius, 2)))
+
+	//start of straight
+	ini := start[:2] //if less than 0
+	angle := start[2]
+	angle += (math.Abs(beta_0) - math.Pi/2)
+	sides := []float64{math.Cos(angle), math.Sin(angle)}
+	ini = d.add(center_0, d.mul(sides, d.Radius))
+	//end of straight
+	fin := end[:2]
+	straight_dist := d.dist(ini, fin)
+
 	total_len := d.arc(beta_2) + d.arc(beta_0) + straight_dist
 
 	path := make([]float64, 3)
@@ -152,7 +186,7 @@ func (d *Dubins) lrl(start []float64, end []float64, center_0 []float64, center_
 	psia := math.Atan2(intercenter[1], intercenter[0])
 	if 2*d.Radius < dist_intercenter && dist_intercenter > 4*d.Radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := DubinOption{TotalLen: math.Inf(1), DubinsPath: zeros, Straight: true}
+		dubin := DubinOption{TotalLen: math.Inf(1), DubinsPath: zeros, Straight: false}
 		return dubin
 	}
 	gamma := 2 * math.Asin(dist_intercenter/(4*d.Radius))
@@ -169,7 +203,7 @@ func (d *Dubins) lrl(start []float64, end []float64, center_0 []float64, center_
 		fmt.Println("LRL: ", total_len)
 	}
 
-	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
+	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: false}
 
 	return dubin
 }
@@ -180,7 +214,7 @@ func (d *Dubins) rlr(start []float64, end []float64, center_0 []float64, center_
 	psia := math.Atan2(intercenter[1], intercenter[0])
 	if 2*d.Radius < dist_intercenter && dist_intercenter > 4*d.Radius {
 		zeros := []float64{0., 0., 0.}
-		dubin := DubinOption{TotalLen: math.Inf(1), DubinsPath: zeros, Straight: true}
+		dubin := DubinOption{TotalLen: math.Inf(1), DubinsPath: zeros, Straight: false}
 		return dubin
 	}
 	gamma := 2 * math.Asin(dist_intercenter/(4*d.Radius))
@@ -196,7 +230,7 @@ func (d *Dubins) rlr(start []float64, end []float64, center_0 []float64, center_
 	if total_len < 0 {
 		fmt.Println("RLR: ", total_len)
 	}
-	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: true}
+	dubin := DubinOption{TotalLen: total_len, DubinsPath: path, Straight: false}
 
 	return dubin
 }
