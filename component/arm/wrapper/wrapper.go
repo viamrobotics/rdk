@@ -56,7 +56,7 @@ type Arm struct {
 
 // NewWrapperArm returns a wrapper component for another arm.
 func NewWrapperArm(cfg config.Component, actual arm.Arm, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
-	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
+	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(AttrConfig).ModelPath, cfg.Name)
 	if err != nil {
 		return nil, err
 	}
