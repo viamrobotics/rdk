@@ -134,3 +134,15 @@ window.BoardControlHelper = {
 
   // TODO: Add PWM
 };
+
+// Servo control helpers
+// todo: add the rest
+window.ServoControlHelper = {
+  stop: function(name, cb) {
+    const req = new servoApi.StopRequest();
+    req.setName(name);
+
+    rcLogConditionally(req);
+    servoService.stop(req, {}, cb);
+  },
+};
