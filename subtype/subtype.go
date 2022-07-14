@@ -46,8 +46,6 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 		switch {
 		case n.Name == "":
 			resources[n.String()] = v
-		case n.Remote == "":
-			resources[n.Name] = v
 		default:
 			resources[n.ShortName()] = v
 		}
