@@ -67,10 +67,9 @@ func TestPCD(t *testing.T) {
 
 	testASCIIRoundTrip(t, cloud)
 	testBinaryRoundTrip(t, cloud)
-	testPCDNoColor(t)
 }
 
-func testPCDNoColor(t *testing.T) {
+func TestPCDNoColor(t *testing.T) {
 	cloud := New()
 	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewBasicData()), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(582, 12, 0), NewBasicData()), test.ShouldBeNil)
@@ -126,10 +125,10 @@ func testNoColorBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	testPCDOutput(t, cloud2)
 
 	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "line is supposed to start with")
 
 	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported pcd version")
 }
 
 func testPCDOutput(t *testing.T, cloud2 PointCloud) {
