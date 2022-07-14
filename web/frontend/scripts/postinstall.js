@@ -2,4 +2,8 @@
 /* eslint-disable unicorn/prefer-module */
 const fs = require('node:fs');
 
-fs.copyFileSync('./node_modules/@viamrobotics/prime/dist/prime.css', '../runtime-shared/static/prime.css');
+const source = './node_modules/@viamrobotics/prime/dist';
+const dest = '../runtime-shared/static';
+
+fs.copyFileSync(`${source}/prime.css`, `${dest}/prime.css`);
+fs.copyFileSync(`${source}/icons.woff2`, `${dest}/icons.woff2`);
