@@ -277,7 +277,7 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		rr.configChanged <- struct{}{}
+		rr.configChanged <- true
 
 		utils.SelectContextOrWait(context.Background(), 200*time.Millisecond)
 
@@ -1896,7 +1896,7 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		rr.configChanged <- struct{}{}
+		rr.configChanged <- true
 
 		utils.SelectContextOrWait(context.Background(), 200*time.Millisecond)
 		mock6, err = robot.ResourceByName(mockNamed("mock6"))
@@ -2160,7 +2160,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.configChanged <- struct{}{}
+	rr.configChanged <- true
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
@@ -2228,7 +2228,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	rr, ok = r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.configChanged <- struct{}{}
+	rr.configChanged <- true
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
