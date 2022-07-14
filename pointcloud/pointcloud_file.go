@@ -17,9 +17,10 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/num/quat"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // PCDType is the format of a pcd file.
@@ -232,6 +233,7 @@ func _pcdIntToColor(c int) color.NRGBA {
 	return color.NRGBA{r, g, b, 255}
 }
 
+// ToPCD writes out a point cloud to a PCD file of the specified type.
 func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 	var err error
 
@@ -239,13 +241,12 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 	if err != nil {
 		return err
 	}
-	switch cloud.MetaData().HasColor {
-	case true:
+	if cloud.MetaData().HasColor {
 		_, err = fmt.Fprintf(out, "FIELDS x y z rgb\n"+
 			"SIZE 4 4 4 4\n"+
 			"TYPE F F F I\n"+
 			"COUNT 1 1 1 1\n")
-	case false:
+	} else {
 		_, err = fmt.Fprintf(out, "FIELDS x y z\n"+
 			"SIZE 4 4 4\n"+
 			"TYPE F F F\n"+
@@ -256,7 +257,7 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 	}
 	_, err = fmt.Fprintf(out, "WIDTH %d\n"+
 		"HEIGHT %d\n"+ // TODO (aidanglickman): If we support structured PointClouds, update this
-		"VIEWPOINT 0 0 0 1 0 0 0\n"+ // TODO (aidanglickman): When PointClouds support transfom metadata update this
+		"VIEWPOINT 0 0 0 1 0 0 0\n"+ // TODO (aidanglickman): When PointClouds support transform metadata update this
 		"POINTS %d\n",
 		cloud.Size(),
 		1,
@@ -281,7 +282,7 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 		// if err != nil {
 		// 	return err
 		// }
-		return fmt.Errorf("compressed PCD not yet implemented")
+		return errors.New("compressed PCD not yet implemented")
 	}
 	err = writePCDData(cloud, out, outputType)
 	if err != nil {
@@ -296,8 +297,7 @@ func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
 		x := pos.X / 1000.
 		y := pos.Y / 1000.
 		z := pos.Z / 1000.
-		switch cloud.MetaData().HasColor {
-		case true:
+		if cloud.MetaData().HasColor {
 			c := _colorToPCDInt(d)
 			switch pcdtype {
 			case PCDBinary:
@@ -309,8 +309,12 @@ func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
 				_, err = out.Write(buf)
 			case PCDAscii:
 				_, err = fmt.Fprintf(out, "%f %f %f %d\n", x, y, z, c)
+			case PCDCompressed:
+				return false // TODO(aidanglickman): Implement compressed PCD
+			default:
+				return false
 			}
-		case false:
+		} else {
 			switch pcdtype {
 			case PCDBinary:
 				buf := make([]byte, 12)
@@ -320,6 +324,10 @@ func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
 				_, err = out.Write(buf)
 			case PCDAscii:
 				_, err = fmt.Fprintf(out, "%f %f %f\n", x, y, z)
+			case PCDCompressed:
+				return false // TODO(aidanglickman): Implement compressed PCD
+			default:
+				return false
 			}
 		}
 		return err == nil
@@ -339,18 +347,10 @@ const (
 	pcdPointColor pcdFieldType = 4
 )
 
-type pcdValType string
-
-const (
-	pcdValFloat pcdValType = "F"
-	pcdValInt   pcdValType = "I"
-	pcdValUInt  pcdValType = "U"
-)
-
 type pcdHeader struct {
 	fields    pcdFieldType
 	size      []uint64
-	type_     []pcdValType
+	valTypes  []string
 	count     []uint64
 	width     uint64
 	height    uint64
@@ -359,13 +359,13 @@ type pcdHeader struct {
 	data      PCDType
 }
 
-const PCD_COMMENT_CHAR = "#"
+const pcdCommentChar = "#"
 
-var PCD_HEADER_FIELDS = []string{"VERSION", "FIELDS", "SIZE", "TYPE", "COUNT", "WIDTH", "HEIGHT", "VIEWPOINT", "POINTS", "DATA"}
+var pcdHeaderFields = []string{"VERSION", "FIELDS", "SIZE", "TYPE", "COUNT", "WIDTH", "HEIGHT", "VIEWPOINT", "POINTS", "DATA"}
 
 func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 	var err error
-	name := PCD_HEADER_FIELDS[index]
+	name := pcdHeaderFields[index]
 	field, value, _ := strings.Cut(line, " ")
 	tokens := strings.Split(value, " ")
 	if field != name {
@@ -388,7 +388,7 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 		}
 	case "SIZE":
 		if len(tokens) != int(pcdHeader.fields) {
-			return fmt.Errorf("unexpected number of fields in SIZE line")
+			return fmt.Errorf("unexpected number of fields %d in SIZE line", len(tokens))
 		}
 		pcdHeader.size = make([]uint64, len(tokens))
 		for i, token := range tokens {
@@ -399,32 +399,30 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 		}
 	case "TYPE":
 		if len(tokens) != int(pcdHeader.fields) {
-			return fmt.Errorf("unexpected number of fields in TYPE line")
+			return fmt.Errorf("unexpected number of fields %d in TYPE line", len(tokens))
 		}
-		pcdHeader.type_ = make([]pcdValType, len(tokens))
-		for i, token := range tokens {
-			pcdHeader.type_[i] = pcdValType(token)
-		}
+		copy(pcdHeader.valTypes, tokens)
+
 	case "COUNT":
 		if len(tokens) != int(pcdHeader.fields) {
-			return fmt.Errorf("unexpected number of fields in COUNT line")
+			return fmt.Errorf("unexpected number of fields %d in COUNT line", len(tokens))
 		}
 		pcdHeader.count = make([]uint64, len(tokens))
 		for i, token := range tokens {
 			pcdHeader.count[i], err = strconv.ParseUint(token, 10, 64)
 			if err != nil {
-				return fmt.Errorf("invalid COUNT field %s: %s", token, err)
+				return fmt.Errorf("invalid COUNT field %s: %w", token, err)
 			}
 		}
 	case "WIDTH":
 		pcdHeader.width, err = strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return fmt.Errorf("invalid WIDTH field %s: %s", value, err)
+			return fmt.Errorf("invalid WIDTH field %s: %w", value, err)
 		}
 	case "HEIGHT":
 		pcdHeader.height, err = strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return fmt.Errorf("invalid HEIGHT field %s: %s", value, err)
+			return fmt.Errorf("invalid HEIGHT field %s: %w", value, err)
 		}
 	case "VIEWPOINT":
 		if len(tokens) != 7 {
@@ -434,7 +432,7 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 		for i, token := range tokens {
 			viewpoint[i], err = strconv.ParseFloat(token, 64)
 			if err != nil {
-				return fmt.Errorf("invalid VIEWPOINT field %s: %s", token, err)
+				return fmt.Errorf("invalid VIEWPOINT field %s: %w", token, err)
 			}
 		}
 		pcdHeader.viewpoint = spatialmath.NewPoseFromOrientationVector(
@@ -445,7 +443,7 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 		var points uint64
 		points, err = strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return fmt.Errorf("invalid POINTS field %s: %s", value, err)
+			return fmt.Errorf("invalid POINTS field %s: %w", value, err)
 		}
 		if points != pcdHeader.width*pcdHeader.height {
 			return fmt.Errorf("POINTS field %d does not match WIDTH*HEIGHT %d", points, pcdHeader.width*pcdHeader.height)
@@ -465,18 +463,19 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 	return nil
 }
 
+// ReadPCD reads a PCD file into a pointcloud.
 func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 	header := pcdHeader{}
 	in := bufio.NewReader(inRaw)
 	var line string
 	var err error
 	headerLineCount := 0
-	for headerLineCount < len(PCD_HEADER_FIELDS) {
+	for headerLineCount < len(pcdHeaderFields) {
 		line, err = in.ReadString('\n')
 		if err != nil {
-			return nil, fmt.Errorf("error reading header line %d: %s", headerLineCount, err)
+			return nil, fmt.Errorf("error reading header line %d: %w", headerLineCount, err)
 		}
-		line, _, _ = strings.Cut(line, PCD_COMMENT_CHAR)
+		line, _, _ = strings.Cut(line, pcdCommentChar)
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -494,7 +493,7 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 		return readPCDBinary(in, header)
 	case PCDCompressed:
 		// return readPCDCompressed(in, header)
-		return nil, fmt.Errorf("compressed pcd not yet supported")
+		return nil, errors.New("compressed pcd not yet supported")
 	default:
 		return nil, fmt.Errorf("unsupported pcd data type %v", header.data)
 	}
@@ -516,14 +515,17 @@ func readPCDAscii(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 		for j, token := range tokens {
 			point[j], err = strconv.ParseFloat(token, 64)
 			if err != nil {
-				return nil, fmt.Errorf("invalid point %d field %s: %s", i, token, err)
+				return nil, fmt.Errorf("invalid point %d field %s: %w", i, token, err)
 			}
 		}
 		pcPoint, data, err := readSliceToPoint(point, header)
 		if err != nil {
 			return nil, err
 		}
-		pc.Set(pcPoint, data)
+		err = pc.Set(pcPoint, data)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pc, nil
 }
@@ -552,12 +554,16 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 		if err != nil {
 			return nil, err
 		}
-		pc.Set(point, data)
+		err = pc.Set(point, data)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pc, nil
 }
 
 func readSliceToPoint(slice []float64, header pcdHeader) (r3.Vector, Data, error) {
+	// multiply by 1000 as RDK uses millimeters and PCD expects meters
 	pos := r3.Vector{X: 1000. * slice[0], Y: 1000. * slice[1], Z: 1000. * slice[2]}
 	switch header.fields {
 	// This can be expanded to support more field types if needed.
