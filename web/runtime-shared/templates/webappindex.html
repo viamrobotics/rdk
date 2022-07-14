@@ -453,6 +453,7 @@
               }
             },
             servoMove: function (name, amount) {
+              console.log('servo move: ', name, amount);
               const servo = theApp.rawResourceStatusByName(name);
               var oldAngle = servo["position_deg"] || 0;
               let angle = oldAngle + amount;
@@ -476,6 +477,9 @@
             },
             motorStop: function(name) {
               MotorControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
+            },
+            servoStop: function(name) {
+              ServoControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
             },
             hasWebGamepad: function () {
               // TODO (APP-146): replace these with constants
@@ -649,6 +653,7 @@
               req.setName("UI");
               const mimeType = "image/jpeg";
               req.setMimeType(mimeType);
+              req.setIncludeRobotMarker(true);
               slamService.getMap(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
@@ -1739,25 +1744,6 @@
             </Collapse>
           </div>
 
-          <!-- ******* template *******  -->
-          <!-- <div class="pb-8" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
-            <Collapse>
-              <div class="flex">
-                <h2 class="p-4 text-xl">Arm ${arm.name}</h2>
-              </div>
-              <template v-slot:content>
-                <div class="flex border border-black border-t-0 p-4">
-                  <div class="w-1/2 grid grid-cols-3 gap-4">
-                    
-                  </div>
-                  <div class="w-1/2 grid grid-cols-3 gap-4">
-                    
-                  </div>
-                </div>
-              </template>
-            </Collapse>
-          </div> -->
-
           <!-- ******* GRIPPER *******  -->
           <div class="pb-8">
             <Collapse v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
@@ -1776,30 +1762,15 @@
           <!-- ******* SERVO *******  -->
           <div class="pb-8" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name"
             v-if="resourceStatusByName(servo)">
-            <Collapse>
-              <div class="flex">
-                <h2 class="p-4 text-xl">Servo ${servo.name}</h2>
-              </div>
-              <template v-slot:content>
-                <div class="flex border border-black border-t-0 p-4">
-                  <table  class="table-auto border-collapse border border-black">
-                    <tr>
-                      <td class="border border-black p-2">Angle</td>
-                      <td class="border border-black p-2">${resourceStatusByName(servo).positionDeg}</td>
-                    </tr>
-                    <tr>
-                       <td class="border border-black p-2"></td>
-                       <td class="border border-black p-2">
-                        <viam-button group v-on:click="servoMove(servo, -10)">-10</viam-button>
-                        <viam-button group v-on:click="servoMove(servo, -1)">-1</viam-button>
-                        <viam-button group v-on:click="servoMove(servo, 1)">1</viam-button>
-                        <viam-button group v-on:click="servoMove(servo, 10)">10</viam-button>
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-              </template>
-            </Collapse>
+            <viam-servo
+            :servo-name="servo.name"
+            :servo-angle="resourceStatusByName(servo).positionDeg"
+            @servo-minus-one="servoMove(servo, -1)"
+            @servo-minus-ten="servoMove(servo, -10)"
+            @servo-plus-one="servoMove(servo, 1)"
+            @servo-plus-ten="servoMove(servo, 10)"
+            @servo-stop="servoStop(servo.name)"
+          ></viam-servo>
           </div>
 
           <!-- ******* MOTOR *******  -->
