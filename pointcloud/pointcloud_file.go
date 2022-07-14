@@ -294,7 +294,7 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
 	cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
 		var err error
-		// divide by 1000 as rdk uses millimeters and PCD expects millimeters
+		// divide by 1000 as rdk uses millimeters and PCD expects meters
 		x := pos.X / 1000.
 		y := pos.Y / 1000.
 		z := pos.Z / 1000.
