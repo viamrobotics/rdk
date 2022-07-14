@@ -732,6 +732,7 @@ export default {
       const req = new slamApi.GetMapRequest();
       req.setName('UI');
       req.setMimeType('image/jpeg');
+      req.setIncludeRobotMarker(true);
       slamService.getMap(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
