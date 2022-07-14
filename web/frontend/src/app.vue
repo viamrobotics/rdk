@@ -990,8 +990,8 @@ export default {
     getGPIO (boardName) {
       const pin = this.getPin;
       BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
-        if (error) {
-          toast.error(error);
+        if (err) {
+          toast.error(err);
           return;
         }
         const x = resp.toObject();
@@ -1006,33 +1006,33 @@ export default {
     getPWM (boardName) {
       const pin = this.getPin;
       BoardControlHelper.getPWM(boardName, pin, (err, resp) => {
-        if (error) {
-          toast.error(error);
+        if (err) {
+          toast.error(err);
           return;
         }
         const { dutyCyclePct } = resp.toObject();
-        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s duty cycle is ${dutyCyclePct * 100}%.`
+        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s duty cycle is ${dutyCyclePct * 100}%.`;
       });
     },
     setPWM (boardName) {
       const pin = this.setPin;
-      const v = document.querySelector(`#set_pwm_pin_v_${boardName}`).value / 100;
+      const v = this.pwm / 100;
       BoardControlHelper.setPWM(boardName, pin, v, this.grpcCallback);
     },
     getPWMFrequency (boardName) {
       const pin = this.getPin;
       BoardControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
-        if (error) {
-          toast.error(error);
+        if (err) {
+          toast.error(err);
           return;
         }
         const { frequencyHz } = resp.toObject();
-        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s frequency is ${frequencyHz}Hz.`
+        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s frequency is ${frequencyHz}Hz.`;
       });
     },
     setPWMFrequency (boardName) {
       const pin = this.setPin;
-      const v = document.querySelector(`#set_pwm_freq_v_${boardName}`).value;
+      const v = this.pwmFrequency;
       BoardControlHelper.setPWMFrequency(boardName, pin, v, this.grpcCallback);
     },
     isWebRtcEnabled() {
@@ -2088,7 +2088,6 @@ function setBoundingBox(box, centerPoint) {
                 />
                 <label class="py-2 pr-2  text-right">PWM:</label>
                 <v-input
-                  :id="'set_pwm_pin_v_' + board.name"
                   v-model="pwm"
                   type="number"
                   class="mr-2"
@@ -2101,7 +2100,6 @@ function setBoundingBox(box, centerPoint) {
                 />
                 <label class="py-2 pr-2  text-right">PWM Frequency:</label>
                 <v-input
-                  :id="'set_pwm_freq_v_' + board.name"
                   v-model="pwmFrequency"
                   type="number"
                   class="mr-2"
