@@ -1002,7 +1002,6 @@ export default {
       const v = document.querySelector(`#set_pin_v_${boardName}`).value;
       BoardControlHelper.setGPIO(boardName, pin, v === 'high', this.grpcCallback);
     },
-    // Needs to be updated to follow above conventions (GPIO)
     getPWM: function (boardName) {
       const pin = this.getPin;
       BoardControlHelper.getPWM(boardName, pin, (err, resp) => {
