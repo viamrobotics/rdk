@@ -199,7 +199,7 @@ func remoteNameByResource(resourceName resource.Name) (string, bool) {
 	if !resourceName.IsRemoteResource() {
 		return "", false
 	}
-	remote := strings.Split(string(resourceName.Remote.Remote), ":")
+	remote := strings.Split(string(resourceName.Remote), ":")
 	return remote[0], true
 }
 
