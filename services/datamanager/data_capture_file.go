@@ -70,6 +70,10 @@ func readDataCaptureMetadata(f *os.File) (*v1.DataCaptureMetadata, error) {
 		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read SyncMetadata from %s", f.Name()))
 	}
 
+	if r.GetType() == v1.DataType_DATA_TYPE_UNSPECIFIED {
+		return nil, errors.Errorf("file %s does not contain valid metadata", f.Name())
+	}
+
 	return r, nil
 }
 

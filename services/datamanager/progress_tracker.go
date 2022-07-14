@@ -1,9 +1,16 @@
 package datamanager
 
 import (
+	"io/ioutil"
+	"os"
+	"strconv"
 	"sync"
 
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	"github.com/pkg/errors"
+)
+
+var (
+	progress_dir = "progress_dir"
 )
 
 type progressTracker struct {
@@ -30,14 +37,52 @@ func (pt *progressTracker) unmark(k string) {
 	pt.lock.Unlock()
 }
 
+func intToBytes(i int) []byte {
+	return []byte(strconv.Itoa(i))
+}
+
+func bytesToInt(bs []byte) (int, error) {
+	i, err := strconv.Atoi(string(bs))
+	if err != nil {
+		return 0, err
+	}
+	return i, nil
+}
+
 // Create progress file that stores file upload information.
-func (pt *progressTracker) createProgressFile(path string, md *v1.UploadMetadata) error { return nil }
+func (pt *progressTracker) createProgressFile(path string, progress int) error {
+	err := ioutil.WriteFile(path, intToBytes(progress), os.FileMode((0777)))
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 // Delete progress file that stores file upload information.
-func (pt *progressTracker) deleteProgressFile(path string) error { return nil }
+func (pt *progressTracker) deleteProgressFile(path string) error {
+	return os.Remove(path)
+}
 
 // Update progress file that stores file upload information with the next sensordata message index to be uploaded.
-func (pt *progressTracker) updateIndexProgressFile(path string) error { return nil }
+func (pt *progressTracker) updateIndexProgressFile(path string) error {
+	i, err := pt.getIndexProgressFile(path)
+	if err != nil {
+		return err
+	}
+	if err = pt.createProgressFile(path, i+1); err != nil {
+		return err
+	}
+	return nil
+}
 
 // Returns the index of next sensordata message to upload or -1 if the file upload has not been attempted.
-func (pt *progressTracker) getIndexProgressFile(path string) int { return 0 }
+func (pt *progressTracker) getIndexProgressFile(path string) (int, error) {
+	bs, err := ioutil.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return bytesToInt(bs)
+}
