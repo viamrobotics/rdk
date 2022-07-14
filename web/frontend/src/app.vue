@@ -5,6 +5,7 @@ import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { toast } from './lib/toast';
 
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
@@ -989,8 +990,8 @@ export default {
     getGPIO (boardName) {
       const pin = this.getPin;
       BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
-        if (err) {
-          console.log(err);
+        if (error) {
+          toast.error(error);
           return;
         }
         const x = resp.toObject();
@@ -1005,8 +1006,8 @@ export default {
     getPWM (boardName) {
       const pin = this.getPin;
       BoardControlHelper.getPWM(boardName, pin, (err, resp) => {
-        if (err) {
-          console.log(err);
+        if (error) {
+          toast.error(error);
           return;
         }
         const { dutyCyclePct } = resp.toObject();
@@ -1021,8 +1022,8 @@ export default {
     getPWMFrequency (boardName) {
       const pin = this.getPin;
       BoardControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
-        if (err) {
-          console.log(err);
+        if (error) {
+          toast.error(error);
           return;
         }
         const { frequencyHz } = resp.toObject();
