@@ -12,6 +12,33 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// Overlay overlays an rgb image over a depth map.
+func Overlay(i *Image, dm *DepthMap) *image.NRGBA {
+	const minAlpha = 32.0
+
+	min, max := dm.MinMax()
+
+	img := image.NewNRGBA(i.Bounds())
+	for x := 0; x < i.Width(); x++ {
+		for y := 0; y < i.Height(); y++ {
+			c := i.GetXY(x, y)
+
+			a := uint8(0)
+
+			d := dm.GetDepth(x, y)
+			if d > 0 {
+				diff := d - min
+				scale := 1.0 - (float64(diff) / float64(max-min))
+				a = uint8(minAlpha + ((255.0 - minAlpha) * scale))
+			}
+
+			r, g, b := c.RGB255()
+			img.SetNRGBA(x, y, color.NRGBA{r, g, b, a})
+		}
+	}
+	return img
+}
+
 // ImageWithDepth is an image of color that has depth associated
 // with it. It may or may not be aligned.
 type ImageWithDepth struct {
@@ -182,29 +209,7 @@ func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 
 // Overlay TODO.
 func (i *ImageWithDepth) Overlay() *image.NRGBA {
-	const minAlpha = 32.0
-
-	min, max := i.Depth.MinMax()
-
-	img := image.NewNRGBA(i.Bounds())
-	for x := 0; x < i.Width(); x++ {
-		for y := 0; y < i.Height(); y++ {
-			c := i.Color.GetXY(x, y)
-
-			a := uint8(0)
-
-			d := i.Depth.GetDepth(x, y)
-			if d > 0 {
-				diff := d - min
-				scale := 1.0 - (float64(diff) / float64(max-min))
-				a = uint8(minAlpha + ((255.0 - minAlpha) * scale))
-			}
-
-			r, g, b := c.RGB255()
-			img.SetNRGBA(x, y, color.NRGBA{r, g, b, a})
-		}
-	}
-	return img
+	return Overlay(i.Color, i.Depth)
 }
 
 // WriteTo writes both the color and depth data to the given file.

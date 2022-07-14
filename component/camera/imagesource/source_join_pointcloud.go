@@ -104,7 +104,7 @@ func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, er
 // NextPointCloud gets all the point clouds from the source cameras,
 // and puts the points in one point cloud in the frame of targetFrame.
 func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
 	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
@@ -124,14 +124,14 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 		iCopy := i
 		camCopy := cam
 		utils.PanicCapturingGo(func() {
-			ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy])
+			ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy])
 			defer span.End()
 
 			defer func() {
 				atomic.AddInt32(&activeReaders, -1)
 			}()
 			pcSrc, err := func() (pointcloud.PointCloud, error) {
-				ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy]+"-NextPointCloud")
+				ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy]+"-NextPointCloud")
 				defer span.End()
 				return camCopy.NextPointCloud(ctx)
 			}()
@@ -257,11 +257,11 @@ func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func()
 	if err != nil {
 		return nil, nil, err
 	}
-	iwd, err := proj.PointCloudToImageWithDepth(pc)
+	img, dm, err := proj.PointCloudToRGBD(pc)
 	if err != nil {
 		return nil, nil, err
 	}
-
+	iwd := rimage.MakeImageWithDepth(img, dm, true)
 	return iwd, func() {}, nil
 }
 

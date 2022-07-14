@@ -12,7 +12,7 @@ import (
 )
 
 func TestGetDetectorNames(t *testing.T) {
-	srv := createService(t, "data/fake.json")
+	srv, r := createService(t, "data/fake.json")
 	names, err := srv.GetDetectorNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("names %v", names)
@@ -21,6 +21,7 @@ func TestGetDetectorNames(t *testing.T) {
 	segNames, err := srv.GetSegmenterNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segNames, test.ShouldContain, "detector_3")
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestGetDetections(t *testing.T) {
@@ -40,10 +41,11 @@ func TestGetDetections(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Detector with name")
 	_, err = srv.GetDetections(context.Background(), "real_cam", "detect_red")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "\"rdk:component:camera/real_cam\" not found")
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestAddDetector(t *testing.T) {
-	srv := createService(t, "data/empty.json")
+	srv, r := createService(t, "data/empty.json")
 	// success
 	cfg := vision.DetectorConfig{
 		Name: "test",
@@ -72,4 +74,5 @@ func TestAddDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldContain, "test")
 	test.That(t, names, test.ShouldNotContain, "will_fail")
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
