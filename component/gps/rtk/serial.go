@@ -76,7 +76,7 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	s.activeBackgroundWorkers.Add(1)
 	defer s.activeBackgroundWorkers.Done()
 
-	var w io.Writer
+	var w io.WriteCloser
 	pr, pw := io.Pipe()
 	s.correctionReader = pipeReader{pr: pr}
 	w = pipeWriter{pw: pw}
@@ -88,6 +88,10 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	for {
 		select {
 		case <-s.cancelCtx.Done():
+			err := w.Close()
+			if err != nil {
+				s.logger.Fatalf("Unable to close writer: %s", err)
+			}
 			return
 		default:
 		}

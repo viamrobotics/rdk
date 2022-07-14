@@ -168,7 +168,8 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 
 		switch t := localgps.(type) {
 		case *nmea.SerialNMEAGPS:
-			port, err := serial.Open(t.GetCorrectionPath())
+			path := t.GetCorrectionPath()
+			port, err := serial.Open(path)
 			if err != nil {
 				return nil, err
 			}
