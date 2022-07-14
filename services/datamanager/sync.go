@@ -70,7 +70,15 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer 
 		// uploadFunc = uploadFile
 	}
 	ret.uploadFn = uploadFunc
+	initProgressTrackerDir()
 	return &ret
+}
+
+// Create progressTracker directory in filesystem if it does not already exist.
+func initProgressTrackerDir() {
+	if _, err := os.Stat(progress_dir); os.IsNotExist(err) {
+		_ = os.Mkdir(progress_dir, os.ModePerm)
+	}
 }
 
 // Close closes all resources (goroutines) associated with s.
@@ -102,7 +110,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger.Errorw("error while deleting file", "error", err)
 		} else {
 			s.progressTracker.unmark(path)
-			s.progressTracker.deleteProgressFile(path + "_progress")
+			s.progressTracker.deleteProgressFile(path)
 		}
 	})
 }
@@ -177,18 +185,18 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 
 	var md *v1.UploadMetadata
 	if isDataCaptureFile(f) {
-		syncMD, err := readDataCaptureMetadata(f)
+		captureMD, err := readDataCaptureMetadata(f)
 		if err != nil {
 			return err
 		}
 		md = &v1.UploadMetadata{
 			PartId:           partID,
-			ComponentType:    syncMD.GetComponentType(),
-			ComponentName:    syncMD.GetComponentName(),
-			MethodName:       syncMD.GetMethodName(),
-			Type:             syncMD.GetType(),
+			ComponentType:    captureMD.GetComponentType(),
+			ComponentName:    captureMD.GetComponentName(),
+			MethodName:       captureMD.GetMethodName(),
+			Type:             captureMD.GetType(),
 			FileName:         filepath.Base(f.Name()),
-			MethodParameters: syncMD.GetMethodParameters(),
+			MethodParameters: captureMD.GetMethodParameters(),
 		}
 	} else {
 		md = &v1.UploadMetadata{
@@ -248,7 +256,7 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 			return errors.Wrap(err, "error while sending uploadRequest")
 		}
 
-		updateProgressFn(pt, f.Name()+"_progress")
+		updateProgressFn(pt, f.Name())
 	}
 
 	if err = f.Close(); err != nil {
@@ -264,10 +272,13 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 }
 
 func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
-	progressFileName := dcFileName + "_progress"
-	progressIndex := pt.getIndexProgressFile(progressFileName)
-	if progressIndex == -1 {
-		if err := pt.createProgressFile(progressFileName, md); err != nil {
+	progressFilePath := filepath.Join(progress_dir, filepath.Base(dcFileName))
+	progressIndex, err := pt.getIndexProgressFile(progressFilePath)
+	if err != nil {
+		return err
+	}
+	if progressIndex == 0 {
+		if err := pt.createProgressFile(progressFilePath, progressIndex); err != nil {
 			return err
 		}
 		return nil
@@ -292,8 +303,8 @@ func skipSensordataMessages(ctx context.Context, f *os.File, nextMessageIndex in
 }
 
 // Wrapper function around pt.updateIndexProgressFile
-func updateProgress(pt progressTracker, progressFileName string) error {
-	if err := pt.updateIndexProgressFile(progressFileName); err != nil {
+func updateProgress(pt progressTracker, dcFileName string) error {
+	if err := pt.updateIndexProgressFile(filepath.Join(progress_dir, filepath.Base(dcFileName))); err != nil {
 		return err
 	}
 	return nil

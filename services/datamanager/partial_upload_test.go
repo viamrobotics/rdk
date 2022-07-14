@@ -2,14 +2,17 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
@@ -28,8 +31,7 @@ type mockClientWithShutdown struct {
 
 func (m *mockClientWithShutdown) Send(req *v1.UploadRequest) error {
 	m.lock.Lock()
-	println("m.sent (actual) length", len(m.sent))
-	if len(m.sent) < messageShutdownLimit {
+	if len(m.sent) < (messageShutdownLimit + 1) {
 		m.sent = append(m.sent, req)
 		m.lock.Unlock()
 		return nil
@@ -56,7 +58,6 @@ func newTestSyncerPartialUploads(t *testing.T, mc *mockClientWithShutdown, uploa
 }
 
 type progress struct {
-	fileName               string
 	nextSensorReadingIndex int
 }
 
@@ -65,7 +66,6 @@ func TestPartialUpload(t *testing.T) {
 	msg2 := []byte("robotics")
 	msg3 := []byte("builds cool software")
 	progressTC1Breakpoint := &progress{
-		fileName:               "",
 		nextSensorReadingIndex: 2,
 	}
 	tests := []struct {
@@ -91,11 +91,25 @@ func TestPartialUpload(t *testing.T) {
 			lock: sync.Mutex{},
 		}
 
-		tf, err := ioutil.TempFile("", "*.capture")
+		// Create temp data capture file.
+		tf, err := createTmpDataCaptureFile()
 		if err != nil {
-			t.Errorf("%s: cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
+			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
 		defer os.Remove(tf.Name())
+
+		// First write metadata to file.
+		captureMetadata := v1.DataCaptureMetadata{
+			ComponentType:    componentType,
+			ComponentName:    componentName,
+			MethodName:       methodName,
+			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			MethodParameters: nil,
+		}
+		if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
+			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
+				tc.name, err)
+		}
 
 		expectedMsgsBeforeShutdown := buildExpMsgs(tc.expDataBeforeShutdown, tf.Name())
 		expectedMsgsAfterShutdown := buildExpMsgs(tc.expDataAfterShutdown, tf.Name())
@@ -110,9 +124,11 @@ func TestPartialUpload(t *testing.T) {
 		time.Sleep(time.Millisecond * 100)
 		sut.Close()
 
+		path := filepath.Join("progress_dir", filepath.Base(tf.Name()))
+
 		compareUploadRequests(t, false, mc.sent, expectedMsgsBeforeShutdown)
-		verifyFileExistence(t, tf.Name()+"_progress", true)
-		verifyProgressFile(t, tc.progressAtBreakpoint, tf.Name()+"_progress")
+		verifyFileExistence(t, path, true)
+		verifyProgressFile(t, tc.progressAtBreakpoint, path)
 
 		sut = newTestSyncerPartialUploads(t, mc, nil)
 		sut.Sync([]string{tf.Name()})
@@ -120,7 +136,7 @@ func TestPartialUpload(t *testing.T) {
 		sut.Close()
 
 		compareUploadRequests(t, false, mc.sent, expectedMsgsAfterShutdown)
-		verifyFileExistence(t, tf.Name()+"_progress", false)
+		verifyFileExistence(t, path, false)
 
 	}
 
@@ -128,18 +144,33 @@ func TestPartialUpload(t *testing.T) {
 
 // NEED TO IMPLEMENT ONCE WE'VE DECIDED ON AN FILE TYPE & ORGANIZATION FOR PROGRESS FILE
 func getProgressFromProgressFile(progressFileName string) (*progress, error) {
-	f, err := os.Open(progressFileName)
+	bs, err := ioutil.ReadFile(progressFileName)
 	if err != nil {
 		return nil, err
 	}
-	return &progress{fileName: f.Name(), nextSensorReadingIndex: 0}, nil
+	i, err := bytesToInt(bs)
+	if err != nil {
+		return nil, err
+	}
+	return &progress{nextSensorReadingIndex: i}, nil
 }
 
 // WAITING ON `getProgressFromProgressFile`
 func verifyProgressFile(t *testing.T, progressAtBreakpoint progress, progressFileName string) {
 	t.Helper()
 	progress, _ := getProgressFromProgressFile(progressFileName)
-	test.That(t, reflect.DeepEqual(progressAtBreakpoint, progress), test.ShouldEqual)
+	printProgress(progressAtBreakpoint, false)
+	printProgress(*progress, true)
+	test.That(t, reflect.DeepEqual(progressAtBreakpoint, *progress), test.ShouldBeTrue)
+}
+
+func printProgress(p progress, isActual bool) {
+	if isActual {
+		fmt.Println("\n...Actual value...")
+	} else {
+		fmt.Println("\n...Expected value...")
+	}
+	fmt.Println("next sensor reading index: ", p.nextSensorReadingIndex)
 }
 
 func verifyFileExistence(t *testing.T, fileName string, shouldExist bool) {
