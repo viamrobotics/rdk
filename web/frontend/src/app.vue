@@ -2089,10 +2089,9 @@ function setBoundingBox(box, centerPoint) {
                 <label class="py-2 pr-2  text-right">PWM:</label>
                 <v-input
                   :id="'set_pwm_pin_v_' + board.name"
+                  v-model="pwm"
                   type="number"
                   class="mr-2"
-                  :value="pwm"
-                  @input="pwm = $event.detail.value"
                 />
                 <v-button
                   class="mr-2"
@@ -2103,10 +2102,9 @@ function setBoundingBox(box, centerPoint) {
                 <label class="py-2 pr-2  text-right">PWM Frequency:</label>
                 <v-input
                   :id="'set_pwm_freq_v_' + board.name"
+                  v-model="pwmFrequency"
                   type="number"
                   class="mr-2"
-                  :value="pwmFrequency"
-                  @input="pwmFrequency = $event.detail.value"
                 />
                 <v-button
                   class="mr-2"
