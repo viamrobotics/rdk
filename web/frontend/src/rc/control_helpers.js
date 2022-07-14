@@ -141,7 +141,7 @@ export const BoardControlHelper = {
     req.setHigh(value);
 
     rcLogConditionally(req);
-    widnow.boardService.setGPIO(req, {}, cb);
+    window.boardService.setGPIO(req, {}, cb);
   },
 
   getPWM: function (name, pin, cb) {
