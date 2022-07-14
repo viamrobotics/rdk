@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
@@ -43,6 +44,7 @@ type resourceManager struct {
 	processManager pexec.ProcessManager
 	opts           resourceManagerOptions
 	logger         golog.Logger
+	configLock     *sync.Mutex
 }
 
 // resourcePlaceholder we use resourcePlaceholder during a reconfiguration
@@ -76,6 +78,7 @@ func newResourceManager(
 		processManager: pexec.NewProcessManager(logger),
 		opts:           opts,
 		logger:         logger,
+		configLock:     &sync.Mutex{},
 	}
 }
 
@@ -329,6 +332,8 @@ func (manager *resourceManager) completeConfig(
 	ctx context.Context,
 	robot *localRobot,
 ) {
+	manager.configLock.Lock()
+	defer manager.configLock.Unlock()
 	rS := manager.resources.ReverseTopologicalSort()
 	for _, r := range rS {
 		iface, ok := manager.resources.Node(r)
@@ -750,6 +755,8 @@ func (manager *resourceManager) updateResourceGraph(
 	config *config.Diff,
 	fn translateToName,
 ) error {
+	manager.configLock.Lock()
+	defer manager.configLock.Unlock()
 	var allErrs error
 	for _, c := range config.Added.Components {
 		rName := c.ResourceName()
