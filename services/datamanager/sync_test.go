@@ -452,20 +452,20 @@ func TestUploadsOnce(t *testing.T) {
 
 func TestUploadExponentialRetry(t *testing.T) {
 	// Set retry related global vars to faster values for test.
-	initialWaitTime = time.Millisecond * 25
+	initialWaitTime = time.Millisecond * 50
 	maxRetryInterval = time.Millisecond * 150
-	// Define an uploadFunc that fails 4 times then succeeds on its 5th attempt.
+	// Define an uploadFunc that fails 3 times then succeeds on its 4th attempt.
 	failureCount := 0
 	successCount := 0
 	callTimes := make(map[int]time.Time)
 	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		callTimes[failureCount+successCount] = time.Now()
-		if failureCount >= 4 {
+		if failureCount >= 3 {
 			successCount++
 			return nil
 		}
 		failureCount++
-		return errors.New("fail for the first 4 tries, then succeed")
+		return errors.New("fail for the first 3 tries, then succeed")
 	}
 	mc := &mockClient{
 		sent: []*v1.UploadRequest{},
@@ -475,6 +475,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// Sync file.
 	file1, _ := ioutil.TempFile("", "whatever")
+	defer os.Remove(file1.Name())
 	sut.Sync([]string{file1.Name()})
 
 	// Let it run.
@@ -482,27 +483,21 @@ func TestUploadExponentialRetry(t *testing.T) {
 	sut.Close()
 
 	// Test that upload failed 4 times then succeeded once.
-	test.That(t, failureCount, test.ShouldEqual, 4)
+	test.That(t, failureCount, test.ShouldEqual, 3)
 	test.That(t, successCount, test.ShouldEqual, 1)
 
 	// Test that exponential increase happens.
 	// First retry should wait initialWaitTime
 	// Give some leeway so small variations in timing don't cause test failures.
-	marginOfError := time.Millisecond * 20
+	marginOfError := time.Millisecond * 40
 	test.That(t, callTimes[1].Sub(callTimes[0]), test.ShouldAlmostEqual, initialWaitTime, marginOfError)
 
 	// Then increase by a factor of retryExponentialFactor each time
 	test.That(t, callTimes[2].Sub(callTimes[1]), test.ShouldAlmostEqual,
 		initialWaitTime*time.Duration(retryExponentialFactor), marginOfError)
-	test.That(t, callTimes[3].Sub(callTimes[2]), test.ShouldAlmostEqual,
-		initialWaitTime*time.Duration(retryExponentialFactor*retryExponentialFactor), marginOfError)
 
 	// ... but not increase past maxRetryInterval.
-	test.That(t, callTimes[4].Sub(callTimes[3]), test.ShouldAlmostEqual, maxRetryInterval, marginOfError)
-
-	// Verify that the file was deleted after upload.
-	_, err := os.Stat(file1.Name())
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, callTimes[3].Sub(callTimes[2]), test.ShouldAlmostEqual, maxRetryInterval, marginOfError)
 }
 
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its

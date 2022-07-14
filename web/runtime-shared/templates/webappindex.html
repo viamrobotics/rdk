@@ -92,12 +92,12 @@
               }
             );
         }
-        for (var j=0; j<old["joint_positions"]["degrees"].length; j++ ){
+        for (var j=0; j<old["joint_positions"]["values"].length; j++ ){
             let endPositionField = fieldSetters[j][0];
             newStatus.joint_pieces.push(
               { 
                 joint : j,
-                jointValue : old["joint_positions"]["degrees"][j] || 0,
+                jointValue : old["joint_positions"]["values"][j] || 0,
               }
             );
         }
@@ -361,26 +361,26 @@
               const arm = theApp.rawResourceStatusByName(name);
               let old = arm["joint_positions"];
               var newPositionDegs = new armApi.JointPositions();
-              var newList = arm["joint_positions"]["degrees"];
+              var newList = arm["joint_positions"]["values"];
               newList[field] += amount;
-              newPositionDegs.setDegreesList(newList);
+              newPositionDegs.setValuesList(newList);
               const req = new armApi.MoveToJointPositionsRequest();
               req.setName(name.name);
-              req.setPositionDegs(newPositionDegs);
+              req.setPositions(newPositionDegs);
               armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             armHome: function (name) {
               const arm = theApp.rawResourceStatusByName(name);
               let old = arm["joint_positions"];
               var newPositionDegs = new armApi.JointPositions();
-              var newList = arm["joint_positions"]["degrees"];
+              var newList = arm["joint_positions"]["values"];
               for (var i = 0; i < newList.length; i++) {
                 newList[i] = 0;
               }
-              newPositionDegs.setDegreesList(newList);
+              newPositionDegs.setValuesList(newList);
               const req = new armApi.MoveToJointPositionsRequest();
               req.setName(name.name);
-              req.setPositionDegs(newPositionDegs);
+              req.setPositions(newPositionDegs);
               armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
             },
             armModifyAll: function (name) {
@@ -423,16 +423,16 @@
             armModifyAllDoJoint: function (name) {
               const arm = theApp.rawResourceStatusByName(name);
               var newPositionDegs = new armApi.JointPositions();
-              var newList = arm["joint_positions"]["degrees"];
+              var newList = arm["joint_positions"]["values"];
               var newPieces = theData.armToggle[name.name].joint_pieces;
               for (var i = 0; i < newPieces.length && i < newList.length; i++) {
                 newList[newPieces[i].joint] = newPieces[i].jointValue;
               }
 
-              newPositionDegs.setDegreesList(newList);
+              newPositionDegs.setValuesList(newList);
               const req = new armApi.MoveToJointPositionsRequest();
               req.setName(name.name);
-              req.setPositionDegs(newPositionDegs);
+              req.setPositions(newPositionDegs);
               armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
               delete theData.armToggle[name.name];
             },
@@ -453,6 +453,7 @@
               }
             },
             servoMove: function (name, amount) {
+              console.log('servo move: ', name, amount);
               const servo = theApp.rawResourceStatusByName(name);
               var oldAngle = servo["position_deg"] || 0;
               let angle = oldAngle + amount;
@@ -476,6 +477,9 @@
             },
             motorStop: function(name) {
               MotorControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
+            },
+            servoStop: function(name) {
+              ServoControlHelper.stop(name, (err, resp) => grpcCallback(err, resp));
             },
             hasWebGamepad: function () {
               // TODO (APP-146): replace these with constants
@@ -649,6 +653,7 @@
               req.setName("UI");
               const mimeType = "image/jpeg";
               req.setMimeType(mimeType);
+              req.setIncludeRobotMarker(true);
               slamService.getMap(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
@@ -1739,25 +1744,6 @@
             </Collapse>
           </div>
 
-          <!-- ******* template *******  -->
-          <!-- <div class="pb-8" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
-            <Collapse>
-              <div class="flex">
-                <h2 class="p-4 text-xl">Arm ${arm.name}</h2>
-              </div>
-              <template v-slot:content>
-                <div class="flex border border-black border-t-0 p-4">
-                  <div class="w-1/2 grid grid-cols-3 gap-4">
-                    
-                  </div>
-                  <div class="w-1/2 grid grid-cols-3 gap-4">
-                    
-                  </div>
-                </div>
-              </template>
-            </Collapse>
-          </div> -->
-
           <!-- ******* GRIPPER *******  -->
           <div class="pb-8">
             <Collapse v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
@@ -1776,30 +1762,15 @@
           <!-- ******* SERVO *******  -->
           <div class="pb-8" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name"
             v-if="resourceStatusByName(servo)">
-            <Collapse>
-              <div class="flex">
-                <h2 class="p-4 text-xl">Servo ${servo.name}</h2>
-              </div>
-              <template v-slot:content>
-                <div class="flex border border-black border-t-0 p-4">
-                  <table  class="table-auto border-collapse border border-black">
-                    <tr>
-                      <td class="border border-black p-2">Angle</td>
-                      <td class="border border-black p-2">${resourceStatusByName(servo).positionDeg}</td>
-                    </tr>
-                    <tr>
-                       <td class="border border-black p-2"></td>
-                       <td class="border border-black p-2">
-                        <viam-button group v-on:click="servoMove(servo, -10)">-10</viam-button>
-                        <viam-button group v-on:click="servoMove(servo, -1)">-1</viam-button>
-                        <viam-button group v-on:click="servoMove(servo, 1)">1</viam-button>
-                        <viam-button group v-on:click="servoMove(servo, 10)">10</viam-button>
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-              </template>
-            </Collapse>
+            <viam-servo
+            :servo-name="servo.name"
+            :servo-angle="resourceStatusByName(servo).positionDeg"
+            @servo-minus-one="servoMove(servo, -1)"
+            @servo-minus-ten="servoMove(servo, -10)"
+            @servo-plus-one="servoMove(servo, 1)"
+            @servo-plus-ten="servoMove(servo, 10)"
+            @servo-stop="servoStop(servo.name)"
+          ></viam-servo>
           </div>
 
           <!-- ******* MOTOR *******  -->

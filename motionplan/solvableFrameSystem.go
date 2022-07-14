@@ -8,9 +8,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -125,7 +125,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	}
 
 	seed := sf.mapToSlice(seedMap)
-	resultSlices, err := plannerRunner(ctx, planner, goals, seed, opts, 0)
+	resultSlices, err := RunPlannerWithWaypoints(ctx, planner, goals, seed, opts, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -134,107 +134,6 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	}
 
 	return steps, nil
-}
-
-func plannerRunner(ctx context.Context,
-	planner MotionPlanner,
-	goals []spatial.Pose,
-	seed []frame.Input,
-	opts []*PlannerOptions,
-	iter int,
-) ([]*configuration, error) {
-	var err error
-	goal := goals[iter]
-	opt := opts[iter]
-	if opt == nil {
-		opt = NewDefaultPlannerOptions()
-	}
-	remainingSteps := []*configuration{}
-	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
-		// cBiRRT supports solution look-ahead for parallel waypoint solving
-		endpointPreview := make(chan *configuration, 1)
-		solutionChan := make(chan *planReturn, 1)
-		utils.PanicCapturingGo(func() {
-			// TODO(rb) fix me
-			cbert.planRunner(
-				ctx,
-				spatial.PoseToProtobuf(goal),
-				seed,
-				opt,
-				endpointPreview,
-				solutionChan,
-			)
-		})
-		for {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			default:
-			}
-			select {
-			case nextSeed := <-endpointPreview:
-				// Got a solution preview, start solving the next motion in a new thread.
-				if iter < len(goals)-1 {
-					// In this case, we create the next step (and thus the remaining steps) and the
-					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = plannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
-					if err != nil {
-						return nil, err
-					}
-				}
-				for {
-					// Get the step from this runner invocation, and return everything in order.
-					select {
-					case <-ctx.Done():
-						return nil, ctx.Err()
-					default:
-					}
-
-					select {
-					case finalSteps := <-solutionChan:
-						if finalSteps.err != nil {
-							return nil, finalSteps.err
-						}
-						return append(finalSteps.steps, remainingSteps...), nil
-					default:
-					}
-				}
-			case finalSteps := <-solutionChan:
-				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-				if finalSteps.err != nil {
-					return nil, finalSteps.err
-				}
-				if iter < len(goals)-1 {
-					// in this case, we create the next step (and thus the remaining steps) and the
-					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
-					if err != nil {
-						return nil, err
-					}
-				}
-				return append(finalSteps.steps, remainingSteps...), nil
-			default:
-			}
-		}
-	} else {
-		resultSlices := []*configuration{}
-		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
-		if err != nil {
-			return nil, err
-		}
-		for _, step := range resultSlicesRaw {
-			resultSlices = append(resultSlices, &configuration{step})
-		}
-		if iter < len(goals)-2 {
-			// in this case, we create the next step (and thus the remaining steps) and the
-			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return append(resultSlices, remainingSteps...), nil
-	}
 }
 
 // SetPlannerGen sets the function which is used to create the motion planner to solve a requested plan.
@@ -270,6 +169,34 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 		return nil, err
 	}
 	return tf.(*frame.PoseInFrame).Pose(), nil
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (sf *solverFrame) InputFromProtobuf(jp *pb.JointPositions) []frame.Input {
+	inputs := make([]frame.Input, 0, len(jp.Values))
+	posIdx := 0
+	for _, transform := range sf.frames {
+		dof := len(transform.DoF()) + posIdx
+		jPos := jp.Values[posIdx:dof]
+		posIdx = dof
+
+		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Values: jPos})...)
+	}
+
+	return inputs
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (sf *solverFrame) ProtobufFromInput(input []frame.Input) *pb.JointPositions {
+	jPos := &pb.JointPositions{}
+	posIdx := 0
+	for _, transform := range sf.frames {
+		dof := len(transform.DoF()) + posIdx
+		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
+		posIdx = dof
+	}
+
+	return jPos
 }
 
 // Geometry takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
@@ -334,12 +261,12 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	return inputs
 }
 
-func (sf *solverFrame) sliceToMapConf(inputSlice *configuration) map[string][]frame.Input {
+func (sf *solverFrame) sliceToMapConf(inputSlice []frame.Input) map[string][]frame.Input {
 	inputs := frame.StartPositions(sf.fss)
 	i := 0
 	for _, frame := range sf.frames {
 		fLen := i + len(frame.DoF())
-		inputs[frame.Name()] = inputSlice.inputs[i:fLen]
+		inputs[frame.Name()] = inputSlice[i:fLen]
 		i = fLen
 	}
 	return inputs
