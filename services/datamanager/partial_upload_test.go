@@ -153,20 +153,20 @@ func getProgressFromProgressFile(progressFileName string) (*progress, error) {
 func verifyProgressFile(t *testing.T, progressAtBreakpoint progress, progressFileName string) {
 	t.Helper()
 	progress, _ := getProgressFromProgressFile(progressFileName)
-	printProgress(progressAtBreakpoint, false)
-	printProgress(*progress, true)
+	// printProgress(progressAtBreakpoint, false)
+	// printProgress(*progress, true)
 	test.That(t, reflect.DeepEqual(progressAtBreakpoint, *progress), test.ShouldBeTrue)
 }
 
 //nolint
-func printProgress(p progress, isActual bool) {
-	if isActual {
-		println("\n...Actual value...")
-	} else {
-		println("\n...Expected value...")
-	}
-	println("next sensor reading index: ", p.nextSensorReadingIndex)
-}
+// func printProgress(p progress, isActual bool) {
+// 	if isActual {
+// 		println("\n...Actual value...")
+// 	} else {
+// 		println("\n...Expected value...")
+// 	}
+// 	println("next sensor reading index: ", p.nextSensorReadingIndex)
+// }
 
 func verifyFileExistence(t *testing.T, fileName string, shouldExist bool) {
 	t.Helper()
