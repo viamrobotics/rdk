@@ -2223,7 +2223,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote3.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	utils.SelectContextOrWait(ctx, 8*time.Second)
+	utils.SelectContextOrWait(ctx, 26*time.Second)
 
 	rr, ok = r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
