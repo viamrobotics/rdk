@@ -653,6 +653,7 @@
               req.setName("UI");
               const mimeType = "image/jpeg";
               req.setMimeType(mimeType);
+              req.setIncludeRobotMarker(true);
               slamService.getMap(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
@@ -1661,11 +1662,9 @@
                     <div class="border border-black p-4 w-1/2 mr-4" v-if="armToggle[arm.name]">
                       <h3 class="mb-2">END POSITION (mms)</h3>
                       <div class="grid grid-cols-2 gap-1 pb-1">
-                        <template v-for="cc in armToggle[arm.name].pos_pieces">
-                          <div :key="cc.endPosition[0]">
-                            <label class="pr-2 py-1 text-right">${cc.endPosition[1]}</label>
-                            <input class="border border-black py-1 px-4" v-model="cc.endPositionValue">
-                          </div>
+                        <template v-for="cc in armToggle[arm.name].pos_pieces" :key="cc.endPosition[0]">
+                          <label class="pr-2 py-1 text-right">${cc.endPosition[1]}</label>
+                          <input class="border border-black py-1 px-4" v-model="cc.endPositionValue">
                         </template>
                       </div>
                       <div class="flex mt-2">
@@ -1680,11 +1679,9 @@
                     <div class="border border-black p-4 w-1/2" v-if="armToggle[arm.name]">
                       <h3 class="mb-2">JOINTS (degrees)</h3>
                       <div class="grid grid-cols-2 gap-1 pb-1">
-                        <template v-for="bb in armToggle[arm.name].joint_pieces">
-                          <div :key="bb.joint">
-                            <label class="pr-2 py-1 text-right">Joint ${bb.joint}</label>
-                            <input class="border border-black py-1 px-4" v-model="bb.jointValue">
-                          </div>
+                        <template v-for="bb in armToggle[arm.name].joint_pieces" :key="bb.joint">
+                          <label class="pr-2 py-1 text-right">Joint ${bb.joint}</label>
+                          <input class="border border-black py-1 px-4" v-model="bb.jointValue">
                         </template>
                       </div>
                       <div class="flex mt-2">
@@ -1702,15 +1699,13 @@
                     <div class="border border-black p-4 w-1/2 mr-4" v-if="resourceStatusByName(arm)">
                       <h3 class="mb-2">END POSITION (mms)</h3>
                       <div class="grid grid-cols-6 gap-1 pb-1">
-                        <template v-for="aa in resourceStatusByName(arm).pos_pieces">
-                          <div>
-                            <h4 class="pr-2 py-1 text-right">${aa.endPosition[1]}</h4>
-                            <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
-                            <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
-                            <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
-                            <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
-                            <h4 class="py-1">${aa.endPositionValue.toFixed(2)}</h4>
-                          </div>
+                        <template v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.endPosition[0]">
+                          <h4 class="pr-2 py-1 text-right">${aa.endPosition[1]}</h4>
+                          <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
+                          <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
+                          <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
+                          <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
+                          <h4 class="py-1">${aa.endPositionValue.toFixed(2)}</h4>
                         </template>
                       </div>
                       <div class="flex mt-2">
@@ -1725,15 +1720,13 @@
                     <div class="border border-black p-4 w-1/2" v-if="resourceStatusByName(arm)">
                       <h3 class="mb-2">JOINTS (degrees)</h3>
                       <div class="grid grid-cols-6 gap-1 pb-1">
-                        <template v-for="aa in resourceStatusByName(arm).joint_pieces">
-                          <div>
-                            <h4 class="pr-2 py-1 text-right whitespace-nowrap">Joint ${aa.joint}</h4>
-                            <viam-button v-on:click="armJointInc( arm, aa.joint, -10 )">--</viam-button>
-                            <viam-button v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
-                            <viam-button v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
-                            <viam-button v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
-                            <h4 class="pl-2 py-1">${aa.jointValue.toFixed(2)}</h4>
-                          </div>
+                        <template v-for="aa in resourceStatusByName(arm).joint_pieces" :key="aa.joint">
+                          <h4 class="pr-2 py-1 text-right whitespace-nowrap">Joint ${aa.joint}</h4>
+                          <viam-button v-on:click="armJointInc( arm, aa.joint, -10 )">--</viam-button>
+                          <viam-button v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
+                          <viam-button v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
+                          <viam-button v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
+                          <h4 class="pl-2 py-1">${aa.jointValue.toFixed(2)}</h4>
                         </template>
                       </div>
                       <div class="flex mt-2">
