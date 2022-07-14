@@ -2027,9 +2027,9 @@ function setBoundingBox(box, centerPoint) {
               Get
             </th>
             <td class="border border-black p-2">
-              <div class="flex">
-                <label class="py-2 pr-2 text-right">Pin:</label>
+              <div class="flex items-end">
                 <v-input
+                  label="Pin"
                   type="number"
                   class="mr-2"
                   :value="getPin"
@@ -2065,11 +2065,11 @@ function setBoundingBox(box, centerPoint) {
               Set
             </th>
             <td class="p-2">
-              <div class="flex">
-                <label class="py-2 pr-2  text-right">Pin:</label>
+              <div class="flex items-end">
                 <v-input
                   type="number"
                   class="mr-2"
+                  label="Pin"
                   :value="setPin"
                   @input="setPin = $event.detail.value"
                 />
@@ -2086,9 +2086,9 @@ function setBoundingBox(box, centerPoint) {
                   label="Set Pin State"
                   @click="setGPIO(board.name)"
                 />
-                <label class="py-2 pr-2  text-right">PWM:</label>
                 <v-input
                   v-model="pwm"
+                  label="PWM"
                   type="number"
                   class="mr-2"
                 />
@@ -2098,9 +2098,9 @@ function setBoundingBox(box, centerPoint) {
                   label="Set PWM"
                   @click="setPWM(board.name)"
                 />
-                <label class="py-2 pr-2  text-right">PWM Frequency:</label>
                 <v-input
                   v-model="pwmFrequency"
+                  label="PWM Frequency"
                   type="number"
                   class="mr-2"
                 />
