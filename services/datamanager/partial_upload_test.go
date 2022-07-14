@@ -158,7 +158,7 @@ func verifyProgressFile(t *testing.T, progressAtBreakpoint progress, progressFil
 	test.That(t, reflect.DeepEqual(progressAtBreakpoint, *progress), test.ShouldBeTrue)
 }
 
-//nolint
+
 // func printProgress(p progress, isActual bool) {
 // 	if isActual {
 // 		println("\n...Actual value...")
