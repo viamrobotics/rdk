@@ -539,7 +539,7 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 		pointBuf := make([]float64, int(header.fields))
 		for j := 0; j < int(header.fields); j++ {
 			buf := make([]byte, header.size[j])
-			read, err = in.Read(buf)
+			read, err = io.ReadFull(in, buf)
 			if errors.Is(err, io.EOF) {
 				break
 			}
