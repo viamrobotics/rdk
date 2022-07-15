@@ -13,6 +13,11 @@ interface Props {
 
 const props = defineProps<Props>();
 
+let mapReadyResolve: any;
+const mapReady = new Promise((resolve) => {
+  mapReadyResolve = resolve;
+});
+
 let map: any;
 let updateTimerId: number;
 
@@ -128,7 +133,7 @@ const initNavigation = async () => {
         }
         const marker = new (window as any).google.maps.Marker({
           position: pos,
-          map: (window as any).map,
+          map,
           label: `${localLabelCounter++}`,
         });
         currentWaypoints[posStr] = marker;
@@ -167,22 +172,20 @@ const initNavigation = async () => {
       const pos = { lat: resp.getLocation().getLatitude(), lng: resp.getLocation().getLongitude() };
       if (!centered) {
         centered = true;
-        (window as any).map.setCenter(pos);
+        map.setCenter(pos);
       }
       locationMarker.setPosition(pos);
-      locationMarker.setMap((window as any).map);
+      locationMarker.setMap(map);
       setTimeout(updateLocation, 1000);
     });
   };
   updateLocation();
 };
 
-let mapReadyResolve: any;
-const mapReady = new Promise((resolve) => {
-  mapReadyResolve = resolve;
-});
-
-(window as any).initMap = () => mapReadyResolve();
+(window as any).initMap = () => {
+  console.log('map is ready')
+  mapReadyResolve();
+}
 
 onMounted(() => {
   loadMaps();
@@ -223,6 +226,7 @@ onUnmounted(() => {
         class="mb-2 h-[400px] w-full"
       />
       <v-input
+        label="Location"
         :value="location"
         @input="location = $event.detail.value"
       />
