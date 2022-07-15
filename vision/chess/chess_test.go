@@ -25,7 +25,7 @@ func (dd ChessImageProcessDebug) Process(
 	logger golog.Logger,
 ) error {
 	t.Helper()
-	// TODO(RDK-237): .both will be removed
+	// TODO(DATA-237): .both will be removed
 	col := rimage.ConvertImage(img)
 	dm, _ := rimage.ConvertImageToDepthMap(img) // depthmap optional
 	out, corners, err := dd.p(col, logger)
