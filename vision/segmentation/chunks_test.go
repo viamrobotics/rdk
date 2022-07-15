@@ -29,7 +29,7 @@ func (cid *chunkImageDebug) Process(
 	logger golog.Logger,
 ) error {
 	t.Helper()
-	//TODO(DATA-237): .both will be deprecated
+	// TODO(DATA-237): .both will be deprecated
 	img := rimage.ConvertImage(imgraw)
 	dm, _ := rimage.ConvertImageToDepthMap(imgraw) // DepthMap is optional, ok if nil.
 
