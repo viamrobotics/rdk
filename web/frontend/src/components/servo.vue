@@ -26,7 +26,7 @@ const servoStop = () => {
       <v-button
         slot="header"
         label="STOP"
-        group
+        icon="stop-circle"
         variant="danger"
         @click="servoStop"
       />
