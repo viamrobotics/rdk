@@ -37,7 +37,7 @@
   "scripts": {
     "postinstall": "node ./scripts/postinstall.js",
     "start": "vite --host",
-    "build": "vite build",
+    "build": "node --max_old_space_size=16384 ./node_modules/vite/bin/vite.js build",
     "rollup": "rollup -c ./scripts/rollup.config.js",
     "check": "vue-tsc --noEmit",
     "preview": "vite preview",
