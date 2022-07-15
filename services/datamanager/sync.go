@@ -37,7 +37,7 @@ type syncer struct {
 	partID            string
 	client            v1.DataSyncService_UploadClient
 	logger            golog.Logger
-	progressTracker   progressTracker
+	ProgressTracker   ProgressTracker
 	uploadFn          uploadFn
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
@@ -46,8 +46,8 @@ type syncer struct {
 
 type (
 	getNextRequestFn       func(context.Context, *os.File) (*v1.UploadRequest, error)
-	processUploadRequestFn func(v1.DataSyncService_UploadClient, *v1.UploadRequest, progressTracker, string) error
-	uploadFn               func(context.Context, progressTracker,
+	processUploadRequestFn func(v1.DataSyncService_UploadClient, *v1.UploadRequest, ProgressTracker, string) error
+	uploadFn               func(context.Context, ProgressTracker,
 		v1.DataSyncService_UploadClient, string, string) error
 )
 
@@ -57,7 +57,7 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		logger: logger,
-		progressTracker: progressTracker{
+		ProgressTracker: ProgressTracker{
 			lock: &sync.Mutex{},
 			m:    make(map[string]struct{}),
 		},
@@ -94,17 +94,17 @@ func (s *syncer) Close() {
 }
 
 func (s *syncer) upload(ctx context.Context, path string) {
-	if s.progressTracker.inProgress(path) {
+	if s.ProgressTracker.inProgress(path) {
 		return
 	}
 
-	s.progressTracker.mark(path)
+	s.ProgressTracker.mark(path)
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
 		uploadErr := exponentialRetry(
 			ctx,
-			func(ctx context.Context) error { return s.uploadFn(ctx, s.progressTracker, s.client, path, s.partID) },
+			func(ctx context.Context) error { return s.uploadFn(ctx, s.ProgressTracker, s.client, path, s.partID) },
 			s.logger,
 		)
 		if uploadErr != nil {
@@ -115,8 +115,8 @@ func (s *syncer) upload(ctx context.Context, path string) {
 		if err := os.Remove(path); err != nil {
 			s.logger.Errorw("error while deleting file", "error", err)
 		} else {
-			s.progressTracker.unmark(path)
-			if err := s.progressTracker.deleteProgressFile(path); err != nil {
+			s.ProgressTracker.unmark(path)
+			if err := s.ProgressTracker.deleteProgressFile(path); err != nil {
 				return
 			}
 		}
@@ -180,7 +180,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error {
+func uploadFile(ctx context.Context, pt ProgressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error {
 	//nolint
 	f, err := os.Open(path)
 	if err != nil {
@@ -276,7 +276,7 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 	return nil
 }
 
-func sendClientUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt progressTracker,
+func sendClientUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt ProgressTracker,
 	dcFileName string,
 ) error {
 	if err := client.Send(uploadReq); err != nil {
@@ -288,14 +288,14 @@ func sendClientUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq 
 	return nil
 }
 
-func sendClient(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt progressTracker, dcFileName string) error {
+func sendClient(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt ProgressTracker, dcFileName string) error {
 	if err := client.Send(uploadReq); err != nil {
 		return errors.Wrap(err, "error while sending uploadRequest")
 	}
 	return nil
 }
 
-func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
+func initDataCaptureUpload(ctx context.Context, f *os.File, pt ProgressTracker, dcFileName string, md *v1.UploadMetadata) error {
 	progressFilePath := filepath.Join(progressDir, filepath.Base(dcFileName))
 	progressIndex, err := pt.getIndexProgressFile(progressFilePath)
 	if err != nil {
