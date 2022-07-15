@@ -18,6 +18,7 @@
     "rollup-plugin-copy": "^3.4.0",
     "three": "^0.137.0",
     "vite": "^3.0.0",
+    "vitest": "^0.18.0",
     "vue": "^3.2.37",
     "vue-toast-notification": "^3.0.4",
     "vue3-popper": "^1.5.0"
@@ -41,6 +42,7 @@
     "check": "vue-tsc --noEmit",
     "preview": "vite preview",
     "prepare": "./etc/prepare.sh",
-    "lint": "eslint --ext .js,.ts,.vue --ignore-pattern 'gen/' 'src/'"
+    "lint": "eslint --ext .js,.ts,.vue --ignore-pattern 'gen/' 'src/'",
+    "test:unit": "echo \"no tests exist yet\""
   }
 }
