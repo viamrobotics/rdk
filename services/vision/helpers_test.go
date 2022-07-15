@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/vision"
@@ -134,6 +135,22 @@ func (c *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 		}
 	}
 	return pcA, nil
+}
+
+func (c *cloudSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	var proj rimage.Projector
+	intrinsics := &transform.PinholeCameraIntrinsics{
+		Width:      1280,
+		Height:     720,
+		Fx:         200,
+		Fy:         200,
+		Ppx:        100,
+		Ppy:        100,
+		Distortion: transform.DistortionModel{},
+	}
+
+	proj = intrinsics
+	return proj, nil
 }
 
 func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
