@@ -578,7 +578,7 @@ export default {
         elem.type === 'component' &&
         elem.subtype === 'input_controller' &&
         elem.name !== 'WebGamepad' &&
-        resourceStatusByName(elem)
+        this.resourceStatusByName(elem)
       );
     },
     inputInject(req) {
@@ -1733,7 +1733,7 @@ function setBoundingBox(box, centerPoint) {
           <h3 class="mb-2">
             END POSITION (mms)
           </h3>
-          <div class="grid grid-cols-2 gap-1 pb-1">
+          <div class="inline-grid grid-cols-2 gap-1 pb-1">
             <template
               v-for="cc in armToggle[arm.name].pos_pieces"
               :key="cc.endPosition[0]"
@@ -1801,7 +1801,7 @@ function setBoundingBox(box, centerPoint) {
           <h3 class="mb-2">
             END POSITION (mms)
           </h3>
-          <div class="grid grid-cols-6 gap-1 pb-1">
+          <div class="inline-grid grid-cols-6 gap-1 pb-1">
             <template
               v-for="aa in resourceStatusByName(arm).pos_pieces"
               :key="aa.endPosition[0]"
@@ -1851,7 +1851,7 @@ function setBoundingBox(box, centerPoint) {
           <h3 class="mb-2">
             JOINTS (degrees)
           </h3>
-          <div class="grid grid-cols-6 gap-1 pb-1">
+          <div class="inline-grid grid-cols-6 gap-1 pb-1">
             <template
               v-for="aa in resourceStatusByName(arm).joint_pieces"
               :key="aa.joint"

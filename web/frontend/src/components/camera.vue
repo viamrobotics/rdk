@@ -317,37 +317,25 @@ const togglePCDExpand = () => {
                 <div class="pt-4">
                   <div class="grid grid-cols-2">
                     <div>
-                      <div>
-                        <span class="text-xs">Selected Point Position</span>
+                      <div class="text-xs">
+                        Selected Point Position
                       </div>
                       <div class="flex">
                         <v-input
-                          type="number"
-                          color="primary"
-                          group="False"
-                          variant="primary"
-                          class="w-32 pr-2 text-xs"
-                          disabled
+                          readonly
                           label="X"
+                          labelposition="left"
                           :value="x"
                         />
                         <v-input
-                          type="number"
-                          color="primary"
-                          group="False"
-                          variant="primary"
-                          class="w-32 pr-2 text-xs"
-                          disabled
+                          readonly
                           label="Y"
+                          labelposition="left"
                           :value="y"
                         />
                         <v-input
-                          type="number"
-                          color="primary"
-                          group="False"
-                          variant="primary"
-                          class="w-32 pr-2 text-xs"
-                          disabled
+                          readonly
+                          labelposition="left"
                           label="Z"
                           :value="z"
                         />
