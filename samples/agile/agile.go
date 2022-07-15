@@ -30,7 +30,7 @@ import (
 var logger = golog.NewDevelopmentLogger("agile")
 
 const (
-	gridConversion = 250 // mm per grid square
+	gridConversion = 500 // mm per grid square
 )
 
 func main() {
@@ -176,6 +176,7 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
 
 			writeData := []string {fmt.Sprintf("%f", fixAngle(start[0], withAgile)), fmt.Sprintf("%f",fixAngle(start[1], withAgile)), fmt.Sprintf("%f",fixAngle(start[2], withAgile)), fmt.Sprintf("%f",fixAngle(dubinsPath[0], withAgile)), fmt.Sprintf("%f",fixAngle(dubinsPath[1], withAgile)), fmt.Sprintf("%f",last), sstra}
 			_ = csvwriter.Write(writeData)
+			fmt.Println("WRITING: ", writeData)
 				
 			for j := 0; j < 3; j++ {
 				start[j] = next[j]
@@ -185,6 +186,8 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
 	//last point
 	writeData := []string {fmt.Sprintf("%f",start[0]), fmt.Sprintf("%f",start[1]), fmt.Sprintf("%f",start[2]), fmt.Sprintf("%d",0), fmt.Sprintf("%d",0), fmt.Sprintf("%d",0), fmt.Sprintf("%d",0)}
 	_ = csvwriter.Write(writeData)
+
+	
 
 	csvwriter.Flush()
 	csvFile.Close()
@@ -291,7 +294,9 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) (motionplan.Dubins
 	}
 
 	// setup planner
-	d := motionplan.Dubins{Radius: config.Radius, PointSeparation: config.PointSep}
+	radius := config.Radius*1000.0/gridConversion
+	fmt.Println("Radius", radius)
+	d := motionplan.Dubins{Radius: radius, PointSeparation: config.PointSep}
 	dubins, err := motionplan.NewDubinsRRTMotionPlanner(model, 1, logger, d)
 	if err != nil {
 		return motionplan.Dubins{}, nil, err
