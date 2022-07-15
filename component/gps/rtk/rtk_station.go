@@ -9,10 +9,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
-	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/generic"
@@ -169,8 +169,17 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 
 		switch t := localgps.(type) {
 		case *nmea.SerialNMEAGPS:
-			path := t.GetCorrectionPath()
-			port, err := serial.Open(path)
+			path, br := t.GetCorrectionInfo()
+
+			options := serial.OpenOptions{
+				PortName:        path,
+				BaudRate:        br,
+				DataBits:        8,
+				StopBits:        1,
+				MinimumReadSize: 4,
+			}
+
+			port, err := serial.Open(options)
 			if err != nil {
 				return nil, err
 			}
