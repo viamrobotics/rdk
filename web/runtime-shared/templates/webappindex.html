@@ -1,7 +1,7 @@
 <html>
   <head>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=" />
-    <script>
+    <script type="module">
       window.webrtcEnabled = {{ .WebRTCEnabled }}
       window.webrtcHost = {{ .WebRTCHost }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
@@ -12,21 +12,28 @@
 
     <!-- Configure static file path for Prime component library -->
     <link rel="preload" href="/static/prime.css" as="style">
+    <link rel="preload" href="/static/icons.woff2" as="font">
 
     <script type="module">
       window.PRIME_CONFIG = { base: '/static' }
     </script>
-
-    {{ if .External }}
-    <script src="/static/rdk/control.js"></script>
-    {{ end }}
   </head>
 
   <body>
     <div id="app"></div>
 
-    <!-- <script type="module" src="/static/control.js"></script> -->
+    {{ if .External }}
+    <script src="/static/rdk/control.js"></script>
+    {{ else }}
 
+    {{ if eq .Env "development" }}
     <script type="module" src="http://localhost:5173/src/main.js"></script>
+    {{ end }}
+
+    {{ if eq .Env "production" }}
+    <script type="module" src="/static/control.js"></script>
+    {{ end }}
+
+    {{ end }}
   </body>
 </html>
