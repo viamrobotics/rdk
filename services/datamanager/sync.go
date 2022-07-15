@@ -45,12 +45,10 @@ type syncer struct {
 }
 
 type (
-	getNextRequestFn func(context.Context, *os.File) (*v1.UploadRequest, error)
-	updateProgressFn func(progressTracker, string) error
-	uploadFn         func(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error
+	getNextRequestFn       func(context.Context, *os.File) (*v1.UploadRequest, error)
+	processUploadRequestFn func(v1.DataSyncService_UploadClient, *v1.UploadRequest, progressTracker, string) error
+	uploadFn               func(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error
 )
-
-// type uploadFnNew func(path string) error
 
 // TODO DATA-206: instantiate a client
 // newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
@@ -226,18 +224,18 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 	}
 
 	var getNextRequestFn getNextRequestFn
-	var updateProgressFn updateProgressFn
+	var processUploadRequestFn processUploadRequestFn
 
 	switch md.GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		getNextRequestFn = getNextSensorUploadRequest
 		if err := initDataCaptureUpload(ctx, f, pt, f.Name(), md); err != nil {
 			return err
 		}
-		updateProgressFn = updateProgress
+		getNextRequestFn = getNextSensorUploadRequest
+		processUploadRequestFn = sendClientUpdateProgress
 	case v1.DataType_DATA_TYPE_FILE:
 		getNextRequestFn = getNextFileUploadRequest
-		updateProgressFn = func(progressTracker, string) error { return nil }
+		processUploadRequestFn = sendClient
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return errors.New("no data type specified in upload metadata")
 	default:
@@ -260,13 +258,7 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 			return err
 		}
 		// Finally, send the UploadRequest to the client.
-		if err := client.Send(uploadReq); err != nil {
-			return errors.Wrap(err, "error while sending uploadRequest")
-		}
-
-		if err := updateProgressFn(pt, f.Name()); err != nil {
-			return err
-		}
+		processUploadRequestFn(client, uploadReq, pt, f.Name())
 	}
 
 	if err = f.Close(); err != nil {
@@ -278,6 +270,23 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 			"sync service backend")
 	}
 
+	return nil
+}
+
+func sendClientUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt progressTracker, dcFileName string) error {
+	if err := client.Send(uploadReq); err != nil {
+		return errors.Wrap(err, "error while sending uploadRequest")
+	}
+	if err := pt.updateIndexProgressFile(filepath.Join(progressDir, filepath.Base(dcFileName))); err != nil {
+		return err
+	}
+	return nil
+}
+
+func sendClient(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt progressTracker, dcFileName string) error {
+	if err := client.Send(uploadReq); err != nil {
+		return errors.Wrap(err, "error while sending uploadRequest")
+	}
 	return nil
 }
 
@@ -309,14 +318,6 @@ func skipSensordataMessages(ctx context.Context, f *os.File, nextMessageIndex in
 		if _, err := getNextSensorUploadRequest(ctx, f); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// Wrapper function around pt.updateIndexProgressFile.
-func updateProgress(pt progressTracker, dcFileName string) error {
-	if err := pt.updateIndexProgressFile(filepath.Join(progressDir, filepath.Base(dcFileName))); err != nil {
-		return err
 	}
 	return nil
 }
