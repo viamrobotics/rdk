@@ -21,16 +21,13 @@ import (
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
 	ModelPath string `json:"model-path"`
+	ArmName   string `json:"arm-name"`
 }
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wrapper_arm", registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			childArm, err := arm.FromRobot(r, config.Name)
-			if err != nil {
-				return nil, err
-			}
-			return NewWrapperArm(config, childArm, r, logger)
+			return NewWrapperArm(config, r, logger)
 		},
 	})
 
@@ -55,15 +52,19 @@ type Arm struct {
 }
 
 // NewWrapperArm returns a wrapper component for another arm.
-func NewWrapperArm(cfg config.Component, actual arm.Arm, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
-	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(AttrConfig).ModelPath, cfg.Name)
+func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
+	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
+	if err != nil {
+		return nil, err
+	}
+	wrappedArm, err := arm.FromRobot(r, cfg.ConvertedAttributes.(*AttrConfig).ArmName)
 	if err != nil {
 		return nil, err
 	}
 	return &Arm{
-		Name:   cfg.Name + "_wrapper",
+		Name:   cfg.Name,
 		model:  model,
-		actual: actual,
+		actual: wrappedArm,
 		logger: logger,
 		robot:  r,
 	}, nil
