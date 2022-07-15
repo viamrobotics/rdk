@@ -183,9 +183,9 @@ const initNavigation = async () => {
 };
 
 (window as any).initMap = () => {
-  console.log('map is ready')
+  console.log('map is ready');
   mapReadyResolve();
-}
+};
 
 onMounted(() => {
   loadMaps();
@@ -200,31 +200,27 @@ onUnmounted(() => {
 
 <template>
   <v-collapse title="Get Segments">
-    <div class="border border-t-0 border-black p-4">
-      <div class="mb-2">
+    <div class="flex flex-col gap-2 border border-t-0 border-black p-4">
+      <v-radio
+        label="Navigation mode"
+        options="Manual, Waypoint"
+        @input="setNavigationMode($event.detail.value.toLowerCase())"
+      />
+
+      <div>
         <v-button
-          group
-          label="Manual"
-          @click="setNavigationMode('manual')"
-        />
-        <v-button
-          group
-          label="Waypoint"
-          @click="setNavigationMode('waypoint')"
-        />
-      </div>
-      <div class="mb-2">
-        <v-button
-          group
           label="Try Set Location"
           @click="setNavigationLocation()"
         />
       </div>
+      
+
       <div
         id="map"
         ref="container"
         class="mb-2 h-[400px] w-full"
       />
+
       <v-input
         label="Location"
         :value="location"

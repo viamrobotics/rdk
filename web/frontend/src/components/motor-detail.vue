@@ -108,7 +108,7 @@ const motorStop = () => {
       />
       <v-button
         variant="danger"
-        icon="stop"
+        icon="stop-circle"
         label="STOP"
         @click="motorStop"
       />
@@ -227,7 +227,7 @@ const motorStop = () => {
         </div>
         <div class="flex flex-row-reverse">
           <v-button
-            icon="play-outline"
+            icon="play-circle-filled"
             variant="success"
             label="RUN"
             @click="motorRun()"

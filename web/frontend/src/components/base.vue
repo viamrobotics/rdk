@@ -257,6 +257,7 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
         <div class="self-end">
           <v-button
             icon="play-circle-filled"
+            variant="success"
             label="RUN"
             @click="baseRun()"
           />
