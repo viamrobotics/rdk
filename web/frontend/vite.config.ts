@@ -20,6 +20,7 @@ export default defineConfig({
       },
       output: {
         entryFileNames: '[name].js',
+        assetFileNames: '[name].[ext]',
       },
     },
     outDir: '../runtime-shared/static',
