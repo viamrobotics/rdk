@@ -8,6 +8,7 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 
 	"go.viam.com/rdk/config"
+	dm "go.viam.com/rdk/services/datamanager"
 )
 
 // DMService in the internal package includes additional exported functions relating to the syncing and
@@ -17,6 +18,7 @@ type DMService interface {
 	Sync(ctx context.Context) error
 	Update(ctx context.Context, cfg *config.Config) error
 	Close(ctx context.Context) error
-	SetUploadFn(fn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error)
+	SetUploadFn(fn func(ctx context.Context, pt dm.ProgressTracker, client v1.DataSyncService_UploadClient, path string,
+		partID string) error)
 	SetWaitAfterLastModifiedSecs(s int)
 }
