@@ -6,4 +6,5 @@ import (
 	_ "go.viam.com/rdk/component/gps/fake"
 	_ "go.viam.com/rdk/component/gps/merge"
 	_ "go.viam.com/rdk/component/gps/nmea"
+	_ "go.viam.com/rdk/component/gps/rtk"
 )
