@@ -13,10 +13,11 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/protoutils"
 )
 
 var (
@@ -126,7 +127,6 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 	}
 }
 
-//nolint:unused
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	expectedMetadata *v1.UploadMetadata,
 ) {
@@ -196,7 +196,7 @@ func createProgressFile(progress int, dcFileName string) (string, error) {
 }
 
 func getProgressFromProgressFile(progressFileName string) (int, error) {
-	bs, err := ioutil.ReadFile(progressFileName)
+	bs, err := ioutil.ReadFile(filepath.Clean(progressFileName))
 	if err != nil {
 		return 0, err
 	}
@@ -209,6 +209,7 @@ func getProgressFromProgressFile(progressFileName string) (int, error) {
 
 func verifyProgressFileContent(t *testing.T, progressAtBreakpoint int, progressFileName string) {
 	t.Helper()
+	//nolint
 	progress, _ := getProgressFromProgressFile(progressFileName)
 	test.That(t, reflect.DeepEqual(progressAtBreakpoint, progress), test.ShouldBeTrue)
 }
