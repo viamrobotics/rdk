@@ -32,7 +32,7 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 ) error {
 	t.Helper()
 	var err error
-	// TODO(DATA-237): .both will be deprecated
+	// TODO(DATA-237): .both will be removed
 	im := rimage.ConvertImage(img)
 	dm, err := rimage.ConvertImageToDepthMap(img)
 	test.That(t, err, test.ShouldBeNil)
