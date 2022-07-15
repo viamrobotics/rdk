@@ -1278,7 +1278,7 @@ func TestClientStopAll(t *testing.T) {
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
-		StopAllFunc: func(ctx context.Context, extra map[string]interface{}) error {
+		StopAllFunc: func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 			stopAllCalled = true
 			return nil
 		},

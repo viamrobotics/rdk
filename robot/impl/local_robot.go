@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	resources "go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -155,7 +156,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
-func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) error {
+func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	// Stop all operations
 	for _, op := range r.OperationManager().All() {
 		op.Cancel()
@@ -170,22 +171,17 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[string]interface{}) 
 			continue
 		}
 
-		// New function definition with the `extra` param
-		nsr, ok := resource.(interface {
-			Stop(ctx context.Context, extra map[string]interface{}) error
-		})
+		sr, ok := resource.(resources.Stoppable)
 		if ok {
-			err = nsr.Stop(ctx, extra)
+			err = sr.Stop(ctx, extra[name])
 			if err != nil {
 				resourceErrs = append(resourceErrs, name.Name)
 				continue
 			}
 		}
 
-		// Old function definition without the `extra` param
-		osr, ok := resource.(interface {
-			Stop(ctx context.Context) error
-		})
+		// TODO[njooma]: OldStoppable - Will be deprecated
+		osr, ok := resource.(resources.OldStoppable)
 		if ok {
 			err = osr.Stop(ctx)
 			if err != nil {

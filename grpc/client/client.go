@@ -529,12 +529,21 @@ func (rc *RobotClient) GetStatus(ctx context.Context, resourceNames []resource.N
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
-func (rc *RobotClient) StopAll(ctx context.Context, extra map[string]interface{}) error {
-	e, err := structpb.NewStruct(extra)
-	if err != nil {
-		return err
+func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+	e := []*pb.StopExtraParameters{}
+	for name, params := range extra {
+		param, err := structpb.NewStruct(params)
+		if err != nil {
+			rc.Logger().Warnf("failed to convert extra params for resource %s with error: %s", name.Name, err)
+			continue
+		}
+		p := &pb.StopExtraParameters{
+			Name:   protoutils.ResourceNameToProto(name),
+			Params: param,
+		}
+		e = append(e, p)
 	}
-	_, err = rc.client.StopAll(ctx, &pb.StopAllRequest{Extra: e})
+	_, err := rc.client.StopAll(ctx, &pb.StopAllRequest{Extra: e})
 	if err != nil {
 		return err
 	}

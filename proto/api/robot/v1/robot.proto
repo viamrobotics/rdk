@@ -202,8 +202,13 @@ message StreamStatusResponse {
   repeated Status status = 1;
 }
 
+message StopExtraParameters {
+  common.v1.ResourceName name = 1;
+  google.protobuf.Struct params = 2;
+}
+
 message StopAllRequest {
-  google.protobuf.Struct extra = 99;
+  repeated StopExtraParameters extra = 99;
 }
 
 message StopAllResponse {}
