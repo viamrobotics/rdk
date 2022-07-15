@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -13,6 +14,7 @@ import (
 
 type ReconfigurableService struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	Actual *interface{}
 }
 
@@ -25,10 +27,20 @@ func (svc *ReconfigurableService) Reconfigure(ctx context.Context, newService re
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	fmt.Println("in reconfigure")
+
 	rSvc, ok := newService.(*ReconfigurableService)
 	if !ok {
 		return utils.NewUnexpectedTypeError(svc, newService)
 	}
+
+	// save this for future reference. This technically works if we know the
+	// resources are of the same subtype/interface, so that they have the same
+	// methods. but subtypes is not a SAFE way of checking since there could
+	// be user error when someone new implements this
+	if rSvc.name.Subtype.ResourceSubtype != svc.name.Subtype.ResourceSubtype {
+		return errors.New("not the same resource subtype")
+	}
+
 	if err := viamutils.TryClose(ctx, svc.Actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
@@ -52,10 +64,10 @@ func (svc *ReconfigurableService) Reconfigure(ctx context.Context, newService re
 
 // WrapWithReconfigurable converts a service implementation to a reconfigurableService
 // If service is already a Reconfigurable, then nothing is done.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := s.(resource.Reconfigurable); ok {
 		return reconfigurable, nil
 	}
 
-	return &ReconfigurableService{Actual: &s}, nil
+	return &ReconfigurableService{Actual: &s, name: name}, nil
 }
