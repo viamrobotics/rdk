@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
@@ -119,6 +120,31 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
 	}()
+}
+
+func (c *client) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	var proj rimage.Projector
+	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	intrinsics := &transform.PinholeCameraIntrinsics{
+		Width:      int(resp.IntrinsicParameters.WidthPx),
+		Height:     int(resp.IntrinsicParameters.HeightPx),
+		Fx:         resp.IntrinsicParameters.FocalXPx,
+		Fy:         resp.IntrinsicParameters.FocalYPx,
+		Ppx:        resp.IntrinsicParameters.CenterXPx,
+		Ppy:        resp.IntrinsicParameters.CenterYPx,
+		Distortion: transform.DistortionModel{},
+	}
+	err = intrinsics.CheckValid()
+	if err != nil {
+		return nil, err
+	}
+	proj = intrinsics
+	return proj, nil
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
