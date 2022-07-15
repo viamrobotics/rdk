@@ -32,7 +32,7 @@ type Robot struct {
 	ConfigFunc              func(ctx context.Context) (*config.Config, error)
 	LoggerFunc              func() golog.Logger
 	CloseFunc               func(ctx context.Context) error
-	StopAllFunc             func(ctx context.Context, extra map[string]interface{}) error
+	StopAllFunc             func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 	RefreshFunc             func(ctx context.Context) error
 	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
 	TransformPoseFunc       func(
@@ -149,7 +149,7 @@ func (r *Robot) Close(ctx context.Context) error {
 }
 
 // StopAll calls the injected StopAll or the real version.
-func (r *Robot) StopAll(ctx context.Context, extra map[string]interface{}) error {
+func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	if r.StopAllFunc == nil {
 		return r.LocalRobot.StopAll(ctx, extra)
 	}

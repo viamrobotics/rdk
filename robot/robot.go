@@ -65,7 +65,7 @@ type Robot interface {
 	Close(ctx context.Context) error
 
 	// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement
-	StopAll(ctx context.Context, extra map[string]interface{}) error
+	StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 }
 
 // A Refresher can refresh the contents of a robot.
