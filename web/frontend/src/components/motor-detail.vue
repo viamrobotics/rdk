@@ -217,7 +217,7 @@ const motorStop = () => {
                 :min="0"
                 :max="100"
                 :step="1"
-                unit="%"
+                suffix="%"
                 name="Power %"
                 :value="power"
                 @input="power = $event.detail.value"
