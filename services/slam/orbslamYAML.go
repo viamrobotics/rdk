@@ -2,6 +2,8 @@
 package slam
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -102,15 +104,18 @@ type ORBsettings struct {
 }
 
 // generate a .yaml file to be used with orbslam.
-func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
-	proj := camera.Projector(cam) // will be nil if no intrinsics
-	if proj == nil {
-		return errors.New("error camera intrinsics were not defined properly")
+func orbGenYAML(ctx context.Context, slamSvc *slamService, cam camera.Camera) error {
+
+	proj, err := cam.GetProperties(ctx) // will be nil if no intrinsics
+	if err != nil {
+		return err
 	}
-	intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
-	if !ok {
-		return errors.New("error camera intrinsics were not defined properly")
+	intrinsics := proj.(*transform.PinholeCameraIntrinsics)
+	err = intrinsics.CheckValid()
+	if err != nil {
+		return err
 	}
+	fmt.Println("yo yo yo")
 	orbslam, err := slamSvc.orbCamMaker(intrinsics)
 	if err != nil {
 		return err
@@ -119,10 +124,11 @@ func orbGenYAML(slamSvc *slamService, cam camera.Camera) error {
 	if err != nil {
 		return errors.Wrap(err, "Error while Marshaling YAML file")
 	}
+	fmt.Println("yo yo")
 
 	timeStamp := time.Now().UTC().Format("2006-01-02T15_04_05.0000")
 	fileName := filepath.Join(slamSvc.dataDirectory, "config", slamSvc.cameraName+"_data_"+timeStamp+".yaml")
-
+	fmt.Println("yo")
 	addLine := "%YAML:1.0\n"
 	//nolint:gosec
 	outfile, err := os.Create(fileName)
