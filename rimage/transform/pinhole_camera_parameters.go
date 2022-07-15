@@ -2,6 +2,7 @@ package transform
 
 import (
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"io/ioutil"
@@ -71,10 +72,16 @@ type DepthColorIntrinsicsExtrinsics struct {
 // CheckValid checks if the fields for PinholeCameraIntrinsics have valid inputs.
 func (params *PinholeCameraIntrinsics) CheckValid() error {
 	if params == nil {
-		return errors.New("pointer to PinholeCameraIntrinsics is nil")
+		return NewNoIntrinsicsError("Intrinsics do not exist")
 	}
 	if params.Width == 0 || params.Height == 0 {
-		return errors.Errorf("invalid size (%#v, %#v)", params.Width, params.Height)
+		return NewNoIntrinsicsError(fmt.Sprintf("Invalid size (%#v, %#v)", params.Width, params.Height))
+	}
+	if params.Fx <= 0 {
+		return NewNoIntrinsicsError(fmt.Sprintf("Invalid focal length Fx = %#v", params.Fx))
+	}
+	if params.Fy <= 0 {
+		return NewNoIntrinsicsError(fmt.Sprintf("Invalid focal length Fy = %#v", params.Fy))
 	}
 	return nil
 }
@@ -386,4 +393,9 @@ func (params *PinholeCameraIntrinsics) GetCameraMatrix() *mat.Dense {
 	cameraMatrix.Set(1, 2, params.Ppy)
 	cameraMatrix.Set(2, 2, 1)
 	return cameraMatrix
+}
+
+// NewNoIntrinsicsError is used when the intriniscs are not defined.
+func NewNoIntrinsicsError(msg string) error {
+	return errors.Errorf("Camera intrinsic parameters are not available: %v", msg)
 }
