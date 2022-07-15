@@ -113,7 +113,7 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
     <v-button
       slot="header"
       variant="danger"
-      icon="stop"
+      icon="stop-circle"
       label="STOP"
       @click="emit('base-stop')"
     />

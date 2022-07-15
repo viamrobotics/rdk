@@ -70,7 +70,7 @@ for (const ctrl of controlOrder) {
   <v-collapse :title="`${controllerName} Input`">
     <div
       slot="header"
-      class="flex flex-wrap items-center p-4"
+      class="flex flex-wrap items-center"
     >
       <v-badge
         v-if="connected"

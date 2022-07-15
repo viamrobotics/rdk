@@ -1546,7 +1546,7 @@ function setBoundingBox(box, centerPoint) {
               <th class="border border-black p-2">
                 {{ pp.axis }}
               </th>
-              <td class="border border-black p-2">
+              <td class="flex p-2">
                 <v-button
                   group
                   label="--"
@@ -1662,7 +1662,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].acceleration.xMmPerSecPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].acceleration?.xMmPerSecPerSec.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1670,7 +1670,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].acceleration.yMmPerSecPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].acceleration?.yMmPerSecPerSec.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1678,7 +1678,7 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].acceleration.zMmPerSecPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].acceleration?.zMmPerSecPerSec.toFixed(2) }}
                 </td>
               </tr>
             </table>
@@ -1694,7 +1694,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].magnetometer.xGauss.toFixed(2) }}
+                  {{ imuData[imu.name].magnetometer?.xGauss.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1702,7 +1702,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].magnetometer.yGauss.toFixed(2) }}
+                  {{ imuData[imu.name].magnetometer?.yGauss.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1710,7 +1710,7 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].magnetometer.zGauss.toFixed(2) }}
+                  {{ imuData[imu.name].magnetometer?.zGauss.toFixed(2) }}
                 </td>
               </tr>
             </table>
