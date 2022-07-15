@@ -29,6 +29,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -82,6 +83,17 @@ func setupTestGRPCServer(port string) *grpc.Server {
 
 func setupInjectRobot() *inject.Robot {
 	r := &inject.Robot{}
+	var proj rimage.Projector
+	intrinsics := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
+		Width:  1280,
+		Height: 720,
+		Fx:     200,
+		Fy:     200,
+		Ppx:    100,
+		Ppy:    100,
+	}
+	proj = intrinsics
+
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case camera.Named("good_lidar"):
@@ -91,6 +103,9 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 				return nil, nil, errors.New("lidar not camera")
 			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
+			}
 			return cam, nil
 		case camera.Named("bad_lidar"):
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -99,6 +114,9 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 				return nil, nil, errors.New("lidar not camera")
 			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
+			}
 			return cam, nil
 		case camera.Named("good_camera"):
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -106,6 +124,9 @@ func setupInjectRobot() *inject.Robot {
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return proj, nil
 			}
 			return cam, nil
 		case camera.Named("good_depth_camera"):
@@ -117,6 +138,9 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return proj, nil
+			}
 			return cam, nil
 		case camera.Named("bad_camera"):
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -124,6 +148,9 @@ func setupInjectRobot() *inject.Robot {
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
 			}
 			return cam, nil
 		default:
