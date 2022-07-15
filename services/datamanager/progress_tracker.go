@@ -48,7 +48,6 @@ func bytesToInt(bs []byte) (int, error) {
 	return i, nil
 }
 
-// Create progress file that stores file upload information.
 func (pt *progressTracker) createProgressFile(path string, progress int) error {
 	err := ioutil.WriteFile(path, intToBytes(progress), os.FileMode((0o777)))
 	if err != nil {
@@ -57,12 +56,11 @@ func (pt *progressTracker) createProgressFile(path string, progress int) error {
 	return nil
 }
 
-// Delete progress file that stores file upload information.
 func (pt *progressTracker) deleteProgressFile(path string) error {
 	return os.Remove(path)
 }
 
-// Update progress file that stores file upload information with the next sensordata message index to be uploaded.
+// Increment progress index in progress file.
 func (pt *progressTracker) updateIndexProgressFile(path string) error {
 	i, err := pt.getIndexProgressFile(path)
 	if err != nil {
@@ -74,7 +72,7 @@ func (pt *progressTracker) updateIndexProgressFile(path string) error {
 	return nil
 }
 
-// Returns the index of next sensordata message to upload or -1 if the file upload has not been attempted.
+// Returns the index of next sensordata message to upload or zero (if no sensordata messages are yet updated).
 func (pt *progressTracker) getIndexProgressFile(path string) (int, error) {
 	bs, err := ioutil.ReadFile(filepath.Clean(path))
 	if errors.Is(err, os.ErrNotExist) {
