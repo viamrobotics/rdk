@@ -22,6 +22,42 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
+// RTKAttrConfig is used for converting Serial NMEA GPS config attributes.
+type RTKAttrConfig struct {
+	// Serial
+	SerialPath     string `json:"path"`
+	CorrectionPath string `json:"correction_path"`
+
+	// I2C
+	Board   string `json:"board"`
+	Bus     string `json:"bus"`
+	I2cAddr int    `json:"i2c_addr"`
+
+	// Ntrip
+	NtripAddr            string `json:"ntrip_addr"`
+	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
+	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
+	NtripPass            string `json:"ntrip_password,omitempty"`
+	NtripUser            string `json:"ntrip_username,omitempty"`
+	NtripPath            string `json:"ntrip_path,omitempty"`
+	NtripBaud            string `json:"ntrip_baud,omitempty"`
+	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
+}
+
+// ValidateRTK ensures all parts of the config are valid.
+func (config *RTKAttrConfig) ValidateRTK(path string) error {
+	if len(config.NtripAddr) == 0 {
+		return errors.New("expected nonempty ntrip address")
+	}
+
+	if (len(config.NtripPath) == 0 && len(config.SerialPath) == 0) &&
+		(len(config.Board) == 0 || len(config.Bus) == 0 || config.I2cAddr == 0) {
+		return errors.New("expected either nonempty ntrip path, serial path, or I2C board, bus, and address")
+	}
+
+	return nil
+}
+
 func init() {
 	registry.RegisterComponent(
 		gps.Subtype,
@@ -69,7 +105,6 @@ type ntripInfo struct {
 	writepath          string
 	wbaud              int
 	addr               byte // for i2c only
-	sendNMEA           bool
 	client             *ntrip.Client
 	stream             io.ReadCloser
 	maxConnectAttempts int
@@ -82,7 +117,6 @@ const (
 	ntripMountPointAttrName    = "ntrip_mountpoint"
 	ntripPathAttrName          = "ntrip_path"
 	ntripBaudAttrName          = "ntrip_baud"
-	ntripSendNmeaName          = "ntrip_send_nmea"
 	ntripInputProtocolAttrName = "ntrip_input_protocol"
 	ntripConnectAttemptsName   = "ntrip_connect_attempts"
 )
@@ -108,7 +142,6 @@ func newRTKGPS(ctx context.Context, deps registry.Dependencies, config config.Co
 		if err != nil {
 			return nil, err
 		}
-
 	default:
 		// Invalid protocol
 		return nil, fmt.Errorf("%s is not a valid protocol", g.ntripInputProtocol)
@@ -140,10 +173,6 @@ func newRTKGPS(ctx context.Context, deps registry.Dependencies, config config.Co
 	if g.ntripClient.wbaud == 38400 {
 		g.logger.Info("ntrip_baud using default baud rate 38400")
 	}
-	g.ntripClient.sendNMEA = config.Attributes.Bool(ntripSendNmeaName, false)
-	if !g.ntripClient.sendNMEA {
-		g.logger.Info("ntrip_send_nmea set to false")
-	}
 	g.ntripClient.maxConnectAttempts = config.Attributes.Int(ntripConnectAttemptsName, 10)
 	if g.ntripClient.maxConnectAttempts == 10 {
 		g.logger.Info("ntrip_connect_attempts using default 10")
@@ -165,7 +194,6 @@ func (g *RTKGPS) Start(ctx context.Context) {
 	case "I2C":
 		go g.ReceiveAndWriteI2C(ctx)
 	}
-
 	g.nmeagps.Start(ctx)
 }
 

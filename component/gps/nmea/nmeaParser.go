@@ -2,6 +2,7 @@ package nmea
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"
@@ -27,6 +28,14 @@ type gpsData struct {
 // parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
 func (g *gpsData) parseAndUpdate(line string) error {
+	// add parsing to filter out corrupted data
+	ind := strings.Index(line, "$G")
+	if ind == -1 {
+		line = ""
+	} else {
+		line = line[ind:]
+	}
+
 	s, err := nmea.Parse(line)
 	if err != nil {
 		return err
