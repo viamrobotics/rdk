@@ -1977,7 +1977,7 @@ function setBoundingBox(box, centerPoint) {
         <h3 class="mb-2">
           Digital Interrupts
         </h3>
-        <table class="mb-4 table-auto border border-black">
+        <table class="mb-4 w-full table-auto border border-black">
           <tr
             v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
             :key="name"
@@ -1993,7 +1993,7 @@ function setBoundingBox(box, centerPoint) {
         <h3 class="mb-2">
           GPIO
         </h3>
-        <table class="mb-4 table-auto border border-black">
+        <table class="mb-4 w-full table-auto border border-black">
           <tr>
             <th class="border border-black p-2">
               Get
@@ -2095,7 +2095,7 @@ function setBoundingBox(box, centerPoint) {
       title="Sensors"
     >
       <div class="border border-t-0 border-black p-4">
-        <table class="table-auto border border-black">
+        <table class="w-full table-auto border border-black">
           <tr>
             <th class="border border-black p-2">
               Name

@@ -57,7 +57,7 @@ Some guidelines on using these:
 
 ### Frontend
 
-To start the client development environment, first run the same `go run` command mentioned in getting started, but with the environmental variable `ENV=development`. Then navigate to `web/frontend` and run `npm start` in a new terminal tab.
+To start the client development environment, first run the same `go run` command mentioned in getting started, but with the environmental variable `ENV=development` (like: `ENV=development go run web/cmd/server/main.go robots/configs/fake.json`). Then navigate to `web/frontend` and run `npm start` in a new terminal tab.
 
 ### Testing with big data
 

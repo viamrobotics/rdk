@@ -215,7 +215,7 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
               type="number"
               class="mr-2"
               :value="increment"
-              :disabled="movementType === 'Continuous'"
+              :readonly="movementType === 'Continuous'"
               label="Distance (mm)"
               @input="increment = $event.detail.value"
             />
@@ -241,13 +241,13 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
                 @input="setSpinType($event.detail.value)"
               />
             </div>
-            <div class="column w-40 pl-4">
+            <div class="column w-72 pl-4">
               <v-slider
                 :min="0"
                 :max="360"
                 :step="90"
-                unit="°"
-                name="Angle"
+                suffix="°"
+                label="Angle"
                 :value="angle"
                 @input="angle = $event.detail.value"
               />

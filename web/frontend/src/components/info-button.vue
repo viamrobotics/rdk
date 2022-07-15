@@ -13,29 +13,20 @@ defineProps<Props>();
 
 <template>
   <Popper
-    root-class="viam-info-popper"
-    class="inline-flex align-middle"
-    :options="{
-      placement: 'top',
-    }"
+    hover
+    arrow
+    placement="top"
   >
     <template #content>
-      <div class="popper">
-        <div class="viam-info-content">
-          <ul>
-            <li
-              v-for="(line, i) in infoRows ?? []"
-              :key="i"
-              data-cy="viam-info-row-item"
-              class="text-left"
-            >
-              {{ line }}
-            </li>
-          </ul>
-        </div>
-
-        <div class="viam-info-button-arrow" />
-      </div>
+      <ul>
+        <li
+          v-for="(line, i) in infoRows ?? []"
+          :key="i"
+          class="text-left text-xs"
+        >
+          {{ line }}
+        </li>
+      </ul>
     </template>
 
     <button>
@@ -48,35 +39,15 @@ defineProps<Props>();
 </template>
 
 <style>
-
-.viam-info-popper .popper__arrow {
-  display: none;
-}
-.viam-info-popper .popper {
-  min-width: 325px;
-  border: 1px solid black;
-  border-radius: 0;
-  box-shadow: none;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-.viam-info-popper .viam-info-content {
-  position: relative;
-  z-index: 3;
-  padding: 3px 6px;
-  background-color: white;
-}
-.viam-info-button-arrow {
-  border-right: 1px solid black;
-  border-bottom: 1px solid black;
-
-  padding: 3px 3px;
-  transform: rotate(45deg);
-  background-color: white;
-  position: absolute;
-  right: calc(50% - 3px);
-  bottom: -4px;
-  z-index: 1;
-}
-
+  :root {
+    --popper-theme-background-color: #fff;
+    --popper-theme-background-color-hover: #fff;
+    --popper-theme-text-color: #000;
+    --popper-theme-border-color: #000;
+    --popper-theme-border-width: 1px;
+    --popper-theme-border-style: solid;
+    --popper-theme-border-radius: 0px;
+    --popper-theme-padding: 4px;
+    --popper-theme-box-shadow: 0 6px 30px -6px rgba(0, 0, 0, 0.25);
+  }
 </style>
