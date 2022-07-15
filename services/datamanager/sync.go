@@ -47,7 +47,8 @@ type syncer struct {
 type (
 	getNextRequestFn       func(context.Context, *os.File) (*v1.UploadRequest, error)
 	processUploadRequestFn func(v1.DataSyncService_UploadClient, *v1.UploadRequest, progressTracker, string) error
-	uploadFn               func(ctx context.Context, pt progressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error
+	uploadFn               func(context.Context, progressTracker,
+		v1.DataSyncService_UploadClient, string, string) error
 )
 
 // TODO DATA-206: instantiate a client
@@ -258,7 +259,9 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 			return err
 		}
 		// Finally, send the UploadRequest to the client.
-		processUploadRequestFn(client, uploadReq, pt, f.Name())
+		if err = processUploadRequestFn(client, uploadReq, pt, f.Name()); err != nil {
+			return err
+		}
 	}
 
 	if err = f.Close(); err != nil {
@@ -273,7 +276,9 @@ func uploadFile(ctx context.Context, pt progressTracker, client v1.DataSyncServi
 	return nil
 }
 
-func sendClientUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt progressTracker, dcFileName string) error {
+func sendClientUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt progressTracker,
+	dcFileName string,
+) error {
 	if err := client.Send(uploadReq); err != nil {
 		return errors.Wrap(err, "error while sending uploadRequest")
 	}

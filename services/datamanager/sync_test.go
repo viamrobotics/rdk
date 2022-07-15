@@ -488,7 +488,8 @@ func TestResumeUploadFromProgressOnDisk(t *testing.T) {
 		// Initialize progress file with previous upload progress.
 		tpfname, err := createProgressFile(tc.progressAtBreakpoint, tf.Name())
 		if err != nil {
-			t.Errorf("%s cannot create progress file (generated as though test was previously attempted) to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
+			t.Errorf(`%s cannot create progress file (generated as though test was previously attempted) to be used 
+			for sensorUpload/fileUpload testing: %v`, tc.name, err)
 		}
 		defer os.Remove(tpfname)
 
