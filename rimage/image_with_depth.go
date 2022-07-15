@@ -123,20 +123,6 @@ func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
 	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned}
 }
 
-// Warp adapts the image to a new size.
-func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *ImageWithDepth {
-	m2 := GetPerspectiveTransform(src, dst)
-
-	img := WarpImage(i.Color, m2, newSize)
-
-	var warpedDepth *DepthMap
-	if i.Depth != nil && i.Depth.Width() > 0 {
-		warpedDepth = i.Depth.Warp(m2, newSize)
-	}
-
-	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned}
-}
-
 // CropToDepthData TODO.
 func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	var minY, minX, maxY, maxX int
@@ -200,11 +186,12 @@ func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	height := maxY - minY
 	width := maxX - minX
 
-	return i.Warp(
+	col, dep := WarpColorDepth(i.Color, i.Depth,
 		[]image.Point{{minX, minY}, {maxX, minY}, {maxX, maxY}, {minX, maxY}},
 		[]image.Point{{0, 0}, {width, 0}, {width, height}, {0, height}},
 		image.Point{width, height},
-	), nil
+	)
+	return &ImageWithDepth{col, dep, i.aligned}, nil
 }
 
 // Overlay TODO.
@@ -354,4 +341,18 @@ func ImageWithDepthFromRawBytes(width, height int, b []byte) (*ImageWithDepth, e
 	iwd.aligned = b[0] == 0x1
 
 	return iwd, nil
+}
+
+// WarpColorDepth adapts the image to a new size.
+func WarpColorDepth(col *Image, dm *DepthMap, src, dst []image.Point, newSize image.Point) (*Image, *DepthMap) {
+	m2 := GetPerspectiveTransform(src, dst)
+
+	img := WarpImage(col, m2, newSize)
+
+	var warpedDepth *DepthMap
+	if dm != nil && dm.Width() > 0 {
+		warpedDepth = dm.Warp(m2, newSize)
+	}
+
+	return ConvertImage(img), warpedDepth
 }
