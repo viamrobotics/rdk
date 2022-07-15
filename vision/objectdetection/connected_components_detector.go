@@ -4,7 +4,7 @@ import (
 	"image"
 )
 
-// validPixelFunc is a function that returns true if a pixel in an rimage.ImageWithDepth passes a certain criteria.
+// validPixelFunc is a function that returns true if a pixel in an image.Image passes a certain criteria.
 type validPixelFunc func(image.Image, image.Point) bool
 
 // connectedComponentDetector identifies objects in an image by merging neighbors that share similar properties.
