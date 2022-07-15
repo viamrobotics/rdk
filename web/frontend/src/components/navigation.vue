@@ -213,7 +213,6 @@ onUnmounted(() => {
           @click="setNavigationLocation()"
         />
       </div>
-      
 
       <div
         id="map"
