@@ -96,6 +96,11 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 			continue
 		}
 
+		if d.Status() == driver.StateRunning {
+			rlog.Logger.Warnw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
+			continue
+		}
+
 		labelParts := strings.Split(driverInfo.Label, mediadevicescamera.LabelSeparator)
 		label := labelParts[len(labelParts)-1]
 		wc := &pb.Webcam{
