@@ -168,5 +168,5 @@ module.exports = {
       },
     },
   },
-  ignorePatterns: ['**/cypress/**', '**/node_modules/**', '*.json'],
+  ignorePatterns: ['**/cypress/**', '**/node_modules/**', '*.json', '**/runtime-shared/**'],
 };
