@@ -42,7 +42,7 @@
     "check": "vue-tsc --noEmit",
     "preview": "vite preview",
     "prepare": "./etc/prepare.sh",
-    "lint": "eslint --ext .js,.ts,.vue --ignore-pattern 'gen/' 'src/'",
+    "lint": "eslint --fix --ext .js,.ts,.vue --ignore-pattern 'gen/' 'src/'",
     "test:unit": "echo \"no tests exist yet\""
   }
 }
