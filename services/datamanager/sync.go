@@ -73,12 +73,12 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFn, partID string) *syncer 
 	}
 	ret.uploadFn = uploadFunc
 	// nolint
-	initProgressTrackerDir()
+	initProgressDir()
 	return &ret
 }
 
-// Create progressTracker directory in filesystem if it does not already exist.
-func initProgressTrackerDir() error {
+// Create progress directory in filesystem if it does not already exist.
+func initProgressDir() error {
 	if _, err := os.Stat(progressDir); os.IsNotExist(err) {
 		err = os.Mkdir(progressDir, os.ModePerm)
 		if err != nil {
@@ -293,6 +293,7 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 		}
 		return nil
 	}
+
 	if err := skipSensordataMessages(ctx, f, progressIndex); err != nil {
 		return err
 	}
