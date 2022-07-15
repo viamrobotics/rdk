@@ -391,7 +391,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 		return nil, err
 	}
 
-	return services.WrapWithReconfigurable(svc)
+	return services.WrapWithReconfigurable(svc, rName)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
