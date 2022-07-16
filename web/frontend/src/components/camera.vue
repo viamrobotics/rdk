@@ -125,12 +125,15 @@ const togglePCDExpand = () => {
     <div class="h-auto border-x border-b border-black p-2">
       <div class="container mx-auto">
         <div class="pt-4">
-          <span class="pr-2">View Camera</span>
-          <v-switch
-            id="camera"
-            :value="camera ? 'on' : 'off'"
-            @input="toggleExpand()"
-          />
+          <div class="flex items-center gap-2">
+            <v-switch
+              id="camera"
+              :value="camera ? 'on' : 'off'"
+              @input="toggleExpand()"
+            />
+            <span class="pr-2">View Camera</span>
+          </div>
+          
           <div class="float-right pb-4">
             <div class="flex">
               <div
@@ -204,12 +207,14 @@ const togglePCDExpand = () => {
           />
         </div>
         <div class="pt-4">
-          <span class="pr-2">Point Cloud Data</span>
-          <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />
-          <v-switch
-            :value="pcd ? 'on' : 'off'"
-            @input="togglePCDExpand()"
-          />
+          <div class="flex items-center gap-2">
+            <v-switch
+              :value="pcd ? 'on' : 'off'"
+              @input="togglePCDExpand()"
+            />
+            <span class="pr-0.5">Point Cloud Data</span>
+            <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />
+          </div>
           <div
             v-if="pcd"
             class="flex flex-col gap-4"

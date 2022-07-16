@@ -89,19 +89,18 @@ onClickOutside(root, () => {
 <template>
   <div
     ref="root"
-    class="h-23 flex flex-col"
+    class="h-23 flex flex-col items-center w-full"
   >
-    <div class="flex pb-4">
+    <div
+      class="flex gap-2 pb-4"
+      @click="toggleKeyboard"
+    >
       <v-switch
         class="pr-4"
         :value="isActive ? 'on' : 'off'"
-        @input="toggleKeyboard()"
       />
-      <h3 v-if="isActive">
-        Keyboard active
-      </h3>
-      <h3 v-else>
-        Keyboard disabled
+      <h3>
+        Keyboard {{ isActive ? 'active' : 'disabled' }}
       </h3>
     </div>
     <div
@@ -109,12 +108,10 @@ onClickOutside(root, () => {
       :key="index"
       class="my-1 flex flex-row justify-center gap-2"
     >
-      <v-button
+      <button
         v-for="key in lineKeys"
         :key="key"
-        icon="check"
-        :label="keyLetters[key]"
-        class="border-gray-500 bg-white dark:bg-gray-900"
+        class="flex items-center gap-1.5 border border-gray-500 bg-white px-3 py-1 dark:bg-gray-900"
         :class="{
           'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 keyboard-button-pressed': pressedKeys[key],
           'keyboard-button-not-pressed': !pressedKeys[key],
@@ -122,10 +119,9 @@ onClickOutside(root, () => {
         @pointerdown="setKeyPressed(key, true)"
         @pointerup="setKeyPressed(key, false)"
       >
-        <Icon :path="keyIcons[key]">
-          Check
-        </Icon>
-      </v-button>
+        {{ keyLetters[key] }}
+        <Icon :path="keyIcons[key]" />
+      </button>
     </div>
   </div>
 </template>

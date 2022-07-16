@@ -1745,7 +1745,7 @@ function setBoundingBox(box, centerPoint) {
               >
             </template>
           </div>
-          <div class="mt-2 flex">
+          <div class="mt-2 flex gap-2">
             <v-button
               class="mr-4 whitespace-nowrap"
               label="Go To End Position"
@@ -1778,7 +1778,7 @@ function setBoundingBox(box, centerPoint) {
               >
             </template>
           </div>
-          <div class="mt-2 flex">
+          <div class="mt-2 flex gap-2">
             <v-button
               label="Go To Joints"
               @click="armModifyAllDoJoint(arm)"
@@ -1830,7 +1830,7 @@ function setBoundingBox(box, centerPoint) {
               </h4>
             </template>
           </div>
-          <div class="mt-2 flex">
+          <div class="mt-2 flex gap-2">
             <v-button
               label="Home"
               @click="armHome(arm)"
@@ -1880,7 +1880,7 @@ function setBoundingBox(box, centerPoint) {
               </h4>
             </template>
           </div>
-          <div class="mt-2 flex">
+          <div class="mt-2 flex gap-2">
             <v-button
               label="Home"
               @click="armHome(arm)"
@@ -1999,7 +1999,7 @@ function setBoundingBox(box, centerPoint) {
               Get
             </th>
             <td class="border border-black p-2">
-              <div class="flex items-end">
+              <div class="flex items-end gap-2">
                 <v-input
                   label="Pin"
                   type="number"
@@ -2037,7 +2037,7 @@ function setBoundingBox(box, centerPoint) {
               Set
             </th>
             <td class="p-2">
-              <div class="flex items-end">
+              <div class="flex items-end gap-2">
                 <v-input
                   type="number"
                   class="mr-2"
