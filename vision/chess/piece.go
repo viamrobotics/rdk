@@ -61,7 +61,7 @@ func buildPieceColorModel(theBoard *Board) (ml.Classifier, error) {
 
 			for x := middle.X - radius; x < middle.X+radius; x++ {
 				for y := middle.Y - radius; y < middle.Y+radius; y++ {
-					clr := theBoard.img.Color.GetXY(x, y)
+					clr := theBoard.color.GetXY(x, y)
 
 					data = append(data, makeArray(edges, clr))
 					correct = append(correct, squareType)
