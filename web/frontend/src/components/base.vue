@@ -118,7 +118,7 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
       @click="emit('base-stop')"
     />
 
-    <div class="h-80 border border-t-0 border-black pt-2 pb-4">
+    <div class="border border-t-0 border-black pt-2 pb-4">
       <v-tabs
         tabs="Keyboard, Discrete"
         :selected="selectedItem"
@@ -139,21 +139,13 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
             v-if="camera"
             class="flex"
           >
-            <div class="pr-4">
-              <div class="w-64">
-                <p
-                  class="font-label mb-1 text-gray-800 dark:text-gray-200"
-                >
-                  Select Camera
-                </p>
-                <div class="relative">
-                  <v-select
-                    :options="cameraOptions.map(option => option.label).join(',')"
-                    :selected="selectedValue"
-                    @input="handleCameraOptionsInput"
-                  />
-                </div>
-              </div>
+            <div class="w-64 pr-4">
+              <v-select
+                label="Select Camera"
+                :options="cameraOptions.map(option => option.label).join(',')"
+                :selected="selectedValue"
+                @input="handleCameraOptionsInput"
+              />
             </div>
             <div
               v-if="selectedValue !== 'NoCamera'"
@@ -168,18 +160,13 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
         class="flex h-auto px-4 pt-4"
       >
         <div class="grow">
-          <div class="column">
-            <v-radio
-              label="Movement Mode"
-              options="Straight, Spin"
-              :selected="movementMode"
-              @input="setMovementMode($event.detail.value)"
-            />
-          </div>
-          <div
-            :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
-            class="gap-2 items-center pt-4"
-          >
+          <v-radio
+            label="Movement Mode"
+            options="Straight, Spin"
+            :selected="movementMode"
+            @input="setMovementMode($event.detail.value)"
+          />
+          <div class="flex items-center gap-2 pt-4">
             <v-radio
               v-if="movementMode === 'Straight'"
               label="Movement Type"
@@ -201,14 +188,18 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
               label="Speed (mm/sec)"
               @input="speed = $event.detail.value"
             />
-            <v-input
+            <div
               v-if="movementMode === 'Straight'"
-              type="number"
-              :value="increment"
-              :readonly="movementType === 'Continuous'"
-              label="Distance (mm)"
-              @input="increment = $event.detail.value"
-            />
+              :class="{ 'pointer-events-none opacity-50': movementType === 'Continuous' }"
+            >
+              <v-input
+                type="number"
+                :value="increment"
+                :readonly="movementType === 'Continuous' ? 'true' : 'false'"
+                label="Distance (mm)"
+                @input="increment = $event.detail.value"
+              />
+            </div>
             <v-input
               v-if="movementMode === 'Spin'"
               type="number"
@@ -216,19 +207,17 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
               label="Speed (deg/sec)"
               @input="spinSpeed = $event.detail.value"
             />
-          </div>
-          <div
-            v-if="movementMode === 'Spin'"
-            :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
-            class="pt-4 pl-2"
-          >
             <v-radio
+              v-if="movementMode === 'Spin'"
               label="Movement Type"
               options="Clockwise, Counterclockwise"
               :selected="spinType"
               @input="setSpinType($event.detail.value)"
             />
-            <div class="w-72 pl-6">
+            <div
+              v-if="movementMode === 'Spin'"
+              class="w-72 pl-6"
+            >
               <v-slider
                 :min="0"
                 :max="360"
