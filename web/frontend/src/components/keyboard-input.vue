@@ -89,7 +89,7 @@ onClickOutside(root, () => {
 <template>
   <div
     ref="root"
-    class="h-23 flex flex-col items-center w-full"
+    class="h-23 flex w-full flex-col items-center"
   >
     <div
       class="flex gap-2 pb-4"

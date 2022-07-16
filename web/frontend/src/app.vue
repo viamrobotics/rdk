@@ -1111,25 +1111,28 @@ export default {
       });
     },
     loadCurrentOps () {
+      window.clearTimeout(this.currentOpsTimerId);
       const req = new robotApi.GetOperationsRequest();
       window.robotService.getOperations(req, {}, (err, resp) => {
         const lst = resp.toObject().operationsList;
         this.currentOps = lst;
-        this.currentOpsTimerId = window.setTimeout(this.loadCurrentOps, 500);
+
+        const now = Date.now();
+        for (const op of this.currentOps) {
+          op.elapsed = now - (op.started.seconds * 1000);
+        }
+
+        this.currentOpsTimerId = window.setTimeout(this.loadCurrentOps, 1000);
       });
     },
     async doConnect(authEntity, creds, onError) {
       console.debug('connecting');
-      const alertError = document.querySelector('#connecting-error');
-      alertError.innerHTML = '';
       document.querySelector('#connecting').classList.remove('hidden');
       try {
         await connect(authEntity, creds);
         this.loadCurrentOps();
       } catch (error) {
-        const msg = `failed to connect: ${error}`;
-        console.error(msg);
-        alertError.classList.remove('hidden').innerHTML = msg;
+        toast.error(`failed to connect: ${error}`);
         if (onError) {
           setTimeout(onError, 1000);
         }
@@ -1552,22 +1555,18 @@ function setBoundingBox(box, centerPoint) {
               </th>
               <td class="flex p-2">
                 <v-button
-                  group
                   label="--"
                   @click="gantryInc( gantry, pp.axis, -10 )"
                 />
                 <v-button
-                  group
                   label="-"
                   @click="gantryInc( gantry, pp.axis, -1 )"
                 />
                 <v-button
-                  group
                   label="+"
                   @click="gantryInc( gantry, pp.axis, 1 )"
                 />
                 <v-button
-                  group
                   label="++"
                   @click="gantryInc( gantry, pp.axis, 10 )"
                 />
@@ -1590,7 +1589,7 @@ function setBoundingBox(box, centerPoint) {
       :key="imu.name"
       :title="`IMU: ${imu.name}`"
     >
-      <div class="flex border border-t-0 border-black p-4">
+      <div class="flex items-end border border-t-0 border-black p-4">
         <template v-if="imuData[imu.name] && imuData[imu.name].angularVelocity">
           <div class="mr-4 w-1/4">
             <h3 class="mb-1">
@@ -1602,7 +1601,7 @@ function setBoundingBox(box, centerPoint) {
                   Roll
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].orientation.rollDeg.toFixed(2) }}
+                  {{ imuData[imu.name].orientation?.rollDeg.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1610,7 +1609,7 @@ function setBoundingBox(box, centerPoint) {
                   Pitch
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].orientation.pitchDeg.toFixed(2) }}
+                  {{ imuData[imu.name].orientation?.pitchDeg.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1618,7 +1617,7 @@ function setBoundingBox(box, centerPoint) {
                   Yaw
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].orientation.yawDeg.toFixed(2) }}
+                  {{ imuData[imu.name].orientation?.yawDeg.toFixed(2) }}
                 </td>
               </tr>
             </table>
@@ -1634,7 +1633,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].angularVelocity.xDegsPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].angularVelocity?.xDegsPerSec.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1642,7 +1641,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].angularVelocity.yDegsPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].angularVelocity?.yDegsPerSec.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1650,7 +1649,7 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].angularVelocity.zDegsPerSec.toFixed(2) }}
+                  {{ imuData[imu.name].angularVelocity?.zDegsPerSec.toFixed(2) }}
                 </td>
               </tr>
             </table>
@@ -2007,25 +2006,18 @@ function setBoundingBox(box, centerPoint) {
                 <v-input
                   label="Pin"
                   type="number"
-                  class="mr-2"
                   :value="getPin"
                   @input="getPin = $event.detail.value"
                 />
                 <v-button
-                  class="mr-2"
-                  group
                   label="Get Pin State"
                   @click="getGPIO(board.name)"
                 />
                 <v-button
-                  class="mr-2"
-                  group
                   label="Get PWM"
                   @click="getPWM(board.name)"
                 />
                 <v-button
-                  class="mr-2"
-                  group
                   label="Get PWM Frequency"
                   @click="getPWMFrequency(board.name)"
                 />
@@ -2058,7 +2050,6 @@ function setBoundingBox(box, centerPoint) {
                 </select>
                 <v-button
                   class="mr-2"
-                  group
                   label="Set Pin State"
                   @click="setGPIO(board.name)"
                 />
@@ -2070,7 +2061,6 @@ function setBoundingBox(box, centerPoint) {
                 />
                 <v-button
                   class="mr-2"
-                  group
                   label="Set PWM"
                   @click="setPWM(board.name)"
                 />
@@ -2082,7 +2072,6 @@ function setBoundingBox(box, centerPoint) {
                 />
                 <v-button
                   class="mr-2"
-                  group
                   label="Set PWM Frequency"
                   @click="setPWMFrequency(board.name)"
                 />
@@ -2176,7 +2165,7 @@ function setBoundingBox(box, centerPoint) {
               {{ o.method }}
             </td>
             <td class="border border-black p-2">
-              {{ Date.now() - (o.started.seconds * 1000) }}ms
+              {{ o.elapsed }}ms
             </td>
             <td class="border border-black p-2 text-center">
               <v-button
