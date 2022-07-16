@@ -1305,14 +1305,18 @@ export default {
       const rawStatus = {};
       const status = {};
 
-      for (const s of grpcStatus) {
-        const nameObj = s.getName().toObject();
-        const statusJs = s.getStatus().toJavaScript();
-        const fixed = this.fixRawStatus(nameObj, statusJs);
+      for (const status of grpcStatus) {
+        const nameObj = status.getName().toObject();
+        const statusJs = status.getStatus().toJavaScript();
 
-        const nameStr = resourceNameToString(nameObj);
-        rawStatus[nameStr] = statusJs;
-        status[nameStr] = fixed;
+        try {
+          const fixed = this.fixRawStatus(nameObj, statusJs);
+          const nameStr = resourceNameToString(nameObj);
+          rawStatus[nameStr] = statusJs;
+          status[nameStr] = fixed;
+        } catch (error) {
+          console.error(`Couldn't fix status for ${theApp.resourceNameToString(nameObj)}`, error);
+        }
       }
 
       this.rawStatus = rawStatus;

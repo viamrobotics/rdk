@@ -119,26 +119,23 @@ const motorStop = () => {
         class="grid grid-cols-1 border border-t-0 border-black p-4"
       >
         <div class="grid">
-          <div class="column">
-            <v-radio
-              label="Set Power"
-              :options="
-                motorStatus.positionReporting
-                  ? 'Go, Go For, Go To'
-                  : 'Go'
-              "
-              :selected="movementType"
-              @input="setMovementType($event.detail.value)"
-            />
-          </div>
+          <v-radio
+            label="Set Power"
+            :options="
+              motorStatus.positionReporting
+                ? 'Go, Go For, Go To'
+                : 'Go'
+            "
+            :selected="movementType"
+            @input="setMovementType($event.detail.value)"
+          />
           <div
             v-if="movementType === 'Go To'"
-            class="flex pt-4"
+            class="flex gap-2 pt-4"
           >
-            <div class="place-self-end pr-2">
-              <span class="text-2xl">{{ movementType }}</span>
+            <div class="flex items-center gap-1 place-self-end pr-2">
+              <span class="text-lg">{{ movementType }}</span>
               <InfoButton
-                class="pb-2"
                 :info-rows="['Relative to Home']"
               />
             </div>
@@ -159,58 +156,52 @@ const motorStop = () => {
           </div>
           <div
             v-if="movementType === 'Go For'"
-            class="flex pt-4"
+            class="flex gap-2 pt-4"
           >
-            <div class="place-self-end pr-2">
-              <span class="text-2xl">{{ movementType }}</span>
+            <div class="flex items-center gap-1 place-self-end pr-2">
+              <span class="text-lg">{{ movementType }}</span>
               <InfoButton
-                class="pb-2"
                 :info-rows="['Relative to where the robot is currently']"
               />
             </div>
             <v-input
               type="number"
-              class="w-32 pr-2"
+              class="w-32"
               label="# in Revolutions"
               :value="revolutions"
               @input="revolutions = $event.detail.value"
             />
-            <div class="column pr-4">
-              <v-radio
-                label="Direction of Rotation"
-                options="Forwards, Backwards"
-                :selected="direction === 1 ? 'Forwards' : 'Backwards'"
-                @input="setDirection($event.detail.value)"
-              />
-            </div>
+            <v-radio
+              label="Direction of Rotation"
+              options="Forwards, Backwards"
+              :selected="direction === 1 ? 'Forwards' : 'Backwards'"
+              @input="setDirection($event.detail.value)"
+            />
             <v-input
               type="number"
               label="RPM"
-              class="w-32 pr-2"
+              class="w-32"
               :value="rpm"
               @input="rpm = $event.detail.value"
             />
           </div>
           <div
             v-if="movementType === 'Go'"
-            class="flex items-start pt-4"
+            class="flex items-start gap-2 pt-4"
           >
-            <div class="place-self-end pr-2">
-              <span class="text-2xl">{{ movementType }}</span>
+            <div class="flex items-center gap-1 place-self-end pr-2">
+              <span class="text-lg">{{ movementType }}</span>
               <InfoButton
-                class="pb-2"
                 :info-rows="['Continuously moves']"
               />
             </div>
-            <div class="column pr-4">
-              <v-radio
-                label="Direction of Rotation"
-                options="Forwards, Backwards"
-                :selected="direction === 1 ? 'Forwards' : 'Backwards'"
-                @input="setDirection($event.detail.value)"
-              />
-            </div>
-            <div class="min-w-[400px]">
+            <v-radio
+              label="Direction of Rotation"
+              options="Forwards, Backwards"
+              :selected="direction === 1 ? 'Forwards' : 'Backwards'"
+              @input="setDirection($event.detail.value)"
+            />
+            <div class="min-w-[400px] pl-6">
               <v-slider
                 id="power"
                 class="pt-2"
@@ -218,7 +209,7 @@ const motorStop = () => {
                 :max="100"
                 :step="1"
                 suffix="%"
-                name="Power %"
+                label="Power %"
                 :value="power"
                 @input="power = $event.detail.value"
               />
