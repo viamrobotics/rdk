@@ -238,20 +238,21 @@ const togglePCDExpand = () => {
             </div>
             <div
               id="pcd"
-              class="relative pb-6"
+              class="relative"
               @click="emit('pcd-click', $event)"
-            >
-              <div class="r-0 absolute bottom-0 right-0 whitespace-nowrap">
-                <span class="text-xs">Controls</span>
-                <InfoButton
-                  :info-rows="[
-                    'Rotate - Left/Click + Drag',
-                    'Pan - Right/Two Finger Click + Drag',
-                    'Zoom - Wheel/Two Finger Scroll',
-                  ]"
-                />
-              </div>
+            />
+
+            <div class="flex items-center gap-1 whitespace-nowrap">
+              <span class="text-xs">Controls</span>
+              <InfoButton
+                :info-rows="[
+                  'Rotate - Left/Click + Drag',
+                  'Pan - Right/Two Finger Click + Drag',
+                  'Zoom - Wheel/Two Finger Scroll',
+                ]"
+              />
             </div>
+
             <div class="clear-both grid grid-cols-1 divide-y">
               <div>
                 <div class="container mx-auto pt-4">
@@ -320,42 +321,37 @@ const togglePCDExpand = () => {
                   </div>
                 </div>
                 <div class="pt-4">
-                  <div class="grid grid-cols-2">
-                    <div>
-                      <div class="text-xs">
-                        Selected Point Position
-                      </div>
-                      <div class="flex">
-                        <v-input
-                          readonly
-                          label="X"
-                          labelposition="left"
-                          :value="x"
-                        />
-                        <v-input
-                          readonly
-                          label="Y"
-                          labelposition="left"
-                          :value="y"
-                        />
-                        <v-input
-                          readonly
-                          labelposition="left"
-                          label="Z"
-                          :value="z"
-                        />
-                        <div class="p-4">
-                          <v-button
-                            label="Move"
-                            @click="pcdMove"
-                          />
-                        </div>
-                      </div>
+                  <div>
+                    <div class="pb-1 text-xs">
+                      Selected Point Position
                     </div>
-                    <div class="grid grid-cols-1">
-                      <span class="text-xs">Distance From Camera</span>
-                      <span class="pt-4">{{ distanceFromCamera() }}mm</span>
+                    <div class="flex gap-3">
+                      <v-input
+                        readonly
+                        label="X"
+                        labelposition="left"
+                        :value="x"
+                      />
+                      <v-input
+                        readonly
+                        label="Y"
+                        labelposition="left"
+                        :value="y"
+                      />
+                      <v-input
+                        readonly
+                        labelposition="left"
+                        label="Z"
+                        :value="z"
+                      />
+                      <v-button
+                        label="Move"
+                        @click="pcdMove"
+                      />
                     </div>
+                  </div>
+                  <div class="pt-4 text-xs">
+                    Distance From Camera: {{ distanceFromCamera() }}mm
                   </div>
                   <div class="flex pt-4 pb-8">
                     <div class="column">

@@ -178,42 +178,32 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
           </div>
           <div
             :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
-            class="items-center pt-4"
+            class="gap-2 items-center pt-4"
           >
-            <div
+            <v-radio
               v-if="movementMode === 'Straight'"
-              class="column pr-2"
-            >
-              <v-radio
-                label="Movement Type"
-                options="Continuous, Discrete"
-                :selected="movementType"
-                @input="setMovementType($event.detail.value)"
-              />
-            </div>
-            <div
+              label="Movement Type"
+              options="Continuous, Discrete"
+              :selected="movementType"
+              @input="setMovementType($event.detail.value)"
+            />
+            <v-radio
               v-if="movementMode === 'Straight'"
-              class="column pr-2"
-            >
-              <v-radio
-                label="Direction"
-                options="Forwards, Backwards"
-                :selected="direction"
-                @input="setDirection($event.detail.value)"
-              />
-            </div>
+              label="Direction"
+              options="Forwards, Backwards"
+              :selected="direction"
+              @input="setDirection($event.detail.value)"
+            />
             <v-input
               v-if="movementMode === 'Straight'"
               type="number"
               :value="speed"
-              class="mr-2"
               label="Speed (mm/sec)"
               @input="speed = $event.detail.value"
             />
             <v-input
               v-if="movementMode === 'Straight'"
               type="number"
-              class="mr-2"
               :value="increment"
               :readonly="movementType === 'Continuous'"
               label="Distance (mm)"
@@ -223,7 +213,6 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
               v-if="movementMode === 'Spin'"
               type="number"
               :value="spinSpeed"
-              class="mr-2"
               label="Speed (deg/sec)"
               @input="spinSpeed = $event.detail.value"
             />
@@ -231,17 +220,15 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
           <div
             v-if="movementMode === 'Spin'"
             :class="movementMode === 'Spin' ? 'inline-flex' : 'flex'"
-            class="pt-4"
+            class="pt-4 pl-2"
           >
-            <div class="column pr-2">
-              <v-radio
-                label="Movement Type"
-                options="Clockwise, Counterclockwise"
-                :selected="spinType"
-                @input="setSpinType($event.detail.value)"
-              />
-            </div>
-            <div class="column w-72 pl-4">
+            <v-radio
+              label="Movement Type"
+              options="Clockwise, Counterclockwise"
+              :selected="spinType"
+              @input="setSpinType($event.detail.value)"
+            />
+            <div class="w-72 pl-6">
               <v-slider
                 :min="0"
                 :max="360"
