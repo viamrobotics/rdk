@@ -155,6 +155,8 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   savedCreds = creds;
 };
 
+window.connect = connect;
+
 function roundTo2Decimals(num) {
   return Math.round(num * 100) / 100;
 }
