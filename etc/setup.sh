@@ -153,7 +153,7 @@ do_brew(){
 	brew "gcc@11"
 	brew "go@1.18"
 	brew "node@18"
-	brew "protobuf@3.19"
+	brew "protobuf@3.20"
 
 	EOS
 
@@ -163,7 +163,7 @@ do_brew(){
 
 	brew uninstall "go@1.17" "node@16"
 	brew unlink "gcc" "go" "node" "protobuf"
-	brew link --overwrite "gcc@11" "go@1.18" "node@18" "protobuf@3.19" || exit 1
+	brew link --overwrite "gcc@11" "go@1.18" "node@18" "protobuf@3.20" || exit 1
 
 	echo "Brew installed software versions..."
 	brew list --version
