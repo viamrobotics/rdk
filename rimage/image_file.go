@@ -19,22 +19,25 @@ import (
 // Aligned matters if you are reading a .both.gz file and both the rgb and d image are already aligned.
 // Otherwise, if you are just reading an image, aligned is a moot parameter and should be false.
 func readImageFromFile(path string, aligned bool) (image.Image, error) {
-	if strings.HasSuffix(path, ".both.gz") {
+	switch path {
+	case strings.HasSuffix(path, ".both.gz"):
 		return ReadBothFromFile(path, aligned)
-	}
+	case strings.HasSuffix(path, ".dat.gz"):
+		return ParseDepthMap(path)
+	default:
+		//nolint:gosec
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer utils.UncheckedErrorFunc(f.Close)
 
-	//nolint:gosec
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
+		img, _, err := image.Decode(f)
+		if err != nil {
+			return nil, err
+		}
+		return img, nil
 	}
-	defer utils.UncheckedErrorFunc(f.Close)
-
-	img, _, err := image.Decode(f)
-	if err != nil {
-		return nil, err
-	}
-	return img, nil
 }
 
 // NewImageFromFile returns an image read in from the given file.
@@ -45,6 +48,20 @@ func NewImageFromFile(fn string) (*Image, error) {
 	}
 
 	return ConvertImage(img), nil
+}
+
+// NewDepthMapFromFile extract the depth map from a Z16 image file or a .both.gz image file.
+func NewDepthMapFromFile(fn string) (*DepthMap, error) {
+	img, err := readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
+	if err != nil {
+		return nil, err
+	}
+	dm, err := ConvertImageToDepthMap(img)
+	if err != nil {
+		return nil, err
+	}
+
+	return dm, nil
 }
 
 // WriteImageToFile writes the given image to a file at the supplied path.

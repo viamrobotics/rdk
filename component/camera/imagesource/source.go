@@ -5,27 +5,25 @@
 package imagesource
 
 import (
-	"bufio"
-	"bytes"
 	"context"
+
 	// for embedding camera parameters.
 	_ "embed"
 	"fmt"
 	"image"
-	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/edaniels/golog"
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
-	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
@@ -100,7 +98,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.Aligned}
+			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
 			return camera.New(imgSrc, attrs.AttrConfig, nil)
 		}})
 
@@ -137,78 +135,59 @@ func (ss *StaticSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 // fileSource stores the paths to a color and depth image.
 type fileSource struct {
-	ColorFN   string
-	DepthFN   string
-	isAligned bool // are color and depth image already aligned
+	ColorFN    string
+	DepthFN    string
+	Intrinsics *transform.PinholeCameraIntrinsics
 }
 
 // fileSourceAttrs is the attribute struct for fileSource.
 type fileSourceAttrs struct {
 	*camera.AttrConfig
-	Color   string `json:"color"`
-	Depth   string `json:"depth"`
-	Aligned bool   `json:"aligned"`
+	Color string `json:"color"`
+	Depth string `json:"depth"`
 }
 
-// Next returns the image stored in the color and depth files as an ImageWithDepth, or just an Image
-// if Depth is not available.
+// Next returns just the RGB image if it is present, or the depth map if the RGB image is not present.
 func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
-	if fs.DepthFN == "" { // no depth info
-		img, err := rimage.NewImageFromFile(fs.ColorFN)
+	if fs.ColorFN == "" { // only depth info
+		img, err := rimage.NewDepthMapFromFile(fs.DepthFN)
 		return img, func() {}, err
 	}
-	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN, fs.isAligned)
+	img, err := rimage.NewImageFromFile(fs.ColorFN)
 	return img, func() {}, err
 }
 
-func decodeColor(colorData []byte) (image.Image, error) {
-	img, _, err := image.Decode(bytes.NewBuffer(colorData))
-	return img, err
-}
-
-func decodeDepth(depthData []byte) (*rimage.DepthMap, error) {
-	return rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
-}
-
-func prepReadFromURL(ctx context.Context, client http.Client, url string) (io.ReadCloser, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+// Next PointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
+func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if fs.Intrinsics == nil {
+		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
+	}
+	img, err := rimage.NewImageFromFile(fs.ColorFN)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := client.Do(req)
+	dm, err := rimage.NewDepthMapFromFile(fs.DepthFN)
 	if err != nil {
 		return nil, err
 	}
-	return resp.Body, nil
-}
-
-func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]byte, error) {
-	body, err := prepReadFromURL(ctx, client, url)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		viamutils.UncheckedError(body.Close())
-	}()
-	return ioutil.ReadAll(body)
+	return fs.Intrinsics.RGBDToPointCloud(img, dm)
 }
 
 // dualServerSource stores two URLs, one which points the color source and the other to the
 // depth source.
 type dualServerSource struct {
-	client    http.Client
-	ColorURL  string // this is for a generic image
-	DepthURL  string // this is for my bizarre custom data format for depth data
-	isAligned bool   // are the color and depth image already aligned
+	client     http.Client
+	ColorURL   string // this is for a generic image
+	DepthURL   string // this is for my bizarre custom data format for depth data
+	Intrinsics *transform.PinholeCameraIntrinsics
+	Stream     StreamType // returns color or depth frame with calls of Next
 }
 
 // dualServerAttrs is the attribute struct for dualServerSource.
 type dualServerAttrs struct {
 	*camera.AttrConfig
-	Color   string `json:"color"`
-	Depth   string `json:"depth"`
-	Aligned bool   `json:"aligned"`
+	Color string `json:"color"`
+	Depth string `json:"depth"`
 }
 
 // newDualServerSource creates the ImageSource that streams color/depth/both data from two external servers, one for each channel.
@@ -217,36 +196,41 @@ func newDualServerSource(cfg *dualServerAttrs) (camera.Camera, error) {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 	}
 	imgSrc := &dualServerSource{
-		ColorURL:  cfg.Color,
-		DepthURL:  cfg.Depth,
-		isAligned: cfg.Aligned,
+		ColorURL:   cfg.Color,
+		DepthURL:   cfg.Depth,
+		Intrinsics: cfg.CameraParameters,
+		Stream:     StreamType(cfg.Stream),
 	}
 	return camera.New(imgSrc, cfg.AttrConfig, nil)
 }
 
-// Next requests the next images from both the color and depth source, and combines them
-// together as an ImageWithDepth before returning them.
+// Next requests either the color or depth frame, depending on what the config specifies.
 func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
-	colorData, err := readyBytesFromURL(ctx, ds.client, ds.ColorURL)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "couldn't ready color url")
+	switch ds.Stream {
+	case ColorStream:
+		img, err := readColorURL(ctx, ds.client, ds.ColorURL)
+		return img, func() {}, err
+	case DepthStream:
+		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL)
+		return depth, func() {}, err
+	default:
+		return nil, nil, errors.Errorf("stream of type %q not supported", ds.Stream)
 	}
-	img, err := decodeColor(colorData)
-	if err != nil {
-		return nil, nil, err
-	}
+}
 
-	depthData, err := readyBytesFromURL(ctx, ds.client, ds.DepthURL)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "couldn't ready depth url")
+func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if ds.Intrinsics == nil {
+		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}
-	// do this first and make sure ok before creating any mats
-	depth, err := decodeDepth(depthData)
+	img, err := readColorURL(ctx, ds.client, ds.ColorURL)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, ds.isAligned), func() {}, nil
+	depth, err := readDepthURL(ctx, ds.client, ds.DepthURL)
+	if err != nil {
+		return nil, err
+	}
+	return ds.Intrinsics.RGBDToPointCloud(img, depth)
 }
 
 // Close closes the connection to both servers.
@@ -256,11 +240,11 @@ func (ds *dualServerSource) Close() {
 
 // serverSource streams the color/depth/both camera data from an external server at a given URL.
 type serverSource struct {
-	client    http.Client
-	URL       string
-	host      string
-	stream    camera.StreamType // specifies color, depth, or both stream
-	isAligned bool              // are the color and depth image already aligned
+	client     http.Client
+	URL        string
+	host       string
+	stream     camera.StreamType // specifies color, depth, or both stream
+	Intrinsics *transform.PinholeCameraIntrinsics
 }
 
 // ServerAttrs is the attribute struct for serverSource.
@@ -279,40 +263,32 @@ func (s *serverSource) Close() {
 
 // Next returns the next image in the queue from the server.
 func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
-	var img *rimage.ImageWithDepth
-	var err error
-
-	in, err := prepReadFromURL(ctx, s.client, s.URL)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "couldn't read url (%s)", s.URL)
-	}
-	defer func() {
-		viamutils.UncheckedError(in.Close())
-	}()
-
 	switch s.stream {
-	case camera.ColorStream:
-		color, _, err := image.Decode(in)
-		if err != nil {
-			return nil, nil, err
-		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false)
-	case camera.DepthStream:
-		depth, err := rimage.ReadDepthMap(bufio.NewReader(in))
-		if err != nil {
-			return nil, nil, err
-		}
-		return depth, func() {}, nil
-	case camera.BothStream:
-		img, err = rimage.ReadBothFromReader(bufio.NewReader(in), s.isAligned)
-		if err != nil {
-			return nil, nil, err
-		}
+	case ColorStream:
+		img, err := readColorURL(ctx, s.client, s.URL)
+		return img, func() {}, err
+	case DepthStream:
+		depth, err := readDepthURL(ctx, s.client, s.URL)
+		return depth, func() {}, err
 	default:
-		return nil, nil, errors.Errorf("do not know how to decode stream type %q", string(s.stream))
+		return nil, nil, errors.Errorf("stream of type %q not supported", s.stream)
 	}
+}
 
-	return img, func() {}, nil
+// serverSource can only produce a PointCloud from a DepthMap.
+func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if s.Intrinsics == nil {
+		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
+	}
+	if s.stream == DepthStream {
+		depth, err := readDepthURL(ctx, s.client, s.URL)
+		if err != nil {
+			return nil, err
+		}
+		return depth.ToPointCloud(s.Intrinsics)
+	}
+	return nil,
+		errors.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)
 }
 
 // NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
