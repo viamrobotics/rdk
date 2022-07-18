@@ -86,7 +86,7 @@
       "depends_on" : ["mock3"],
       "attributes":
       {
-        "should_fail": 1
+        "should_fail": true
       }
     },
     {
@@ -96,7 +96,7 @@
       "depends_on" : ["mock1"],
       "attributes":
       {
-        "blo":10
+        "blah":10
       }
     },
     {

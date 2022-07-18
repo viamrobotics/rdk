@@ -9,7 +9,50 @@
     },
     {
       "model": "fake",
+      "name": "arm2",
+      "type": "arm",
+      "depends_on" : ["base2"]
+    },
+    {
+      "model": "fake",
+      "name": "m1",
+      "type": "motor",
+      "depends_on" : ["arm2"]
+    },
+    {
+      "model": "fake",
+      "name": "m2",
+      "type": "motor",
+      "depends_on" : ["arm2", "board1"],
+      "attributes" : {
+        "board" : "board1",
+        "pins" : {
+          "pwm" : "1"
+        },
+        "pwm_freq" : 1000
+      }
+    },
+    {
+      "model": "fake",
+      "name": "m3",
+      "type": "motor",
+      "depends_on" : ["arm1"]
+    },
+    {
+      "model": "fake",
+      "name": "m4",
+      "type": "motor",
+      "depends_on" : ["arm2"]
+    },
+    {
+      "model": "fake",
       "name": "base1",
+      "type": "base",
+      "depends_on" : ["board1"]
+    },
+    {
+      "model": "fake",
+      "name": "base2",
       "type": "base",
       "depends_on" : ["board1"]
     },

@@ -669,8 +669,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 				return c.ResourceName(), true
 			}
 		}
-		// we are trying to locate a resource that is set as a dependency but exist yet
-		// in this case this we assume its a remote resource that we haven't found yet.
+		// we are trying to locate a resource that is set as a dependency but do not exist yet
 		r.logger.Debugw("processing unknown  resource", "name", name)
 		return resource.NameFromSubtype(unknownSubtype, name), true
 	})

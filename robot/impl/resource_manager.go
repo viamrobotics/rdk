@@ -699,7 +699,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 	// the first thing we need to do is seek if the resource name already exists as an unknownType, if so
 	// we need to replace it
 	if old, ok := manager.resources.FindNodeByName(name.Name); ok && old.ResourceType == unknownTypeName {
-		manager.logger.Debugw("renaming resource with ", "old", old, "new", name)
+		manager.logger.Errorw("renaming resource", "old", old, "new", name)
 		if err := manager.resources.RenameNode(*old, name); err != nil {
 			manager.logger.Errorw("error renaming a resource", "error", err)
 		}
