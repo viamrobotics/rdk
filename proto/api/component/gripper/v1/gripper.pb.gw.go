@@ -199,12 +199,13 @@ func RegisterGripperServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Open", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/open"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Open", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/open"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GripperService_Open_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GripperService_Open_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -222,12 +223,13 @@ func RegisterGripperServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Grab", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/grab"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Grab", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/grab"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GripperService_Grab_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GripperService_Grab_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -245,12 +247,13 @@ func RegisterGripperServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GripperService_Stop_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GripperService_Stop_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -307,12 +310,13 @@ func RegisterGripperServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Open", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/open"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Open", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/open"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GripperService_Open_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GripperService_Open_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -327,12 +331,13 @@ func RegisterGripperServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Grab", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/grab"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Grab", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/grab"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GripperService_Grab_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GripperService_Grab_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -347,12 +352,13 @@ func RegisterGripperServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/stop"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Stop", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GripperService_Stop_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GripperService_Stop_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)

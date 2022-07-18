@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/rlog"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -28,16 +29,21 @@ func SortComponents(components []Component) ([]Component, error) {
 			return nil, errors.Errorf("component name %q is not unique", config.Name)
 		}
 		componentToConfig[config.Name] = config
-		dependencies[config.Name] = config.DependsOn
+		dependencies[config.Name] = config.Dependencies()
 	}
 
+	// TODO(RSDK-427): this check just raises a warning if a dependency is missing. We
+	// cannot actually make the check fail since it will always fail for remote
+	// dependencies.
 	for name, dps := range dependencies {
 		for _, depName := range dps {
 			if _, ok := componentToConfig[depName]; !ok {
-				return nil, utils.NewConfigValidationError(
-					fmt.Sprintf("%s.%s", "components", name),
-					errors.Errorf("dependency %q does not exist", depName),
+				rlog.Logger.Warnw(
+					"missing dependency on local robot, is this a remote dependency?",
+					"component", name,
+					"dependency", depName,
 				)
+				continue
 			}
 		}
 	}
@@ -68,7 +74,9 @@ func SortComponents(components []Component) ([]Component, error) {
 				return err
 			}
 		}
-		sortedCmps = append(sortedCmps, componentToConfig[name])
+		if ctc, ok := componentToConfig[name]; ok {
+			sortedCmps = append(sortedCmps, ctc)
+		}
 		return nil
 	}
 
@@ -93,7 +101,8 @@ type Config struct {
 	Services   []Service             `json:"services,omitempty"`
 	Network    NetworkConfig         `json:"network"`
 	Auth       AuthConfig            `json:"auth"`
-	Debug      bool                  `json:"-"`
+
+	Debug bool `json:"-"`
 
 	ConfigFilePath string `json:"-"`
 
@@ -123,9 +132,11 @@ func (c *Config) Ensure(fromCloud bool) error {
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
-		if err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx)); err != nil {
+		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx))
+		if err != nil {
 			return err
 		}
+		c.Components[idx].ImplicitDependsOn = dependsOn
 	}
 
 	if len(c.Components) > 0 {
@@ -174,15 +185,16 @@ func (c Config) FindComponent(name string) *Component {
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
 // in Frame, and with the given offset as well.
 type Remote struct {
-	Name                    string        `json:"name"`
-	Address                 string        `json:"address"`
-	Prefix                  bool          `json:"prefix"`
-	Frame                   *Frame        `json:"frame,omitempty"`
-	Auth                    RemoteAuth    `json:"auth"`
-	ManagedBy               string        `json:"managed_by"`
-	Insecure                bool          `json:"insecure"`
-	ConnectionCheckInterval time.Duration `json:"connection_check_interval,omitempty"`
-	ReconnectInterval       time.Duration `json:"reconnect_interval,omitempty"`
+	Name                    string                       `json:"name"`
+	Address                 string                       `json:"address"`
+	Prefix                  bool                         `json:"prefix"`
+	Frame                   *Frame                       `json:"frame,omitempty"`
+	Auth                    RemoteAuth                   `json:"auth"`
+	ManagedBy               string                       `json:"managed_by"`
+	Insecure                bool                         `json:"insecure"`
+	ConnectionCheckInterval time.Duration                `json:"connection_check_interval,omitempty"`
+	ReconnectInterval       time.Duration                `json:"reconnect_interval,omitempty"`
+	ServiceConfig           []ResourceLevelServiceConfig `json:"service_config"`
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`

@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -21,7 +20,7 @@ func init() {
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,
-				r robot.Robot,
+				_ registry.Dependencies,
 				config config.Component,
 				logger golog.Logger,
 			) (interface{}, error) {
@@ -30,6 +29,8 @@ func init() {
 		},
 	)
 }
+
+var _ = base.LocalBase(&Base{})
 
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
@@ -66,6 +67,11 @@ func (b *Base) GetWidth(ctx context.Context) (int, error) {
 // Stop does nothing.
 func (b *Base) Stop(ctx context.Context) error {
 	return nil
+}
+
+// IsMoving always returns false.
+func (b *Base) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
 // Close does nothing.

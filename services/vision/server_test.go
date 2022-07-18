@@ -83,7 +83,7 @@ func TestServerGetDetectorNames(t *testing.T) {
 }
 
 func TestServerAddDetector(t *testing.T) {
-	srv := createService(t, "data/empty.json")
+	srv, r := createService(t, "data/empty.json")
 	m := map[resource.Name]interface{}{
 		vision.Name: srv,
 	}
@@ -120,6 +120,7 @@ func TestServerAddDetector(t *testing.T) {
 	})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "is not implemented")
 	test.That(t, resp, test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestServerGetDetections(t *testing.T) {
@@ -140,13 +141,14 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, resp.Detections, test.ShouldHaveLength, 1)
 	test.That(t, resp.Detections[0].Confidence, test.ShouldEqual, 1.0)
 	test.That(t, resp.Detections[0].ClassName, test.ShouldEqual, "red")
-	test.That(t, resp.Detections[0].XMin, test.ShouldEqual, 110)
-	test.That(t, resp.Detections[0].YMin, test.ShouldEqual, 288)
-	test.That(t, resp.Detections[0].XMax, test.ShouldEqual, 183)
-	test.That(t, resp.Detections[0].YMax, test.ShouldEqual, 349)
+	test.That(t, *(resp.Detections[0].XMin), test.ShouldEqual, 110)
+	test.That(t, *(resp.Detections[0].YMin), test.ShouldEqual, 288)
+	test.That(t, *(resp.Detections[0].XMax), test.ShouldEqual, 183)
+	test.That(t, *(resp.Detections[0].YMax), test.ShouldEqual, 349)
 	// failure - empty request
 	_, err = server.GetDetections(context.Background(), &pb.GetDetectionsRequest{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestServerObjectSegmentation(t *testing.T) {

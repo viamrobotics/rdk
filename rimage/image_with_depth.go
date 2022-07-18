@@ -12,6 +12,33 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// Overlay overlays an rgb image over a depth map.
+func Overlay(i *Image, dm *DepthMap) *image.NRGBA {
+	const minAlpha = 32.0
+
+	min, max := dm.MinMax()
+
+	img := image.NewNRGBA(i.Bounds())
+	for x := 0; x < i.Width(); x++ {
+		for y := 0; y < i.Height(); y++ {
+			c := i.GetXY(x, y)
+
+			a := uint8(0)
+
+			d := dm.GetDepth(x, y)
+			if d > 0 {
+				diff := d - min
+				scale := 1.0 - (float64(diff) / float64(max-min))
+				a = uint8(minAlpha + ((255.0 - minAlpha) * scale))
+			}
+
+			r, g, b := c.RGB255()
+			img.SetNRGBA(x, y, color.NRGBA{r, g, b, a})
+		}
+	}
+	return img
+}
+
 // ImageWithDepth is an image of color that has depth associated
 // with it. It may or may not be aligned.
 type ImageWithDepth struct {
@@ -96,20 +123,6 @@ func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
 	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned}
 }
 
-// Warp adapts the image to a new size.
-func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *ImageWithDepth {
-	m2 := GetPerspectiveTransform(src, dst)
-
-	img := WarpImage(i.Color, m2, newSize)
-
-	var warpedDepth *DepthMap
-	if i.Depth != nil && i.Depth.Width() > 0 {
-		warpedDepth = i.Depth.Warp(m2, newSize)
-	}
-
-	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned}
-}
-
 // CropToDepthData TODO.
 func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	var minY, minX, maxY, maxX int
@@ -173,38 +186,17 @@ func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	height := maxY - minY
 	width := maxX - minX
 
-	return i.Warp(
+	col, dep := WarpColorDepth(i.Color, i.Depth,
 		[]image.Point{{minX, minY}, {maxX, minY}, {maxX, maxY}, {minX, maxY}},
 		[]image.Point{{0, 0}, {width, 0}, {width, height}, {0, height}},
 		image.Point{width, height},
-	), nil
+	)
+	return &ImageWithDepth{col, dep, i.aligned}, nil
 }
 
 // Overlay TODO.
 func (i *ImageWithDepth) Overlay() *image.NRGBA {
-	const minAlpha = 32.0
-
-	min, max := i.Depth.MinMax()
-
-	img := image.NewNRGBA(i.Bounds())
-	for x := 0; x < i.Width(); x++ {
-		for y := 0; y < i.Height(); y++ {
-			c := i.Color.GetXY(x, y)
-
-			a := uint8(0)
-
-			d := i.Depth.GetDepth(x, y)
-			if d > 0 {
-				diff := d - min
-				scale := 1.0 - (float64(diff) / float64(max-min))
-				a = uint8(minAlpha + ((255.0 - minAlpha) * scale))
-			}
-
-			r, g, b := c.RGB255()
-			img.SetNRGBA(x, y, color.NRGBA{r, g, b, a})
-		}
-	}
-	return img
+	return Overlay(i.Color, i.Depth)
 }
 
 // WriteTo writes both the color and depth data to the given file.
@@ -349,4 +341,18 @@ func ImageWithDepthFromRawBytes(width, height int, b []byte) (*ImageWithDepth, e
 	iwd.aligned = b[0] == 0x1
 
 	return iwd, nil
+}
+
+// WarpColorDepth adapts the image to a new size.
+func WarpColorDepth(col *Image, dm *DepthMap, src, dst []image.Point, newSize image.Point) (*Image, *DepthMap) {
+	m2 := GetPerspectiveTransform(src, dst)
+
+	img := WarpImage(col, m2, newSize)
+
+	var warpedDepth *DepthMap
+	if dm != nil && dm.Width() > 0 {
+		warpedDepth = dm.Warp(m2, newSize)
+	}
+
+	return ConvertImage(img), warpedDepth
 }

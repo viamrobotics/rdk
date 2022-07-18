@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 )
 
 // Config is user config inputs for ezopmp.
@@ -35,8 +34,8 @@ const modelName = "ezopmp"
 
 func init() {
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, r, config.ConvertedAttributes.(*Config), logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewMotor(ctx, deps, config.ConvertedAttributes.(*Config), logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -79,8 +78,8 @@ const (
 )
 
 // NewMotor returns a motor(Ezopmp) with I2C protocol.
-func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger) (*Ezopmp, error) {
-	b, err := board.FromRobot(r, c.BoardName)
+func NewMotor(ctx context.Context, deps registry.Dependencies, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
+	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, err
 	}
@@ -319,6 +318,11 @@ func (m *Ezopmp) Stop(ctx context.Context) error {
 	return m.writeRegWithCheck(ctx, command)
 }
 
+// IsMoving returns whether or not the motor is currently moving.
+func (m *Ezopmp) IsMoving(ctx context.Context) (bool, error) {
+	return m.IsPowered(ctx)
+}
+
 // IsPowered returns whether or not the motor is currently on.
 func (m *Ezopmp) IsPowered(ctx context.Context) (bool, error) {
 	command := []byte(dispenseStatus)
@@ -342,4 +346,9 @@ func (m *Ezopmp) IsPowered(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// GoTillStop is unimplemented.
+func (m *Ezopmp) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	return motor.NewGoTillStopUnsupportedError("(name unavailable)")
 }

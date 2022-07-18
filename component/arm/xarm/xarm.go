@@ -6,6 +6,7 @@ import (
 	// for embedding model file.
 	_ "embed"
 	"errors"
+	"math"
 	"net"
 	"runtime"
 	"sync"
@@ -24,8 +25,15 @@ import (
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Host string `json:"host"`
+	Host         string  `json:"host"`
+	Speed        float32 `json:"speed"`        // deg/s
+	Acceleration float32 `json:"acceleration"` // deg/s/s
 }
+
+const (
+	defaultSpeed        = 20
+	defaultAcceleration = 50
+)
 
 type xArm struct {
 	generic.Unimplemented
@@ -33,13 +41,14 @@ type xArm struct {
 	tid      uint16
 	conn     net.Conn
 	speed    float32 // speed=max joint radians per second
-	accel    float32 // acceleration=500*π/180rad/s^2
+	accel    float32 // acceleration=rad/s^2
 	moveHZ   float64 // Number of joint positions to send per second
-	moveLock *sync.Mutex
+	moveLock sync.Mutex
 	mp       motionplan.MotionPlanner
 	model    referenceframe.Model
 	started  bool
 	opMgr    operation.SingleOperationManager
+	robot    robot.Robot
 }
 
 //go:embed xarm6_kinematics.json
@@ -50,13 +59,13 @@ var xArm7modeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "xArm6", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config, logger, 6)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewxArm(ctx, r, config, logger, 6)
 		},
 	})
 	registry.RegisterComponent(arm.Subtype, "xArm7", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config, logger, 7)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewxArm(ctx, r, config, logger, 7)
 		},
 	})
 
@@ -75,47 +84,59 @@ func init() {
 		&AttrConfig{})
 }
 
-// XArmModel returns the kinematics model of the xArm, also has all Frame information.
-func xArmModel(dof int) (referenceframe.Model, error) {
-	if dof == 6 {
-		return referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
-	} else if dof == 7 {
-		return referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
-	}
-	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
-}
-
 // NewxArm returns a new xArm with the specified dof.
-func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
-	host := cfg.ConvertedAttributes.(*AttrConfig).Host
-	conn, err := net.Dial("tcp", host+":502")
+func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
+	armCfg := cfg.ConvertedAttributes.(*AttrConfig)
+
+	if armCfg.Host == "" {
+		return nil, errors.New("xArm host not set")
+	}
+
+	speed := armCfg.Speed
+	if speed == 0 {
+		speed = defaultSpeed
+	}
+
+	acceleration := armCfg.Acceleration
+	if acceleration == 0 {
+		acceleration = defaultAcceleration
+	}
+
+	conn, err := net.Dial("tcp", armCfg.Host+":502")
 	if err != nil {
 		return nil, err
 	}
-	model, err := xArmModel(dof)
+
+	var model referenceframe.Model
+	switch dof {
+	case 6:
+		model, err = referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
+	case 7:
+		model, err = referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
+	default:
+		err = errors.New("no kinematics model for xarm with specified degrees of freedom")
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	nCPU := runtime.NumCPU()
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	mutex := &sync.Mutex{}
-	// Start with default speed/acceleration parameters
-	// TODO(pl): add settable speed
 	xA := xArm{
-		dof:      dof,
-		tid:      0,
-		conn:     conn,
-		speed:    0.3,
-		accel:    8.7,
-		moveHZ:   100.,
-		moveLock: mutex,
-		mp:       mp,
-		model:    model,
-		started:  false,
+		dof:     dof,
+		tid:     0,
+		conn:    conn,
+		speed:   speed * math.Pi / 180,
+		accel:   acceleration * math.Pi / 180,
+		moveHZ:  100.,
+		mp:      mp,
+		model:   model,
+		started: false,
+		robot:   r,
 	}
 
 	err = xA.start(ctx)
@@ -127,15 +148,15 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := x.GetJointPositions(ctx)
+	res, err := x.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return x.model.InputFromProtobuf(res), nil
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return x.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
 }
 
 // ModelFrame returns the dynamic frame of the model.

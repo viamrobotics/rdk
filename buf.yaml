@@ -1,24 +1,23 @@
-version: v1beta1
+version: v1
 name: buf.build/viamrobotics/rdk
+deps:
+  - buf.build/googleapis/googleapis:c33c435046f2f4db5e8d6db52bd6c662f50f60d8
+  - buf.build/erdaniels/gostream:99544b68ab15405ab7eef404997d9cf4
 build:
-  roots:
-    - .
   excludes:
-    - vendor
+    - dist
+    - node_modules
     - rpc/examples/echo/frontend/node_modules
     - rpc/js/node_modules
-    - node_modules
+    - samples
+    - vendor
     - web
-    - dist
+breaking:
+  use:
+    - FILE
 lint:
   use:
     - DEFAULT
   ignore_only:
     RPC_RESPONSE_STANDARD_NAME:
       - proto/api/component/camera/v1/camera.proto
-breaking:
-  use:
-    - FILE
-deps:
-  - buf.build/googleapis/googleapis:c33c435046f2f4db5e8d6db52bd6c662f50f60d8
-  - buf.build/erdaniels/gostream:99544b68ab15405ab7eef404997d9cf4

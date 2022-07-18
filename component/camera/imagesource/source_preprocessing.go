@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -23,7 +22,7 @@ func init() {
 		"preprocess_depth",
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -31,7 +30,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newPreprocessDepth(r, attrs)
+			return newPreprocessDepth(deps, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "preprocess_depth",
@@ -57,15 +56,15 @@ func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(),
 	if ii.Depth == nil {
 		return nil, nil, errors.New("no depth")
 	}
-	ii, err = rimage.PreprocessDepthMap(ii)
+	ii.Depth, err = rimage.PreprocessDepthMap(ii.Depth, ii.Color)
 	if ii.Depth == nil {
 		return nil, nil, err
 	}
 	return ii, func() {}, nil
 }
 
-func newPreprocessDepth(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
-	source, err := camera.FromRobot(r, attrs.Source)
+func newPreprocessDepth(deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}

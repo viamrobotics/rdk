@@ -35,6 +35,7 @@ func init() {
 				pb.RegisterGantryServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.GantryService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -85,6 +86,27 @@ type Gantry interface {
 	referenceframe.InputEnabled
 }
 
+// FromDependencies is a helper for getting the named gantry from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Gantry)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Gantry", res)
+	}
+	return part, nil
+}
+
+// A LocalGantry represents a Gantry that can report whether it is moving or not.
+type LocalGantry interface {
+	Gantry
+
+	resource.MovingCheckable
+}
+
 // FromRobot is a helper for getting the named gantry from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -105,9 +127,9 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the gantry.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	gantry, ok := resource.(Gantry)
+	gantry, ok := resource.(LocalGantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", resource)
+		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", resource)
 	}
 	positions, err := gantry.GetPosition(ctx)
 	if err != nil {
@@ -118,11 +140,15 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.Status{PositionsMm: positions, LengthsMm: lengths}, nil
+	isMoving, err := gantry.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Status{PositionsMm: positions, LengthsMm: lengths, IsMoving: isMoving}, nil
 }
 
-// WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
+// WrapWithReconfigurable wraps a gantry or localGantry with a reconfigurable
+// and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	g, ok := r.(Gantry)
 	if !ok {
@@ -131,8 +157,24 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableGantry{actual: g}, nil
+
+	rGantry := &reconfigurableGantry{actual: g}
+	gLocal, ok := r.(LocalGantry)
+	if !ok {
+		return rGantry, nil
+	}
+	if reconfigurable, ok := gLocal.(*reconfigurableLocalGantry); ok {
+		return reconfigurable, nil
+	}
+	return &reconfigurableLocalGantry{actual: gLocal, reconfigurableGantry: rGantry}, nil
 }
+
+var (
+	_ = Gantry(&reconfigurableGantry{})
+	_ = LocalGantry(&reconfigurableLocalGantry{})
+	_ = resource.Reconfigurable(&reconfigurableGantry{})
+	_ = resource.Reconfigurable(&reconfigurableLocalGantry{})
+)
 
 type reconfigurableGantry struct {
 	mu     sync.RWMutex
@@ -192,6 +234,10 @@ func (g *reconfigurableGantry) Close(ctx context.Context) error {
 func (g *reconfigurableGantry) Reconfigure(ctx context.Context, newGantry resource.Reconfigurable) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return g.reconfigure(ctx, newGantry)
+}
+
+func (g *reconfigurableGantry) reconfigure(ctx context.Context, newGantry resource.Reconfigurable) error {
 	actual, ok := newGantry.(*reconfigurableGantry)
 	if !ok {
 		return utils.NewUnexpectedTypeError(g, newGantry)
@@ -219,4 +265,30 @@ func (g *reconfigurableGantry) GoToInputs(ctx context.Context, goal []referencef
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.GoToInputs(ctx, goal)
+}
+
+type reconfigurableLocalGantry struct {
+	*reconfigurableGantry
+	actual LocalGantry
+}
+
+func (g *reconfigurableLocalGantry) IsMoving(ctx context.Context) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.IsMoving(ctx)
+}
+
+func (g *reconfigurableLocalGantry) Reconfigure(ctx context.Context, newGantry resource.Reconfigurable) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	gantry, ok := newGantry.(*reconfigurableLocalGantry)
+	if !ok {
+		return utils.NewUnexpectedTypeError(g, newGantry)
+	}
+	if err := viamutils.TryClose(ctx, g.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	g.actual = gantry.actual
+	return g.reconfigurableGantry.reconfigure(ctx, gantry.reconfigurableGantry)
 }

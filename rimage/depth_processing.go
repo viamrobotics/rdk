@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"errors"
 	"image"
 	"image/color"
 	"math"
@@ -11,30 +10,28 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// PreprocessDepthMap applies data cleaning and smoothing procedures to an input imagewithdepth.
-func PreprocessDepthMap(iwd *ImageWithDepth) (*ImageWithDepth, error) {
-	if !iwd.IsAligned() {
-		return nil, errors.New("image with depth is not aligned. Cannot preprocess the depth map")
-	}
+// PreprocessDepthMap applies data cleaning and smoothing procedures to an input depth map, and optional rgb image.
+// It is assumed the depth map and rgb image are aligned.
+func PreprocessDepthMap(dm *DepthMap, img *Image) (*DepthMap, error) {
 	var err error
 	// remove noisy data
-	CleanDepthMap(iwd.Depth)
+	CleanDepthMap(dm)
 	// fill in small holes
-	iwd.Depth, err = ClosingMorph(iwd.Depth, 5, 1)
+	dm, err = ClosingMorph(dm, 5, 1)
 	if err != nil {
 		return nil, err
 	}
 	// fill in large holes using color info
-	err = FillDepthMap(iwd)
+	dm, err = FillDepthMap(dm, img)
 	if err != nil {
 		return nil, err
 	}
 	// smooth the sharp edges out
-	iwd.Depth, err = OpeningMorph(iwd.Depth, 5, 1)
+	dm, err = OpeningMorph(dm, 5, 1)
 	if err != nil {
 		return nil, err
 	}
-	return iwd, nil
+	return dm, nil
 }
 
 // DetectDepthEdges uses a Canny edge detector to find edges in a depth map and returns a grayscale image of edges.

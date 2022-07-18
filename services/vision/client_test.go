@@ -52,14 +52,16 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = vision.NewClient(cancelCtx, "", listener1.Addr().String(), logger)
+		_, err = viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("detector names", func(t *testing.T) {
-		client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
 
 		names, err := client.GetDetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -70,11 +72,14 @@ func TestClient(t *testing.T) {
 		test.That(t, segNames, test.ShouldContain, "detect_red")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("add detector", func(t *testing.T) {
-		client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
 
 		cfg := vision.DetectorConfig{
 			Name: "new_detector",
@@ -103,10 +108,13 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("get detections", func(t *testing.T) {
-		client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
 
 		dets, err := client.GetDetections(context.Background(), "fake_cam", "detect_red")
 		test.That(t, err, test.ShouldBeNil)
@@ -121,7 +129,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestInjectedServiceClient(t *testing.T) {
@@ -154,10 +165,13 @@ func TestInjectedServiceClient(t *testing.T) {
 		segmenterNames, err := workingDialedClient.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segmenterNames, test.ShouldHaveLength, 1)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("test segmentation", func(t *testing.T) {
-		client, err := vision.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
 
 		injCam := &cloudSource{}
 
@@ -221,6 +235,7 @@ func TestInjectedServiceClient(t *testing.T) {
 		}
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -243,15 +258,19 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := vision.NewClient(ctx, "", listener.Addr().String(), logger)
+	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client1 := vision.NewClientFromConn(ctx, conn1, "", logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := vision.NewClient(ctx, "", listener.Addr().String(), logger)
+	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	client2 := vision.NewClientFromConn(ctx, conn2, "", logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -29,12 +28,11 @@ func init() {
 	registry.RegisterComponent(imu.Subtype, model, registry.Component{
 		Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			//nolint:contextcheck
-			return NewWit(r, config, logger)
+			return NewWit(deps, config, logger)
 		},
 	})
 }
@@ -82,7 +80,7 @@ func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 // NewWit creates a new Wit IMU.
-func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
+func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600,
 		DataBits:        8,

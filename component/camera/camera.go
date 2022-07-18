@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
@@ -37,6 +38,7 @@ func init() {
 				pb.RegisterCameraServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.CameraService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -67,6 +69,12 @@ func Named(name string) resource.Name {
 type Camera interface {
 	gostream.ImageSource
 	generic.Generic
+	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	GetProperties(ctx context.Context) (rimage.Projector, error)
+}
+
+// A PointCloudSource is a source that can generate pointclouds.
+type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
@@ -124,10 +132,14 @@ func (is *imageSource) Close(ctx context.Context) error {
 func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imageSource::NextPointCloud")
 	defer span.End()
-	if c, ok := is.ImageSource.(Camera); ok {
+	if c, ok := is.ImageSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}
 	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
+}
+
+func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	return nil, transform.NewNoIntrinsicsError("No features in config")
 }
 
 // ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
@@ -151,7 +163,7 @@ func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
 func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud")
 	defer span.End()
-	if c, ok := iswp.ImageSource.(Camera); ok {
+	if c, ok := iswp.ImageSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}
 	img, closer, err := iswp.Next(ctx)
@@ -172,7 +184,11 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 
 	_, toPcdSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ImageWithDepthToPointCloud")
 	defer toPcdSpan.End()
-	return iswp.projector.ImageWithDepthToPointCloud(imageWithDepth)
+	return iswp.projector.RGBDToPointCloud(imageWithDepth.Color, imageWithDepth.Depth)
+}
+
+func (iswp *imageSourceWithProjector) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	return iswp.projector, nil
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
@@ -191,6 +207,20 @@ var (
 	_ = Camera(&reconfigurableCamera{})
 	_ = resource.Reconfigurable(&reconfigurableCamera{})
 )
+
+// FromDependencies is a helper for getting the named camera from a collection of
+// dependencies.
+func FromDependencies(deps registry.Dependencies, name string) (Camera, error) {
+	res, ok := deps[Named(name)]
+	if !ok {
+		return nil, utils.DependencyNotFoundError(name)
+	}
+	part, ok := res.(Camera)
+	if !ok {
+		return nil, utils.DependencyTypeError(name, "Camera", res)
+	}
+	return part, nil
+}
 
 // FromRobot is a helper for getting the named Camera from the given Robot.
 func FromRobot(r robot.Robot, name string) (Camera, error) {
@@ -231,6 +261,12 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.NextPointCloud(ctx)
+}
+
+func (c *reconfigurableCamera) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.GetProperties(ctx)
 }
 
 func (c *reconfigurableCamera) Close(ctx context.Context) error {

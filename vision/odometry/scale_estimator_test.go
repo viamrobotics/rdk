@@ -3,7 +3,7 @@ package odometry
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"math/rand"
 	"os"
@@ -70,7 +70,7 @@ func readJSONGroundTruth() *poseGroundTruth {
 	logger.Info("Ground Truth json file successfully loaded")
 	defer jsonFile.Close()
 	// read our opened jsonFile as a byte array.
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 
 	// initialize poseGroundTruth
 	var gt poseGroundTruth
@@ -146,7 +146,11 @@ func TestEstimateCameraHeight(t *testing.T) {
 	poseMat := mat.NewDense(3, 4, nil)
 	poseMat.Augment(R, T)
 	pose := transform.NewCamPoseFromMat(poseMat)
-	height, err := EstimateCameraHeight(pts1, pts2, pose, 0.97, 0.005, &intrinsics)
+	cfg := &ScaleEstimatorConfig{
+		ThresholdNormalAngle: 0.97,
+		ThresholdPlaneInlier: 0.005,
+	}
+	height, err := EstimateCameraHeight(pts1, pts2, pose, cfg, &intrinsics)
 	test.That(t, err, test.ShouldBeNil)
 	heightMessage := fmt.Sprintf("Estimated Height: %f", height)
 	logger.Info(heightMessage)

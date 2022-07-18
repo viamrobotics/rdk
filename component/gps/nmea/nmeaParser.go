@@ -1,6 +1,9 @@
 package nmea
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"
 )
@@ -19,11 +22,20 @@ type gpsData struct {
 	satsInView int     // quantity satellites in view
 	satsInUse  int     // quantity satellites in view
 	valid      bool
+	fixQuality int
 }
 
 // parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
-func (g *gpsData) parseAndUpdate(line string, n ntripInfo) error {
+func (g *gpsData) parseAndUpdate(line string) error {
+	// add parsing to filter out corrupted data
+	ind := strings.Index(line, "$G")
+	if ind == -1 {
+		line = ""
+	} else {
+		line = line[ind:]
+	}
+
 	s, err := nmea.Parse(line)
 	if err != nil {
 		return err
@@ -64,6 +76,10 @@ func (g *gpsData) parseAndUpdate(line string, n ntripInfo) error {
 		g.satsInUse = len(gsa.SV)
 	} else if gga, ok := s.(nmea.GGA); ok {
 		// GGA provides validity, lon/lat, altitude, altitude, sats in use, and horizontal position error
+		g.fixQuality, err = strconv.Atoi(gga.FixQuality)
+		if err != nil {
+			return err
+		}
 		if gga.FixQuality == "0" {
 			g.valid = false
 		} else {
@@ -72,14 +88,6 @@ func (g *gpsData) parseAndUpdate(line string, n ntripInfo) error {
 			g.satsInUse = int(gga.NumSatellites)
 			g.hDOP = gga.HDOP
 			g.alt = gga.Altitude
-			// Send gga to ntrip server if using server
-
-			if n.sendNMEA {
-				_, err := n.nmeaW.Write([]byte(line))
-				if err != nil {
-					return err
-				}
-			}
 		}
 	} else if gll, ok := s.(nmea.GLL); ok {
 		// GLL provides just lat/lon

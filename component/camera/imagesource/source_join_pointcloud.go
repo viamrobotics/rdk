@@ -31,7 +31,7 @@ func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
 		"join_pointclouds",
-		registry.Component{Constructor: func(
+		registry.Component{RobotConstructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
@@ -104,7 +104,7 @@ func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, er
 // NextPointCloud gets all the point clouds from the source cameras,
 // and puts the points in one point cloud in the frame of targetFrame.
 func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
 	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
@@ -124,14 +124,14 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 		iCopy := i
 		camCopy := cam
 		utils.PanicCapturingGo(func() {
-			ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy])
+			ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy])
 			defer span.End()
 
 			defer func() {
 				atomic.AddInt32(&activeReaders, -1)
 			}()
 			pcSrc, err := func() (pointcloud.PointCloud, error) {
-				ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy]+"-NextPointCloud")
+				ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy]+"-NextPointCloud")
 				defer span.End()
 				return camCopy.NextPointCloud(ctx)
 			}()
@@ -139,7 +139,8 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 				panic(err) // TODO(erh) is there something better to do?
 			}
 
-			theTransform, err := fs.TransformFrame(inputs, jpcs.sourceNames[iCopy], jpcs.targetName)
+			sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[iCopy], spatialmath.NewZeroPose())
+			theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
 			if err != nil {
 				panic(err) // TODO(erh) is there something better to do?
 			}
@@ -156,7 +157,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 					pcSrc.Iterate(numLoops, loop, func(p r3.Vector, d pointcloud.Data) bool {
 						if jpcs.sourceNames[iCopy] != jpcs.targetName {
 							spatialmath.ResetPoseDQTransalation(savedDualQuat, p)
-							newPose := spatialmath.Compose(theTransform.Pose(), savedDualQuat)
+							newPose := spatialmath.Compose(theTransform.(*referenceframe.PoseInFrame).Pose(), savedDualQuat)
 							p = newPose.Point()
 						}
 						batch = append(batch, pointcloud.PointAndData{p, d})
@@ -256,11 +257,11 @@ func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func()
 	if err != nil {
 		return nil, nil, err
 	}
-	iwd, err := proj.PointCloudToImageWithDepth(pc)
+	img, dm, err := proj.PointCloudToRGBD(pc)
 	if err != nil {
 		return nil, nil, err
 	}
-
+	iwd := rimage.MakeImageWithDepth(img, dm, true)
 	return iwd, func() {}, nil
 }
 

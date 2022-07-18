@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Masterminds/sprig"
@@ -19,6 +21,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
+	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
@@ -30,6 +33,8 @@ import (
 	"goji.io/pat"
 	"golang.org/x/net/http2/h2c"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/generic"
@@ -41,6 +46,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	webstream "go.viam.com/rdk/robot/web/stream"
 	"go.viam.com/rdk/subtype"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
@@ -140,7 +146,6 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func allSourcesToDisplay(theRobot robot.Robot) map[string]gostream.ImageSource {
 	sources := make(map[string]gostream.ImageSource)
 
-	// TODO (RDK-133): allow users to determine what to stream.
 	for _, name := range camera.NamesFromRobot(theRobot) {
 		cam, err := camera.FromRobot(theRobot, name)
 		if err != nil {
@@ -266,7 +271,7 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 
 	for s, v := range groupedResources {
 		subtypeSvc, ok := svc.services[s]
-		// TODO: as part of #272, register new service if it doesn't currently exist
+		// TODO(RSDK-144): register new service if it doesn't currently exist
 		if !ok {
 			subtypeSvc, err := subtype.New(v)
 			if err != nil {
@@ -369,7 +374,11 @@ func (svc *webService) startStream(ctx context.Context, source gostream.ImageSou
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		close(waitCh)
-		gostream.StreamSource(ctx, source, stream)
+		opts := &webstream.BackoffTuningOptions{
+			BaseSleep: 50 * time.Microsecond,
+			MaxSleep:  2 * time.Second,
+		}
+		webstream.StreamSource(ctx, source, stream, opts)
 	})
 	<-waitCh
 }
@@ -596,6 +605,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 			}),
 		)
 	}
+
 	if options.Network.TLSConfig != nil {
 		rpcOpts = append(rpcOpts, rpc.WithInternalTLSConfig(options.Network.TLSConfig))
 	}
@@ -632,6 +642,11 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 			defer done()
 			return handler(srv, &ssStreamContextWrapper{ss, ctx})
 		}),
+	)
+
+	rpcOpts = append(
+		rpcOpts,
+		rpc.WithUnknownServiceHandler(svc.foreignServiceHandler),
 	)
 
 	return rpcOpts, nil
@@ -816,4 +831,193 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	mux.Handle(pat.New("/*"), svc.rpcServer.GRPCHandler())
 
 	return mux, nil
+}
+
+var unimplErr = status.Error(codes.Unimplemented, codes.Unimplemented.String())
+
+func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.ServerStream) error {
+	method, ok := googlegrpc.MethodFromServerStream(stream)
+	if !ok {
+		return unimplErr
+	}
+	methodParts := strings.Split(method, "/")
+	if len(methodParts) != 3 {
+		return unimplErr
+	}
+	protoSvc := methodParts[1]
+	protoMethod := methodParts[2]
+
+	var foundType *resource.RPCSubtype
+	for _, resSubtype := range svc.r.ResourceRPCSubtypes() {
+		if resSubtype.Desc.GetFullyQualifiedName() == protoSvc {
+			subtypeCopy := resSubtype
+			foundType = &subtypeCopy
+			break
+		}
+	}
+	if foundType == nil {
+		return unimplErr
+	}
+	methodDesc := foundType.Desc.FindMethodByName(protoMethod)
+	if methodDesc == nil {
+		return unimplErr
+	}
+
+	firstMsg := dynamic.NewMessage(methodDesc.GetInputType())
+
+	if err := stream.RecvMsg(firstMsg); err != nil {
+		return err
+	}
+
+	// we assume a convention that there will be a field called name that will be the resource
+	// name and a string.
+	name, ok := firstMsg.GetFieldByName("name").(string)
+	if !ok || name == "" {
+		return fmt.Errorf("unable to route foreign message due to invalid name field %v", name)
+	}
+
+	fqName := resource.Name{
+		Subtype: foundType.Subtype,
+		Remote:  "", Name: name,
+	}
+
+	resource, err := svc.r.ResourceByName(fqName)
+	if err != nil {
+		return err
+	}
+
+	foreignRes, ok := resource.(*grpc.ForeignResource)
+	if !ok {
+		svc.logger.Errorf("expected resource to be a foreign RPC resource but was %T", foreignRes)
+		return unimplErr
+	}
+
+	foreignClient := foreignRes.NewStub()
+
+	// see https://github.com/fullstorydev/grpcurl/blob/76bbedeed0ec9b6e09ad1e1cb88fffe4726c0db2/invoke.go
+	switch {
+	case methodDesc.IsClientStreaming() && methodDesc.IsServerStreaming():
+
+		ctx, cancel := context.WithCancel(stream.Context())
+		defer cancel()
+
+		bidiStream, err := foreignClient.InvokeRpcBidiStream(ctx, methodDesc)
+		if err != nil {
+			return err
+		}
+
+		var wg sync.WaitGroup
+		var sendErr atomic.Value
+
+		defer wg.Wait()
+
+		wg.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer wg.Done()
+
+			var err error
+			for err == nil {
+				msg := dynamic.NewMessage(methodDesc.GetInputType())
+				if err = stream.RecvMsg(msg); err != nil {
+					if errors.Is(err, io.EOF) {
+						err = bidiStream.CloseSend()
+						break
+					}
+					cancel()
+					break
+				}
+
+				err = bidiStream.SendMsg(msg)
+			}
+
+			if err != nil {
+				sendErr.Store(err)
+			}
+		})
+
+		for {
+			resp, err := bidiStream.RecvMsg()
+			if err != nil {
+				if !errors.Is(err, io.EOF) {
+					return err
+				}
+				break
+			}
+
+			if err := stream.SendMsg(resp); err != nil {
+				cancel()
+				return err
+			}
+		}
+
+		wg.Wait()
+		if err, ok := sendErr.Load().(error); ok && !errors.Is(err, io.EOF) {
+			return err
+		}
+
+		return nil
+	case methodDesc.IsClientStreaming():
+		clientStream, err := foreignClient.InvokeRpcClientStream(stream.Context(), methodDesc)
+		if err != nil {
+			return err
+		}
+
+		for {
+			msg := dynamic.NewMessage(methodDesc.GetInputType())
+			if err := stream.RecvMsg(msg); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return err
+			}
+
+			if err := clientStream.SendMsg(msg); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return err
+			}
+		}
+
+		resp, err := clientStream.CloseAndReceive()
+		if err != nil {
+			return err
+		}
+		return stream.SendMsg(resp)
+	case methodDesc.IsServerStreaming():
+		secondMsg := dynamic.NewMessage(methodDesc.GetInputType())
+		if err := stream.RecvMsg(secondMsg); err == nil {
+			return errors.Errorf(
+				"method %q is a server-streaming RPC, but request data contained more than 1 message",
+				methodDesc.GetFullyQualifiedName())
+		} else if !errors.Is(err, io.EOF) {
+			return err
+		}
+
+		serverStream, err := foreignClient.InvokeRpcServerStream(stream.Context(), methodDesc, firstMsg)
+		if err != nil {
+			return err
+		}
+
+		for {
+			resp, err := serverStream.RecvMsg()
+			if err != nil {
+				if !errors.Is(err, io.EOF) {
+					return err
+				}
+				break
+			}
+			if err := stream.SendMsg(resp); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	default:
+		invokeResp, err := foreignClient.InvokeRpc(stream.Context(), methodDesc, firstMsg)
+		if err != nil {
+			return err
+		}
+		return stream.SendMsg(invokeResp)
+	}
 }

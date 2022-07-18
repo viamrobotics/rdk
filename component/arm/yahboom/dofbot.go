@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -48,7 +49,7 @@ var joints = []jointConfig{
 	{2200, 180, 100, 0},
 }
 
-func (jc jointConfig) toDegrees(n int) float64 {
+func (jc jointConfig) toValues(n int) float64 {
 	d := float64(n) - jc.z
 	d /= jc.x
 	d *= jc.y
@@ -67,39 +68,29 @@ func (jc jointConfig) toHw(degrees float64) int {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "yahboom-dofbot", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newDofBot(ctx, r, config, logger)
 		},
 	})
 }
 
-type dofBot struct {
+// Dofbot implements a yahboom dofbot arm.
+type Dofbot struct {
 	generic.Unimplemented
 	handle board.I2CHandle
 	model  referenceframe.Model
-	mp     motionplan.MotionPlanner
+	robot  robot.Robot
 	mu     sync.Mutex
 	muMove sync.Mutex
 	logger golog.Logger
 	opMgr  operation.SingleOperationManager
 }
 
-func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.MotionPlanner, error) {
-	model, err := dofbotModel()
-	if err != nil {
-		return nil, nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
-	if err != nil {
-		return nil, nil, err
-	}
-	return model, mp, nil
-}
-
-func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 
-	a := dofBot{}
+	a := Dofbot{}
+	a.logger = logger
 
 	b, err := board.FromRobot(r, config.Attributes.String("board"))
 	if err != nil {
@@ -113,63 +104,57 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 	if !ok {
 		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
 	}
-
 	a.handle, err = i2c.OpenHandle(0x15)
 	if err != nil {
 		return nil, err
 	}
 
-	a.model, a.mp, err = createDofBotSolver(logger)
+	a.model, err = dofbotModel()
 	if err != nil {
 		return nil, err
 	}
-	_, err = a.GetEndPosition(ctx)
-	if err != nil {
-		return nil, errors.New("issue pinging yahboom motors, check connection to motors")
-	}
 
-	a.logger = logger
+	// sanity check if init succeeded
+	var pos *componentpb.JointPositions
+	pos, err = a.GetJointPositions(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error reading joint positions during init: %w", err)
+	}
+	logger.Debug("Current joint positions: %v", pos)
 
 	return &a, nil
 }
 
 // GetEndPosition returns the current position of the arm.
-func (a *dofBot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx)
+func (a *Dofbot) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
-	return motionplan.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the given absolute position.
-func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (a *Dofbot) MoveToPosition(
+	ctx context.Context,
+	pos *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-
-	joints, err := a.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	// dofbot las limited dof
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), opt)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.
-func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
+func (a *Dofbot) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 
 	a.muMove.Lock()
 	defer a.muMove.Unlock()
-	if len(pos.Degrees) > 5 {
-		return fmt.Errorf("yahboom wrong number of degrees got %d, need at most 5", len(pos.Degrees))
+	if len(pos.Values) > 5 {
+		return fmt.Errorf("yahboom wrong number of degrees got %d, need at most 5", len(pos.Values))
 	}
 
 	for j := 0; j < 100; j++ {
@@ -177,15 +162,15 @@ func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.Join
 			a.mu.Lock()
 			defer a.mu.Unlock()
 
-			current, err := a.GetJointPositionsInLock(ctx)
+			current, err := a.getJointPositionsInLock(ctx)
 			if err != nil {
 				return false, err
 			}
 
 			movedAny := false
 
-			for i, d := range pos.Degrees {
-				delta := math.Abs(current.Degrees[i] - d)
+			for i, d := range pos.Values {
+				delta := math.Abs(current.Values[i] - d)
 
 				if delta < .5 {
 					continue
@@ -221,7 +206,7 @@ func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.Join
 	return errors.New("dofbot MoveToJointPositions timed out")
 }
 
-func (a *dofBot) moveJointInLock(ctx context.Context, joint int, degrees float64) error {
+func (a *Dofbot) moveJointInLock(ctx context.Context, joint int, degrees float64) error {
 	pos := joints[joint-1].toHw(degrees)
 
 	buf := make([]byte, 5)
@@ -238,60 +223,70 @@ func (a *dofBot) moveJointInLock(ctx context.Context, joint int, degrees float64
 }
 
 // GetJointPositions returns the current joint positions of the arm.
-func (a *dofBot) GetJointPositions(ctx context.Context) (*componentpb.JointPositions, error) {
+func (a *Dofbot) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	return a.GetJointPositionsInLock(ctx)
+	return a.getJointPositionsInLock(ctx)
 }
 
-func (a *dofBot) GetJointPositionsInLock(ctx context.Context) (*componentpb.JointPositions, error) {
+func (a *Dofbot) getJointPositionsInLock(ctx context.Context) (*componentpb.JointPositions, error) {
 	pos := componentpb.JointPositions{}
 	for i := 1; i <= 5; i++ {
 		x, err := a.readJointInLock(ctx, i)
 		if err != nil {
 			return nil, err
 		}
-		pos.Degrees = append(pos.Degrees, x)
+		pos.Values = append(pos.Values, x)
 	}
 
 	return &pos, nil
 }
 
-func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error) {
+func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error) {
 	reg := byte(0x30 + joint)
 	err := a.handle.WriteByteData(ctx, reg, 0)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error requesting joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
 
 	res, err := a.handle.ReadWordData(ctx, reg)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error reading joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
 
 	res = (res >> 8 & 0xff) | (res << 8 & 0xff00)
-	return joints[joint-1].toDegrees(int(res)), nil
+	return joints[joint-1].toValues(int(res)), nil
 }
 
-func (a *dofBot) Stop(ctx context.Context) error {
+// Stop is unimplemented for the dofbot.
+func (a *Dofbot) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop for arm
-	// RSDK-388: Implement Stop for gripper, might need to split the structs up if we
-	// want the Stop to arm/gripper specific.
 	return arm.ErrStopUnimplemented
 }
 
+// GripperStop is unimplemented for the dofbot.
+func (a *Dofbot) GripperStop(ctx context.Context) error {
+	// RSDK-388: Implement Stop for gripper
+	return gripper.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the arm is moving.
+func (a *Dofbot) IsMoving(ctx context.Context) (bool, error) {
+	return a.opMgr.OpRunning(), nil
+}
+
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
-func (a *dofBot) ModelFrame() referenceframe.Model {
+func (a *Dofbot) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
 // Open opens the gripper.
-func (a *dofBot) Open(ctx context.Context) error {
+func (a *Dofbot) Open(ctx context.Context) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 
@@ -316,7 +311,7 @@ const (
 // Approach: Move to close, poll until gripper reaches the closed state
 // (position > grabAngle) or the position changes little (< minMovement)
 // between iterations.
-func (a *dofBot) Grab(ctx context.Context) (bool, error) {
+func (a *Dofbot) Grab(ctx context.Context) (bool, error) {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 
@@ -368,18 +363,21 @@ func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 	return last < grabAngle, a.moveJointInLock(ctx, 6, last+10) // squeeze a tiny bit
 }
 
-func (a *dofBot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx)
+// CurrentInputs returns the current inputs of the arm.
+func (a *Dofbot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	res, err := a.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
-func (a *dofBot) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+// GoToInputs moves the arm to the specified goal inputs.
+func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
 }
 
-func (a *dofBot) Close() error {
+// Close closes the arm.
+func (a *Dofbot) Close() error {
 	return a.handle.Close()
 }

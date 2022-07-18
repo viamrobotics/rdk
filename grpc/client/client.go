@@ -3,19 +3,22 @@ package client
 
 import (
 	"context"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/fullstorydev/grpcurl"
+	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
-	grpcstatus "google.golang.org/grpc/status"
+	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
@@ -41,10 +44,12 @@ type RobotClient struct {
 	address     string
 	conn        rpc.ClientConn
 	client      pb.RobotServiceClient
+	refClient   *grpcreflect.Client
 	dialOptions []rpc.DialOption
 
-	mu            *sync.RWMutex
-	resourceNames []resource.Name
+	mu                  *sync.RWMutex
+	resourceNames       []resource.Name
+	resourceRPCSubtypes []resource.RPCSubtype
 
 	connected  bool
 	changeChan chan bool
@@ -52,6 +57,8 @@ type RobotClient struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
 	logger                  golog.Logger
+
+	notifyParent func()
 
 	closeContext context.Context
 }
@@ -74,6 +81,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		logger:                  logger,
 		closeContext:            closeCtx,
 		dialOptions:             rOpts.dialOptions,
+		notifyParent:            nil,
 	}
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
@@ -84,10 +92,17 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		return nil, multierr.Combine(err, rc.conn.Close())
 	}
 
-	if rOpts.refreshEvery != 0 {
+	var refreshTime time.Duration
+	if rOpts.refreshEvery == nil {
+		refreshTime = 10 * time.Second
+	} else {
+		refreshTime = *rOpts.refreshEvery
+	}
+
+	if refreshTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.RefreshEvery(closeCtx, rOpts.refreshEvery)
+			rc.RefreshEvery(closeCtx, refreshTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
@@ -99,6 +114,13 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	}
 
 	return rc, nil
+}
+
+// SetParentNotifier set the notifier function, robot client will use that the relay changes.
+func (rc *RobotClient) SetParentNotifier(f func()) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	rc.notifyParent = f
 }
 
 // Connected exposes whether a robot client is connected to the remote.
@@ -131,11 +153,18 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	defer rc.mu.Unlock()
 
 	client := pb.NewRobotServiceClient(conn)
+
+	refClient := grpcreflect.NewClient(rc.closeContext, reflectpb.NewServerReflectionClient(conn))
+
 	rc.conn = conn
 	rc.client = client
+	rc.refClient = refClient
 	rc.connected = true
 	if rc.changeChan != nil {
 		rc.changeChan <- true
+	}
+	if rc.notifyParent != nil {
+		rc.notifyParent()
 	}
 	return nil
 }
@@ -168,7 +197,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 			check := func() error {
 				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
-				if _, err := rc.resources(timeoutCtx); err != nil {
+				if _, _, err := rc.resources(timeoutCtx); err != nil {
 					return err
 				}
 				return nil
@@ -202,6 +231,9 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 				if rc.changeChan != nil {
 					rc.changeChan <- true
 				}
+				if rc.notifyParent != nil {
+					rc.notifyParent()
+				}
 				rc.mu.Unlock()
 			}
 		}
@@ -217,6 +249,7 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 		close(rc.changeChan)
 		rc.changeChan = nil
 	}
+	rc.refClient.Reset()
 	return rc.conn.Close()
 }
 
@@ -247,7 +280,6 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 // RemoteByName returns a remote robot by name. It is assumed to exist on the
 // other end. Right now this method is unimplemented.
 func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
-	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
@@ -258,18 +290,55 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 	}
 	c := registry.ResourceSubtypeLookup(name.Subtype)
 	if c == nil || c.RPCClient == nil {
+		if name.Namespace != resource.ResourceNamespaceRDK {
+			return grpc.NewForeignResource(name, rc.conn), nil
+		}
+
 		// registration doesn't exist
 		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
-	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
+	nameR := name.ShortName()
+	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
 	return resourceClient, nil
 }
 
-func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, error) {
+func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	var resTypes []resource.RPCSubtype
+	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
+	if err == nil {
+		reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
+
+		resTypes = make([]resource.RPCSubtype, 0, len(typesResp.ResourceRpcSubtypes))
+		for _, resSubtype := range typesResp.ResourceRpcSubtypes {
+			symDesc, err := reflSource.FindSymbol(resSubtype.ProtoService)
+			if err != nil {
+				// Note: This happens right now if a client is talking to a main server
+				// that has a remote or similarly if a server is talking to a remote that
+				// has a remote. This can be solved by either integrating reflection into
+				// robot.proto or by overriding the gRPC reflection service to return
+				// reflection results from its remotes.
+				rc.Logger().Debugw("failed to find symbol for resource subtype", "subtype", resSubtype, "error", err)
+				continue
+			}
+			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
+			if !ok {
+				return nil, nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+			}
+			resTypes = append(resTypes, resource.RPCSubtype{
+				Subtype: protoutils.ResourceNameFromProto(resSubtype.Subtype).Subtype,
+				Desc:    svcDesc,
+			})
+		}
+	} else {
+		if s, ok := status.FromError(err); !(ok && (s.Code() == codes.Unimplemented)) {
+			return nil, nil, err
+		}
 	}
 
 	resources := make([]resource.Name, 0, len(resp.Resources))
@@ -278,7 +347,8 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, error) {
 		newName := protoutils.ResourceNameFromProto(name)
 		resources = append(resources, newName)
 	}
-	return resources, nil
+
+	return resources, resTypes, nil
 }
 
 // Refresh manually updates the underlying parts of the robot based
@@ -291,15 +361,17 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	}
 
 	// call metadata service.
-	names, err := rc.resources(ctx)
+	names, rpcSubtypes, err := rc.resources(ctx)
 	// only return if it is not unimplemented - means a bigger error came up
-	if err != nil && grpcstatus.Code(err) != codes.Unimplemented {
+	if err != nil && status.Code(err) != codes.Unimplemented {
 		return err
 	}
 	if err == nil {
 		rc.resourceNames = make([]resource.Name, 0, len(names))
 		rc.resourceNames = append(rc.resourceNames, names...)
+		rc.resourceRPCSubtypes = rpcSubtypes
 	}
+
 	return nil
 }
 
@@ -326,18 +398,36 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	defer rc.mu.RUnlock()
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Errorw("failed to get remote resource names", "error", err)
-		return []resource.Name{}
+		return nil
 	}
-	names := []resource.Name{}
+	names := make([]resource.Name, 0, len(rc.resourceNames))
 	for _, v := range rc.resourceNames {
+		rName := resource.NewName(v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name)
 		names = append(
 			names,
-			resource.NewName(
-				v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name,
-			),
+			rName.PrependRemote(v.Remote),
 		)
 	}
 	return names
+}
+
+// ResourceRPCSubtypes returns a list of all known resource subtypes.
+func (rc *RobotClient) ResourceRPCSubtypes() []resource.RPCSubtype {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+	if err := rc.checkConnected(); err != nil {
+		rc.Logger().Errorw("failed to get remote resource types", "error", err)
+		return nil
+	}
+	subtypes := make([]resource.RPCSubtype, 0, len(rc.resourceRPCSubtypes))
+	for _, v := range rc.resourceRPCSubtypes {
+		vCopy := v
+		subtypes = append(
+			subtypes,
+			vCopy,
+		)
+	}
+	return subtypes
 }
 
 // Logger returns the logger being used for this robot.

@@ -47,8 +47,8 @@ var evamodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewEva(ctx, config, logger)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewEva(ctx, r, config, logger)
 		},
 	})
 
@@ -95,15 +95,15 @@ type eva struct {
 
 	moveLock *sync.Mutex
 	logger   golog.Logger
-	mp       motionplan.MotionPlanner
 	model    referenceframe.Model
+	robot    robot.Robot
 
 	frameJSON []byte
 
 	opMgr operation.SingleOperationManager
 }
 
-func (e *eva) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (e *eva) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -112,31 +112,22 @@ func (e *eva) GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 }
 
 // GetEndPosition computes and returns the current cartesian position.
-func (e *eva) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := e.GetJointPositions(ctx)
+func (e *eva) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := e.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(e.mp.Frame(), joints)
+	return motionplan.ComputePosition(e.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
-
-	joints, err := e.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	solution, err := e.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, e, solution)
+	return arm.Move(ctx, e.robot, e, pos, worldState)
 }
 
-func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 
@@ -286,9 +277,13 @@ func (e *eva) resetErrors(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (e *eva) Stop(ctx context.Context) error {
+func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
+}
+
+func (e *eva) IsMoving(ctx context.Context) (bool, error) {
+	return e.opMgr.OpRunning(), nil
 }
 
 func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
@@ -348,15 +343,15 @@ func (e *eva) ModelFrame() referenceframe.Model {
 }
 
 func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := e.GetJointPositions(ctx)
+	res, err := e.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return e.model.InputFromProtobuf(res), nil
 }
 
 func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return e.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return e.MoveToJointPositions(ctx, e.model.ProtobufFromInput(goal), nil)
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
@@ -365,12 +360,8 @@ func evaModel() (referenceframe.Model, error) {
 }
 
 // NewEva TODO.
-func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func NewEva(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	model, err := evaModel()
-	if err != nil {
-		return nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +373,7 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 		logger:    logger,
 		moveLock:  &sync.Mutex{},
 		model:     model,
-		mp:        mp,
+		robot:     r,
 		frameJSON: evamodeljson,
 	}
 
