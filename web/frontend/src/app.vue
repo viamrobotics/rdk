@@ -1306,13 +1306,13 @@ export default {
 
       setTimeout(this.imuRefresh, 500);
     },
-    updateStatus(grpcStatus) {
+    updateStatus(grpcStatuses) {
       const rawStatus = {};
       const status = {};
 
-      for (const status of grpcStatus) {
-        const nameObj = status.getName().toObject();
-        const statusJs = status.getStatus().toJavaScript();
+      for (const grpcStatus of grpcStatuses) {
+        const nameObj = grpcStatus.getName().toObject();
+        const statusJs = grpcStatus.getStatus().toJavaScript();
 
         try {
           const fixed = this.fixRawStatus(nameObj, statusJs);
@@ -1320,7 +1320,7 @@ export default {
           rawStatus[nameStr] = statusJs;
           status[nameStr] = fixed;
         } catch (error) {
-          console.error(`Couldn't fix status for ${theApp.resourceNameToString(nameObj)}`, error);
+          toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
         }
       }
 
