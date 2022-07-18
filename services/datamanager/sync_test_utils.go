@@ -100,42 +100,43 @@ func newTestSyncerPartialUploads(t *testing.T, mc *mockClientShutdown, uploadFn 
 }
 
 // Compares UploadRequests containing either binary or tabular sensor data.
+// nolint
 func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
-	t.Helper()
-
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 
 	// Compare metadata upload requests (uncomment below).
 	// compareMetadata(t, actual[0].GetMetadata(), expected[0].GetMetadata())
 
-	// Compare data differently for binary & tabular data.
-	if isTabular {
-		// Compare tabular data upload request (stream).
-		for i, uploadRequest := range actual[1:] {
-			a := uploadRequest.GetSensorContents().GetStruct()
-			e := actual[i+1].GetSensorContents().GetStruct()
-			test.That(t, a, test.ShouldResemble, e)
-		}
-	} else {
-		// Compare sensor data upload request (stream).
-		for i, uploadRequest := range actual[1:] {
-			a := uploadRequest.GetSensorContents().GetBinary()
-			e := expected[i+1].GetSensorContents().GetBinary()
-			test.That(t, a, test.ShouldResemble, e)
+	if len(actual) > 0 {
+		// Compare data differently for binary & tabular data.
+		if isTabular {
+			// Compare tabular data upload request (stream).
+			for i, uploadRequest := range actual[1:] {
+				a := uploadRequest.GetSensorContents().GetStruct()
+				e := actual[i+1].GetSensorContents().GetStruct()
+				test.That(t, a, test.ShouldResemble, e)
+			}
+		} else {
+			// Compare sensor data upload request (stream).
+			for i, uploadRequest := range actual[1:] {
+				a := uploadRequest.GetSensorContents().GetBinary()
+				e := expected[i+1].GetSensorContents().GetBinary()
+				test.That(t, a, test.ShouldResemble, e)
+			}
 		}
 	}
 }
 
+// nolint
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	expectedMetadata *v1.UploadMetadata,
 ) {
-	t.Helper()
-
 	// Test the fields within UploadRequest Metadata.
-	test.That(t, actualMetadata.FileName, test.ShouldEqual, expectedMetadata.FileName)
+	test.That(t, filepath.Clean(actualMetadata.FileName), test.ShouldEqual, filepath.Clean(expectedMetadata.FileName))
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
+	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
 }
@@ -207,21 +208,24 @@ func getProgressFromProgressFile(progressFileName string) (int, error) {
 	return i, nil
 }
 
+// nolint
 func verifyProgressFileContent(t *testing.T, progressAtBreakpoint int, progressFileName string) {
-	t.Helper()
 	//nolint
 	progress, _ := getProgressFromProgressFile(progressFileName)
 	test.That(t, reflect.DeepEqual(progressAtBreakpoint, progress), test.ShouldBeTrue)
 }
 
+// nolint
 func verifyFileExistence(t *testing.T, fileName string, shouldExist bool) {
-	t.Helper()
 	_, err := os.Stat(fileName)
 	test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldNotEqual, shouldExist)
 }
 
 func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
 	var expMsgs []*v1.UploadRequest
+	if len(data) == 0 {
+		return expMsgs
+	}
 	// Metadata message precedes sensor data messages.
 	expMsgs = append(expMsgs, &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
@@ -229,8 +233,9 @@ func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
 				PartId:        partID,
 				Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
 				FileName:      fileName,
-				ComponentName: "componentname",
-				MethodName:    "methodname",
+				ComponentType: componentType,
+				ComponentName: componentName,
+				MethodName:    methodName,
 			},
 		},
 	})

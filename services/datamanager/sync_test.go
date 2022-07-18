@@ -380,6 +380,20 @@ func TestPartialUpload(t *testing.T) {
 			expDataBeforeShutdown: [][]byte{msg1, msg2},
 			expDataAfterShutdown:  [][]byte{msg3},
 		},
+		{
+			name:                  "empty",
+			toSend:                [][]byte{},
+			progressAtBreakpoint:  0,
+			expDataBeforeShutdown: [][]byte{},
+			expDataAfterShutdown:  [][]byte{},
+		},
+		{
+			name:                  "no more messages to send after breakpoint",
+			toSend:                [][]byte{msg1, msg2},
+			progressAtBreakpoint:  2,
+			expDataBeforeShutdown: [][]byte{msg1, msg2},
+			expDataAfterShutdown:  [][]byte{},
+		},
 	}
 
 	for _, tc := range tests {
@@ -391,7 +405,6 @@ func TestPartialUpload(t *testing.T) {
 			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
 		defer os.Remove(tf.Name())
-		defer resetFolderContents(progressDir)
 
 		// First write metadata to file.
 		captureMetadata := v1.DataCaptureMetadata{
@@ -435,12 +448,14 @@ func TestPartialUpload(t *testing.T) {
 		sut.Close()
 
 		// ALL TESTS BELOW THIS ARE NOT WORKING.
-		// expMsgsAfterShutdown := buildBinarySensorMsgs(tc.expDataAfterShutdown, tf.Name())
-		// compareUploadRequests(t, false, mc.sent, expMsgsAfterShutdown)
+		expMsgsAfterShutdown := buildBinarySensorMsgs(tc.expDataAfterShutdown, tf.Name())
+		compareUploadRequests(t, false, mc.sent, expMsgsAfterShutdown)
 		// verifyFileExistence(t, path, false)
 	}
 }
 
+// TestResymeUploadFromProgressOnDisk assumes progress info on disk is valid (only proper inputs are considered)
+// because the progress tracking system is entirely internal.
 func TestResumeUploadFromProgressOnDisk(t *testing.T) {
 	msg1 := []byte("viam")
 	msg2 := []byte("robotics")
@@ -456,6 +471,24 @@ func TestResumeUploadFromProgressOnDisk(t *testing.T) {
 			toSend:               [][]byte{msg1, msg2, msg3},
 			progressAtBreakpoint: 2,
 			expData:              [][]byte{msg3},
+		},
+		{
+			name:                 "empty",
+			toSend:               [][]byte{},
+			progressAtBreakpoint: 0,
+			expData:              [][]byte{},
+		},
+		{
+			name:                 "no more messages to send after breakpoint",
+			toSend:               [][]byte{msg1, msg2},
+			progressAtBreakpoint: 2,
+			expData:              [][]byte{},
+		},
+		{
+			name:                 "all messages should be sent after breakpoint",
+			toSend:               [][]byte{msg1, msg2},
+			progressAtBreakpoint: 0,
+			expData:              [][]byte{msg1, msg2},
 		},
 	}
 	for _, tc := range tests {
@@ -504,8 +537,8 @@ func TestResumeUploadFromProgressOnDisk(t *testing.T) {
 		sut.Close()
 
 		// ALL TESTS BELOW THIS ARE NOT WORKING.
-		// expMsgs := buildBinarySensorMsgs(tc.expData, tf.Name())
-		// compareUploadRequests(t, false, mc.sent, expMsgs)
+		expMsgs := buildBinarySensorMsgs(tc.expData, tf.Name())
+		compareUploadRequests(t, false, mc.sent, expMsgs)
 		// verifyFileExistence(t, filepath.Join(progressDir, filepath.Base(tf.Name())), false)
 	}
 }
