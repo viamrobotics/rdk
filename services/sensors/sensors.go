@@ -29,6 +29,7 @@ func init() {
 				pb.RegisterSensorsServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.SensorsService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -64,6 +65,12 @@ var Subtype = resource.NewSubtype(
 
 // Name is the SensorService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
+
+// Named is a helper for getting the named sensor's typed resource name.
+// RSDK-347 Implements senors's Named.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
 
 // FromRobot retrieves the sensor service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {

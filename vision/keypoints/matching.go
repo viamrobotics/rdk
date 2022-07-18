@@ -3,6 +3,7 @@ package keypoints
 import (
 	"github.com/edaniels/golog"
 	"github.com/gonum/floats"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
@@ -55,7 +56,7 @@ func convertDescriptorsToFloats(desc Descriptors) [][]float64 {
 }
 
 // MatchKeypoints takes 2 sets of descriptors and performs matching.
-func MatchKeypoints(desc1, desc2 Descriptors, cfg MatchingConfig) *DescriptorMatches {
+func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.Logger) *DescriptorMatches {
 	d1 := convertDescriptorsToFloats(desc1)
 	d2 := convertDescriptorsToFloats(desc2)
 	distances, err := utils.PairwiseDistance(d1, d2, utils.Hamming)
@@ -118,4 +119,23 @@ func MatchKeypoints(desc1, desc2 Descriptors, cfg MatchingConfig) *DescriptorMat
 	}
 
 	return &DescriptorMatches{matches, desc1, desc2}
+}
+
+// GetMatchingKeyPoints takes the matches and the keypoints and returns the corresponding keypoints that are matched.
+func GetMatchingKeyPoints(matches *DescriptorMatches, kps1, kps2 KeyPoints) (KeyPoints, KeyPoints, error) {
+	if len(kps1) < len(matches.Indices) {
+		err := errors.New("there are more matches than keypoints in first set")
+		return nil, nil, err
+	}
+	if len(kps2) < len(matches.Indices) {
+		err := errors.New("there are more matches than keypoints in second set")
+		return nil, nil, err
+	}
+	matchedKps1 := make(KeyPoints, len(matches.Indices))
+	matchedKps2 := make(KeyPoints, len(matches.Indices))
+	for i, match := range matches.Indices {
+		matchedKps1[i] = kps1[match.Idx1]
+		matchedKps2[i] = kps1[match.Idx2]
+	}
+	return matchedKps1, matchedKps2, nil
 }

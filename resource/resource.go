@@ -4,8 +4,10 @@ package resource
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 )
 
@@ -19,6 +21,8 @@ type (
 
 	// SubtypeName identifies the resources subtypes that robot resources can be.
 	SubtypeName string
+	// RemoteName identifies the remote the resource is attached to.
+	RemoteName string
 )
 
 // Placeholder definitions for a few known constants.
@@ -27,6 +31,8 @@ const (
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
 )
+
+var resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
 
 // Type represents a known component/service type of a robot.
 type Type struct {
@@ -61,6 +67,12 @@ type Subtype struct {
 	ResourceSubtype SubtypeName
 }
 
+// An RPCSubtype provides RPC information about a particular subtype.
+type RPCSubtype struct {
+	Subtype Subtype
+	Desc    *desc.ServiceDescriptor
+}
+
 // NewSubtype creates a new Subtype based on parameters passed in.
 func NewSubtype(namespace Namespace, rType TypeName, subtype SubtypeName) Subtype {
 	resourceType := NewType(namespace, rType)
@@ -86,45 +98,98 @@ func (s Subtype) String() string {
 // Name represents a known component/service representation of a robot.
 type Name struct {
 	Subtype
-	Name string
+	Remote RemoteName
+	Name   string
 }
 
 // NewName creates a new Name based on parameters passed in.
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
 	isService := rType == ResourceTypeService
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
-	nameIdent := name
+	r := strings.Split(name, ":")
+	remote := RemoteName(strings.Join(r[0:len(r)-1], ":"))
+	nameIdent := r[len(r)-1]
 	if isService {
 		nameIdent = ""
 	}
 	return Name{
 		Subtype: resourceSubtype,
 		Name:    nameIdent,
+		Remote:  remote,
 	}
+}
+
+// newRemoteName creates a new Name for a resource attached to a remote.
+func newRemoteName(remote RemoteName, namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
+	n := NewName(namespace, rType, subtype, name)
+	n.Remote = remote
+	return n
 }
 
 // NameFromSubtype creates a new Name based on a Subtype and name string passed in.
 func NameFromSubtype(subtype Subtype, name string) Name {
+	remotes := strings.Split(name, ":")
+	if len(remotes) > 1 {
+		rName := NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, remotes[len(remotes)-1])
+		return rName.PrependRemote(RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+	}
 	return NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, name)
 }
 
 // NewFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewFromString(resourceName string) (Name, error) {
-	var name string
-	nameParts := strings.Split(resourceName, "/")
-	if len(nameParts) == 2 {
-		name = nameParts[1]
-	} else if len(nameParts) > 2 {
-		return Name{}, errors.New("invalid resource name string: there is more than one backslash")
+	if !resRegexValidator.MatchString(resourceName) {
+		return Name{}, errors.Errorf("string %q is not a valid resource name", resourceName)
 	}
-	rSubtypeParts := strings.Split(nameParts[0], ":")
-	if len(rSubtypeParts) > 3 {
-		return Name{}, errors.New("invalid resource name string: there are more than 2 colons")
+	matches := resRegexValidator.FindStringSubmatch(resourceName)
+	rSubtypeParts := strings.Split(matches[1], ":")
+	remote := matches[2]
+	if len(remote) > 0 {
+		remote = remote[:len(remote)-1]
 	}
-	if len(rSubtypeParts) < 3 {
-		return Name{}, errors.New("invalid resource name string: there are less than 2 colons")
+	return newRemoteName(RemoteName(remote), Namespace(rSubtypeParts[0]),
+		TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]), matches[3]), nil
+}
+
+// PrependRemote returns a Name with a remote prepended.
+func (n Name) PrependRemote(remote RemoteName) Name {
+	if len(n.Remote) > 0 {
+		remote = RemoteName(strings.Join([]string{string(remote), string(n.Remote)}, ":"))
 	}
-	return NewName(Namespace(rSubtypeParts[0]), TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]), name), nil
+	return newRemoteName(
+		remote,
+		n.Namespace,
+		n.ResourceType,
+		n.ResourceSubtype,
+		n.Name)
+}
+
+// PopRemote pop the first remote from a Name (if any) and returns the new Name.
+func (n Name) PopRemote() Name {
+	if n.Remote == "" {
+		return n
+	}
+	remotes := strings.Split(string(n.Remote), ":")
+	return newRemoteName(
+		RemoteName(strings.Join(remotes[1:], ":")),
+		n.Namespace,
+		n.ResourceType,
+		n.ResourceSubtype,
+		n.Name)
+}
+
+// IsRemoteResource return true if the resource is a remote resource.
+func (n Name) IsRemoteResource() bool {
+	return len(n.Remote) > 0
+}
+
+// ShortName returns the short name on Name n in the form of <remote>:<name>.
+func (n Name) ShortName() string {
+	nameR := n.Name
+	if n.Remote != "" {
+		nameR = fmt.Sprintf("%s:%s", n.Remote, nameR)
+	}
+	return nameR
 }
 
 // Validate ensures that important fields exist and are valid.
@@ -134,10 +199,18 @@ func (n Name) Validate() error {
 
 // String returns the fully qualified name for the resource.
 func (n Name) String() string {
-	if n.Name == "" || (n.ResourceType == ResourceTypeService) {
-		return n.Subtype.String()
+	name := n.Subtype.String()
+	if n.Remote != "" {
+		name = fmt.Sprintf("%s/%s:", name, n.Remote)
 	}
-	return fmt.Sprintf("%s/%s", n.Subtype, n.Name)
+	if n.Name != "" && (n.ResourceType != ResourceTypeService) {
+		if n.Remote != "" {
+			name = fmt.Sprintf("%s%s", name, n.Name)
+		} else {
+			name = fmt.Sprintf("%s/%s", name, n.Name)
+		}
+	}
+	return name
 }
 
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.
@@ -150,4 +223,10 @@ type Reconfigurable interface {
 type Updateable interface {
 	// Update updates the resource
 	Update(context.Context, map[Name]interface{}) error
+}
+
+// MovingCheckable is implemented when a resource of a robot returns whether it is moving or not.
+type MovingCheckable interface {
+	// IsMoving returns whether the resource is moving or not
+	IsMoving(context.Context) (bool, error)
 }

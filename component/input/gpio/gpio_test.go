@@ -18,8 +18,6 @@ import (
 	"go.viam.com/rdk/component/input/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestGPIOInput(t *testing.T) {
@@ -41,10 +39,8 @@ func TestGPIOInput(t *testing.T) {
 	b.Digitals["interrupt2"], err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{})
 	test.That(t, err, test.ShouldBeNil)
 
-	r := inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return b, nil
-	}
+	deps := make(registry.Dependencies)
+	deps[board.Named("main")] = b
 
 	ic := gpio.Config{
 		Board: "main",
@@ -97,7 +93,7 @@ func TestGPIOInput(t *testing.T) {
 	inputReg := registry.ComponentLookup(input.Subtype, "gpio")
 	test.That(t, inputReg, test.ShouldNotBeNil)
 
-	res, err := inputReg.Constructor(context.Background(), &r, config.Component{Name: "input1", ConvertedAttributes: &ic}, logger)
+	res, err := inputReg.Constructor(context.Background(), deps, config.Component{Name: "input1", ConvertedAttributes: &ic}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	dev, ok := res.(input.Controller)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -499,7 +495,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 7+i)
 		})
 		axisMu.RLock()
-		test.That(t, axis2Time.Sub(startTime), test.ShouldBeBetween, 0*time.Millisecond, 30*time.Millisecond)
+		test.That(t, axis2Time.Sub(startTime), test.ShouldBeBetween, 0*time.Millisecond, 40*time.Millisecond)
 		axisMu.RUnlock()
 	}
 }

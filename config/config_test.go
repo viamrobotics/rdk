@@ -21,6 +21,7 @@ import (
 	// motor attribute converters.
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -171,13 +172,13 @@ func TestConfigEnsure(t *testing.T) {
 	invalidComponents.Components[0].Name = "foo"
 	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
 
-	c1 := config.Component{Name: "c1"}
-	c2 := config.Component{Name: "c2", DependsOn: []string{"c1"}}
-	c3 := config.Component{Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := config.Component{Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := config.Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := config.Component{Name: "c6"}
-	c7 := config.Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
+	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1"}
+	c2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
+	c3 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c3", DependsOn: []string{"c1", "c2"}}
+	c4 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c4", DependsOn: []string{"c1", "c3"}}
+	c5 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c5", DependsOn: []string{"c2", "c4"}}
+	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c6"}
+	c7 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c7", DependsOn: []string{"c6", "c4"}}
 	unsortedComponents := config.Config{
 		Components: []config.Component{c7, c6, c5, c3, c4, c1, c2},
 	}
@@ -278,18 +279,18 @@ func TestConfigEnsure(t *testing.T) {
 }
 
 func TestConfigSortComponents(t *testing.T) {
-	c1 := config.Component{Name: "c1"}
-	c2 := config.Component{Name: "c2", DependsOn: []string{"c1"}}
-	c3 := config.Component{Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := config.Component{Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := config.Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := config.Component{Name: "c6"}
-	c7 := config.Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
-	c8 := config.Component{Name: "c8", DependsOn: []string{"c6"}}
+	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1"}
+	c2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
+	c3 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c3", DependsOn: []string{"c1", "c2"}}
+	c4 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c4", DependsOn: []string{"c1", "c3"}}
+	c5 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c5", DependsOn: []string{"c2", "c4"}}
+	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c6"}
+	c7 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c7", DependsOn: []string{"c6", "c4"}}
+	c8 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c8", DependsOn: []string{"c6"}}
 
-	circularC1 := config.Component{Name: "c1", DependsOn: []string{"c2"}}
-	circularC2 := config.Component{Name: "c2", DependsOn: []string{"c3"}}
-	circularC3 := config.Component{Name: "c3", DependsOn: []string{"c1"}}
+	circularC1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1", DependsOn: []string{"c2"}}
+	circularC2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c3"}}
+	circularC3 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c3", DependsOn: []string{"c1"}}
 	for _, tc := range []struct {
 		Name       string
 		Components []config.Component
@@ -338,11 +339,14 @@ func TestConfigSortComponents(t *testing.T) {
 			nil,
 			"not unique",
 		},
+		// TODO(RSDK-427): this check just raises a warning if a dependency is missing.
+		// We cannot actually make the check fail since it will always fail for remote
+		// dependencies.
 		{
 			"dependency not found",
 			[]config.Component{c2},
-			nil,
-			"does not exist",
+			[]config.Component{c2},
+			"",
 		},
 		{
 			"circular dependency",

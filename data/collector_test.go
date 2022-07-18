@@ -70,74 +70,74 @@ func TestNewCollector(t *testing.T) {
 // is called floor(time_passed/interval) times in the ticker (interval >= 2ms) case.
 func TestSuccessfulWrite(t *testing.T) {
 	l := golog.NewTestLogger(t)
+	// Set sleepIntervalCutoff high, because tests using the prod cutoff (2ms) have enough variation in timing
+	// to make them flaky.
+	sleepCaptureCutoff = time.Millisecond * 100
+	tickerInterval := time.Millisecond * 101
+	sleepInterval := time.Millisecond * 99
 
 	tests := []struct {
-		name                string
-		capturer            Capturer
-		params              CollectorParams
-		wait                time.Duration
-		minExpectReadings   int
-		maxExpectedReadings int
+		name           string
+		capturer       Capturer
+		params         CollectorParams
+		wait           time.Duration
+		expectReadings int
 	}{
 		{
 			name:     "Ticker based struct writer.",
 			capturer: dummyStructCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond * 25,
+				Interval:      tickerInterval,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Millisecond * 70,
-			minExpectReadings:   2,
-			maxExpectedReadings: 2,
+			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
+			expectReadings: 2,
 		},
 		{
 			name:     "Sleep based struct writer.",
 			capturer: dummyStructCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond,
+				Interval:      sleepInterval,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Millisecond * 20,
-			minExpectReadings:   10,
-			maxExpectedReadings: 25,
+			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
+			expectReadings: 2,
 		},
 		{
 			name:     "Ticker based binary writer.",
 			capturer: dummyBinaryCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond * 25,
+				Interval:      tickerInterval,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Millisecond * 70,
-			minExpectReadings:   2,
-			maxExpectedReadings: 2,
+			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
+			expectReadings: 2,
 		},
 		{
 			name:     "Sleep based binary writer.",
 			capturer: dummyBinaryCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
-				Interval:      time.Millisecond,
+				Interval:      sleepInterval,
 				MethodParams:  map[string]string{"name": "test"},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
 			},
-			wait:                time.Millisecond * 20,
-			minExpectReadings:   10,
-			maxExpectedReadings: 25,
+			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
+			expectReadings: 2,
 		},
 	}
 
@@ -154,10 +154,7 @@ func TestSuccessfulWrite(t *testing.T) {
 		test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
 
 		// Verify that the data it wrote matches what we expect.
-		// Allow a range of readings, because when durations get small (<<ms) there can be slight variation, and we
-		// don't want the tests to be too noise-y. A range of -10/+5 was chosen for sleepBasedReadings because we
-		// confirmed that this got a failure rate that was sufficiently low (<<1%).
-		validateReadings(t, target, tc.minExpectReadings, tc.maxExpectedReadings)
+		validateReadings(t, target, tc.expectReadings)
 
 		// Next reading should fail; there should be at most max readings.
 		_, err := readNextSensorData(target)
@@ -299,15 +296,12 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
-func validateReadings(t *testing.T, file *os.File, min int, max int) {
+func validateReadings(t *testing.T, file *os.File, n int) {
 	t.Helper()
 	_, _ = file.Seek(0, 0)
-	for i := 0; i < max; i++ {
+	for i := 0; i < n; i++ {
 		read, err := readNextSensorData(file)
 		if err != nil {
-			if i > min {
-				return
-			}
 			t.Fatalf("failed to read SensorData from file: %v", err)
 		}
 		if read.GetStruct() != nil {

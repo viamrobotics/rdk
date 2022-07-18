@@ -13,12 +13,15 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
+	servicepb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
@@ -26,6 +29,20 @@ func init() {
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
+		},
+	})
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&servicepb.DataManagerService_ServiceDesc,
+				NewServer(subtypeSvc),
+				servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
+			)
+		},
+		RPCServiceDesc: &servicepb.DataManagerService_ServiceDesc,
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 	cType := config.ServiceType(SubtypeName)
@@ -42,15 +59,13 @@ func init() {
 	}, &Config{})
 }
 
-// DataManager defines what a Data Manager Service should be able to do.
-type DataManager interface { // TODO: Add synchronize.
+// Service defines what a Data Manager Service should expose to the users.
+type Service interface {
+	Sync(ctx context.Context) error
 }
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
-
-// SyncQueuePath is the directory under which files are queued while they are waiting to be synced to the cloud.
-var SyncQueuePath = filepath.Join(os.Getenv("HOME"), "sync_queue", ".viam")
 
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
@@ -62,6 +77,13 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
+// Named is a helper for getting the named datamanager's typed resource name.
+// RSDK-347 Implements datamanager's Named.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
+
+// TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates
 // The Collector's queue should be big enough to ensure that .capture() is never blocked by the queue being
 // written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),
 // this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the size of
@@ -71,7 +93,7 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
-// Attributes to initialize the collector for a component.
+// Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
 	Type               resource.SubtypeName `json:"type"`
@@ -81,6 +103,7 @@ type dataCaptureConfig struct {
 	CaptureBufferSize  int                  `json:"capture_buffer_size"`
 	AdditionalParams   map[string]string    `json:"additional_params"`
 	Disabled           bool                 `json:"disabled"`
+	RemoteRobotName    string               // Empty if this component is locally accessed
 }
 
 type dataCaptureConfigs struct {
@@ -91,65 +114,74 @@ type dataCaptureConfigs struct {
 type Config struct {
 	CaptureDir          string   `json:"capture_dir"`
 	AdditionalSyncPaths []string `json:"additional_sync_paths"`
-	SyncIntervalMins    int      `json:"sync_interval_mins"`
+	SyncIntervalMins    float64  `json:"sync_interval_mins"`
 	Disabled            bool     `json:"disabled"`
 }
-
-// TODO(https://viam.atlassian.net/browse/DATA-157): Add configuration for remotes.
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
-	dataManagerSvc := &Service{
-		r:                 r,
-		logger:            logger,
-		captureDir:        viamCaptureDotDir,
-		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
-		backgroundWorkers: sync.WaitGroup{},
-		lock:              sync.Mutex{},
+func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
+	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
+	dataManagerSvc := &dataManagerService{
+		r:                         r,
+		logger:                    logger,
+		captureDir:                viamCaptureDotDir,
+		collectors:                make(map[componentMethodMetadata]collectorAndConfig),
+		backgroundWorkers:         sync.WaitGroup{},
+		lock:                      sync.Mutex{},
+		syncIntervalMins:          -1,
+		additionalSyncPaths:       []string{},
+		waitAfterLastModifiedSecs: 10,
 	}
 
 	return dataManagerSvc, nil
 }
 
 // Close releases all resources managed by data_manager.
-func (svc *Service) Close(ctx context.Context) error {
+func (svc *dataManagerService) Close(ctx context.Context) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.closeCollectors()
 	if svc.syncer != nil {
-		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
 	}
+
+	svc.cancelSyncBackgroundRoutine()
 	svc.backgroundWorkers.Wait()
 	return nil
 }
 
-func (svc *Service) closeCollectors() {
+func (svc *dataManagerService) closeCollectors() {
 	wg := sync.WaitGroup{}
-	for _, collector := range svc.collectors {
+	for md, collector := range svc.collectors {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
 			currCollector.Collector.Close()
 			wg.Done()
 		}()
+		delete(svc.collectors, md)
 	}
 	wg.Wait()
 }
 
-// Service initializes and orchestrates data capture collectors for registered component/methods.
-type Service struct {
-	r          robot.Robot
-	logger     golog.Logger
-	captureDir string
-	collectors map[componentMethodMetadata]collectorAndConfig
-	syncer     syncManager
-
-	lock                     sync.Mutex
-	backgroundWorkers        sync.WaitGroup
-	updateCollectorsCancelFn func()
+// dataManagerService initializes and orchestrates data capture collectors for registered component/methods.
+type dataManagerService struct {
+	r                         robot.Robot
+	logger                    golog.Logger
+	captureDir                string
+	collectors                map[componentMethodMetadata]collectorAndConfig
+	syncer                    syncManager
+	syncIntervalMins          float64
+	lock                      sync.Mutex
+	backgroundWorkers         sync.WaitGroup
+	uploadFunc                uploadFn
+	updateCollectorsCancelFn  func()
+	additionalSyncPaths       []string
+	partID                    string
+	waitAfterLastModifiedSecs int
 }
 
 // Parameters stored for each collector.
@@ -169,26 +201,9 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 	return time.Second / time.Duration(captureFrequencyHz)
 }
 
-// Create a filename based on the current time.
-func getFileTimestampName() string {
-	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
-	return time.Now().Format(time.RFC3339Nano)
-}
-
-// Create a timestamped file within the given capture directory.
-func createDataCaptureFile(captureDir string, subtypeName resource.SubtypeName, componentName string) (*os.File, error) {
-	fileDir := filepath.Join(captureDir, string(subtypeName), componentName)
-	if err := os.MkdirAll(fileDir, 0o700); err != nil {
-		return nil, err
-	}
-	fileName := filepath.Join(fileDir, getFileTimestampName())
-	//nolint:gosec
-	return os.Create(fileName)
-}
-
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
-func (svc *Service) initializeOrUpdateCollector(
+func (svc *dataManagerService) initializeOrUpdateCollector(
 	attributes dataCaptureConfig, updateCaptureDir bool) (
 	*componentMethodMetadata, error,
 ) {
@@ -201,6 +216,9 @@ func (svc *Service) initializeOrUpdateCollector(
 		ComponentName:  attributes.Name,
 		MethodMetadata: metadata,
 	}
+	// Build metadata.
+	syncMetadata := buildSyncMetadata(attributes)
+
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
 		previousAttributes := storedCollectorParams.Attributes
@@ -208,8 +226,7 @@ func (svc *Service) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := createDataCaptureFile(
-					svc.captureDir, attributes.Type, attributes.Name)
+				targetFile, err := createDataCaptureFile(svc.captureDir, syncMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -223,12 +240,24 @@ func (svc *Service) initializeOrUpdateCollector(
 	}
 
 	// Get the resource corresponding to the component subtype and name.
-	subtype := resource.NewSubtype(
+	resourceType := resource.NewSubtype(
 		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeComponent,
 		attributes.Type,
 	)
-	res, err := svc.r.ResourceByName(resource.NameFromSubtype(subtype, attributes.Name))
+
+	// Get the resource from the local or remote robot.
+	var res interface{}
+	var err error
+	if attributes.RemoteRobotName != "" {
+		remoteRobot, exists := svc.r.RemoteByName(attributes.RemoteRobotName)
+		if !exists {
+			return nil, errors.Errorf("failed to find remote %s", attributes.RemoteRobotName)
+		}
+		res, err = remoteRobot.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+	} else {
+		res, err = svc.r.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +270,7 @@ func (svc *Service) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, attributes.Name)
+	targetFile, err := createDataCaptureFile(svc.captureDir, syncMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +300,9 @@ func (svc *Service) initializeOrUpdateCollector(
 	if err != nil {
 		return nil, err
 	}
+	svc.lock.Lock()
 	svc.collectors[componentMetadata] = collectorAndConfig{collector, attributes}
+	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
 	go func() {
@@ -283,58 +314,184 @@ func (svc *Service) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *Service) initOrUpdateSyncer(intervalMins int) {
+func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
+	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
+	// TODO DATA-235: fix that
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
-		svc.updateCollectorsCancelFn()
 		svc.syncer.Close()
-		svc.backgroundWorkers.Wait()
-		svc.syncer = nil
-		svc.updateCollectorsCancelFn = nil
 	}
 
-	// Init a new syncer if we are still syncing.
+	svc.cancelSyncBackgroundRoutine()
+
+	svc.syncer = newSyncer(svc.logger, svc.uploadFunc, svc.partID)
+
+	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
-		cancelCtx, fn := context.WithCancel(context.Background())
-		svc.updateCollectorsCancelFn = fn
-		svc.queueCapturedData(cancelCtx, intervalMins)
-		svc.syncer = newSyncer(SyncQueuePath, svc.logger, svc.captureDir)
-		svc.syncer.Start()
+		// Sync existing files in captureDir.
+		var previouslyCaptured []string
+		//nolint
+		_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if info.IsDir() {
+				return nil
+			}
+			previouslyCaptured = append(previouslyCaptured, path)
+			return nil
+		})
+		svc.syncer.Sync(previouslyCaptured)
+
+		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
+		svc.syncer.Sync(svc.buildAdditionalSyncPaths())
+
+		// Kick off background routine to periodically sync files.
+		svc.startSyncBackgroundRoutine(intervalMins)
 	}
 }
 
+// Sync performs a non-scheduled sync of the data in the capture directory.
+func (svc *dataManagerService) Sync(ctx context.Context) error {
+	if svc.syncer == nil {
+		return errors.New("called Sync on data manager service with nil syncer")
+	}
+	svc.syncDataCaptureFiles()
+	svc.syncAdditionalSyncPaths()
+	return nil
+}
+
+func (svc *dataManagerService) syncDataCaptureFiles() {
+	svc.lock.Lock()
+	oldFiles := make([]string, 0, len(svc.collectors))
+	for _, collector := range svc.collectors {
+		// Create new target and set it.
+		// Build metadata.
+		syncMetadata := buildSyncMetadata(collector.Attributes)
+
+		nextTarget, err := createDataCaptureFile(svc.captureDir, syncMetadata)
+		if err != nil {
+			svc.logger.Errorw("failed to create new data capture file", "error", err)
+		}
+		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
+		collector.Collector.SetTarget(nextTarget)
+	}
+	svc.lock.Unlock()
+	svc.syncer.Sync(oldFiles)
+}
+
+func (svc *dataManagerService) buildAdditionalSyncPaths() []string {
+	svc.lock.Lock()
+	var filepathsToSync []string
+	// Loop through additional sync paths and add files from each to the syncer.
+	for _, asp := range svc.additionalSyncPaths {
+		// Check that additional sync paths directories exist. If not, create directories accordingly.
+		if _, err := os.Stat(asp); errors.Is(err, os.ErrNotExist) {
+			err := os.Mkdir(asp, os.ModePerm)
+			if err != nil {
+				svc.logger.Errorw("data manager unable to create a directory specified as an additional sync path", "error", err)
+			}
+		} else {
+			// Traverse all files in 'asp' directory and append them to a list of files to be synced.
+			now := time.Now()
+			//nolint
+			_ = filepath.Walk(asp, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return nil
+				}
+				if info.IsDir() {
+					return nil
+				}
+				// If a file was modified within the past svc.waitAfterLastModifiedSecs seconds, do not sync it (data
+				// may still be being written).
+				if diff := now.Sub(info.ModTime()); diff < (time.Duration(svc.waitAfterLastModifiedSecs) * time.Second) {
+					return nil
+				}
+				filepathsToSync = append(filepathsToSync, path)
+				return nil
+			})
+		}
+	}
+	svc.lock.Unlock()
+	return filepathsToSync
+}
+
+// Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
+func (svc *dataManagerService) syncAdditionalSyncPaths() {
+	svc.syncer.Sync(svc.buildAdditionalSyncPaths())
+}
+
 // Get the config associated with the data manager service.
-func getServiceConfig(cfg *config.Config) (config.Service, bool) {
+// Returns a boolean for whether a config is returned and an error if the
+// config was incorrectly formatted.
+func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
 		if c.ResourceName() == Name {
-			return c, true
+			svcConfig, ok := c.ConvertedAttributes.(*Config)
+			// Incorrect configuration is an error.
+			if !ok {
+				return &Config{}, false, utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
+			}
+			return svcConfig, true, nil
 		}
 	}
-	return config.Service{}, false
+
+	// Data Manager Service is not in the config, which is not an error.
+	return &Config{}, false, nil
+}
+
+func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConfig) (dataCaptureConfigs, error) {
+	var attrs dataCaptureConfigs
+	configs, err := config.TransformAttributeMapToStruct(&attrs, resourceSvcConfig.Attributes)
+	if err != nil {
+		return dataCaptureConfigs{}, err
+	}
+	convertedConfigs, ok := configs.(*dataCaptureConfigs)
+	if !ok {
+		return dataCaptureConfigs{}, utils.NewUnexpectedTypeError(convertedConfigs, configs)
+	}
+	return *convertedConfigs, nil
 }
 
 // Get the component configs associated with the data manager service.
 func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
-	componentDataCaptureConfigs := []dataCaptureConfig{}
+	var componentDataCaptureConfigs []dataCaptureConfig
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
 			if componentSvcConfig.ResourceName() == Name {
-				var attrs dataCaptureConfigs
-				configs, err := config.TransformAttributeMapToStruct(&attrs, componentSvcConfig.Attributes)
+				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
 				}
-				convertedConfigs, ok := configs.(*dataCaptureConfigs)
-				if !ok {
-					return componentDataCaptureConfigs, utils.NewUnexpectedTypeError(convertedConfigs, configs)
-				}
 
-				// Add the method configuration to the result.
-				for _, attrs := range convertedConfigs.Attributes {
+				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
 					attrs.Type = c.Type
+					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
+				}
+			}
+		}
+	}
+
+	for _, r := range cfg.Remotes {
+		// Iterate over all remote-level service configs of type data_manager.
+		for _, resourceSvcConfig := range r.ServiceConfig {
+			if resourceSvcConfig.ResourceName() == Name {
+				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
+				if err != nil {
+					return componentDataCaptureConfigs, err
+				}
+
+				for _, attrs := range attrs.Attributes {
+					name, err := resource.NewFromString(attrs.Name)
+					if err != nil {
+						return componentDataCaptureConfigs, err
+					}
+					attrs.Name = name.Name
+					attrs.Type = name.ResourceSubtype
+					attrs.RemoteRobotName = r.Name
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}
@@ -344,16 +501,17 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 }
 
 // Update updates the data manager service when the config has changed.
-func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
-	c, ok := getServiceConfig(cfg)
-	// Service is not in the config or has been removed from it. Close any collectors.
+func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
+	svcConfig, ok, err := getServiceConfig(cfg)
+	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
+	// Close any collectors.
 	if !ok {
 		svc.closeCollectors()
-		return nil
+		return err
 	}
-
-	svcConfig, ok := c.ConvertedAttributes.(*Config)
-
+	if cfg.Cloud != nil {
+		svc.partID = cfg.Cloud.ID
+	}
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svcConfig.Disabled {
 		svc.closeCollectors()
@@ -361,9 +519,6 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 		return nil
 	}
 
-	if !ok {
-		return utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
-	}
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir
 
@@ -377,8 +532,15 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 		return nil
 	}
 
-	// nolint:contextcheck
-	svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+	// If the sync config has changed, update the syncer.
+	if svcConfig.SyncIntervalMins != svc.syncIntervalMins ||
+		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
+		svc.lock.Lock()
+		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
+		svc.lock.Unlock()
+		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+	}
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
@@ -405,11 +567,13 @@ func (svc *Service) Update(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins int) {
+func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMins float64) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		ticker := time.NewTicker(time.Minute * time.Duration(intervalMins))
+		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
+		intervalMillis := 60000.0 * intervalMins
+		ticker := time.NewTicker(time.Millisecond * time.Duration(intervalMillis))
 		defer ticker.Stop()
 
 		for {
@@ -421,31 +585,24 @@ func (svc *Service) queueCapturedData(cancelCtx context.Context, intervalMins in
 			}
 			select {
 			case <-cancelCtx.Done():
-				files := make([]string, 0, len(svc.collectors))
-				for _, collector := range svc.collectors {
-					files = append(files, collector.Collector.GetTarget().Name())
-				}
-				if err := svc.syncer.Enqueue(files); err != nil {
-					svc.logger.Errorw("failed to move files to sync queue", "error", err)
-				}
 				return
 			case <-ticker.C:
-				oldFiles := make([]string, 0, len(svc.collectors))
-				svc.lock.Lock()
-				for _, collector := range svc.collectors {
-					// Create new target and set it.
-					nextTarget, err := createDataCaptureFile(svc.captureDir, collector.Attributes.Type, collector.Attributes.Name)
-					if err != nil {
-						svc.logger.Errorw("failed to create new data capture file", "error", err)
-					}
-					oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
-					collector.Collector.SetTarget(nextTarget)
-				}
-				svc.lock.Unlock()
-				if err := svc.syncer.Enqueue(oldFiles); err != nil {
-					svc.logger.Errorw("failed to move files to sync queue", "error", err)
-				}
+				svc.syncDataCaptureFiles()
+				svc.syncAdditionalSyncPaths()
 			}
 		}
 	})
+}
+
+func (svc *dataManagerService) startSyncBackgroundRoutine(intervalMins float64) {
+	cancelCtx, fn := context.WithCancel(context.Background())
+	svc.updateCollectorsCancelFn = fn
+	svc.uploadData(cancelCtx, intervalMins)
+}
+
+func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
+	if svc.updateCollectorsCancelFn != nil {
+		svc.updateCollectorsCancelFn()
+		svc.updateCollectorsCancelFn = nil
+	}
 }

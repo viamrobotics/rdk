@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/rlog"
 )
 
 const (
@@ -34,11 +34,11 @@ func init() {
 		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newSensor(ctx, r, config.Name, config.ConvertedAttributes.(*AttrConfig))
+			return newSensor(ctx, deps, config.Name, config.ConvertedAttributes.(*AttrConfig))
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
@@ -48,12 +48,18 @@ func init() {
 		}, &AttrConfig{})
 }
 
-func newSensor(ctx context.Context, r robot.Robot, name string, config *AttrConfig) (sensor.Sensor, error) {
-	r.Logger().Debug("building ultrasonic sensor")
+func newSensor(ctx context.Context, deps registry.Dependencies, name string, config *AttrConfig) (sensor.Sensor, error) {
+	rlog.Logger.Debug("building ultrasonic sensor")
 	s := &Sensor{Name: name, config: config}
-	b, err := board.FromRobot(r, config.Board)
-	if err != nil {
-		return nil, errors.Errorf("ultrasonic : cannot find board %q", config.Board)
+
+	res, ok := deps[board.Named(config.Board)]
+	if !ok {
+		return nil, errors.Errorf("ultrasonic: board %q missing from dependencies", config.Board)
+	}
+
+	b, ok := res.(board.Board)
+	if !ok {
+		return nil, errors.Errorf("ultrasonic: cannot find board %q", config.Board)
 	}
 	i, ok := b.DigitalInterruptByName(config.EchoInterrupt)
 	if !ok {

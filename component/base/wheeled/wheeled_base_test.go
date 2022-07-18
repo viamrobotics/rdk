@@ -8,36 +8,42 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/fake"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/testutils/inject"
 )
+
+func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
+	t.Helper()
+
+	result := make(registry.Dependencies)
+	for _, dep := range deps {
+		result[motor.Named(dep)] = &fake.Motor{}
+	}
+	return result
+}
 
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
 
-	fakeRobot := &inject.Robot{}
-
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return &fake.Motor{}, nil
-	}
-
-	_, err := CreateFourWheelBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
+	cfg := &FourWheelConfig{}
+	_, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg := config.Component{
-		Attributes: config.AttributeMap{
-			"width_mm":               100,
-			"wheel_circumference_mm": 1000,
-			"front_right":            "fr-m",
-			"front_left":             "fl-m",
-			"back_right":             "br-m",
-			"back_left":              "bl-m",
-		},
+	cfg = &FourWheelConfig{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		FrontRight:           "fr-m",
+		FrontLeft:            "fl-m",
+		BackRight:            "br-m",
+		BackLeft:             "bl-m",
 	}
-	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
+	deps, err := cfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+	motorDeps := fakeMotorDependencies(t, deps)
+
+	baseBase, err := CreateFourWheelBase(context.Background(), motorDeps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -235,34 +241,69 @@ func TestFourWheelBase1(t *testing.T) {
 func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
 
-	fakeRobot := &inject.Robot{}
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return &fake.Motor{}, nil
-	}
-
-	_, err := CreateWheeledBase(context.Background(), fakeRobot, &Config{}, rlog.Logger)
+	// empty config
+	cfg := &Config{}
+	_, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg := &Config{
+	// invalid config
+	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m"},
 	}
-	_, err = CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
+	_, err = cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
+	// valid config
 	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m", "br-m"},
 	}
-	baseBase, err := CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
+	deps, err := cfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+	motorDeps := fakeMotorDependencies(t, deps)
+
+	baseBase, err := CreateWheeledBase(ctx, motorDeps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, len(base.left), test.ShouldEqual, 2)
 	test.That(t, len(base.right), test.ShouldEqual, 2)
 	test.That(t, len(base.allMotors), test.ShouldEqual, 4)
+}
+
+func TestValidate(t *testing.T) {
+	cfg := &Config{}
+	deps, err := cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need a width_mm for a wheeled base")
+
+	cfg.WidthMM = 100
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need a wheel_circumference_mm for a wheeled base")
+
+	cfg.WheelCircumferenceMM = 1000
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need left and right motors")
+
+	cfg.Left = []string{"fl-m", "bl-m"}
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need left and right motors")
+
+	cfg.Right = []string{"fr-m"}
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "left and right need to have the same number of motors, not 2 vs 1")
+
+	cfg.Right = append(cfg.Right, "br-m")
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldResemble, []string{"fl-m", "bl-m", "fr-m", "br-m"})
+	test.That(t, err, test.ShouldBeNil)
 }

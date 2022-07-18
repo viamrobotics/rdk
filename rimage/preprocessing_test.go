@@ -92,7 +92,8 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 
 	// filled
 	morphed := MakeImageWithDepth(ii.Color, closedDM, ii.IsAligned())
-	FillDepthMap(morphed)
+	morphed.Depth, err = FillDepthMap(morphed.Depth, morphed.Color)
+	test.That(t, err, test.ShouldBeNil)
 	closedDM = morphed.Depth
 	filledEdges, err := cannyDepth.DetectDepthEdges(closedDM, 0.0)
 	test.That(t, err, test.ShouldBeNil)
@@ -148,11 +149,9 @@ func (h *preprocessTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn 
 	missingDepth := MissingDepthData(depthImg)
 	pCtx.GotDebugImage(missingDepth, "depth-raw-missing-data")
 
-	preprocessedIwd, err := PreprocessDepthMap(ii)
-	preprocessedImg := preprocessedIwd.Depth
+	preprocessedImg, err := PreprocessDepthMap(ii.Depth, ii.Color)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(preprocessedImg.ToPrettyPicture(0, MaxDepth), "depth-preprocessed")
-	pCtx.GotDebugImage(preprocessedIwd.Overlay(), "preprocessed-overlay")
 
 	missingPreprocessDepth := MissingDepthData(preprocessedImg)
 	pCtx.GotDebugImage(missingPreprocessDepth, "depth-preprocessed-missing-data")

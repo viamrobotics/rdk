@@ -32,6 +32,7 @@ func init() {
 				pb.RegisterServoServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.ServoService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -63,6 +64,13 @@ type Servo interface {
 	generic.Generic
 }
 
+// A LocalServo represents a Servo that can report whether it is moving or not.
+type LocalServo interface {
+	Servo
+
+	resource.MovingCheckable
+}
+
 // Named is a helper for getting the named Servo's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
@@ -70,7 +78,9 @@ func Named(name string) resource.Name {
 
 var (
 	_ = Servo(&reconfigurableServo{})
+	_ = LocalServo(&reconfigurableLocalServo{})
 	_ = resource.Reconfigurable(&reconfigurableServo{})
+	_ = resource.Reconfigurable(&reconfigurableLocalServo{})
 )
 
 // FromRobot is a helper for getting the named servo from the given Robot.
@@ -93,16 +103,19 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the servo.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	servo, ok := resource.(Servo)
+	servo, ok := resource.(LocalServo)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Servo", resource)
+		return nil, utils.NewUnimplementedInterfaceError("LocalServo", resource)
 	}
 	position, err := servo.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.Status{PositionDeg: uint32(position)}, nil
+	isMoving, err := servo.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Status{PositionDeg: uint32(position), IsMoving: isMoving}, nil
 }
 
 type reconfigurableServo struct {
@@ -150,6 +163,10 @@ func (r *reconfigurableServo) Close(ctx context.Context) error {
 func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource.Reconfigurable) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	return r.reconfigure(ctx, newServo)
+}
+
+func (r *reconfigurableServo) reconfigure(ctx context.Context, newServo resource.Reconfigurable) error {
 	actual, ok := newServo.(*reconfigurableServo)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newServo)
@@ -159,6 +176,32 @@ func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource
 	}
 	r.actual = actual.actual
 	return nil
+}
+
+type reconfigurableLocalServo struct {
+	*reconfigurableServo
+	actual LocalServo
+}
+
+func (r *reconfigurableLocalServo) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving(ctx)
+}
+
+func (r *reconfigurableLocalServo) Reconfigure(ctx context.Context, newServo resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	Servo, ok := newServo.(*reconfigurableLocalServo)
+	if !ok {
+		return utils.NewUnexpectedTypeError(r, newServo)
+	}
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	r.actual = Servo.actual
+	return r.reconfigurableServo.reconfigure(ctx, Servo.reconfigurableServo)
 }
 
 // WrapWithReconfigurable converts a regular Servo implementation to a reconfigurableServo.
@@ -171,5 +214,14 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := servo.(*reconfigurableServo); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableServo{actual: servo}, nil
+	rServo := &reconfigurableServo{actual: servo}
+	gLocal, ok := r.(LocalServo)
+	if !ok {
+		return rServo, nil
+	}
+	if reconfigurable, ok := servo.(*reconfigurableLocalServo); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableLocalServo{actual: gLocal, reconfigurableServo: rServo}, nil
 }

@@ -48,8 +48,8 @@ var ur5DHmodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return URArmConnect(ctx, config, logger)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return URArmConnect(ctx, r, config, logger)
 		},
 	})
 
@@ -81,9 +81,9 @@ type URArm struct {
 	logger                  golog.Logger
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
-	mp                      motionplan.MotionPlanner
 	model                   referenceframe.Model
 	opMgr                   operation.SingleOperationManager
+	robot                   robot.Robot
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -116,7 +116,7 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	speed := cfg.ConvertedAttributes.(*AttrConfig).Speed
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	if speed > 1 || speed < .1 {
@@ -124,10 +124,6 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	}
 
 	model, err := ur5eModel()
-	if err != nil {
-		return nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -148,8 +144,8 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 		haveData:                false,
 		logger:                  logger,
 		cancel:                  cancel,
-		mp:                      mp,
 		model:                   model,
+		robot:                   r,
 	}
 
 	onData := make(chan struct{})
@@ -215,7 +211,7 @@ func (ua *URArm) State() (RobotState, error) {
 }
 
 // GetJointPositions TODO.
-func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (ua *URArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -228,48 +224,44 @@ func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, err
 }
 
 // GetEndPosition computes and returns the current cartesian position.
-func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := ua.GetJointPositions(ctx)
+func (ua *URArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := ua.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(ua.mp.Frame(), joints)
+	return motionplan.ComputePosition(ua.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (ua *URArm) MoveToPosition(
+	ctx context.Context,
+	pos *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
-
-	joints, err := ua.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	start := time.Now()
-	solution, err := ua.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
-	if err != nil {
-		return err
-	}
-	timeToSolve := time.Since(start)
-	if timeToSolve > time.Second {
-		ua.logger.Debugf("ur took too long to solve position %v", timeToSolve)
-		return fmt.Errorf("ur took too long to solve position %v", timeToSolve)
-	}
-	return arm.GoToWaypoints(ctx, ua, solution)
+	return arm.Move(ctx, ua.robot, ua, pos, worldState)
 }
 
 // MoveToJointPositions TODO.
-func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 
 // Stop stops the arm with some deceleration.
-func (ua *URArm) Stop(ctx context.Context) error {
-	ua.opMgr.CancelRunning(ctx)
+func (ua *URArm) Stop(ctx context.Context, extra map[string]interface{}) error {
+	_, done := ua.opMgr.New(ctx)
+	defer done()
 	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speed)
 
 	_, err := ua.conn.Write([]byte(cmd))
 	return err
+}
+
+// IsMoving returns whether the arm is moving.
+func (ua *URArm) IsMoving(ctx context.Context) (bool, error) {
+	return ua.opMgr.OpRunning(), nil
 }
 
 // MoveToJointPositionRadians TODO.
@@ -353,16 +345,16 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 // CurrentInputs TODO.
 func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := ua.GetJointPositions(ctx)
+	res, err := ua.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return ua.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs TODO.
 func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return ua.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal), nil)
 }
 
 // AddToLog TODO.
@@ -407,12 +399,12 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 				ua.logger.Debugf("isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
 					state.RobotModeData.IsRobotPowerOn,
 					state.RobotModeData.IsEmergencyStopped || state.RobotModeData.IsProtectiveStopped,
-					state.Joints[0].AngleDegrees(),
-					state.Joints[1].AngleDegrees(),
-					state.Joints[2].AngleDegrees(),
-					state.Joints[3].AngleDegrees(),
-					state.Joints[4].AngleDegrees(),
-					state.Joints[5].AngleDegrees(),
+					state.Joints[0].AngleValues(),
+					state.Joints[1].AngleValues(),
+					state.Joints[2].AngleValues(),
+					state.Joints[3].AngleValues(),
+					state.Joints[4].AngleValues(),
+					state.Joints[5].AngleValues(),
 					state.CartesianInfo.X,
 					state.CartesianInfo.Y,
 					state.CartesianInfo.Z,

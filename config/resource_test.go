@@ -18,40 +18,71 @@ import (
 func TestComponentValidate(t *testing.T) {
 	t.Run("config invalid", func(t *testing.T) {
 		var emptyConfig config.Component
-		err := emptyConfig.Validate("path")
+		deps, err := emptyConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	})
 
 	t.Run("config valid", func(t *testing.T) {
 		validConfig := config.Component{
-			Name: "foo",
-			Type: "arm",
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "foo",
+			Type:      "arm",
 		}
-		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("ConvertedAttributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Component{
+				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "foo",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
-			err := invalidConfig.Validate("path")
+			deps, err := invalidConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
 		})
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Component{
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{
 					Thing: "i am a thing!",
 				},
 			}
-			err := invalidConfig.Validate("path")
+			deps, err := invalidConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 		})
+	})
+
+	t.Run("no namespace", func(t *testing.T) {
+		validConfig := config.Component{
+			Name: "foo",
+			Type: "arm",
+		}
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, validConfig.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+	})
+
+	t.Run("with namespace", func(t *testing.T) {
+		validConfig := config.Component{
+			Namespace: "acme",
+			Name:      "foo",
+			Type:      "arm",
+		}
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, validConfig.Namespace, test.ShouldEqual, "acme")
 	})
 }
 
@@ -65,8 +96,9 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"all fields included",
 			config.Component{
-				Type: "arm",
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "arm",
+				Name:      "foo",
 			},
 			arm.Subtype,
 			arm.Named("foo"),
@@ -74,7 +106,8 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"missing subtype",
 			config.Component{
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
@@ -91,8 +124,9 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor with no subtype",
 			config.Component{
-				Type: "sensor",
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "sensor",
+				Name:      "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
@@ -109,8 +143,9 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor with subtype",
 			config.Component{
-				Type: "gps",
-				Name: "foo",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "gps",
+				Name:      "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
@@ -127,8 +162,9 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor missing name",
 			config.Component{
-				Type: "gps",
-				Name: "",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "gps",
+				Name:      "",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
@@ -277,6 +313,25 @@ func TestServiceValidate(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 		})
 	})
+
+	t.Run("no namespace", func(t *testing.T) {
+		validConfig := config.Service{
+			Name: "foo",
+			Type: "thingy",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		test.That(t, validConfig.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+	})
+
+	t.Run("with namespace", func(t *testing.T) {
+		validConfig := config.Service{
+			Namespace: "acme",
+			Name:      "foo",
+			Type:      "thingy",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		test.That(t, validConfig.Namespace, test.ShouldEqual, "acme")
+	})
 }
 
 func TestServiceResourceName(t *testing.T) {
@@ -289,7 +344,8 @@ func TestServiceResourceName(t *testing.T) {
 		{
 			"all fields included",
 			config.Service{
-				Type: "motion",
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      "motion",
 			},
 			motion.Subtype,
 			resource.NameFromSubtype(motion.Subtype, ""),

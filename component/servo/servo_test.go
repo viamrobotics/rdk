@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/component/servo"
 	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -28,7 +29,7 @@ const (
 )
 
 func setupInjectRobot() *inject.Robot {
-	servo1 := &mock{Name: testServoName}
+	servo1 := &mockLocal{Name: testServoName}
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
@@ -87,12 +88,12 @@ func TestNamesFromRobot(t *testing.T) {
 }
 
 func TestStatusValid(t *testing.T) {
-	status := &pb.Status{PositionDeg: uint32(8)}
+	status := &pb.Status{PositionDeg: uint32(8), IsMoving: true}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
 	newStruct, err := structpb.NewStruct(map1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"position_deg": 8.0})
+	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"position_deg": 8.0, "is_moving": true})
 
 	convMap := &pb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -104,19 +105,38 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := servo.CreateStatus(context.Background(), "not a servo")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", "string"))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalServo", "string"))
 
-	status := &pb.Status{PositionDeg: uint32(8)}
+	status := &pb.Status{PositionDeg: uint32(8), IsMoving: true}
 
 	injectServo := &inject.Servo{}
 	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
 		return uint8(status.PositionDeg), nil
+	}
+	injectServo.IsMovingFunc = func(context.Context) (bool, error) {
+		return true, nil
 	}
 
 	t.Run("working", func(t *testing.T) {
 		status1, err := servo.CreateStatus(context.Background(), injectServo)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
+
+		resourceSubtype := registry.ResourceSubtypeLookup(servo.Subtype)
+		status2, err := resourceSubtype.Status(context.Background(), injectServo)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status2, test.ShouldResemble, status)
+	})
+
+	t.Run("not moving", func(t *testing.T) {
+		injectServo.IsMovingFunc = func(context.Context) (bool, error) {
+			return false, nil
+		}
+
+		status2 := &pb.Status{PositionDeg: uint32(8), IsMoving: false}
+		status1, err := servo.CreateStatus(context.Background(), injectServo)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
 	t.Run("fail on GetPosition", func(t *testing.T) {
@@ -176,14 +196,25 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	reconfServo2, err := servo.WrapWithReconfigurable(reconfServo1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfServo2, test.ShouldEqual, reconfServo1)
+
+	var actualServo2 servo.LocalServo = &mockLocal{Name: testServoName}
+	reconfServo3, err := servo.WrapWithReconfigurable(actualServo2)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfServo4, err := servo.WrapWithReconfigurable(reconfServo3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfServo4, test.ShouldResemble, reconfServo3)
+
+	_, ok := reconfServo4.(servo.LocalServo)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestReconfigurableServo(t *testing.T) {
-	actualServo1 := &mock{Name: testServoName}
+	actualServo1 := &mockLocal{Name: testServoName}
 	reconfServo1, err := servo.WrapWithReconfigurable(actualServo1)
 	test.That(t, err, test.ShouldBeNil)
 
-	actualServo2 := &mock{Name: testServoName2}
+	actualServo2 := &mockLocal{Name: testServoName2}
 	reconfServo2, err := servo.WrapWithReconfigurable(actualServo2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 0)
@@ -191,7 +222,7 @@ func TestReconfigurableServo(t *testing.T) {
 	err = reconfServo1.Reconfigure(context.Background(), reconfServo2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfServo1, test.ShouldResemble, reconfServo2)
-	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 2)
 
 	test.That(t, actualServo1.posCount, test.ShouldEqual, 0)
 	test.That(t, actualServo2.posCount, test.ShouldEqual, 0)
@@ -203,11 +234,34 @@ func TestReconfigurableServo(t *testing.T) {
 
 	err = reconfServo1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *servo.reconfigurableServo")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfServo1, nil))
+
+	actualServo3 := &mock{Name: failServoName}
+	reconfServo3, err := servo.WrapWithReconfigurable(actualServo3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfServo3, test.ShouldNotBeNil)
+
+	err = reconfServo1.Reconfigure(context.Background(), reconfServo3)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfServo1, reconfServo3))
+	test.That(t, actualServo3.reconfCount, test.ShouldEqual, 0)
+
+	err = reconfServo3.Reconfigure(context.Background(), reconfServo1)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfServo3, reconfServo1))
+
+	actualServo4 := &mock{Name: testServoName2}
+	reconfServo4, err := servo.WrapWithReconfigurable(actualServo4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfServo4, test.ShouldNotBeNil)
+
+	err = reconfServo3.Reconfigure(context.Background(), reconfServo4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfServo3, test.ShouldResemble, reconfServo4)
 }
 
 func TestStop(t *testing.T) {
-	actualServo1 := &mock{Name: testServoName}
+	actualServo1 := &mockLocal{Name: testServoName}
 	reconfServo1, err := servo.WrapWithReconfigurable(actualServo1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -217,7 +271,7 @@ func TestStop(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	actualServo1 := &mock{Name: testServoName}
+	actualServo1 := &mockLocal{Name: testServoName}
 	reconfServo1, err := servo.WrapWithReconfigurable(actualServo1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -229,6 +283,16 @@ func TestClose(t *testing.T) {
 const pos = 3
 
 type mock struct {
+	servo.Servo
+	Name string
+
+	reconfCount int
+}
+
+func (mServo *mock) Close() { mServo.reconfCount++ }
+
+type mockLocal struct {
+	servo.LocalServo
 	Name string
 
 	posCount    int
@@ -236,22 +300,22 @@ type mock struct {
 	reconfCount int
 }
 
-func (mServo *mock) Move(ctx context.Context, angleDegs uint8) error {
+func (mServo *mockLocal) Move(ctx context.Context, angleDegs uint8) error {
 	return nil
 }
 
-func (mServo *mock) GetPosition(ctx context.Context) (uint8, error) {
+func (mServo *mockLocal) GetPosition(ctx context.Context) (uint8, error) {
 	mServo.posCount++
 	return pos, nil
 }
 
-func (mServo *mock) Stop(ctx context.Context) error {
+func (mServo *mockLocal) Stop(ctx context.Context) error {
 	mServo.stopCount++
 	return nil
 }
 
-func (mServo *mock) Close() { mServo.reconfCount++ }
+func (mServo *mockLocal) Close() { mServo.reconfCount++ }
 
-func (mServo *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (mServo *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }

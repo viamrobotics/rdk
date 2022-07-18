@@ -36,8 +36,8 @@ var wx250smodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(ctx, config.Attributes, logger)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewArm(ctx, config.Attributes, r, logger)
 		},
 	})
 }
@@ -68,14 +68,14 @@ type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
-	mp       motionplan.MotionPlanner
+	robot    robot.Robot
 	model    referenceframe.Model
 	opMgr    operation.SingleOperationManager
 }
 
-// servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
+// servoPosToValues takes a 360 degree 0-4096 servo position, centered at 2048,
 // and converts it to degrees, centered at 0.
-func servoPosToDegrees(pos float64) float64 {
+func servoPosToValues(pos float64) float64 {
 	return ((pos - 2048) * 180) / 2048
 }
 
@@ -101,7 +101,7 @@ func getPortMutex(port string) *sync.Mutex {
 }
 
 // NewArm TODO.
-func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func NewArm(ctx context.Context, attributes config.AttributeMap, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
@@ -109,10 +109,6 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 	}
 
 	model, err := referenceframe.UnmarshalModelJSON(wx250smodeljson, "")
-	if err != nil {
-		return nil, err
-	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -128,40 +124,32 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
-		mp:       mp,
+		robot:    r,
 		model:    model,
 	}, nil
 }
 
 // GetEndPosition computes and returns the current cartesian position.
-func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx)
+func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	joints, err := a.GetJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
-func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	if len(jp.Degrees) > len(a.JointOrder()) {
+	if len(jp.Values) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
 	}
 
@@ -169,7 +157,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 
 	// TODO(pl): make block configurable
 	block := false
-	for i, pos := range jp.Degrees {
+	for i, pos := range jp.Values {
 		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
 	}
 
@@ -178,14 +166,19 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 }
 
 // GetJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
-func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	return &pb.JointPositions{}, nil
 }
 
 // Stop is unimplemented for wx250s.
-func (a *Arm) Stop(ctx context.Context) error {
+func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
+}
+
+// IsMoving returns whether the arm is moving.
+func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
+	return a.opMgr.OpRunning(), nil
 }
 
 // Close will get the arm ready to be turned off.
@@ -253,7 +246,7 @@ func (a *Arm) PrintPositions() error {
 		if err != nil {
 			return err
 		}
-		posString = fmt.Sprintf("%s || %d : %d, %f degrees", posString, i, pos, servoPosToDegrees(float64(pos)))
+		posString = fmt.Sprintf("%s || %d : %d, %f degrees", posString, i, pos, servoPosToValues(float64(pos)))
 	}
 	return nil
 }
@@ -374,16 +367,16 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
 }
 
 // WaitForMovement takes some servos, and will block until the servos are done moving.

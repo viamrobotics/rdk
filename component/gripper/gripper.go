@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -24,6 +25,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -32,6 +36,7 @@ func init() {
 				pb.RegisterGripperServiceHandlerFromEndpoint,
 			)
 		},
+		RPCServiceDesc: &pb.GripperService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
@@ -71,6 +76,13 @@ type Gripper interface {
 	referenceframe.ModelFramer
 }
 
+// A LocalGripper represents a Gripper that can report whether it is moving or not.
+type LocalGripper interface {
+	Gripper
+
+	resource.MovingCheckable
+}
+
 // WrapWithReconfigurable wraps a gripper with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	g, ok := r.(Gripper)
@@ -80,12 +92,23 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := g.(*reconfigurableGripper); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableGripper{actual: g}, nil
+	rGripper := &reconfigurableGripper{actual: g}
+	gLocal, ok := r.(LocalGripper)
+	if !ok {
+		return rGripper, nil
+	}
+	if reconfigurable, ok := g.(*reconfigurableLocalGripper); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableLocalGripper{actual: gLocal, reconfigurableGripper: rGripper}, nil
 }
 
 var (
 	_ = Gripper(&reconfigurableGripper{})
+	_ = LocalGripper(&reconfigurableLocalGripper{})
 	_ = resource.Reconfigurable(&reconfigurableGripper{})
+	_ = resource.Reconfigurable(&reconfigurableLocalGripper{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
@@ -107,6 +130,19 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// CreateStatus creates a status from the gripper.
+func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.ActuatorStatus, error) {
+	gripper, ok := resource.(LocalGripper)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("LocalGripper", resource)
+	}
+	isMoving, err := gripper.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.ActuatorStatus{IsMoving: isMoving}, nil
 }
 
 type reconfigurableGripper struct {
@@ -148,6 +184,10 @@ func (g *reconfigurableGripper) Stop(ctx context.Context) error {
 func (g *reconfigurableGripper) Reconfigure(ctx context.Context, newGripper resource.Reconfigurable) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return g.reconfigure(ctx, newGripper)
+}
+
+func (g *reconfigurableGripper) reconfigure(ctx context.Context, newGripper resource.Reconfigurable) error {
 	actual, ok := newGripper.(*reconfigurableGripper)
 	if !ok {
 		return utils.NewUnexpectedTypeError(g, newGripper)
@@ -163,4 +203,30 @@ func (g *reconfigurableGripper) ModelFrame() referenceframe.Model {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.ModelFrame()
+}
+
+type reconfigurableLocalGripper struct {
+	*reconfigurableGripper
+	actual LocalGripper
+}
+
+func (g *reconfigurableLocalGripper) IsMoving(ctx context.Context) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.IsMoving(ctx)
+}
+
+func (g *reconfigurableLocalGripper) Reconfigure(ctx context.Context, newGripper resource.Reconfigurable) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	gripper, ok := newGripper.(*reconfigurableLocalGripper)
+	if !ok {
+		return utils.NewUnexpectedTypeError(g, newGripper)
+	}
+	if err := viamutils.TryClose(ctx, g.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	g.actual = gripper.actual
+	return g.reconfigurableGripper.reconfigure(ctx, gripper.reconfigurableGripper)
 }

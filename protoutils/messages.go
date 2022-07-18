@@ -3,9 +3,10 @@ package protoutils
 
 import (
 	"fmt"
-	"google.golang.org/protobuf/types/known/structpb"
 	"reflect"
 	"strings"
+
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -18,7 +19,7 @@ func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 		Namespace: string(name.Namespace),
 		Type:      string(name.ResourceType),
 		Subtype:   string(name.ResourceSubtype),
-		Name:      name.Name,
+		Name:      name.ShortName(),
 	}
 }
 
@@ -78,9 +79,12 @@ func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 
 func toInterface(data interface{}) (interface{}, error) {
 	t := reflect.TypeOf(data)
+	v := reflect.ValueOf(data)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
+		v = reflect.Indirect(v)
 	}
+
 	var newData interface{}
 	var err error
 	switch t.Kind() {
@@ -100,11 +104,11 @@ func toInterface(data interface{}) (interface{}, error) {
 			return nil, err
 		}
 	case reflect.String:
-		newData = reflect.ValueOf(data).String()
+		newData = v.String()
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		newData = reflect.ValueOf(data).Uint()
+		newData = v.Uint()
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		newData = reflect.ValueOf(data).Int()
+		newData = v.Int()
 	default:
 		newData = data
 	}

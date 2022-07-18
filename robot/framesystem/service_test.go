@@ -19,11 +19,13 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -144,31 +146,37 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, fs.GetFrame("gps1"), test.ShouldBeNil) // gps1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
-	worldPt := r3.Vector{1500, 500, 1300}
+	worldPose := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{1500, 500, 1300}))
 	armPt := r3.Vector{0, 0, 500}
-	transformPoint, err := fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceArm")
+	tf, err := fs.Transform(blankPos, worldPose, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, armPt)
+	transformPose, _ := tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), armPt)
 
 	sensorPt := r3.Vector{0, 0, 500}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "gps2")
+	tf, err = fs.Transform(blankPos, worldPose, "gps2")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, sensorPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), sensorPt)
 
 	gripperPt := r3.Vector{0, 0, 300}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceGripper")
+	tf, err = fs.Transform(blankPos, worldPose, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, gripperPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), gripperPt)
 
 	cameraPt := r3.Vector{500, 0, 0}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "cameraOver")
+	tf, err = fs.Transform(blankPos, worldPose, "cameraOver")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, cameraPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), cameraPt)
 
 	// go from camera point to gripper point
-	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, "cameraOver", "pieceGripper")
+	cameraPose := referenceframe.NewPoseInFrame("cameraOver", spatialmath.NewPoseFromPoint(cameraPt))
+	tf, err = fs.Transform(blankPos, cameraPose, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, gripperPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), gripperPt)
 }
 
 // All of these config files should fail.
@@ -177,7 +185,26 @@ func TestWrongFrameSystems(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig2.json"), logger) // no world node
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robotimpl.New(context.Background(), cfg, logger)
+
+	injectRobot := &inject.Robot{}
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+		return cfg, nil
+	}
+
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return struct{}{}, nil
+	}
+
+	injectRobot.RemoteNamesFunc = func() []string {
+		return []string{}
+	}
+
+	var resources map[resource.Name]interface{}
+	ctx := context.Background()
+	service := framesystem.New(ctx, injectRobot, logger)
+	serviceUpdateable, ok := service.(resource.Updateable)
+	test.That(t, ok, test.ShouldBeTrue)
+	err = serviceUpdateable.Update(ctx, resources)
 	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("pieceArm", "base"))
 	cfg, err = config.Read(
 		context.Background(),
@@ -185,7 +212,11 @@ func TestWrongFrameSystems(t *testing.T) {
 		logger,
 	) // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robotimpl.New(context.Background(), cfg, logger)
+
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+		return cfg, nil
+	}
+	err = serviceUpdateable.Update(ctx, resources)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("cannot give frame system part the name %s", referenceframe.World))
 
 	cfg, err = config.Read(
@@ -194,7 +225,11 @@ func TestWrongFrameSystems(t *testing.T) {
 		logger,
 	) // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robotimpl.New(context.Background(), cfg, logger)
+
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+		return cfg, nil
+	}
+	err = serviceUpdateable.Update(ctx, resources)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 
 	testPose := spatialmath.NewPoseFromAxisAngle(
@@ -266,17 +301,19 @@ func TestServiceWithRemote(t *testing.T) {
 	localConfig := &config.Config{
 		Components: []config.Component{
 			{
-				Name:  "foo",
-				Type:  base.SubtypeName,
-				Model: "fake",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      base.SubtypeName,
+				Model:     "fake",
 				Frame: &config.Frame{
 					Parent: referenceframe.World,
 				},
 			},
 			{
-				Name:  "myParentIsRemote",
-				Type:  gripper.SubtypeName,
-				Model: "fake",
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "myParentIsRemote",
+				Type:      gripper.SubtypeName,
+				Model:     "fake",
 				Frame: &config.Frame{
 					Parent: "bar.pieceArm",
 				},

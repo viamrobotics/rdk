@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/alessio/shellescape"
 	"github.com/edaniels/golog"
+	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -15,19 +15,32 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
 	rutils "go.viam.com/rdk/utils"
 )
 
+const remoteTypeName = resource.TypeName("remote")
+
+var remoteSubtype = resource.NewSubtype(resource.ResourceNamespaceRDK,
+	remoteTypeName,
+	resource.SubtypeName(""))
+
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
-	remotes             map[string]*remoteRobot
-	resources           *resource.Graph
-	processManager      pexec.ProcessManager
-	opts                resourceManagerOptions
-	resourceRemoteNames map[resource.Name]string
+	resources      *resource.Graph
+	processManager pexec.ProcessManager
+	opts           resourceManagerOptions
+	logger         golog.Logger
+}
+
+type resourceUpdateWrapper struct {
+	real       interface{}
+	isAdded    bool
+	isModified bool
+	config     config.Component
 }
 
 type resourceManagerOptions struct {
@@ -37,23 +50,108 @@ type resourceManagerOptions struct {
 	tlsConfig          *tls.Config
 }
 
+func (w *resourceUpdateWrapper) Close(ctx context.Context) error {
+	if w.real != nil {
+		return utils.TryClose(ctx, w.real)
+	}
+	return nil
+}
+
 // newResourceManager returns a properly initialized set of parts.
 func newResourceManager(
 	opts resourceManagerOptions,
 	logger golog.Logger,
 ) *resourceManager {
 	return &resourceManager{
-		remotes:             map[string]*remoteRobot{},
-		resources:           resource.NewGraph(),
-		processManager:      pexec.NewProcessManager(logger),
-		opts:                opts,
-		resourceRemoteNames: make(map[resource.Name]string),
+		resources:      resource.NewGraph(),
+		processManager: pexec.NewProcessManager(logger),
+		opts:           opts,
+		logger:         logger,
 	}
 }
 
+func fromRemoteNameToRemoteNodeName(name string) resource.Name {
+	return resource.NameFromSubtype(remoteSubtype, name)
+}
+
 // addRemote adds a remote to the manager.
-func (manager *resourceManager) addRemote(r *remoteRobot, c config.Remote) {
-	manager.remotes[c.Name] = r
+func (manager *resourceManager) addRemote(ctx context.Context, r robot.Robot, c config.Remote) {
+	rName := fromRemoteNameToRemoteNodeName(c.Name)
+	manager.addResource(rName, r)
+	manager.updateRemoteResourceNames(ctx, rName, r)
+}
+
+func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []resource.Name {
+	var filtered []resource.Name
+	if _, ok := manager.resources.Nodes[remoteName]; !ok {
+		manager.logger.Errorw("trying to get remote resources of a non existing remote", "remote", remoteName)
+	}
+	children := manager.resources.GetAllChildrenOf(remoteName)
+	for _, child := range children {
+		if child.IsRemoteResource() {
+			filtered = append(filtered, child)
+		}
+	}
+	return filtered
+}
+
+func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, remoteName resource.Name, r robot.Robot) {
+	visited := map[resource.Name]bool{}
+	newResources := r.ResourceNames()
+	oldResources := manager.remoteResourceNames(remoteName)
+	for _, res := range oldResources {
+		visited[res] = false
+	}
+	for _, res := range newResources {
+		rrName := res
+		res = res.PrependRemote(resource.RemoteName(remoteName.Name))
+		if _, ok := visited[res]; ok {
+			visited[res] = true
+			continue
+		}
+		iface, err := r.ResourceByName(rrName)
+		if err != nil {
+			manager.logger.Errorw("couldn't obtain remote resource interface",
+				"name", rrName,
+				"reason", err)
+			continue
+		}
+		manager.addResource(res, iface)
+		err = manager.resources.AddChildren(res, remoteName)
+		if err != nil {
+			manager.logger.Errorf("error while trying add %q as a dependency of remote %q", res, remoteName)
+		}
+	}
+	for res, visit := range visited {
+		if !visit {
+			// TODO(npmenard) Add test case when implementing RSDK-435
+			sg, err := manager.resources.SubGraphFrom(res)
+			if err != nil {
+				manager.logger.Errorw("failed to generate a subgraph from the resource", "resource", res, "reason", err)
+				continue
+			}
+			sorted := sg.TopologicalSort()
+			for _, child := range sorted {
+				if err := utils.TryClose(ctx, child); err != nil {
+					manager.logger.Errorw("error while trying to remove a node depending on a delete remote resource",
+						"remote", res,
+						"node", child,
+						"error", err)
+				}
+				manager.resources.Remove(child)
+			}
+		}
+	}
+}
+
+func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) {
+	for name, iface := range manager.resources.Nodes {
+		if name.ResourceType == remoteTypeName {
+			if r, ok := iface.(robot.Robot); ok {
+				manager.updateRemoteResourceNames(ctx, name, r)
+			}
+		}
+	}
 }
 
 // addResource adds a resource to the manager.
@@ -64,28 +162,9 @@ func (manager *resourceManager) addResource(name resource.Name, r interface{}) {
 // RemoteNames returns the names of all remotes in the manager.
 func (manager *resourceManager) RemoteNames() []string {
 	names := []string{}
-	for k := range manager.remotes {
-		names = append(names, k)
-	}
-	return names
-}
-
-// mergeResourceNamesWithRemotes merges names from the manager itself as well as its
-// remotes.
-func (manager *resourceManager) mergeResourceNamesWithRemotes(names []resource.Name) []resource.Name {
-	// use this to filter out seen names and preserve order
-	seen := make(map[resource.Name]struct{}, len(manager.resources.Nodes))
-	for _, name := range names {
-		seen[name] = struct{}{}
-	}
-	for _, r := range manager.remotes {
-		remoteNames := r.ResourceNames()
-		for _, name := range remoteNames {
-			if _, ok := seen[name]; ok {
-				continue
-			}
-			names = append(names, name)
-			seen[name] = struct{}{}
+	for k := range manager.resources.Nodes {
+		if k.ResourceType == remoteTypeName {
+			names = append(names, k.Name)
 		}
 	}
 	return names
@@ -95,62 +174,93 @@ func (manager *resourceManager) mergeResourceNamesWithRemotes(names []resource.N
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for k := range manager.resources.Nodes {
+		if k.ResourceType == remoteTypeName {
+			continue
+		}
 		names = append(names, k)
 	}
-	return manager.mergeResourceNamesWithRemotes(names)
+	return names
 }
 
-// updateResourceRemoteNames populates the resourceRemoteNames map.
-func (manager *resourceManager) updateResourceRemoteNames() {
-	manager.resourceRemoteNames = make(map[resource.Name]string)
-	names := manager.ResourceNames()
-	for _, n := range names {
-		// skip local parts
-		if _, ok := manager.resources.Nodes[n]; ok {
-			continue
-		}
-		// skip if name clash
-		if _, err := manager.ResourceByName(n); err != nil {
-			continue
-		}
-		for remoteName, remote := range manager.remotes {
-			if _, err := remote.ResourceByName(n); err == nil {
-				manager.resourceRemoteNames[n] = remoteName
-				break
+// ResourceRPCSubtypes returns the types of all resource RPC subtypes in use by the manager.
+func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
+	resourceSubtypes := registry.RegisteredResourceSubtypes()
+
+	types := map[resource.Subtype]*desc.ServiceDescriptor{}
+	for k := range manager.resources.Nodes {
+		if k.ResourceType == remoteTypeName {
+			rr, ok := manager.resources.Nodes[k].(robot.Robot)
+			if !ok {
+				manager.logger.Errorw("remote robot doesn't implement the robot interface",
+					"remote", k,
+					"type", manager.resources.Nodes[k])
+				continue
 			}
+			manager.mergeResourceRPCSubtypesWithRemote(rr, types)
+			continue
 		}
+		if k.IsRemoteResource() {
+			continue
+		}
+		if types[k.Subtype] != nil {
+			continue
+		}
+
+		st, ok := resourceSubtypes[k.Subtype]
+		if !ok {
+			continue
+		}
+
+		types[k.Subtype] = st.ReflectRPCServiceDesc
+	}
+	typesList := make([]resource.RPCSubtype, 0, len(types))
+	for k, v := range types {
+		typesList = append(typesList, resource.RPCSubtype{
+			Subtype: k,
+			Desc:    v,
+		})
+	}
+	return typesList
+}
+
+// mergeResourceRPCSubtypesWithRemotes merges types from the manager itself as well as its
+// remotes.
+func (manager *resourceManager) mergeResourceRPCSubtypesWithRemote(r robot.Robot, types map[resource.Subtype]*desc.ServiceDescriptor) {
+	remoteTypes := r.ResourceRPCSubtypes()
+	for _, remoteType := range remoteTypes {
+		if svcName, ok := types[remoteType.Subtype]; ok {
+			if svcName.GetFullyQualifiedName() != remoteType.Desc.GetFullyQualifiedName() {
+				manager.logger.Errorw(
+					"remote proto service name clashes with another of same subtype",
+					"existing", svcName.GetFullyQualifiedName(),
+					"remote", remoteType.Desc.GetFullyQualifiedName())
+			}
+			continue
+		}
+		types[remoteType.Subtype] = remoteType.Desc
 	}
 }
 
 // remoteNameByResource returns the remote the resource is pulled from, if found.
 // False can mean either the resource doesn't exist or is local to the robot.
 func (manager *resourceManager) remoteNameByResource(resourceName resource.Name) (string, bool) {
-	name, ok := manager.resourceRemoteNames[resourceName]
-	return name, ok
+	if !resourceName.IsRemoteResource() {
+		return "", false
+	}
+	remote := strings.Split(string(resourceName.Remote), ":")
+	return remote[0], true
 }
 
 // Clone provides a shallow copy of each part.
 func (manager *resourceManager) Clone() *resourceManager {
 	var clonedManager resourceManager
-	if len(manager.remotes) != 0 {
-		clonedManager.remotes = make(map[string]*remoteRobot, len(manager.remotes))
-		for k, v := range manager.remotes {
-			clonedManager.remotes[k] = v
-		}
-	}
 	if len(manager.resources.Nodes) != 0 {
 		clonedManager.resources = manager.resources.Clone()
 	}
 	if manager.processManager != nil {
 		clonedManager.processManager = manager.processManager.Clone()
 	}
-	if len(manager.resourceRemoteNames) != 0 {
-		clonedManager.resourceRemoteNames = make(map[resource.Name]string, len(manager.resourceRemoteNames))
-		for k, v := range manager.resourceRemoteNames {
-			clonedManager.resourceRemoteNames[k] = v
-		}
-	}
-
+	clonedManager.opts = manager.opts
 	return &clonedManager
 }
 
@@ -161,19 +271,12 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
 
-	for _, x := range manager.remotes {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
-		}
-	}
-
 	order := manager.resources.TopologicalSort()
 	for _, x := range order {
 		if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 		}
 	}
-
 	return allErrs
 }
 
@@ -182,104 +285,498 @@ func (manager *resourceManager) processConfig(
 	ctx context.Context,
 	config *config.Config,
 	robot *localRobot,
-	logger golog.Logger,
-) error {
-	if err := manager.newProcesses(ctx, config.Processes); err != nil {
-		return err
-	}
+) {
+	manager.newProcesses(ctx, config.Processes)
 
-	if err := manager.newRemotes(ctx, config.Remotes, logger); err != nil {
-		return err
-	}
+	manager.newRemotes(ctx, config.Remotes, robot)
 
-	if err := manager.newComponents(ctx, config.Components, robot); err != nil {
-		return err
-	}
+	manager.newComponents(ctx, config.Components, robot)
 
-	if err := manager.newServices(ctx, config.Services, robot); err != nil {
-		return err
-	}
-
-	return nil
+	manager.newServices(ctx, config.Services, robot)
 }
 
 // processModifiedConfig ingests a given config and constructs all constituent parts.
-func (manager *resourceManager) processModifiedConfig(
-	ctx context.Context,
-	config *config.ModifiedConfigDiff,
-	robot *localRobot,
-	logger golog.Logger,
-) error {
-	if err := manager.newProcesses(ctx, config.Processes); err != nil {
-		return err
-	}
 
-	if err := manager.newRemotes(ctx, config.Remotes, logger); err != nil {
-		return err
-	}
+// cleanAppImageEnv attempts to revert environent variable changes so
+// normal, non-AppImage processes can be executed correctly.
+func cleanAppImageEnv() error {
+	_, isAppImage := os.LookupEnv("APPIMAGE")
+	if isAppImage {
+		err := os.Chdir(os.Getenv("APPRUN_CWD"))
+		if err != nil {
+			return err
+		}
 
-	if err := manager.newComponents(ctx, config.Components, robot); err != nil {
-		return err
-	}
+		// Reset original values where available
+		for _, eVarStr := range os.Environ() {
+			eVar := strings.Split(eVarStr, "=")
+			key := eVar[0]
+			origV, present := os.LookupEnv("APPRUN_ORIGINAL_" + key)
+			if present {
+				if origV != "" {
+					err = os.Setenv(key, origV)
+				} else {
+					err = os.Unsetenv(key)
+				}
+				if err != nil {
+					return err
+				}
+			}
+		}
 
-	if err := manager.newServices(ctx, config.Services, robot); err != nil {
-		return err
-	}
+		// Remove all explicit appimage vars
+		err = multierr.Combine(os.Unsetenv("ARGV0"), os.Unsetenv("ORIGIN"))
+		for _, eVarStr := range os.Environ() {
+			eVar := strings.Split(eVarStr, "=")
+			key := eVar[0]
+			if strings.HasPrefix(key, "APPRUN") ||
+				strings.HasPrefix(key, "APPDIR") ||
+				strings.HasPrefix(key, "APPIMAGE") ||
+				strings.HasPrefix(key, "AIX_") {
+				err = multierr.Combine(err, os.Unsetenv(key))
+			}
+		}
+		if err != nil {
+			return err
+		}
 
+		// Remove AppImage paths from path-like env vars
+		for _, eVarStr := range os.Environ() {
+			eVar := strings.Split(eVarStr, "=")
+			var newPaths []string
+			const mountPrefix = "/tmp/.mount_"
+			key := eVar[0]
+			if len(eVar) >= 2 && strings.Contains(eVar[1], mountPrefix) {
+				for _, path := range strings.Split(eVar[1], ":") {
+					if !strings.HasPrefix(path, mountPrefix) && path != "" {
+						newPaths = append(newPaths, path)
+					}
+				}
+				if len(newPaths) > 0 {
+					err = os.Setenv(key, strings.Join(newPaths, ":"))
+				} else {
+					err = os.Unsetenv(key)
+				}
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
 }
 
 // newProcesses constructs all processes defined.
-func (manager *resourceManager) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) error {
-	for _, procConf := range processes {
-		// In an AppImage execve() is meant to be hooked to swap out the AppImage's libraries and the system ones.
-		// Go doesn't use libc's execve() though, so the hooks fail and trying to exec binaries outside the AppImage can fail.
-		// We work around this by execing through a bash shell (included in the AppImage) which then gets hooked properly.
-		_, isAppImage := os.LookupEnv("APPIMAGE")
-		if isAppImage {
-			procConf.Args = []string{"-c", shellescape.QuoteCommand(append([]string{procConf.Name}, procConf.Args...))}
-			procConf.Name = "bash"
-		}
+func (manager *resourceManager) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) {
+	// If we're in an AppImage, clean the environment before external execution.
+	err := cleanAppImageEnv()
+	if err != nil {
+		manager.logger.Errorw("failed to properly clean AppImage", "error", err)
+	}
 
-		if _, err := manager.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
-			return err
+	for _, procConf := range processes {
+		if err := manager.newProcess(ctx, procConf); err != nil {
+			manager.logger.Errorw("failed to create new process", "error", err)
 		}
 	}
-	return manager.processManager.Start(ctx)
+
+	err = manager.processManager.Start(ctx)
+	if err != nil {
+		manager.logger.Errorw("there are process(es) that failed to start", "error", err)
+	}
 }
 
-// newRemotes constructs all remotes defined and integrates their parts in.
-func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
-	for _, config := range remotes {
-		dialOpts := remoteDialOptions(config, manager.opts)
-		robotClient, err := dialRemote(ctx, config, logger, dialOpts...)
-		if err != nil {
-			if errors.Is(err, rpc.ErrInsecureWithCredentials) {
-				if manager.opts.fromCommand {
-					err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
-				} else {
-					err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
-				}
-			}
-			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
-		}
-		configCopy := config
-		manager.addRemote(newRemoteRobot(ctx, robotClient, configCopy), configCopy)
+func (manager *resourceManager) newProcess(ctx context.Context, procConf pexec.ProcessConfig) error {
+	if _, err := manager.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
+		return err
 	}
 	return nil
 }
 
+// newRemotes constructs all remotes defined and integrates their parts in.
+func (manager *resourceManager) newRemotes(ctx context.Context,
+	remotes []config.Remote,
+	robot *localRobot,
+) {
+	for _, config := range remotes {
+		err := manager.newRemote(ctx, config, robot)
+		if err != nil {
+			manager.logger.Errorw("couldn't connect to remote", "name", config.Name, "error", err)
+		}
+	}
+}
+
+// newRemote construct a single remote and integerates its parts in.
+func (manager *resourceManager) newRemote(ctx context.Context,
+	config config.Remote,
+	robot *localRobot,
+) error {
+	dialOpts := remoteDialOptions(config, manager.opts)
+	robotClient, err := dialRobotClient(ctx, config, manager.logger, dialOpts...)
+	if err != nil {
+		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
+			if manager.opts.fromCommand {
+				err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
+			} else {
+				err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
+			}
+		}
+		return err
+	}
+
+	configCopy := config
+	manager.addRemote(ctx, robotClient, configCopy)
+	robotClient.SetParentNotifier(func() {
+		rName := fromRemoteNameToRemoteNodeName(configCopy.Name)
+		if robot.closeContext.Err() != nil {
+			return
+		}
+		select {
+		case <-robot.closeContext.Done():
+			return
+		case robot.remotesChanged <- rName:
+		}
+	})
+	return nil
+}
+
 // newComponents constructs all components defined.
-func (manager *resourceManager) newComponents(ctx context.Context, components []config.Component, robot *localRobot) error {
+func (manager *resourceManager) newComponents(ctx context.Context, components []config.Component, robot *localRobot) {
 	for _, c := range components {
-		r, err := robot.newResource(ctx, c)
+		err := manager.newComponent(ctx, c, robot)
+		if err != nil {
+			manager.logger.Errorw("failed to add new component", "component", c.ResourceName(), "error", err)
+		}
+	}
+}
+
+func (manager *resourceManager) newComponent(ctx context.Context, c config.Component, robot *localRobot) error {
+	r, err := robot.newResource(ctx, c)
+	if err != nil {
+		return err
+	}
+	rName := c.ResourceName()
+	manager.addResource(rName, r)
+	for _, dep := range c.Dependencies() {
+		err := manager.newComponentDependency(dep, robot, rName)
 		if err != nil {
 			return err
 		}
-		rName := c.ResourceName()
-		manager.addResource(rName, r)
-		for _, dep := range c.DependsOn {
-			if comp := robot.config.FindComponent(dep); comp != nil {
+	}
+	return nil
+}
+
+func (manager *resourceManager) newComponentDependency(dep string, robot *localRobot, rName resource.Name) error {
+	if comp := robot.config.FindComponent(dep); comp != nil {
+		if err := manager.resources.AddChildren(rName, comp.ResourceName()); err != nil {
+			return err
+		}
+	} else if name, ok := manager.resources.FindNodeByName(dep); ok {
+		if err := manager.resources.AddChildren(rName, *name); err != nil {
+			return err
+		}
+	} else {
+		return errors.Errorf("component %s depends on non-existent component", rName.Name)
+	}
+	return nil
+}
+
+// newServices constructs all services defined.
+func (manager *resourceManager) newServices(ctx context.Context, services []config.Service, r *localRobot) {
+	for _, c := range services {
+		err := manager.newService(ctx, c, r)
+		if err != nil {
+			manager.logger.Errorw("failed to add new service", "service", c.ResourceName(), "error", err)
+		}
+	}
+}
+
+func (manager *resourceManager) newService(ctx context.Context, cs config.Service, r *localRobot) error {
+	// DataManagerService has to be specifically excluded since it's defined in the config but is a default
+	// service that we only want to reconfigure rather than reinstantiate with New().
+	if cs.ResourceName() == datamanager.Name {
+		return nil
+	}
+	svc, err := r.newService(ctx, cs)
+	if err != nil {
+		return err
+	}
+	manager.addResource(cs.ResourceName(), svc)
+	return nil
+}
+
+// RemoteByName returns the given remote robot by name, if it exists;
+// returns nil otherwise.
+func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
+	rName := resource.NameFromSubtype(remoteSubtype, name)
+	if iface, ok := manager.resources.Nodes[rName]; ok {
+		part, ok := iface.(robot.Robot)
+		if !ok {
+			manager.logger.Errorf("tried to access remote '%q' but its not a robot interface its %T", name, iface)
+			return nil, false
+		}
+		return part, true
+	}
+	return nil, false
+}
+
+func (manager *resourceManager) UpdateConfig(ctx context.Context,
+	added *config.Config,
+	modified *config.ModifiedConfigDiff,
+	logger golog.Logger,
+	robot *draftRobot,
+) (PartsMergeResult, error) {
+	var leftovers PartsMergeResult
+	manager.updateRemotes(ctx, added.Remotes, modified.Remotes, robot.original)
+
+	replacedProcesses, err := manager.updateProcesses(ctx, added.Processes, modified.Processes)
+	leftovers.ReplacedProcesses = replacedProcesses
+	if err != nil {
+		return leftovers, err
+	}
+	if err := manager.updateServices(ctx, added.Services, modified.Services, robot); err != nil {
+		return leftovers, err
+	}
+	if err := manager.updateComponentsGraph(added.Components, modified.Components, logger, robot); err != nil {
+		return leftovers, err
+	}
+	if err := manager.updateComponents(ctx, logger, robot); err != nil {
+		return leftovers, err
+	}
+	return leftovers, nil
+}
+
+func (manager *resourceManager) updateProcesses(ctx context.Context,
+	addProcesses []pexec.ProcessConfig,
+	modifiedProcesses []pexec.ProcessConfig,
+) ([]pexec.ManagedProcess, error) {
+	var replacedProcess []pexec.ManagedProcess
+	manager.newProcesses(ctx, addProcesses)
+	for _, p := range modifiedProcesses {
+		old, ok := manager.processManager.ProcessByID(p.ID)
+		if !ok {
+			return replacedProcess, errors.Errorf("cannot replace non-existing process %q", p.ID)
+		}
+		manager.newProcesses(ctx, []pexec.ProcessConfig{p})
+		replacedProcess = append(replacedProcess, old)
+	}
+	return replacedProcess, nil
+}
+
+func (manager *resourceManager) updateRemotes(ctx context.Context,
+	addedRemotes []config.Remote,
+	modifiedRemotes []config.Remote,
+	robot *localRobot,
+) {
+	manager.newRemotes(ctx, addedRemotes, robot)
+	for _, r := range modifiedRemotes {
+		manager.newRemotes(ctx, []config.Remote{r}, robot)
+	}
+}
+
+func (manager *resourceManager) reconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
+	if old == nil {
+		// if the oldPart was never created, replace directly with the new resource
+		return newR, nil
+	}
+
+	oldPart, oldResourceIsReconfigurable := old.(resource.Reconfigurable)
+	newPart, newResourceIsReconfigurable := newR.(resource.Reconfigurable)
+
+	switch {
+	case oldResourceIsReconfigurable != newResourceIsReconfigurable:
+		// this is an indicator of a serious constructor problem
+		// for the resource subtype.
+		reconfError := errors.Errorf(
+			"new type %T is reconfigurable whereas old type %T is not",
+			newR, old)
+		if oldResourceIsReconfigurable {
+			reconfError = errors.Errorf(
+				"old type %T is reconfigurable whereas new type %T is not",
+				old, newR)
+		}
+		return nil, reconfError
+	case oldResourceIsReconfigurable && newResourceIsReconfigurable:
+		// if we are dealing with a reconfigurable resource
+		// use the new resource to reconfigure the old one.
+		if err := oldPart.Reconfigure(ctx, newPart); err != nil {
+			return nil, err
+		}
+		return old, nil
+	case !oldResourceIsReconfigurable && !newResourceIsReconfigurable:
+		// if we are not dealing with a reconfigurable resource
+		// we want to close the old resource and replace it with the
+		// new.
+		if err := utils.TryClose(ctx, old); err != nil {
+			return nil, err
+		}
+		return newR, nil
+	default:
+		return nil, errors.Errorf("unexpected outcome during reconfiguration of type %T and type %T",
+			old, newR)
+	}
+}
+
+func (manager *resourceManager) updateServices(ctx context.Context,
+	addedServices []config.Service,
+	modifiedServices []config.Service,
+	robot *draftRobot,
+) error {
+	for _, c := range addedServices {
+		// DataManagerService has to be specifically excluded since it's defined in the config but is a default
+		// service that we only want to reconfigure rather than reinstantiate with New().
+		if c.ResourceName() == datamanager.Name {
+			continue
+		}
+		svc, err := robot.newService(ctx, c)
+		if err != nil {
+			return err
+		}
+		manager.addResource(c.ResourceName(), svc)
+	}
+	for _, c := range modifiedServices {
+		if c.ResourceName() == datamanager.Name {
+			continue
+		}
+		svc, err := robot.newService(ctx, c)
+		if err != nil {
+			return err
+		}
+		old, ok := manager.resources.Nodes[c.ResourceName()]
+		if !ok {
+			manager.resources.Nodes[c.ResourceName()] = svc
+		}
+		rr, err := manager.reconfigureResource(ctx, old, svc)
+		if err != nil {
+			return err
+		}
+		manager.resources.Nodes[c.ResourceName()] = rr
+	}
+	return nil
+}
+
+func (manager *resourceManager) markChildrenForUpdate(ctx context.Context, rName resource.Name, r *draftRobot) error {
+	sg, err := manager.resources.SubGraphFrom(rName)
+	if err != nil {
+		return err
+	}
+	sorted := sg.TopologicalSort()
+	for _, x := range sorted {
+		var originalConfig config.Component
+		if _, ok := manager.resources.Nodes[x].(*resourceUpdateWrapper); ok {
+			continue
+		}
+		for _, c := range r.original.config.Components {
+			if c.ResourceName() == x {
+				originalConfig = c
+			}
+		}
+		if err := utils.TryClose(ctx, manager.resources.Nodes[x]); err != nil {
+			return err
+		}
+		wrapper := &resourceUpdateWrapper{
+			real:       nil,
+			config:     originalConfig,
+			isAdded:    true,
+			isModified: false,
+		}
+		manager.resources.Nodes[x] = wrapper
+	}
+	return nil
+}
+
+func (manager *resourceManager) updateComponent(ctx context.Context,
+	rName resource.Name,
+	conf config.Component,
+	old interface{},
+	r *draftRobot,
+) error {
+	obj, canValidate := old.(config.CompononentUpdate)
+	res := config.Rebuild
+	if canValidate {
+		res = obj.UpdateAction(&conf)
+	}
+	switch res {
+	case config.None:
+		return nil
+	case config.Reconfigure:
+		if err := manager.markChildrenForUpdate(ctx, rName, r); err != nil {
+			return err
+		}
+		nr, err := r.newResource(ctx, conf)
+		if err != nil {
+			return err
+		}
+		rr, err := manager.reconfigureResource(ctx, old, nr)
+		if err != nil {
+			return err
+		}
+		manager.resources.Nodes[rName] = rr
+	case config.Rebuild:
+		if err := manager.markChildrenForUpdate(ctx, rName, r); err != nil {
+			return err
+		}
+		if err := utils.TryClose(ctx, old); err != nil {
+			return err
+		}
+		nr, err := r.newResource(ctx, conf)
+		if err != nil {
+			return err
+		}
+		manager.resources.Nodes[rName] = nr
+	}
+	return nil
+}
+
+func (manager *resourceManager) updateComponents(ctx context.Context,
+	logger golog.Logger,
+	robot *draftRobot,
+) error {
+	sorted := manager.resources.ReverseTopologicalSort()
+	for _, c := range sorted {
+		wrapper, ok := manager.resources.Nodes[c].(*resourceUpdateWrapper)
+		if !ok {
+			continue
+		}
+		if wrapper.isAdded {
+			logger.Infof("building the component %q with config %+v", c.Name, wrapper.config)
+			r, err := robot.newResource(ctx, wrapper.config)
+			if err != nil {
+				return err
+			}
+			manager.resources.Nodes[c] = r
+		} else if wrapper.isModified {
+			err := manager.updateComponent(ctx, c, wrapper.config, wrapper.real, robot)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (manager *resourceManager) updateComponentsGraph(addedComponents []config.Component,
+	modifiedComponents []config.Component,
+	logger golog.Logger,
+	robot *draftRobot,
+) error {
+	// Assumptions :
+	// added & modified slices are ordered
+	for _, add := range addedComponents {
+		rName := add.ResourceName()
+		wrapper := &resourceUpdateWrapper{
+			real:       nil,
+			isAdded:    true,
+			isModified: false,
+			config:     add,
+		}
+		if manager.resources.Nodes[rName] != nil {
+			logger.Debugf("%q is already exists", rName)
+			return errors.Errorf("cannot add component %q it already exists", rName)
+		}
+		manager.addResource(rName, wrapper)
+		for _, dep := range add.DependsOn {
+			if comp := robot.original.config.FindComponent(dep); comp != nil {
 				if err := manager.resources.AddChildren(rName, comp.ResourceName()); err != nil {
 					return err
 				}
@@ -288,71 +785,72 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 					return err
 				}
 			} else {
-				return errors.Errorf("componenent %s depends on non-existent component %s",
+				return errors.Errorf("component %s depends on non-existent component %s",
 					rName.Name, dep)
 			}
 		}
 	}
+	for _, modif := range modifiedComponents {
+		rName := modif.ResourceName()
+		_, ok := manager.resources.Nodes[rName]
+		if !ok {
+			manager.addResource(rName, &resourceUpdateWrapper{
+				real:       nil,
+				isAdded:    true,
+				isModified: false,
+				config:     modif,
+			})
+		} else {
+			wrapper := &resourceUpdateWrapper{
+				real:       manager.resources.Nodes[rName],
+				isAdded:    false,
+				isModified: true,
+				config:     modif,
+			}
+			manager.resources.Nodes[rName] = wrapper
+		}
 
+		parents := manager.resources.GetAllParentsOf(rName)
+		mapParents := make(map[resource.Name]bool)
+		for _, pdep := range parents {
+			mapParents[pdep] = false
+		}
+		// parse the dependency tree and optionally add/remove components
+		for _, dep := range modif.DependsOn {
+			var comp resource.Name
+			if r := robot.original.config.FindComponent(dep); r != nil {
+				comp = r.ResourceName()
+			} else if r, ok := manager.resources.FindNodeByName(dep); ok {
+				comp = *r
+			} else {
+				return errors.Errorf("component %q depends on non-existent component %q",
+					rName.Name, dep)
+			}
+			if _, ok := mapParents[comp]; ok {
+				mapParents[comp] = true
+				continue
+			}
+			if err := manager.resources.AddChildren(rName, comp); err != nil {
+				return err
+			}
+		}
+		for k, v := range mapParents {
+			if v {
+				continue
+			}
+			if err := manager.resources.RemoveChildren(rName, k); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
-}
-
-// newServices constructs all services defined.
-func (manager *resourceManager) newServices(ctx context.Context, services []config.Service, r *localRobot) error {
-	for _, c := range services {
-		// DataManagerService has to be specifically excluded since it's defined in the config but is a default
-		// service that we only want to reconfigure rather than reinstantiate with New().
-		if c.ResourceName() == datamanager.Name {
-			continue
-		}
-		svc, err := r.newService(ctx, c)
-		if err != nil {
-			return err
-		}
-		manager.addResource(c.ResourceName(), svc)
-	}
-
-	return nil
-}
-
-// RemoteByName returns the given remote robot by name, if it exists;
-// returns nil otherwise.
-func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
-	part, ok := manager.remotes[name]
-	if ok {
-		return part, true
-	}
-	for _, remote := range manager.remotes {
-		part, ok := remote.RemoteByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
 }
 
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns an error otherwise.
 func (manager *resourceManager) ResourceByName(name resource.Name) (interface{}, error) {
-	partExists := false
 	robotPart, ok := manager.resources.Nodes[name]
 	if ok {
-		return robotPart, nil
-	}
-	for _, remote := range manager.remotes {
-		// only check for part if remote has prefix and the prefix matches the name of remote OR if remote doesn't have a prefix
-		if (remote.conf.Prefix && strings.HasPrefix(name.Name, remote.conf.Name)) || !remote.conf.Prefix {
-			part, err := remote.ResourceByName(name)
-			if err == nil {
-				if partExists {
-					return nil, errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", name)
-				}
-				robotPart = part
-				partExists = true
-			}
-		}
-	}
-	if partExists {
 		return robotPart, nil
 	}
 	return nil, rutils.NewResourceNotFoundError(name)
@@ -363,146 +861,7 @@ type PartsMergeResult struct {
 	ReplacedProcesses []pexec.ManagedProcess
 }
 
-// Process integrates the results into the given manager.
-func (result *PartsMergeResult) Process(ctx context.Context, manager *resourceManager) error {
-	for _, proc := range result.ReplacedProcesses {
-		if replaced, err := manager.processManager.AddProcess(ctx, proc, false); err != nil {
-			return err
-		} else if replaced != nil {
-			return errors.Errorf("unexpected process replacement %v", replaced)
-		}
-	}
-	return nil
-}
-
-// MergeAdd merges in the given add manager and returns results for
-// later processing.
-func (manager *resourceManager) MergeAdd(toAdd *resourceManager) (*PartsMergeResult, error) {
-	if len(toAdd.remotes) != 0 {
-		if manager.remotes == nil {
-			manager.remotes = make(map[string]*remoteRobot, len(toAdd.remotes))
-		}
-		for k, v := range toAdd.remotes {
-			manager.remotes[k] = v
-		}
-	}
-
-	err := manager.resources.MergeAdd(toAdd.resources)
-	if err != nil {
-		return nil, err
-	}
-
-	var result PartsMergeResult
-	if toAdd.processManager != nil {
-		// assume manager.processManager is non-nil
-		replaced, err := pexec.MergeAddProcessManagers(manager.processManager, toAdd.processManager)
-		if err != nil {
-			return nil, err
-		}
-		result.ReplacedProcesses = replaced
-	}
-
-	return &result, nil
-}
-
-// MergeModify merges in the modified manager and returns results for
-// later processing.
-func (manager *resourceManager) MergeModify(ctx context.Context, toModify *resourceManager, diff *config.Diff) (*PartsMergeResult, error) {
-	var result PartsMergeResult
-	if toModify.processManager != nil {
-		// assume manager.processManager is non-nil
-		// adding also replaces here
-		replaced, err := pexec.MergeAddProcessManagers(manager.processManager, toModify.processManager)
-		if err != nil {
-			return nil, err
-		}
-		result.ReplacedProcesses = replaced
-	}
-
-	// this is the point of no return during reconfiguration
-	if len(toModify.remotes) != 0 {
-		for k, v := range toModify.remotes {
-			old, ok := manager.remotes[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(ctx, v)
-		}
-	}
-	orderedModify := toModify.resources.ReverseTopologicalSort()
-	if len(orderedModify) != 0 {
-		for _, k := range orderedModify {
-			v := toModify.resources.Nodes[k]
-			old, ok := manager.resources.Nodes[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			if err := manager.resources.ReplaceNodesParents(k, toModify.resources); err != nil {
-				return nil, err
-			}
-			if v == old {
-				// same underlying resource so we can continue
-				continue
-			}
-			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
-			newPart, newIsReconfigurable := v.(resource.Reconfigurable)
-			switch {
-			case oldIsReconfigurable != newIsReconfigurable:
-				// this is an indicator of a serious constructor problem
-				// for the resource subtype.
-				reconfError := errors.Errorf(
-					"new type %T is reconfigurable whereas old type %T is not",
-					v, old)
-				if oldIsReconfigurable {
-					reconfError = errors.Errorf(
-						"old type %T is reconfigurable whereas new type %T is not",
-						old, v)
-				}
-				return nil, reconfError
-			case oldIsReconfigurable && newIsReconfigurable:
-				// if we are dealing with a reconfigurable resource
-				// use the new resource to reconfigure the old one.
-				if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-					return nil, err
-				}
-			case !oldIsReconfigurable && !newIsReconfigurable:
-				// if we are not dealing with a reconfigurable resource
-				// we want to close the old resource and replace it with the
-				// new.
-				if err := utils.TryClose(ctx, old); err != nil {
-					return nil, err
-				}
-				// Not sure if this is the best approach, here I assume both ressources share the same dependencies
-				manager.resources.Nodes[k] = v
-			}
-		}
-	}
-
-	return &result, nil
-}
-
-// MergeRemove merges in the removed manager but does no work
-// to stop the individual parts.
-func (manager *resourceManager) MergeRemove(toRemove *resourceManager) {
-	if len(toRemove.remotes) != 0 {
-		for k := range toRemove.remotes {
-			delete(manager.remotes, k)
-		}
-	}
-
-	manager.resources.MergeRemove(toRemove.resources)
-
-	if toRemove.processManager != nil {
-		// assume manager.processManager is non-nil
-		// ignoring result as we will filter out the processes to remove and stop elsewhere
-		pexec.MergeRemoveProcessManagers(manager.processManager, toRemove.processManager)
-	}
-}
-
-// FilterFromConfig returns a shallow copy of the manager reflecting
-// a given config.
+// FilterFromConfig given a config this function will remove elements from the manager and return removed resources in a new manager.
 func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *config.Config, logger golog.Logger) (*resourceManager, error) {
 	filtered := newResourceManager(manager.opts, logger)
 
@@ -514,35 +873,117 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		if _, err := filtered.processManager.AddProcess(ctx, proc, false); err != nil {
 			return nil, err
 		}
+		manager.processManager.RemoveProcessByID(conf.ID)
 	}
-
 	for _, conf := range conf.Remotes {
-		part, ok := manager.remotes[conf.Name]
+		remoteName := fromRemoteNameToRemoteNodeName(conf.Name)
+		iface, ok := manager.resources.Nodes[remoteName]
 		if !ok {
 			continue
 		}
-		filtered.addRemote(part, conf)
+		part, ok := iface.(robot.Robot)
+		if !ok {
+			return nil, errors.Errorf("remote named %q exists but its a %T and not a robotClient", remoteName, iface)
+		}
+		filtered.resources.AddNode(remoteName, part)
+		for _, child := range manager.resources.GetAllChildrenOf(remoteName) {
+			if _, ok := filtered.resources.Nodes[child]; !ok {
+				filtered.resources.AddNode(child, manager.resources.Nodes[child])
+			}
+			if err := filtered.resources.AddChildren(child, remoteName); err != nil {
+				return nil, err
+			}
+		}
+		// TODO also remove children
+		manager.resources.Remove(remoteName)
 	}
-
 	for _, compConf := range conf.Components {
 		rName := compConf.ResourceName()
 		_, err := manager.ResourceByName(rName)
 		if err != nil {
 			continue
 		}
-		// Assuming dependencies will be added later
 		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
+		for _, child := range manager.resources.GetAllChildrenOf(rName) {
+			if _, ok := filtered.resources.Nodes[child]; !ok {
+				filtered.resources.AddNode(child, manager.resources.Nodes[child])
+			}
+			if err := filtered.resources.AddChildren(child, rName); err != nil {
+				return nil, err
+			}
+		}
+		manager.resources.Remove(rName)
 	}
-
 	for _, conf := range conf.Services {
 		rName := conf.ResourceName()
 		_, err := manager.ResourceByName(rName)
 		if err != nil {
 			continue
 		}
-		// Assuming dependencies will be added later
-		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
+		for _, child := range manager.resources.GetAllChildrenOf(rName) {
+			if err := filtered.resources.AddChildren(child, rName); err != nil {
+				return nil, err
+			}
+			filtered.resources.Nodes[child] = manager.resources.Nodes[child]
+		}
+		manager.resources.Remove(rName)
+	}
+	return filtered, nil
+}
+
+func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.DialOption {
+	var dialOpts []rpc.DialOption
+	if opts.debug {
+		dialOpts = append(dialOpts, rpc.WithDialDebug())
+	}
+	if config.Insecure {
+		dialOpts = append(dialOpts, rpc.WithInsecure())
+	}
+	if opts.allowInsecureCreds {
+		dialOpts = append(dialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
+	}
+	if opts.tlsConfig != nil {
+		dialOpts = append(dialOpts, rpc.WithTLSConfig(opts.tlsConfig))
+	}
+	if config.Auth.Credentials != nil {
+		if config.Auth.Entity == "" {
+			dialOpts = append(dialOpts, rpc.WithCredentials(*config.Auth.Credentials))
+		} else {
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials(config.Auth.Entity, *config.Auth.Credentials))
+		}
+	} else {
+		// explicitly unset credentials so they are not fed to remotes unintentionally.
+		dialOpts = append(dialOpts, rpc.WithEntityCredentials("", rpc.Credentials{}))
 	}
 
-	return filtered, nil
+	if config.Auth.ExternalAuthAddress != "" {
+		dialOpts = append(dialOpts, rpc.WithExternalAuth(
+			config.Auth.ExternalAuthAddress,
+			config.Auth.ExternalAuthToEntity,
+		))
+	}
+
+	if config.Auth.ExternalAuthInsecure {
+		dialOpts = append(dialOpts, rpc.WithExternalAuthInsecure())
+	}
+
+	if config.Auth.SignalingServerAddress != "" {
+		wrtcOpts := rpc.DialWebRTCOptions{
+			Config:                 &rpc.DefaultWebRTCConfiguration,
+			SignalingServerAddress: config.Auth.SignalingServerAddress,
+			SignalingAuthEntity:    config.Auth.SignalingAuthEntity,
+		}
+		if config.Auth.SignalingCreds != nil {
+			wrtcOpts.SignalingCreds = *config.Auth.SignalingCreds
+		}
+		dialOpts = append(dialOpts, rpc.WithWebRTCOptions(wrtcOpts))
+
+		if config.Auth.Managed {
+			// managed robots use TLS authN/Z
+			dialOpts = append(dialOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
+				RemoveAuthCredentials: true,
+			}))
+		}
+	}
+	return dialOpts
 }

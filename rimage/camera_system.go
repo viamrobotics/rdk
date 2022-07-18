@@ -13,15 +13,15 @@ import (
 
 // Aligner aligns a color and depth image together.
 type Aligner interface {
-	AlignColorAndDepthImage(*Image, *DepthMap) (*ImageWithDepth, error)
+	AlignColorAndDepthImage(*Image, *DepthMap) (*Image, *DepthMap, error)
 }
 
 // Projector can transform a scene between a 2D ImageWithDepth and a 3D pointcloud.
 type Projector interface {
 	// Project a 2D RGBD image to 3D pointcloud. Can add an optional crop to the image before projection.
-	ImageWithDepthToPointCloud(*ImageWithDepth, ...image.Rectangle) (pointcloud.PointCloud, error)
+	RGBDToPointCloud(*Image, *DepthMap, ...image.Rectangle) (pointcloud.PointCloud, error)
 	// Project a 3D pointcloud to a 2D RGBD image.
-	PointCloudToImageWithDepth(pointcloud.PointCloud) (*ImageWithDepth, error)
+	PointCloudToRGBD(pointcloud.PointCloud) (*Image, *DepthMap, error)
 	// Project a single pixel point to a given depth.
 	ImagePointTo3DPoint(image.Point, Depth) (r3.Vector, error)
 }
@@ -37,13 +37,16 @@ type CameraSystem interface {
 // These are not great projections, and should really only be used for testing or artistic purposes.
 type ParallelProjection struct{}
 
-// ImageWithDepthToPointCloud take a 2D image with depth and project to a 3D point cloud.
-func (pp *ParallelProjection) ImageWithDepthToPointCloud(ii *ImageWithDepth, crop ...image.Rectangle) (pointcloud.PointCloud, error) {
-	if !ii.IsAligned() {
-		return nil, errors.New("input ImageWithDepth is not aligned")
+// RGBDToPointCloud take a 2D image with depth and project to a 3D point cloud.
+func (pp *ParallelProjection) RGBDToPointCloud(img *Image, dm *DepthMap, crop ...image.Rectangle) (pointcloud.PointCloud, error) {
+	if img == nil {
+		return nil, errors.New("no rgb image to project to pointcloud")
 	}
-	if ii.Depth == nil {
-		return nil, errors.New("input ImageWithDepth has no depth channel to project")
+	if dm == nil {
+		return nil, errors.New("no depth map to project to pointcloud")
+	}
+	if dm.Bounds() != img.Bounds() {
+		return nil, errors.Errorf("rgb image and depth map are not the same size img(%v) != depth(%v)", img.Bounds(), dm.Bounds())
 	}
 	var rect *image.Rectangle
 	if len(crop) > 1 {
@@ -53,20 +56,20 @@ func (pp *ParallelProjection) ImageWithDepthToPointCloud(ii *ImageWithDepth, cro
 		rect = &crop[0]
 	}
 	startX, startY := 0, 0
-	endX, endY := ii.Width(), ii.Height()
+	endX, endY := img.Width(), img.Height()
 	if rect != nil {
-		newBounds := rect.Intersect(ii.Bounds())
+		newBounds := rect.Intersect(img.Bounds())
 		startX, startY = newBounds.Min.X, newBounds.Min.Y
 		endX, endY = newBounds.Max.X, newBounds.Max.Y
 	}
 	pc := pointcloud.New()
 	for y := startY; y < endY; y++ {
 		for x := startX; x < endX; x++ {
-			z := ii.Depth.GetDepth(x, y)
+			z := dm.GetDepth(x, y)
 			if z == 0 {
 				continue
 			}
-			c := ii.Color.GetXY(x, y)
+			c := img.GetXY(x, y)
 			r, g, b := c.RGB255()
 			err := pc.Set(pointcloud.NewVector(float64(x), float64(y), float64(z)), pointcloud.NewColoredData(color.NRGBA{r, g, b, 255}))
 			if err != nil {
@@ -77,14 +80,14 @@ func (pp *ParallelProjection) ImageWithDepthToPointCloud(ii *ImageWithDepth, cro
 	return pc, nil
 }
 
-// PointCloudToImageWithDepth assumes the x,y coordinates are the same as the x,y pixels.
-func (pp *ParallelProjection) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*ImageWithDepth, error) {
+// PointCloudToRGBD assumes the x,y coordinates are the same as the x,y pixels.
+func (pp *ParallelProjection) PointCloudToRGBD(cloud pointcloud.PointCloud) (*Image, *DepthMap, error) {
 	meta := cloud.MetaData()
 	// Needs to be a pointcloud with color
 	if !meta.HasColor {
-		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
+		return nil, nil, errors.New("pointcloud has no color information, cannot create an image with depth")
 	}
-	// ImageWithDepth will be in the camera frame of the RGB camera.
+	// Image and DepthMap will be in the camera frame of the RGB camera.
 	// Points outside of the frame will be discarded.
 	// Assumption is that points in pointcloud are in mm.
 	width := int(meta.MaxX - meta.MinX)
@@ -104,7 +107,7 @@ func (pp *ParallelProjection) PointCloudToImageWithDepth(cloud pointcloud.PointC
 		}
 		return true
 	})
-	return MakeImageWithDepth(color, depth, true), nil
+	return color, depth, nil
 }
 
 // ImagePointTo3DPoint takes the 2D pixel point and assumes that it represents the X,Y coordinate in mm as well.
