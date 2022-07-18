@@ -84,7 +84,7 @@ jobs:
     strategy:
       matrix:
         arch: [x64, arm64]
-    needs: appimages_amd64
+    needs: appimage
     runs-on: [${{ matrix.arch }}, qemu-host]
     timeout-minutes: 15
 
