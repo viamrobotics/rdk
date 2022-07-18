@@ -183,7 +183,7 @@ type dualServerSource struct {
 	ColorURL   string // this is for a generic image
 	DepthURL   string // this is for my bizarre custom data format for depth data
 	Intrinsics *transform.PinholeCameraIntrinsics
-	Stream     StreamType // returns color or depth frame with calls of Next
+	Stream     camera.StreamType // returns color or depth frame with calls of Next
 }
 
 // dualServerAttrs is the attribute struct for dualServerSource.
@@ -202,7 +202,7 @@ func newDualServerSource(cfg *dualServerAttrs) (camera.Camera, error) {
 		ColorURL:   cfg.Color,
 		DepthURL:   cfg.Depth,
 		Intrinsics: cfg.CameraParameters,
-		Stream:     StreamType(cfg.Stream),
+		Stream:     camera.StreamType(cfg.Stream),
 	}
 	return camera.New(imgSrc, cfg.AttrConfig, nil)
 }
@@ -212,10 +212,10 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 	ctx, span := trace.StartSpan(ctx, "imagesource::dualServerSource::Next")
 	defer span.End()
 	switch ds.Stream {
-	case ColorStream:
+	case camera.ColorStream:
 		img, err := readColorURL(ctx, ds.client, ds.ColorURL)
 		return img, func() {}, err
-	case DepthStream:
+	case camera.DepthStream:
 		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL)
 		return depth, func() {}, err
 	default:
