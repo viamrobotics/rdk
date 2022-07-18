@@ -1,5 +1,9 @@
 name: Buf Push
 
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   # Triggers the workflow on pushes to the main branch
   push:
