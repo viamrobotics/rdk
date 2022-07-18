@@ -62,7 +62,7 @@ func TestRobotReconfigure(t *testing.T) {
 	registry.RegisterComponent(mockSubtype, modelName1, registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			// test if implicit depencies are properly propagated
-			for _, dep := range config.ConvertedAttributes.(*mockFakeConfig).InferedDep {
+			for _, dep := range config.ConvertedAttributes.(*mockFakeConfig).InferredDep {
 				if _, ok := deps[mockNamed(dep)]; !ok {
 					return nil, errors.Errorf("inferred dependency %q cannot be found", mockNamed(dep))
 				}
@@ -2340,9 +2340,9 @@ type mockFake struct {
 }
 
 type mockFakeConfig struct {
-	InferedDep []string `json:"inferred_dep"`
-	ShouldFail bool     `json:"should_fail"`
-	Blah       int      `json:"blah"`
+	InferredDep []string `json:"inferred_dep"`
+	ShouldFail  bool     `json:"should_fail"`
+	Blah        int      `json:"blah"`
 }
 
 func (m *mockFake) Reconfigure(ctx context.Context, newResource resource.Reconfigurable) error {
@@ -2361,7 +2361,7 @@ func (m *mockFake) UpdateAction(cfg *config.Component) config.UpdateActionType {
 
 func (m *mockFakeConfig) Validate(path string) ([]string, error) {
 	depOut := []string{}
-	depOut = append(depOut, m.InferedDep...)
+	depOut = append(depOut, m.InferredDep...)
 	return depOut, nil
 }
 
