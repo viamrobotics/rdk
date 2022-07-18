@@ -243,7 +243,7 @@ func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
 	return quat.Number{q.W, q.X(), q.Y(), q.Z()}
 }
 
-// MarshalJSON marshals to W, X, Y, Z json. 
+// MarshalJSON marshals to W, X, Y, Z json.
 func (q *Quaternion) MarshalJSON() ([]byte, error) {
 	return json.Marshal(quaternionJSONFromQuaternion(q))
 }
@@ -253,11 +253,18 @@ type quaternionJSON struct {
 }
 
 func (oj *quaternionJSON) toQuaternion() *Quaternion {
-	return &Quaternion{
+	x := quat.Number{
 		Real: oj.W,
 		Imag: oj.X,
 		Jmag: oj.Y,
 		Kmag: oj.Z,
+	}
+	x = Normalize(x)
+	return &Quaternion{
+		Real: x.Real,
+		Imag: x.Imag,
+		Jmag: x.Jmag,
+		Kmag: x.Kmag,
 	}
 }
 
