@@ -88,6 +88,7 @@ jobs:
       runs-on: ${{ matrix.arch }}
       timeout-minutes: 15
 
+      steps:
       - name: Test AppImage
         run: |
           export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
