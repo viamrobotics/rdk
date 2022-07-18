@@ -397,3 +397,58 @@ func TestParseEvent(t *testing.T) {
 	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
 }
 
+func TestWrapWithReconfigurable(t *testing.T) {
+	actualSvc := &mock{name: "svc1"}
+	reconfSvc, err := WrapWithReconfigurable(actualSvc)
+	test.That(t, err, test.ShouldBeNil)
+	rBRC, ok := reconfSvc.(*reconfigurableBaseRemoteControl)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	_, err = WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("BaseRemoteControl", nil))
+
+	reconfSvc2, err := WrapWithReconfigurable(reconfSvc)
+	test.That(t, err, test.ShouldBeNil)
+	rBRC2, ok := reconfSvc2.(*reconfigurableBaseRemoteControl)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	mock1 := rBRC.actual.(*mock)
+	mock2 := rBRC2.actual.(*mock)
+
+	test.That(t, mock1.name, test.ShouldEqual, mock2.name)
+}
+
+func TestReconfigure(t *testing.T) {
+	actualSvc := &mock{name: "svc1"}
+	reconfSvc, err := WrapWithReconfigurable(actualSvc)
+	test.That(t, err, test.ShouldBeNil)
+	rBRC, ok := reconfSvc.(*reconfigurableBaseRemoteControl)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	actualSvc2 := &mock{name: "svc2"}
+	reconfSvc2, err := WrapWithReconfigurable(actualSvc2)
+	test.That(t, err, test.ShouldBeNil)
+	rBRC2, ok := reconfSvc2.(*reconfigurableBaseRemoteControl)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, rBRC2, test.ShouldNotBeNil)
+
+	err = reconfSvc.Reconfigure(context.Background(), reconfSvc2)
+	test.That(t, err, test.ShouldBeNil)
+	mock1 := rBRC.actual.(*mock)
+	mock2 := rBRC2.actual.(*mock)
+	test.That(t, mock1.name, test.ShouldEqual, mock2.name)
+
+	err = reconfSvc.Reconfigure(context.Background(), nil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&reconfigurableBaseRemoteControl{}, nil))
+}
+
+type mock struct {
+	remoteService
+	name        string
+	reconfCount int
+}
+
+func (m *mock) Close(ctx context.Context) error {
+	m.reconfCount++
+	return nil
+}

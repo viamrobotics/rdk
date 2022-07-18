@@ -383,7 +383,15 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	if f == nil {
 		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
 	}
-	return f.Constructor(ctx, r, config, r.logger)
+	svc, err := f.Constructor(ctx, r, config, r.logger)
+	if err != nil {
+		return nil, err
+	}
+	if f.Reconfigurable == nil {
+		return svc, nil
+	}
+
+	return f.Reconfigurable(svc)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given

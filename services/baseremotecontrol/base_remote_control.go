@@ -10,12 +10,14 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
@@ -44,7 +46,7 @@ var Subtype = resource.NewSubtype(
 var Name = resource.NameFromSubtype(Subtype, "")
 
 func init() {
-	registry.RegisterService(Subtype, registry.Service{Constructor: New})
+	registry.RegisterService(Subtype, registry.Service{Constructor: New, Reconfigurable: WrapWithReconfigurable})
 	cType := config.ServiceType(SubtypeName)
 
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
@@ -72,6 +74,11 @@ type Config struct {
 	MaxLinearVelocity   float64 `json:"max_linear"`
 }
 
+// BaseRemoteControl defines a BaseRemoteControlService interface.
+type BaseRemoteControl interface {
+	Close(ctx context.Context) error
+}
+
 // RemoteService is the structure of the remote service.
 type remoteService struct {
 	base            base.Base
@@ -81,6 +88,13 @@ type remoteService struct {
 	config *Config
 	logger golog.Logger
 }
+
+type reconfigurableBaseRemoteControl struct {
+	mu     sync.RWMutex
+	actual BaseRemoteControl
+}
+
+var _ = resource.Reconfigurable(&reconfigurableBaseRemoteControl{})
 
 // New returns a new remote control service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
@@ -160,6 +174,40 @@ func (svc *remoteService) start(ctx context.Context) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.Close(ctx)
+}
+
+// WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(BaseRemoteControl)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("BaseRemoteControl", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableBaseRemoteControl); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableBaseRemoteControl{actual: svc}, nil
+}
+
+func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableBaseRemoteControl)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := viamutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
 	return nil
 }
 
