@@ -78,45 +78,45 @@ jobs:
         parent: false
         gzip: false
 
-    appimage_test:
-      name: Viam Server AppImage Test
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      strategy:
-        matrix:
-          arch: [[x64, qemu-host], [arm64, qemu-host]]
-      needs: appimage
-      runs-on: ${{ matrix.arch }}
-      timeout-minutes: 15
+  appimage_test:
+    name: Viam Server AppImage Test
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    strategy:
+      matrix:
+        arch: [[x64, qemu-host], [arm64, qemu-host]]
+    needs: appimage
+    runs-on: ${{ matrix.arch }}
+    timeout-minutes: 15
 
-      steps:
-      - name: Test AppImage
-        run: |
-          export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
-          cd $TEST_DIR
+    steps:
+    - name: Test AppImage
+      run: |
+        export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
+        cd $TEST_DIR
 
-          curl -o viam-server http://packages.viam.com/apps/smurf/viam-server/testing/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
-          chmod 755 viam-server
+        curl -o viam-server http://packages.viam.com/apps/smurf/viam-server/testing/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
+        chmod 755 viam-server
 
-          export RAND_PORT=$((30000 + $RANDOM))
-          echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
+        export RAND_PORT=$((30000 + $RANDOM))
+        echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
 
-          ./viam-server test.json &
-          curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
-          export RET1=$?
-          kill %%
-          wait $!
-          export RET2=$?
-          cd - && rm -rf $TEST_DIR
-          [ $RET1 == 0 ] && [ $RET1 == 0 ]
+        ./viam-server test.json &
+        curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
+        export RET1=$?
+        kill %%
+        wait $!
+        export RET2=$?
+        cd - && rm -rf $TEST_DIR
+        [ $RET1 == 0 ] && [ $RET1 == 0 ]
 
-      - name: Authorize GCP
-        uses: google-github-actions/auth@v0.4.3
-        with:
-          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
-      - name: Set up Cloud SDK
-        uses: 'google-github-actions/setup-gcloud@v0'
+    - name: Set up Cloud SDK
+      uses: 'google-github-actions/setup-gcloud@v0'
 
-      - name: Publish AppImage
-        run: |
-          gsutil mv "gs://packages.viam.com/apps/smurf/viam-server/testing/${{ github.sha }}/*`uname -m`*" "gs://packages.viam.com/apps/smurf/viam-server/"
+    - name: Publish AppImage
+      run: |
+        gsutil mv "gs://packages.viam.com/apps/smurf/viam-server/testing/${{ github.sha }}/*`uname -m`*" "gs://packages.viam.com/apps/smurf/viam-server/"
