@@ -274,19 +274,6 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	if err != nil {
 		return nil, err
 	}
-	sourcePointList := make([]spatialmath.Pose, pcSrc.Size())
-	targetPointList := make([]r3.Vector, pcSrc.Size())
-
-	pointNum := 0
-	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		sourcePointList[pointNum] = spatialmath.NewPoseFromPoint(p)
-		nearest, _, _, _ := target.NearestNeighbor(p)
-		targetPointList[pointNum] = nearest
-		pointNum++
-		// utils.Logger.Debugf("sourcePointList[%d] = %v", pointNum, sourcePointList[pointNum])
-		return true
-	})
-
 	// create optimization problem
 	optFunc := func(x []float64) float64 {
 		// x is an 7-vector used to create a pose
@@ -299,15 +286,20 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 		// pose := spatialmath.NewPoseFromAxisAngle(point, axis.Normalize(), rotAxis.Theta)
 		// compute the error
 		var dist float64
+		var currPose spatialmath.Pose
+		var nearest r3.Vector
 		// utils.Logger.Debugf("size of sourcePointList = %d", len(sourcePointList))
-		for i := 0; i < len(sourcePointList); i++ {
-			// utils.Logger.Debugf("sourcePointList[%d] = %v", i, sourcePointList[i])
-			transformedP := spatialmath.Compose(pose, sourcePointList[i]).Point()
-			dist += math.Sqrt(math.Pow((transformedP.X-targetPointList[i].X), 2) +
-				math.Pow((transformedP.Y-targetPointList[i].Y), 2) +
-				math.Pow((transformedP.Z-targetPointList[i].Z), 2))
-		}
-		return dist / float64(len(sourcePointList))
+		pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+			currPose = spatialmath.NewPoseFromPoint(p)
+			transformedP := spatialmath.Compose(pose, currPose).Point()
+			nearest, _, _, _ = target.NearestNeighbor(transformedP)
+			dist += math.Sqrt(math.Pow((transformedP.X-nearest.X), 2) +
+				math.Pow((transformedP.Y-nearest.Y), 2) +
+				math.Pow((transformedP.Z-nearest.Z), 2))
+			return true
+		})
+
+		return dist / float64(pcSrc.Size())
 	}
 	grad := func(grad, x []float64) {
 		fd.Gradient(grad, optFunc, x, nil)
