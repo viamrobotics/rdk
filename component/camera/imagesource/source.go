@@ -6,6 +6,7 @@ package imagesource
 
 import (
 	"context"
+	"sync"
 
 	// for embedding camera parameters.
 	_ "embed"
@@ -14,6 +15,8 @@ import (
 	"net/http"
 
 	"github.com/edaniels/golog"
+	"go.opencensus.io/trace"
+
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
@@ -206,6 +209,8 @@ func newDualServerSource(cfg *dualServerAttrs) (camera.Camera, error) {
 
 // Next requests either the color or depth frame, depending on what the config specifies.
 func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "imagesource::dualServerSource::Next")
+	defer span.End()
 	switch ds.Stream {
 	case ColorStream:
 		img, err := readColorURL(ctx, ds.client, ds.ColorURL)
@@ -219,18 +224,36 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 }
 
 func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "imagesource::dualServerSource::NextPointCloud")
+	defer span.End()
 	if ds.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}
-	img, err := readColorURL(ctx, ds.client, ds.ColorURL)
-	if err != nil {
-		return nil, err
-	}
-	depth, err := readDepthURL(ctx, ds.client, ds.DepthURL)
-	if err != nil {
-		return nil, err
-	}
-	return ds.Intrinsics.RGBDToPointCloud(img, depth)
+	var color *rimage.Image
+	var depth *rimage.DepthMap
+	var err error
+	// do a parallel request for the color and depth image
+	wg := sync.WaitGroup{}
+	// get color image
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer wg.Done()
+		color, err = readColorURL(ctx, ds.client, ds.ColorURL)
+		if err != nil {
+			return nil, err
+		}
+	}(ctx)
+	// get depth image
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer wg.Done()
+		depth, err = readDepthURL(ctx, ds.client, ds.DepthURL)
+		if err != nil {
+			return nil, err
+		}
+	}(ctx)
+	wg.Wait()
+	return ds.Intrinsics.RGBDToPointCloud(color, depth)
 }
 
 // Close closes the connection to both servers.
@@ -264,6 +287,8 @@ func (s *serverSource) Close() {
 // Next returns the next image in the queue from the server.
 // BothStream is deprecated and will be removed.
 func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "imagesource::serverSource::Next")
+	defer span.End()
 	switch s.stream {
 	case ColorStream, BothStream:
 		img, err := readColorURL(ctx, s.client, s.URL)
@@ -279,6 +304,8 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 // serverSource can only produce a PointCloud from a DepthMap.
 // BothStream is deprecated and will be removed.
 func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "imagesource::serverSource::NextPointCloud")
+	defer span.End()
 	if s.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}
