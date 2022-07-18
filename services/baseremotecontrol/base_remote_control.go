@@ -75,9 +75,7 @@ type Config struct {
 }
 
 // BaseRemoteControl defines a BaseRemoteControlService interface.
-type BaseRemoteControl interface {
-	Close(ctx context.Context) error
-}
+type BaseRemoteControl interface{}
 
 // RemoteService is the structure of the remote service.
 type remoteService struct {
@@ -87,11 +85,6 @@ type remoteService struct {
 
 	config *Config
 	logger golog.Logger
-}
-
-type reconfigurableBaseRemoteControl struct {
-	mu     sync.RWMutex
-	actual BaseRemoteControl
 }
 
 var _ = resource.Reconfigurable(&reconfigurableBaseRemoteControl{})
@@ -177,40 +170,6 @@ func (svc *remoteService) start(ctx context.Context) error {
 	return nil
 }
 
-func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Close(ctx)
-}
-
-// WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
-	svc, ok := s.(BaseRemoteControl)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("BaseRemoteControl", s)
-	}
-
-	if reconfigurable, ok := s.(*reconfigurableBaseRemoteControl); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableBaseRemoteControl{actual: svc}, nil
-}
-
-func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	rSvc, ok := newSvc.(*reconfigurableBaseRemoteControl)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newSvc)
-	}
-	if err := viamutils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	svc.actual = rSvc.actual
-	return nil
-}
-
 // Close out of all remote control related systems.
 func (svc *remoteService) Close(ctx context.Context) error {
 	for _, control := range svc.controllerInputs() {
@@ -242,6 +201,45 @@ func (svc *remoteService) controllerInputs() []input.Control {
 		return []input.Control{input.AbsoluteX, input.AbsoluteY, input.AbsoluteRX, input.AbsoluteRY}
 	}
 	return []input.Control{}
+}
+
+type reconfigurableBaseRemoteControl struct {
+	mu     sync.RWMutex
+	actual BaseRemoteControl
+}
+
+func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return viamutils.TryClose(ctx, svc.actual)
+}
+
+// WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(BaseRemoteControl)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("BaseRemoteControl", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableBaseRemoteControl); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableBaseRemoteControl{actual: svc}, nil
+}
+
+func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableBaseRemoteControl)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := viamutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
 }
 
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
