@@ -23,6 +23,7 @@ jobs:
           - arch: arm64
             image: ghcr.io/viamrobotics/canon:arm64-cache
             platform: linux/arm64
+
     runs-on: [${{ matrix.arch }}, qemu-host]
     container:
       image: ${{ matrix.image }}
