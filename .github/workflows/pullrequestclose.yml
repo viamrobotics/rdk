@@ -10,7 +10,7 @@ on:
     types: [ 'closed' ]
 
 jobs:
-appimage_clean:
+  appimage_clean:
     name: Remove PR AppImages
     runs-on: [x64, qemu-host]
     container:
