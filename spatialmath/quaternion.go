@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"encoding/json"
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -239,4 +240,30 @@ func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
 		q = mgl64.QuatSlerp(q1, q2, by)
 	}
 	return quat.Number{q.W, q.X(), q.Y(), q.Z()}
+}
+
+func (q *quaternion) MarshalJSON() ([]byte, error) {
+	return json.Marshal(quaternionJSONFromQuaternion(q))
+}
+
+type quaternionJSON struct {
+	X, Y, Z, W float64
+}
+
+func (oj *quaternionJSON) toQuaternion() *quaternion {
+	return &quaternion{
+		Real: oj.W,
+		Imag: oj.X,
+		Jmag: oj.Y,
+		Kmag: oj.Z,
+	}
+}
+
+func quaternionJSONFromQuaternion(q *quaternion) quaternionJSON {
+	return quaternionJSON{
+		W: q.Real,
+		X: q.Imag,
+		Y: q.Jmag,
+		Z: q.Kmag,
+	}
 }

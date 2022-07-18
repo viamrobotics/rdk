@@ -15,6 +15,7 @@ const (
 	OrientationVectorRadiansType = OrientationType("ov_radians")
 	EulerAnglesType              = OrientationType("euler_angles")
 	AxisAnglesType               = OrientationType("axis_angles")
+	QuaternionType               = OrientationType("quaternion")
 )
 
 // OrientationConfig holds the underlying type of orientation, and the value.
@@ -39,6 +40,13 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 		return &OrientationConfig{Type: string(OrientationVectorDegreesType), Value: json.RawMessage(bytes)}, nil
 	case *EulerAngles:
 		return &OrientationConfig{Type: string(EulerAnglesType), Value: json.RawMessage(bytes)}, nil
+	case *quaternion:
+		oj := quaternionJSONFromQuaternion(oType)
+		bytes, err := json.Marshal(oj)
+		if err != nil {
+			return nil, err
+		}
+		return &OrientationConfig{Type: string(QuaternionType), Value: json.RawMessage(bytes)}, nil
 	default:
 		return nil, newOrientationTypeUnsupportedError(fmt.Sprintf("%T", oType))
 	}
@@ -79,6 +87,13 @@ func (config *OrientationConfig) ParseConfig() (Orientation, error) {
 			return nil, err
 		}
 		return &o, nil
+	case QuaternionType:
+		var oj quaternionJSON
+		err = json.Unmarshal(config.Value, &oj)
+		if err != nil {
+			return nil, err
+		}
+		return oj.toQuaternion(), nil
 	default:
 		return nil, newOrientationTypeUnsupportedError(config.Type)
 	}
