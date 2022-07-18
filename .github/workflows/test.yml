@@ -16,7 +16,6 @@ jobs:
   build_and_test_amd64:
     strategy:
       matrix:
-        arch: [x64, arm64]
         include:
           - arch: x64
             image: ghcr.io/viamrobotics/canon:amd64-cache
