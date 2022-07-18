@@ -42,7 +42,7 @@ jobs:
       run: |
         sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
 
-    - name: Verify no uncommitted changes from "make build lint"
+    - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
       run: |
         git init
         git add .
