@@ -236,7 +236,7 @@ type simpleSource struct {
 }
 
 func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
-	img, err := rimage.NewImageWithDepth(artifact.MustPath(s.filePath+".png"), artifact.MustPath(s.filePath+".dat.gz"), true)
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath(s.filePath + ".dat.gz"))
 	return img, func() {}, err
 }
 
