@@ -233,7 +233,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 	}
 
 	cam3 := &inject.Camera{}
-	pc3, err := makePointCloudFromArtifact(t, "pointcloud/pc1.pcd", 0)
+	pc3, err := makePointCloudFromArtifact(t, "pointcloud/bun0.pcd", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +243,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 	}
 
 	cam4 := &inject.Camera{}
-	pc4, err := makePointCloudFromArtifact(t, "pointcloud/pc2.pcd", 0)
+	pc4, err := makePointCloudFromArtifact(t, "pointcloud/bun45.pcd", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +274,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		},
 		{
 			Name:        "cam4",
-			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{330, 0, 0}},
+			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{0, 0, 0}},
 		},
 	}
 	r.FrameSystemConfigFunc = func(

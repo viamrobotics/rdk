@@ -334,6 +334,7 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 			Absolute:   1e-6,
 			Iterations: 100,
 		},
+		Recorder: optimize.NewPrinter(),
 	}
 
 	// method := &optimize.GradientDescent{
@@ -341,14 +342,14 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	// 	GradStopThreshold: 1e-8,
 	// }
 
-	method := &optimize.Newton{
+	method := &optimize.BFGS{
 		// Increase:          1.1,
 		// GradStopThreshold: 1e-8,
 	}
 
 	// run optimization
 	res, err := optimize.Minimize(prob, x0, settings, method)
-	utils.Logger.Debugf("res = %v", res)
+	utils.Logger.Debugf("res = %v, err = %v", res, err)
 	// if err != nil {
 	// 	return nil, err
 	// }
