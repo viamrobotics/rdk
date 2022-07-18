@@ -201,7 +201,7 @@ func (d *distancePose) Point() r3.Vector {
 }
 
 func (d *distancePose) Orientation() Orientation {
-	return (*quaternion)(&d.orientation)
+	return (*Quaternion)(&d.orientation)
 }
 
 // ResetPoseDQTransalation takes a Pose that must be a dualQuaternion and reset's it's translation.
