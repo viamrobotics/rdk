@@ -3,7 +3,7 @@ version: 1
 script:
  - rm -rf $TARGET_APPDIR | true
  - mkdir -p "$TARGET_APPDIR/usr/bin"
- - cp ../../../bin/Linux-x86_64/server "$TARGET_APPDIR/usr/bin/viam-server"
+ - cp ../../../bin/Linux-aarch64/server "$TARGET_APPDIR/usr/bin/viam-server"
  - mkdir -p "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/"
  - cp ./viam-server.png "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/viam-server.png"
  - mkdir -p "$TARGET_APPDIR/aix.d/"
@@ -21,23 +21,25 @@ AppDir:
     id: com.viam.server
     name: viam-server
     icon: viam-server
-    version: latest
+    version: ${BUILD_CHANNEL}
     exec: usr/bin/aix
     exec_args: $@
   apt:
     arch:
-    - amd64
+    - arm64
     allow_unauthenticated: true
     sources:
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian bullseye main
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian-security bullseye-security main
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian bullseye-updates main
     - sourceline: deb [trusted=yes] https://us-apt.pkg.dev/projects/static-file-server-310021 bullseye main
+    - sourceline: deb [trusted=yes] http://archive.raspberrypi.org/debian/ bullseye main
     include:
     - bash
     - libnlopt0
     - libx264-160
     - libtensorflowlite2
+    - libpigpio1
   files:
     include: []
     exclude:
@@ -50,5 +52,5 @@ AppDir:
     env:
         AIX_TARGET: usr/bin/viam-server
 AppImage:
-  arch: x86_64
-  update-information: zsync|http://packages.viam.com/apps/viam-server/viam-server-latest-x86_64.AppImage.zsync
+  arch: aarch64
+  update-information: zsync|http://packages.viam.com/apps/viam-server/viam-server-{{BUILD_CHANNEL}}-aarch64.AppImage.zsync
