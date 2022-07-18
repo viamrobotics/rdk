@@ -40,7 +40,7 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 		return &OrientationConfig{Type: string(OrientationVectorDegreesType), Value: json.RawMessage(bytes)}, nil
 	case *EulerAngles:
 		return &OrientationConfig{Type: string(EulerAnglesType), Value: json.RawMessage(bytes)}, nil
-	case *quaternion:
+	case *Quaternion:
 		oj := quaternionJSONFromQuaternion(oType)
 		bytes, err := json.Marshal(oj)
 		if err != nil {
