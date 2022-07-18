@@ -131,6 +131,8 @@ func TestClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestInjectedServiceClient(t *testing.T) {
