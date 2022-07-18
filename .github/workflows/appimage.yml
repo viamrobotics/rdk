@@ -14,7 +14,7 @@ env:
 
 jobs:
   appimage:
-    name: Viam Server AppImage Build
+    name: AppImage Build
     strategy:
       matrix:
         include:
@@ -79,7 +79,7 @@ jobs:
         gzip: false
 
   appimage_test:
-    name: Viam Server AppImage Test
+    name: AppImage Test & Deploy
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
       matrix:

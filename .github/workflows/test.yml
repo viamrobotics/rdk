@@ -13,16 +13,19 @@ env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
 jobs:
-  build_and_test_amd64:
+  build_and_test:
+    name: Build and Test
     strategy:
       matrix:
         include:
           - arch: [x64, qemu-host]
             image: ghcr.io/viamrobotics/canon:amd64-cache
             platform: linux/amd64
+            build_lint: 'make build lint'
           - arch: [arm64, qemu-host]
             image: ghcr.io/viamrobotics/canon:arm64-cache
             platform: linux/arm64
+            build_lint: 'make build-go lint-go'
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -44,7 +47,7 @@ jobs:
         git init
         git add .
         chown -R testbot .
-        sudo -u testbot bash -lc 'make build lint'
+        sudo -u testbot bash -lc '${{ matrix.build_lint }}'
         GEN_DIFF=$(git status -s)
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build lint" resulted in changes not in git' 1>&2
