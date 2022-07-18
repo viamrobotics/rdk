@@ -247,7 +247,7 @@ func (q *quaternion) MarshalJSON() ([]byte, error) {
 }
 
 type quaternionJSON struct {
-	X, Y, Z, W float64
+	W, X, Y, Z float64
 }
 
 func (oj *quaternionJSON) toQuaternion() *quaternion {
