@@ -45,7 +45,8 @@ func TestDetectorMap(t *testing.T) {
 	names = reg.detectorNames()
 	test.That(t, names, test.ShouldContain, fnName)
 	// remove
-	reg.removeDetector(fnName, testlog)
+	err = reg.removeDetector(fnName, testlog)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reg.detectorNames(), test.ShouldNotContain, fnName)
 }
 
@@ -77,10 +78,12 @@ func TestDetectorRemoval(t *testing.T) {
 	err = reg.registerDetector("y", &d, testlog)
 	test.That(t, err, test.ShouldBeNil)
 	logger, obs := golog.NewObservedTestLogger(t)
-	reg.removeDetector("z", logger)
+	err = reg.removeDetector("z", logger)
+	test.That(t, err, test.ShouldBeNil)
 	got := obs.All()[len(obs.All())-1].Message
 	test.That(t, got, test.ShouldContainSubstring, "no Detector with name")
-	reg.removeDetector("x", logger)
+	err = reg.removeDetector("x", logger)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reg.detectorNames(), test.ShouldNotContain, "x")
 }
 

@@ -183,11 +183,15 @@
         grpcStatus.forEach((s) => {
           let nameObj = s.getName().toObject();
           let statusJs = s.getStatus().toJavaScript();
-          let fixed = fixRawStatus(nameObj, statusJs);
+          try {
+            let fixed = fixRawStatus(nameObj, statusJs);
 
-          let nameStr = theApp.resourceNameToString(nameObj);
-          rawStatus[nameStr] = statusJs;
-          status[nameStr] = fixed;
+            let nameStr = theApp.resourceNameToString(nameObj);
+            rawStatus[nameStr] = statusJs;
+            status[nameStr] = fixed;
+          } catch(e) {
+            console.error("couldn't fix status for " + theApp.resourceNameToString(nameObj), e)
+          }
         });
 
         theData.rawStatus = rawStatus;
@@ -653,6 +657,7 @@
               req.setName("UI");
               const mimeType = "image/jpeg";
               req.setMimeType(mimeType);
+              req.setIncludeRobotMarker(true);
               slamService.getMap(req, {}, (err, resp) => {
                 grpcCallback(err, resp, false);
                 if (err) {
