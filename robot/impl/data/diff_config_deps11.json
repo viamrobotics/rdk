@@ -6,7 +6,7 @@
       "name": "mock1",
       "type": "mock",
       "attributes":{
-        "infered_dep" :["mock2","mock3"]
+        "inferred_dep" :["mock2","mock3"]
       }
     },
     {
