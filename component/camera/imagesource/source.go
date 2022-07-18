@@ -262,9 +262,10 @@ func (s *serverSource) Close() {
 }
 
 // Next returns the next image in the queue from the server.
+// BothStream is deprecated and will be removed.
 func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 	switch s.stream {
-	case ColorStream:
+	case ColorStream, BothStream:
 		img, err := readColorURL(ctx, s.client, s.URL)
 		return img, func() {}, err
 	case DepthStream:
@@ -276,11 +277,12 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 // serverSource can only produce a PointCloud from a DepthMap.
+// BothStream is deprecated and will be removed.
 func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if s.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}
-	if s.stream == DepthStream {
+	if s.stream == DepthStream || s.stream == BothStream {
 		depth, err := readDepthURL(ctx, s.client, s.URL)
 		if err != nil {
 			return nil, err
@@ -291,7 +293,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 		errors.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)
 }
 
-// NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
+// NewServerSource creates the ImageSource that streams color/depth data from an external server at a given URL.
 func NewServerSource(cfg *ServerAttrs, logger golog.Logger) (camera.Camera, error) {
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")

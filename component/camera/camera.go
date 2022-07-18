@@ -170,21 +170,14 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	if err != nil {
 		return nil, err
 	}
+	defer closer()
 
 	dm, ok := img.(*rimage.DepthMap)
 	if ok {
 		return dm.ToPointCloud(iswp.projector), nil
 	}
 
-	defer closer()
-
-	_, toImageWithDepthSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ConvertToImageWithDepth")
-	imageWithDepth := rimage.ConvertToImageWithDepth(img)
-	toImageWithDepthSpan.End()
-
-	_, toPcdSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ImageWithDepthToPointCloud")
-	defer toPcdSpan.End()
-	return iswp.projector.RGBDToPointCloud(imageWithDepth.Color, imageWithDepth.Depth)
+	return nil, errors.New("no depth information available, cannot project to point cloud")
 }
 
 func (iswp *imageSourceWithProjector) GetProperties(ctx context.Context) (rimage.Projector, error) {
