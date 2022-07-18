@@ -53,12 +53,12 @@ jobs:
         fi
 
     - name: Test
-      if: matrix.arch == x64
+      if: matrix.platform == 'linux/amd64'
       run: |
         sudo -u testbot bash -lc 'make cover test-web'
 
     - name: Code Coverage Summary Report
-      if: matrix.arch == x64
+      if: matrix.platform == 'linux/amd64'
       uses: edaniels/CodeCoverageSummary@v1.2.3
       with:
         filename: coverage.xml
@@ -73,7 +73,7 @@ jobs:
 
     - name: Add Coverage PR Comment
       uses: marocchino/sticky-pull-request-comment@v2.2.0
-      if: matrix.arch == x64 && github.event_name == 'pull_request'
+      if: matrix.platform == 'linux/amd64' && github.event_name == 'pull_request'
       with:
         recreate: true
         path: code-coverage-results.md
