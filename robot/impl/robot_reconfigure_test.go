@@ -61,12 +61,27 @@ func TestRobotReconfigure(t *testing.T) {
 
 	registry.RegisterComponent(mockSubtype, modelName1, registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			if _, ok := config.Attributes["should_fail"]; ok {
+			// test if implicit depencies are properly propagated
+			for _, dep := range config.ConvertedAttributes.(*mockFakeConfig).InferedDep {
+				if _, ok := deps[mockNamed(dep)]; !ok {
+					return nil, errors.Errorf("inferred dependency %q cannot be found", mockNamed(dep))
+				}
+			}
+			if config.ConvertedAttributes.(*mockFakeConfig).ShouldFail {
 				return nil, errors.Errorf("cannot build %q for some obscure reason", config.Name)
 			}
 			return &mockFake{x: 5}, nil
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(
+		mockSubtype.ResourceSubtype,
+		modelName1,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf mockFakeConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&mockFakeConfig{})
 
 	// these settings to be toggled in test cases specifically
 	// testing for a reconfigurability mismatch
@@ -350,7 +365,7 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("additive deps diff", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_deps1.json")
-		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
+		conf2 := ConfigFromFile(t, "data/diff_config_deps10.json")
 		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
@@ -360,6 +375,10 @@ func TestRobotReconfigure(t *testing.T) {
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
+		mockNames := []resource.Name{
+			mockNamed("mock1"), mockNamed("mock2"),
+			mockNamed("mock3"),
+		}
 
 		robot.Reconfigure(context.Background(), conf1)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -392,6 +411,7 @@ func TestRobotReconfigure(t *testing.T) {
 				baseNames,
 				boardNames,
 				serviceNames,
+				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -434,6 +454,7 @@ func TestRobotReconfigure(t *testing.T) {
 				baseNames,
 				boardNames,
 				motorNames,
+				mockNames,
 				serviceNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -476,20 +497,22 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:7]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:8]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
+				[]resource.Name{mockNamed("mock1")},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[7:9]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[8:12]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				armNames,
+				[]resource.Name{mockNamed("mock2"), mockNamed("mock3")},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[9:11]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[12:14]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				baseNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[11]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[14]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				boardNames,
 			)...))
@@ -1921,6 +1944,58 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			)...))
 	})
+	t.Run("complex diff", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
+		conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
+		conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
+		robot, err := New(context.Background(), conf1, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		armNames := []resource.Name{arm.Named("mock7")}
+		mockNames := []resource.Name{
+			mockNamed("mock3"), mockNamed("mock4"),
+			mockNamed("mock6"), mockNamed("mock5"),
+		}
+
+		robot.Reconfigure(context.Background(), conf1)
+		test.That(
+			t,
+			utils.NewStringSet(arm.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
+		)
+		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+			rdktestutils.ConcatResourceNames(
+				armNames,
+				serviceNames,
+				mockNames,
+			)...))
+		_, err = robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldNotBeNil)
+		_, err = arm.FromRobot(robot, "mock7")
+		test.That(t, err, test.ShouldBeNil)
+		robot.Reconfigure(context.Background(), conf2)
+		mockNames = []resource.Name{
+			mockNamed("mock1"),
+			mockNamed("mock3"), mockNamed("mock2"), mockNamed("mock5"),
+		}
+		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
+
+		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+			rdktestutils.ConcatResourceNames(
+				mockNames,
+				serviceNames,
+			)...))
+
+		_, err = arm.FromRobot(robot, "arm1")
+		test.That(t, err, test.ShouldNotBeNil)
+		_, err = robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
 
 func TestSensorsServiceUpdate(t *testing.T) {
@@ -2264,6 +2339,12 @@ type mockFake struct {
 	reconfCount int
 }
 
+type mockFakeConfig struct {
+	InferedDep []string `json:"infered_dep"`
+	ShouldFail bool     `json:"should_fail"`
+	Blah       int      `json:"blah"`
+}
+
 func (m *mockFake) Reconfigure(ctx context.Context, newResource resource.Reconfigurable) error {
 	res, ok := newResource.(*mockFake)
 	if !ok {
@@ -2276,6 +2357,12 @@ func (m *mockFake) Reconfigure(ctx context.Context, newResource resource.Reconfi
 
 func (m *mockFake) UpdateAction(cfg *config.Component) config.UpdateActionType {
 	return config.Reconfigure
+}
+
+func (m *mockFakeConfig) Validate(path string) ([]string, error) {
+	depOut := []string{}
+	depOut = append(depOut, m.InferedDep...)
+	return depOut, nil
 }
 
 type mockFake2 struct {
