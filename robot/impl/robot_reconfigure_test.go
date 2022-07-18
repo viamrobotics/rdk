@@ -2340,7 +2340,7 @@ type mockFake struct {
 }
 
 type mockFakeConfig struct {
-	InferedDep []string `json:"infered_dep"`
+	InferedDep []string `json:"inferred_dep"`
 	ShouldFail bool     `json:"should_fail"`
 	Blah       int      `json:"blah"`
 }
