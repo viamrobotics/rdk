@@ -274,7 +274,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		},
 		{
 			Name:        "cam4",
-			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{0, 0, 0}},
+			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{0, 0, 0}, Orientation: spatialmath.EulerAngles{Roll: Math.Pi / 4, Pitch: 0, Yaw: 0}},
 		},
 	}
 	r.FrameSystemConfigFunc = func(

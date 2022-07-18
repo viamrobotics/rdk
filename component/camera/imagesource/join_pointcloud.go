@@ -274,30 +274,42 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	if err != nil {
 		return nil, err
 	}
+
+	sourcePointList := make([]r3.Vector, pcSrc.Size())
+	nearestNeighborBuffer := make([]r3.Vector, pcSrc.Size())
+
+	var nearest r3.Vector
+	var index int
+	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		sourcePointList[index] = p
+		nearest, _, _, _ = target.NearestNeighbor(p)
+		nearestNeighborBuffer[index] = nearest
+		index++
+		return true
+	})
 	// create optimization problem
 	optFunc := func(x []float64) float64 {
 		// x is an 7-vector used to create a pose
 		point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
 		quat := quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]}
-		euler := spatialmath.QuatToEulerAngles(quat)
+		orient := spatialmath.QuatToOV(quat)
 
-		pose := spatialmath.NewPoseFromOrientation(point, euler)
+		pose := spatialmath.NewPoseFromOrientation(point, orient)
 
 		// pose := spatialmath.NewPoseFromAxisAngle(point, axis.Normalize(), rotAxis.Theta)
 		// compute the error
 		var dist float64
 		var currPose spatialmath.Pose
-		var nearest r3.Vector
 		// utils.Logger.Debugf("size of sourcePointList = %d", len(sourcePointList))
-		pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-			currPose = spatialmath.NewPoseFromPoint(p)
+		for i := 0; i < len(sourcePointList); i++ {
+			currPose = spatialmath.NewPoseFromPoint(sourcePointList[i])
 			transformedP := spatialmath.Compose(pose, currPose).Point()
-			nearest, _, _, _ = target.NearestNeighbor(transformedP)
+			nearest := nearestNeighborBuffer[i]
+			nearestNeighborBuffer[i], _, _, _ = target.NearestNeighbor(transformedP)
 			dist += math.Sqrt(math.Pow((transformedP.X-nearest.X), 2) +
 				math.Pow((transformedP.Y-nearest.Y), 2) +
 				math.Pow((transformedP.Z-nearest.Z), 2))
-			return true
-		})
+		}
 
 		return dist / float64(pcSrc.Size())
 	}
@@ -357,8 +369,8 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 
 	// create the new pose
 	point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
-	quat := spatialmath.QuatToOV(quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]})
-	pose := spatialmath.NewPoseFromOrientationVector(point, quat)
+	quat := spatialmath.Quaternion(quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]})
+	pose := spatialmath.NewPoseFromOrientation(point, quat)
 
 	// transform the pointcloud
 	registeredPointCloud := pointcloud.NewWithPrealloc(pcSrc.Size())
