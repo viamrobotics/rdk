@@ -78,6 +78,7 @@ func TestPCDNoColor(t *testing.T) {
 
 	testNoColorASCIIRoundTrip(t, cloud)
 	testNoColorBinaryRoundTrip(t, cloud)
+	testLargeBinaryNoError(t)
 }
 
 func testNoColorASCIIRoundTrip(t *testing.T, cloud PointCloud) {
@@ -185,6 +186,19 @@ func testBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 
 	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
 	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func testLargeBinaryNoError(t *testing.T) {
+	// This tests whether large pointclouds that exceed the usual buffered page size for a file error on reads
+	t.Helper()
+	var buf bytes.Buffer
+	largeCloud := newBigPC()
+	err := ToPCD(largeCloud, &buf, PCDBinary)
+	test.That(t, err, test.ShouldBeNil)
+
+	readPointCloud, err := ReadPCD(strings.NewReader(buf.String()))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readPointCloud.Size(), test.ShouldEqual, largeCloud.Size())
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
