@@ -19,10 +19,10 @@ import (
 // Aligned matters if you are reading a .both.gz file and both the rgb and d image are already aligned.
 // Otherwise, if you are just reading an image, aligned is a moot parameter and should be false.
 func readImageFromFile(path string, aligned bool) (image.Image, error) {
-	switch x := path; {
-	case strings.HasSuffix(x, ".both.gz"):
+	switch {
+	case strings.HasSuffix(path, ".both.gz"):
 		return ReadBothFromFile(path, aligned)
-	case strings.HasSuffix(x, ".dat.gz"):
+	case strings.HasSuffix(path, ".dat.gz"):
 		return ParseDepthMap(path)
 	default:
 		//nolint:gosec
