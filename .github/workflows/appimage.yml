@@ -89,6 +89,9 @@ jobs:
     timeout-minutes: 15
 
     steps:
+    - name: Clean Workspace
+      uses: AutoModality/action-clean@v1.1.0
+
     - name: Test AppImage
       run: |
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
