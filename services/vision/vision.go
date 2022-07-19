@@ -206,7 +206,7 @@ func (vs *visionService) GetDetections(ctx context.Context, cameraName, detector
 }
 
 func (vs *visionService) GetDetectionsFromImage(ctx context.Context, img image.Image, detectorName string) ([]objdet.Detection, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetectionsFromImage")
+	_, span := trace.StartSpan(ctx, "service::vision::GetDetectionsFromImage")
 	defer span.End()
 	detector, err := vs.detReg.detectorLookup(detectorName)
 	if err != nil {
