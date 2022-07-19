@@ -6,8 +6,8 @@ concurrency:
 
 on:
   pull_request:
-    branches: [ 'main' ]
-    types: [ 'closed', 'smurf-workflow' ]
+    branches: [ 'main', 'smurf-workflow' ]
+    types: [ 'closed' ]
 
 jobs:
   appimage_clean:
