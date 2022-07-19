@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -25,7 +26,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	goutils "go.viam.com/utils"
 )
 
 func init() {
@@ -116,7 +116,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableMotionService{actual: svc}, nil
 }
 
-// Reconfigure replaces the old data manager service with a new data manager
+// Reconfigure replaces the old data manager service with a new data manager.
 func (svc *reconfigurableMotionService) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()

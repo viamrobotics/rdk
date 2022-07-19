@@ -456,7 +456,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableDataManager{actual: svc}, nil
 }
 
-// Reconfigure replaces the old data manager service with a new data manager
+// Reconfigure replaces the old data manager service with a new data manager.
 func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
