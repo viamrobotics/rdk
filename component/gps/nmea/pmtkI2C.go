@@ -57,11 +57,12 @@ func init() {
 // PmtkI2CNMEAGPS allows the use of any GPS chip that communicates over I2C using the PMTK protocol.
 type PmtkI2CNMEAGPS struct {
 	generic.Unimplemented
-	mu     sync.RWMutex
-	bus    board.I2C
-	addr   byte
-	wbaud  int
-	logger golog.Logger
+	mu          sync.RWMutex
+	bus         board.I2C
+	addr        byte
+	wbaud       int
+	logger      golog.Logger
+	disableNmea bool
 
 	data gpsData
 
@@ -88,11 +89,15 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 		return nil, errors.New("must specify gps i2c address")
 	}
 	wbaud := config.Attributes.Int("ntrip_baud", 38400)
+	disableNmea := config.Attributes.Bool(disableNmeaName, false)
+	if disableNmea {
+		logger.Info("SerialNMEAGPS: NMEA reading disabled")
+	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &PmtkI2CNMEAGPS{
-		bus: i2cbus, addr: byte(addr), wbaud: wbaud, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
+		bus: i2cbus, addr: byte(addr), wbaud: wbaud, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, disableNmea: disableNmea,
 	}
 	g.Start(ctx)
 
@@ -143,38 +148,40 @@ func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 			default:
 			}
 
-			// Opening an i2c handle blocks the whole bus, so we open/close each loop so other things also have a chance to use it
-			handle, err := g.bus.OpenHandle(g.addr)
-			if err != nil {
-				g.logger.Fatalf("can't open gps i2c handle: %s", err)
-				return
-			}
-			buffer, err := handle.Read(ctx, 1024)
-			hErr := handle.Close()
-			if hErr != nil {
-				g.logger.Fatalf("failed to close handle: %s", hErr)
-				return
-			}
-			if err != nil {
-				g.logger.Error(err)
-				continue
-			}
-			for _, b := range buffer {
-				// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
-				// Since CR should never appear except at the end of our sentence, we use that to determine sentence end.
-				// LF is merely ignored.
-				if b == 0x0D {
-					if strBuf != "" {
-						g.mu.Lock()
-						err = g.data.parseAndUpdate(strBuf)
-						g.mu.Unlock()
-						if err != nil {
-							g.logger.Debugf("can't parse nmea : %s, %v", strBuf, err)
+			if !g.disableNmea {
+				// Opening an i2c handle blocks the whole bus, so we open/close each loop so other things also have a chance to use it
+				handle, err := g.bus.OpenHandle(g.addr)
+				if err != nil {
+					g.logger.Fatalf("can't open gps i2c handle: %s", err)
+					return
+				}
+				buffer, err := handle.Read(ctx, 1024)
+				hErr := handle.Close()
+				if hErr != nil {
+					g.logger.Fatalf("failed to close handle: %s", hErr)
+					return
+				}
+				if err != nil {
+					g.logger.Error(err)
+					continue
+				}
+				for _, b := range buffer {
+					// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
+					// Since CR should never appear except at the end of our sentence, we use that to determine sentence end.
+					// LF is merely ignored.
+					if b == 0x0D {
+						if strBuf != "" {
+							g.mu.Lock()
+							err = g.data.parseAndUpdate(strBuf)
+							g.mu.Unlock()
+							if err != nil {
+								g.logger.Debugf("can't parse nmea : %s, %v", strBuf, err)
+							}
 						}
+						strBuf = ""
+					} else if b != 0x0A && b != 0xFF { // adds only valid bytes
+						strBuf += string(b)
 					}
-					strBuf = ""
-				} else if b != 0x0A && b != 0xFF { // adds only valid bytes
-					strBuf += string(b)
 				}
 			}
 		}
