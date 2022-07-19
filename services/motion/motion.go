@@ -69,68 +69,6 @@ type Service interface {
 
 var _ = resource.Reconfigurable(&reconfigurableMotionService{})
 
-type reconfigurableMotionService struct {
-	mu     sync.RWMutex
-	actual Service
-}
-
-func (svc *reconfigurableMotionService) Move(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
-) (bool, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Move(ctx, componentName, destination, worldState)
-}
-
-func (svc *reconfigurableMotionService) GetPose(
-	ctx context.Context,
-	componentName resource.Name,
-	destinationFrame string,
-	supplementalTransforms []*commonpb.Transform,
-) (*referenceframe.PoseInFrame, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetPose(ctx, componentName, destinationFrame, supplementalTransforms)
-}
-
-func (svc *reconfigurableMotionService) Close(ctx context.Context) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return goutils.TryClose(ctx, svc.actual)
-}
-
-// WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
-	svc, ok := s.(Service)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Motion Service", s)
-	}
-
-	if reconfigurable, ok := s.(*reconfigurableMotionService); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableMotionService{actual: svc}, nil
-}
-
-// Reconfigure replaces the old data manager service with a new data manager.
-func (svc *reconfigurableMotionService) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	rSvc, ok := newSvc.(*reconfigurableMotionService)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newSvc)
-	}
-	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	svc.actual = rSvc.actual
-	return nil
-}
-
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("motion")
 
@@ -281,4 +219,66 @@ func (ms *motionService) GetPose(
 		destinationFrame,
 		supplementalTransforms,
 	)
+}
+
+type reconfigurableMotionService struct {
+	mu     sync.RWMutex
+	actual Service
+}
+
+func (svc *reconfigurableMotionService) Move(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *referenceframe.PoseInFrame,
+	worldState *commonpb.WorldState,
+) (bool, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.Move(ctx, componentName, destination, worldState)
+}
+
+func (svc *reconfigurableMotionService) GetPose(
+	ctx context.Context,
+	componentName resource.Name,
+	destinationFrame string,
+	supplementalTransforms []*commonpb.Transform,
+) (*referenceframe.PoseInFrame, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetPose(ctx, componentName, destinationFrame, supplementalTransforms)
+}
+
+func (svc *reconfigurableMotionService) Close(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return goutils.TryClose(ctx, svc.actual)
+}
+
+// Reconfigure replaces the old Motion Service with a new Motion Service.
+func (svc *reconfigurableMotionService) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableMotionService)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := goutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
+}
+
+// WrapWithReconfigurable wraps a Motion Service as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("motion.Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableMotionService); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableMotionService{actual: svc}, nil
 }

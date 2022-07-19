@@ -549,20 +549,6 @@ func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
 	return goutils.TryClose(ctx, svc.actual)
 }
 
-// WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
-	svc, ok := s.(Service)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Data Manager Service", s)
-	}
-
-	if reconfigurable, ok := s.(*reconfigurableDataManager); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableDataManager{actual: svc}, nil
-}
-
 // Reconfigure replaces the old data manager service with a new data manager.
 func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
 	svc.mu.Lock()
@@ -576,6 +562,20 @@ func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc re
 	}
 	svc.actual = rSvc.actual
 	return nil
+}
+
+// WrapWithReconfigurable wraps a data_manager as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("data_manager.Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableDataManager); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableDataManager{actual: svc}, nil
 }
 
 // Get the config associated with the data manager service.
