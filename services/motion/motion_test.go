@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
+
 	// register.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -286,7 +287,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = motion.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motion Service", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", nil))
 
 	reconfSvc2, err := motion.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)
