@@ -39,13 +39,15 @@ func init() {
 						}
 					}
 				}
-				if mcfg.TicksPerRotation == 0 {
-					mcfg.TicksPerRotation = 1000
-				}
-				if mcfg.MaxRPM == 0 {
-					mcfg.MaxRPM = 60
-				}
+				
 				m.cfg = *mcfg
+				if m.cfg.TicksPerRotation == 0 {
+					m.cfg.TicksPerRotation = 1
+				}
+				if m.cfg.MaxRPM == 0 {
+					m.cfg.MaxRPM = 60
+				}
+
 				if mcfg.EncoderA != "" || mcfg.EncoderB != "" {
 					m.positionReporting = true
 					
@@ -82,11 +84,13 @@ func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 		for {
 			select {
 			case <-cancelCtx.Done():
+				e.logger.Debug("Canceled")
 				return
 			default:
 			}
 
 			if !utils.SelectContextOrWait(cancelCtx, 100*time.Millisecond) {
+				e.logger.Debug("Context Done")
 				return
 			}
 
@@ -157,6 +161,7 @@ func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error)
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.logger.Debugf("Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 	newSpeed := (m.cfg.MaxRPM * m.powerPct) * float64(m.cfg.TicksPerRotation)
 	_ = m.encoder.SetSpeed(ctx, newSpeed)
@@ -195,10 +200,14 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 	if rpm < 0 {
 		revolutions *= -1
 	}
+	if rpm == 0 {
+		revolutions = 0
+	}
 
 	pos, _ := m.encoder.GetPosition(ctx)
 	m.encoder.SetPosition(ctx, pos + revolutions * float64(m.cfg.TicksPerRotation))
 	m.encoder.SetSpeed(ctx, 0)
+	m.setPowerPct(0.0)
 
 	return nil
 }
@@ -209,6 +218,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
 	defer m.mu.Unlock()
 	m.encoder.SetPosition(ctx, pos * float64(m.cfg.TicksPerRotation))
 	m.encoder.SetSpeed(ctx, 0)
+	m.setPowerPct(0.0)
 	return nil
 }
 
@@ -227,7 +237,9 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 func (m *Motor) Stop(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.logger.Debug("Motor Stopped")
 	m.setPowerPct(0.0)
+	_ = m.encoder.SetSpeed(ctx, 0.0)
 	return nil
 }
 
