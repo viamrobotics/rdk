@@ -54,23 +54,14 @@ func TestNewSensor(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "ultrasonic: cannot find board")
 }
 
-// mock ultrasonic sensor
-type mock struct {
-	Name          string
-	config        *AttrConfig
-	echoInterrupt board.DigitalInterrupt
-	triggerPin    board.GPIOPin
-	intChan       chan bool
-}
-
 // mock board
 type mockBoard struct {
 	board.LocalBoard
 	Name string
 }
 
-func newBoard(name string) *mock {
-	return &mock{
-		Name: board1,
+func newBoard(name string) *mockBoard {
+	return &mockBoard{
+		Name: name,
 	}
 }
