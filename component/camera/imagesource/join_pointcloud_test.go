@@ -253,6 +253,16 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		return pc4, nil
 	}
 
+	cam5 := &inject.Camera{}
+	pc5, err := makePointCloudFromArtifact(t, "pointcloud/bun90.pcd", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cam4.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pc5, nil
+	}
+
 	base1 := &inject.Base{}
 
 	r := &inject.Robot{}
@@ -277,6 +287,10 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 			Name:        "cam4",
 			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{-70, 0, 0}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: -math.Pi / 4}},
 		},
+		{
+			Name:        "cam5",
+			FrameConfig: &config.Frame{Parent: "cam4", Translation: spatialmath.TranslationConfig{-70, 0, 0}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: -math.Pi / 4}},
+		},
 	}
 	r.FrameSystemConfigFunc = func(
 		ctx context.Context, additionalTransforms []*commonpb.Transform,
@@ -288,7 +302,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		return logger
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), camera.Named("cam4"), base.Named("base1")}
+		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), camera.Named("cam4"), camera.Named("cam5"), base.Named("base1")}
 	}
 	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 		switch n.Name {
@@ -300,6 +314,8 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 			return cam3, nil
 		case "cam4":
 			return cam4, nil
+		case "cam5":
+			return cam5, nil
 		case "base1":
 			return base1, nil
 		default:
@@ -336,7 +352,31 @@ func TestTwinPointCloudICP(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+
 	filename := "test_twin_" + time.Now().Format(time.RFC3339) + "*.pcd"
+	file, err := os.CreateTemp("/tmp", filename)
+	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
+
+	utils.Logger.Debugf("Number of points: %d", pc.Size())
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldNotBeNil)
+}
+
+func TestMultiPointCloudICP(t *testing.T) {
+	r := makeFakeRobotICP(t)
+
+	attrs := &JoinAttrs{
+		SourceCameras: []string{"cam3", "cam4", "cam5"},
+		TargetFrame:   "cam3",
+		MergeMethod:   "icp",
+	}
+	joinedCam, err := newJoinPointCloudSource(r, attrs)
+	test.That(t, err, test.ShouldBeNil)
+	pc, err := joinedCam.NextPointCloud(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	filename := "test_multi_" + time.Now().Format(time.RFC3339) + "*.pcd"
 	file, err := os.CreateTemp("/tmp", filename)
 	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
 
