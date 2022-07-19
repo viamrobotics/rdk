@@ -387,11 +387,15 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	if err != nil {
 		return nil, err
 	}
-	if f.Reconfigurable == nil {
-		return svc, nil
+	if f.Reconfigurable != nil {
+		return f.Reconfigurable(svc)
 	}
 
-	return f.Reconfigurable(svc)
+	c := registry.ResourceSubtypeLookup(rName.Subtype)
+	if c == nil || c.Reconfigurable == nil {
+		return svc, nil
+	}
+	return c.Reconfigurable(svc)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
