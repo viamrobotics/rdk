@@ -108,3 +108,8 @@ jobs:
   test_passing:
     name: All Tests Passing
     needs: [test_pi, build_and_test]
+
+    steps:
+      name: Pass
+      run: |
+        true
