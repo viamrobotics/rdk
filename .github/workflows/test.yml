@@ -108,8 +108,8 @@ jobs:
   test_passing:
     name: All Tests Passing
     needs: [test_pi, build_and_test]
-
+    runs-on: [x64, qemu-host]
     steps:
       - name: Pass
-      run: |
-        true
+        run: |
+          true
