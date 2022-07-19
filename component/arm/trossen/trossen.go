@@ -1,5 +1,5 @@
-// Package wx250s implements the WidowX 250 Robot Arm from Trossen Robotics.
-package wx250s
+// Package trossen implements arms from Trossen Robotics.
+package trossen
 
 import (
 	"context"
@@ -27,20 +27,8 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
-
-//go:embed wx250s_kinematics.json
-var wx250smodeljson []byte
-
-func init() {
-	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(ctx, config.Attributes, r, logger)
-		},
-	})
-}
 
 // SleepAngles are the angles we go to to prepare to turn off torque.
 var SleepAngles = map[string]float64{
@@ -100,15 +88,15 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
-// NewArm TODO.
-func NewArm(ctx context.Context, attributes config.AttributeMap, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
+// NewArm returns an instance of Arm given a model json.
+func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, json []byte) (arm.LocalArm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
 		return nil, err
 	}
 
-	model, err := referenceframe.UnmarshalModelJSON(wx250smodeljson, "")
+	model, err := referenceframe.UnmarshalModelJSON(json, "")
 	if err != nil {
 		return nil, err
 	}
@@ -167,10 +155,20 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 
 // GetJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
 func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	return &pb.JointPositions{}, nil
+	angleMap, err := a.GetAllAngles()
+	if err != nil {
+		return &pb.JointPositions{}, err
+	}
+
+	positions := make([]float64, 0, len(a.JointOrder()))
+	for i, jointName := range a.JointOrder() {
+		positions[i] = servoPosToValues(angleMap[jointName])
+	}
+
+	return &pb.JointPositions{Values: positions}, nil
 }
 
-// Stop is unimplemented for wx250s.
+// Stop is unimplemented for trossen.
 func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
 	return arm.ErrStopUnimplemented
@@ -201,10 +199,10 @@ func (a *Arm) Close() {
 		if err != nil {
 			a.logger.Errorf("Home position error: %s", err)
 		}
-	}
-	err = a.SleepPosition(context.Background())
-	if err != nil {
-		a.logger.Errorf("Sleep pos error: %s", err)
+		err = a.SleepPosition(context.Background())
+		if err != nil {
+			a.logger.Errorf("Sleep pos error: %s", err)
+		}
 	}
 	err = a.TorqueOff()
 	if err != nil {
@@ -237,7 +235,7 @@ func (a *Arm) JointOrder() []string {
 	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot"}
 }
 
-// PrintPositions print positions of all servos.
+// PrintPositions prints positions of all servos.
 // TODO(pl): Print joint names, not just servo numbers.
 func (a *Arm) PrintPositions() error {
 	posString := ""
@@ -251,7 +249,7 @@ func (a *Arm) PrintPositions() error {
 	return nil
 }
 
-// GetAllServos return a slice containing all servos in the arm.
+// GetAllServos returns a slice containing all servos in the arm.
 func (a *Arm) GetAllServos() []*servo.Servo {
 	var servos []*servo.Servo
 	for _, joint := range a.JointOrder() {
@@ -280,7 +278,7 @@ func (a *Arm) SetAcceleration(accel int) error {
 	return nil
 }
 
-// SetVelocity set velocity for servos in travel time;
+// SetVelocity sets velocity for servos in travel time;
 // recommended value 1000.
 func (a *Arm) SetVelocity(veloc int) error {
 	a.moveLock.Lock()
@@ -410,6 +408,15 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 }
 
 func setServoDefaults(newServo *servo.Servo) error {
+	// Set some nice-to-have settings
+	err := newServo.SetTorqueEnable(false)
+	if err != nil {
+		return err
+	}
+	err = newServo.SetMovingThreshold(0)
+	if err != nil {
+		return errors.Wrapf(err, "error SetMovingThreshold servo %d", newServo.ID)
+	}
 	dm, err := newServo.DriveMode()
 	if err != nil {
 		return errors.Wrapf(err, "error DriveMode servo %d", newServo.ID)
@@ -449,7 +456,7 @@ func setServoDefaults(newServo *servo.Servo) error {
 	return nil
 }
 
-// findServos find the specified number of Dynamixel servos on the specified USB port
+// findServos finds the specified number of Dynamixel servos on the specified USB port
 // we are going to hardcode some USB parameters that we will literally never want to change.
 func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, error) {
 	baudRate, err := strconv.Atoi(baudRateStr)
