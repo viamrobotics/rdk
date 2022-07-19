@@ -51,5 +51,4 @@ AppDir:
         AIX_TARGET: usr/bin/viam-server
 AppImage:
   arch: x86_64
-  update-information: zsync|http://packages.viam.com/apps/viam-server/viam-server-{{BUILD_CHANNEL}}-x86_64.AppImage.zsync
-
+  update-information: zsync|http://packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-x86_64.AppImage.zsync
