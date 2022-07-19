@@ -4,6 +4,7 @@ package vision
 
 import (
 	"context"
+	"image"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
@@ -201,6 +202,16 @@ func (vs *visionService) GetDetections(ctx context.Context, cameraName, detector
 	}
 	defer release()
 
+	return detector(img)
+}
+
+func (vs *visionService) GetDetectionsFromImage(ctx context.Context, img image.Image, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetectionsFromImage")
+	defer span.End()
+	detector, err := vs.detReg.detectorLookup(detectorName)
+	if err != nil {
+		return nil, err
+	}
 	return detector(img)
 }
 
