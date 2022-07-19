@@ -109,7 +109,7 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 	}
 	intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 	if !ok {
-		return transform.NewNoIntrinsicsError("Cannot convert Projector to Intrinsics")
+		return transform.NewNoIntrinsicsError("Intrinsics do not exist")
 	}
 	err = intrinsics.CheckValid()
 	if err != nil {
@@ -152,7 +152,7 @@ func (slamSvc *slamService) orbConfigToInt(key string, def int) (int, error) {
 
 	val, err := strconv.Atoi(valStr)
 	if err != nil {
-		return 0, err
+		return 0, errors.Errorf("Parameter %s has an invalid definition", key)
 	}
 
 	return val, nil
@@ -167,7 +167,7 @@ func (slamSvc *slamService) orbConfigToFloat(key string, def float64) (float64, 
 
 	val, err := strconv.ParseFloat(valStr, 64)
 	if err != nil {
-		return 0, err
+		return 0, errors.Errorf("Parameter %s has an invalid definition", key)
 	}
 	return val, nil
 }
