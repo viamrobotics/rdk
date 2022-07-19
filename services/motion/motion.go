@@ -4,6 +4,7 @@ package motion
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -18,11 +19,13 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
 func init() {
@@ -44,6 +47,7 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
+		Reconfigurable: WrapWithReconfigurable,
 	})
 }
 
@@ -61,6 +65,70 @@ type Service interface {
 		destinationFrame string,
 		supplementalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
+}
+
+var _ = resource.Reconfigurable(&reconfigurableMotionService{})
+
+type reconfigurableMotionService struct {
+	mu     sync.RWMutex
+	actual Service
+}
+
+func (svc *reconfigurableMotionService) Move(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *referenceframe.PoseInFrame,
+	worldState *commonpb.WorldState,
+) (bool, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.Move(ctx, componentName, destination, worldState)
+}
+
+func (svc *reconfigurableMotionService) GetPose(
+	ctx context.Context,
+	componentName resource.Name,
+	destinationFrame string,
+	supplementalTransforms []*commonpb.Transform,
+) (*referenceframe.PoseInFrame, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetPose(ctx, componentName, destinationFrame, supplementalTransforms)
+}
+
+func (svc *reconfigurableMotionService) Close(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return goutils.TryClose(ctx, svc.actual)
+}
+
+// WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Motion Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableMotionService); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableMotionService{actual: svc}, nil
+}
+
+// Reconfigure replaces the old data manager service with a new data manager
+func (svc *reconfigurableMotionService) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableMotionService)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := goutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
 }
 
 // SubtypeName is the name of the type of service.

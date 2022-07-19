@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
+
 	// register.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -221,7 +222,9 @@ func setupInjectRobot() (*inject.Robot, *mock) {
 
 type mock struct {
 	motion.Service
-	grabCount int
+	grabCount   int
+	name        string
+	reconfCount int
 }
 
 func (m *mock) Move(
@@ -241,6 +244,11 @@ func (m *mock) GetPose(
 	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	return &referenceframe.PoseInFrame{}, nil
+}
+
+func (m *mock) Close(ctx context.Context) error {
+	m.reconfCount++
+	return nil
 }
 
 func TestFromRobot(t *testing.T) {
@@ -271,4 +279,39 @@ func TestFromRobot(t *testing.T) {
 	svc, err = motion.FromRobot(r)
 	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motion.Name))
 	test.That(t, svc, test.ShouldBeNil)
+}
+
+func TestWrapWithReconfigurable(t *testing.T) {
+	svc := &mock{name: "svc1"}
+	reconfSvc1, err := motion.WrapWithReconfigurable(svc)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = motion.WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motion Service", nil))
+
+	reconfSvc2, err := motion.WrapWithReconfigurable(reconfSvc1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc1)
+}
+
+func TestReconfigurable(t *testing.T) {
+	actualSvc1 := &mock{name: "svc1"}
+	reconfSvc1, err := motion.WrapWithReconfigurable(actualSvc1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc1, test.ShouldNotBeNil)
+
+	actualArm2 := &mock{name: "svc2"}
+	reconfSvc2, err := motion.WrapWithReconfigurable(actualArm2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc2, test.ShouldNotBeNil)
+	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)
+
+	err = reconfSvc1.Reconfigure(context.Background(), reconfSvc2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc1, test.ShouldResemble, reconfSvc2)
+	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 1)
+
+	err = reconfSvc1.Reconfigure(context.Background(), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfSvc1, nil))
 }
