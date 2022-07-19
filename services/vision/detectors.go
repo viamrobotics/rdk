@@ -110,7 +110,7 @@ func registerNewDetectors(ctx context.Context, dm detectorMap, attrs *Attributes
 		case TensorFlowType:
 			return newDetectorTypeNotImplemented(attr.Type)
 		case ColorType:
-			err := registerColorDetector(dm, &attr, logger)
+			err := registerColorDetector(ctx, dm, &attr, logger)
 			if err != nil {
 				return err
 			}
