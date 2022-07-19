@@ -259,7 +259,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		t.Fatal(err)
 	}
 
-	cam4.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	cam5.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc5, nil
 	}
 
@@ -285,11 +285,11 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		},
 		{
 			Name:        "cam4",
-			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{-70, 0, 0}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: -math.Pi / 4}},
+			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{-60, 0, -10}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0}},
 		},
 		{
 			Name:        "cam5",
-			FrameConfig: &config.Frame{Parent: "cam4", Translation: spatialmath.TranslationConfig{-70, 0, 0}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: -math.Pi / 4}},
+			FrameConfig: &config.Frame{Parent: "cam4", Translation: spatialmath.TranslationConfig{0, 0, 0}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: -math.Pi / 4}},
 		},
 	}
 	r.FrameSystemConfigFunc = func(

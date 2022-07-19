@@ -326,8 +326,8 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	x0[0] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().X
 	x0[1] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Y
 	x0[2] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Z
-	x0[3] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Pitch
-	x0[4] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Roll
+	x0[3] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Roll
+	x0[4] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Pitch
 	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Yaw
 
 	utils.Logger.Debugf("x0 = %v", x0)
@@ -416,7 +416,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 	if err != nil {
 		return nil, err
 	}
-	targetPointCloudKD := pointcloud.NewKDTree(targetPointCloud)
+	// targetPointCloudKD := pointcloud.NewKDTree(targetPointCloud)
 
 	finalPointCloud := pointcloud.NewKDTree(targetPointCloud)
 	for i := range jpcs.sourceCameras {
@@ -424,22 +424,24 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 			continue
 		}
 
-		registeredPointCloud, err := jpcs.MergePointCloudsICP(ctx, i, &fs, &inputs, targetPointCloudKD)
+		registeredPointCloud, err := jpcs.MergePointCloudsICP(ctx, i, &fs, &inputs, finalPointCloud)
 		if err != nil {
 			panic(err) // TODO(erh) is there something better to do?
 		}
 
 		utils.Logger.Debugf("registeredPointCloud Size = %d", registeredPointCloud.Size())
 
-		var ok bool
+		// var ok bool
 		// TODO(aidanglickman) this loop is highly parallelizable, not yet making use
 		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-			_, ok = finalPointCloud.At(p.X, p.Y, p.Z)
-			if !ok {
+			// _, ok = finalPointCloud.At(p.X, p.Y, p.Z)
+			nearest, _, _, _ := finalPointCloud.NearestNeighbor(p)
+			distance := math.Sqrt(math.Pow(p.X-nearest.X, 2) + math.Pow(p.Y-nearest.Y, 2) + math.Pow(p.Z-nearest.Z, 2))
+			if distance > 0.2 {
 				// finalPointCloud.Set(p, d)
 				finalPointCloud.Set(p, pointcloud.NewColoredData(color.NRGBA{R: 0, G: 255, B: 0, A: 255}))
 			} else {
-				finalPointCloud.Set(p, pointcloud.NewColoredData(color.NRGBA{R: 255, G: 0, B: 0, A: 255}))
+				finalPointCloud.Set(nearest, pointcloud.NewColoredData(color.NRGBA{R: 0, G: 0, B: 255, A: 255}))
 			}
 			return true
 		})
