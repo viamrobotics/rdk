@@ -1,7 +1,7 @@
 name: Pull Request Update
 
 concurrency: 
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: pullrequest-${{ github.ref }}
   cancel-in-progress: true
 
 on:
