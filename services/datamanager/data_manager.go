@@ -20,6 +20,7 @@ import (
 	servicepb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -30,6 +31,7 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
+		Reconfigurable: WrapWithReconfigurable,
 	})
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
@@ -63,6 +65,8 @@ func init() {
 type Service interface {
 	Sync(ctx context.Context) error
 }
+
+var _ = resource.Reconfigurable(&reconfigurableDataManager{})
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
@@ -419,6 +423,52 @@ func (svc *dataManagerService) buildAdditionalSyncPaths() []string {
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *dataManagerService) syncAdditionalSyncPaths() {
 	svc.syncer.Sync(svc.buildAdditionalSyncPaths())
+}
+
+type reconfigurableDataManager struct {
+	mu     sync.RWMutex
+	actual Service
+}
+
+func (svc *reconfigurableDataManager) Sync(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.Sync(ctx)
+}
+
+func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return goutils.TryClose(ctx, svc.actual)
+}
+
+// WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableDataManager); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableDataManager{actual: svc}, nil
+}
+
+// Reconfigure replaces the old data manager service with a new data manager
+func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableDataManager)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := goutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
 }
 
 // Get the config associated with the data manager service.
