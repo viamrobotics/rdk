@@ -110,6 +110,6 @@ jobs:
     needs: [test_pi, build_and_test]
 
     steps:
-      name: Pass
+      - name: Pass
       run: |
         true
