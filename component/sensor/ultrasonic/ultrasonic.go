@@ -28,16 +28,17 @@ type AttrConfig struct {
 	Board         string `json:"board"`
 }
 
-// Validate ensures all parts of the config are valid.
+// 
+ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
 	if len(config.Board) == 0 {
-		return errors.New("cannot find board for ultrasonic sensor")
+		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if len(config.TriggerPin) == 0 {
-		return errors.New("expected nonempty trigger pin")
+		return  utils.NewConfigValidationFieldRequiredError(path, "empty trigger pin")
 	}
 	if len(config.EchoInterrupt) == 0 {
-		return errors.New("expected nonempty echo interrupt pin")
+		return  utils.NewConfigValidationFieldRequiredError(path, "empty echo interrupt pin")
 	}
 	return nil
 }
