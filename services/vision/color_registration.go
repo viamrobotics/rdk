@@ -1,6 +1,8 @@
 package vision
 
 import (
+	"context"
+
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
@@ -11,7 +13,7 @@ import (
 
 // registerColorDetector parses the Parameter field from the config into ColorDetectorConfig,
 // creates the ColorDetector, and registers it to the detector map.
-func registerColorDetector(dm detectorMap, conf *DetectorConfig, logger golog.Logger) error {
+func registerColorDetector(ctx context.Context, dm detectorMap, conf *DetectorConfig, logger golog.Logger) error {
 	if conf == nil {
 		return errors.New("object detection config for color detector cannot be nil")
 	}
