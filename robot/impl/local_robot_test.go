@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -27,6 +28,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+	rgrpc "go.viam.com/rdk/grpc"
 
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
@@ -691,6 +693,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 type dummyArm struct {
 	arm.LocalArm
 	stopCount int
+	extra     map[string]interface{}
 }
 
 func (da *dummyArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
@@ -716,7 +719,15 @@ func (da *dummyArm) GetJointPositions(ctx context.Context, extra map[string]inte
 
 func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	da.stopCount++
+	da.extra = extra
 	return nil
+}
+
+func (da *dummyArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	fmt.Println("ABOUT TO SLEEP FOR 10 SEC")
+	time.Sleep(10 * time.Second)
+	fmt.Println("WOKE UP 10 SEC LATER")
+	return cmd, nil
 }
 
 func TestStopAll(t *testing.T) {
@@ -724,6 +735,7 @@ func TestStopAll(t *testing.T) {
 
 	modelName := utils.RandomAlphaString(8)
 	var dummyArm1 dummyArm
+	var dummyArm2 dummyArm
 	registry.RegisterComponent(
 		arm.Subtype,
 		modelName,
@@ -733,7 +745,10 @@ func TestStopAll(t *testing.T) {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return &dummyArm1, nil
+			if config.Name == "arm1" {
+				return &dummyArm1, nil
+			}
+			return &dummyArm2, nil
 		}})
 
 	armConfig := fmt.Sprintf(`{
@@ -741,6 +756,11 @@ func TestStopAll(t *testing.T) {
 			{
 				"model": "%[1]s",
 				"name": "arm1",
+				"type": "arm"
+			},
+			{
+				"model": "%[1]s",
+				"name": "arm2",
 				"type": "arm"
 			}
 		]
@@ -758,10 +778,39 @@ func TestStopAll(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 0)
+	test.That(t, dummyArm2.stopCount, test.ShouldEqual, 0)
 
-	err = r.StopAll(ctx, nil)
+	test.That(t, dummyArm1.extra, test.ShouldBeNil)
+	test.That(t, dummyArm2.extra, test.ShouldBeNil)
+
+	err = r.StopAll(ctx, map[resource.Name]map[string]interface{}{arm.Named("arm2"): {"foo": "bar"}})
 	test.That(t, err, test.ShouldBeNil)
+
 	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 1)
+	test.That(t, dummyArm2.stopCount, test.ShouldEqual, 1)
+
+	test.That(t, dummyArm1.extra, test.ShouldBeNil)
+	test.That(t, dummyArm2.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+	// Test OPID cancellation
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	addr := fmt.Sprintf("localhost:%d", port)
+	options := weboptions.New()
+	options.Network.BindAddress = addr
+	err = r.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err := rgrpc.Dial(ctx, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	arm1 := arm.NewClientFromConn(ctx, conn, "arm1", logger)
+	_, err = arm1.Do(ctx, map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+
+	fmt.Println("ABOUT TO CHECK OPIDS")
+	for _, opid := range r.OperationManager().All() {
+		fmt.Println(opid)
+	}
 }
 
 type dummyBoard struct {
