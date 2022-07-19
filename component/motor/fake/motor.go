@@ -51,7 +51,7 @@ func init() {
 				if mcfg.EncoderA != "" || mcfg.EncoderB != "" {
 					m.positionReporting = true
 					
-					m.encoder.Start(ctx, &m.activeBackgroundWorkers, func() {})
+					m.encoder.Start(ctx, &m.activeBackgroundWorkers)
 				}
 			}
 			return m, nil
@@ -76,11 +76,10 @@ func (e *fakeEncoder) GetPosition(ctx context.Context) (float64, error) {
 	return e.position, nil
 }
 
-// Start starts a background thread to run the encoder, if there is none needed this is a no-op.
-func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup, onStart func()) {
+// Start starts a background thread to run the encoder
+func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup) {
 	activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		onStart()
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -101,6 +100,7 @@ func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 	}, activeBackgroundWorkers.Done)
 }
 
+// ResetZeroPosition resets the zero position.
 func (e *fakeEncoder) ResetZeroPosition(ctx context.Context, offset float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -108,6 +108,7 @@ func (e *fakeEncoder) ResetZeroPosition(ctx context.Context, offset float64) err
 	return nil
 }
 
+// SetSpeed sets the speed of the fake motor the encoder is measuring
 func (e *fakeEncoder) SetSpeed(ctx context.Context, speed float64) (error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -115,6 +116,7 @@ func (e *fakeEncoder) SetSpeed(ctx context.Context, speed float64) (error) {
 	return nil
 }
 
+// SetPosition sets the position of the encoder
 func (e *fakeEncoder) SetPosition(ctx context.Context, position float64) (error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -139,7 +141,7 @@ type Motor struct {
 	generic.Echo
 }
 
-// GetPosition always returns 0.
+// GetPosition returns motor position in rotations
 func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
