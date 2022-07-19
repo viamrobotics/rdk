@@ -39,7 +39,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return NewServerSource(attrs, logger)
+			return NewServerSource(ctx, attrs, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "single_stream",
@@ -70,7 +70,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newDualServerSource(attrs)
+			return newDualServerSource(ctx, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "dual_stream",
@@ -102,7 +102,7 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
-			return camera.New(imgSrc, attrs.AttrConfig, nil)
+			return camera.New(imgSrc, camera.GetProjector(ctx, attrs.AttrConfig, nil))
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
@@ -194,7 +194,7 @@ type dualServerAttrs struct {
 }
 
 // newDualServerSource creates the ImageSource that streams color/depth/both data from two external servers, one for each channel.
-func newDualServerSource(cfg *dualServerAttrs) (camera.Camera, error) {
+func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Camera, error) {
 	if (cfg.Color == "") || (cfg.Depth == "") {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 	}
@@ -204,7 +204,7 @@ func newDualServerSource(cfg *dualServerAttrs) (camera.Camera, error) {
 		Intrinsics: cfg.CameraParameters,
 		Stream:     camera.StreamType(cfg.Stream),
 	}
-	return camera.New(imgSrc, cfg.AttrConfig, nil)
+	return camera.New(imgSrc, camera.GetProjector(ctx, cfg.AttrConfig, nil))
 }
 
 // Next requests either the color or depth frame, depending on what the config specifies.
@@ -219,7 +219,7 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL)
 		return depth, func() {}, err
 	default:
-		return nil, nil, errors.Errorf("stream of type %q not supported", ds.Stream)
+		return nil, nil, camera.NewUnsupportedStreamError(ds.Stream)
 	}
 }
 
@@ -266,17 +266,16 @@ type serverSource struct {
 	client     http.Client
 	URL        string
 	host       string
-	stream     camera.StreamType // specifies color, depth, or both stream
+	stream     camera.StreamType // specifies color, depth
 	Intrinsics *transform.PinholeCameraIntrinsics
 }
 
 // ServerAttrs is the attribute struct for serverSource.
 type ServerAttrs struct {
 	*camera.AttrConfig
-	Aligned bool   `json:"aligned"`
-	Host    string `json:"host"`
-	Port    int    `json:"port"`
-	Args    string `json:"args"`
+	Host string `json:"host"`
+	Port int    `json:"port"`
+	Args string `json:"args"`
 }
 
 // Close closes the server connection.
@@ -297,7 +296,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 		depth, err := readDepthURL(ctx, s.client, s.URL)
 		return depth, func() {}, err
 	default:
-		return nil, nil, errors.Errorf("stream of type %q not supported", s.stream)
+		return nil, nil, camera.NewUnsupportedStreamError(s.stream)
 	}
 }
 
@@ -321,7 +320,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 }
 
 // NewServerSource creates the ImageSource that streams color/depth data from an external server at a given URL.
-func NewServerSource(cfg *ServerAttrs, logger golog.Logger) (camera.Camera, error) {
+func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger) (camera.Camera, error) {
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
 	}
@@ -334,5 +333,5 @@ func NewServerSource(cfg *ServerAttrs, logger golog.Logger) (camera.Camera, erro
 		stream:    camera.StreamType(cfg.Stream),
 		isAligned: cfg.Aligned,
 	}
-	return camera.New(imgSrc, cfg.AttrConfig, nil)
+	return camera.New(imgSrc, camera.GetProjector(ctx, cfg.AttrConfig, nil))
 }

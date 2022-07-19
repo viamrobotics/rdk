@@ -252,36 +252,30 @@ func TestNewCamera(t *testing.T) {
 	// camera with no camera parameters
 	cam1, err := camera.New(imgSrc, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok := cam1.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeFalse)
-	proj := camera.Projector(cam1)
+	proj, err := cam1.GetProperties(context.Background())
 	test.That(t, proj, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, transform.NewNoIntrinsicsError("").Error())
 
 	// camera with camera parameters
 	cam2, err := camera.New(imgSrc, attrs1, cam1)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam2.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeTrue)
-	proj = camera.Projector(cam2)
-	test.That(t, proj, test.ShouldNotBeNil)
+	proj2, err := cam2.GetProperties(context.Background())
+	test.That(t, proj2, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 
 	// camera with camera parameters inherited  from other camera
 	cam3, err := camera.New(imgSrc, nil, cam2)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam3.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, cam3.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam2.(camera.WithProjector).GetProjector())
-	proj = camera.Projector(cam3)
-	test.That(t, proj, test.ShouldNotBeNil)
+	proj3, err := cam3.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proj3, test.ShouldResemble, proj2)
 
 	// camera with different camera parameters, will not inherit
 	cam4, err := camera.New(imgSrc, attrs2, cam2)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam4.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, cam4.(camera.WithProjector).GetProjector(), test.ShouldNotResemble, cam2.(camera.WithProjector).GetProjector())
-	proj = camera.Projector(cam4)
-	test.That(t, proj, test.ShouldNotBeNil)
+	proj4, err := cam4.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proj4, test.ShouldNotResemble, proj2)
 
 	// cam4 wrapped with reconfigurable
 	reconfig, err := camera.WrapWithReconfigurable(cam4)
@@ -289,11 +283,9 @@ func TestNewCamera(t *testing.T) {
 	fakeCamera := reconfig.(camera.Camera)
 	cam5, err := camera.New(imgSrc, nil, fakeCamera)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam5.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, cam5.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam4.(camera.WithProjector).GetProjector())
-	proj = camera.Projector(fakeCamera)
-	test.That(t, proj, test.ShouldNotBeNil)
+	proj5, err := cam5.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proj5, test.ShouldResemble, proj4)
 }
 
 type cloudSource struct {

@@ -78,48 +78,30 @@ type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
-// WithProjector is a camera with the capability to project images to 3D.
-type WithProjector interface {
-	Camera
-	GetProjector() rimage.Projector
-}
-
-// Projector will return the camera's projector if it has it, or returns nil if not.
-func Projector(cam Camera) rimage.Projector {
-	var proj rimage.Projector
-	if c, ok := cam.(WithProjector); ok {
-		proj = c.GetProjector()
-	} else if c, ok := utils.UnwrapProxy(cam).(WithProjector); ok {
-		proj = c.GetProjector()
+// GetProjector either gets the camera parameters from the config, or if the camera has a parent source,
+// can copy over the projector from there. If the camera doesn't have a projector, just return nil
+func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) rimage.Projector {
+	// if the camera parameters are specified in the config, those get priority.
+	if attrs != nil && attrs.CameraParameters != nil {
+		return attrs.CameraParameters, nil
 	}
+	// inherit camera parameters from source camera if possible.
+	proj, _ := parentSource.GetProperties(ctx)
 	return proj
 }
 
-// New creates a Camera either with or without a projector, depending on if the camera config has the parameters,
-// or if it has a parent Camera with camera parameters that it should copy. parentSource and attrs can be nil.
-func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (Camera, error) {
+// New creates a Camera either with or without a projector
+func New(imgSrc gostream.ImageSource, proj rimage.Projector) (Camera, error) {
 	if imgSrc == nil {
 		return nil, errors.New("cannot have a nil image source")
 	}
-	// if the camera parameters are specified in the config, those get priority.
-	if attrs != nil && attrs.CameraParameters != nil {
-		return &imageSourceWithProjector{imgSrc, attrs.CameraParameters, generic.Unimplemented{}}, nil
-	}
-	// inherit camera parameters from source camera if possible. if not, create a camera without projector.
-	if reconfigCam, ok := parentSource.(*reconfigurableCamera); ok {
-		if c, ok := reconfigCam.ProxyFor().(WithProjector); ok {
-			return &imageSourceWithProjector{imgSrc, c.GetProjector(), generic.Unimplemented{}}, nil
-		}
-	}
-	if camera, ok := parentSource.(WithProjector); ok {
-		return &imageSourceWithProjector{imgSrc, camera.GetProjector(), generic.Unimplemented{}}, nil
-	}
-	return &imageSource{imgSrc, generic.Unimplemented{}}, nil
+	return &imageSource{imgSrc, proj, generic.Unimplemented{}}, nil
 }
 
 // ImageSource implements a Camera with a gostream.ImageSource.
 type imageSource struct {
 	gostream.ImageSource
+	projector rimage.Projector
 	generic.Unimplemented
 }
 
@@ -135,53 +117,26 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if c, ok := is.ImageSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}
-	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
+	if is.projector != nil {
+		img, closer, err := is.Next(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer closer()
+
+		dm, ok := img.(*rimage.DepthMap)
+		if ok {
+			return dm.ToPointCloud(is.projector), nil
+		}
+	}
+	return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
 }
 
 func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	if is.projector != nil {
+		return is.projector, nil
+	}
 	return nil, transform.NewNoIntrinsicsError("No features in config")
-}
-
-// ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
-type imageSourceWithProjector struct {
-	gostream.ImageSource
-	projector rimage.Projector
-	generic.Unimplemented
-}
-
-// Close closes the underlying ImageSource.
-func (iswp *imageSourceWithProjector) Close(ctx context.Context) error {
-	return viamutils.TryClose(ctx, iswp.ImageSource)
-}
-
-// Projector returns the camera's Projector.
-func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
-	return iswp.projector
-}
-
-// NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud")
-	defer span.End()
-	if c, ok := iswp.ImageSource.(PointCloudSource); ok {
-		return c.NextPointCloud(ctx)
-	}
-	img, closer, err := iswp.Next(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer closer()
-
-	dm, ok := img.(*rimage.DepthMap)
-	if ok {
-		return dm.ToPointCloud(iswp.projector), nil
-	}
-
-	return nil, errors.New("no depth information available, cannot project to point cloud")
-}
-
-func (iswp *imageSourceWithProjector) GetProperties(ctx context.Context) (rimage.Projector, error) {
-	return iswp.projector, nil
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
