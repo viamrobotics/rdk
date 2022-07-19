@@ -405,7 +405,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	_, err = WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("BaseRemoteControl", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&remoteService{}, nil))
 
 	reconfSvc2, err := WrapWithReconfigurable(reconfSvc)
 	test.That(t, err, test.ShouldBeNil)

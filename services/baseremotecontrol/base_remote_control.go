@@ -213,13 +213,13 @@ func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
 
 // WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
-	svc, ok := s.(remoteService)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(remoteService{}, s)
-	}
-
 	if reconfigurable, ok := s.(*reconfigurableBaseRemoteControl); ok {
 		return reconfigurable, nil
+	}
+
+	svc, ok := s.(remoteService)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(&remoteService{}, s)
 	}
 
 	return &reconfigurableBaseRemoteControl{actual: svc}, nil
