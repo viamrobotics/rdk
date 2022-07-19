@@ -122,6 +122,23 @@ type Config struct {
 	Disabled            bool     `json:"disabled"`
 }
 
+// dataManagerService initializes and orchestrates data capture collectors for registered component/methods.
+type dataManagerService struct {
+	r                         robot.Robot
+	logger                    golog.Logger
+	captureDir                string
+	collectors                map[componentMethodMetadata]collectorAndConfig
+	syncer                    syncManager
+	syncIntervalMins          float64
+	lock                      sync.Mutex
+	backgroundWorkers         sync.WaitGroup
+	uploadFunc                uploadFn
+	updateCollectorsCancelFn  func()
+	additionalSyncPaths       []string
+	partID                    string
+	waitAfterLastModifiedSecs int
+}
+
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
@@ -169,23 +186,6 @@ func (svc *dataManagerService) closeCollectors() {
 		delete(svc.collectors, md)
 	}
 	wg.Wait()
-}
-
-// dataManagerService initializes and orchestrates data capture collectors for registered component/methods.
-type dataManagerService struct {
-	r                         robot.Robot
-	logger                    golog.Logger
-	captureDir                string
-	collectors                map[componentMethodMetadata]collectorAndConfig
-	syncer                    syncManager
-	syncIntervalMins          float64
-	lock                      sync.Mutex
-	backgroundWorkers         sync.WaitGroup
-	uploadFunc                uploadFn
-	updateCollectorsCancelFn  func()
-	additionalSyncPaths       []string
-	partID                    string
-	waitAfterLastModifiedSecs int
 }
 
 // Parameters stored for each collector.
@@ -425,6 +425,113 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 	svc.syncer.Sync(svc.buildAdditionalSyncPaths())
 }
 
+// Update updates the data manager service when the config has changed.
+func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
+	svcConfig, ok, err := getServiceConfig(cfg)
+	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
+	// Close any collectors.
+	if !ok {
+		svc.closeCollectors()
+		return err
+	}
+	if cfg.Cloud != nil {
+		svc.partID = cfg.Cloud.ID
+	}
+	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
+	if svcConfig.Disabled {
+		svc.closeCollectors()
+		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
+		return nil
+	}
+
+	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
+	svc.captureDir = svcConfig.CaptureDir
+
+	allComponentAttributes, err := getAllDataCaptureConfigs(cfg)
+	if err != nil {
+		return err
+	}
+
+	if len(allComponentAttributes) == 0 {
+		svc.logger.Warn("Could not find any components with data_manager service configuration")
+		return nil
+	}
+
+	// If the sync config has changed, update the syncer.
+	if svcConfig.SyncIntervalMins != svc.syncIntervalMins ||
+		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
+		svc.lock.Lock()
+		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
+		svc.lock.Unlock()
+		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+	}
+
+	// Initialize or add a collector based on changes to the component configurations.
+	newCollectorMetadata := make(map[componentMethodMetadata]bool)
+	for _, attributes := range allComponentAttributes {
+		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
+			componentMetadata, err := svc.initializeOrUpdateCollector(
+				attributes, updateCaptureDir)
+			if err != nil {
+				svc.logger.Errorw("failed to initialize or update collector", "error", err)
+			} else {
+				newCollectorMetadata[*componentMetadata] = true
+			}
+		}
+	}
+
+	// If a component/method has been removed from the config, close the collector and remove it from the map.
+	for componentMetadata, params := range svc.collectors {
+		if _, present := newCollectorMetadata[componentMetadata]; !present {
+			params.Collector.Close()
+			delete(svc.collectors, componentMetadata)
+		}
+	}
+
+	return nil
+}
+
+func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMins float64) {
+	svc.backgroundWorkers.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer svc.backgroundWorkers.Done()
+		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
+		intervalMillis := 60000.0 * intervalMins
+		ticker := time.NewTicker(time.Millisecond * time.Duration(intervalMillis))
+		defer ticker.Stop()
+
+		for {
+			if err := cancelCtx.Err(); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					svc.logger.Errorw("data manager context closed unexpectedly", "error", err)
+				}
+				return
+			}
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-ticker.C:
+				svc.syncDataCaptureFiles()
+				svc.syncAdditionalSyncPaths()
+			}
+		}
+	})
+}
+
+func (svc *dataManagerService) startSyncBackgroundRoutine(intervalMins float64) {
+	cancelCtx, fn := context.WithCancel(context.Background())
+	svc.updateCollectorsCancelFn = fn
+	svc.uploadData(cancelCtx, intervalMins)
+}
+
+func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
+	if svc.updateCollectorsCancelFn != nil {
+		svc.updateCollectorsCancelFn()
+		svc.updateCollectorsCancelFn = nil
+	}
+}
+
 type reconfigurableDataManager struct {
 	mu     sync.RWMutex
 	actual Service
@@ -548,111 +655,4 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 		}
 	}
 	return componentDataCaptureConfigs, nil
-}
-
-// Update updates the data manager service when the config has changed.
-func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
-	svcConfig, ok, err := getServiceConfig(cfg)
-	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
-	// Close any collectors.
-	if !ok {
-		svc.closeCollectors()
-		return err
-	}
-	if cfg.Cloud != nil {
-		svc.partID = cfg.Cloud.ID
-	}
-	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
-	if svcConfig.Disabled {
-		svc.closeCollectors()
-		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
-		return nil
-	}
-
-	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
-	svc.captureDir = svcConfig.CaptureDir
-
-	allComponentAttributes, err := getAllDataCaptureConfigs(cfg)
-	if err != nil {
-		return err
-	}
-
-	if len(allComponentAttributes) == 0 {
-		svc.logger.Warn("Could not find any components with data_manager service configuration")
-		return nil
-	}
-
-	// If the sync config has changed, update the syncer.
-	if svcConfig.SyncIntervalMins != svc.syncIntervalMins ||
-		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
-		svc.lock.Lock()
-		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
-		svc.lock.Unlock()
-		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
-		svc.syncIntervalMins = svcConfig.SyncIntervalMins
-	}
-
-	// Initialize or add a collector based on changes to the component configurations.
-	newCollectorMetadata := make(map[componentMethodMetadata]bool)
-	for _, attributes := range allComponentAttributes {
-		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
-			componentMetadata, err := svc.initializeOrUpdateCollector(
-				attributes, updateCaptureDir)
-			if err != nil {
-				svc.logger.Errorw("failed to initialize or update collector", "error", err)
-			} else {
-				newCollectorMetadata[*componentMetadata] = true
-			}
-		}
-	}
-
-	// If a component/method has been removed from the config, close the collector and remove it from the map.
-	for componentMetadata, params := range svc.collectors {
-		if _, present := newCollectorMetadata[componentMetadata]; !present {
-			params.Collector.Close()
-			delete(svc.collectors, componentMetadata)
-		}
-	}
-
-	return nil
-}
-
-func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMins float64) {
-	svc.backgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer svc.backgroundWorkers.Done()
-		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
-		intervalMillis := 60000.0 * intervalMins
-		ticker := time.NewTicker(time.Millisecond * time.Duration(intervalMillis))
-		defer ticker.Stop()
-
-		for {
-			if err := cancelCtx.Err(); err != nil {
-				if !errors.Is(err, context.Canceled) {
-					svc.logger.Errorw("data manager context closed unexpectedly", "error", err)
-				}
-				return
-			}
-			select {
-			case <-cancelCtx.Done():
-				return
-			case <-ticker.C:
-				svc.syncDataCaptureFiles()
-				svc.syncAdditionalSyncPaths()
-			}
-		}
-	})
-}
-
-func (svc *dataManagerService) startSyncBackgroundRoutine(intervalMins float64) {
-	cancelCtx, fn := context.WithCancel(context.Background())
-	svc.updateCollectorsCancelFn = fn
-	svc.uploadData(cancelCtx, intervalMins)
-}
-
-func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
-	if svc.updateCollectorsCancelFn != nil {
-		svc.updateCollectorsCancelFn()
-		svc.updateCollectorsCancelFn = nil
-	}
 }
