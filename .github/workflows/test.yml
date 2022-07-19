@@ -104,3 +104,7 @@ jobs:
 
     - name: Test
       run: make test-pi
+
+  test_passing:
+    name: All Tests Passing
+    needs: [test_pi, build_and_test]
