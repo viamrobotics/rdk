@@ -41,7 +41,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newJoinPointCloudSource(r, attrs)
+			return newJoinPointCloudSource(ctx, r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_pointclouds",
@@ -75,11 +75,12 @@ type joinPointCloudSource struct {
 	sourceNames   []string
 	targetName    string
 	robot         robot.Robot
+	stream        camera.StreamType
 }
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
 // reference frame of targetName.
-func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
+func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
 	joinSource := &joinPointCloudSource{}
 	// frame to merge from
 	joinSource.sourceCameras = make([]camera.Camera, len(attrs.SourceCameras))
@@ -95,10 +96,11 @@ func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, er
 	// frame to merge to
 	joinSource.targetName = attrs.TargetFrame
 	joinSource.robot = r
+	joinSource.stream = camera.StreamType(attrs.Stream)
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
-		return camera.New(joinSource, nil, joinSource.sourceCameras[idx])
+		return camera.New(joinSource, camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx]))
 	}
-	return camera.New(joinSource, nil, nil)
+	return camera.New(joinSource, nil)
 }
 
 // NextPointCloud gets all the point clouds from the source cameras,
@@ -248,7 +250,7 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 	var proj rimage.Projector
 	if idx, ok := contains(jpcs.sourceNames, jpcs.targetName); ok {
-		proj = camera.Projector(jpcs.sourceCameras[idx])
+		proj, _ = jpcs.sourceCameras[idx].GetProperties(ctx)
 	}
 	if proj == nil { // use a default projector if target frame doesn't have one
 		proj = &rimage.ParallelProjection{}
@@ -261,8 +263,14 @@ func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func()
 	if err != nil {
 		return nil, nil, err
 	}
-	iwd := rimage.MakeImageWithDepth(img, dm, true)
-	return iwd, func() {}, nil
+	switch jpcs.stream {
+	case camera.UnspecifiedStream, camera.ColorStream, camera.BothStream:
+		return img, func() {}, nil
+	case camera.DepthStream:
+		return dm, func() {}, nil
+	default:
+		return nil, nil, camera.NewUnsupportedStreamError(jpcs.stream)
+	}
 }
 
 func contains(s []string, str string) (int, bool) {

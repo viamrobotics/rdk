@@ -1,6 +1,7 @@
 package camera
 
 import (
+	"github.com/pkg/errors"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -11,10 +12,16 @@ type StreamType string
 
 // The allowed types of streams that can come from an ImageSource.
 const (
-	ColorStream = StreamType("color")
-	DepthStream = StreamType("depth")
-	BothStream  = StreamType("both")
+	UnspecifiedStream = StreamType("")
+	ColorStream       = StreamType("color")
+	DepthStream       = StreamType("depth")
+	BothStream        = StreamType("both")
 )
+
+// NewUnsupportedStreamError is when the stream type is unknown
+func NewUnsupportedStreamError(s StreamType) error {
+	return errors.Errorf("stream of type %q not supported", string(s))
+}
 
 // AttrConfig is exported to be used as an attribute map for settings common to all camera types.
 type AttrConfig struct {

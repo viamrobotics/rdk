@@ -40,7 +40,7 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
 			}
-			return newAlignColorDepth(color, depth, attrs, logger)
+			return newAlignColorDepth(ctx, color, depth, attrs, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "align_color_depth",
@@ -159,7 +159,8 @@ type alignColorDepth struct {
 }
 
 // newAlignColorDepth creates a gostream.ImageSource that aligned color and depth channels.
-func newAlignColorDepth(color, depth camera.Camera, attrs *alignAttrs, logger golog.Logger) (camera.Camera, error) {
+func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *alignAttrs, logger golog.Logger,
+) (camera.Camera, error) {
 	alignCamera, err := getAligner(attrs, logger)
 	if err != nil {
 		return nil, err
@@ -168,23 +169,18 @@ func newAlignColorDepth(color, depth camera.Camera, attrs *alignAttrs, logger go
 		return nil, errors.Errorf("must provide dimensions of aligned image. Got illegal dimensions (%d, %d)", attrs.Width, attrs.Height)
 	}
 	// get the projector for the alignment camera
-	cam, err := camera.New(imgSrc, attrs.AttrConfig, color)
-
 	var proj rimage.Projector
-
-	if attrs.CameraParameters != nil {
-		proj = attrs.CameraParameters
-	} else if colorProj, ok := color.(camera.WithProjector); ok {
-		if attrs.Stream == camera.ColorStream || attrs.Stream == camera.BothStream {
-			proj = colorProj.GetProjector()
-		}
-	} else if depthProj, ok := depth.(camera.WithProjector); ok {
-		if attrs.Stream == camera.DepthStream {
-			proj = depthProj.GetProjector()
-		}
+	switch acd.stream {
+	case camera.ColorStream, camera.BothStream:
+		proj = camera.GetProjector(ctx, attrs, color)
+	case camera.DepthStream:
+		proj = camera.GetProjector(ctx, attrs, depth)
+	default:
+		return nil, camera.NewUnsupportedStreamError(acd.stream)
 	}
+
 	imgSrc := &alignColorDepth{color, depth, alignCamera, proj, attrs.Stream, attrs.Height, attrs.Width, attrs.Debug, logger}
-	return camera.New(imgSrc, attrs.AttrConfig, color) // aligns the image to the color camera
+	return camera.New(imgSrc, proj)
 }
 
 // Next aligns the next images from the color and the depth sources to the frame of the color camera.
@@ -210,7 +206,7 @@ func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), erro
 		_, alignedDepth, err := acd.alignmentCamera.AlignColorAndDepthImage(colDimImage, dm)
 		return alignedDepth, depthCloser, err
 	default:
-		return nil, nil, errors.Errorf("stream of type %q not supported", acd.stream)
+		return nil, nil, camera.NewUnsupportedStreamError(acd.stream)
 	}
 }
 
@@ -218,7 +214,7 @@ func (acd *alignColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	ctx, span := trace.StartSpan(ctx, "imagesource::alignColorDepth::NextPointCloud")
 	defer span.End()
 	if acd.projector == nil {
-		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
+		return nil, transform.NewNoIntrinsicsError("")
 	}
 	col, colorCloser, err := acd.color.Next(ctx)
 	if err != nil {
