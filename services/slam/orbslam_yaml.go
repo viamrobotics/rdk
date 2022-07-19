@@ -109,7 +109,7 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 	}
 	intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 	if !ok {
-		transform.NewNoIntrinsicsError("Cannot convert Projector to Intrinsics")
+		return transform.NewNoIntrinsicsError("Cannot convert Projector to Intrinsics")
 	}
 	err = intrinsics.CheckValid()
 	if err != nil {
