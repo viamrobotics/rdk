@@ -197,7 +197,7 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 	}
 
 	// For ORBSLAM, generate a new yaml file based off the camera configuration and presence of maps
-	if slamSvc.slamLib.AlgoName == "orbslamv3" {
+	if strings.Contains(slamSvc.slamLib.AlgoName, "orbslamv3") {
 		err = slamSvc.orbGenYAML(ctx, cam)
 		if err != nil {
 			return errors.Wrap(err, "error generating .yaml config")
@@ -253,7 +253,7 @@ type slamService struct {
 
 // configureCamera will check the config to see if a camera is desired and if so, grab the camera from
 // the robot as well as get the intrinsic associated with it.
-func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, camera.Camera, error) {
+func configureCamera(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, camera.Camera, error) {
 	var cam camera.Camera
 	var cameraName string
 	var err error
@@ -265,11 +265,15 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 			return "", nil, errors.Wrap(err, "error getting camera for slam service")
 		}
 
-		proj := camera.Projector(cam) // will be nil if no intrinsics
-		if proj != nil {
-			_, ok := proj.(*transform.PinholeCameraIntrinsics)
+		proj, err := cam.GetProperties(ctx) // will be nil if no intrinsics
+		if err == nil {                     // if err != nil then we still might be a lidar
+			intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 			if !ok {
-				return "", nil, errors.New("error camera intrinsics were not defined properly")
+				return "", nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
+			}
+			err = intrinsics.CheckValid()
+			if err != nil {
+				return "", nil, err
 			}
 		}
 	} else {
@@ -378,7 +382,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	cameraName, cam, err := configureCamera(svcConfig, r, logger)
+	cameraName, cam, err := configureCamera(ctx, svcConfig, r, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}

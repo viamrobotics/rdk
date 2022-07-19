@@ -83,8 +83,8 @@ func setupTestGRPCServer(port string) *grpc.Server {
 
 func setupInjectRobot() *inject.Robot {
 	r := &inject.Robot{}
-	var proj rimage.Projector
-	intrinsics := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
+	var projA rimage.Projector
+	intrinsicsA := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
 		Height: 720,
 		Fx:     200,
@@ -92,7 +92,18 @@ func setupInjectRobot() *inject.Robot {
 		Ppx:    100,
 		Ppy:    100,
 	}
-	proj = intrinsics
+	projA = intrinsicsA
+
+	var projB rimage.Projector
+	intrinsicsB := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
+		Width:  0,
+		Height: 0,
+		Fx:     0,
+		Fy:     0,
+		Ppx:    0,
+		Ppy:    0,
+	}
+	projB = intrinsicsB
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
@@ -126,7 +137,7 @@ func setupInjectRobot() *inject.Robot {
 				return nil, errors.New("camera not lidar")
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
-				return proj, nil
+				return projA, nil
 			}
 			return cam, nil
 		case camera.Named("good_depth_camera"):
@@ -139,7 +150,7 @@ func setupInjectRobot() *inject.Robot {
 				return nil, errors.New("camera not lidar")
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
-				return proj, nil
+				return projA, nil
 			}
 			return cam, nil
 		case camera.Named("bad_camera"):
@@ -151,6 +162,17 @@ func setupInjectRobot() *inject.Robot {
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
+			}
+			return cam, nil
+		case camera.Named("bad_camera_intrinsics"):
+			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+				return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+			}
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				return nil, errors.New("camera not lidar")
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return projB, nil
 			}
 			return cam, nil
 		default:
@@ -398,6 +420,23 @@ func TestORBSLAMNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: "+
 				"error getting data in desired mode: %v", attrCfg.Sensors[0]))
+	})
+
+	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {
+		attrCfg := &slam.AttrConfig{
+			Algorithm:     "fake_orbslamv3",
+			Sensors:       []string{"bad_camera_intrinsics"},
+			ConfigParams:  map[string]string{"mode": "mono"},
+			DataDirectory: name,
+			DataRateMs:    100,
+		}
+
+		// Create slam service
+		logger := golog.NewTestLogger(t)
+		_, err := createSLAMService(t, attrCfg, logger, false)
+
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			transform.NewNoIntrinsicsError(fmt.Sprintf("Invalid size (%#v, %#v)", 0, 0)).Error())
 	})
 
 	t.Run("New orbslamv3 service with lidar without Next implementation", func(t *testing.T) {
