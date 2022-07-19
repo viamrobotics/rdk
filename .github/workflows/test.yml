@@ -89,7 +89,10 @@ jobs:
 
     steps:
     - name: Clean Workspace
-      uses: AutoModality/action-clean@v1.1.0
+      run: |
+        shopt -s dotglob
+        sudo rm -r ./*
+        sudo chown -R `whoami` ./
 
     - name: Check out code in rdk directory
       uses: actions/checkout@v2
