@@ -30,15 +30,15 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 func TestValidate(t *testing.T) {
 	fakecfg := &AttrConfig{}
 	err := fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for ultrasonic sensor")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"board\" is required")
 
 	fakecfg.Board = board1
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty trigger pin")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"trigger pin\" is required")
 
 	fakecfg.TriggerPin = triggerPin
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty echo interrupt pin")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"echo interrupt pin\" is required")
 
 	fakecfg.EchoInterrupt = echoInterrupt
 	err = fakecfg.Validate("path")
@@ -51,17 +51,32 @@ func TestNewSensor(t *testing.T) {
 	deps := setupDependencies(t)
 
 	_, err := newSensor(ctx, deps, testSensorName, fakecfg)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "ultrasonic: cannot find board")
+
+	test.That(t, err.Error(), test.ShouldContainSubstring, "ultrasonic: cannot find board \"some-board\"")
 }
+
+// Mock DigitalInterrupt
+type mockDigitalInterrupt struct{ valueCount int }
 
 // mock board
-type mockBoard struct {
+type mock struct {
 	board.LocalBoard
-	Name string
+	Name     string
+	digitals []string
+	digital  *mockDigitalInterrupt
 }
 
-func newBoard(name string) *mockBoard {
-	return &mockBoard{
-		Name: name,
+func newBoard(name string) *mock {
+	return &mock{
+		Name:     name,
+		digitals: []string{echoInterrupt},
+		digital:  &mockDigitalInterrupt{},
 	}
+}
+
+func (m *mock) DigitalInterruptByName(name string) (*mockDigitalInterrupt, bool) {
+	if len(m.digitals) == 0 {
+		return nil, false
+	}
+	return m.digital, true
 }
