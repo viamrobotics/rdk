@@ -2,7 +2,6 @@ package spatialmath
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -38,8 +37,6 @@ func TestOrientation(t *testing.T) {
 	o, err := ro.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, o.Quaternion(), test.ShouldResemble, quat.Number{1, 0, 0, 0})
-	_, err = NewOrientationConfig(o)
-	test.That(t, err, test.ShouldBeError, newOrientationTypeUnsupportedError(fmt.Sprintf("%T", o)))
 
 	// OrientationVectorDegrees Config
 	ro = OrientationConfig{}
@@ -93,6 +90,24 @@ func TestOrientation(t *testing.T) {
 	oc, err = NewOrientationConfig(o)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, oc.Type, test.ShouldEqual, string(AxisAnglesType))
+	bytes, err = json.Marshal(o)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, oc.Value, test.ShouldResemble, json.RawMessage(bytes))
+
+	// Quaternion Config
+	ro = OrientationConfig{}
+	err = json.Unmarshal(testMap["quaternion"], &ro)
+	test.That(t, err, test.ShouldBeNil)
+	o, err = ro.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	aa := o.AxisAngles()
+	test.That(t, aa.Theta, test.ShouldAlmostEqual, 1.5040802, .0001)
+	test.That(t, aa.RX, test.ShouldAlmostEqual, 0.2672612, .0001)
+	test.That(t, aa.RY, test.ShouldAlmostEqual, 0.5345225, .001)
+	test.That(t, aa.RZ, test.ShouldAlmostEqual, 0.8017837, .001)
+	oc, err = NewOrientationConfig(o)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, oc.Type, test.ShouldEqual, string(QuaternionType))
 	bytes, err = json.Marshal(o)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, oc.Value, test.ShouldResemble, json.RawMessage(bytes))

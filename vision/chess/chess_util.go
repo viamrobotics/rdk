@@ -15,7 +15,8 @@ var (
 	MinPieceDepth        = 9.9999
 )
 
-func warpColorAndDepthToChess(img *rimage.ImageWithDepth, corners []image.Point) (*rimage.ImageWithDepth, error) {
+func warpColorAndDepthToChess(col *rimage.Image, dm *rimage.DepthMap, corners []image.Point,
+) (*rimage.Image, *rimage.DepthMap, error) {
 	dst := []image.Point{
 		image.Pt(0, 800),
 		image.Pt(0, 0),
@@ -24,14 +25,15 @@ func warpColorAndDepthToChess(img *rimage.ImageWithDepth, corners []image.Point)
 	}
 
 	if len(corners) != 4 {
-		return nil, errors.Errorf("need 4 corners, got %d", len(corners))
+		return nil, nil, errors.Errorf("need 4 corners, got %d", len(corners))
 	}
-	return img.Warp(corners, dst, image.Point{800, 800}), nil
+	col2, dm2 := rimage.WarpColorDepth(col, dm, corners, dst, image.Point{800, 800})
+	return col2, dm2, nil
 }
 
 // returns point in a1, a8, h1, h8 order.
-func findChessCorners(img *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error) {
-	return FindChessCornersPinkCheat(img, logger)
+func findChessCorners(col *rimage.Image, logger golog.Logger) (image.Image, []image.Point, error) {
+	return FindChessCornersPinkCheat(col, logger)
 }
 
 func getMinChessCorner(chess string) image.Point {
