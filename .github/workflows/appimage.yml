@@ -14,7 +14,7 @@ env:
 
 jobs:
   appimage:
-    name: AppImage Build (TEST2)
+    name: AppImage Build
     strategy:
       matrix:
         include:
