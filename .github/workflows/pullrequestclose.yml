@@ -29,4 +29,4 @@ jobs:
 
     - name: Delete Files
       run: |
-        gsutil rm "gs://packages.viam.com/apps/smurf/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-*"
+        gsutil rm "gs://packages.viam.com/apps/smurf/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-*" || true
