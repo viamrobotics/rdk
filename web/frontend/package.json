@@ -38,10 +38,9 @@
     "postinstall": "node ./scripts/postinstall.js",
     "start": "vite --host",
     "build": "node --max_old_space_size=16384 ./node_modules/vite/bin/vite.js build",
-    "rollup": "rollup -c ./scripts/rollup.config.js",
+    "rollup": "./etc/prepare.sh && rollup -c ./scripts/rollup.config.js",
     "check": "vue-tsc --noEmit",
     "preview": "vite preview",
-    "prepare": "./etc/prepare.sh",
     "lint": "eslint 'src/**/*.{ts,js,vue}' --fix --ignore-pattern 'gen/'",
     "test:unit": "echo \"no tests exist yet\""
   }
