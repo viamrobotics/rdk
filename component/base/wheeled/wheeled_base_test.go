@@ -19,7 +19,7 @@ func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 
 	result := make(registry.Dependencies)
 	for _, dep := range deps {
-		result[motor.Named(dep)] = &fake.Motor{}
+		result[motor.Named(dep)] = fake.NewFakeMotor()
 	}
 	return result
 }

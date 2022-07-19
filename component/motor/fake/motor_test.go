@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/component/motor"
 )
 
 func TestEncoder(t *testing.T) {
@@ -74,7 +75,7 @@ func TestMotor(t *testing.T) {
 	test.That(t, pos, test.ShouldEqual, 2)
 
 	// Test GoTillStop
-	err = m.GoTillStop(ctx, 0, func(ctx context.Context) bool {return false})
+	err = m.GoTillStop(ctx, 0, func(ctx context.Context) bool { return false })
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Test ResetZeroPosition
