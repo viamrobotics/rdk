@@ -446,7 +446,7 @@ func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Service", s)
+		return nil, utils.NewUnimplementedInterfaceError("Data Manager Service", s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableDataManager); ok {
