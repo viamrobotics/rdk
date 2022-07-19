@@ -28,6 +28,20 @@ type AttrConfig struct {
 	Board         string `json:"board"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if len(config.Board) == 0 {
+		return errors.New("cannot find board for ultrasonic sensor")
+	}
+	if len(config.TriggerPin) == 0 {
+		return errors.New("expected nonempty trigger pin")
+	}
+	if len(config.EchoInterrupt) == 0 {
+		return errors.New("expected nonempty echo interrupt pin")
+	}
+	return nil
+}
+
 func init() {
 	registry.RegisterComponent(
 		sensor.Subtype,
