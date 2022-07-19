@@ -3420,6 +3420,18 @@
       "hash": "2a8eeb771a594acc62d68b2032b62349",
       "size": 483200
     },
+    "bun000.pcd": {
+      "hash": "75a0485b81b8685cabcda2af8effa42f",
+      "size": 483244
+    },
+    "bun045.pcd": {
+      "hash": "1b376351f70c8cc39e249945617eb98d",
+      "size": 481336
+    },
+    "bun090.pcd": {
+      "hash": "dfebe03896ca235803cce73cbaf9c367",
+      "size": 364720
+    },
     "bun180.pcd": {
       "hash": "f633b4fa1bed5309800f2d68519fd617",
       "size": 483184
@@ -3447,6 +3459,10 @@
     "pc2.pcd": {
       "hash": "7f773479aaef8bc17ad60a9a22d0a93d",
       "size": 4752604
+    },
+    "test.las": {
+      "hash": "4d23d5d99191210d6a312fd138bb5f08",
+      "size": 218973
     },
     "test.pcd": {
       "hash": "6eb977c07e0b40d9535318d94ba6db2e",

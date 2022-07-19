@@ -234,7 +234,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 	}
 
 	cam3 := &inject.Camera{}
-	pc3, err := makePointCloudFromArtifact(t, "pointcloud/bun0.pcd", 0)
+	pc3, err := makePointCloudFromArtifact(t, "pointcloud/bun000.pcd", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 	}
 
 	cam4 := &inject.Camera{}
-	pc4, err := makePointCloudFromArtifact(t, "pointcloud/bun45.pcd", 0)
+	pc4, err := makePointCloudFromArtifact(t, "pointcloud/bun045.pcd", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 	}
 
 	cam5 := &inject.Camera{}
-	pc5, err := makePointCloudFromArtifact(t, "pointcloud/bun90.pcd", 0)
+	pc5, err := makePointCloudFromArtifact(t, "pointcloud/bun090.pcd", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
