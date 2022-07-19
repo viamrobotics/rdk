@@ -21,7 +21,7 @@ import (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			m := &Motor{Name: config.Name, logger: logger, encoder: fakeEncoder{}}
+			m := &Motor{Name: config.Name, logger: logger, encoder: fakeEncoder{logger: logger}}
 			if mcfg, ok := config.ConvertedAttributes.(*motor.Config); ok {
 				if mcfg.BoardName != "" {
 					m.Board = mcfg.BoardName
@@ -48,7 +48,7 @@ func init() {
 				m.cfg = *mcfg
 				if mcfg.EncoderA != "" || mcfg.EncoderB != "" {
 					m.positionReporting = true
-
+					
 					m.encoder.Start(ctx, &m.activeBackgroundWorkers, func() {})
 				}
 			}
@@ -66,6 +66,7 @@ type fakeEncoder struct {
 	mu       			sync.Mutex
 	position 			float64
 	speed				float64		// ticks per minute
+	logger 				golog.Logger
 }
 
 // Position returns the current position in terms of ticks.
