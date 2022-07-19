@@ -2,6 +2,7 @@ package wheeled
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -235,6 +236,61 @@ func TestFourWheelBase1(t *testing.T) {
 		l, r = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 1})
 		test.That(t, l, test.ShouldAlmostEqual, 0, .001)
 		test.That(t, r, test.ShouldEqual, 1)
+	})
+
+	t.Run("angular turning", func(t *testing.T) {
+		// -----------------------------------------------------
+		//
+		// IMPORTED FROM: web/frontend/src/rc/control_helpers.js
+		//
+		// This is what we are passing in from app from the WASD
+		// controls.
+		//
+		// -----------------------------------------------------
+		//
+		// if (keysPressed.forward) {
+		//     linear = 1;
+		// } else if (keysPressed.backward) {
+		//     linear = -1;
+		// }
+		//
+		// if (keysPressed.right) {
+		//     angular = -1;
+		// } else if (keysPressed.left) {
+		//     angular = 1;
+		// }
+		//
+		// -----------------------------------------------------
+
+		var fwdL, fwdR, revL, revR float64
+
+		// Go forward-left (↰)
+		fwdL, fwdR = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 1})
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
+		test.That(t, math.Abs(fwdL), test.ShouldBeLessThan, math.Abs(fwdR))
+
+		// Go reverse-left (↲)
+		revL, revR = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{Z: 1})
+		test.That(t, revL, test.ShouldBeLessThan, 0)
+		test.That(t, revR, test.ShouldBeLessThan, 0)
+		test.That(t, math.Abs(revL), test.ShouldBeLessThan, math.Abs(revR))
+
+		// TODO: End up in the same spot?
+
+		// Go forward-right (↱)
+		fwdL, fwdR = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: -1})
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
+		test.That(t, math.Abs(fwdL), test.ShouldBeGreaterThan, math.Abs(revL))
+
+		// Go reverse-right (↳)
+		revL, revR = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{Z: -1})
+		test.That(t, revL, test.ShouldBeLessThan, 0)
+		test.That(t, revR, test.ShouldBeLessThan, 0)
+		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
+
+		// TODO: End up in the same spot?
 	})
 }
 
