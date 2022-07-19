@@ -8,6 +8,8 @@ on:
         required: true
       REPO_READ_TOKEN:
         required: true
+      GIT_ACCESS_TOKEN:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
@@ -93,6 +95,7 @@ jobs:
       uses: marocchino/sticky-pull-request-comment@v2.2.0
       with:
         recreate: true
+        GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
         message: |
           AppImages ready!
           <http://packages.viam.com/apps/smurf/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64.AppImage>
