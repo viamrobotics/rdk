@@ -1,4 +1,3 @@
-// Package slam implements simultaneous localization and mapping
 package slam
 
 import (
@@ -29,22 +28,22 @@ const (
 )
 
 // orbCamMaker takes in the camera intrinsics and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
-func (slamSvc *slamService) orbCamMaker(intrinics *transform.PinholeCameraIntrinsics) (*ORBsettings, error) {
+func (slamSvc *slamService) orbCamMaker(intrinsics *transform.PinholeCameraIntrinsics) (*ORBsettings, error) {
 	var err error
 
 	orbslam := &ORBsettings{
 		CamType:        "PinHole",
-		Width:          intrinics.Width,
-		Height:         intrinics.Height,
-		Fx:             intrinics.Fx,
-		Fy:             intrinics.Fy,
-		Ppx:            intrinics.Ppx,
-		Ppy:            intrinics.Ppy,
-		RadialK1:       intrinics.Distortion.RadialK1,
-		RadialK2:       intrinics.Distortion.RadialK2,
-		RadialK3:       intrinics.Distortion.RadialK3,
-		TangentialP1:   intrinics.Distortion.TangentialP1,
-		TangentialP2:   intrinics.Distortion.TangentialP2,
+		Width:          intrinsics.Width,
+		Height:         intrinsics.Height,
+		Fx:             intrinsics.Fx,
+		Fy:             intrinsics.Fy,
+		Ppx:            intrinsics.Ppx,
+		Ppy:            intrinsics.Ppy,
+		RadialK1:       intrinsics.Distortion.RadialK1,
+		RadialK2:       intrinsics.Distortion.RadialK2,
+		RadialK3:       intrinsics.Distortion.RadialK3,
+		TangentialP1:   intrinsics.Distortion.TangentialP1,
+		TangentialP2:   intrinsics.Distortion.TangentialP2,
 		RGBflag:        rgbFlag,
 		Stereob:        stereoB,
 		StereoThDepth:  stereoThDepth,
@@ -103,7 +102,7 @@ type ORBsettings struct {
 }
 
 // generate a .yaml file to be used with orbslam.
-func orbGenYAML(ctx context.Context, slamSvc *slamService, cam camera.Camera) error {
+func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) error {
 	proj, err := cam.GetProperties(ctx) // will be nil if no intrinsics
 	if err != nil {
 		return err
@@ -147,10 +146,7 @@ func (slamSvc *slamService) orbConfigToInt(key string, def int) (int, error) {
 		slamSvc.logger.Debugf("Parameter %s not found, using default value %f", key, def)
 		return def, nil
 	}
-	if valStr == "" {
-		slamSvc.logger.Debugf("Parameter %s was left empty, using default %f", key, def)
-		return def, nil
-	}
+
 	val, err := strconv.Atoi(valStr)
 	if err != nil {
 		return 0, err
@@ -163,10 +159,6 @@ func (slamSvc *slamService) orbConfigToFloat(key string, def float64) (float64, 
 	valStr, ok := slamSvc.configParams[key]
 	if !ok {
 		slamSvc.logger.Debugf("Parameter %s not found, using default value %f", key, def)
-		return def, nil
-	}
-	if valStr == "" {
-		slamSvc.logger.Debugf("Parameter %s was left empty, using default %f", key, def)
 		return def, nil
 	}
 
