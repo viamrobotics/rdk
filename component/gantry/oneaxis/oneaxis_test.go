@@ -70,7 +70,7 @@ func createFakeDepsForTestNewOneAxis() registry.Dependencies {
 		return injectGPIOPin, nil
 	}}
 
-	fakeMotor := &fake.Motor{}
+	fakeMotor := fake.NewFakeMotor()
 	deps := make(registry.Dependencies)
 	deps[board.Named("board")] = fakeBoard
 	deps[motor.Named(motorName)] = fakeMotor

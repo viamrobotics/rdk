@@ -28,7 +28,7 @@ func TestMotorEncoder1(t *testing.T) {
 	defer undo()
 
 	cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
-	fakeMotor := &fakemotor.Motor{}
+	fakeMotor := fakemotor.NewFakeMotor()
 	interrupt := &board.BasicDigitalInterrupt{}
 
 	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, nil, logger)
