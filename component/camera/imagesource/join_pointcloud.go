@@ -18,7 +18,6 @@ import (
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/diff/fd"
 	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/num/quat"
 	"gonum.org/v1/gonum/optimize"
 
 	"go.viam.com/rdk/component/camera"
@@ -289,14 +288,12 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	})
 	// create optimization problem
 	optFunc := func(x []float64) float64 {
-		// x is an 7-vector used to create a pose
+		// x is an 6-vector used to create a pose
 		point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
-		quat := quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]}
-		orient := spatialmath.QuatToOV(quat)
+		orient := spatialmath.EulerAngles{Roll: x[3], Pitch: x[4], Yaw: x[5]}
 
-		pose := spatialmath.NewPoseFromOrientation(point, orient)
+		pose := spatialmath.NewPoseFromOrientation(point, &orient)
 
-		// pose := spatialmath.NewPoseFromAxisAngle(point, axis.Normalize(), rotAxis.Theta)
 		// compute the error
 		var dist float64
 		var currPose spatialmath.Pose
@@ -325,14 +322,13 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	if err != nil {
 		return nil, err
 	}
-	x0 := make([]float64, 7)
+	x0 := make([]float64, 6)
 	x0[0] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().X
 	x0[1] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Y
 	x0[2] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Z
-	x0[3] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Real
-	x0[4] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Imag
-	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Jmag
-	x0[6] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().Quaternion().Kmag
+	x0[3] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Pitch
+	x0[4] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Roll
+	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Yaw
 
 	utils.Logger.Debugf("x0 = %v", x0)
 
@@ -342,11 +338,13 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	settings := &optimize.Settings{
 		GradientThreshold: 0,
 		Converger: &optimize.FunctionConverge{
-			Relative:   1e-6,
-			Absolute:   1e-6,
+			Relative:   1e-10,
+			Absolute:   1e-10,
 			Iterations: 100,
 		},
-		Recorder: optimize.NewPrinter(),
+		MajorIterations: 100,
+		Recorder:        optimize.NewPrinter(),
+		// Concurrent: 8,
 	}
 
 	// method := &optimize.GradientDescent{
@@ -357,6 +355,9 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	method := &optimize.BFGS{
 		// Increase:          1.1,
 		// GradStopThreshold: 1e-8,
+		Linesearcher: &optimize.Bisection{
+			CurvatureFactor: 0.9,
+		},
 	}
 
 	// run optimization
@@ -369,8 +370,8 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 
 	// create the new pose
 	point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
-	quat := spatialmath.Quaternion(quat.Number{Real: x[3], Imag: x[4], Jmag: x[5], Kmag: x[6]})
-	pose := spatialmath.NewPoseFromOrientation(point, quat)
+	orient := spatialmath.EulerAngles{Roll: x[3], Pitch: x[4], Yaw: x[5]}
+	pose := spatialmath.NewPoseFromOrientation(point, &orient)
 
 	// transform the pointcloud
 	registeredPointCloud := pointcloud.NewWithPrealloc(pcSrc.Size())
