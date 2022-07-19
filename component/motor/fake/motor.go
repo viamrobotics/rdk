@@ -41,11 +41,13 @@ func init() {
 				}
 
 				m.cfg = *mcfg
-				if m.cfg.TicksPerRotation == 0 {
+				if m.cfg.TicksPerRotation <= 0 {
 					m.cfg.TicksPerRotation = 1
+					m.logger.Info("ticks_per_rotation must be positive, using default value 1")
 				}
 				if m.cfg.MaxRPM == 0 {
 					m.cfg.MaxRPM = 60
+					m.logger.Info("using default value 60 for max_rpm")
 				}
 
 				if mcfg.EncoderA != "" || mcfg.EncoderB != "" {
