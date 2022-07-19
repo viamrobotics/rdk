@@ -2,6 +2,7 @@ package vision
 
 import (
 	"bufio"
+	"context"
 	"image"
 	"os"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
@@ -30,7 +32,9 @@ type TFLiteDetectorConfig struct {
 // NewTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->[]objectdetection.Detection. It does this by making calls to
 // an inference package and wrapping the result.
-func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
+func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
+	defer span.End()
 	// Read those parameters into a TFLiteDetectorConfig
 	var t TFLiteDetectorConfig
 	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
@@ -44,7 +48,7 @@ func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 	}
 
 	// Add the model
-	model, err := addTFLiteModel(params.ModelPath, params.NumThreads)
+	model, err := addTFLiteModel(ctx, params.ModelPath, params.NumThreads)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "something wrong with adding the model")
 	}
@@ -65,18 +69,20 @@ func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 	return func(img image.Image) ([]objectdetection.Detection, error) {
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
 		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
-		outTensors, err := tfliteInfer(model, resizedImg)
+		outTensors, err := tfliteInfer(ctx, model, resizedImg)
 		if err != nil {
 			return nil, err
 		}
-		detections := unpackTensors(outTensors, model, labelMap, logger, origW, origH)
+		detections := unpackTensors(ctx, outTensors, model, labelMap, logger, origW, origH)
 		return detections, nil
 	}, model, nil
 }
 
 // addTFLiteModel uses the loader (default or otherwise) from the inference package
 // to register a tflite model. Default is chosen if there's no numThreads given.
-func addTFLiteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
+func addTFLiteModel(ctx context.Context, filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::addTFLiteModel")
+	defer span.End()
 	var model *inf.TFLiteStruct
 	var loader *inf.TFLiteModelLoader
 	var err error
@@ -100,7 +106,9 @@ func addTFLiteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error)
 
 // tfliteInfer first converts an input image to a buffer using the imageToBuffer func
 // and then uses the Infer function form the inference package to return the output tensors from the model.
-func tfliteInfer(model *inf.TFLiteStruct, image image.Image) ([]interface{}, error) {
+func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image) ([]interface{}, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::tfliteInfer")
+	defer span.End()
 	// Converts the image to bytes before sending it off
 	imgBuff := imageToBuffer(image)
 	out, err := model.Infer(imgBuff)
@@ -141,9 +149,11 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
 }
 
 // unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
-func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
+func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
 	logger golog.Logger, origW, origH int,
 ) []objectdetection.Detection {
+	_, span := trace.StartSpan(ctx, "service::vision::addTFLiteModel")
+	defer span.End()
 	// Gather slices for the bboxes, scores, and labels, using TensorOrder
 	var labels []int
 	var bboxes []float64
