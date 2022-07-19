@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"context"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -14,7 +15,8 @@ import (
 func TestNewTfLiteDetector(t *testing.T) {
 	// Test that empty config gives error about loading model
 	emptyCfg := DetectorConfig{}
-	got, model, err := NewTFLiteDetector(&emptyCfg, golog.NewTestLogger(t))
+	ctx := context.Background()
+	got, model, err := NewTFLiteDetector(ctx, &emptyCfg, golog.NewTestLogger(t))
 	test.That(t, model, test.ShouldBeNil)
 	test.That(t, got, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "something wrong with adding the model")
@@ -32,7 +34,7 @@ func TestNewTfLiteDetector(t *testing.T) {
 		},
 	}
 
-	got2, model, err := NewTFLiteDetector(&cfg, golog.NewTestLogger(t))
+	got2, model, err := NewTFLiteDetector(ctx, &cfg, golog.NewTestLogger(t))
 	test.That(t, model, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
