@@ -200,15 +200,63 @@ func (svc *remoteService) controllerInputs() []input.Control {
 	return []input.Control{}
 }
 
+func (svc *remoteService) processEvent(ctx context.Context, state *throttleState, event input.Event) error {
+	newLinear, newAngular := parseEvent(svc.controlMode, state, event)
+
+	if similar(newLinear, state.linearThrottle, .05) && similar(newAngular, state.angularThrottle, .05) {
+		return nil
+	}
+
+	if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
+		if err := svc.base.SetVelocity(
+			ctx,
+			r3.Vector{
+				X: svc.config.MaxLinearVelocity * newLinear.X,
+				Y: svc.config.MaxLinearVelocity * newLinear.Y,
+				Z: svc.config.MaxLinearVelocity * newLinear.Z,
+			},
+			r3.Vector{
+				X: svc.config.MaxAngularVelocity * newAngular.X,
+				Y: svc.config.MaxAngularVelocity * newAngular.Y,
+				Z: svc.config.MaxAngularVelocity * newAngular.Z,
+			},
+		); err != nil {
+			return err
+		}
+	} else {
+		if err := svc.base.SetPower(ctx, newLinear, newAngular); err != nil {
+			return err
+		}
+	}
+
+	state.linearThrottle = newLinear
+	state.angularThrottle = newAngular
+	return nil
+}
+
 type reconfigurableBaseRemoteControl struct {
 	mu     sync.RWMutex
-	actual remoteService
+	actual *remoteService
 }
 
 func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return viamutils.TryClose(ctx, svc.actual)
+}
+
+func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableBaseRemoteControl)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := viamutils.TryClose(ctx, &svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
 }
 
 // WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
@@ -222,21 +270,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return nil, utils.NewUnexpectedTypeError(&remoteService{}, s)
 	}
 
-	return &reconfigurableBaseRemoteControl{actual: svc}, nil
-}
-
-func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	rSvc, ok := newSvc.(*reconfigurableBaseRemoteControl)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newSvc)
-	}
-	if err := viamutils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	svc.actual = rSvc.actual
-	return nil
+	return &reconfigurableBaseRemoteControl{actual: &svc}, nil
 }
 
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
@@ -402,38 +436,4 @@ func parseEvent(mode controlMode, state *throttleState, event input.Event) (r3.V
 	}
 
 	return newLinear, newAngular
-}
-
-func (svc *remoteService) processEvent(ctx context.Context, state *throttleState, event input.Event) error {
-	newLinear, newAngular := parseEvent(svc.controlMode, state, event)
-
-	if similar(newLinear, state.linearThrottle, .05) && similar(newAngular, state.angularThrottle, .05) {
-		return nil
-	}
-
-	if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
-		if err := svc.base.SetVelocity(
-			ctx,
-			r3.Vector{
-				X: svc.config.MaxLinearVelocity * newLinear.X,
-				Y: svc.config.MaxLinearVelocity * newLinear.Y,
-				Z: svc.config.MaxLinearVelocity * newLinear.Z,
-			},
-			r3.Vector{
-				X: svc.config.MaxAngularVelocity * newAngular.X,
-				Y: svc.config.MaxAngularVelocity * newAngular.Y,
-				Z: svc.config.MaxAngularVelocity * newAngular.Z,
-			},
-		); err != nil {
-			return err
-		}
-	} else {
-		if err := svc.base.SetPower(ctx, newLinear, newAngular); err != nil {
-			return err
-		}
-	}
-
-	state.linearThrottle = newLinear
-	state.angularThrottle = newAngular
-	return nil
 }
