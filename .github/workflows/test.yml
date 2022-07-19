@@ -91,8 +91,8 @@ jobs:
     - name: Clean Workspace
       run: |
         shopt -s dotglob
-        sudo rm -r ./*
         sudo chown -R `whoami` ./
+        rm -rf ./*
 
     - name: Check out code in rdk directory
       uses: actions/checkout@v2

@@ -78,6 +78,26 @@ jobs:
         parent: false
         gzip: false
 
+  appimage_comment:
+    name: Add AppImage Links
+    if: contains(github.event.pull_request.labels.*.name, 'appimage')
+    needs: appimage
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 5
+
+    steps:
+    - name: Add links
+      uses: marocchino/sticky-pull-request-comment@v2.2.0
+      with:
+        recreate: true
+        message: |
+          AppImages ready!
+          <http://packages.viam.com/apps/smurf/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64.AppImage>
+          <http://packages.viam.com/apps/smurf/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-aarch64.AppImage>
+
   appimage_test:
     name: AppImage Test & Deploy
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
