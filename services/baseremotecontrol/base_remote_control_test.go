@@ -398,7 +398,7 @@ func TestParseEvent(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	actualSvc := &mock{name: "svc1"}
+	actualSvc := returnMock("svc1")
 	reconfSvc, err := WrapWithReconfigurable(actualSvc)
 	test.That(t, err, test.ShouldBeNil)
 	rBRC, ok := reconfSvc.(*reconfigurableBaseRemoteControl)
@@ -412,20 +412,20 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	rBRC2, ok := reconfSvc2.(*reconfigurableBaseRemoteControl)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	mock1 := rBRC.actual.(*mock)
-	mock2 := rBRC2.actual.(*mock)
+	name1 := rBRC.actual.config.BaseName
+	name2 := rBRC2.actual.config.BaseName
 
-	test.That(t, mock1.name, test.ShouldEqual, mock2.name)
+	test.That(t, name1, test.ShouldEqual, name2)
 }
 
 func TestReconfigure(t *testing.T) {
-	actualSvc := &mock{name: "svc1"}
+	actualSvc := returnMock("svc1")
 	reconfSvc, err := WrapWithReconfigurable(actualSvc)
 	test.That(t, err, test.ShouldBeNil)
 	rBRC, ok := reconfSvc.(*reconfigurableBaseRemoteControl)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	actualSvc2 := &mock{name: "svc2"}
+	actualSvc2 := returnMock("svc1")
 	reconfSvc2, err := WrapWithReconfigurable(actualSvc2)
 	test.That(t, err, test.ShouldBeNil)
 	rBRC2, ok := reconfSvc2.(*reconfigurableBaseRemoteControl)
@@ -434,21 +434,16 @@ func TestReconfigure(t *testing.T) {
 
 	err = reconfSvc.Reconfigure(context.Background(), reconfSvc2)
 	test.That(t, err, test.ShouldBeNil)
-	mock1 := rBRC.actual.(*mock)
-	mock2 := rBRC2.actual.(*mock)
-	test.That(t, mock1.name, test.ShouldEqual, mock2.name)
+	name1 := rBRC.actual.config.BaseName
+	name2 := rBRC2.actual.config.BaseName
+	test.That(t, name1, test.ShouldEqual, name2)
 
 	err = reconfSvc.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&reconfigurableBaseRemoteControl{}, nil))
 }
 
-type mock struct {
-	remoteService
-	name        string
-	reconfCount int
-}
-
-func (m *mock) Close(ctx context.Context) error {
-	m.reconfCount++
-	return nil
+func returnMock(name string) remoteService {
+	return remoteService{
+		config: &Config{BaseName: name},
+	}
 }

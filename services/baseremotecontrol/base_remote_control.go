@@ -74,9 +74,6 @@ type Config struct {
 	MaxLinearVelocity   float64 `json:"max_linear"`
 }
 
-// BaseRemoteControl defines a BaseRemoteControlService interface.
-type BaseRemoteControl interface{}
-
 // RemoteService is the structure of the remote service.
 type remoteService struct {
 	base            base.Base
@@ -205,7 +202,7 @@ func (svc *remoteService) controllerInputs() []input.Control {
 
 type reconfigurableBaseRemoteControl struct {
 	mu     sync.RWMutex
-	actual BaseRemoteControl
+	actual remoteService
 }
 
 func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
@@ -216,9 +213,9 @@ func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
 
 // WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
-	svc, ok := s.(BaseRemoteControl)
+	svc, ok := s.(remoteService)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("BaseRemoteControl", s)
+		return nil, utils.NewUnexpectedTypeError(remoteService{}, s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableBaseRemoteControl); ok {
