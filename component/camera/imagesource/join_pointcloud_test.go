@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"math"
 	"os"
 	"testing"
 	"time"
@@ -274,7 +275,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		},
 		{
 			Name:        "cam4",
-			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{0, 0, 0}, Orientation: spatialmath.EulerAngles{Roll: Math.Pi / 4, Pitch: 0, Yaw: 0}},
+			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{-70, 0, 0}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: -math.Pi / 4}},
 		},
 	}
 	r.FrameSystemConfigFunc = func(
