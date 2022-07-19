@@ -88,6 +88,9 @@ jobs:
     timeout-minutes: 5
 
     steps:
+    - name: Clean Workspace
+      uses: AutoModality/action-clean@v1.1.0
+
     - name: Check out code in rdk directory
       uses: actions/checkout@v2
       with:
