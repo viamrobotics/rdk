@@ -395,7 +395,10 @@ func (params *PinholeCameraIntrinsics) GetCameraMatrix() *mat.Dense {
 	return cameraMatrix
 }
 
+// ErrNoIntrinsics is when a camera does not have intrinsics parameters or other parameters.
+var ErrNoIntrinsics = errors.New("camera intrinsic parameters are not available")
+
 // NewNoIntrinsicsError is used when the intriniscs are not defined.
 func NewNoIntrinsicsError(msg string) error {
-	return errors.Errorf("Camera intrinsic parameters are not available: %v", msg)
+	return errors.Wrapf(ErrNoIntrinsics, msg)
 }

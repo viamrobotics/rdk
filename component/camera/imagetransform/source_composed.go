@@ -1,4 +1,4 @@
-package imagesource
+package imagetransform
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newDepthToPretty(deps, attrs)
+			return newDepthToPretty(ctx, deps, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_to_pretty",
@@ -52,7 +52,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newOverlay(deps, attrs)
+			return newOverlay(ctx, deps, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "overlay",
@@ -79,13 +79,13 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	return ii.Overlay(), func() {}, nil
 }
 
-func newOverlay(deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newOverlay(ctx context.Context, deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
 	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
 	imgSrc := &overlaySource{source}
-	return camera.New(imgSrc, attrs, source)
+	return camera.New(imgSrc, camera.GetProjector(ctx, attrs, source))
 }
 
 type depthToPretty struct {
@@ -105,11 +105,11 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 	return rimage.MakeImageWithDepth(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), ii.Depth, true), func() {}, nil
 }
 
-func newDepthToPretty(deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newDepthToPretty(ctx context.Context, deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
 	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
 	imgSrc := &depthToPretty{source}
-	return camera.New(imgSrc, attrs, source)
+	return camera.New(imgSrc, camera.GetProjector(ctx, attrs, source))
 }

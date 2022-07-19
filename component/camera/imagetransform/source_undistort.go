@@ -1,4 +1,4 @@
-package imagesource
+package imagetransform
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for undistort (%s): %w", sourceName, err)
 			}
-			return newUndistortSource(source, attrs)
+			return newUndistortSource(ctx, source, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "undistort",
@@ -56,17 +56,14 @@ type undistortSource struct {
 	cameraParams *transform.PinholeCameraIntrinsics
 }
 
-func newUndistortSource(source camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
-	var ok bool
-	intrinsics := attrs.CameraParameters
-	if intrinsics == nil {
-		intrinsics, ok = camera.Projector(source).(*transform.PinholeCameraIntrinsics)
-		if !ok {
-			return nil, errors.Errorf("expected source camera to have intrinsic parameters, but instead got %T", camera.Projector(source))
-		}
+func newUndistortSource(ctx context.Context, source camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
+	proj := camera.GetProjector(ctx, attrs, source)
+	intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
+	if !ok {
+		return nil, transform.NewNoIntrinsicsError("")
 	}
 	imgSrc := &undistortSource{source, camera.StreamType(attrs.Stream), intrinsics}
-	return camera.New(imgSrc, attrs, source)
+	return camera.New(imgSrc, proj)
 }
 
 // Next undistorts the original image according to the camera parameters.
@@ -77,7 +74,7 @@ func (us *undistortSource) Next(ctx context.Context) (image.Image, func(), error
 	}
 	defer release()
 	switch us.stream {
-	case camera.ColorStream:
+	case camera.ColorStream, camera.UnspecifiedStream:
 		color := rimage.ConvertImage(orig)
 		color, err = us.cameraParams.UndistortImage(color)
 		if err != nil {

@@ -1,4 +1,4 @@
-package imagesource
+package imagetransform
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"depth_edges",
+		"preprocess_depth",
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -30,25 +30,23 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newDepthEdgesSource(deps, attrs)
+			return newPreprocessDepth(ctx, deps, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_edges",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "preprocess_depth",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		}, &camera.AttrConfig{})
 }
 
-// depthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth.
-type depthEdgesSource struct {
-	source     gostream.ImageSource
-	detector   *rimage.CannyEdgeDetector
-	blurRadius float64
+// preprocessDepthSource applies pre-processing functions to depth maps in order to smooth edges and fill holes.
+type preprocessDepthSource struct {
+	source gostream.ImageSource
 }
 
-// Next applies a canny edge detector on the depth map of the next image.
-func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
+// Next applies depth preprocessing to the next image.
+func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
@@ -58,19 +56,18 @@ func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), erro
 	if ii.Depth == nil {
 		return nil, nil, errors.New("no depth")
 	}
-	edges, err := os.detector.DetectDepthEdges(ii.Depth, os.blurRadius)
-	if err != nil {
+	ii.Depth, err = rimage.PreprocessDepthMap(ii.Depth, ii.Color)
+	if ii.Depth == nil {
 		return nil, nil, err
 	}
-	return edges, func() {}, nil
+	return ii, func() {}, nil
 }
 
-func newDepthEdgesSource(deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newPreprocessDepth(ctx context.Context, deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
 	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
-	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	imgSrc := &depthEdgesSource{source, canny, 3.0}
-	return camera.New(imgSrc, attrs, source)
+	imgSrc := &preprocessDepthSource{source}
+	return camera.New(imgSrc, camera.GetProjector(ctx, attrs, source))
 }
