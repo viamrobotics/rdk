@@ -61,25 +61,24 @@ func newTestSyncer(t *testing.T, mc *mockClient, uploadFn uploadFn) *syncer {
 }
 
 // mockClientShutdown implements DataSyncService_UploadClient and maintains a list of all UploadRequests sent with its
-// send method. It differs from mockClient because it shuts down after a maximum of three sent UploadRequests. This
-// simulates partial uploads (cases where client loses connection from server during upload).
+// send method. It differs from mockClient because it shuts down after a maximum of 'shutdownIndex+1' sent
+// UploadRequests. This simulates partial uploads (cases where client shuts down during upload).
 type mockClientShutdown struct {
-	sent []*v1.UploadRequest
-	lock sync.Mutex
+	sent          []*v1.UploadRequest
+	shutdownIndex int
+	lock          sync.Mutex
 	grpc.ClientStream
 }
 
 func (m *mockClientShutdown) Send(req *v1.UploadRequest) error {
 	m.lock.Lock()
-	// Shut down client after sending two sensordata messages -- those messages are always preceded by one metadata
-	// message. For this reason, return an error when the client attempts to send its fourth message.
-	if len(m.sent) < 3 {
+	if len(m.sent) < (m.shutdownIndex) {
 		m.sent = append(m.sent, req)
 		m.lock.Unlock()
 		return nil
 	}
 	m.lock.Unlock()
-	return errors.New("cannot mock client shutdown")
+	return errors.New("mock client shutdown")
 }
 
 func (m *mockClientShutdown) CloseAndRecv() (*v1.UploadResponse, error) {
@@ -105,10 +104,10 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 
-	// Compare metadata upload requests (uncomment below).
-	// compareMetadata(t, actual[0].GetMetadata(), expected[0].GetMetadata())
-
 	if len(actual) > 0 {
+		// Compare metadata upload requests (uncomment below).
+		compareMetadata(t, actual[0].GetMetadata(), expected[0].GetMetadata())
+
 		// Compare data differently for binary & tabular data.
 		if isTabular {
 			// Compare tabular data upload request (stream).
@@ -133,7 +132,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	expectedMetadata *v1.UploadMetadata,
 ) {
 	// Test the fields within UploadRequest Metadata.
-	test.That(t, filepath.Clean(actualMetadata.FileName), test.ShouldEqual, filepath.Clean(expectedMetadata.FileName))
+	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
 	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
@@ -266,7 +265,7 @@ func resetFolderContents(path string) error {
 				return err
 			}
 			for _, info := range infos {
-				if err = os.Remove(info.Name()); err != nil {
+				if err = os.Remove(filepath.Join(path, info.Name())); err != nil {
 					return err
 				}
 			}

@@ -222,23 +222,22 @@ func uploadFile(ctx context.Context, pt ProgressTracker, client v1.DataSyncServi
 		},
 	}
 
-	// Must send metadata for all DATA_TYPE_FILE uploads, and only send metadata for DATA_TYPE_[...]_SENSOR uploads
-	// when at least one sensordata message follows the metadata.
-	clientShouldSendMetadata := false
+	// Depending on type of file upload, assign below '...Fn' values to deal with files accordingly.
+	// Differences include proto messages contained in files as well as ability to partially upload files.
 	var getNextRequestFn getNextRequestFn
 	var processUploadRequestFn processUploadRequestFn
-
 	switch md.GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		// initDataCaptureUpload determines if moreSensorReadingsExist should be toggled to true.
-		clientShouldSendMetadata, err = initDataCaptureUpload(ctx, f, pt, f.Name(), md)
+		err = initDataCaptureUpload(ctx, f, pt, f.Name(), md)
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
 		getNextRequestFn = getNextSensorUploadRequest
 		processUploadRequestFn = sendClientUpdateProgress
 	case v1.DataType_DATA_TYPE_FILE:
-		clientShouldSendMetadata = true
 		getNextRequestFn = getNextFileUploadRequest
 		processUploadRequestFn = sendClient
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
@@ -247,12 +246,8 @@ func uploadFile(ctx context.Context, pt ProgressTracker, client v1.DataSyncServi
 		return errors.New("no data type specified in upload metadata")
 	}
 
-	if clientShouldSendMetadata {
-		if err := client.Send(req); err != nil {
-			return errors.Wrap(err, "error while sending upload metadata")
-		}
-	} else {
-		return nil
+	if err := client.Send(req); err != nil {
+		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
 	// Loop until there is no more content to be read from file.
@@ -308,37 +303,40 @@ func sendClient(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequ
 	return nil
 }
 
-func initDataCaptureUpload(ctx context.Context, f *os.File, pt ProgressTracker, dcFileName string, md *v1.UploadMetadata) (bool, error) {
+func initDataCaptureUpload(ctx context.Context, f *os.File, pt ProgressTracker, dcFileName string, md *v1.UploadMetadata) error {
 	// Get file progress to see if upload has been attempted. If yes, resume from upload progress point and if not,
 	// create an upload progress file.
 	progressFilePath := filepath.Join(progressDir, filepath.Base(dcFileName))
 	progressIndex, err := pt.getIndexProgressFile(progressFilePath)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if progressIndex == 0 {
 		if err := pt.createProgressFile(progressFilePath, progressIndex); err != nil {
-			return false, err
+			return err
 		}
 	}
 
 	// Sets the next read/write pointer in a data capture file to the next sensordata message that needs to be uploaded.
 	for i := 0; i < progressIndex; i++ {
 		if _, err := getNextSensorUploadRequest(ctx, f); err != nil {
-			return false, err
+			return err
 		}
 	}
 
 	// Ensure there are existing sensor readings yet to be uploaded.
 	currentOffset, err := f.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return false, err
+		return err
 	}
 	finfo, err := f.Stat()
 	if err != nil {
-		return false, err
+		return err
 	}
-	return (currentOffset != finfo.Size()), nil
+	if currentOffset == finfo.Size() {
+		return io.EOF
+	}
+	return nil
 }
 
 func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
