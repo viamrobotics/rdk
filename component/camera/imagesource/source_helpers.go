@@ -10,8 +10,9 @@ import (
 	"net/http"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/rimage"
 	viamutils "go.viam.com/utils"
+
+	"go.viam.com/rdk/rimage"
 )
 
 func decodeColor(colorData []byte) (image.Image, error) {
@@ -50,15 +51,19 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 func readColorURL(ctx context.Context, client http.Client, url string) (*rimage.Image, error) {
 	colorData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "couldn't ready color url")
+		return nil, errors.Wrap(err, "couldn't ready color url")
 	}
-	return decodeColor(colorData)
+	img, err := decodeColor(colorData)
+	if err != nil {
+		return nil, err
+	}
+	return rimage.ConvertImage(img), nil
 }
 
 func readDepthURL(ctx context.Context, client http.Client, url string) (*rimage.DepthMap, error) {
 	depthData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "couldn't ready depth url")
+		return nil, errors.Wrap(err, "couldn't ready depth url")
 	}
 	// do this first and make sure ok before creating any mats
 	return decodeDepth(depthData)

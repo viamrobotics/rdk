@@ -10,9 +10,6 @@ import (
 )
 
 func main() {
-	hardMin := flag.Int("min", 0, "min depth")
-	hardMax := flag.Int("max", int(rimage.MaxDepth), "max depth")
-
 	flag.Parse()
 
 	if flag.NArg() < 2 {
@@ -36,7 +33,7 @@ func main() {
 		panic(err)
 	}
 
-	img := dm.ToPrettyPicture(rimage.Depth(*hardMin), rimage.Depth(*hardMax))
+	img := dm.ToGray16Picture()
 	if err := rimage.WriteImageToFile(flag.Arg(1), img); err != nil {
 		panic(err)
 	}

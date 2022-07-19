@@ -2,6 +2,7 @@ package camera
 
 import (
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -18,7 +19,7 @@ const (
 	BothStream        = StreamType("both")
 )
 
-// NewUnsupportedStreamError is when the stream type is unknown
+// NewUnsupportedStreamError is when the stream type is unknown.
 func NewUnsupportedStreamError(s StreamType) error {
 	return errors.Errorf("stream of type %q not supported", string(s))
 }

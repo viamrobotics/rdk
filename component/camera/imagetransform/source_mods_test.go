@@ -1,4 +1,4 @@
-package imagesource
+package imagetransform
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
 )
@@ -17,7 +18,7 @@ var outDir string
 
 func init() {
 	var err error
-	outDir, err = testutils.TempDir("", "rimage_imagesource")
+	outDir, err = testutils.TempDir("", "rimage_imagetransform")
 	if err != nil {
 		panic(err)
 	}
@@ -28,7 +29,7 @@ func TestRotateSource(t *testing.T) {
 	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
 
-	source := &StaticSource{pc}
+	source := &imagesource.StaticSource{ColorImg: pc, DepthImg: pc}
 	rs := &rotateImageDepthSource{source}
 
 	rawImage, _, err := rs.Next(context.Background())
@@ -60,7 +61,7 @@ func BenchmarkRotate(b *testing.B) {
 	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(b, err, test.ShouldBeNil)
 
-	source := &StaticSource{pc}
+	source := &imagesource.StaticSource{ColorImg: pc, DepthImg: pc}
 	rs := &rotateImageDepthSource{source}
 
 	b.ResetTimer()

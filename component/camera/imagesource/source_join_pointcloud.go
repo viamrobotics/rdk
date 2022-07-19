@@ -11,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
@@ -21,6 +22,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
@@ -62,6 +64,7 @@ func init() {
 
 // JoinAttrs is the attribute struct for joinPointCloudSource.
 type JoinAttrs struct {
+	*camera.AttrConfig
 	TargetFrame   string   `json:"target_frame"`
 	SourceCameras []string `json:"source_cameras"`
 }
@@ -249,8 +252,12 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 // Next gets the merged point cloud from all sources, and then uses a projection to turn it into a 2D image.
 func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 	var proj rimage.Projector
+	var err error
 	if idx, ok := contains(jpcs.sourceNames, jpcs.targetName); ok {
-		proj, _ = jpcs.sourceCameras[idx].GetProperties(ctx)
+		proj, err = jpcs.sourceCameras[idx].GetProperties(ctx)
+		if err != nil && !errors.Is(err, transform.ErrNoIntrinsics) {
+			return nil, nil, err
+		}
 	}
 	if proj == nil { // use a default projector if target frame doesn't have one
 		proj = &rimage.ParallelProjection{}

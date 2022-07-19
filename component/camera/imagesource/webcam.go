@@ -195,7 +195,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(attrs, attrs.Path, constraints)
+		return tryWebcamOpen(ctx, attrs, attrs.Path, constraints)
 	}
 
 	var pattern *regexp.Regexp
@@ -219,7 +219,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 			continue
 		}
 
-		s, err := tryWebcamOpen(attrs, label, constraints)
+		s, err := tryWebcamOpen(ctx, attrs, label, constraints)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")

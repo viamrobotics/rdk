@@ -79,18 +79,24 @@ type PointCloudSource interface {
 }
 
 // GetProjector either gets the camera parameters from the config, or if the camera has a parent source,
-// can copy over the projector from there. If the camera doesn't have a projector, just return nil
+// can copy over the projector from there. If the camera doesn't have a projector, just return nil.
 func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) rimage.Projector {
 	// if the camera parameters are specified in the config, those get priority.
 	if attrs != nil && attrs.CameraParameters != nil {
-		return attrs.CameraParameters, nil
+		return attrs.CameraParameters
 	}
 	// inherit camera parameters from source camera if possible.
-	proj, _ := parentSource.GetProperties(ctx)
-	return proj
+	if parentSource != nil {
+		proj, err := parentSource.GetProperties(ctx)
+		if err != nil && !errors.Is(err, transform.ErrNoIntrinsics) {
+			panic(err)
+		}
+		return proj
+	}
+	return nil
 }
 
-// New creates a Camera either with or without a projector
+// New creates a Camera either with or without a projector.
 func New(imgSrc gostream.ImageSource, proj rimage.Projector) (Camera, error) {
 	if imgSrc == nil {
 		return nil, errors.New("cannot have a nil image source")
@@ -117,19 +123,19 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if c, ok := is.ImageSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}
-	if is.projector != nil {
-		img, closer, err := is.Next(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer closer()
-
-		dm, ok := img.(*rimage.DepthMap)
-		if ok {
-			return dm.ToPointCloud(is.projector), nil
-		}
+	if is.projector == nil {
+		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
 	}
-	return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
+	img, release, err := is.Next(ctx)
+	defer release()
+	if err != nil {
+		return nil, err
+	}
+	dm, ok := img.(*rimage.DepthMap)
+	if !ok {
+		return nil, errors.New("image has no depth information to project to pointcloud")
+	}
+	return dm.ToPointCloud(is.projector), nil
 }
 
 func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, error) {

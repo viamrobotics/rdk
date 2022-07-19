@@ -16,6 +16,8 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
@@ -31,15 +33,24 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 		pc := pointcloud.New()
 		return pc, pc.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 	}
+	cam1.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return nil, transform.NewNoIntrinsicsError("")
+	}
 	cam2 := &inject.Camera{}
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pc := pointcloud.New()
 		return pc, pc.Set(pointcloud.NewVector(0, 1, 0), pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255}))
 	}
+	cam2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return nil, transform.NewNoIntrinsicsError("")
+	}
 	cam3 := &inject.Camera{}
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pc := pointcloud.New()
 		return pc, pc.Set(pointcloud.NewVector(0, 0, 1), pointcloud.NewColoredData(color.NRGBA{0, 0, 255, 255}))
+	}
+	cam3.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return nil, transform.NewNoIntrinsicsError("")
 	}
 	base1 := &inject.Base{}
 
@@ -95,10 +106,11 @@ func TestJoinPointCloud(t *testing.T) {
 	r := makeFakeRobot(t)
 	// PoV from base1
 	attrs := &JoinAttrs{
+		AttrConfig:    &camera.AttrConfig{},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "base1",
 	}
-	joinedCam, err := newJoinPointCloudSource(r, attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -122,10 +134,11 @@ func TestJoinPointCloud(t *testing.T) {
 
 	// PoV from cam1
 	attrs = &JoinAttrs{
+		AttrConfig:    &camera.AttrConfig{},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "cam1",
 	}
-	joinedCam, err = newJoinPointCloudSource(r, attrs)
+	joinedCam, err = newJoinPointCloudSource(context.Background(), r, attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)

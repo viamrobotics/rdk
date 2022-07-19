@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -45,7 +46,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 	// fails since camera cannot generate point clouds (no depth in image)
 	r = &inject.Robot{}
 	_cam := &simpleSource{}
-	cam, err := camera.New(_cam, nil, nil)
+	cam, err := camera.New(_cam, nil)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -72,7 +73,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 		"mean_k_filtering":      10.,
 	}
 	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter, params)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector")
+	test.That(t, err.Error(), test.ShouldContainSubstring, transform.NewNoIntrinsicsError("").Error())
 }
 
 func TestGetObjectPointClouds(t *testing.T) {
@@ -80,7 +81,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
 	_cam := &cloudSource{}
-	cam, err := camera.New(_cam, nil, nil)
+	cam, err := camera.New(_cam, nil)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -196,7 +197,7 @@ func TestFullClientServerLoop(t *testing.T) {
 	// create the robot, camera, and service
 	r := &inject.Robot{}
 	_cam := &cloudSource{}
-	cam, err := camera.New(_cam, nil, nil)
+	cam, err := camera.New(_cam, nil)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger

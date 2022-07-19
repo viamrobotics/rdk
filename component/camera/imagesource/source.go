@@ -1,25 +1,19 @@
 // Package imagesource defines various image sources typically registered as cameras in the API.
-//
-// Some sources are specific to a type of camera while some are general purpose sources that
-// act as a component in an image transformation pipeline.
 package imagesource
 
 import (
 	"context"
-	"sync"
-
 	// for embedding camera parameters.
 	_ "embed"
-	"fmt"
 	"image"
 	"net/http"
+	"sync"
 
 	"github.com/edaniels/golog"
-	"go.opencensus.io/trace"
-
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -92,88 +86,6 @@ func init() {
 			return result, nil
 		},
 		&dualServerAttrs{})
-
-	registry.RegisterComponent(camera.Subtype, "file",
-		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
-			config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*fileSourceAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
-			return camera.New(imgSrc, camera.GetProjector(ctx, attrs.AttrConfig, nil))
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
-			var conf fileSourceAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*fileSourceAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			result.AttrConfig = cameraAttrs
-			return result, nil
-		},
-		&fileSourceAttrs{})
-}
-
-// StaticSource is a fixed, stored image.
-type StaticSource struct {
-	Img image.Image
-}
-
-// Next returns the stored image.
-func (ss *StaticSource) Next(ctx context.Context) (image.Image, func(), error) {
-	return ss.Img, func() {}, nil
-}
-
-// fileSource stores the paths to a color and depth image.
-type fileSource struct {
-	ColorFN    string
-	DepthFN    string
-	Intrinsics *transform.PinholeCameraIntrinsics
-}
-
-// fileSourceAttrs is the attribute struct for fileSource.
-type fileSourceAttrs struct {
-	*camera.AttrConfig
-	Color string `json:"color"`
-	Depth string `json:"depth"`
-}
-
-// Next returns just the RGB image if it is present, or the depth map if the RGB image is not present.
-func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
-	if fs.ColorFN == "" { // only depth info
-		img, err := rimage.NewDepthMapFromFile(fs.DepthFN)
-		return img, func() {}, err
-	}
-	img, err := rimage.NewImageFromFile(fs.ColorFN)
-	return img, func() {}, err
-}
-
-// Next PointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
-func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	if fs.Intrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
-	}
-	img, err := rimage.NewImageFromFile(fs.ColorFN)
-	if err != nil {
-		return nil, err
-	}
-	dm, err := rimage.NewDepthMapFromFile(fs.DepthFN)
-	if err != nil {
-		return nil, err
-	}
-	return fs.Intrinsics.RGBDToPointCloud(img, dm)
 }
 
 // dualServerSource stores two URLs, one which points the color source and the other to the
@@ -212,7 +124,7 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 	ctx, span := trace.StartSpan(ctx, "imagesource::dualServerSource::Next")
 	defer span.End()
 	switch ds.Stream {
-	case camera.ColorStream:
+	case camera.ColorStream, camera.BothStream, camera.UnspecifiedStream:
 		img, err := readColorURL(ctx, ds.client, ds.ColorURL)
 		return img, func() {}, err
 	case camera.DepthStream:
@@ -227,32 +139,33 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	ctx, span := trace.StartSpan(ctx, "imagesource::dualServerSource::NextPointCloud")
 	defer span.End()
 	if ds.Intrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
+		return nil, transform.NewNoIntrinsicsError("dualServerSource has nil intrinsics")
 	}
 	var color *rimage.Image
 	var depth *rimage.DepthMap
-	var err error
+	var errColor error
+	var errDepth error
 	// do a parallel request for the color and depth image
 	wg := sync.WaitGroup{}
 	// get color image
 	wg.Add(1)
 	go func(ctx context.Context) {
 		defer wg.Done()
-		color, err = readColorURL(ctx, ds.client, ds.ColorURL)
-		if err != nil {
-			return nil, err
-		}
+		color, errColor = readColorURL(ctx, ds.client, ds.ColorURL)
 	}(ctx)
 	// get depth image
 	wg.Add(1)
 	go func(ctx context.Context) {
 		defer wg.Done()
-		depth, err = readDepthURL(ctx, ds.client, ds.DepthURL)
-		if err != nil {
-			return nil, err
-		}
+		depth, errDepth = readDepthURL(ctx, ds.client, ds.DepthURL)
 	}(ctx)
 	wg.Wait()
+	if errColor != nil {
+		return nil, errColor
+	}
+	if errDepth != nil {
+		return nil, errDepth
+	}
 	return ds.Intrinsics.RGBDToPointCloud(color, depth)
 }
 
@@ -265,7 +178,6 @@ func (ds *dualServerSource) Close() {
 type serverSource struct {
 	client     http.Client
 	URL        string
-	host       string
 	stream     camera.StreamType // specifies color, depth
 	Intrinsics *transform.PinholeCameraIntrinsics
 }
@@ -273,9 +185,7 @@ type serverSource struct {
 // ServerAttrs is the attribute struct for serverSource.
 type ServerAttrs struct {
 	*camera.AttrConfig
-	Host string `json:"host"`
-	Port int    `json:"port"`
-	Args string `json:"args"`
+	URL string `json:"url"`
 }
 
 // Close closes the server connection.
@@ -289,10 +199,10 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "imagesource::serverSource::Next")
 	defer span.End()
 	switch s.stream {
-	case ColorStream, BothStream:
+	case camera.ColorStream, camera.BothStream, camera.UnspecifiedStream:
 		img, err := readColorURL(ctx, s.client, s.URL)
 		return img, func() {}, err
-	case DepthStream:
+	case camera.DepthStream:
 		depth, err := readDepthURL(ctx, s.client, s.URL)
 		return depth, func() {}, err
 	default:
@@ -306,14 +216,14 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	ctx, span := trace.StartSpan(ctx, "imagesource::serverSource::NextPointCloud")
 	defer span.End()
 	if s.Intrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
+		return nil, transform.NewNoIntrinsicsError("single serverSource has nil intrinsics")
 	}
-	if s.stream == DepthStream || s.stream == BothStream {
+	if s.stream == camera.DepthStream || s.stream == camera.BothStream {
 		depth, err := readDepthURL(ctx, s.client, s.URL)
 		if err != nil {
 			return nil, err
 		}
-		return depth.ToPointCloud(s.Intrinsics)
+		return depth.ToPointCloud(s.Intrinsics), nil
 	}
 	return nil,
 		errors.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)
@@ -324,14 +234,13 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
 	}
-	if cfg.Host == "" {
-		return nil, errors.New("camera 'single_stream' needs attribute 'host'")
+	if cfg.URL == "" {
+		return nil, errors.New("camera 'single_stream' needs attribute 'url'")
 	}
 	imgSrc := &serverSource{
-		URL:       fmt.Sprintf("http://%s:%d/%s", cfg.Host, cfg.Port, cfg.Args),
-		host:      cfg.Host,
-		stream:    camera.StreamType(cfg.Stream),
-		isAligned: cfg.Aligned,
+		URL:        cfg.URL,
+		stream:     camera.StreamType(cfg.Stream),
+		Intrinsics: cfg.AttrConfig.CameraParameters,
 	}
 	return camera.New(imgSrc, camera.GetProjector(ctx, cfg.AttrConfig, nil))
 }

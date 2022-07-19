@@ -52,8 +52,10 @@ func NewDepthColorHomography(inp *RawDepthColorHomography) (*DepthColorHomograph
 	}, nil
 }
 
-// AlignColorAndDepthImage will take the depth and the color image and overlay the two properly by transforming the depth map to the color map.
-func (dch *DepthColorHomography) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap) (*rimage.Image, *rimage.DepthMap, error) {
+// AlignColorAndDepthImage will take the depth and the color image and overlay the two properly by transforming
+// the depth map to the color map.
+func (dch *DepthColorHomography) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap,
+) (*rimage.Image, *rimage.DepthMap, error) {
 	if col == nil {
 		return nil, nil, errors.New("no color image present to align")
 	}
