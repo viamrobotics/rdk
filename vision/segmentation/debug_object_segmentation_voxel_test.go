@@ -32,19 +32,22 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 ) error {
 	t.Helper()
 	var err error
-	ii := rimage.ConvertToImageWithDepth(img)
+	// TODO(DATA-237): .both will be removed
+	im := rimage.ConvertImage(img)
+	dm, err := rimage.ConvertImageToDepthMap(img)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth")
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth")
 
 	// Pre-process the depth map to smooth the noise out and fill holes
-	ii.Depth, err = rimage.PreprocessDepthMap(ii.Depth, ii.Color)
+	dm, err = rimage.PreprocessDepthMap(dm, im)
 	test.That(t, err, test.ShouldBeNil)
 
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
 	// Get the point cloud
-	cloud, err := h.cameraParams.RGBDToPointCloud(ii.Color, ii.Depth)
+	cloud, err := h.cameraParams.RGBDToPointCloud(im, dm)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 	cam := &inject.Camera{}
