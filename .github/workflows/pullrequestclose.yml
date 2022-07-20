@@ -1,0 +1,32 @@
+name: Pull Request Close
+
+concurrency: 
+  group: pullrequest-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: [ 'main' ]
+    types: [ 'closed' ]
+
+jobs:
+  appimage_clean:
+    name: Remove PR AppImages
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 15
+
+    steps:
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Set up Cloud SDK
+      uses: 'google-github-actions/setup-gcloud@v0'
+
+    - name: Delete Files
+      run: |
+        gsutil rm "gs://packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-*" || true
