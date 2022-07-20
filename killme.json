@@ -1,0 +1,8 @@
+{
+    "cloud": {
+        "id": "d6028a41-0590-4697-b0b1-a3ae6679de58",
+        "log_path": "https://app.viam.com/api/json1/log",
+        "path": "https://app.viam.com/api/json1/config",
+        "secret": "xlzlf97gayljtaz08femkmd3itpmcnmc12epbjzlwf1b4r6l"
+    }
+}
