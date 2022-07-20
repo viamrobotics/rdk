@@ -37,7 +37,7 @@ func TestZeroOrientation(t *testing.T) {
 }
 
 func TestQuaternions(t *testing.T) {
-	qq45x := quaternion(q45x)
+	qq45x := Quaternion(q45x)
 	testCompatibility(t, &qq45x)
 }
 

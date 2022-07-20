@@ -35,22 +35,26 @@ func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.T
 				return nil, err
 			}
 		}
-		proj := camera.Projector(cam)
-		if proj == nil {
-			return nil, errors.New("camera projector cannot be nil." +
-				"Currently remote cameras are not supported (intrinsics parameters are not transferred over protobuf)")
-		}
-		// get the 2D detections
-		img, _, err := cam.Next(ctx)
+		proj, err := cam.GetProperties(ctx)
 		if err != nil {
 			return nil, err
 		}
-		originalImg := rimage.CloneToImageWithDepth(img)
-		dets, err := detector(img) // detector may modify the input image
+		// get the 3D detections, and turn them into 2D image and depthmap
+		pc, err := cam.NextPointCloud(ctx)
 		if err != nil {
 			return nil, err
 		}
-		pcs, err := detectionsToPointClouds(dets, originalImg, proj)
+		img, dm, err := proj.PointCloudToRGBD(pc)
+		if err != nil {
+			return nil, err
+		}
+		im := rimage.CloneImage(img)
+		dets, err := detector(ctx, im) // detector may modify the input image
+		if err != nil {
+			return nil, err
+		}
+		// TODO(bhaney): Is there a way to just project the detection boxes themselves?
+		pcs, err := detectionsToPointClouds(dets, img, dm, proj)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +82,7 @@ func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.T
 
 // detectionsToPointClouds turns 2D detections into 3D point clodus using the intrinsic camera projection parameters and the image.
 func detectionsToPointClouds(dets []objectdetection.Detection,
-	iwd *rimage.ImageWithDepth,
+	im *rimage.Image, dm *rimage.DepthMap,
 	proj rimage.Projector,
 ) ([]pointcloud.PointCloud, error) {
 	// project 2D detections to 3D pointclouds
@@ -88,7 +92,7 @@ func detectionsToPointClouds(dets []objectdetection.Detection,
 		if bb == nil {
 			return nil, errors.New("detection bounding box cannot be nil")
 		}
-		pc, err := proj.RGBDToPointCloud(iwd.Color, iwd.Depth, *bb)
+		pc, err := proj.RGBDToPointCloud(im, dm, *bb)
 		if err != nil {
 			return nil, err
 		}

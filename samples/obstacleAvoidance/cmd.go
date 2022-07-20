@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/motionplan/visualization"
 	pb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -105,10 +106,20 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xArm arm.Arm, err error) {
 	armName := arm.Named("xarm6")
 	if simulation {
-		fakeArm, err := fake.NewArmIK(ctx, config.Component{Name: armName.Name}, logger)
-		if err != nil {
-			return nil, nil, err
-		}
+		registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
+			Constructor: func(
+				ctx context.Context,
+				deps registry.Dependencies,
+				config config.Component,
+				logger golog.Logger,
+			) (interface{}, error) {
+				fakeArm, err := fake.NewArmIK(ctx, config, logger)
+				if err != nil {
+					return nil, err
+				}
+				return fakeArm, nil
+			},
+		})
 		robotClient, err = robotimpl.RobotFromResources(ctx, map[resource.Name]interface{}{armName: xArm}, logger)
 		if err != nil {
 			return nil, nil, err
@@ -116,9 +127,8 @@ func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xAr
 		defer robotClient.Close(ctx)
 		xArm, err = wrapper.NewWrapperArm(
 			config.Component{
-				ConvertedAttributes: wrapper.AttrConfig{ModelPath: rdkutils.ResolveFile("component/arm/xarm/xarm6_kinematics.json")},
+				ConvertedAttributes: wrapper.AttrConfig{ModelPath: rdkutils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), ArmName: "xarm6"},
 			},
-			fakeArm,
 			robotClient,
 			logger,
 		)

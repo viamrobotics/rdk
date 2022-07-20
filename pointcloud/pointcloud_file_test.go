@@ -64,9 +64,90 @@ func TestPCD(t *testing.T) {
 		"0.582000 0.012000 0.000000 16711938\n" +
 		"0.007000 0.006000 0.001000 16711938\n"
 	*/
-
+	testPCDHeaders(t)
 	testASCIIRoundTrip(t, cloud)
 	testBinaryRoundTrip(t, cloud)
+}
+
+func testPCDHeaders(t *testing.T) {
+	t.Helper()
+
+	fakeHeader := pcdHeader{}
+	var err error
+	// VERSION
+	err = parsePCDHeaderLine("VERSION .7", 0, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	err = parsePCDHeaderLine("VERSION 0.7", 0, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	err = parsePCDHeaderLine("VERSION .8", 0, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported pcd version")
+	// FIELDS
+	err = parsePCDHeaderLine("FIELDS x y z rgb", 1, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fakeHeader.fields, test.ShouldEqual, pcdPointColor)
+	err = parsePCDHeaderLine("FIELDS x y z", 1, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fakeHeader.fields, test.ShouldEqual, pcdPointOnly)
+	err = parsePCDHeaderLine("FIELDS a b c", 1, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported pcd fields")
+	// SIZE
+	_ = parsePCDHeaderLine("FIELDS x y z rgb", 1, &fakeHeader)
+	err = parsePCDHeaderLine("SIZE 4 4 4 4", 2, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	_ = parsePCDHeaderLine("FIELDS x y z rgb", 1, &fakeHeader)
+	err = parsePCDHeaderLine("SIZE 4 4 4", 2, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected number of fields")
+	// TYPE
+	_ = parsePCDHeaderLine("FIELDS x y z rgb", 1, &fakeHeader)
+	err = parsePCDHeaderLine("TYPE F F F I", 3, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	err = parsePCDHeaderLine("TYPE F F F", 3, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected number of fields")
+	// COUNT
+	_ = parsePCDHeaderLine("FIELDS x y z rgb", 1, &fakeHeader)
+	err = parsePCDHeaderLine("COUNT 1 1 1 1", 4, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	err = parsePCDHeaderLine("COUNT 1 1 1", 4, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected number of fields")
+	// WIDTH
+	err = parsePCDHeaderLine("WIDTH 3", 5, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	err = parsePCDHeaderLine("WIDTH NOTANUM", 5, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid WIDTH field")
+	// HEIGHT
+	err = parsePCDHeaderLine("HEIGHT 1", 6, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	err = parsePCDHeaderLine("HEIGHT NOTANUM", 6, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid HEIGHT field")
+	// VIEWPOINT
+	err = parsePCDHeaderLine("VIEWPOINT 0 0 0 1 0 0 0", 7, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	err = parsePCDHeaderLine("VIEWPOINT 0 0 0 1 0 0", 7, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected number of fields in VIEWPOINT line.")
+	// POINTS
+	_ = parsePCDHeaderLine("WIDTH 3", 5, &fakeHeader)
+	_ = parsePCDHeaderLine("HEIGHT 1", 6, &fakeHeader)
+	err = parsePCDHeaderLine("POINTS 3", 8, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	err = parsePCDHeaderLine("POINTS NOTANUM", 8, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid POINTS field")
+	err = parsePCDHeaderLine("POINTS 2", 8, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "POINTS field 2 does not match WIDTH*HEIGHT")
+	// DATA
+	err = parsePCDHeaderLine("DATA ascii", 9, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fakeHeader.data, test.ShouldEqual, PCDAscii)
+	err = parsePCDHeaderLine("DATA binary", 9, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fakeHeader.data, test.ShouldEqual, PCDBinary)
+	err = parsePCDHeaderLine("DATA binary_compressed", 9, &fakeHeader)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fakeHeader.data, test.ShouldEqual, PCDCompressed)
+	err = parsePCDHeaderLine("DATA garbage", 9, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported data type")
+	// WRONG LINE
+	err = parsePCDHeaderLine("VERSION 0.7", 1, &fakeHeader)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "line is supposed to start with")
 }
 
 func TestPCDNoColor(t *testing.T) {
@@ -78,6 +159,7 @@ func TestPCDNoColor(t *testing.T) {
 
 	testNoColorASCIIRoundTrip(t, cloud)
 	testNoColorBinaryRoundTrip(t, cloud)
+	testLargeBinaryNoError(t)
 }
 
 func testNoColorASCIIRoundTrip(t *testing.T, cloud PointCloud) {
@@ -99,12 +181,6 @@ func testNoColorASCIIRoundTrip(t *testing.T, cloud PointCloud) {
 	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
-
-	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
-	test.That(t, err, test.ShouldNotBeNil)
-
-	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
-	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func testNoColorBinaryRoundTrip(t *testing.T, cloud PointCloud) {
@@ -123,12 +199,6 @@ func testNoColorBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
-
-	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
-	test.That(t, err.Error(), test.ShouldContainSubstring, "line is supposed to start with")
-
-	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
-	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported pcd version")
 }
 
 func testPCDOutput(t *testing.T, cloud2 PointCloud) {
@@ -156,12 +226,6 @@ func testASCIIRoundTrip(t *testing.T, cloud PointCloud) {
 	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
-
-	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
-	test.That(t, err, test.ShouldNotBeNil)
-
-	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
-	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func testBinaryRoundTrip(t *testing.T, cloud PointCloud) {
@@ -179,12 +243,19 @@ func testBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
+}
 
-	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
-	test.That(t, err, test.ShouldNotBeNil)
+func testLargeBinaryNoError(t *testing.T) {
+	// This tests whether large pointclouds that exceed the usual buffered page size for a file error on reads
+	t.Helper()
+	var buf bytes.Buffer
+	largeCloud := newBigPC()
+	err := ToPCD(largeCloud, &buf, PCDBinary)
+	test.That(t, err, test.ShouldBeNil)
 
-	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
-	test.That(t, err, test.ShouldNotBeNil)
+	readPointCloud, err := ReadPCD(strings.NewReader(buf.String()))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readPointCloud.Size(), test.ShouldEqual, largeCloud.Size())
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
