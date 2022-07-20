@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/services/navigation"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -14,6 +15,13 @@ var (
 	testSvcName1 = "svc1"
 	testSvcName2 = "svc2"
 )
+
+func TestRegisteredReconfigurable(t *testing.T) {
+	s := registry.ResourceSubtypeLookup(navigation.Subtype)
+	test.That(t, s, test.ShouldNotBeNil)
+	r := s.Reconfigurable
+	test.That(t, r, test.ShouldNotBeNil)
+}
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	svc := &mock{name: testSvcName1}
