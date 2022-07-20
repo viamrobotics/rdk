@@ -188,7 +188,9 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partId string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+		path string, partId string,
+	) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -230,7 +232,9 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	td := "additional_sync_path_dir"
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+		path string, partID string,
+	) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -363,7 +367,9 @@ func TestManualSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partId string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+		path string, partId string,
+	) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -417,7 +423,9 @@ func TestScheduledSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+		path string, partID string,
+	) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -464,7 +472,9 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+		path string, partID string,
+	) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()

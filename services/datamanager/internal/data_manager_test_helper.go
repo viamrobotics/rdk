@@ -17,6 +17,7 @@ type DMService interface {
 	Sync(ctx context.Context) error
 	Update(ctx context.Context, cfg *config.Config) error
 	Close(ctx context.Context) error
-	SetUploadFn(fn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error)
+	SetUploadFn(fn func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
+		partID string) error)
 	SetWaitAfterLastModifiedSecs(s int)
 }
