@@ -287,7 +287,7 @@ func (jpcs *joinPointCloudSource) mergePointCloudsICP(ctx context.Context, sourc
 	// The optimization is performed using BFGS (Broyden-Fletcher-Goldfarb-Shanno)
 	// optimization on parameters representing a transformation matrix.
 
-	// lint:ignore This is just used as a stop gap while waiting on another PR.
+	// nolint: ifshort
 	debug := false // In a future PR (when jpcs is a camera) this will be done with a param.
 	pcSrc, err := jpcs.sourceCameras[sourceIndex].NextPointCloud(ctx)
 	if err != nil {
@@ -400,7 +400,6 @@ func (jpcs *joinPointCloudSource) mergePointCloudsICP(ctx context.Context, sourc
 }
 
 func (jpcs *joinPointCloudSource) nextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
-	// lint:ignore This is just used as a stop gap while waiting on another PR.
 	debug := false // In a future PR (when jpcs is a camera) this will be done with a param.
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
