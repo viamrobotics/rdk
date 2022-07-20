@@ -3,6 +3,7 @@ package operation
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,9 +14,9 @@ type opidKeyType string
 
 const opidKey = opidKeyType("opid")
 
-var invalidMethods = map[string]bool{
-	"proto.rpc.webrtc.v1.SignalingService":          true,
-	"/proto.api.robot.v1.RobotService/StreamStatus": true,
+var invalidMethods = [...]string{
+	"/proto.rpc.webrtc.v1.SignalingService",
+	"/proto.api.robot.v1.RobotService/StreamStatus",
 }
 
 // Operation is an operation happening on the server.
@@ -129,7 +130,14 @@ func (m *Manager) Create(ctx context.Context, method string, args interface{}) (
 	ctx, op.cancel = context.WithCancel(ctx)
 
 	// Add method to manager if not in invalid map
-	if _, ok := invalidMethods[op.Method]; !ok {
+	valid := true
+	for _, val := range invalidMethods {
+		if ok := strings.Contains(op.Method, val); ok {
+			valid = false
+			break
+		}
+	}
+	if valid {
 		m.add(op)
 	}
 	return ctx, func() { op.cleanup() }

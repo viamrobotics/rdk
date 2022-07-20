@@ -49,9 +49,8 @@ func TestBasic(t *testing.T) {
 	}()
 
 	func() {
-		ctx4, cleanup4 := h.Create(ctx, "proto.rpc.webrtc.v1.SignalingService", nil)
+		ctx4, cleanup4 := h.Create(ctx, "/proto.rpc.webrtc.v1.SignalingService/Answer", nil)
 		defer cleanup4()
-
 		ctx5, cleanup5 := h.Create(ctx, "/proto.api.robot.v1.RobotService/StreamStatus", nil)
 		defer cleanup5()
 
@@ -59,5 +58,11 @@ func TestBasic(t *testing.T) {
 		o5 := Get(ctx5)
 		test.That(t, len(o4.myManager.ops), test.ShouldEqual, 0)
 		test.That(t, len(o5.myManager.ops), test.ShouldEqual, 0)
+
+		ctx6, cleanup6 := h.Create(ctx, "/proto.api.robot.v1.RobotService/", nil)
+		defer cleanup6()
+		o6 := Get(ctx6)
+		test.That(t, len(o6.myManager.ops), test.ShouldEqual, 1)
+
 	}()
 }
