@@ -67,7 +67,10 @@ type Service interface {
 	) (*referenceframe.PoseInFrame, error)
 }
 
-var _ = resource.Reconfigurable(&reconfigurableMotionService{})
+var (
+	_ = Service(&reconfigurableMotionService{})
+	_ = resource.Reconfigurable(&reconfigurableMotionService{})
+)
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("motion")
