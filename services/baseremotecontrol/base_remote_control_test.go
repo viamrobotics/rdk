@@ -13,6 +13,7 @@ import (
 	fakebase "go.viam.com/rdk/component/base/fake"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
@@ -395,6 +396,13 @@ func TestParseEvent(t *testing.T) {
 	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteRY, Value: .5})
 	test.That(t, similar(l, r3.Vector{Y: -.5}, .1), test.ShouldBeTrue)
 	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
+}
+
+func TestRegisteredReconfigurable(t *testing.T) {
+	s := registry.ServiceLookup(Subtype)
+	test.That(t, s, test.ShouldNotBeNil)
+	r := s.Reconfigurable
+	test.That(t, r, test.ShouldNotBeNil)
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {

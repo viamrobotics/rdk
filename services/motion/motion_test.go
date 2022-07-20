@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/registry"
 
 	// register.
 	_ "go.viam.com/rdk/component/register"
@@ -279,6 +280,13 @@ func TestFromRobot(t *testing.T) {
 	svc, err = motion.FromRobot(r)
 	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motion.Name))
 	test.That(t, svc, test.ShouldBeNil)
+}
+
+func TestRegisteredReconfigurable(t *testing.T) {
+	s := registry.ResourceSubtypeLookup(motion.Subtype)
+	test.That(t, s, test.ShouldNotBeNil)
+	r := s.Reconfigurable
+	test.That(t, r, test.ShouldNotBeNil)
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {

@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
@@ -498,6 +499,13 @@ func TestManualAndScheduledSync(t *testing.T) {
 		t.Fatalf("failed to list files in armDir")
 	}
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+}
+
+func TestRegisteredReconfigurable(t *testing.T) {
+	s := registry.ServiceLookup(datamanager.Subtype)
+	test.That(t, s, test.ShouldNotBeNil)
+	r := s.Reconfigurable
+	test.That(t, r, test.ShouldNotBeNil)
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
