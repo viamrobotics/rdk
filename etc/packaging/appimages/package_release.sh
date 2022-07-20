@@ -11,10 +11,7 @@ then
 	NEWEST_TAG=`git tag -l "v*.*.*" | sort -Vr | head -n1`
 	if [[ $CUR_TAG == $NEWEST_TAG ]]
 	then
-		sed -E "s/([- ])latest/\1stable/g" viam-server-latest-`uname -m`.yml > viam-server-stable-`uname -m`.yml
-		sed -E "s/([- ])latest/\1$CUR_TAG/g" viam-server-latest-`uname -m`.yml > viam-server-$CUR_TAG-`uname -m`.yml
-		appimage-builder --recipe viam-server-stable-`uname -m`.yml
-		appimage-builder --recipe viam-server-$CUR_TAG-`uname -m`.yml
-		rm viam-server-stable-`uname -m`.yml viam-server-$CUR_TAG-`uname -m`.yml
+		BUILD_CHANNEL=stable appimage-builder --recipe viam-server-`uname -m`.yml
+		BUILD_CHANNEL=$CUR_TAG appimage-builder --recipe viam-server-`uname -m`.yml
 	fi
 fi
