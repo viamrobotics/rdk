@@ -75,7 +75,7 @@ type FakeEncoder struct {
 	updateRate int64 // update position in start every updateRate ms
 }
 
-// Position returns the current position in terms of ticks.
+// GetPosition returns the current position in terms of ticks.
 func (e *FakeEncoder) GetPosition(ctx context.Context) (float64, error) {
 	return e.position, nil
 }
