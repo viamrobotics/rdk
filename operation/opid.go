@@ -13,6 +13,11 @@ type opidKeyType string
 
 const opidKey = opidKeyType("opid")
 
+var invalidMethods = map[string]bool{
+	"proto.rpc.webrtc.v1.SignalingService":          true,
+	"/proto.api.robot.v1.RobotService/StreamStatus": true,
+}
+
 // Operation is an operation happening on the server.
 type Operation struct {
 	ID        uuid.UUID
@@ -123,8 +128,10 @@ func (m *Manager) Create(ctx context.Context, method string, args interface{}) (
 	ctx = context.WithValue(ctx, opidKey, op)
 	ctx, op.cancel = context.WithCancel(ctx)
 
-	m.add(op)
-
+	// Add method to manager if not in invalid map
+	if _, ok := invalidMethods[op.Method]; !ok {
+		m.add(op)
+	}
 	return ctx, func() { op.cleanup() }
 }
 
