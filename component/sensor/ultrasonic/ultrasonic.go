@@ -23,9 +23,23 @@ const (
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	TriggerPin string `json:"trigger_pin"`
-	EchoInt    string `json:"echo_int"`
-	Board      string `json:"board"`
+	TriggerPin    string `json:"trigger_pin"`
+	EchoInterrupt string `json:"echo_interrupt_pin"`
+	Board         string `json:"board"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if len(config.Board) == 0 {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	if len(config.TriggerPin) == 0 {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "trigger pin")
+	}
+	if len(config.EchoInterrupt) == 0 {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "echo interrupt pin")
+	}
+	return nil
 }
 
 func init() {
@@ -61,31 +75,31 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 	if !ok {
 		return nil, errors.Errorf("ultrasonic: cannot find board %q", config.Board)
 	}
-	i, ok := b.DigitalInterruptByName(config.EchoInt)
+	i, ok := b.DigitalInterruptByName(config.EchoInterrupt)
 	if !ok {
-		return nil, errors.Errorf("ultrasonic: cannot grab digital interrupt %q", config.EchoInt)
+		return nil, errors.Errorf("ultrasonic: cannot grab digital interrupt %q", config.EchoInterrupt)
 	}
 	g, err := b.GPIOPinByName(config.TriggerPin)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ultrasonic: cannot grab gpio %q", config.TriggerPin)
 	}
-	s.echoInt = i
+	s.echoInterrupt = i
 	s.triggerPin = g
 	if err := s.triggerPin.Set(ctx, false); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
 	}
 	s.intChan = make(chan bool)
-	s.echoInt.AddCallback(s.intChan)
+	s.echoInterrupt.AddCallback(s.intChan)
 	return s, nil
 }
 
 // Sensor ultrasonic sensor.
 type Sensor struct {
-	Name       string
-	config     *AttrConfig
-	echoInt    board.DigitalInterrupt
-	triggerPin board.GPIOPin
-	intChan    chan bool
+	Name          string
+	config        *AttrConfig
+	echoInterrupt board.DigitalInterrupt
+	triggerPin    board.GPIOPin
+	intChan       chan bool
 	generic.Unimplemented
 }
 
