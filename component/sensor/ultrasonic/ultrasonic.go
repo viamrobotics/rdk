@@ -28,17 +28,16 @@ type AttrConfig struct {
 	Board         string `json:"board"`
 }
 
-// 
-ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
 	if len(config.Board) == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if len(config.TriggerPin) == 0 {
-		return  utils.NewConfigValidationFieldRequiredError(path, "empty trigger pin")
+		return  rdkutils.NewConfigValidationFieldRequiredError(path, "empty trigger pin")
 	}
 	if len(config.EchoInterrupt) == 0 {
-		return  utils.NewConfigValidationFieldRequiredError(path, "empty echo interrupt pin")
+		return  rdkutils.NewConfigValidationFieldRequiredError(path, "empty echo interrupt pin")
 	}
 	return nil
 }
