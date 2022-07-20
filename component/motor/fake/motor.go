@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 )
 
@@ -67,10 +68,11 @@ func init() {
 var _ motor.LocalMotor = &Motor{}
 
 type fakeEncoder struct {
-	mu       sync.Mutex
-	position float64
-	speed    float64 // ticks per minute
-	logger   golog.Logger
+	mu         sync.Mutex
+	position   float64
+	speed      float64 // ticks per minute
+	logger     golog.Logger
+	updateRate int64 // update position in start every updateRate ms
 }
 
 // Position returns the current position in terms of ticks.
@@ -82,6 +84,9 @@ func (e *fakeEncoder) GetPosition(ctx context.Context) (float64, error) {
 func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup) {
 	activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
+		if e.updateRate == 0 {
+			e.updateRate = 100
+		}
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -92,7 +97,7 @@ func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 			default:
 			}
 
-			if !utils.SelectContextOrWait(cancelCtx, 100*time.Millisecond) {
+			if !utils.SelectContextOrWait(cancelCtx, time.Duration(e.updateRate)*time.Millisecond) {
 				if e.logger != nil {
 					e.logger.Debug("Context Done")
 				}
@@ -100,7 +105,7 @@ func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 			}
 
 			e.mu.Lock()
-			e.position += e.speed / 600.
+			e.position += e.speed / float64(60*1000/e.updateRate)
 			e.mu.Unlock()
 		}
 	}, activeBackgroundWorkers.Done)
@@ -143,6 +148,7 @@ type Motor struct {
 	encoder                 fakeEncoder
 	cfg                     motor.Config
 	activeBackgroundWorkers sync.WaitGroup
+	opMgr                   operation.SingleOperationManager
 	generic.Echo
 }
 
@@ -175,6 +181,8 @@ func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error)
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	m.opMgr.CancelRunning(ctx)
 	if m.logger != nil {
 		m.logger.Debugf("Motor SetPower %f", powerPct)
 	}
@@ -211,54 +219,56 @@ func (m *Motor) Direction() int {
 	return 0
 }
 
+// If revolutions is 0, the returned wait duration will be 0 representing that
+// the motor should run indefinitely.
+func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
+	// need to do this so time is reasonable
+	if rpm > maxRPM {
+		rpm = maxRPM
+	} else if rpm < -1*maxRPM {
+		rpm = -1 * maxRPM
+	}
+
+	if revolutions == 0 {
+		powerPct := rpm / maxRPM
+		return powerPct, 0
+	}
+
+	dir := rpm * revolutions / math.Abs(revolutions*rpm)
+	powerPct := math.Abs(rpm) / maxRPM * dir
+	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
+	return powerPct, waitDur
+}
+
 // GoFor sets the given direction and an arbitrary power percentage.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if rpm < 0 {
-		revolutions *= -1
-	}
-	if rpm == 0 {
-		revolutions = 0
-	}
-
-	pos, err := m.encoder.GetPosition(ctx)
+	powerPct, waitDur := goForMath(m.cfg.MaxRPM, rpm, revolutions)
+	err := m.SetPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
 
-	err = m.encoder.SetPosition(ctx, pos+revolutions*float64(m.cfg.TicksPerRotation))
-	if err != nil {
-		return err
+	if revolutions == 0 {
+		return nil
 	}
 
-	err = m.encoder.SetSpeed(ctx, 0)
-	if err != nil {
-		return err
+	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
+		return m.Stop(ctx)
 	}
-
-	m.setPowerPct(0.0)
-
 	return nil
 }
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	err := m.encoder.SetPosition(ctx, pos*float64(m.cfg.TicksPerRotation))
+	curPos, err := m.encoder.GetPosition(ctx)
+	curPos /= float64(m.cfg.TicksPerRotation)
 	if err != nil {
 		return err
 	}
+	revolutions := pos - curPos
 
-	err = m.encoder.SetSpeed(ctx, 0)
-	if err != nil {
-		return err
-	}
-
-	m.setPowerPct(0.0)
-	return nil
+	err = m.GoFor(ctx, rpm, revolutions)
+	return err
 }
 
 // GoTillStop always returns an error.
@@ -279,6 +289,8 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 func (m *Motor) Stop(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	m.opMgr.CancelRunning(ctx)
 	if m.logger != nil {
 		m.logger.Debug("Motor Stopped")
 	}
