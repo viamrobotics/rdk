@@ -59,6 +59,7 @@ func createFakeBoard() *inject.Board {
 }
 
 func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
+	t.Helper()
 	injectGPIOPin := &inject.GPIOPin{}
 	injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
 		return nil
@@ -71,7 +72,6 @@ func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
 	}}
 
 	logger := golog.NewTestLogger(t)
-
 
 	mcfg := motor.Config{TicksPerRotation: 1, MaxRPM: 60}
 	fakeMotor := &fake.Motor{Encoder: fake.FakeEncoder{Logger: logger}, PositionReporting: true, Cfg: mcfg, Logger: logger}
