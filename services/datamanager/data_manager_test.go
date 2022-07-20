@@ -188,7 +188,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, pt datamanager.ProgressTracker, client v1.DataSyncService_UploadClient,
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partId string,
 	) error {
 		lock.Lock()
@@ -232,7 +232,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	td := "additional_sync_path_dir"
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, pt datamanager.ProgressTracker, client v1.DataSyncService_UploadClient,
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partID string,
 	) error {
 		lock.Lock()
@@ -367,7 +367,7 @@ func TestManualSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, pt datamanager.ProgressTracker, client v1.DataSyncService_UploadClient,
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partId string,
 	) error {
 		lock.Lock()
@@ -423,7 +423,7 @@ func TestScheduledSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, pt datamanager.ProgressTracker, client v1.DataSyncService_UploadClient,
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partID string,
 	) error {
 		lock.Lock()
@@ -472,7 +472,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, pt datamanager.ProgressTracker, client v1.DataSyncService_UploadClient,
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partID string,
 	) error {
 		lock.Lock()

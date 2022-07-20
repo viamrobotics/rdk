@@ -12,33 +12,28 @@ import (
 
 var progressDir = "progress_dir"
 
-// ProgressTracker is responsible for on-disk and in-memory progress tracking.
-type ProgressTracker struct {
+type progressTracker struct {
 	lock *sync.Mutex
 	m    map[string]struct{}
 }
 
-func (pt *ProgressTracker) inProgress(k string) bool {
+func (pt *progressTracker) inProgress(k string) bool {
 	pt.lock.Lock()
 	defer pt.lock.Unlock()
 	_, ok := pt.m[k]
 	return ok
 }
 
-func (pt *ProgressTracker) mark(k string) {
+func (pt *progressTracker) mark(k string) {
 	pt.lock.Lock()
 	pt.m[k] = struct{}{}
 	pt.lock.Unlock()
 }
 
-func (pt *ProgressTracker) unmark(k string) {
+func (pt *progressTracker) unmark(k string) {
 	pt.lock.Lock()
 	delete(pt.m, k)
 	pt.lock.Unlock()
-}
-
-func intToBytes(i int) []byte {
-	return []byte(strconv.Itoa(i))
 }
 
 func bytesToInt(bs []byte) (int, error) {
@@ -49,32 +44,33 @@ func bytesToInt(bs []byte) (int, error) {
 	return i, nil
 }
 
-func (pt *ProgressTracker) createProgressFile(path string, progress int) error {
-	err := ioutil.WriteFile(path, intToBytes(progress), os.FileMode((0o777)))
+func (pt *progressTracker) createProgressFile(path string) error {
+	err := ioutil.WriteFile(path, []byte("0"), os.FileMode((0o777)))
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (pt *ProgressTracker) deleteProgressFile(path string) error {
+func (pt *progressTracker) deleteProgressFile(path string) error {
 	return os.Remove(path)
 }
 
 // Increment progress index in progress file.
-func (pt *ProgressTracker) updateIndexProgressFile(path string) error {
-	i, err := pt.getIndexProgressFile(path)
+func (pt *progressTracker) updateProgressFileIndex(path string) error {
+	i, err := pt.getProgressFileIndex(path)
 	if err != nil {
 		return err
 	}
-	if err = pt.createProgressFile(path, i+1); err != nil {
+	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+1)), os.FileMode((0o777)))
+	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// Returns the index of next sensordata message to upload or zero (if no sensordata messages are yet updated).
-func (pt *ProgressTracker) getIndexProgressFile(path string) (int, error) {
+// Returns the index of next sensordata message to upload.
+func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
 	bs, err := ioutil.ReadFile(filepath.Clean(path))
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil

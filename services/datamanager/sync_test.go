@@ -320,7 +320,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	failureCount := 0
 	successCount := 0
 	callTimes := make(map[int]time.Time)
-	uploadFunc := func(ctx context.Context, pt ProgressTracker, client v1.DataSyncService_UploadClient, path string, partID string) error {
+	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		callTimes[failureCount+successCount] = time.Now()
 		if failureCount >= 3 {
 			successCount++
@@ -367,51 +367,54 @@ func TestPartialUpload(t *testing.T) {
 	msg2 := []byte("robotics")
 	msg3 := []byte("builds cool software")
 	tests := []struct {
-		name                    string
-		toSend                  [][]byte
-		expProgressAtBreakpoint int
-		expDataBeforeShutdown   [][]byte
-		expDataAfterShutdown    [][]byte
+		name                         string
+		toSend                       [][]byte
+		expProgressIndexWhenCanceled int
+		expDataBeforeCanceled        [][]byte
+		expDataAfterCanceled         [][]byte
 	}{
 		{
-			name:                    "not empty",
-			toSend:                  [][]byte{msg1, msg2, msg3},
-			expProgressAtBreakpoint: 2,
-			expDataBeforeShutdown:   [][]byte{msg1, msg2},
-			expDataAfterShutdown:    [][]byte{msg3},
+			name:                         "Upload of non-empty file should resume from last point if it is canceled.",
+			toSend:                       [][]byte{msg1, msg2, msg3},
+			expProgressIndexWhenCanceled: 2,
+			expDataBeforeCanceled:        [][]byte{msg1, msg2},
+			expDataAfterCanceled:         [][]byte{msg3},
 		},
 		{
-			name:                    "empty",
-			toSend:                  [][]byte{},
-			expProgressAtBreakpoint: 0,
-			expDataBeforeShutdown:   [][]byte{},
-			expDataAfterShutdown:    [][]byte{},
+			name: "Upload of empty file should not upload anything when it is started nor if it " +
+				"is resumed.",
+			toSend:                       [][]byte{},
+			expProgressIndexWhenCanceled: 0,
+			expDataBeforeCanceled:        [][]byte{},
+			expDataAfterCanceled:         [][]byte{},
 		},
 		{
-			name:                    "no more messages to send after breakpoint",
-			toSend:                  [][]byte{msg1, msg2},
-			expProgressAtBreakpoint: 2,
-			expDataBeforeShutdown:   [][]byte{msg1, msg2},
-			expDataAfterShutdown:    [][]byte{},
+			name: "Upload with no more messages to send after breakpoint should not upload " +
+				"anything after resuming.",
+			toSend:                       [][]byte{msg1, msg2},
+			expProgressIndexWhenCanceled: 2,
+			expDataBeforeCanceled:        [][]byte{msg1, msg2},
+			expDataAfterCanceled:         [][]byte{},
 		},
 		{
-			name:                    "all messages to be sent after breakpoint",
-			toSend:                  [][]byte{msg1, msg2},
-			expProgressAtBreakpoint: 0,
-			expDataBeforeShutdown:   [][]byte{},
-			expDataAfterShutdown:    [][]byte{msg1, msg2},
+			name: "Upload that is interrupted before sending a single message should resume and send all" +
+				"messages.",
+			toSend:                       [][]byte{msg1, msg2},
+			expProgressIndexWhenCanceled: 0,
+			expDataBeforeCanceled:        [][]byte{},
+			expDataAfterCanceled:         [][]byte{msg1, msg2},
 		},
 	}
 
 	for _, tc := range tests {
+		t.Log(tc.name)
+
 		// Create temp data capture file.
 		tf, err := createTmpDataCaptureFile()
 		if err != nil {
 			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
-		path := filepath.Join(progressDir, filepath.Base(tf.Name()))
-		defer verifyFileExistence(t, path, false)
-		defer resetFolderContents(progressDir)
+		defer os.Remove(tf.Name())
 
 		// First write metadata to file.
 		captureMetadata := v1.DataCaptureMetadata{
@@ -431,143 +434,54 @@ func TestPartialUpload(t *testing.T) {
 			t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
 
-		// shutdownIndex gives mock client capacity to "send" metadata message on top of succeeding sensordata messages.
-		var shutdownIndex int
-		if len(tc.expDataBeforeShutdown) == 0 {
-			shutdownIndex = 0
+		// cancelIndex gives mock client capacity to "send" metadata message in addition to succeeding sensordata
+		// messages.
+		var cancelIndex int
+		if len(tc.expDataBeforeCanceled) == 0 {
+			cancelIndex = 0
 		} else {
-			shutdownIndex = len(tc.expDataBeforeShutdown) + 1
+			cancelIndex = len(tc.expDataBeforeCanceled) + 1
 		}
 
 		// Create mock client & syncer. Then sync temp data capture file.
-		mc := &mockClientShutdown{
-			sent:          []*v1.UploadRequest{},
-			lock:          sync.Mutex{},
-			shutdownIndex: shutdownIndex,
+		mc := &mockClient{
+			sent:        []*v1.UploadRequest{},
+			lock:        sync.Mutex{},
+			cancelIndex: cancelIndex,
 		}
-		sut := newTestSyncerPartialUploads(t, mc, nil)
+		sut := newTestSyncer(t, mc, nil)
 		sut.Sync([]string{tf.Name()})
 		time.Sleep(time.Millisecond * 100)
+		expMsgsBeforeCancel := buildBinarySensorMsgs(tc.expDataBeforeCanceled, tf.Name())
+		compareUploadRequests(t, false, mc.sent, expMsgsBeforeCancel)
+
+		// Only verify progress file existence and content if the upload has expected messages after being canceled.
+		path := filepath.Join(progressDir, filepath.Base(tf.Name()))
+		if len(tc.expDataAfterCanceled) > 0 {
+			test.That(t, fileExists(path), test.ShouldBeTrue)
+			progressIndex, err := sut.progressTracker.getProgressFileIndex(path)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, progressIndex, test.ShouldEqual, tc.expProgressIndexWhenCanceled)
+		}
 		sut.Close()
 
-		expMsgsBeforeShutdown := buildBinarySensorMsgs(tc.expDataBeforeShutdown, tf.Name())
-		compareUploadRequests(t, false, mc.sent, expMsgsBeforeShutdown)
-		verifyFileExistence(t, path, true)
-		verifyProgressFileContent(t, tc.expProgressAtBreakpoint, path)
-
 		// Reset mock client to be empty (simulates a full reboot of client).
-		if len(tc.expDataAfterShutdown) == 0 {
-			shutdownIndex = 0
+		if len(tc.expDataAfterCanceled) == 0 {
+			cancelIndex = 0
 		} else {
-			shutdownIndex = len(tc.expDataAfterShutdown) + 1
+			cancelIndex = len(tc.expDataAfterCanceled) + 1
 		}
 		mc.sent = []*v1.UploadRequest{}
 		mc.lock = sync.Mutex{}
-		mc.shutdownIndex = shutdownIndex
+		mc.cancelIndex = cancelIndex
 
-		sut = newTestSyncerPartialUploads(t, mc, nil)
+		sut = newTestSyncer(t, mc, nil)
 		sut.Sync([]string{tf.Name()})
 		time.Sleep(time.Millisecond * 100)
 		sut.Close()
 
-		expMsgsAfterShutdown := buildBinarySensorMsgs(tc.expDataAfterShutdown, tf.Name())
-		compareUploadRequests(t, false, mc.sent, expMsgsAfterShutdown)
-	}
-}
-
-// TestResymeUploadFromProgressOnDisk assumes progress info on disk is valid (only proper inputs are considered)
-// because the progress tracking system is entirely internal.
-func TestResumeUploadFromProgressOnDisk(t *testing.T) {
-	msg1 := []byte("viam")
-	msg2 := []byte("robotics")
-	msg3 := []byte("builds cool software")
-	tests := []struct {
-		name                    string
-		toSend                  [][]byte
-		expProgressAtBreakpoint int
-		expData                 [][]byte
-	}{
-		{
-			name:                    "not empty",
-			toSend:                  [][]byte{msg1, msg2, msg3},
-			expProgressAtBreakpoint: 2,
-			expData:                 [][]byte{msg3},
-		},
-		{
-			name:                    "empty",
-			toSend:                  [][]byte{},
-			expProgressAtBreakpoint: 0,
-			expData:                 [][]byte{},
-		},
-		{
-			name:                    "no more messages to send after breakpoint",
-			toSend:                  [][]byte{msg1, msg2},
-			expProgressAtBreakpoint: 2,
-			expData:                 [][]byte{},
-		},
-		{
-			name:                    "all messages should be sent after breakpoint",
-			toSend:                  [][]byte{msg1, msg2},
-			expProgressAtBreakpoint: 0,
-			expData:                 [][]byte{msg1, msg2},
-		},
-	}
-	for _, tc := range tests {
-		// Create temp data capture file.
-		tf, err := createTmpDataCaptureFile()
-		if err != nil {
-			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
-		}
-		path := filepath.Join(progressDir, filepath.Base(tf.Name()))
-		defer verifyFileExistence(t, path, false)
-		defer resetFolderContents(progressDir)
-
-		// First write metadata to file.
-		captureMetadata := v1.DataCaptureMetadata{
-			ComponentType:    componentType,
-			ComponentName:    componentName,
-			MethodName:       methodName,
-			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			MethodParameters: nil,
-		}
-		if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
-			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
-				tc.name, err)
-		}
-
-		// Next write sensor data to file.
-		if err := writeBinarySensorData(tf, tc.toSend); err != nil {
-			t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
-		}
-
-		// Initialize progress file with previous upload progress.
-		tpfname, err := createProgressFile(tc.expProgressAtBreakpoint, tf.Name())
-		if err != nil {
-			t.Errorf(`%s cannot create progress file (generated as though test was previously attempted) to be used 
-			for sensorUpload/fileUpload testing: %v`, tc.name, err)
-		}
-		defer os.Remove(tpfname)
-
-		// shutdownIndex gives mock client capacity to "send" metadata message on top of succeeding sensordata messages.
-		var shutdownIndex int
-		if len(tc.expData) == 0 {
-			shutdownIndex = 0
-		} else {
-			shutdownIndex = len(tc.expData) + 1
-		}
-
-		// Create mock client & syncer. Then sync temp data capture file.
-		mc := &mockClientShutdown{
-			sent:          []*v1.UploadRequest{},
-			lock:          sync.Mutex{},
-			shutdownIndex: shutdownIndex,
-		}
-		sut := newTestSyncerPartialUploads(t, mc, nil)
-		sut.Sync([]string{tf.Name()})
-		time.Sleep(time.Millisecond * 100)
-		sut.Close()
-
-		expMsgs := buildBinarySensorMsgs(tc.expData, tf.Name())
-		compareUploadRequests(t, false, mc.sent, expMsgs)
+		expMsgsAfterCancel := buildBinarySensorMsgs(tc.expDataAfterCanceled, tf.Name())
+		compareUploadRequests(t, false, mc.sent, expMsgsAfterCancel)
+		test.That(t, fileExists(path), test.ShouldBeFalse)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sync"
 	"testing"
 
@@ -27,19 +26,25 @@ var (
 	methodName    = "methodname"
 )
 
-// mockClient implements DataSyncService_UploadClient and maintains a list of all UploadRequests sent with its send
-// method.
+// mockClient implements DataSyncService_UploadClient and maintains a list of all UploadRequests sent with its
+// send method. The mockClient shuts down after a maximum of 'cancelIndex+1' sent UploadRequests. This simulates
+// partial uploads (cases where client is shut down during upload).
 type mockClient struct {
-	sent []*v1.UploadRequest
-	lock sync.Mutex
+	sent        []*v1.UploadRequest
+	cancelIndex int
+	lock        sync.Mutex
 	grpc.ClientStream
 }
 
 func (m *mockClient) Send(req *v1.UploadRequest) error {
 	m.lock.Lock()
-	m.sent = append(m.sent, req)
+	if len(m.sent) < (m.cancelIndex) {
+		m.sent = append(m.sent, req)
+		m.lock.Unlock()
+		return nil
+	}
 	m.lock.Unlock()
-	return nil
+	return errors.New("cancel sending of upload request")
 }
 
 func (m *mockClient) CloseAndRecv() (*v1.UploadResponse, error) {
@@ -50,47 +55,8 @@ func (m *mockClient) Context() context.Context {
 	return context.TODO()
 }
 
-// Builds syncer used in tests.
-func newTestSyncer(t *testing.T, mc *mockClient, uploadFn uploadFn) *syncer {
-	t.Helper()
-	l := golog.NewTestLogger(t)
-
-	ret := *newSyncer(l, uploadFn, partID)
-	ret.client = mc
-	return &ret
-}
-
-// mockClientShutdown implements DataSyncService_UploadClient and maintains a list of all UploadRequests sent with its
-// send method. It differs from mockClient because it shuts down after a maximum of 'shutdownIndex+1' sent
-// UploadRequests. This simulates partial uploads (cases where client shuts down during upload).
-type mockClientShutdown struct {
-	sent          []*v1.UploadRequest
-	shutdownIndex int
-	lock          sync.Mutex
-	grpc.ClientStream
-}
-
-func (m *mockClientShutdown) Send(req *v1.UploadRequest) error {
-	m.lock.Lock()
-	if len(m.sent) < (m.shutdownIndex) {
-		m.sent = append(m.sent, req)
-		m.lock.Unlock()
-		return nil
-	}
-	m.lock.Unlock()
-	return errors.New("mock client shutdown")
-}
-
-func (m *mockClientShutdown) CloseAndRecv() (*v1.UploadResponse, error) {
-	return &v1.UploadResponse{}, nil
-}
-
-func (m *mockClientShutdown) Context() context.Context {
-	return context.TODO()
-}
-
 // Builds syncer used in partial upload tests.
-func newTestSyncerPartialUploads(t *testing.T, mc *mockClientShutdown, uploadFn uploadFn) *syncer {
+func newTestSyncer(t *testing.T, mc *mockClient, uploadFn uploadFunc) *syncer {
 	t.Helper()
 	l := golog.NewTestLogger(t)
 	ret := *newSyncer(l, uploadFn, partID)
@@ -99,7 +65,7 @@ func newTestSyncerPartialUploads(t *testing.T, mc *mockClientShutdown, uploadFn 
 }
 
 // Compares UploadRequests containing either binary or tabular sensor data.
-// nolint
+// nolint:thelper
 func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
@@ -127,7 +93,7 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 	}
 }
 
-// nolint
+// nolint:thelper
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	expectedMetadata *v1.UploadMetadata,
 ) {
@@ -152,8 +118,7 @@ func toProto(r interface{}) *structpb.Struct {
 	return msg
 }
 
-// Writes the protobuf message to the file passed into method. Returns the number of bytes written and any errors that
-// are raised.
+// Writes the protobuf message to f.
 func writeBinarySensorData(f *os.File, toWrite [][]byte) error {
 	for _, bytes := range toWrite {
 		msg := &v1.SensorData{
@@ -186,38 +151,9 @@ func createTmpDataCaptureFile() (file *os.File, err error) {
 	return ret, nil
 }
 
-func createProgressFile(progress int, dcFileName string) (string, error) {
-	path := filepath.Join(progressDir, filepath.Base(dcFileName))
-	err := ioutil.WriteFile(path, intToBytes(progress), os.FileMode((0o777)))
-	if err != nil {
-		return "", err
-	}
-	return path, nil
-}
-
-func getProgressFromProgressFile(progressFileName string) (int, error) {
-	bs, err := ioutil.ReadFile(filepath.Clean(progressFileName))
-	if err != nil {
-		return 0, err
-	}
-	i, err := bytesToInt(bs)
-	if err != nil {
-		return 0, err
-	}
-	return i, nil
-}
-
-// nolint
-func verifyProgressFileContent(t *testing.T, progressAtBreakpoint int, progressFileName string) {
-	//nolint
-	progress, _ := getProgressFromProgressFile(progressFileName)
-	test.That(t, reflect.DeepEqual(progressAtBreakpoint, progress), test.ShouldBeTrue)
-}
-
-// nolint
-func verifyFileExistence(t *testing.T, fileName string, shouldExist bool) {
+func fileExists(fileName string) bool {
 	_, err := os.Stat(fileName)
-	test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldNotEqual, shouldExist)
+	return !errors.Is(err, os.ErrNotExist)
 }
 
 func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
@@ -250,31 +186,4 @@ func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
 		})
 	}
 	return expMsgs
-}
-
-func resetFolderContents(path string) error {
-	fileInfo, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		if err = os.Mkdir(path, os.ModePerm); err != nil {
-			return err
-		}
-	} else {
-		if fileInfo.IsDir() {
-			infos, err := ioutil.ReadDir(path)
-			if err != nil {
-				return err
-			}
-			for _, info := range infos {
-				if err = os.Remove(filepath.Join(path, info.Name())); err != nil {
-					return err
-				}
-			}
-		} else {
-			if err = os.Remove(fileInfo.Name()); err != nil {
-				return err
-			}
-			return resetFolderContents(path)
-		}
-	}
-	return nil
 }
