@@ -63,6 +63,5 @@ func TestBasic(t *testing.T) {
 		defer cleanup6()
 		o6 := Get(ctx6)
 		test.That(t, len(o6.myManager.ops), test.ShouldEqual, 1)
-
 	}()
 }
