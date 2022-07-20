@@ -73,86 +73,6 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableVision{})
 )
 
-type reconfigurableVision struct {
-	mu     sync.RWMutex
-	actual Service
-}
-
-func (svc *reconfigurableVision) GetDetectorNames(ctx context.Context) ([]string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetDetectorNames(ctx)
-}
-
-func (svc *reconfigurableVision) AddDetector(ctx context.Context, cfg DetectorConfig) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.AddDetector(ctx, cfg)
-}
-
-func (svc *reconfigurableVision) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetDetections(ctx, cameraName, detectorName)
-}
-
-func (svc *reconfigurableVision) GetSegmenterNames(ctx context.Context) ([]string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetSegmenterNames(ctx)
-}
-
-func (svc *reconfigurableVision) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetSegmenterParameters(ctx, segmenterName)
-}
-
-func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
-	cameraName,
-	segmenterName string,
-	params config.AttributeMap,
-) ([]*viz.Object, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
-}
-
-func (svc *reconfigurableVision) Close(ctx context.Context, id primitive.ObjectID) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return goutils.TryClose(ctx, svc.actual)
-}
-
-// Reconfigure replaces the old vision service with a new vision.
-func (svc *reconfigurableVision) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	rSvc, ok := newSvc.(*reconfigurableVision)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newSvc)
-	}
-	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	svc.actual = rSvc.actual
-	return nil
-}
-
-// WrapWithReconfigurable wraps a vision service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
-	svc, ok := s.(Service)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("vision.Service", s)
-	}
-
-	if reconfigurable, ok := s.(*reconfigurableVision); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableVision{actual: svc}, nil
-}
-
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("vision")
 
@@ -340,4 +260,84 @@ func (vs *visionService) Close() error {
 		}
 	}
 	return nil
+}
+
+type reconfigurableVision struct {
+	mu     sync.RWMutex
+	actual Service
+}
+
+func (svc *reconfigurableVision) GetDetectorNames(ctx context.Context) ([]string, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetDetectorNames(ctx)
+}
+
+func (svc *reconfigurableVision) AddDetector(ctx context.Context, cfg DetectorConfig) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.AddDetector(ctx, cfg)
+}
+
+func (svc *reconfigurableVision) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetDetections(ctx, cameraName, detectorName)
+}
+
+func (svc *reconfigurableVision) GetSegmenterNames(ctx context.Context) ([]string, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetSegmenterNames(ctx)
+}
+
+func (svc *reconfigurableVision) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetSegmenterParameters(ctx, segmenterName)
+}
+
+func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
+	cameraName,
+	segmenterName string,
+	params config.AttributeMap,
+) ([]*viz.Object, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
+}
+
+func (svc *reconfigurableVision) Close(ctx context.Context, id primitive.ObjectID) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return goutils.TryClose(ctx, svc.actual)
+}
+
+// Reconfigure replaces the old vision service with a new vision.
+func (svc *reconfigurableVision) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableVision)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := goutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
+}
+
+// WrapWithReconfigurable wraps a vision service as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("vision.Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableVision); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableVision{actual: svc}, nil
 }
