@@ -57,7 +57,7 @@ func TestNewSensor(t *testing.T) {
 }
 
 // Mock DigitalInterrupt.
-type mockDigitalInterrupt struct{ valueCount int }
+type mockDigitalInterrupt struct{}
 
 // mock board.
 type mock struct {
