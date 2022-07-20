@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -21,6 +20,8 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
@@ -694,6 +695,7 @@ type dummyArm struct {
 	arm.LocalArm
 	stopCount int
 	extra     map[string]interface{}
+	channel   chan struct{}
 }
 
 func (da *dummyArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
@@ -724,18 +726,18 @@ func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) erro
 }
 
 func (da *dummyArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	fmt.Println("ABOUT TO SLEEP FOR 10 SEC")
-	time.Sleep(10 * time.Second)
-	fmt.Println("WOKE UP 10 SEC LATER")
-	return cmd, nil
+	close(da.channel)
+	<-ctx.Done()
+	return nil, ctx.Err()
 }
 
 func TestStopAll(t *testing.T) {
 	logger := golog.NewTestLogger(t)
+	channel := make(chan struct{})
 
 	modelName := utils.RandomAlphaString(8)
-	var dummyArm1 dummyArm
-	var dummyArm2 dummyArm
+	dummyArm1 := dummyArm{channel: channel}
+	dummyArm2 := dummyArm{channel: channel}
 	registry.RegisterComponent(
 		arm.Subtype,
 		modelName,
@@ -804,13 +806,26 @@ func TestStopAll(t *testing.T) {
 	conn, err := rgrpc.Dial(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	arm1 := arm.NewClientFromConn(ctx, conn, "arm1", logger)
-	_, err = arm1.Do(ctx, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
 
-	fmt.Println("ABOUT TO CHECK OPIDS")
-	for _, opid := range r.OperationManager().All() {
-		fmt.Println(opid)
-	}
+	foundOPID := false
+	stopAllErrCh := make(chan error, 1)
+	go func() {
+		<-channel
+		for _, opid := range r.OperationManager().All() {
+			if opid.Method == "/proto.api.component.generic.v1.GenericService/Do" {
+				foundOPID = true
+				stopAllErrCh <- r.StopAll(ctx, nil)
+			}
+		}
+	}()
+	_, err = arm1.Do(ctx, map[string]interface{}{})
+	s, isGRPCErr := status.FromError(err)
+	test.That(t, isGRPCErr, test.ShouldBeTrue)
+	test.That(t, s.Code(), test.ShouldEqual, codes.Canceled)
+
+	stopAllErr := <-stopAllErrCh
+	test.That(t, foundOPID, test.ShouldBeTrue)
+	test.That(t, stopAllErr, test.ShouldBeNil)
 }
 
 type dummyBoard struct {

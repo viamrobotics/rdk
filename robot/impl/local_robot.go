@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -159,6 +160,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	// Stop all operations
 	for _, op := range r.OperationManager().All() {
+		fmt.Println("CANCELING OPID: ", op)
 		op.Cancel()
 	}
 
