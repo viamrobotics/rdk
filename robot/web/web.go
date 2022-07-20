@@ -876,14 +876,15 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		return fmt.Errorf("unable to route foreign message due to invalid name field %v", name)
 	}
 
-	fqName := resource.Name{
-		Subtype: foundType.Subtype,
-		Remote:  "", Name: name,
-	}
+	fqName := resource.NameFromSubtype(foundType.Subtype, name)
 
 	resource, err := svc.r.ResourceByName(fqName)
 	if err != nil {
 		return err
+	}
+
+	if fqName.IsRemoteResource() {
+		firstMsg.SetFieldByName("name", fqName.PopRemote().ShortName())
 	}
 
 	foreignRes, ok := resource.(*grpc.ForeignResource)
@@ -926,7 +927,10 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 					cancel()
 					break
 				}
-
+				// remove a remote from the name if needed
+				if fqName.IsRemoteResource() {
+					msg.SetFieldByName("name", fqName.PopRemote().ShortName())
+				}
 				err = bidiStream.SendMsg(msg)
 			}
 
@@ -968,9 +972,12 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 				if errors.Is(err, io.EOF) {
 					break
 				}
+
 				return err
 			}
-
+			if fqName.IsRemoteResource() {
+				msg.SetFieldByName("name", fqName.PopRemote().ShortName())
+			}
 			if err := clientStream.SendMsg(msg); err != nil {
 				if errors.Is(err, io.EOF) {
 					break
@@ -978,7 +985,6 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 				return err
 			}
 		}
-
 		resp, err := clientStream.CloseAndReceive()
 		if err != nil {
 			return err
