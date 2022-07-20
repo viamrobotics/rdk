@@ -119,6 +119,13 @@ func (m *Manager) Create(ctx context.Context, method string, args interface{}) (
 		panic("operations cannot be nested")
 	}
 
+	// Add method to manager if not in invalid map
+	for _, val := range invalidMethods {
+		if strings.HasPrefix(method, val) {
+			return ctx, func() {}
+		}
+	}
+
 	op := &Operation{
 		ID:        uuid.New(),
 		Method:    method,
@@ -128,18 +135,8 @@ func (m *Manager) Create(ctx context.Context, method string, args interface{}) (
 	}
 	ctx = context.WithValue(ctx, opidKey, op)
 	ctx, op.cancel = context.WithCancel(ctx)
+	m.add(op)
 
-	// Add method to manager if not in invalid map
-	valid := true
-	for _, val := range invalidMethods {
-		if ok := strings.Contains(op.Method, val); ok {
-			valid = false
-			break
-		}
-	}
-	if valid {
-		m.add(op)
-	}
 	return ctx, func() { op.cleanup() }
 }
 
