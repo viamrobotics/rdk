@@ -6,21 +6,22 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
-	"go.viam.com/utils"
+	viamutils "go.viam.com/utils"
 )
 
 func TestFFmpegCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
-	cam, err := NewFFmpegCamera(&ffmpegAttrs{URL: "rtsp://10.1.1.29:8555/unicast"}, logger)
+	path := utils.ResolveFile("component/camera/ffmpeg/data/testsrc.mpg")
+	cam, err := NewFFmpegCamera(&ffmpegAttrs{Source: path}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	for i := 0; i < 10; i++ {
-		img, _, err := cam.Next(ctx)
+	for i := 0; i < 5; i++ {
+		_, _, err := cam.Next(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		_ = img
 	}
-	test.That(t, utils.TryClose(context.Background(), cam), test.ShouldBeNil)
+	test.That(t, viamutils.TryClose(context.Background(), cam), test.ShouldBeNil)
 }
 
 func TestComputerWithoutFFmpeg(t *testing.T) {
