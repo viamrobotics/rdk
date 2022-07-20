@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/color"
 	"math"
 	"strings"
 	"sync"
@@ -268,10 +267,21 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 	return pcTo, nil
 }
 
-func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem, inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree) (pointcloud.PointCloud, error) {
+type icpMergeResultInfo struct {
+	x0        []float64
+	optResult optimize.Result
+}
+
+func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem, inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree) (pointcloud.PointCloud, icpMergeResultInfo, error) {
+	// This function registers a point cloud to the reference frame of a target point cloud.
+	// This is accomplished using ICP (Iterative Closest Point) to align the two point clouds.
+	// The loss function being used is the average distance between corresponding points in the registered point clouds.
+	// The optimization is performed using BFGS (Broyden-Fletcher-Goldfarb-Shanno) optimization on parameters representing a transformation matrix.
+
+	debug := false // In a future PR (when jpcs is a camera) this will be done with a param.
 	pcSrc, err := jpcs.sourceCameras[sourceIndex].NextPointCloud(ctx)
 	if err != nil {
-		return nil, err
+		return nil, icpMergeResultInfo{}, err
 	}
 
 	sourcePointList := make([]r3.Vector, pcSrc.Size())
@@ -297,7 +307,7 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 		// compute the error
 		var dist float64
 		var currPose spatialmath.Pose
-		// utils.Logger.Debugf("size of sourcePointList = %d", len(sourcePointList))
+		// TODO parallelize this
 		for i := 0; i < len(sourcePointList); i++ {
 			currPose = spatialmath.NewPoseFromPoint(sourcePointList[i])
 			transformedP := spatialmath.Compose(pose, currPose).Point()
@@ -320,7 +330,7 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[sourceIndex], spatialmath.NewZeroPose())
 	theTransform, err := (*fs).Transform(*inputs, sourceFrame, jpcs.targetName)
 	if err != nil {
-		return nil, err
+		return nil, icpMergeResultInfo{}, err
 	}
 	x0 := make([]float64, 6)
 	x0[0] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().X
@@ -330,7 +340,9 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 	x0[4] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Pitch
 	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Yaw
 
-	utils.Logger.Debugf("x0 = %v", x0)
+	if debug {
+		utils.Logger.Debugf("x0 = %v", x0)
+	}
 
 	prob := optimize.Problem{Func: optFunc, Grad: grad, Hess: hess}
 
@@ -344,17 +356,9 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 		},
 		MajorIterations: 100,
 		Recorder:        optimize.NewPrinter(),
-		// Concurrent: 8,
 	}
 
-	// method := &optimize.GradientDescent{
-	// StepSizer:         &optimize.FirstOrderStepSize{},
-	// 	GradStopThreshold: 1e-8,
-	// }
-
 	method := &optimize.BFGS{
-		// Increase:          1.1,
-		// GradStopThreshold: 1e-8,
 		Linesearcher: &optimize.Bisection{
 			CurvatureFactor: 0.9,
 		},
@@ -362,10 +366,10 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 
 	// run optimization
 	res, err := optimize.Minimize(prob, x0, settings, method)
-	utils.Logger.Debugf("res = %v, err = %v", res, err)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	if debug {
+		utils.Logger.Debugf("res = %v, err = %v", res, err)
+	}
+
 	x := res.Location.X
 
 	// create the new pose
@@ -380,16 +384,16 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 		transformedP := spatialmath.Compose(pose, posePoint).Point()
 		err := registeredPointCloud.Set(transformedP, d)
 		if err != nil {
-			utils.Logger.Debugf("error = %v", err)
 			return false
 		}
 		return true
 	})
 
-	return registeredPointCloud, nil
+	return registeredPointCloud, icpMergeResultInfo{x0: x0, optResult: *res}, nil
 }
 
 func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
+	debug := false // In a future PR (when jpcs is a camera) this will be done with a param.
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
@@ -416,7 +420,6 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 	if err != nil {
 		return nil, err
 	}
-	// targetPointCloudKD := pointcloud.NewKDTree(targetPointCloud)
 
 	finalPointCloud := pointcloud.NewKDTree(targetPointCloud)
 	for i := range jpcs.sourceCameras {
@@ -424,24 +427,25 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 			continue
 		}
 
-		registeredPointCloud, err := jpcs.MergePointCloudsICP(ctx, i, &fs, &inputs, finalPointCloud)
+		registeredPointCloud, info, err := jpcs.MergePointCloudsICP(ctx, i, &fs, &inputs, finalPointCloud)
 		if err != nil {
 			panic(err) // TODO(erh) is there something better to do?
 		}
-
-		utils.Logger.Debugf("registeredPointCloud Size = %d", registeredPointCloud.Size())
-
-		// var ok bool
+		if debug {
+			utils.Logger.Debugf("Learned Transform = %v", info.optResult.Location.X)
+		}
+		transformDist := math.Sqrt(math.Pow(info.optResult.Location.X[0]-info.x0[0], 2) + math.Pow(info.optResult.Location.X[1]-info.x0[1], 2) + math.Pow(info.optResult.Location.X[2]-info.x0[2], 2))
+		if transformDist > 100 {
+			utils.Logger.Warnf("Transform is %f away from transform defined in frame system. This may indicate an incorrect frame system.", transformDist)
+		}
 		// TODO(aidanglickman) this loop is highly parallelizable, not yet making use
 		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-			// _, ok = finalPointCloud.At(p.X, p.Y, p.Z)
 			nearest, _, _, _ := finalPointCloud.NearestNeighbor(p)
 			distance := math.Sqrt(math.Pow(p.X-nearest.X, 2) + math.Pow(p.Y-nearest.Y, 2) + math.Pow(p.Z-nearest.Z, 2))
-			if distance > 0.2 {
-				// finalPointCloud.Set(p, d)
-				finalPointCloud.Set(p, pointcloud.NewColoredData(color.NRGBA{R: 0, G: 255, B: 0, A: 255}))
+			if distance > 1e-2 { // TODO This should probably be a param. Value is highly dependent on the size and accuracy of given pointclouds.
+				finalPointCloud.Set(p, d)
 			} else {
-				finalPointCloud.Set(nearest, pointcloud.NewColoredData(color.NRGBA{R: 0, G: 0, B: 255, A: 255}))
+				// Don't add a duplicate point (?)
 			}
 			return true
 		})
