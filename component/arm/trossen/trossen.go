@@ -88,6 +88,28 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
+// AttrConfig is used for converting Arm config attributes.
+type AttrConfig struct {
+	UsbPort     	string `json:"usb_port"`
+	BaudRate 		string `json:"baud_rate"`
+	ArmServoCount 	string `json:"arm_servo_count"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if len(config.UsbPort) == 0 {
+		return errors.New("expected nonempty usb_port")
+	}
+	if len(config.BaudRate) == 0 {
+		return errors.New("expected nonempty baud_rate")
+	}
+	if len(config.ArmServoCount) == 0 {
+		return errors.New("expected nonempty arm_servo_count")
+	}
+
+	return nil
+}
+
 // NewArm returns an instance of Arm given a model json.
 func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, json []byte) (arm.LocalArm, error) {
 	usbPort := attributes.String("usb_port")
