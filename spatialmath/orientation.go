@@ -17,7 +17,7 @@ type Orientation interface {
 
 // NewZeroOrientation returns an orientatation which signifies no rotation.
 func NewZeroOrientation() Orientation {
-	return &quaternion{1, 0, 0, 0}
+	return &Quaternion{1, 0, 0, 0}
 }
 
 // OrientationAlmostEqual will return a bool describing whether 2 poses have approximately the same orientation.
@@ -27,12 +27,12 @@ func OrientationAlmostEqual(o1, o2 Orientation) bool {
 
 // OrientationBetween returns the orientation representing the difference between the two given orientations.
 func OrientationBetween(o1, o2 Orientation) Orientation {
-	q := quaternion(quat.Mul(o2.Quaternion(), quat.Conj(o1.Quaternion())))
+	q := Quaternion(quat.Mul(o2.Quaternion(), quat.Conj(o1.Quaternion())))
 	return &q
 }
 
 // OrientationInverse returns the orientation representing the inverse of the given orientation.
 func OrientationInverse(o Orientation) Orientation {
-	q := quaternion(quat.Inv(o.Quaternion()))
+	q := Quaternion(quat.Inv(o.Quaternion()))
 	return &q
 }
