@@ -22,7 +22,7 @@ import (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			m := &Motor{Name: config.Name, logger: logger, encoder: fakeEncoder{logger: logger}}
+			m := &Motor{Name: config.Name, Logger: logger, Encoder: FakeEncoder{Logger: logger}}
 			if mcfg, ok := config.ConvertedAttributes.(*motor.Config); ok {
 				if mcfg.BoardName != "" {
 					m.Board = mcfg.BoardName
@@ -41,20 +41,20 @@ func init() {
 					}
 				}
 
-				m.cfg = *mcfg
-				if m.cfg.TicksPerRotation <= 0 {
-					m.cfg.TicksPerRotation = 1
-					m.logger.Info("ticks_per_rotation must be positive, using default value 1")
+				m.Cfg = *mcfg
+				if m.Cfg.TicksPerRotation <= 0 {
+					m.Cfg.TicksPerRotation = 1
+					m.Logger.Info("ticks_per_rotation must be positive, using default value 1")
 				}
-				if m.cfg.MaxRPM == 0 {
-					m.cfg.MaxRPM = 60
-					m.logger.Info("using default value 60 for max_rpm")
+				if m.Cfg.MaxRPM == 0 {
+					m.Cfg.MaxRPM = 60
+					m.Logger.Info("using default value 60 for max_rpm")
 				}
 
 				if mcfg.EncoderA != "" || mcfg.EncoderB != "" {
-					m.positionReporting = true
+					m.PositionReporting = true
 
-					m.encoder.Start(ctx, &m.activeBackgroundWorkers)
+					m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
 				}
 			}
 			return m, nil
@@ -67,21 +67,21 @@ func init() {
 
 var _ motor.LocalMotor = &Motor{}
 
-type fakeEncoder struct {
+type FakeEncoder struct {
 	mu         sync.Mutex
 	position   float64
 	speed      float64 // ticks per minute
-	logger     golog.Logger
+	Logger     golog.Logger
 	updateRate int64 // update position in start every updateRate ms
 }
 
 // Position returns the current position in terms of ticks.
-func (e *fakeEncoder) GetPosition(ctx context.Context) (float64, error) {
+func (e *FakeEncoder) GetPosition(ctx context.Context) (float64, error) {
 	return e.position, nil
 }
 
 // Start starts a background thread to run the encoder.
-func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup) {
+func (e *FakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup) {
 	activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		if e.updateRate == 0 {
@@ -90,17 +90,11 @@ func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 		for {
 			select {
 			case <-cancelCtx.Done():
-				if e.logger != nil {
-					e.logger.Debug("Canceled")
-				}
 				return
 			default:
 			}
 
 			if !utils.SelectContextOrWait(cancelCtx, time.Duration(e.updateRate)*time.Millisecond) {
-				if e.logger != nil {
-					e.logger.Debug("Context Done")
-				}
 				return
 			}
 
@@ -112,7 +106,7 @@ func (e *fakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 }
 
 // ResetZeroPosition resets the zero position.
-func (e *fakeEncoder) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (e *FakeEncoder) ResetZeroPosition(ctx context.Context, offset float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = offset
@@ -120,7 +114,7 @@ func (e *fakeEncoder) ResetZeroPosition(ctx context.Context, offset float64) err
 }
 
 // SetSpeed sets the speed of the fake motor the encoder is measuring.
-func (e *fakeEncoder) SetSpeed(ctx context.Context, speed float64) error {
+func (e *FakeEncoder) SetSpeed(ctx context.Context, speed float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.speed = speed
@@ -128,7 +122,7 @@ func (e *fakeEncoder) SetSpeed(ctx context.Context, speed float64) error {
 }
 
 // SetPosition sets the position of the encoder.
-func (e *fakeEncoder) SetPosition(ctx context.Context, position float64) error {
+func (e *FakeEncoder) SetPosition(ctx context.Context, position float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = position
@@ -143,37 +137,33 @@ type Motor struct {
 	powerPct                float64
 	Board                   string
 	PWM                     board.GPIOPin
-	positionReporting       bool
-	logger                  golog.Logger
-	encoder                 fakeEncoder
-	cfg                     motor.Config
+	PositionReporting       bool
+	Logger                  golog.Logger
+	Encoder                 FakeEncoder
+	Cfg                     motor.Config
 	activeBackgroundWorkers sync.WaitGroup
 	opMgr                   operation.SingleOperationManager
 	generic.Echo
-}
-
-// NewFakeMotor returns a usable instance of Motor.
-func NewFakeMotor() *Motor {
-	mcfg := motor.Config{TicksPerRotation: 1, MaxRPM: 60}
-	m := &Motor{encoder: fakeEncoder{}, positionReporting: true, cfg: mcfg}
-	return m
 }
 
 // GetPosition returns motor position in rotations.
 func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	ticks, err := m.encoder.GetPosition(ctx)
+	if m.Encoder == (FakeEncoder{}) {
+		return 0, errors.New("encoder is not defined")
+	}
+	ticks, err := m.Encoder.GetPosition(ctx)
 	if err != nil {
 		return 0, err
 	}
-	return ticks / float64(m.cfg.TicksPerRotation), nil
+	return ticks / float64(m.Cfg.TicksPerRotation), nil
 }
 
 // GetFeatures returns the status of whether the motor supports certain optional features.
 func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
-		motor.PositionReporting: m.positionReporting,
+		motor.PositionReporting: m.PositionReporting,
 	}, nil
 }
 
@@ -183,12 +173,10 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	defer m.mu.Unlock()
 
 	m.opMgr.CancelRunning(ctx)
-	if m.logger != nil {
-		m.logger.Debugf("Motor SetPower %f", powerPct)
-	}
+	m.Logger.Debugf("Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
-	newSpeed := (m.cfg.MaxRPM * m.powerPct) * float64(m.cfg.TicksPerRotation)
-	err := m.encoder.SetSpeed(ctx, newSpeed)
+	newSpeed := (m.Cfg.MaxRPM * m.powerPct) * float64(m.Cfg.TicksPerRotation)
+	err := m.Encoder.SetSpeed(ctx, newSpeed)
 	if err != nil {
 		return err
 	}
@@ -242,7 +230,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 
 // GoFor sets the given direction and an arbitrary power percentage.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	powerPct, waitDur := goForMath(m.cfg.MaxRPM, rpm, revolutions)
+	powerPct, waitDur := goForMath(m.Cfg.MaxRPM, rpm, revolutions)
 	err := m.SetPower(ctx, powerPct)
 	if err != nil {
 		return err
@@ -260,8 +248,12 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
-	curPos, err := m.encoder.GetPosition(ctx)
-	curPos /= float64(m.cfg.TicksPerRotation)
+	if m.Encoder == (FakeEncoder{}) {
+		return errors.New("encoder is not defined")
+	}
+	
+	curPos, err := m.Encoder.GetPosition(ctx)
+	curPos /= float64(m.Cfg.TicksPerRotation)
 	if err != nil {
 		return err
 	}
@@ -278,7 +270,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 
 // ResetZeroPosition resets the zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
-	err := m.encoder.ResetZeroPosition(ctx, offset*float64(m.cfg.TicksPerRotation))
+	err := m.Encoder.ResetZeroPosition(ctx, offset*float64(m.Cfg.TicksPerRotation))
 	if err != nil {
 		return err
 	}
@@ -290,12 +282,9 @@ func (m *Motor) Stop(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.opMgr.CancelRunning(ctx)
-	if m.logger != nil {
-		m.logger.Debug("Motor Stopped")
-	}
+	m.Logger.Debug("Motor Stopped")
 	m.setPowerPct(0.0)
-	err := m.encoder.SetSpeed(ctx, 0.0)
+	err := m.Encoder.SetSpeed(ctx, 0.0)
 	if err != nil {
 		return err
 	}
