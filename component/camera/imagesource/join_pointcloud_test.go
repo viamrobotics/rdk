@@ -4,7 +4,6 @@ import (
 	"context"
 	"image"
 	"image/color"
-	"math"
 	"os"
 	"testing"
 	"time"
@@ -273,11 +272,11 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		},
 		{
 			Name:        "cam1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{100, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
 		},
 		{
 			Name:        "cam2",
-			FrameConfig: &config.Frame{Parent: "cam1", Translation: spatialmath.TranslationConfig{0, 0, 100}},
+			FrameConfig: &config.Frame{Parent: "cam1", Translation: spatialmath.TranslationConfig{0, 0, -100}},
 		},
 		{
 			Name:        "cam3",
@@ -289,7 +288,7 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		},
 		{
 			Name:        "cam5",
-			FrameConfig: &config.Frame{Parent: "cam4", Translation: spatialmath.TranslationConfig{0, 0, 0}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: -math.Pi / 4}},
+			FrameConfig: &config.Frame{Parent: "cam4", Translation: spatialmath.TranslationConfig{-60, 0, 10}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3}},
 		},
 	}
 	r.FrameSystemConfigFunc = func(
