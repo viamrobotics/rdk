@@ -66,6 +66,3 @@ bin/
 
 # exclude files from `ag` search
 .ignore
-
-# partial file uploading
-services/datamanager/progress_dir
