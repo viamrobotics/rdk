@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
@@ -16,10 +17,12 @@ import (
 
 func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	t.Helper()
+	logger := golog.NewTestLogger(t)
 
 	result := make(registry.Dependencies)
 	for _, dep := range deps {
-		result[motor.Named(dep)] = fake.NewFakeMotor()
+		mcfg := motor.Config{TicksPerRotation: 1, MaxRPM: 60}
+		result[motor.Named(dep)] = &fake.Motor{Encoder: fake.FakeEncoder{Logger: logger}, PositionReporting: true, Cfg: mcfg, Logger: logger}
 	}
 	return result
 }
