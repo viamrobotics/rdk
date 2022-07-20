@@ -59,20 +59,22 @@ func TestMotor(t *testing.T) {
 	test.That(t, featureMap[motor.PositionReporting], test.ShouldBeTrue)
 
 	// Test GoFor
-	err = m.GoFor(ctx, 1, 1)
+	m.encoder.Start(ctx, &m.activeBackgroundWorkers)
+	err = m.GoFor(ctx, 60, 1)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos, err = m.GetPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos, test.ShouldEqual, 1)
+	test.That(t, pos, test.ShouldBeGreaterThan, 0)
 
 	// Test GoTo
-	err = m.GoTo(ctx, 1, 2)
+	prevPos := pos
+	err = m.GoTo(ctx, 60, 2)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos, err = m.GetPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos, test.ShouldEqual, 2)
+	test.That(t, pos, test.ShouldBeGreaterThan, prevPos)
 
 	// Test GoTillStop
 	err = m.GoTillStop(ctx, 0, func(ctx context.Context) bool { return false })
