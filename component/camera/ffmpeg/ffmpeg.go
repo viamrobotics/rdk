@@ -1,4 +1,4 @@
-// package ffmpeg provides an implementation for ffmpeg based cameras
+// Package ffmpeg provides an implementation for ffmpeg based cameras
 package ffmpeg
 
 import (
@@ -8,16 +8,16 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	ffmpeg "github.com/u2takey/ffmpeg-go"
+
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/utils"
-
-	ffmpeg "github.com/u2takey/ffmpeg-go"
+	viamutils "go.viam.com/utils"
 )
 
 // ffmpegAttrs is the attribute struct for ffmpeg cameras.
@@ -35,7 +35,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
 			}
-			return NewFFmpegCamera(ctx, attrs, logger)
+			return NewFFmpegCamera(attrs, logger)
 		},
 	})
 
@@ -63,33 +63,36 @@ func init() {
 	)
 }
 
-func NewFFmpegCamera(ctx context.Context, attrs *ffmpegAttrs, logger golog.Logger) (camera.Camera, error) {
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-
+func NewFFmpegCamera(attrs *ffmpegAttrs, logger golog.Logger) (camera.Camera, error) {
 	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
-	var ffmpegErr atomic.Value
-	var activeProcesses sync.WaitGroup
-	in, out := io.Pipe()
-	activeProcesses.Add(1)
-	go func() {
-		defer activeProcesses.Done()
-		stream := ffmpeg.Input(attrs.URL).Output("pipe:", ffmpeg.KwArgs{"update": 1, "format": "image2"}).WithOutput(out)
-		stream.Context = ctxWithCancel
-		ffmpegErr.Store(stream.Run())
-	}()
+	ctx, cancel := context.WithCancel(context.Background())
 
-	// TODO(rb): this is a hacky workaround to keep race conditions from happening
-	time.Sleep(time.Second)
+	ffCam := &ffmpegCamera{
+		cancelFunc: cancel,
+	}
+
+	var ffmpegErr atomic.Value
+	in, out := io.Pipe()
+	ffCam.activeBackgroundWorkers.Add(1)
+	viamutils.ManagedGo(func() {
+		stream := ffmpeg.
+			Input(attrs.URL).
+			Output("pipe:", ffmpeg.KwArgs{"update": 1, "format": "image2"})
+		stream.Context = ctx
+
+		ffmpegErr.Store(stream.WithOutput(out).Run())
+	}, ffCam.activeBackgroundWorkers.Done)
 
 	// launch thread to consume images from the pipe and store the latest in shared memory
 	var latestFrame atomic.Value
-	gotFirstFrameOnce := false
+	var gotFirstFrameOnce bool
 	gotFirstFrame := make(chan struct{})
-	activeProcesses.Add(1)
-	go func() {
-		defer activeProcesses.Done()
+	ffCam.activeBackgroundWorkers.Add(1)
+	viamutils.ManagedGo(func() {
 		for {
+			if ctx.Err() != nil {
+				return
+			}
 			if ffmpegErr.Load() != nil {
 				return
 			}
@@ -103,15 +106,7 @@ func NewFFmpegCamera(ctx context.Context, attrs *ffmpegAttrs, logger golog.Logge
 				gotFirstFrameOnce = true
 			}
 		}
-	}()
-
-	closeFunc := func() {
-		if cancel != nil {
-			cancel()
-			cancel = nil
-			activeProcesses.Wait()
-		}
-	}
+	}, ffCam.activeBackgroundWorkers.Done)
 
 	// when next image is requested simply load the image from where it is stored in shared memory
 	imgSourceFunc := gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -123,8 +118,20 @@ func NewFFmpegCamera(ctx context.Context, attrs *ffmpegAttrs, logger golog.Logge
 			return nil, nil, ctx.Err()
 		case <-gotFirstFrame:
 		}
-		return latestFrame.Load().(image.Image), closeFunc, nil
+		return latestFrame.Load().(image.Image), func() {}, nil
 	})
 
-	return camera.New(imgSourceFunc, attrs.AttrConfig, nil)
+	ffCam.ImageSource = imgSourceFunc
+	return camera.New(ffCam, attrs.AttrConfig, nil)
+}
+
+type ffmpegCamera struct {
+	gostream.ImageSource
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+}
+
+func (fc *ffmpegCamera) Close() {
+	fc.cancelFunc()
+	fc.activeBackgroundWorkers.Wait()
 }
