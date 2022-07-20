@@ -34,10 +34,10 @@ func (config *AttrConfig) Validate(path string) error {
 		return rdkutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if len(config.TriggerPin) == 0 {
-		return  rdkutils.NewConfigValidationFieldRequiredError(path, "empty trigger pin")
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "empty trigger pin")
 	}
 	if len(config.EchoInterrupt) == 0 {
-		return  rdkutils.NewConfigValidationFieldRequiredError(path, "empty echo interrupt pin")
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "empty echo interrupt pin")
 	}
 	return nil
 }
