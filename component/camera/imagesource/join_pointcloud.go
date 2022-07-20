@@ -74,14 +74,20 @@ type JoinAttrs struct {
 	MergeMethod   string   `json:"merge_method"`
 }
 
-type MergeMethodType string
-type MergeMethodUnsupportedError error
+type (
+	// MergeMethodType Defines which strategy is used for merging.
+	MergeMethodType string
+	// MergeMethodUnsupportedError is returned when the merge method is not supported.
+	MergeMethodUnsupportedError error
+)
 
 const (
-	Null  MergeMethodType = ""
+	// Null is a default value for the merge method.
+	Null MergeMethodType = ""
+	// Naive is the naive merge method.
 	Naive MergeMethodType = "naive"
-	ICP   MergeMethodType = "icp"
-	NDT   MergeMethodType = "ndt"
+	// ICP is the ICP merge method.
+	ICP MergeMethodType = "icp"
 )
 
 func readMergeMethodType(s string) (MergeMethodType, error) {
@@ -90,8 +96,6 @@ func readMergeMethodType(s string) (MergeMethodType, error) {
 		return Naive, nil
 	case "icp":
 		return ICP, nil
-	case "ndt":
-		return NDT, nil
 	default:
 		return Null, newMergeMethodUnsupportedError(s)
 	}
@@ -154,7 +158,9 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	case Naive:
 		return jpcs.NextPointCloudNaive(ctx)
 	case ICP:
-		return jpcs.NextPointCloudICP(ctx)
+		return jpcs.nextPointCloudICP(ctx)
+	case Null:
+		return jpcs.NextPointCloudNaive(ctx)
 	default:
 		return nil, newMergeMethodUnsupportedError(string(jpcs.mergeMethod))
 	}
@@ -272,12 +278,16 @@ type icpMergeResultInfo struct {
 	optResult optimize.Result
 }
 
-func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem, inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree) (pointcloud.PointCloud, icpMergeResultInfo, error) {
+func (jpcs *joinPointCloudSource) mergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem,
+	inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree,
+) (pointcloud.PointCloud, icpMergeResultInfo, error) {
 	// This function registers a point cloud to the reference frame of a target point cloud.
 	// This is accomplished using ICP (Iterative Closest Point) to align the two point clouds.
 	// The loss function being used is the average distance between corresponding points in the registered point clouds.
-	// The optimization is performed using BFGS (Broyden-Fletcher-Goldfarb-Shanno) optimization on parameters representing a transformation matrix.
+	// The optimization is performed using BFGS (Broyden-Fletcher-Goldfarb-Shanno)
+	// optimization on parameters representing a transformation matrix.
 
+	// lint:ignore This is just used as a stop gap while waiting on another PR.
 	debug := false // In a future PR (when jpcs is a camera) this will be done with a param.
 	pcSrc, err := jpcs.sourceCameras[sourceIndex].NextPointCloud(ctx)
 	if err != nil {
@@ -355,7 +365,7 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 			Iterations: 100,
 		},
 		MajorIterations: 100,
-		Recorder:        optimize.NewPrinter(),
+		// Recorder:        optimize.NewPrinter(),
 	}
 
 	method := &optimize.BFGS{
@@ -383,16 +393,14 @@ func (jpcs *joinPointCloudSource) MergePointCloudsICP(ctx context.Context, sourc
 		posePoint := spatialmath.NewPoseFromPoint(p)
 		transformedP := spatialmath.Compose(pose, posePoint).Point()
 		err := registeredPointCloud.Set(transformedP, d)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	})
 
 	return registeredPointCloud, icpMergeResultInfo{x0: x0, optResult: *res}, nil
 }
 
-func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
+func (jpcs *joinPointCloudSource) nextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
+	// lint:ignore This is just used as a stop gap while waiting on another PR.
 	debug := false // In a future PR (when jpcs is a camera) this will be done with a param.
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
@@ -427,29 +435,32 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 			continue
 		}
 
-		registeredPointCloud, info, err := jpcs.MergePointCloudsICP(ctx, i, &fs, &inputs, finalPointCloud)
+		registeredPointCloud, info, err := jpcs.mergePointCloudsICP(ctx, i, &fs, &inputs, finalPointCloud)
 		if err != nil {
 			panic(err) // TODO(erh) is there something better to do?
 		}
 		if debug {
 			utils.Logger.Debugf("Learned Transform = %v", info.optResult.Location.X)
 		}
-		transformDist := math.Sqrt(math.Pow(info.optResult.Location.X[0]-info.x0[0], 2) + math.Pow(info.optResult.Location.X[1]-info.x0[1], 2) + math.Pow(info.optResult.Location.X[2]-info.x0[2], 2))
+		transformDist := math.Sqrt(math.Pow(info.optResult.Location.X[0]-info.x0[0], 2) +
+			math.Pow(info.optResult.Location.X[1]-info.x0[1], 2) +
+			math.Pow(info.optResult.Location.X[2]-info.x0[2], 2))
 		if transformDist > 100 {
-			utils.Logger.Warnf("Transform is %f away from transform defined in frame system. This may indicate an incorrect frame system.", transformDist)
+			utils.Logger.Warnf(`Transform is %f away from transform defined in frame system. 
+			This may indicate an incorrect frame system.`, transformDist)
 		}
 		// TODO(aidanglickman) this loop is highly parallelizable, not yet making use
 		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
 			nearest, _, _, _ := finalPointCloud.NearestNeighbor(p)
 			distance := math.Sqrt(math.Pow(p.X-nearest.X, 2) + math.Pow(p.Y-nearest.Y, 2) + math.Pow(p.Z-nearest.Z, 2))
 			if distance > 1e-2 { // TODO This should probably be a param. Value is highly dependent on the size and accuracy of given pointclouds.
-				finalPointCloud.Set(p, d)
-			} else {
-				// Don't add a duplicate point (?)
+				err = finalPointCloud.Set(p, d)
+				if err != nil {
+					return false
+				}
 			}
 			return true
 		})
-
 	}
 
 	return finalPointCloud, nil
@@ -504,7 +515,6 @@ func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func()
 	}
 
 	pc, err := jpcs.NextPointCloud(ctx)
-
 	if err != nil {
 		return nil, nil, err
 	}

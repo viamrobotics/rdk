@@ -169,6 +169,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 }
 
 func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (pointcloud.PointCloud, error) {
+	t.Helper()
 	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
 	if err != nil {
 		return nil, err
@@ -199,7 +200,8 @@ func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int
 func makeFakeRobotICP(t *testing.T) robot.Robot {
 	// Makes a fake robot with a fake frame system and multiple cameras for testing.
 	// Cam 1: Read from a test PCD file. A smaller sample of points.
-	// Cam 2: A direct transformation applied to Cam 1. This is useful for basic checking of the ICP algorithm, as it should converge immediately.
+	// Cam 2: A direct transformation applied to Cam 1.
+	// This is useful for basic checking of the ICP algorithm, as it should converge immediately.
 	// Cam 3: Read from a test PCD file. Representative of a real pointcloud captured in tandem with Cam 4.
 	// Cam 4: Read from a test PCD file. Captured in a real environment with a known rough offset from Cam 3.
 
@@ -283,12 +285,18 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
 		},
 		{
-			Name:        "cam4",
-			FrameConfig: &config.Frame{Parent: "cam3", Translation: spatialmath.TranslationConfig{-60, 0, -10}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0}},
+			Name: "cam4",
+			FrameConfig: &config.Frame{
+				Parent: "cam3", Translation: spatialmath.TranslationConfig{-60, 0, -10},
+				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0},
+			},
 		},
 		{
-			Name:        "cam5",
-			FrameConfig: &config.Frame{Parent: "cam4", Translation: spatialmath.TranslationConfig{-60, 0, 10}, Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3}},
+			Name: "cam5",
+			FrameConfig: &config.Frame{
+				Parent: "cam4", Translation: spatialmath.TranslationConfig{-60, 0, 10},
+				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3},
+			},
 		},
 	}
 	r.FrameSystemConfigFunc = func(
@@ -301,7 +309,10 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		return logger
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), camera.Named("cam4"), camera.Named("cam5"), base.Named("base1")}
+		return []resource.Name{
+			camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"),
+			camera.Named("cam4"), camera.Named("cam5"), base.Named("base1"),
+		}
 	}
 	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 		switch n.Name {
@@ -340,6 +351,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 }
 
 func TestTwinPointCloudICP(t *testing.T) {
+	t.Skip("Test is too large for now.")
 	r := makeFakeRobotICP(t)
 
 	attrs := &JoinAttrs{
@@ -362,6 +374,7 @@ func TestTwinPointCloudICP(t *testing.T) {
 }
 
 func TestMultiPointCloudICP(t *testing.T) {
+	t.Skip("Test is too large for now.")
 	r := makeFakeRobotICP(t)
 
 	attrs := &JoinAttrs{
@@ -377,8 +390,6 @@ func TestMultiPointCloudICP(t *testing.T) {
 	filename := "test_multi_" + time.Now().Format(time.RFC3339) + "*.pcd"
 	file, err := os.CreateTemp("/tmp", filename)
 	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
-
-	utils.Logger.Debugf("Number of points: %d", pc.Size())
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldNotBeNil)
