@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/test"
 )
 
 const (
@@ -55,10 +56,10 @@ func TestNewSensor(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "ultrasonic: cannot find board \"some-board\"")
 }
 
-// Mock DigitalInterrupt
+// Mock DigitalInterrupt.
 type mockDigitalInterrupt struct{ valueCount int }
 
-// mock board
+// mock board.
 type mock struct {
 	board.LocalBoard
 	Name     string
