@@ -38,14 +38,14 @@ func NewSource(src gostream.ImageSource, det Detector) (*Source, error) {
 	if src == nil {
 		return nil, errors.New("object detection source must include an image source to pull from")
 	}
-	cancelCtx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	if det == nil {
-		det = func(cancelCtx context.Context, img image.Image) ([]Detection, error) { return nil, nil }
+		det = func(ctx context.Context, img image.Image) ([]Detection, error) { return nil, nil }
 	}
 
 	s := &Source{
 		pipelineOutput: make(chan *Result),
-		cancelCtx:      cancelCtx,
+		cancelCtx:      ctx,
 		cancelFunc:     cancel,
 	}
 
