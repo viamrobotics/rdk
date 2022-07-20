@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/jpeg"
 	"io"
+	"os/exec"
 	"sync"
 	"sync/atomic"
 
@@ -63,30 +64,38 @@ func init() {
 	)
 }
 
-func NewFFmpegCamera(attrs *ffmpegAttrs, logger golog.Logger) (camera.Camera, error) {
-	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
-	ctx, cancel := context.WithCancel(context.Background())
+type ffmpegCamera struct {
+	gostream.ImageSource
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+}
 
-	ffCam := &ffmpegCamera{
-		cancelFunc: cancel,
+func NewFFmpegCamera(attrs *ffmpegAttrs, logger golog.Logger) (camera.Camera, error) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		return nil, err
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	ffCam := &ffmpegCamera{cancelFunc: cancel}
 	var ffmpegErr atomic.Value
 	in, out := io.Pipe()
+
+	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
+		defer cancel()
 		stream := ffmpeg.
 			Input(attrs.URL).
 			Output("pipe:", ffmpeg.KwArgs{"update": 1, "format": "image2"})
 		stream.Context = ctx
-
 		ffmpegErr.Store(stream.WithOutput(out).Run())
 	}, ffCam.activeBackgroundWorkers.Done)
 
-	// launch thread to consume images from the pipe and store the latest in shared memory
 	var latestFrame atomic.Value
 	var gotFirstFrameOnce bool
 	gotFirstFrame := make(chan struct{})
+
+	// launch thread to consume images from the pipe and store the latest in shared memory
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
 		for {
@@ -109,11 +118,17 @@ func NewFFmpegCamera(attrs *ffmpegAttrs, logger golog.Logger) (camera.Camera, er
 	}, ffCam.activeBackgroundWorkers.Done)
 
 	// when next image is requested simply load the image from where it is stored in shared memory
-	imgSourceFunc := gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, func(), error) {
+	ourCtx := ctx
+	ffCam.ImageSource = gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, func(), error) {
 		if ffmpegErr.Load() != nil {
 			return nil, nil, ffmpegErr.Load().(error)
 		}
 		select {
+		case <-ourCtx.Done():
+			if ffmpegErr.Load() != nil {
+				return nil, nil, ffmpegErr.Load().(error)
+			}
+			return nil, nil, ourCtx.Err()
 		case <-ctx.Done():
 			return nil, nil, ctx.Err()
 		case <-gotFirstFrame:
@@ -121,14 +136,7 @@ func NewFFmpegCamera(attrs *ffmpegAttrs, logger golog.Logger) (camera.Camera, er
 		return latestFrame.Load().(image.Image), func() {}, nil
 	})
 
-	ffCam.ImageSource = imgSourceFunc
 	return camera.New(ffCam, attrs.AttrConfig, nil)
-}
-
-type ffmpegCamera struct {
-	gostream.ImageSource
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
 }
 
 func (fc *ffmpegCamera) Close() {

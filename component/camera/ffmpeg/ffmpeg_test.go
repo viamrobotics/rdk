@@ -2,6 +2,7 @@ package ffmpeg
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -20,4 +21,14 @@ func TestFFmpegCamera(t *testing.T) {
 		_ = img
 	}
 	test.That(t, utils.TryClose(context.Background(), cam), test.ShouldBeNil)
+}
+
+func TestComputerWithoutFFmpeg(t *testing.T) {
+	oldpath := os.Getenv("PATH")
+	defer func() {
+		os.Setenv("PATH", oldpath)
+	}()
+	os.Unsetenv("PATH")
+	_, err := NewFFmpegCamera(nil, nil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "\"ffmpeg\": executable file not found in $PATH")
 }
