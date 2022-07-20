@@ -66,7 +66,10 @@ type Service interface {
 	Sync(ctx context.Context) error
 }
 
-var _ = resource.Reconfigurable(&reconfigurableDataManager{})
+var (
+	_ = Service(&reconfigurableDataManager{})
+	_ = resource.Reconfigurable(&reconfigurableDataManager{})
+)
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
@@ -547,6 +550,12 @@ func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
+}
+
+func (svc *reconfigurableDataManager) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.(resource.Updateable).Update(ctx, resources)
 }
 
 // Reconfigure replaces the old data manager service with a new data manager.

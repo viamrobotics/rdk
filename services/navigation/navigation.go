@@ -86,7 +86,10 @@ type Service interface {
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
 }
 
-var _ = resource.Reconfigurable(&reconfigurableNavigation{})
+var (
+	_ = Service(&reconfigurableNavigation{})
+	_ = resource.Reconfigurable(&reconfigurableNavigation{})
+)
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("navigation")
