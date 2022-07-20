@@ -59,7 +59,7 @@ jobs:
       with:
         headers: "Cache-Control: no-cache"
         path: 'etc/packaging/appimages/deploy/'
-        destination: 'packages.viam.com/apps/smurf/viam-server/'
+        destination: 'packages.viam.com/apps/viam-server/'
         glob: '*'
         parent: false
         gzip: false
@@ -75,7 +75,7 @@ jobs:
       with:
         headers: "Cache-Control: no-cache"
         path: 'etc/packaging/appimages/deploy/'
-        destination: 'packages.viam.com/apps/smurf/viam-server/testing/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-server/testing/${{ github.sha }}/'
         glob: '*'
         parent: false
         gzip: false
@@ -98,8 +98,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
         message: |
           AppImages ready!
-          <http://packages.viam.com/apps/smurf/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64.AppImage>
-          <http://packages.viam.com/apps/smurf/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-aarch64.AppImage>
+          <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64.AppImage>
+          <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-aarch64.AppImage>
 
   appimage_test:
     name: AppImage Test & Deploy
@@ -123,7 +123,7 @@ jobs:
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server http://packages.viam.com/apps/smurf/viam-server/testing/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
+        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
@@ -148,4 +148,4 @@ jobs:
 
     - name: Publish AppImage
       run: |
-        gsutil mv "gs://packages.viam.com/apps/smurf/viam-server/testing/${{ github.sha }}/*`uname -m`*" "gs://packages.viam.com/apps/smurf/viam-server/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ github.sha }}/*`uname -m`*" "gs://packages.viam.com/apps/viam-server/"

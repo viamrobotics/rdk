@@ -7,7 +7,7 @@ concurrency:
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ 'main', 'smurf-workflow' ]
+    branches: [ 'main' ]
     types: [ 'labeled', 'opened', 'reopened', 'synchronize' ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
@@ -16,7 +16,7 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@smurf-workflow
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
       GIT_ACCESS_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -25,7 +25,7 @@ jobs:
   appimage:
     needs: test
     if: contains(github.event.pull_request.labels.*.name, 'appimage')
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@smurf-workflow
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
