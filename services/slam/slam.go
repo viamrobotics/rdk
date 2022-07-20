@@ -241,7 +241,12 @@ func (svc *reconfigurableSlam) GetPosition(ctx context.Context, val string) (*re
 	return svc.actual.GetPosition(ctx, val)
 }
 
-func (svc *reconfigurableSlam) GetMap(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame, include bool) (string, image.Image, *vision.Object, error) {
+func (svc *reconfigurableSlam) GetMap(ctx context.Context,
+	name string,
+	mimeType string,
+	cp *referenceframe.PoseInFrame,
+	include bool,
+) (string, image.Image, *vision.Object, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetMap(ctx, name, mimeType, cp, include)
