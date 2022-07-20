@@ -177,7 +177,7 @@ type dataManagerService struct {
 	syncIntervalMins          float64
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
-	uploadFunc                uploadFn
+	uploadFunc                uploadFunc
 	updateCollectorsCancelFn  func()
 	additionalSyncPaths       []string
 	partID                    string
