@@ -555,7 +555,7 @@ func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
 func (svc *reconfigurableDataManager) Update(ctx context.Context, resources *config.Config) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	updateableSvc, ok := svc.actual.(config.ConfigUpdateable)
+	updateableSvc, ok := svc.actual.(config.Updateable)
 	if !ok {
 		return errors.New("reconfigurable datamanager is not ConfigUpdateable")
 	}

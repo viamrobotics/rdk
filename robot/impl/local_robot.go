@@ -469,7 +469,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 				continue
 			}
 		}
-		if configUpdateable, ok := svc.(config.ConfigUpdateable); ok {
+		if configUpdateable, ok := svc.(config.Updateable); ok {
 			if err := configUpdateable.Update(ctx, r.config); err != nil {
 				r.Logger().Errorw("config for service failed to update", "resource", name, "error", err)
 				continue
