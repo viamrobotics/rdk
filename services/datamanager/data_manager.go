@@ -552,10 +552,14 @@ func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
 	return goutils.TryClose(ctx, svc.actual)
 }
 
-func (svc *reconfigurableDataManager) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+func (svc *reconfigurableDataManager) Update(ctx context.Context, resources *config.Config) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.(resource.Updateable).Update(ctx, resources)
+	updateableSvc, ok := svc.actual.(config.ConfigUpdateable)
+	if !ok {
+		return errors.New("reconfigurable datamanager is not ConfigUpdateable")
+	}
+	return updateableSvc.Update(ctx, resources)
 }
 
 // Reconfigure replaces the old data manager service with a new data manager.
