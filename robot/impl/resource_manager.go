@@ -853,6 +853,17 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (interface{},
 	if ok {
 		return robotPart, nil
 	}
+	// if we haven't found a resource of this name then we are going to look into remote resources to find it.
+	if !ok && !name.IsRemoteResource() {
+		keys := manager.resources.FindNodesByShortNameAndSubtype(name)
+		if len(keys) > 1 {
+			return nil, rutils.NewRemoteResourceClashError(name.Name)
+		}
+		if len(keys) == 1 {
+			robotPart := manager.resources.Nodes[keys[0]]
+			return robotPart, nil
+		}
+	}
 	return nil, rutils.NewResourceNotFoundError(name)
 }
 
