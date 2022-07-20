@@ -1,5 +1,9 @@
 name: Docker
 
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   schedule:
     - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
@@ -35,7 +39,5 @@ jobs:
     needs: canon-cache
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
-      ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS }}
-      TEST_MONGODB_URI: ${{ secrets.TEST_MONGODB_URI }}
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
       GIT_ACCESS_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
