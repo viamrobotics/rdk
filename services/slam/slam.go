@@ -198,8 +198,7 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 
 	// For ORBSLAM, generate a new yaml file based off the camera configuration and presence of maps
 	if strings.Contains(slamSvc.slamLib.AlgoName, "orbslamv3") {
-		err = slamSvc.orbGenYAML(ctx, cam)
-		if err != nil {
+		if err = slamSvc.orbGenYAML(ctx, cam); err != nil {
 			return errors.Wrap(err, "error generating .yaml config")
 		}
 	}
@@ -265,8 +264,12 @@ func configureCamera(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, 
 			return "", nil, errors.Wrap(err, "error getting camera for slam service")
 		}
 
-		proj, err := cam.GetProperties(ctx) // will be nil if no intrinsics
-		if err == nil {                     // if err != nil then we still might be a lidar
+		proj, err := cam.GetProperties(ctx)
+		if err != nil {
+			// LiDAR do not have intrinsic parameters and only send point clouds,
+			// so no error should occur here, just inform the user
+			logger.Debug("No camera features found, user possibly using LiDAR")
+		} else {
 			intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 			if !ok {
 				return "", nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
@@ -675,6 +678,7 @@ func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context, cam camera.
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 func createTimestampFilename(cameraName, dataDirectory, fileType string) string {
+	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
 

@@ -51,26 +51,22 @@ func (slamSvc *slamService) orbCamMaker(intrinsics *transform.PinholeCameraIntri
 		FPSCamera:      int8(slamSvc.dataRateMs),
 		FileVersion:    fileVersion,
 	}
-	orbslam.NFeatures, err = slamSvc.orbConfigToInt("orb_n_features", 1250)
-	if err != nil {
+	if orbslam.NFeatures, err = slamSvc.orbConfigToInt("orb_n_features", 1250); err != nil {
 		return nil, err
 	}
-	orbslam.ScaleFactor, err = slamSvc.orbConfigToFloat("orb_scale_factor", 1.2)
-	if err != nil {
+	if orbslam.ScaleFactor, err = slamSvc.orbConfigToFloat("orb_scale_factor", 1.2); err != nil {
 		return nil, err
 	}
-	orbslam.NLevels, err = slamSvc.orbConfigToInt("orb_n_levels", 8)
-	if err != nil {
+	if orbslam.NLevels, err = slamSvc.orbConfigToInt("orb_n_levels", 8); err != nil {
 		return nil, err
 	}
-	orbslam.IniThFAST, err = slamSvc.orbConfigToInt("orb_n_ini_th_fast", 20)
-	if err != nil {
+	if orbslam.IniThFAST, err = slamSvc.orbConfigToInt("orb_n_ini_th_fast", 20); err != nil {
 		return nil, err
 	}
-	orbslam.MinThFAST, err = slamSvc.orbConfigToInt("orb_n_min_th_fast", 7)
-	if err != nil {
+	if orbslam.MinThFAST, err = slamSvc.orbConfigToInt("orb_n_min_th_fast", 7); err != nil {
 		return nil, err
 	}
+
 	return orbslam, nil
 }
 
@@ -115,6 +111,9 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 	if err != nil {
 		return err
 	}
+	if err = intrinsics.CheckValid(); err != nil {
+		return err
+	}
 	orbslam, err := slamSvc.orbCamMaker(intrinsics)
 	if err != nil {
 		return err
@@ -124,6 +123,7 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 		return errors.Wrap(err, "Error while Marshaling YAML file")
 	}
 
+	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now().UTC().Format("2006-01-02T15_04_05.0000")
 	fileName := filepath.Join(slamSvc.dataDirectory, "config", slamSvc.cameraName+"_data_"+timeStamp+".yaml")
 	addLine := "%YAML:1.0\n"
@@ -132,12 +132,12 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 	if err != nil {
 		return err
 	}
-	_, err = outfile.WriteString(addLine)
-	if err != nil {
+
+	if _, err = outfile.WriteString(addLine); err != nil {
 		return err
 	}
-	_, err = outfile.Write(yamlData)
-	if err != nil {
+
+	if _, err = outfile.Write(yamlData); err != nil {
 		return err
 	}
 	return outfile.Close()
