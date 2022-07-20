@@ -446,12 +446,6 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	return c.Reconfigurable(newResource)
 }
 
-// ConfigUpdateable is implemented when component/service of a robot should be updated with the config.
-type ConfigUpdateable interface {
-	// Update updates the resource
-	Update(context.Context, *config.Config) error
-}
-
 func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	resources := map[resource.Name]interface{}{}
 	for _, n := range r.ResourceNames() {
@@ -475,7 +469,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 				continue
 			}
 		}
-		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
+		if configUpdateable, ok := svc.(config.ConfigUpdateable); ok {
 			if err := configUpdateable.Update(ctx, r.config); err != nil {
 				r.Logger().Errorw("config for service failed to update", "resource", name, "error", err)
 				continue
