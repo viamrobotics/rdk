@@ -90,8 +90,7 @@ func FindChessCornersPinkCheatInQuadrant(
 }
 
 // FindChessCornersPinkCheat TODO.
-func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error) {
-	img := ii.Color
+func FindChessCornersPinkCheat(img *rimage.Image, logger golog.Logger) (image.Image, []image.Point, error) {
 	dc := gg.NewContext(img.Width(), img.Height())
 	redLittleCircles := []image.Point{}
 

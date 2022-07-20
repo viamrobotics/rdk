@@ -375,7 +375,7 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 
 	switch name {
 	case "VERSION":
-		if value != ".7" { // This can be expanded later if desired, though I doubt we will need/want that
+		if value != ".7" && value != "0.7" { // This can be expanded later if desired, though I doubt we will need/want that
 			return fmt.Errorf("unsupported pcd version %s", value)
 		}
 	case "FIELDS":
@@ -458,6 +458,8 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 			pcdHeader.data = PCDBinary
 		case "binary_compressed":
 			pcdHeader.data = PCDCompressed
+		default:
+			return fmt.Errorf("unsupported data type %s", value)
 		}
 	}
 
@@ -539,7 +541,7 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 		pointBuf := make([]float64, int(header.fields))
 		for j := 0; j < int(header.fields); j++ {
 			buf := make([]byte, header.size[j])
-			read, err = in.Read(buf)
+			read, err = io.ReadFull(in, buf)
 			if errors.Is(err, io.EOF) {
 				break
 			}
