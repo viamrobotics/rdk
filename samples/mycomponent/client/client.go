@@ -20,7 +20,7 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	res, err := robot.ResourceByName(myc.Named("robot1:comp1"))
+	res, err := robot.ResourceByName(myc.Named("comp1"))
 	if err != nil {
 		logger.Fatal(err)
 	}
