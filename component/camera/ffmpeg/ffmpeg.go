@@ -1,4 +1,4 @@
-// Package ffmpeg provides an implementation for ffmpeg based cameras
+// Package ffmpeg provides an implementation for an ffmpeg based camera
 package ffmpeg
 
 import (
@@ -80,8 +80,8 @@ type ffmpegCamera struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// NewFFmpegCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFmpegCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, error) {
+// NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
+func NewFFMPEGCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
@@ -92,8 +92,8 @@ func NewFFmpegCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, err
 	for key, value := range attrs.OutputKWArgs {
 		outArgs[key] = value
 	}
-	outArgs["update"] = 1
-	outArgs["format"] = "image2"
+	outArgs["update"] = 1        // always interpret the filename as just a filename, not a pattern
+	outArgs["format"] = "image2" // select image file muxer, used to write video frames to image files
 
 	// instantiate camera with cancellable context that will be applied to all spawned processes
 	cancelableCtx, cancel := context.WithCancel(context.Background())
@@ -115,6 +115,8 @@ func NewFFmpegCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, err
 		}
 	}, func() {
 		cancel()
+		in.Close()
+		out.Close()
 		ffCam.activeBackgroundWorkers.Done()
 	})
 
