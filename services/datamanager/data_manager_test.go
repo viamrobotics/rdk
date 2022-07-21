@@ -188,7 +188,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partId string,
 	) error {
 		lock.Lock()
@@ -199,7 +199,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -215,7 +215,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	// Turn the service back on.
 	dmsvc = newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -232,7 +232,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	td := "additional_sync_path_dir"
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partID string,
 	) error {
 		lock.Lock()
@@ -256,7 +256,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	// Initialize the data manager and update it with our config. The call to Update(ctx, conf) should create the
 	// arbitrary sync paths directory it in the file system.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -367,7 +367,7 @@ func TestManualSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partId string,
 	) error {
 		lock.Lock()
@@ -378,7 +378,7 @@ func TestManualSync(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -423,7 +423,7 @@ func TestScheduledSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partID string,
 	) error {
 		lock.Lock()
@@ -434,7 +434,7 @@ func TestScheduledSync(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -472,7 +472,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
 		path string, partID string,
 	) error {
 		lock.Lock()
@@ -483,7 +483,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 

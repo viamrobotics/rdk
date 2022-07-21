@@ -397,7 +397,7 @@ func TestPartialUpload(t *testing.T) {
 			expDataAfterCanceled:         [][]byte{},
 		},
 		{
-			name: "Upload with no more messages to send after breakpoint should not upload " +
+			name: "Upload with no more messages to send after it's canceled should not upload " +
 				"anything after resuming.",
 			toSend:                       [][]byte{msg1, msg2},
 			expProgressIndexWhenCanceled: 2,

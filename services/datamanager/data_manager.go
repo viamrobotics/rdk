@@ -324,7 +324,11 @@ func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
 
 	svc.cancelSyncBackgroundRoutine()
 
-	svc.syncer = newSyncer(svc.logger, svc.uploadFunc, svc.partID)
+	syncer, err := newSyncer(svc.logger, svc.uploadFunc, svc.partID)
+	if err != nil {
+		svc.logger.Errorw("failed to initialize new syncer", "error", err)
+	}
+	svc.syncer = syncer
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {

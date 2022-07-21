@@ -27,8 +27,9 @@ var (
 )
 
 // mockClient implements DataSyncService_UploadClient and maintains a list of all UploadRequests sent with its
-// send method. The mockClient shuts down after a maximum of 'cancelIndex+1' sent UploadRequests. This simulates
-// partial uploads (cases where client is shut down during upload).
+// send method. The mockClient shuts down after a maximum of 'cancelIndex+1' sent UploadRequests. The '+1' gives
+// capacity for the metadata message to precede other messages. This simulates partial uploads (cases where client is
+// shut down during upload).
 type mockClient struct {
 	sent        []*v1.UploadRequest
 	cancelIndex int
@@ -56,12 +57,13 @@ func (m *mockClient) Context() context.Context {
 }
 
 // Builds syncer used in partial upload tests.
-func newTestSyncer(t *testing.T, mc *mockClient, uploadFn uploadFunc) *syncer {
-	t.Helper()
+//nolint:thelper
+func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc uploadFunc) *syncer {
 	l := golog.NewTestLogger(t)
-	ret := *newSyncer(l, uploadFn, partID)
+	ret, err := newSyncer(l, uploadFunc, partID)
+	test.That(t, err, test.ShouldBeNil)
 	ret.client = mc
-	return &ret
+	return ret
 }
 
 // Compares UploadRequests containing either binary or tabular sensor data.
