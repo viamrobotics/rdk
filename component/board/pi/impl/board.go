@@ -59,7 +59,7 @@ type piPigpio struct {
 	generic.Unimplemented
 	mu            sync.Mutex
 	cfg           *board.Config
-	duty 	      int		// added for mutex
+	duty          int
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
 	i2cs          map[string]board.I2C
@@ -302,6 +302,7 @@ func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
 
 	if newRes != C.int(freqHz) {
 		pi.logger.Infof("cannot set pwm freq to %d, setting to closest freq %d", freqHz, newRes)
+		errors.Errorf("pwm set freq fail Tried: %d, got: %d", freqHz, newRes)
 	}
 	return nil
 }
