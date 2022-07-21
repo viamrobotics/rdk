@@ -115,8 +115,8 @@ func NewFFMPEGCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, err
 		}
 	}, func() {
 		cancel()
-		in.Close()
-		out.Close()
+		viamutils.UncheckedError(in.Close())
+		viamutils.UncheckedError(out.Close())
 		ffCam.activeBackgroundWorkers.Done()
 	})
 
