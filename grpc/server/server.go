@@ -279,8 +279,7 @@ func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopA
 	for _, e := range req.Extra {
 		extra[protoutils.ResourceNameFromProto(e.Name)] = e.Params.AsMap()
 	}
-	err := s.r.StopAll(ctx, extra)
-	if err != nil {
+	if err := s.r.StopAll(ctx, extra); err != nil {
 		return nil, err
 	}
 	return &pb.StopAllResponse{}, nil
