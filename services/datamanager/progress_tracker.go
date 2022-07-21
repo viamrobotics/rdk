@@ -10,11 +10,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-var progressDir = "progress_dir"
+var progressDir = filepath.Join(viamCaptureDotDir, ".progress/")
 
 type progressTracker struct {
-	lock *sync.Mutex
-	m    map[string]struct{}
+	lock        *sync.Mutex
+	m           map[string]struct{}
+	progressDir string
 }
 
 func (pt *progressTracker) inProgress(k string) bool {
@@ -79,4 +80,14 @@ func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
 		return 0, err
 	}
 	return bytesToInt(bs)
+}
+
+// Create progress directory in filesystem if it does not already exist.
+func (pt *progressTracker) initProgressDir() error {
+	if _, err := os.Stat(pt.progressDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(pt.progressDir, os.ModePerm); err != nil {
+			return err
+		}
+	}
+	return nil
 }
