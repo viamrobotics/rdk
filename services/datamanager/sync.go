@@ -45,14 +45,15 @@ type syncer struct {
 }
 
 type (
-	getNextUploadRequestFunc func(context.Context, *os.File) (*v1.UploadRequest, error)
-	processUploadRequestFunc func(v1.DataSyncService_UploadClient, *v1.UploadRequest, progressTracker, string) error
-	uploadFunc               func(context.Context, v1.DataSyncService_UploadClient, string, string) error
+	getNextUploadRequestFunc func(ctx context.Context, f *os.File) (*v1.UploadRequest, error)
+	processUploadRequestFunc func(client v1.DataSyncService_UploadClient, req *v1.UploadRequest) error
+	uploadFunc               func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
+		partID string) error
 )
 
 // TODO DATA-206: instantiate a client
 // newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
-func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) *syncer {
+func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) (*syncer, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		logger: logger,
@@ -73,7 +74,7 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) *synce
 	if err := ret.progressTracker.initProgressDir(); err != nil {
 		logger.Warn("couldn't initialize progress tracking directory")
 	}
-	return &ret
+	return &ret, nil
 }
 
 // Close closes all resources (goroutines) associated with s.
@@ -108,7 +109,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			if err := s.progressTracker.deleteProgressFile(filepath.Join(s.progressTracker.progressDir,
 				filepath.Base(path))); err !=
 				nil {
-				return
+				s.logger.Errorw("error while removing progress file from disk", "error", err)
 			}
 		}
 	})
@@ -171,12 +172,12 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func getMetadataUploadRequest(f *os.File, partID string) (*v1.UploadRequest, error) {
+func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	var md *v1.UploadMetadata
 	if isDataCaptureFile(f) {
 		captureMD, err := readDataCaptureMetadata(f)
 		if err != nil {
-			return &v1.UploadRequest{}, err
+			return &v1.UploadMetadata{}, err
 		}
 		md = &v1.UploadMetadata{
 			PartId:           partID,
@@ -194,11 +195,7 @@ func getMetadataUploadRequest(f *os.File, partID string) (*v1.UploadRequest, err
 			FileName: filepath.Base(f.Name()),
 		}
 	}
-	return &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: md,
-		},
-	}, nil
+	return md, nil
 }
 
 func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
@@ -213,16 +210,21 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 		return err
 	}
 
-	req, err := getMetadataUploadRequest(f, partID)
+	md, err := getMetadata(f, partID)
 	if err != nil {
 		return err
+	}
+	req := &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			Metadata: md,
+		},
 	}
 
 	var getNextUploadRequest getNextUploadRequestFunc
 	var processUploadRequest processUploadRequestFunc
-	switch req.GetMetadata().GetType() {
+	switch md.GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		err = initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), req.GetMetadata())
+		err = initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), md)
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
@@ -230,7 +232,10 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 			return err
 		}
 		getNextUploadRequest = getNextSensorUploadRequest
-		processUploadRequest = sendReqAndUpdateProgress
+		processUploadRequest = func(client v1.DataSyncService_UploadClient, req *v1.UploadRequest) error {
+			return sendReqAndUpdateProgress(client, req, s.progressTracker, f.Name())
+		}
+
 	case v1.DataType_DATA_TYPE_FILE:
 		getNextUploadRequest = getNextFileUploadRequest
 		processUploadRequest = sendReq
@@ -240,6 +245,7 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 		return errors.New("no data type specified in upload metadata")
 	}
 
+	// Send metadata upload request.
 	if err := client.Send(req); err != nil {
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
@@ -260,7 +266,7 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 			return err
 		}
 
-		if err = processUploadRequest(client, uploadReq, s.progressTracker, f.Name()); err != nil {
+		if err = processUploadRequest(client, uploadReq); err != nil {
 			return err
 		}
 	}
@@ -284,13 +290,13 @@ func sendReqAndUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq 
 	if err := client.Send(uploadReq); err != nil {
 		return errors.Wrap(err, "error while sending uploadRequest")
 	}
-	if err := pt.updateProgressFileIndex(filepath.Join(pt.progressDir, filepath.Base(dcFileName))); err != nil {
+	if err := pt.incrementProgressFileIndex(filepath.Join(pt.progressDir, filepath.Base(dcFileName))); err != nil {
 		return err
 	}
 	return nil
 }
 
-func sendReq(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt progressTracker, dcFileName string) error {
+func sendReq(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest) error {
 	if err := client.Send(uploadReq); err != nil {
 		return errors.Wrap(err, "error while sending uploadRequest")
 	}
