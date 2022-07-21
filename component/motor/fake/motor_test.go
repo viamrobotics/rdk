@@ -11,10 +11,9 @@ import (
 )
 
 func TestEncoder(t *testing.T) {
-	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	e := FakeEncoder{Logger: logger}
+	e := FakeEncoder{}
 
 	// Get and set position
 	pos, err := e.GetPosition(ctx)
@@ -46,8 +45,7 @@ func TestMotor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	mcfg := motor.Config{TicksPerRotation: 1, MaxRPM: 60}
-	m := &Motor{Logger: logger, Encoder: FakeEncoder{Logger: logger}, PositionReporting: true, Cfg: mcfg}
+	m := &Motor{Encoder: FakeEncoder{Valid: true}, Logger: logger, PositionReporting: true, TicksPerRotation: 1, MaxRPM: 60}
 
 	// Test initial position/features
 	pos, err := m.GetPosition(ctx)
