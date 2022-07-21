@@ -13,38 +13,36 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/utils"
-	viamutils "go.viam.com/utils"
 )
 
-// ffmpegAttrs is the attribute struct for ffmpeg cameras.
-type ffmpegAttrs struct {
+// AttrConfig is the attribute struct for ffmpeg cameras.
+type AttrConfig struct {
 	*camera.AttrConfig
 	Source       string                 `json:"source"`
 	InputKWArgs  map[string]interface{} `json:"input_kw_args"`
+	Filters      []FilterAttrs          `json:"filters"`
 	OutputKWArgs map[string]interface{} `json:"output_kw_args"`
 }
 
-// type inputAttrs struct {
-// 	source
-// }
-
-// type filterAttrs struct {
-// 	filterName string
-// 	args       []string
-// 	kWArgs     []string
-// }
+// FilterAttrs is a struct to used to configure ffmpeg filters.
+type FilterAttrs struct {
+	Name   string                 `json:"name"`
+	Args   []string               `json:"args"`
+	KWArgs map[string]interface{} `json:"kw_args"`
+}
 
 const model = "ffmpeg"
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, model, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-			attrs, ok := cfg.ConvertedAttributes.(*ffmpegAttrs)
+			attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
 			}
@@ -60,29 +58,30 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			var conf ffmpegAttrs
+			var conf AttrConfig
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
 				return nil, err
 			}
-			result, ok := attrs.(*ffmpegAttrs)
+			result, ok := attrs.(*AttrConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
 			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
-		&ffmpegAttrs{},
+		&AttrConfig{},
 	)
 }
 
 type ffmpegCamera struct {
 	gostream.ImageSource
-	cancelFunc              func()
+	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func NewFFmpegCamera(attrs *ffmpegAttrs, logger golog.Logger) (camera.Camera, error) {
+// NewFFmpegCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
+func NewFFmpegCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
@@ -106,9 +105,9 @@ func NewFFmpegCamera(attrs *ffmpegAttrs, logger golog.Logger) (camera.Camera, er
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
 		stream := ffmpeg.Input(attrs.Source, attrs.InputKWArgs)
-		// for filter := range attrs.Filters {
-		// 	stream.Filter()
-		// }
+		for _, filter := range attrs.Filters {
+			stream = stream.Filter(filter.Name, filter.Args, filter.KWArgs)
+		}
 		stream = stream.Output("pipe:", outArgs)
 		stream.Context = cancelableCtx
 		if err := stream.WithOutput(out).Run(); err != nil {
