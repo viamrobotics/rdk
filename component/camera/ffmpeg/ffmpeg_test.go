@@ -6,16 +6,17 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	viamutils "go.viam.com/utils"
+
+	"go.viam.com/rdk/utils"
 )
 
 func TestFFmpegCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	path := utils.ResolveFile("component/camera/ffmpeg/data/testsrc.mpg")
-	cam, err := NewFFmpegCamera(&ffmpegAttrs{Source: path}, logger)
+	cam, err := NewFFmpegCamera(&AttrConfig{Source: path}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 5; i++ {
 		_, _, err := cam.Next(ctx)
@@ -31,5 +32,5 @@ func TestComputerWithoutFFmpeg(t *testing.T) {
 	}()
 	os.Unsetenv("PATH")
 	_, err := NewFFmpegCamera(nil, nil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "\"ffmpeg\": executable file not found in $PATH")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 }
