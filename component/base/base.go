@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -24,6 +25,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -83,6 +87,7 @@ type LocalBase interface {
 	Base
 	// GetWidth returns the width of the base in millimeters.
 	GetWidth(ctx context.Context) (int, error)
+	resource.MovingCheckable
 }
 
 var (
@@ -122,6 +127,19 @@ func FromRobot(r robot.Robot, name string) (Base, error) {
 // NamesFromRobot is a helper for getting all base names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// CreateStatus creates a status from the base.
+func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.ActuatorStatus, error) {
+	base, ok := resource.(LocalBase)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("LocalBase", resource)
+	}
+	isMoving, err := base.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.ActuatorStatus{IsMoving: isMoving}, nil
 }
 
 type reconfigurableBase struct {
@@ -214,6 +232,12 @@ func (r *reconfigurableLocalBase) GetWidth(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetWidth(ctx)
+}
+
+func (r *reconfigurableLocalBase) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving(ctx)
 }
 
 func (r *reconfigurableLocalBase) Reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {

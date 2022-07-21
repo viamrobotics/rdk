@@ -34,15 +34,6 @@ const (
 
 var resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
 
-// Remote is set when the resource sits behind (a) Remote(s).
-type Remote struct {
-	Remote RemoteName
-}
-
-func (r Remote) String() string {
-	return string(r.Remote)
-}
-
 // Type represents a known component/service type of a robot.
 type Type struct {
 	Namespace    Namespace
@@ -107,28 +98,31 @@ func (s Subtype) String() string {
 // Name represents a known component/service representation of a robot.
 type Name struct {
 	Subtype
-	Remote
-	Name string
+	Remote RemoteName
+	Name   string
 }
 
 // NewName creates a new Name based on parameters passed in.
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
 	isService := rType == ResourceTypeService
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
-	nameIdent := name
+	r := strings.Split(name, ":")
+	remote := RemoteName(strings.Join(r[0:len(r)-1], ":"))
+	nameIdent := r[len(r)-1]
 	if isService {
 		nameIdent = ""
 	}
 	return Name{
 		Subtype: resourceSubtype,
 		Name:    nameIdent,
+		Remote:  remote,
 	}
 }
 
-// NewRemoteName creates a new Name for a resource attached to a remote.
-func NewRemoteName(remote RemoteName, namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
+// newRemoteName creates a new Name for a resource attached to a remote.
+func newRemoteName(remote RemoteName, namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
 	n := NewName(namespace, rType, subtype, name)
-	n.Remote.Remote = remote
+	n.Remote = remote
 	return n
 }
 
@@ -153,16 +147,16 @@ func NewFromString(resourceName string) (Name, error) {
 	if len(remote) > 0 {
 		remote = remote[:len(remote)-1]
 	}
-	return NewRemoteName(RemoteName(remote), Namespace(rSubtypeParts[0]),
+	return newRemoteName(RemoteName(remote), Namespace(rSubtypeParts[0]),
 		TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]), matches[3]), nil
 }
 
 // PrependRemote returns a Name with a remote prepended.
 func (n Name) PrependRemote(remote RemoteName) Name {
-	if len(n.Remote.Remote) > 0 {
-		remote = RemoteName(strings.Join([]string{string(remote), string(n.Remote.Remote)}, ":"))
+	if len(n.Remote) > 0 {
+		remote = RemoteName(strings.Join([]string{string(remote), string(n.Remote)}, ":"))
 	}
-	return NewRemoteName(
+	return newRemoteName(
 		remote,
 		n.Namespace,
 		n.ResourceType,
@@ -172,11 +166,11 @@ func (n Name) PrependRemote(remote RemoteName) Name {
 
 // PopRemote pop the first remote from a Name (if any) and returns the new Name.
 func (n Name) PopRemote() Name {
-	if n.Remote.Remote == "" {
+	if n.Remote == "" {
 		return n
 	}
-	remotes := strings.Split(string(n.Remote.Remote), ":")
-	return NewRemoteName(
+	remotes := strings.Split(string(n.Remote), ":")
+	return newRemoteName(
 		RemoteName(strings.Join(remotes[1:], ":")),
 		n.Namespace,
 		n.ResourceType,
@@ -186,7 +180,16 @@ func (n Name) PopRemote() Name {
 
 // IsRemoteResource return true if the resource is a remote resource.
 func (n Name) IsRemoteResource() bool {
-	return len(n.Remote.Remote) > 0
+	return len(n.Remote) > 0
+}
+
+// ShortName returns the short name on Name n in the form of <remote>:<name>.
+func (n Name) ShortName() string {
+	nameR := n.Name
+	if n.Remote != "" {
+		nameR = fmt.Sprintf("%s:%s", n.Remote, nameR)
+	}
+	return nameR
 }
 
 // Validate ensures that important fields exist and are valid.
@@ -197,11 +200,11 @@ func (n Name) Validate() error {
 // String returns the fully qualified name for the resource.
 func (n Name) String() string {
 	name := n.Subtype.String()
-	if n.Remote.Remote != "" {
+	if n.Remote != "" {
 		name = fmt.Sprintf("%s/%s:", name, n.Remote)
 	}
 	if n.Name != "" && (n.ResourceType != ResourceTypeService) {
-		if n.Remote.Remote != "" {
+		if n.Remote != "" {
 			name = fmt.Sprintf("%s%s", name, n.Name)
 		} else {
 			name = fmt.Sprintf("%s/%s", name, n.Name)

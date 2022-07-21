@@ -210,11 +210,11 @@ func TestConfigRemote(t *testing.T) {
 
 	arm1, err := r2.ResourceByName(arm.Named("bar:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos1, err := arm1.(arm.Arm).GetEndPosition(ctx)
+	pos1, err := arm1.(arm.Arm).GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	arm2, err := r2.ResourceByName(arm.Named("foo:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos2, err := arm2.(arm.Arm).GetEndPosition(ctx)
+	pos2, err := arm2.(arm.Arm).GetEndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm.PositionGridDiff(pos1, pos2), test.ShouldAlmostEqual, 0)
 
@@ -240,7 +240,7 @@ func TestConfigRemote(t *testing.T) {
 
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -484,7 +484,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			armStatus := &armpb.Status{
 				EndPosition:    &commonpb.Pose{},
-				JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+				JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
 			}
 			convMap := &armpb.Status{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -674,7 +674,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -1042,7 +1042,7 @@ func TestGetStatusRemote(t *testing.T) {
 	}
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
+		JointPositions: &armpb.JointPositions{Values: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
 	}
 	injectRobot1.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
@@ -1117,6 +1117,118 @@ func TestGetStatusRemote(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, convMap, test.ShouldResemble, armStatus)
 	}
+}
+
+func TestGetRemoteResourceAndGrandFather(t *testing.T) {
+	// set up remotes
+	port1, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	addr1 := fmt.Sprintf("localhost:%d", port1)
+	test.That(t, err, test.ShouldBeNil)
+	port2, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	addr2 := fmt.Sprintf("localhost:%d", port2)
+
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	remoteRemoteConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "arm1",
+				Type:      arm.SubtypeName,
+				Model:     "fake",
+			},
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "arm2",
+				Type:      arm.SubtypeName,
+				Model:     "fake",
+			},
+		},
+		Services: []config.Service{},
+		Remotes:  []config.Remote{},
+	}
+
+	r0, err := robotimpl.New(ctx, remoteRemoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
+	}()
+	options := weboptions.New()
+	options.Network.BindAddress = addr1
+	err = r0.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	r0arm1, err := r0.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	r0Arm, ok := r0arm1.(arm.Arm)
+	test.That(t, ok, test.ShouldBeTrue)
+	tPos := referenceframe.JointPositionsFromRadians([]float64{10.0})
+	err = r0Arm.MoveToJointPositions(context.Background(), tPos, nil)
+	test.That(t, err, test.ShouldBeNil)
+	p0Arm1, err := r0Arm.GetJointPositions(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteConfig := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: addr2,
+			},
+		},
+	}
+
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	cfg.Remotes = append(cfg.Remotes, config.Remote{
+		Name:    "foo",
+		Address: addr1,
+	})
+	r1, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r1.Close(context.Background()), test.ShouldBeNil)
+	}()
+	options = weboptions.New()
+	options.Network.BindAddress = addr2
+	err = r1.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(ctx, remoteConfig, logger)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(
+		t,
+		rtestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		rtestutils.NewResourceNameSet(
+			vision.Name, sensors.Name, datamanager.Name,
+			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
+			arm.Named("remote:pieceArm"),
+			camera.Named("remote:cameraOver"),
+			gps.Named("remote:gps1"),
+			gps.Named("remote:gps2"),
+			gripper.Named("remote:pieceGripper"),
+			vision.Named("remote:"),
+			sensors.Named("remote:"),
+			datamanager.Named("remote:"),
+			vision.Named("remote:foo:"),
+			sensors.Named("remote:foo:"),
+			datamanager.Named("remote:foo:"),
+		),
+	)
+	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	rrArm1, ok := arm1.(arm.Arm)
+	test.That(t, ok, test.ShouldBeTrue)
+	pos, err := rrArm1.GetJointPositions(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {

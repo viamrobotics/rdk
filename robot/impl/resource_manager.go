@@ -247,7 +247,7 @@ func (manager *resourceManager) remoteNameByResource(resourceName resource.Name)
 	if !resourceName.IsRemoteResource() {
 		return "", false
 	}
-	remote := strings.Split(string(resourceName.Remote.Remote), ":")
+	remote := strings.Split(string(resourceName.Remote), ":")
 	return remote[0], true
 }
 
@@ -457,7 +457,7 @@ func (manager *resourceManager) newComponent(ctx context.Context, c config.Compo
 	}
 	rName := c.ResourceName()
 	manager.addResource(rName, r)
-	for _, dep := range c.DependsOn {
+	for _, dep := range c.Dependencies() {
 		err := manager.newComponentDependency(dep, robot, rName)
 		if err != nil {
 			return err
