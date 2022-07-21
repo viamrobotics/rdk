@@ -461,7 +461,9 @@ func TestPartialUpload(t *testing.T) {
 		sut.Sync([]string{tf.Name()})
 		time.Sleep(time.Millisecond * 100)
 		expMsgsBeforeCancel := buildBinarySensorMsgs(tc.expDataBeforeCanceled, tf.Name())
+		mc.lock.Lock()
 		compareUploadRequests(t, false, mc.sent, expMsgsBeforeCancel)
+		mc.lock.Unlock()
 
 		// Only verify progress file existence and content if the upload has expected messages after being canceled.
 		path := filepath.Join(progressDir, filepath.Base(tf.Name()))
@@ -489,7 +491,9 @@ func TestPartialUpload(t *testing.T) {
 		sut.Close()
 
 		expMsgsAfterCancel := buildBinarySensorMsgs(tc.expDataAfterCanceled, tf.Name())
+		mc.lock.Lock()
 		compareUploadRequests(t, false, mc.sent, expMsgsAfterCancel)
+		mc.lock.Unlock()
 		test.That(t, fileExists(path), test.ShouldBeFalse)
 	}
 }
