@@ -54,10 +54,8 @@ func TestBasic(t *testing.T) {
 		ctx5, cleanup5 := h.Create(ctx, "/proto.api.robot.v1.RobotService/StreamStatus", nil)
 		defer cleanup5()
 
-		o4 := Get(ctx4)
-		o5 := Get(ctx5)
-		test.That(t, o4, test.ShouldEqual, nil)
-		test.That(t, o5, test.ShouldEqual, nil)
+		test.That(t, ctx4.Value(opidKey), test.ShouldEqual, nil)
+		test.That(t, ctx5.Value(opidKey), test.ShouldEqual, nil)
 
 		ctx6, cleanup6 := h.Create(ctx, "/proto.api.robot.v1.RobotService/", nil)
 		defer cleanup6()
