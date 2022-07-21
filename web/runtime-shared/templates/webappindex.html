@@ -15,13 +15,11 @@
 
     {{ if .External }}
     <link rel="stylesheet" href="/static/rdk/main.css" />
+    <script type="module">window.PRIME_CONFIG = { base: '/static/rdk' }</script>
     {{ else if eq .Env "production" }}
     <link rel="stylesheet" href="/static/main.css" />
+    <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
     {{ end }}
-
-    <script type="module">
-      window.PRIME_CONFIG = { base: '/static' }
-    </script>
   </head>
 
   <body>
