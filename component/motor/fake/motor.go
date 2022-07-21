@@ -278,6 +278,10 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
 	if m.Encoder == (Encoder{}) {
 		return errors.New("encoder is not defined")
 	}
+	
+	if m.MaxRPM == 0 {
+		return errors.New("not supported, define max_rpm attribute != 0")
+	}
 
 	curPos, err := m.GetPosition(ctx)
 	if err != nil {
@@ -285,8 +289,30 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
 	}
 	revolutions := pos - curPos
 
-	err = m.GoFor(ctx, math.Abs(rpm), revolutions)
-	return err
+	rpm = math.Abs(rpm)
+
+	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
+	
+	finalPos := curPos + dir*math.Abs(revolutions)
+
+	err = m.SetPower(ctx, powerPct)
+	if err != nil {
+		return err
+	}
+
+	if revolutions == 0 {
+		return nil
+	}
+
+	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
+		err = m.Stop(ctx)
+		if err != nil {
+			return err
+		}
+
+		return m.Encoder.SetPosition(ctx, finalPos*float64(m.TicksPerRotation))
+	}
+	return nil
 }
 
 // GoTillStop always returns an error.
