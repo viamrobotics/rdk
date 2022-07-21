@@ -250,7 +250,7 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
-	// Loop until there is no more content to read from file.
+	// Loop until there is no more content to be read from file.
 	for {
 		// Get the next UploadRequest from the file.
 		uploadReq, err := getNextUploadRequest(ctx, f)
