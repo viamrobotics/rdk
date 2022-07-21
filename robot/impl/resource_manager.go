@@ -88,7 +88,7 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 	}
 	children := manager.resources.GetAllChildrenOf(remoteName)
 	for _, child := range children {
-		if child.IsRemoteResource() {
+		if child.ContainsRemoteNames() {
 			filtered = append(filtered, child)
 		}
 	}
@@ -199,7 +199,7 @@ func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
 			manager.mergeResourceRPCSubtypesWithRemote(rr, types)
 			continue
 		}
-		if k.IsRemoteResource() {
+		if k.ContainsRemoteNames() {
 			continue
 		}
 		if types[k.Subtype] != nil {
@@ -244,7 +244,7 @@ func (manager *resourceManager) mergeResourceRPCSubtypesWithRemote(r robot.Robot
 // remoteNameByResource returns the remote the resource is pulled from, if found.
 // False can mean either the resource doesn't exist or is local to the robot.
 func (manager *resourceManager) remoteNameByResource(resourceName resource.Name) (string, bool) {
-	if !resourceName.IsRemoteResource() {
+	if !resourceName.ContainsRemoteNames() {
 		return "", false
 	}
 	remote := strings.Split(string(resourceName.Remote), ":")
@@ -854,7 +854,7 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (interface{},
 		return robotPart, nil
 	}
 	// if we haven't found a resource of this name then we are going to look into remote resources to find it.
-	if !ok && !name.IsRemoteResource() {
+	if !ok && !name.ContainsRemoteNames() {
 		keys := manager.resources.FindNodesByShortNameAndSubtype(name)
 		if len(keys) > 1 {
 			return nil, rutils.NewRemoteResourceClashError(name.Name)

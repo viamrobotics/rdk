@@ -1250,7 +1250,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	_, err = r.ResourceByName(arm.Named("remote:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(arm.Named("pieceArm"))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, "more that one remote resources with name \"pieceArm\" exists")
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {
