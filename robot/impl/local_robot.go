@@ -196,7 +196,7 @@ func (r *localRobot) StopWeb() error {
 // remoteNameByResource returns the remote the resource is pulled from, if found.
 // False can mean either the resource doesn't exist or is local to the robot.
 func remoteNameByResource(resourceName resource.Name) (string, bool) {
-	if !resourceName.IsRemoteResource() {
+	if !resourceName.ContainsRemoteNames() {
 		return "", false
 	}
 	remote := strings.Split(string(resourceName.Remote), ":")

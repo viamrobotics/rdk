@@ -15,7 +15,7 @@ import (
 )
 
 func TestDetectorMap(t *testing.T) {
-	fn := func(image.Image) ([]objdet.Detection, error) {
+	fn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
 	registeredFn := registeredDetector{detector: fn, closer: nil}
@@ -51,7 +51,7 @@ func TestDetectorMap(t *testing.T) {
 }
 
 func TestDetectorCloser(t *testing.T) {
-	fakeDetectFn := func(image.Image) ([]objdet.Detection, error) {
+	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
 	closer := inf.TFLiteStruct{Info: &inf.TFLiteInfo{100, 100, 3, "uint8", 1, 4, []string{}}}
@@ -65,10 +65,11 @@ func TestDetectorCloser(t *testing.T) {
 }
 
 func TestDetectorRemoval(t *testing.T) {
-	fakeDetectFn := func(image.Image) ([]objdet.Detection, error) {
+	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
-	closer, err := addTFLiteModel(artifact.MustPath("vision/tflite/effdet0.tflite"), nil)
+	ctx := context.Background()
+	closer, err := addTFLiteModel(ctx, artifact.MustPath("vision/tflite/effdet0.tflite"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	d := registeredDetector{detector: fakeDetectFn, closer: closer}
 	testlog := golog.NewTestLogger(t)

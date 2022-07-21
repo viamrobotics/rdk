@@ -91,9 +91,11 @@ func TestReadingsSerial(t *testing.T) {
 
 	path := "somepath"
 	g.correctionPath = path
+	g.correctionBaudRate = 9600
 
-	correctionPath := g.GetCorrectionPath()
+	correctionPath, correctionBaudRate := g.GetCorrectionInfo()
 	test.That(t, correctionPath, test.ShouldEqual, path)
+	test.That(t, correctionBaudRate, test.ShouldEqual, 9600)
 
 	loc1, err := g.ReadLocation(ctx)
 	test.That(t, err, test.ShouldBeNil)

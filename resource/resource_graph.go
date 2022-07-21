@@ -174,6 +174,19 @@ func (g *Graph) Names() []Name {
 	return names
 }
 
+// FindNodesByShortNameAndSubtype will look for resources matching both the subtype and the Name.
+func (g *Graph) FindNodesByShortNameAndSubtype(name Name) []Name {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var ret []Name
+	for k, v := range g.nodes {
+		if name.Name == k.Name && name.Subtype == k.Subtype && v != nil {
+			ret = append(ret, k)
+		}
+	}
+	return ret
+}
+
 // GetAllChildrenOf returns all direct children of a node.
 func (g *Graph) GetAllChildrenOf(node Name) []Name {
 	g.mu.Lock()
@@ -445,7 +458,7 @@ func (g *Graph) ReverseTopologicalSort() []Name {
 // FindNodeByName returns a full resource name based on name, note if name is a duplicate the first one found will be returned.
 func (g *Graph) FindNodeByName(name string) (*Name, bool) {
 	for nodeName := range g.nodes {
-		if nodeName.Name == name && !nodeName.IsRemoteResource() {
+		if nodeName.Name == name && !nodeName.ContainsRemoteNames() {
 			return &nodeName, true
 		}
 	}
