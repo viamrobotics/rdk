@@ -16,7 +16,7 @@ func TestFFmpegCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	path := utils.ResolveFile("component/camera/ffmpeg/data/testsrc.mpg")
-	cam, err := NewFFmpegCamera(&AttrConfig{Source: path}, logger)
+	cam, err := NewFFMPEGCamera(&AttrConfig{Source: path}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 5; i++ {
 		_, _, err := cam.Next(ctx)
@@ -31,6 +31,6 @@ func TestComputerWithoutFFmpeg(t *testing.T) {
 		os.Setenv("PATH", oldpath)
 	}()
 	os.Unsetenv("PATH")
-	_, err := NewFFmpegCamera(nil, nil)
+	_, err := NewFFMPEGCamera(nil, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 }
