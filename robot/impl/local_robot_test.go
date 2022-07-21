@@ -1286,6 +1286,12 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				Type:      arm.SubtypeName,
 				Model:     "fake",
 			},
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "pieceArm",
+				Type:      arm.SubtypeName,
+				Model:     "fake",
+			},
 		},
 		Services: []config.Service{},
 		Remotes:  []config.Remote{},
@@ -1350,6 +1356,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			vision.Name, sensors.Name, datamanager.Name,
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
+			arm.Named("remote:foo:pieceArm"),
 			camera.Named("remote:cameraOver"),
 			gps.Named("remote:gps1"),
 			gps.Named("remote:gps2"),
@@ -1369,6 +1376,21 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	pos, err := rrArm1.GetJointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
+
+	arm1, err = r.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	rrArm1, ok = arm1.(arm.Arm)
+	test.That(t, ok, test.ShouldBeTrue)
+	pos, err = rrArm1.GetJointPositions(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
+
+	_, err = r.ResourceByName(arm.Named("remote:foo:pieceArm"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(arm.Named("remote:pieceArm"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(arm.Named("pieceArm"))
+	test.That(t, err, test.ShouldBeError, "more that one remote resources with name \"pieceArm\" exists")
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {
