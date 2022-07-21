@@ -1,6 +1,7 @@
 package objectdetection
 
 import (
+	"context"
 	"image"
 )
 
@@ -15,7 +16,7 @@ type connectedComponentDetector struct {
 }
 
 // Inference takes in an image frame and returns the Detections found in the image.
-func (ccd *connectedComponentDetector) Inference(img image.Image) ([]Detection, error) {
+func (ccd *connectedComponentDetector) Inference(ctx context.Context, img image.Image) ([]Detection, error) {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	seen := make([]bool, width*height)
 	queue := []image.Point{}

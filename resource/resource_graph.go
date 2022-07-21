@@ -147,6 +147,19 @@ func (g *Graph) AddNode(node Name, iface interface{}) {
 	g.addNode(node, iface)
 }
 
+// FindNodesByShortNameAndSubtype will look for resources matching both the subtype and the Name.
+func (g *Graph) FindNodesByShortNameAndSubtype(name Name) []Name {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var ret []Name
+	for k, v := range g.Nodes {
+		if name.Name == k.Name && name.Subtype == k.Subtype && v != nil {
+			ret = append(ret, k)
+		}
+	}
+	return ret
+}
+
 // GetAllChildrenOf returns all direct childrend of a node.
 func (g *Graph) GetAllChildrenOf(node Name) []Name {
 	g.mu.Lock()
