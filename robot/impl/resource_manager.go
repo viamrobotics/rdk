@@ -100,7 +100,7 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 	}
 	children := manager.resources.GetAllChildrenOf(remoteName)
 	for _, child := range children {
-		if child.IsRemoteResource() {
+		if child.ContainsRemoteNames() {
 			filtered = append(filtered, child)
 		}
 	}
@@ -256,7 +256,7 @@ func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
 			manager.mergeResourceRPCSubtypesWithRemote(rr, types)
 			continue
 		}
-		if k.IsRemoteResource() {
+		if k.ContainsRemoteNames() {
 			continue
 		}
 		if types[k.Subtype] != nil {
@@ -612,7 +612,7 @@ func (manager *resourceManager) markChildrenForUpdate(ctx context.Context, rName
 		if _, ok := iface.(*resourcePlaceholder); ok {
 			continue
 		}
-		if x.IsRemoteResource() {
+		if x.ContainsRemoteNames() {
 			continue // ignore non-local resources
 		}
 		if r != nil {
@@ -724,7 +724,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 			mapParents[parent] = true
 			continue
 		}
-		if parent.IsRemoteResource() {
+		if parent.ContainsRemoteNames() {
 			// when a local resource depends on a remote then it's possible the remote wasn't added yet.
 			// it's ok, it will be added by addChildren and properly configured later on
 			remote, _ := remoteNameByResource(parent)
@@ -791,6 +791,17 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (interface{},
 	robotPart, ok := manager.resources.Node(name)
 	if ok && robotPart != nil {
 		if _, ok = robotPart.(*resourcePlaceholder); !ok {
+			return robotPart, nil
+		}
+	}
+	// if we haven't found a resource of this name then we are going to look into remote resources to find it.
+	if !ok && !name.ContainsRemoteNames() {
+		keys := manager.resources.FindNodesByShortNameAndSubtype(name)
+		if len(keys) > 1 {
+			return nil, rutils.NewRemoteResourceClashError(name.Name)
+		}
+		if len(keys) == 1 {
+			robotPart, _ := manager.resources.Node(keys[0])
 			return robotPart, nil
 		}
 	}
