@@ -71,6 +71,7 @@ func init() {
 
 var _ motor.LocalMotor = &Motor{}
 
+// FakeEncoder keeps track of a fake motor position.
 type FakeEncoder struct {
 	mu         	sync.Mutex
 	position   	float64
