@@ -45,7 +45,7 @@ type syncer struct {
 }
 
 type (
-	getNextRequestFunc       func(context.Context, *os.File) (*v1.UploadRequest, error)
+	getNextUploadRequestFunc func(context.Context, *os.File) (*v1.UploadRequest, error)
 	processUploadRequestFunc func(v1.DataSyncService_UploadClient, *v1.UploadRequest, progressTracker, string) error
 	uploadFunc               func(context.Context, v1.DataSyncService_UploadClient, string, string) error
 )
@@ -57,8 +57,9 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) *synce
 	ret := syncer{
 		logger: logger,
 		progressTracker: progressTracker{
-			lock: &sync.Mutex{},
-			m:    make(map[string]struct{}),
+			lock:        &sync.Mutex{},
+			m:           make(map[string]struct{}),
+			progressDir: filepath.Join(viamCaptureDotDir, ".progress/"),
 		},
 		backgroundWorkers: sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
@@ -69,21 +70,10 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) *synce
 		uploadFunc = ret.uploadFile
 	}
 	ret.uploadFunc = uploadFunc
-	if err := initProgressDir(); err != nil {
+	if err := ret.progressTracker.initProgressDir(); err != nil {
 		logger.Warn("couldn't initialize progress tracking directory")
 	}
 	return &ret
-}
-
-// Create progress directory in filesystem if it does not already exist.
-func initProgressDir() error {
-	if _, err := os.Stat(progressDir); os.IsNotExist(err) {
-		err = os.Mkdir(progressDir, os.ModePerm)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // Close closes all resources (goroutines) associated with s.
@@ -115,7 +105,8 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger.Errorw("error while deleting file", "error", err)
 		} else {
 			s.progressTracker.unmark(path)
-			if err := s.progressTracker.deleteProgressFile(filepath.Join(progressDir, filepath.Base(path))); err !=
+			if err := s.progressTracker.deleteProgressFile(filepath.Join(s.progressTracker.progressDir,
+				filepath.Base(path))); err !=
 				nil {
 				return
 			}
@@ -180,23 +171,12 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
-	//nolint:gosec
-	f, err := os.Open(path)
-	if err != nil {
-		return errors.Wrapf(err, "error while opening file %s", path)
-	}
-
-	// Resets file pointer to ensure we are reading from beginning of file.
-	if _, err = f.Seek(0, 0); err != nil {
-		return err
-	}
-
+func getMetadataUploadRequest(f *os.File, partID string) (*v1.UploadRequest, error) {
 	var md *v1.UploadMetadata
 	if isDataCaptureFile(f) {
 		captureMD, err := readDataCaptureMetadata(f)
 		if err != nil {
-			return err
+			return &v1.UploadRequest{}, err
 		}
 		md = &v1.UploadMetadata{
 			PartId:           partID,
@@ -214,29 +194,45 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 			FileName: filepath.Base(f.Name()),
 		}
 	}
-
-	// Construct the Metadata
-	req := &v1.UploadRequest{
+	return &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			Metadata: md,
 		},
+	}, nil
+}
+
+func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+	//nolint:gosec
+	f, err := os.Open(path)
+	if err != nil {
+		return errors.Wrapf(err, "error while opening file %s", path)
 	}
 
-	var getNextRequest getNextRequestFunc
+	// Resets file pointer to ensure we are reading from beginning of file.
+	if _, err = f.Seek(0, 0); err != nil {
+		return err
+	}
+
+	req, err := getMetadataUploadRequest(f, partID)
+	if err != nil {
+		return err
+	}
+
+	var getNextUploadRequest getNextUploadRequestFunc
 	var processUploadRequest processUploadRequestFunc
-	switch md.GetType() {
+	switch req.GetMetadata().GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		err = initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), md)
+		err = initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), req.GetMetadata())
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		getNextRequest = getNextSensorUploadRequest
+		getNextUploadRequest = getNextSensorUploadRequest
 		processUploadRequest = sendReqAndUpdateProgress
 	case v1.DataType_DATA_TYPE_FILE:
-		getNextRequest = getNextFileUploadRequest
+		getNextUploadRequest = getNextFileUploadRequest
 		processUploadRequest = sendReq
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return errors.New("no data type specified in upload metadata")
@@ -251,7 +247,7 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 	// Loop until there is no more content to be read from file.
 	for {
 		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextRequest(ctx, f)
+		uploadReq, err := getNextUploadRequest(ctx, f)
 		// If the error is EOF, break from loop.
 		if errors.Is(err, io.EOF) {
 			break
@@ -288,7 +284,7 @@ func sendReqAndUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq 
 	if err := client.Send(uploadReq); err != nil {
 		return errors.Wrap(err, "error while sending uploadRequest")
 	}
-	if err := pt.updateProgressFileIndex(filepath.Join(progressDir, filepath.Base(dcFileName))); err != nil {
+	if err := pt.updateProgressFileIndex(filepath.Join(pt.progressDir, filepath.Base(dcFileName))); err != nil {
 		return err
 	}
 	return nil
@@ -304,7 +300,7 @@ func sendReq(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest
 func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
 	// Get file progress to see if upload has been attempted. If yes, resume from upload progress point and if not,
 	// create an upload progress file.
-	progressFilePath := filepath.Join(progressDir, filepath.Base(dcFileName))
+	progressFilePath := filepath.Join(pt.progressDir, filepath.Base(dcFileName))
 	progressIndex, err := pt.getProgressFileIndex(progressFilePath)
 	if err != nil {
 		return err
