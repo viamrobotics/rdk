@@ -149,6 +149,7 @@ do_brew(){
 	brew "protoc-gen-grpc-web"
 	brew "pkg-config"
 	brew "tensorflowlite"
+	brew "ffmpeg"
 	# pinned
 	brew "gcc@11"
 	brew "go@1.18"
