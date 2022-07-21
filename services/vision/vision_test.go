@@ -30,7 +30,7 @@ func TestCloseService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	vService := srv.(*visionService)
 	fakeStruct := newStruct()
-	det := func(image.Image) ([]objdet.Detection, error) {
+	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
 	}
 	registeredFn := registeredDetector{detector: det, closer: fakeStruct}
