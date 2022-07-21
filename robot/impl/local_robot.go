@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	resources "go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -165,13 +164,13 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	// Stop all stoppable resources
 	resourceErrs := []string{}
 	for _, name := range r.ResourceNames() {
-		resource, err := r.ResourceByName(name)
+		res, err := r.ResourceByName(name)
 		if err != nil {
 			resourceErrs = append(resourceErrs, name.Name)
 			continue
 		}
 
-		sr, ok := resource.(resources.Stoppable)
+		sr, ok := res.(resource.Stoppable)
 		if ok {
 			err = sr.Stop(ctx, extra[name])
 			if err != nil {
@@ -180,7 +179,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 		}
 
 		// TODO[njooma]: OldStoppable - Will be deprecated
-		osr, ok := resource.(resources.OldStoppable)
+		osr, ok := res.(resource.OldStoppable)
 		if ok {
 			err = osr.Stop(ctx)
 			if err != nil {
