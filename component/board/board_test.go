@@ -169,6 +169,17 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	reconfBoard2, err := board.WrapWithReconfigurable(reconfBoard1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfBoard2, test.ShouldEqual, reconfBoard1)
+
+	var actualBoard2 board.LocalBoard = &mockLocal{Name: testBoardName}
+	reconfBoard3, err := board.WrapWithReconfigurable(actualBoard2)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfBoard4, err := board.WrapWithReconfigurable(reconfBoard3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfBoard4, test.ShouldResemble, reconfBoard3)
+
+	_, ok := reconfBoard4.(board.LocalBoard)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestReconfigurableBoard(t *testing.T) {
@@ -198,6 +209,12 @@ func TestReconfigurableBoard(t *testing.T) {
 
 		err = reconfBoard3.Reconfigure(context.Background(), reconfBoard2)
 		test.That(t, err, test.ShouldBeError)
+		test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfBoard3, reconfBoard1))
+
+		actualBoard4 := &mock{Name: testBoardName2}
+		reconfBoard4, err := board.WrapWithReconfigurable(actualBoard4)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, reconfBoard4, test.ShouldNotBeNil)
 	}
 
 	actualBoard1 := &mock{Name: testBoardName}
