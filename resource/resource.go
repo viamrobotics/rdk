@@ -128,11 +128,6 @@ func newRemoteName(remote RemoteName, namespace Namespace, rType TypeName, subty
 
 // NameFromSubtype creates a new Name based on a Subtype and name string passed in.
 func NameFromSubtype(subtype Subtype, name string) Name {
-	remotes := strings.Split(name, ":")
-	if len(remotes) > 1 {
-		rName := NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, remotes[len(remotes)-1])
-		return rName.PrependRemote(RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
-	}
 	return NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, name)
 }
 
@@ -178,8 +173,8 @@ func (n Name) PopRemote() Name {
 		n.Name)
 }
 
-// IsRemoteResource return true if the resource is a remote resource.
-func (n Name) IsRemoteResource() bool {
+// ContainsRemoteNames return true if the resource is a remote resource.
+func (n Name) ContainsRemoteNames() bool {
 	return len(n.Remote) > 0
 }
 

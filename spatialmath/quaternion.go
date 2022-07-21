@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"encoding/json"
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -10,35 +11,36 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-type quaternion quat.Number
+// Quaternion is an orientation in quaternion representation.
+type Quaternion quat.Number
 
 // Quaternion returns orientation in quaternion representation.
-func (q *quaternion) Quaternion() quat.Number {
+func (q *Quaternion) Quaternion() quat.Number {
 	return quat.Number(*q)
 }
 
 // AxisAngles returns the orientation in axis angle representation.
-func (q *quaternion) AxisAngles() *R4AA {
+func (q *Quaternion) AxisAngles() *R4AA {
 	return QuatToR4AA(q.Quaternion())
 }
 
 // OrientationVectorRadians returns orientation as an orientation vector (in radians).
-func (q *quaternion) OrientationVectorRadians() *OrientationVector {
+func (q *Quaternion) OrientationVectorRadians() *OrientationVector {
 	return QuatToOV(q.Quaternion())
 }
 
 // OrientationVectorDegrees returns orientation as an orientation vector (in degrees).
-func (q *quaternion) OrientationVectorDegrees() *OrientationVectorDegrees {
+func (q *Quaternion) OrientationVectorDegrees() *OrientationVectorDegrees {
 	return QuatToOVD(q.Quaternion())
 }
 
 // EulerAngles returns orientation in Euler angle representation.
-func (q *quaternion) EulerAngles() *EulerAngles {
+func (q *Quaternion) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(q.Quaternion())
 }
 
 // RotationMatrix returns the orientation in rotation matrix representation.
-func (q *quaternion) RotationMatrix() *RotationMatrix {
+func (q *Quaternion) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(q.Quaternion())
 }
 
@@ -239,4 +241,38 @@ func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
 		q = mgl64.QuatSlerp(q1, q2, by)
 	}
 	return quat.Number{q.W, q.X(), q.Y(), q.Z()}
+}
+
+// MarshalJSON marshals to W, X, Y, Z json.
+func (q *Quaternion) MarshalJSON() ([]byte, error) {
+	return json.Marshal(quaternionJSONFromQuaternion(q))
+}
+
+type quaternionJSON struct {
+	W, X, Y, Z float64
+}
+
+func (oj *quaternionJSON) toQuaternion() *Quaternion {
+	x := quat.Number{
+		Real: oj.W,
+		Imag: oj.X,
+		Jmag: oj.Y,
+		Kmag: oj.Z,
+	}
+	x = Normalize(x)
+	return &Quaternion{
+		Real: x.Real,
+		Imag: x.Imag,
+		Jmag: x.Jmag,
+		Kmag: x.Kmag,
+	}
+}
+
+func quaternionJSONFromQuaternion(q *Quaternion) quaternionJSON {
+	return quaternionJSON{
+		W: q.Real,
+		X: q.Imag,
+		Y: q.Jmag,
+		Z: q.Kmag,
+	}
 }

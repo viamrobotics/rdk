@@ -1,13 +1,12 @@
 package objectdetection
 
 import (
+	"context"
 	"image"
-
-	"go.viam.com/rdk/rimage"
 )
 
-// validPixelFunc is a function that returns true if a pixel in an rimage.ImageWithDepth passes a certain criteria.
-type validPixelFunc func(*rimage.ImageWithDepth, image.Point) bool
+// validPixelFunc is a function that returns true if a pixel in an image.Image passes a certain criteria.
+type validPixelFunc func(image.Image, image.Point) bool
 
 // connectedComponentDetector identifies objects in an image by merging neighbors that share similar properties.
 // Based on some valid criteria, it will group the pixel into the current segment.
@@ -17,20 +16,19 @@ type connectedComponentDetector struct {
 }
 
 // Inference takes in an image frame and returns the Detections found in the image.
-func (ccd *connectedComponentDetector) Inference(img image.Image) ([]Detection, error) {
-	// can use depth info if it is available
-	iwd := rimage.ConvertToImageWithDepth(img)
-	seen := make([]bool, iwd.Width()*iwd.Height())
+func (ccd *connectedComponentDetector) Inference(ctx context.Context, img image.Image) ([]Detection, error) {
+	width, height := img.Bounds().Dx(), img.Bounds().Dy()
+	seen := make([]bool, width*height)
 	queue := []image.Point{}
 	detections := []Detection{}
-	for i := 0; i < iwd.Width(); i++ {
-		for j := 0; j < iwd.Height(); j++ {
+	for i := 0; i < width; i++ {
+		for j := 0; j < height; j++ {
 			pt := image.Point{i, j}
-			indx := pt.Y*iwd.Width() + pt.X
+			indx := pt.Y*width + pt.X
 			if seen[indx] {
 				continue
 			}
-			if !ccd.valid(iwd, pt) {
+			if !ccd.valid(img, pt) {
 				seen[indx] = true
 				continue
 			}
@@ -38,7 +36,7 @@ func (ccd *connectedComponentDetector) Inference(img image.Image) ([]Detection, 
 			x0, y0, x1, y1 := pt.X, pt.Y, pt.X, pt.Y // the bounding box of the segment
 			for len(queue) != 0 {
 				newPt := queue[0]
-				newIndx := newPt.Y*iwd.Width() + newPt.X
+				newIndx := newPt.Y*width + newPt.X
 				seen[newIndx] = true
 				queue = queue[1:]
 				if newPt.X < x0 {
@@ -53,7 +51,7 @@ func (ccd *connectedComponentDetector) Inference(img image.Image) ([]Detection, 
 				if newPt.Y > y1 {
 					y1 = newPt.Y
 				}
-				neighbors := ccd.getNeighbors(newPt, iwd, seen)
+				neighbors := ccd.getNeighbors(newPt, img, seen)
 				queue = append(queue, neighbors...)
 			}
 			d := &detection2D{image.Rect(x0, y0, x1, y1), 1.0, ccd.label}
@@ -63,7 +61,7 @@ func (ccd *connectedComponentDetector) Inference(img image.Image) ([]Detection, 
 	return detections, nil
 }
 
-func (ccd *connectedComponentDetector) getNeighbors(pt image.Point, img *rimage.ImageWithDepth, seen []bool) []image.Point {
+func (ccd *connectedComponentDetector) getNeighbors(pt image.Point, img image.Image, seen []bool) []image.Point {
 	bounds := img.Bounds()
 	neighbors := make([]image.Point, 0, 4)
 	fourPoints := []image.Point{{pt.X, pt.Y - 1}, {pt.X, pt.Y + 1}, {pt.X - 1, pt.Y}, {pt.X + 1, pt.Y}}

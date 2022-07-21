@@ -32,6 +32,8 @@ type CameraServiceClient interface {
 	// GetPointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	GetPointCloud(ctx context.Context, in *GetPointCloudRequest, opts ...grpc.CallOption) (*GetPointCloudResponse, error)
+	// GetProperties returns the camera intrinsic parameters and camera distortion parameters from a camera of the underlying robot, if available.
+	GetProperties(ctx context.Context, in *GetPropertiesRequest, opts ...grpc.CallOption) (*GetPropertiesResponse, error)
 }
 
 type cameraServiceClient struct {
@@ -69,6 +71,15 @@ func (c *cameraServiceClient) GetPointCloud(ctx context.Context, in *GetPointClo
 	return out, nil
 }
 
+func (c *cameraServiceClient) GetProperties(ctx context.Context, in *GetPropertiesRequest, opts ...grpc.CallOption) (*GetPropertiesResponse, error) {
+	out := new(GetPropertiesResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.camera.v1.CameraService/GetProperties", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CameraServiceServer is the server API for CameraService service.
 // All implementations must embed UnimplementedCameraServiceServer
 // for forward compatibility
@@ -82,6 +93,8 @@ type CameraServiceServer interface {
 	// GetPointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	GetPointCloud(context.Context, *GetPointCloudRequest) (*GetPointCloudResponse, error)
+	// GetProperties returns the camera intrinsic parameters and camera distortion parameters from a camera of the underlying robot, if available.
+	GetProperties(context.Context, *GetPropertiesRequest) (*GetPropertiesResponse, error)
 	mustEmbedUnimplementedCameraServiceServer()
 }
 
@@ -97,6 +110,9 @@ func (UnimplementedCameraServiceServer) RenderFrame(context.Context, *RenderFram
 }
 func (UnimplementedCameraServiceServer) GetPointCloud(context.Context, *GetPointCloudRequest) (*GetPointCloudResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPointCloud not implemented")
+}
+func (UnimplementedCameraServiceServer) GetProperties(context.Context, *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetProperties not implemented")
 }
 func (UnimplementedCameraServiceServer) mustEmbedUnimplementedCameraServiceServer() {}
 
@@ -165,6 +181,24 @@ func _CameraService_GetPointCloud_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CameraService_GetProperties_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPropertiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CameraServiceServer).GetProperties(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.camera.v1.CameraService/GetProperties",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CameraServiceServer).GetProperties(ctx, req.(*GetPropertiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CameraService_ServiceDesc is the grpc.ServiceDesc for CameraService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -183,6 +217,10 @@ var CameraService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPointCloud",
 			Handler:    _CameraService_GetPointCloud_Handler,
+		},
+		{
+			MethodName: "GetProperties",
+			Handler:    _CameraService_GetProperties_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

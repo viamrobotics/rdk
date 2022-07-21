@@ -28,16 +28,6 @@ updates:
     allow:
       - dependency-type: "all"
     ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-    open-pull-requests-limit: 0
-  - package-ecosystem: "npm"
-    directory: "web/frontend/dls"
-    schedule:
-      interval: "daily"
-    allow:
-      - dependency-type: "all"
-    ignore:
       - dependency-name: "proto" # generated proto files
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
