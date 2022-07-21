@@ -46,7 +46,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
 			}
-			return NewFFmpegCamera(attrs, logger)
+			return NewFFMPEGCamera(attrs, logger)
 		},
 	})
 
