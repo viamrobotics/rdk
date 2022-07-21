@@ -49,7 +49,7 @@ func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.T
 			return nil, err
 		}
 		im := rimage.CloneImage(img)
-		dets, err := detector(im) // detector may modify the input image
+		dets, err := detector(ctx, im) // detector may modify the input image
 		if err != nil {
 			return nil, err
 		}
