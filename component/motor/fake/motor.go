@@ -55,7 +55,7 @@ func init() {
 				if mcfg.EncoderA != "" || mcfg.EncoderB != "" {
 					m.PositionReporting = true
 
-					m.Encoder = FakeEncoder{Valid: true}
+					m.Encoder = Encoder{Valid: true}
 					m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
 				} else {
 					m.PositionReporting = false
@@ -71,8 +71,8 @@ func init() {
 
 var _ motor.LocalMotor = &Motor{}
 
-// FakeEncoder keeps track of a fake motor position.
-type FakeEncoder struct {
+// Encoder keeps track of a fake motor position.
+type Encoder struct {
 	mu         	sync.Mutex
 	position   	float64
 	speed      	float64 // ticks per minute
@@ -81,12 +81,12 @@ type FakeEncoder struct {
 }
 
 // GetPosition returns the current position in terms of ticks.
-func (e *FakeEncoder) GetPosition(ctx context.Context) (float64, error) {
+func (e *Encoder) GetPosition(ctx context.Context) (float64, error) {
 	return e.position, nil
 }
 
 // Start starts a background thread to run the encoder.
-func (e *FakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup) {
+func (e *Encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup) {
 	activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		if e.updateRate == 0 {
@@ -111,7 +111,7 @@ func (e *FakeEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 }
 
 // ResetZeroPosition resets the zero position.
-func (e *FakeEncoder) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (e *Encoder) ResetZeroPosition(ctx context.Context, offset float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = offset
@@ -119,7 +119,7 @@ func (e *FakeEncoder) ResetZeroPosition(ctx context.Context, offset float64) err
 }
 
 // SetSpeed sets the speed of the fake motor the encoder is measuring.
-func (e *FakeEncoder) SetSpeed(ctx context.Context, speed float64) error {
+func (e *Encoder) SetSpeed(ctx context.Context, speed float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.speed = speed
@@ -127,7 +127,7 @@ func (e *FakeEncoder) SetSpeed(ctx context.Context, speed float64) error {
 }
 
 // SetPosition sets the position of the encoder.
-func (e *FakeEncoder) SetPosition(ctx context.Context, position float64) error {
+func (e *Encoder) SetPosition(ctx context.Context, position float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = position
@@ -144,7 +144,7 @@ type Motor struct {
 	PWM                     board.GPIOPin
 	PositionReporting       bool
 	Logger                  golog.Logger
-	Encoder                 FakeEncoder
+	Encoder                 Encoder
 	MaxRPM                  float64
 	TicksPerRotation        int
 	activeBackgroundWorkers sync.WaitGroup
@@ -157,7 +157,7 @@ func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.Encoder == (FakeEncoder{}) {
+	if m.Encoder == (Encoder{}) {
 		return 0, errors.New("encoder is not defined")
 	}
 
@@ -275,7 +275,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
-	if m.Encoder == (FakeEncoder{}) {
+	if m.Encoder == (Encoder{}) {
 		return errors.New("encoder is not defined")
 	}
 
