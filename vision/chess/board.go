@@ -19,7 +19,8 @@ const EdgeThreshold = 100
 
 // Board TODO.
 type Board struct {
-	img    *rimage.ImageWithDepth
+	color  *rimage.Image
+	depth  *rimage.DepthMap
 	edges  *image.Gray
 	logger golog.Logger
 }
@@ -31,17 +32,21 @@ func FindAndWarpBoardFromFilesRoot(root string, aligned bool, logger golog.Logge
 
 // FindAndWarpBoardFromFiles TODO.
 func FindAndWarpBoardFromFiles(colorFN, depthFN string, aligned bool, logger golog.Logger) (*Board, error) {
-	img, err := rimage.NewImageWithDepth(colorFN, depthFN, aligned)
+	color, err := rimage.NewImageFromFile(colorFN)
+	if err != nil {
+		return nil, err
+	}
+	depth, err := rimage.ParseDepthMap(depthFN)
 	if err != nil {
 		return nil, err
 	}
 
-	return FindAndWarpBoard(img, logger)
+	return FindAndWarpBoard(color, depth, logger)
 }
 
 // FindAndWarpBoard TODO.
-func FindAndWarpBoard(img *rimage.ImageWithDepth, logger golog.Logger) (*Board, error) {
-	_, corners, err := findChessCorners(img, logger)
+func FindAndWarpBoard(col *rimage.Image, dm *rimage.DepthMap, logger golog.Logger) (*Board, error) {
+	_, corners, err := findChessCorners(col, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -50,16 +55,16 @@ func FindAndWarpBoard(img *rimage.ImageWithDepth, logger golog.Logger) (*Board, 
 		return nil, errors.Errorf("couldnt find 4 corners, only got %d", len(corners))
 	}
 
-	a, err := warpColorAndDepthToChess(img, corners)
+	color, depth, err := warpColorAndDepthToChess(col, dm, corners)
 	if err != nil {
 		return nil, err
 	}
 
-	edges, err := rimage.SimpleEdgeDetection(a.Color, .01, 3.0)
+	edges, err := rimage.SimpleEdgeDetection(color, .01, 3.0)
 	if err != nil {
 		return nil, err
 	}
-	return &Board{a, edges, logger}, nil
+	return &Board{color, depth, edges, logger}, nil
 }
 
 // SquareCenterHeight TODO.
@@ -84,16 +89,16 @@ func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) 
 	data := []float64{}
 
 	corner := getMinChessCorner(square)
-	centerColor := b.img.Color.Get(image.Point{corner.X + 50, corner.Y + 50})
+	centerColor := b.color.Get(image.Point{corner.X + 50, corner.Y + 50})
 
 	for x := corner.X + 50 - radius; x < corner.X+50+radius; x++ {
 		for y := corner.Y + 50 - radius; y < corner.Y+50+radius; y++ {
-			d := b.img.Depth.GetDepth(x, y)
+			d := b.depth.GetDepth(x, y)
 			if d == 0 {
 				continue
 			}
 			if matchColor {
-				c := b.img.Color.Get(image.Point{x, y})
+				c := b.color.Get(image.Point{x, y})
 				if c.Distance(centerColor) > 1 {
 					continue
 				}
@@ -163,7 +168,7 @@ type SquareFunc func(b *Board, square string) error
 
 // WriteDebugImages TODO.
 func (b *Board) WriteDebugImages(prefix string) error {
-	err := b.img.Color.WriteTo(prefix + "-color.png")
+	err := b.color.WriteTo(prefix + "-color.png")
 	if err != nil {
 		return err
 	}
@@ -184,7 +189,7 @@ func (b *Board) WriteDebugImages(prefix string) error {
 
 // Annotate TODO.
 func (b *Board) Annotate() image.Image {
-	dc := gg.NewContextForImage(b.img.Color)
+	dc := gg.NewContextForImage(b.color)
 
 	for x := 'a'; x <= 'h'; x++ {
 		for y := '1'; y <= '8'; y++ {
