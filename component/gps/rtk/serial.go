@@ -8,8 +8,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-gnss/rtcm/rtcm3"
+	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
-	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/config"
 )
@@ -50,6 +50,7 @@ func (r pipeWriter) Close() error {
 
 const (
 	correctionPathName = "correction_path"
+	baudRateName       = "correction_baud"
 )
 
 func newSerialCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
@@ -62,8 +63,22 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 		return nil, fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
 	}
 
+	baudRate := config.Attributes.Int(baudRateName, 0)
+	if baudRate == 0 {
+		baudRate = 9600
+		s.logger.Info("SerialCorrectionSource: correction_baud using default 9600")
+	}
+
+	options := serial.OpenOptions{
+		PortName:        serialPath,
+		BaudRate:        uint(baudRate),
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 4,
+	}
+
 	var err error
-	s.port, err = serial.Open(serialPath)
+	s.port, err = serial.Open(options)
 	if err != nil {
 		return nil, err
 	}
