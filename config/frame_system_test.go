@@ -13,7 +13,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	robotpb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -164,7 +163,7 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 	t.Run("converts to frame system part", func(t *testing.T) {
 		testPose := spatial.NewPoseFromOrientation(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
-			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0, RY: 1, RZ: 0},
+			&spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 1, RZ: 0},
 		)
 		transform := &commonpb.Transform{
 			ReferenceFrame: "child",

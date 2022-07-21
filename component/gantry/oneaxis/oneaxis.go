@@ -125,10 +125,8 @@ type oneAxis struct {
 	mmPerRevolution float64
 	rpm             float64
 
-	model                 referenceframe.Model
-	axis                  r3.Vector
-	axisOrientationOffset *spatial.OrientationVector
-	axisTranslationOffset r3.Vector
+	model referenceframe.Model
+	axis  r3.Vector
 
 	logger golog.Logger
 	opMgr  operation.SingleOperationManager
