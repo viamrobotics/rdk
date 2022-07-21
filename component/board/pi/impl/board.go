@@ -296,8 +296,12 @@ func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
 	}
 	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freqHz))
 
+	if newRes == C.PI_BAD_USER_GPIO {
+		return errors.New("pwm set freq failed")
+	}
+
 	if newRes != C.int(freqHz) {
-		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freqHz, newRes)
+		pi.logger.Infof("cannot set pwm freq to %d, setting to closest freq %d", freqHz, newRes)
 	}
 	return nil
 }
