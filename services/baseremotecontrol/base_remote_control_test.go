@@ -399,7 +399,7 @@ func TestParseEvent(t *testing.T) {
 }
 
 func TestRegisteredReconfigurable(t *testing.T) {
-	s := registry.ServiceLookup(Subtype)
+	s := registry.ResourceSubtypeLookup(Subtype)
 	test.That(t, s, test.ShouldNotBeNil)
 	r := s.Reconfigurable
 	test.That(t, r, test.ShouldNotBeNil)

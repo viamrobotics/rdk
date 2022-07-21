@@ -36,7 +36,6 @@ type RegDebugInfo struct {
 type Service struct {
 	RegDebugInfo
 	Constructor           CreateService
-	Reconfigurable        CreateReconfigurable
 	AttributeMapConverter config.AttributeMapConverter
 }
 

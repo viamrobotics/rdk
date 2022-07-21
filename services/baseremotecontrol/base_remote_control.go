@@ -46,8 +46,11 @@ var Subtype = resource.NewSubtype(
 var Name = resource.NameFromSubtype(Subtype, "")
 
 func init() {
-	registry.RegisterService(Subtype, registry.Service{Constructor: New, Reconfigurable: WrapWithReconfigurable})
+	registry.RegisterService(Subtype, registry.Service{Constructor: New})
 	cType := config.ServiceType(SubtypeName)
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+	})
 
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
