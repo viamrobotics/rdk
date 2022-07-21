@@ -289,11 +289,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
 	}
 	revolutions := pos - curPos
 
-	rpm = math.Abs(rpm)
-
-	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
-	
-	finalPos := curPos + dir*math.Abs(revolutions)
+	powerPct, waitDur, _ := goForMath(m.MaxRPM, math.Abs(rpm), revolutions)
 
 	err = m.SetPower(ctx, powerPct)
 	if err != nil {
@@ -310,7 +306,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
 			return err
 		}
 
-		return m.Encoder.SetPosition(ctx, finalPos*float64(m.TicksPerRotation))
+		return m.Encoder.SetPosition(ctx, pos*float64(m.TicksPerRotation))
 	}
 	return nil
 }
