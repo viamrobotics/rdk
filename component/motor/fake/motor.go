@@ -279,8 +279,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
 		return errors.New("encoder is not defined")
 	}
 
-	curPos, err := m.Encoder.GetPosition(ctx)
-	curPos /= float64(m.TicksPerRotation)
+	curPos, err := m.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
