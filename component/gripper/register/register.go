@@ -7,7 +7,6 @@ import (
 	_ "go.viam.com/rdk/component/gripper/robotiq"
 	_ "go.viam.com/rdk/component/gripper/softrobotics"
 	_ "go.viam.com/rdk/component/gripper/trossen"
-	_ "go.viam.com/rdk/component/gripper/trossen"
 	_ "go.viam.com/rdk/component/gripper/vgripper/v1"
 	_ "go.viam.com/rdk/component/gripper/yahboom"
 )
