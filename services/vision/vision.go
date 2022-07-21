@@ -201,7 +201,7 @@ func (vs *visionService) GetDetections(ctx context.Context, cameraName, detector
 	}
 	defer release()
 
-	return detector(img)
+	return detector(ctx, img)
 }
 
 // Segmentation Methods

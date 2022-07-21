@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -106,6 +107,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type Temp struct {
 		External                   bool
 		WebRTCEnabled              bool
+		Env                        string
 		WebRTCHost                 string
 		WebRTCSignalingAddress     string
 		WebRTCAdditionalICEServers []map[string]interface{}
@@ -117,6 +119,12 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseForm(); err != nil {
 		app.logger.Debugw("failed to parse form", "error", err)
+	}
+
+	if os.Getenv("ENV") == "development" {
+		temp.Env = "development"
+	} else {
+		temp.Env = "production"
 	}
 
 	if app.options.WebRTC && r.Form.Get("grpc") != "true" {
