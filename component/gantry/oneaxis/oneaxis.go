@@ -450,8 +450,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 		var errs error
 		m := referenceframe.NewSimpleModel()
 
-		f, err := referenceframe.NewStaticFrame(g.name,
-			spatial.NewPoseFromOrientationVector(g.axisTranslationOffset, g.axisOrientationOffset))
+		f, err := referenceframe.NewStaticFrame(g.name, spatial.NewZeroPose())
 		errs = multierr.Combine(errs, err)
 		m.OrdTransforms = append(m.OrdTransforms, f)
 
