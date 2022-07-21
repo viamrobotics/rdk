@@ -73,11 +73,11 @@ var _ motor.LocalMotor = &Motor{}
 
 // Encoder keeps track of a fake motor position.
 type Encoder struct {
-	mu         	sync.Mutex
-	position   	float64
-	speed      	float64 // ticks per minute
-	updateRate 	int64   // update position in start every updateRate ms
-	Valid		bool
+	mu         sync.Mutex
+	position   float64
+	speed      float64 // ticks per minute
+	updateRate int64   // update position in start every updateRate ms
+	Valid      bool
 }
 
 // GetPosition returns the current position in terms of ticks.
