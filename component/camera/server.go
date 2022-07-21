@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -52,7 +53,7 @@ func (s *subtypeServer) GetFrame(
 	ctx context.Context,
 	req *pb.GetFrameRequest,
 ) (*pb.GetFrameResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "camera-server::GetFrame")
+	ctx, span := trace.StartSpan(ctx, "camera::server::GetFrame")
 	defer span.End()
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
@@ -85,7 +86,7 @@ func (s *subtypeServer) GetFrame(
 		HeightPx: int64(bounds.Dy()),
 	}
 
-	_, span3 := trace.StartSpan(ctx, "camera-server::GetFrame::Encode::"+req.MimeType)
+	_, span3 := trace.StartSpan(ctx, "camera::server::GetFrame::Encode::"+req.MimeType)
 	defer span3.End()
 	var buf bytes.Buffer
 	switch req.MimeType {
@@ -154,7 +155,7 @@ func (s *subtypeServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
-	ctx, span := trace.StartSpan(ctx, "camera-server::RenderFrame")
+	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
 	defer span.End()
 	if req.MimeType == "" {
 		req.MimeType = utils.MimeTypeJPEG // default rendering
@@ -176,7 +177,7 @@ func (s *subtypeServer) GetPointCloud(
 	ctx context.Context,
 	req *pb.GetPointCloudRequest,
 ) (*pb.GetPointCloudResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "camera-server::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "camera::server::NextPointCloud")
 	defer span.End()
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
@@ -190,7 +191,7 @@ func (s *subtypeServer) GetPointCloud(
 
 	var buf bytes.Buffer
 	buf.Grow(200 + (pc.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
-	_, pcdSpan := trace.StartSpan(ctx, "camera-server::NextPointCloud::ToPCD")
+	_, pcdSpan := trace.StartSpan(ctx, "camera::server::NextPointCloud::ToPCD")
 	err = pointcloud.ToPCD(pc, &buf, pointcloud.PCDBinary)
 	pcdSpan.End()
 	if err != nil {
@@ -200,5 +201,36 @@ func (s *subtypeServer) GetPointCloud(
 	return &pb.GetPointCloudResponse{
 		MimeType:   utils.MimeTypePCD,
 		PointCloud: buf.Bytes(),
+	}, nil
+}
+
+func (s *subtypeServer) GetProperties(
+	ctx context.Context,
+	req *pb.GetPropertiesRequest,
+) (*pb.GetPropertiesResponse, error) {
+	camera, err := s.getCamera(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	proj, err := camera.GetProperties(ctx) // will be nil if no intrinsics
+	if err != nil {
+		return nil, err
+	}
+	intrinsics := proj.(*transform.PinholeCameraIntrinsics)
+	err = intrinsics.CheckValid()
+	if err != nil {
+		return nil, err
+	}
+
+	camIntrinsics := &pb.IntrinsicParameters{
+		WidthPx:   uint32(intrinsics.Width),
+		HeightPx:  uint32(intrinsics.Height),
+		FocalXPx:  intrinsics.Fx,
+		FocalYPx:  intrinsics.Fy,
+		CenterXPx: intrinsics.Ppx,
+		CenterYPx: intrinsics.Ppy,
+	}
+	return &pb.GetPropertiesResponse{
+		IntrinsicParameters: camIntrinsics,
 	}, nil
 }

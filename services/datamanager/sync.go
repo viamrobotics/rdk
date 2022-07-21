@@ -2,7 +2,6 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -77,7 +76,6 @@ func (s *syncer) Close() {
 }
 
 func (s *syncer) upload(ctx context.Context, path string) {
-	fmt.Println("UPLOADING ", path)
 	if s.progressTracker.inProgress(path) {
 		return
 	}
@@ -97,10 +95,8 @@ func (s *syncer) upload(ctx context.Context, path string) {
 
 		// Delete the file and indicate that the upload is done.
 		if err := os.Remove(path); err != nil {
-			fmt.Println("ERROR REMOVING ", path, err)
 			s.logger.Errorw("error while deleting file", "error", err)
 		} else {
-			fmt.Println("REMOVED ", path)
 			s.progressTracker.unmark(path)
 		}
 	})

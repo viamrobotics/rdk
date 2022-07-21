@@ -5,6 +5,8 @@ import (
 	"context"
 	"image/jpeg"
 
+	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/slam/v1"
@@ -42,6 +44,9 @@ func (server *subtypeServer) service() (Service, error) {
 func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositionRequest) (
 	*pb.GetPositionResponse, error,
 ) {
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPosition")
+	defer span.End()
+
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -63,14 +68,19 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) (
 	*pb.GetMapResponse, error,
 ) {
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetMap")
+	defer span.End()
+
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
 
-	pInFrame := &commonpb.PoseInFrame{Pose: req.CameraPosition}
-	mimeType, imageData, pcData, err := svc.GetMap(ctx, req.Name, req.MimeType,
-		referenceframe.ProtobufToPoseInFrame(pInFrame), req.IncludeRobotMarker)
+	var pInFrame *referenceframe.PoseInFrame
+	if req.CameraPosition != nil {
+		pInFrame = referenceframe.ProtobufToPoseInFrame(&commonpb.PoseInFrame{Pose: req.CameraPosition})
+	}
+	mimeType, imageData, pcData, err := svc.GetMap(ctx, req.Name, req.MimeType, pInFrame, req.IncludeRobotMarker)
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +88,9 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 	resp := &pb.GetMapResponse{}
 	switch mimeType {
 	case utils.MimeTypeJPEG:
+		_, spanEncode := trace.StartSpan(ctx, "slam::server::GetMap:Encode")
+		defer spanEncode.End()
+
 		var buf bytes.Buffer
 		if err := jpeg.Encode(&buf, imageData, nil); err != nil {
 			return nil, err
@@ -89,6 +102,9 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 			Map:      mapData,
 		}
 	case utils.MimeTypePCD:
+		_, spanToPCD := trace.StartSpan(ctx, "slam::server::GetMap:ToPCD")
+		defer spanToPCD.End()
+
 		var buf bytes.Buffer
 		if err := pointcloud.ToPCD(pcData.PointCloud, &buf, pointcloud.PCDBinary); err != nil {
 			return nil, err
