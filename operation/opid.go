@@ -14,7 +14,7 @@ type opidKeyType string
 
 const opidKey = opidKeyType("opid")
 
-var invalidMethods = [...]string{
+var methodPrefixesToFilter = [...]string{
 	"/proto.rpc.webrtc.v1.SignalingService",
 	"/proto.api.robot.v1.RobotService/StreamStatus",
 }
@@ -119,8 +119,7 @@ func (m *Manager) Create(ctx context.Context, method string, args interface{}) (
 		panic("operations cannot be nested")
 	}
 
-	// Add method to manager if not in invalid map
-	for _, val := range invalidMethods {
+	for _, val := range methodPrefixesToFilter {
 		if strings.HasPrefix(method, val) {
 			return ctx, func() {}
 		}
