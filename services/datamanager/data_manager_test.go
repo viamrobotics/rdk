@@ -36,7 +36,7 @@ var (
 	armDir     = captureDir + "/arm/arm1/GetEndPosition"
 
 	syncIntervalMins   = 0.0041 // 250ms
-	emptyFileBytesSize = 30
+	emptyFileBytesSize = 30     // size of leading metadata message
 )
 
 // readDir filters out folders from a slice of FileInfos.
@@ -238,6 +238,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
+	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
@@ -386,6 +387,7 @@ func TestManualSync(t *testing.T) {
 	}
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
+	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
@@ -441,9 +443,9 @@ func TestScheduledSync(t *testing.T) {
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
+	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
-	test.That(t, err, test.ShouldBeNil)
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
@@ -496,6 +498,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
+	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
