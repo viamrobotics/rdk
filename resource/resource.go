@@ -173,8 +173,8 @@ func (n Name) PopRemote() Name {
 		n.Name)
 }
 
-// IsRemoteResource return true if the resource is a remote resource.
-func (n Name) IsRemoteResource() bool {
+// ContainsRemoteNames return true if the resource is a remote resource.
+func (n Name) ContainsRemoteNames() bool {
 	return len(n.Remote) > 0
 }
 
