@@ -2,6 +2,7 @@ package vision_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
@@ -73,7 +74,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 		"mean_k_filtering":      10.,
 	}
 	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter, params)
-	test.That(t, err.Error(), test.ShouldContainSubstring, transform.NewNoIntrinsicsError("").Error())
+	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 }
 
 func TestGetObjectPointClouds(t *testing.T) {
