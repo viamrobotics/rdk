@@ -71,7 +71,7 @@ type localRobot struct {
 
 	remotesChanged chan string
 	closeContext   context.Context
-	configChanged  chan bool
+	triggerConfig  chan bool
 	configTimer    *time.Ticker
 }
 
@@ -155,7 +155,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 		if r.configTimer != nil {
 			r.configTimer.Stop()
 		}
-		close(r.configChanged)
+		close(r.triggerConfig)
 	}
 	r.activeBackgroundWorkers.Wait()
 	return r.manager.Close(ctx)
@@ -325,7 +325,7 @@ func newWithResources(
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		closeContext:            closeCtx,
 		cancelBackgroundWorkers: cancel,
-		configChanged:           make(chan bool),
+		triggerConfig:           make(chan bool),
 		configTimer:             nil,
 	}
 
@@ -385,7 +385,7 @@ func newWithResources(
 			select {
 			case <-closeCtx.Done():
 				return
-			case <-r.configChanged:
+			case <-r.triggerConfig:
 			case <-r.configTimer.C:
 			}
 			if r.manager.anyResourcesNotConfigured() {
