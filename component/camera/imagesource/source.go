@@ -93,7 +93,7 @@ func init() {
 type dualServerSource struct {
 	client     http.Client
 	ColorURL   string // this is for a generic image
-	DepthURL   string // this is for my bizarre custom data format for depth data
+	DepthURL   string // this suuports monochrome Z16 depth images
 	Intrinsics *transform.PinholeCameraIntrinsics
 	Stream     camera.StreamType // returns color or depth frame with calls of Next
 }
