@@ -502,7 +502,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 }
 
 func TestRegisteredReconfigurable(t *testing.T) {
-	s := registry.ServiceLookup(datamanager.Subtype)
+	s := registry.ResourceSubtypeLookup(datamanager.Subtype)
 	test.That(t, s, test.ShouldNotBeNil)
 	r := s.Reconfigurable
 	test.That(t, r, test.ShouldNotBeNil)
