@@ -59,6 +59,7 @@ type piPigpio struct {
 	generic.Unimplemented
 	mu            sync.Mutex
 	cfg           *board.Config
+	duty 		  int
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
 	i2cs          map[string]board.I2C
@@ -274,9 +275,11 @@ func (pi *piPigpio) pwmBcom(bcom int) (float64, error) {
 // SetPWMBcom sets the given broadcom pin to the given PWM duty cycle.
 func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
 	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
-	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
-	if res != 0 {
-		return errors.Errorf("pwm set fail %d", res)
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
+	pi.duty = int(C.gpioPWM(C.uint(bcom), C.uint(dutyCycle)))
+	if pi.duty != 0 {
+		return errors.Errorf("pwm set fail %d", pi.duty)
 	}
 	return nil
 }
