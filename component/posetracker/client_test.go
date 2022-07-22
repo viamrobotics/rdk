@@ -40,16 +40,8 @@ func TestClient(t *testing.T) {
 	workingPT := &inject.PoseTracker{}
 	failingPT := &inject.PoseTracker{}
 
-	pose := spatialmath.NewPoseFromAxisAngle(
-		r3.Vector{X: 2, Y: 4, Z: 6},
-		r3.Vector{X: 0, Y: 0, Z: 1},
-		math.Pi,
-	)
-	pose2 := spatialmath.NewPoseFromAxisAngle(
-		r3.Vector{X: 1, Y: 2, Z: 3},
-		r3.Vector{X: 0, Y: 0, Z: 1},
-		math.Pi,
-	)
+	pose := spatialmath.NewPoseFromOrientation(r3.Vector{X: 2, Y: 4, Z: 6}, &spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1})
+	pose2 := spatialmath.NewPoseFromOrientation(r3.Vector{X: 1, Y: 2, Z: 3}, &spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1})
 	zeroPose := spatialmath.NewZeroPose()
 	allBodiesToPoseInFrames := posetracker.BodyToPoseInFrame{
 		zeroPoseBody:     referenceframe.NewPoseInFrame(bodyFrame, zeroPose),
