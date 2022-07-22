@@ -193,7 +193,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 				rc.Logger().Debugw("failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
-			rc.Logger().Debugf("successfully reconnected remote at address", "address", rc.address)
+			rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -233,6 +233,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 					rc.changeChan <- true
 				}
 				if rc.notifyParent != nil {
+					rc.Logger().Debugf("connection was lost for remote %q", rc.address)
 					rc.notifyParent()
 				}
 				rc.mu.Unlock()
