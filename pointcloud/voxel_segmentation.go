@@ -71,32 +71,37 @@ func (vg *VoxelGrid) GetUnlabeledVoxels() []VoxelCoords {
 
 // GetPlanesFromLabels returns a slice containing all the planes in the point cloud.
 func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
-	pointsByLabel := make(map[int][]PointAndData)
+	pointsByLabel := make(map[int]map[r3.Vector]Data)
 	keysByLabel := make(map[int][]VoxelCoords)
 	seen := make(map[r3.Vector]bool)
 	for _, vox := range vg.Voxels {
 		// if voxel is entirely included in a plane, add all the points
 		if vox.Label > 0 {
 			keysByLabel[vox.Label] = append(keysByLabel[vox.Label], vox.Key)
-			for _, pt := range vox.Points {
-				if _, ok := seen[pt.P]; ok { // already assigned point to another label
+			for p, d := range vox.Points {
+				if _, ok := seen[p]; ok { // already assigned point to another label
 					continue
 				} else {
-					seen[pt.P] = true
-					pointsByLabel[vox.Label] = append(pointsByLabel[vox.Label], pt)
+					seen[p] = true
+					if _, ok := pointsByLabel[vox.Label]; !ok {
+						pointsByLabel[vox.Label] = make(map[r3.Vector]Data)
+					}
+					pointsByLabel[vox.Label][p] = d
 				}
 			}
 		} else if len(vox.Points) == len(vox.PointLabels) {
 			// voxel has points for either no plane or at least two planes
 			// add point by point
-			for ptIdx, pt := range vox.Points {
-				if _, ok := seen[pt.P]; ok { // already assigned point to another label
+			i := 0
+			for p, d := range vox.Points {
+				if _, ok := seen[p]; ok { // already assigned point to another label
 					continue
 				} else {
-					seen[pt.P] = true
-					ptLabel := vox.PointLabels[ptIdx]
-					pointsByLabel[ptLabel] = append(pointsByLabel[ptLabel], pt)
+					seen[p] = true
+					ptLabel := vox.PointLabels[i]
+					pointsByLabel[ptLabel][p] = d
 				}
+				i++
 			}
 		}
 	}
@@ -105,14 +110,19 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 	nonPlane := New()
 	for label, pts := range pointsByLabel {
 		if label == 0 { // create a point cloud of non-planar points
-			for _, pt := range pts {
-				err := nonPlane.Set(pt.P, pt.D)
+			for p, d := range pts {
+				err := nonPlane.Set(p, d)
 				if err != nil {
 					return nil, nil, err
 				}
 			}
 		} else { // create an array of planes
-			positions := getPositions(pts)
+			positions := make([]r3.Vector, len(pts))
+			i := 0
+			for p := range pts {
+				positions[i] = p
+				i++
+			}
 			normalVector := estimatePlaneNormalFromPoints(positions)
 			center := GetVoxelCenter(positions)
 			offset := GetOffset(center, normalVector)
