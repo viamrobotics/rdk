@@ -131,6 +131,8 @@ type dataManagerService struct {
 	r                         robot.Robot
 	logger                    golog.Logger
 	captureDir                string
+	captureDisabled           bool
+	syncDisabled              bool
 	collectors                map[componentMethodMetadata]collectorAndConfig
 	syncer                    syncManager
 	syncIntervalMins          float64
