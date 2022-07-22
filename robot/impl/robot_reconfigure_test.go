@@ -2562,7 +2562,6 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldContainSubstring,
 			"error processing draft changes: cannot build \"mock4\" for some obscure reason",
 		)
-		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	})
 }
 

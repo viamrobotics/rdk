@@ -80,19 +80,21 @@ func (dm detectorMap) detectorNames() []string {
 }
 
 // removeDetector closes the model and removes the detector from the registry.
-func (dm detectorMap) removeDetector(name string, logger golog.Logger) {
+func (dm detectorMap) removeDetector(name string, logger golog.Logger) error {
 	if _, ok := dm[name]; !ok {
 		logger.Infof("no Detector with name %s", name)
-		return
+		return nil
 	}
 
 	if dm[name].closer != nil {
 		err := dm[name].closer.Close()
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 	delete(dm, name)
+
+	return nil
 }
 
 // registerNewDetectors take an attributes struct and parses each element by type to create an RDK Detector
@@ -104,7 +106,7 @@ func registerNewDetectors(ctx context.Context, dm detectorMap, attrs *Attributes
 		logger.Debugf("adding detector %q of type %s", attr.Name, attr.Type)
 		switch DetectorType(attr.Type) {
 		case TFLiteType:
-			return registerTfliteDetector(dm, &attr, logger)
+			return registerTfliteDetector(ctx, dm, &attr, logger)
 		case TensorFlowType:
 			return newDetectorTypeNotImplemented(attr.Type)
 		case ColorType:

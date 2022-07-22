@@ -46,6 +46,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	webstream "go.viam.com/rdk/robot/web/stream"
 	"go.viam.com/rdk/subtype"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
@@ -373,7 +374,11 @@ func (svc *webService) startStream(ctx context.Context, source gostream.ImageSou
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		close(waitCh)
-		gostream.StreamSource(ctx, source, stream)
+		opts := &webstream.BackoffTuningOptions{
+			BaseSleep: 50 * time.Microsecond,
+			MaxSleep:  2 * time.Second,
+		}
+		webstream.StreamSource(ctx, source, stream, opts)
 	})
 	<-waitCh
 }
@@ -871,7 +876,10 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		return fmt.Errorf("unable to route foreign message due to invalid name field %v", name)
 	}
 
-	fqName := resource.Name{foundType.Subtype, name}
+	fqName := resource.Name{
+		Subtype: foundType.Subtype,
+		Remote:  "", Name: name,
+	}
 
 	resource, err := svc.r.ResourceByName(fqName)
 	if err != nil {
