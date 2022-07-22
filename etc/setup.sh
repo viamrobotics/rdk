@@ -27,7 +27,7 @@ do_bullseye(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web && apt-get clean
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web ffmpeg && apt-get clean
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
@@ -150,11 +150,12 @@ do_brew(){
 	brew "pkg-config"
 	brew "tensorflowlite"
 	brew "ffmpeg"
+
 	# pinned
 	brew "gcc@11"
 	brew "go@1.18"
 	brew "node@18"
-	brew "protobuf@3.19"
+	brew "protobuf@3"
 
 	EOS
 
@@ -162,9 +163,11 @@ do_brew(){
 		exit 1
 	fi
 
-	brew uninstall "go@1.17" "node@16"
+	brew uninstall "go@1.17"
+	brew uninstall "node@16"
+	brew uninstall "protobuf@3.19"
 	brew unlink "gcc" "go" "node" "protobuf"
-	brew link --overwrite "gcc@11" "go@1.18" "node@18" "protobuf@3.19" || exit 1
+	brew link --overwrite "gcc@11" "go@1.18" "node@18" "protobuf@3" || exit 1
 
 	echo "Brew installed software versions..."
 	brew list --version
