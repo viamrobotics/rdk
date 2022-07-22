@@ -98,10 +98,9 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
-		testPose := spatialmath.NewPoseFromAxisAngle(
+		testPose := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
-			r3.Vector{X: 0., Y: 1., Z: 0.},
-			math.Pi/2,
+			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 		transformMsgs := []*commonpb.Transform{
 			{

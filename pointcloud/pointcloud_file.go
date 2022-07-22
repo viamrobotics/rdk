@@ -375,7 +375,7 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 
 	switch name {
 	case "VERSION":
-		if value != ".7" { // This can be expanded later if desired, though I doubt we will need/want that
+		if value != ".7" && value != "0.7" { // This can be expanded later if desired, though I doubt we will need/want that
 			return fmt.Errorf("unsupported pcd version %s", value)
 		}
 	case "FIELDS":
@@ -436,7 +436,7 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 				return fmt.Errorf("invalid VIEWPOINT field %s: %w", token, err)
 			}
 		}
-		pcdHeader.viewpoint = spatialmath.NewPoseFromOrientationVector(
+		pcdHeader.viewpoint = spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: viewpoint[0], Y: viewpoint[1], Z: viewpoint[2]},
 			spatialmath.QuatToOV(quat.Number{Real: viewpoint[3], Imag: viewpoint[4], Jmag: viewpoint[5], Kmag: viewpoint[6]}),
 		)
@@ -458,6 +458,8 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 			pcdHeader.data = PCDBinary
 		case "binary_compressed":
 			pcdHeader.data = PCDCompressed
+		default:
+			return fmt.Errorf("unsupported data type %s", value)
 		}
 	}
 
