@@ -1,0 +1,34 @@
+{
+  "components":
+  [
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock1",
+      "type": "mock",
+      "attributes":{
+        "inferred_dep" :["mock2","mock3"]
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock3",
+      "type": "mock"
+    },
+    {
+      "model": "${TEST_MODEL_NAME_2-fake2}",
+      "name": "mock4",
+      "type": "mock",
+      "depends_on" : ["mock7"]
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake1}",
+      "name": "mock5",
+      "type": "mock"
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake1}",
+      "name": "mock2",
+      "type": "mock"
+    }
+  ]
+}
