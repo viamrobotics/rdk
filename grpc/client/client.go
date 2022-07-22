@@ -58,6 +58,8 @@ type RobotClient struct {
 	cancelBackgroundWorkers func()
 	logger                  golog.Logger
 
+	notifyParent func()
+
 	closeContext context.Context
 }
 
@@ -79,6 +81,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		logger:                  logger,
 		closeContext:            closeCtx,
 		dialOptions:             rOpts.dialOptions,
+		notifyParent:            nil,
 	}
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
@@ -111,6 +114,13 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	}
 
 	return rc, nil
+}
+
+// SetParentNotifier set the notifier function, robot client will use that the relay changes.
+func (rc *RobotClient) SetParentNotifier(f func()) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	rc.notifyParent = f
 }
 
 // Connected exposes whether a robot client is connected to the remote.
@@ -152,6 +162,9 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	rc.connected = true
 	if rc.changeChan != nil {
 		rc.changeChan <- true
+	}
+	if rc.notifyParent != nil {
+		rc.notifyParent()
 	}
 	return nil
 }
@@ -218,6 +231,9 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 				if rc.changeChan != nil {
 					rc.changeChan <- true
 				}
+				if rc.notifyParent != nil {
+					rc.notifyParent()
+				}
 				rc.mu.Unlock()
 			}
 		}
@@ -282,7 +298,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
-	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
+	nameR := name.ShortName()
+	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
 	return resourceClient, nil
 }
 
@@ -385,11 +402,10 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	}
 	names := make([]resource.Name, 0, len(rc.resourceNames))
 	for _, v := range rc.resourceNames {
+		rName := resource.NewName(v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name)
 		names = append(
 			names,
-			resource.NewName(
-				v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name,
-			),
+			rName.PrependRemote(v.Remote),
 		)
 	}
 	return names

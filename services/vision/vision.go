@@ -76,6 +76,12 @@ var Subtype = resource.NewSubtype(
 // Name is the Vision Service's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
+// Named is a helper for getting the named vision's typed resource name.
+// RSDK-347 Implements vision's Named.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
+
 // FromRobot retrieves the vision service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
 	resource, err := r.ResourceByName(Name)
@@ -248,4 +254,16 @@ func (vs *visionService) registerSegmenterFromDetector(detName string, logger go
 		return err
 	}
 	return vs.segReg.registerSegmenter(detName, SegmenterRegistration{detSegmenter, params}, logger)
+}
+
+// Close removes all existing detectors from the vision service.
+func (vs *visionService) Close() error {
+	detectors := vs.detReg.detectorNames()
+	for _, detectorName := range detectors {
+		err := vs.detReg.removeDetector(detectorName, vs.logger)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

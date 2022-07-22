@@ -42,7 +42,7 @@ func NewArm(cfg config.Component) (arm.LocalArm, error) {
 	return &Arm{
 		Name:     name,
 		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}},
 		model:    model,
 	}, nil
 }
@@ -63,29 +63,29 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 }
 
 // GetEndPosition returns the set position.
-func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	return a.position, nil
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose, worldState *commonpb.WorldState) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	a.position = c
 	return nil
 }
 
 // MoveToJointPositions sets the joints.
-func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
 	a.joints = joints
 	return nil
 }
 
 // GetJointPositions returns the set joints.
-func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	return a.joints, nil
 }
 
 // Stop doesn't do anything for a fake arm.
-func (a *Arm) Stop(ctx context.Context) error {
+func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
@@ -96,16 +96,16 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
 }
 
 // Close does nothing.

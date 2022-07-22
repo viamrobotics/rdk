@@ -111,9 +111,11 @@ type limoBase struct {
 
 // Config is how you configure a limo base.
 type Config struct {
-	DriveMode    string       `json:"drive_mode"`
-	SerialDevice string       `json:"serial_device"` // path to /dev/ttyXXXX file
-	TestChan     chan []uint8 // TestChan is a fake "serial" path for test use only
+	DriveMode    string `json:"drive_mode"`
+	SerialDevice string `json:"serial_device"` // path to /dev/ttyXXXX file
+
+	// TestChan is a fake "serial" path for test use only
+	TestChan chan []uint8 `json:"-"`
 }
 
 // CreateLimoBase returns a AgileX limo base.
@@ -412,6 +414,16 @@ func (base *limoBase) Stop(ctx context.Context) error {
 	}
 	base.opMgr.CancelRunning(ctx)
 	return nil
+}
+
+func (base *limoBase) IsMoving(ctx context.Context) (bool, error) {
+	base.controller.logger.Debug("IsMoving()")
+	base.stateMutex.Lock()
+	defer base.stateMutex.Unlock()
+	if base.state.velocityLinearGoal.ApproxEqual(r3.Vector{}) && base.state.velocityAngularGoal.ApproxEqual(r3.Vector{}) {
+		return false, nil
+	}
+	return true, nil
 }
 
 // Do executes additional commands beyond the Base{} interface.

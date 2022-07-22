@@ -34,7 +34,7 @@
       <template v-slot:content>
         <div class="" :style="{ height: maxHeight + 'px' }">
           <div
-            class="border border-black p-4 grid grid-cols-1"
+            class="border border-black border-t-0 p-4 grid grid-cols-1"
             :style="{ maxHeight: maxHeight + 'px' }"
           >
             <div class="grid">
