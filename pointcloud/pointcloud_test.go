@@ -72,3 +72,36 @@ func TestPointCloudBasic(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "z component")
 }
+
+func TestPointCloudCentroid(t *testing.T) {
+	var point r3.Vector
+	var data Data
+	pc := New()
+
+	test.That(t, pc.Size(), test.ShouldResemble, 0)
+	test.That(t, CloudCentroid(pc), test.ShouldResemble, r3.Vector{0, 0, 0})
+
+	point = NewVector(10, 100, 1000)
+	data = NewValueData(1)
+	test.That(t, pc.Set(point, data), test.ShouldBeNil)
+	test.That(t, pc.Size(), test.ShouldResemble, 1)
+	test.That(t, CloudCentroid(pc), test.ShouldResemble, point)
+
+	point = NewVector(20, 200, 2000)
+	data = NewValueData(2)
+	test.That(t, pc.Set(point, data), test.ShouldBeNil)
+	test.That(t, pc.Size(), test.ShouldResemble, 2)
+	test.That(t, CloudCentroid(pc), test.ShouldResemble, r3.Vector{15, 150, 1500})
+
+	point = NewVector(30, 300, 3000)
+	data = NewValueData(3)
+	test.That(t, pc.Set(point, data), test.ShouldBeNil)
+	test.That(t, pc.Size(), test.ShouldResemble, 3)
+	test.That(t, CloudCentroid(pc), test.ShouldResemble, r3.Vector{20, 200, 2000})
+
+	point = NewVector(30, 300, 3000)
+	data = NewValueData(3)
+	test.That(t, pc.Set(point, data), test.ShouldBeNil)
+	test.That(t, pc.Size(), test.ShouldResemble, 3)
+	test.That(t, CloudCentroid(pc), test.ShouldResemble, r3.Vector{20, 200, 2000})
+}
