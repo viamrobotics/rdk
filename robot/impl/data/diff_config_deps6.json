@@ -21,6 +21,14 @@
     },
     {
       "model": "fake",
+      "name": "m1",
+      "type": "motor",
+      "attributes":{
+        "pwm_freq" : 4000
+      }
+    },
+    {
+      "model": "fake",
       "name": "m4",
       "type": "motor",
       "depends_on" : ["board3"],

@@ -86,7 +86,7 @@
       "depends_on" : ["mock2"],
       "attributes":
       {
-        "blo":10
+        "blah":10
       }
     }
   ],
