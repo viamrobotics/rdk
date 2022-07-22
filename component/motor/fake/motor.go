@@ -284,7 +284,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
 	if m.Encoder == (Encoder{}) {
 		return errors.New("encoder is not defined")
 	}
-	
+
 	if m.MaxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
