@@ -38,15 +38,14 @@ func (cloud *basicPointCloud) At(x, y, z float64) (Data, bool) {
 
 // Set validates that the point can be precisely stored before setting it in the cloud.
 func (cloud *basicPointCloud) Set(p r3.Vector, d Data) error {
+	_, pointExists := cloud.At(p.X, p.Y, p.Z)
 	if err := cloud.points.Set(p, d); err != nil {
 		return err
 	}
-	cloud.meta.Merge(p, d)
+	if !pointExists {
+		cloud.meta.Merge(p, d)
+	}
 	return nil
-}
-
-func (cloud *basicPointCloud) Unset(x, y, z float64) {
-	cloud.points.Unset(x, y, z)
 }
 
 func (cloud *basicPointCloud) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool) {
