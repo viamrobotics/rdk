@@ -79,21 +79,23 @@ type PointCloudSource interface {
 }
 
 // GetProjector either gets the camera parameters from the config, or if the camera has a parent source,
-// can copy over the projector from there. If the camera doesn't have a projector, just return nil.
-func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) rimage.Projector {
+// can copy over the projector from there. If the camera doesn't have a projector, will return false.
+func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) (rimage.Projector, bool) {
 	// if the camera parameters are specified in the config, those get priority.
 	if attrs != nil && attrs.CameraParameters != nil {
-		return attrs.CameraParameters
+		return attrs.CameraParameters, true
 	}
 	// inherit camera parameters from source camera if possible.
 	if parentSource != nil {
 		proj, err := parentSource.GetProperties(ctx)
-		if err != nil && !errors.Is(err, transform.ErrNoIntrinsics) {
+		if errors.Is(err, transform.ErrNoIntrinsics) {
+			return nil, false
+		} else if err != nil {
 			panic(err)
 		}
-		return proj
+		return proj, true
 	}
-	return nil
+	return nil, false
 }
 
 // New creates a Camera either with or without a projector.

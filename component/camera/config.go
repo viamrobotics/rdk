@@ -21,7 +21,7 @@ const (
 
 // NewUnsupportedStreamError is when the stream type is unknown.
 func NewUnsupportedStreamError(s StreamType) error {
-	return errors.Errorf("stream of type %q not supported", string(s))
+	return errors.Errorf("stream of type %q not supported", s)
 }
 
 // AttrConfig is exported to be used as an attribute map for settings common to all camera types.
