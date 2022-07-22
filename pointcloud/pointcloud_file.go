@@ -436,7 +436,7 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 				return fmt.Errorf("invalid VIEWPOINT field %s: %w", token, err)
 			}
 		}
-		pcdHeader.viewpoint = spatialmath.NewPoseFromOrientationVector(
+		pcdHeader.viewpoint = spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: viewpoint[0], Y: viewpoint[1], Z: viewpoint[2]},
 			spatialmath.QuatToOV(quat.Number{Real: viewpoint[3], Imag: viewpoint[4], Jmag: viewpoint[5], Kmag: viewpoint[6]}),
 		)

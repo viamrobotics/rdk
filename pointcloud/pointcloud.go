@@ -16,9 +16,10 @@ type MetaData struct {
 	HasColor bool
 	HasValue bool
 
-	MinX, MaxX float64
-	MinY, MaxY float64
-	MinZ, MaxZ float64
+	MinX, MaxX             float64
+	MinY, MaxY             float64
+	MinZ, MaxZ             float64
+	totalX, totalY, totalZ float64
 }
 
 // PointCloud is a general purpose container of points. It does not
@@ -33,10 +34,6 @@ type PointCloud interface {
 
 	// Set places the given point in the cloud.
 	Set(p r3.Vector, d Data) error
-
-	// Unset removes a point from the cloud exists at the given position.
-	// If the point does not exist, this does nothing.
-	Unset(x, y, z float64)
 
 	// At returns the point in the cloud at the given position.
 	// The 2nd return is if the point exists, the first is data if any.
@@ -53,12 +50,15 @@ type PointCloud interface {
 // NewMetaData creates a new MetaData.
 func NewMetaData() MetaData {
 	return MetaData{
-		MinX: math.MaxFloat64,
-		MinY: math.MaxFloat64,
-		MinZ: math.MaxFloat64,
-		MaxX: -math.MaxFloat64,
-		MaxY: -math.MaxFloat64,
-		MaxZ: -math.MaxFloat64,
+		MinX:   math.MaxFloat64,
+		MinY:   math.MaxFloat64,
+		MinZ:   math.MaxFloat64,
+		MaxX:   -math.MaxFloat64,
+		MaxY:   -math.MaxFloat64,
+		MaxZ:   -math.MaxFloat64,
+		totalX: 0,
+		totalY: 0,
+		totalZ: 0,
 	}
 }
 
@@ -92,10 +92,30 @@ func (meta *MetaData) Merge(v r3.Vector, data Data) {
 	if v.Z < meta.MinZ {
 		meta.MinZ = v.Z
 	}
+
+	// Add to totals for centroid calculation.
+	meta.totalX += v.X
+	meta.totalY += v.Y
+	meta.totalZ += v.Z
 }
 
 // CloudContains is a silly helper method.
 func CloudContains(cloud PointCloud, x, y, z float64) bool {
 	_, got := cloud.At(x, y, z)
 	return got
+}
+
+// CloudCentroid returns the centroid of a pointcloud as a vector.
+func CloudCentroid(pc PointCloud) r3.Vector {
+	if pc.Size() == 0 {
+		// This is done to match the centroids provided by GetObjectPointClouds.
+		// Returning {NaN, NaN, NaN} is probably more correct, but this matches
+		// Previous behavior.
+		return r3.Vector{}
+	}
+	return r3.Vector{
+		X: pc.MetaData().totalX / float64(pc.Size()),
+		Y: pc.MetaData().totalY / float64(pc.Size()),
+		Z: pc.MetaData().totalZ / float64(pc.Size()),
+	}
 }
