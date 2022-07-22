@@ -1306,8 +1306,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldResemble, rutils.NewResourceNotFoundError(base.Named("fake0")).Error())
 	test.That(t, noBase, test.ShouldBeNil)
 
-	err = r.Reconfigure(ctx, goodConfig)
-	test.That(t, err, test.ShouldBeNil)
+	r.Reconfigure(ctx, goodConfig)
 
 	yesBase, err := r.ResourceByName(base.Named("fake0"))
 	test.That(t, err, test.ShouldBeNil)
