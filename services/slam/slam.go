@@ -194,9 +194,15 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 		if time.Since(startTime) >= cameraValidationMaxTimeoutSec*time.Second {
 			return errors.Wrap(err, "error getting data in desired mode")
 		}
-
 		if !goutils.SelectContextOrWait(ctx, cameraValidationIntervalSec*time.Second) {
 			return ctx.Err()
+		}
+	}
+
+	// For ORBSLAM, generate a new yaml file based off the camera configuration and presence of maps
+	if strings.Contains(slamSvc.slamLib.AlgoName, "orbslamv3") {
+		if err = slamSvc.orbGenYAML(ctx, cam); err != nil {
+			return errors.Wrap(err, "error generating .yaml config")
 		}
 	}
 
@@ -254,7 +260,7 @@ type slamService struct {
 
 // configureCamera will check the config to see if a camera is desired and if so, grab the camera from
 // the robot as well as get the intrinsic associated with it.
-func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, camera.Camera, error) {
+func configureCamera(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, camera.Camera, error) {
 	var cam camera.Camera
 	var cameraName string
 	var err error
@@ -266,11 +272,19 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 			return "", nil, errors.Wrap(err, "error getting camera for slam service")
 		}
 
-		proj := camera.Projector(cam) // will be nil if no intrinsics
-		if proj != nil {
-			_, ok := proj.(*transform.PinholeCameraIntrinsics)
+		proj, err := cam.GetProperties(ctx)
+		if err != nil {
+			// LiDAR do not have intrinsic parameters and only send point clouds,
+			// so no error should occur here, just inform the user
+			logger.Debug("No camera features found, user possibly using LiDAR")
+		} else {
+			intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 			if !ok {
-				return "", nil, errors.New("error camera intrinsics were not defined properly")
+				return "", nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
+			}
+			err = intrinsics.CheckValid()
+			if err != nil {
+				return "", nil, err
 			}
 		}
 	} else {
@@ -379,7 +393,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	cameraName, cam, err := configureCamera(svcConfig, r, logger)
+	cameraName, cam, err := configureCamera(ctx, svcConfig, r, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
@@ -729,6 +743,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 func createTimestampFilename(cameraName, dataDirectory, fileType string) string {
+	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
 
