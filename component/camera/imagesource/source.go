@@ -101,8 +101,9 @@ type dualServerSource struct {
 // dualServerAttrs is the attribute struct for dualServerSource.
 type dualServerAttrs struct {
 	*camera.AttrConfig
-	Color string `json:"color"`
-	Depth string `json:"depth"`
+	Color                   string `json:"color"`
+	Depth                   string `json:"depth"`
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 // newDualServerSource creates the ImageSource that streams color/depth/both data from two external servers, one for each channel.
@@ -146,26 +147,25 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	var errColor error
 	var errDepth error
 	// do a parallel request for the color and depth image
-	wg := sync.WaitGroup{}
 	// get color image
-	wg.Add(1)
-	go func(ctx context.Context) {
-		defer wg.Done()
+	ds.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer ds.activeBackgroundWorkers.Done()
 		color, errColor = readColorURL(ctx, ds.client, ds.ColorURL)
-	}(ctx)
+		if errColor != nil {
+			panic(errColor)
+		}
+	})
 	// get depth image
-	wg.Add(1)
-	go func(ctx context.Context) {
-		defer wg.Done()
+	ds.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer ds.activeBackgroundWorkers.Done()
 		depth, errDepth = readDepthURL(ctx, ds.client, ds.DepthURL)
-	}(ctx)
-	wg.Wait()
-	if errColor != nil {
-		return nil, errColor
-	}
-	if errDepth != nil {
-		return nil, errDepth
-	}
+		if errColor != nil {
+			panic(errDepth)
+		}
+	})
+	ds.activeBackgroundWorkers.Wait()
 	return ds.Intrinsics.RGBDToPointCloud(color, depth)
 }
 
