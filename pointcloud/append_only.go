@@ -34,10 +34,6 @@ func (pc *appendOnlyOnlyPointsPointCloud) Set(p r3.Vector, d Data) error {
 	return nil
 }
 
-func (pc *appendOnlyOnlyPointsPointCloud) Unset(x, y, z float64) {
-	panic("can't Unset appendOnlyOnlyPointsPointCloud")
-}
-
 func (pc *appendOnlyOnlyPointsPointCloud) At(x, y, z float64) (Data, bool) {
 	panic("can't At appendOnlyOnlyPointsPointCloud")
 }
