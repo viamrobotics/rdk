@@ -545,8 +545,5 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 		e = append(e, p)
 	}
 	_, err := rc.client.StopAll(ctx, &pb.StopAllRequest{Extra: e})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
