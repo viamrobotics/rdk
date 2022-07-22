@@ -183,8 +183,8 @@ func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{
 	}
 
 	positions := make([]float64, 0, len(a.JointOrder()))
-	for i, jointName := range a.JointOrder() {
-		positions[i] = servoPosToValues(angleMap[jointName])
+	for _, jointName := range a.JointOrder() {
+		positions = append(positions, servoPosToValues(angleMap[jointName]))
 	}
 
 	return &pb.JointPositions{Values: positions}, nil
@@ -246,7 +246,7 @@ func (a *Arm) GetAllAngles() (map[string]float64, error) {
 			}
 			angleSum += pos
 		}
-		angleMean := float64(angleSum / len(servos))
+		angleMean := float64(angleSum) / float64(len(servos))
 		angles[jointName] = angleMean
 	}
 	return angles, nil
