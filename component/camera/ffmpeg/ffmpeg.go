@@ -24,7 +24,7 @@ import (
 // AttrConfig is the attribute struct for ffmpeg cameras.
 type AttrConfig struct {
 	*camera.AttrConfig
-	Source       string                 `json:"source"`
+	VideoPath    string                 `json:"video_path"`
 	InputKWArgs  map[string]interface{} `json:"input_kw_args"`
 	Filters      []FilterAttrs          `json:"filters"`
 	OutputKWArgs map[string]interface{} `json:"output_kw_args"`
@@ -104,7 +104,7 @@ func NewFFMPEGCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, err
 	var ffmpegErr atomic.Value
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
-		stream := ffmpeg.Input(attrs.Source, attrs.InputKWArgs)
+		stream := ffmpeg.Input(attrs.VideoPath, attrs.InputKWArgs)
 		for _, filter := range attrs.Filters {
 			stream = stream.Filter(filter.Name, filter.Args, filter.KWArgs)
 		}
