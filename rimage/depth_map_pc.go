@@ -46,10 +46,6 @@ func (dm *dmPointCloudAdapter) Set(p r3.Vector, d pointcloud.Data) error {
 	return errors.New("dmPointCloudAdapter doesn't support Set")
 }
 
-func (dm *dmPointCloudAdapter) Unset(x, y, z float64) {
-	panic("dmPointCloudAdapter doesn't support Unset")
-}
-
 func (dm *dmPointCloudAdapter) At(x, y, z float64) (pointcloud.Data, bool) {
 	panic(7)
 }
@@ -74,4 +70,3 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Ve
 		}
 	}
 }
-
