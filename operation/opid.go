@@ -3,6 +3,7 @@ package operation
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +13,11 @@ import (
 type opidKeyType string
 
 const opidKey = opidKeyType("opid")
+
+var methodPrefixesToFilter = [...]string{
+	"/proto.rpc.webrtc.v1.SignalingService",
+	"/proto.api.robot.v1.RobotService/StreamStatus",
+}
 
 // Operation is an operation happening on the server.
 type Operation struct {
@@ -113,6 +119,12 @@ func (m *Manager) Create(ctx context.Context, method string, args interface{}) (
 		panic("operations cannot be nested")
 	}
 
+	for _, val := range methodPrefixesToFilter {
+		if strings.HasPrefix(method, val) {
+			return ctx, func() {}
+		}
+	}
+
 	op := &Operation{
 		ID:        uuid.New(),
 		Method:    method,
@@ -122,7 +134,6 @@ func (m *Manager) Create(ctx context.Context, method string, args interface{}) (
 	}
 	ctx = context.WithValue(ctx, opidKey, op)
 	ctx, op.cancel = context.WithCancel(ctx)
-
 	m.add(op)
 
 	return ctx, func() { op.cleanup() }
