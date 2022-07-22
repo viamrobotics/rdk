@@ -38,7 +38,7 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	withAgile := false
+	withAgile := true
 
 	if withAgile {
 		robot, err := client.New(
@@ -84,6 +84,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		start := make([]float64, 3)
 		next := make([]float64, 3)
 
+		savePath(d, waypoints)
+
 
 		for i, wp := range waypoints {
 			if i == 0 {
@@ -102,10 +104,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 				fmt.Println("start: ", start)
 				fmt.Println("next: ", next)
-
-				// fmt.Println("angle1: ", fixAngle(dubinsPath[0]))
-				// fmt.Println("straight: ", dubinsPath[2])
-				// fmt.Println("angle2: ", fixAngle(dubinsPath[1]))
 
 				MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
 
@@ -166,6 +164,8 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
 			pathOptions := d.AllOptions(start, next, true)[0]
 
 			dubinsPath := pathOptions.DubinsPath
+			fmt.Println("FINALPATH: ", dubinsPath)
+
 
 			sstra := "0"
 			last := fixAngle(dubinsPath[2], withAgile)
@@ -196,14 +196,6 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
 
 func fixAngle(ang float64, withAgile bool) float64 {
 	// angle should be between principle of values: -90 to 90 degrees
-	for ang > math.Pi/2 {
-		ang -= 2*math.Pi
-	}
-
-	for ang < -math.Pi {
-		ang += 2*math.Pi
-	}
-
 	if !withAgile {
 		return ang
 	}
