@@ -11,9 +11,9 @@ import (
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
+	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
-	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/gps"
@@ -54,11 +54,14 @@ func init() {
 // SerialNMEAGPS allows the use of any GPS chip that communicates over serial.
 type SerialNMEAGPS struct {
 	generic.Unimplemented
-	mu             sync.RWMutex
-	dev            io.ReadWriteCloser
-	logger         golog.Logger
-	path           string
-	correctionPath string
+	mu                 sync.RWMutex
+	dev                io.ReadWriteCloser
+	logger             golog.Logger
+	path               string
+	correctionPath     string
+	baudRate           uint
+	correctionBaudRate uint
+	disableNmea        bool
 
 	data                    gpsData
 	cancelCtx               context.Context
@@ -67,8 +70,11 @@ type SerialNMEAGPS struct {
 }
 
 const (
-	pathAttrName       = "path"
-	correctionAttrName = "correction_path"
+	pathAttrName           = "path"
+	correctionAttrName     = "correction_path"
+	baudRateName           = "baud_rate"
+	correctionBaudRateName = "correction_baud"
+	disableNmeaName        = "disable_nmea"
 )
 
 func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (nmeaGPS, error) {
@@ -79,8 +85,32 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	correctionPath := config.Attributes.String(correctionAttrName)
 	if correctionPath == "" {
 		correctionPath = serialPath
+		logger.Info("SerialNMEAGPS: correction_path using path")
 	}
-	dev, err := serial.Open(serialPath)
+	baudRate := config.Attributes.Int(baudRateName, 0)
+	if baudRate == 0 {
+		baudRate = 9600
+		logger.Info("SerialNMEAGPS: baud_rate using default 9600")
+	}
+	correctionBaudRate := config.Attributes.Int(correctionBaudRateName, 0)
+	if correctionBaudRate == 0 {
+		correctionBaudRate = baudRate
+		logger.Info("SerialNMEAGPS: correction_baud using baud_rate")
+	}
+	disableNmea := config.Attributes.Bool(disableNmeaName, false)
+	if disableNmea {
+		logger.Info("SerialNMEAGPS: NMEA reading disabled")
+	}
+
+	options := serial.OpenOptions{
+		PortName:        serialPath,
+		BaudRate:        uint(baudRate),
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 4,
+	}
+
+	dev, err := serial.Open(options)
 	if err != nil {
 		return nil, err
 	}
@@ -88,13 +118,16 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	g := &SerialNMEAGPS{
-		dev:            dev,
-		cancelCtx:      cancelCtx,
-		cancelFunc:     cancelFunc,
-		logger:         logger,
-		path:           serialPath,
-		correctionPath: correctionPath,
-		data:           gpsData{},
+		dev:                dev,
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		logger:             logger,
+		path:               serialPath,
+		correctionPath:     correctionPath,
+		baudRate:           uint(baudRate),
+		correctionBaudRate: uint(correctionBaudRate),
+		disableNmea:        disableNmea,
+		data:               gpsData{},
 	}
 
 	g.Start(ctx)
@@ -115,24 +148,26 @@ func (g *SerialNMEAGPS) Start(ctx context.Context) {
 			default:
 			}
 
-			line, err := r.ReadString('\n')
-			if err != nil {
-				g.logger.Fatalf("can't read gps serial %s", err)
-			}
-			// Update our struct's gps data in-place
-			g.mu.Lock()
-			err = g.data.parseAndUpdate(line)
-			g.mu.Unlock()
-			if err != nil {
-				g.logger.Debugf("can't parse nmea %s : %s", line, err)
+			if !g.disableNmea {
+				line, err := r.ReadString('\n')
+				if err != nil {
+					g.logger.Fatalf("can't read gps serial %s", err)
+				}
+				// Update our struct's gps data in-place
+				g.mu.Lock()
+				err = g.data.parseAndUpdate(line)
+				g.mu.Unlock()
+				if err != nil {
+					g.logger.Debugf("can't parse nmea %s : %s", line, err)
+				}
 			}
 		}
 	})
 }
 
-// GetCorrectionPath returns the serial path that takes in rtcm corrections.
-func (g *SerialNMEAGPS) GetCorrectionPath() string {
-	return g.correctionPath
+// GetCorrectionInfo returns the serial path that takes in rtcm corrections and baudrate for reading.
+func (g *SerialNMEAGPS) GetCorrectionInfo() (string, uint) {
+	return g.correctionPath, g.correctionBaudRate
 }
 
 // ReadLocation returns the current geographic location of the GPS.
@@ -203,6 +238,7 @@ func (g *SerialNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) 
 
 // Close shuts down the SerialNMEAGPS.
 func (g *SerialNMEAGPS) Close() error {
+	g.logger.Debug("Closing SerialNMEAGPS")
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 	g.mu.Lock()
@@ -212,6 +248,7 @@ func (g *SerialNMEAGPS) Close() error {
 			return err
 		}
 		g.dev = nil
+		g.logger.Debug("SerialNMEAGPS Closed")
 	}
 	return nil
 }
