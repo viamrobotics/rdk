@@ -51,7 +51,7 @@ jobs:
 
         NOW=$(date "+%s")
         CUTOFF_DATE=$(date -d"2022/07/25 00:00:00" "+%s")
-        if [ $NOW -gt $CUTOFF_DATE]; then
+        if [ "$NOW" -gt "$CUTOFF_DATE" ]; then
           echo "stop ignoring web/runtime-shared/static/control.js"
           exit 1
         fi
