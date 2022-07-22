@@ -20,8 +20,8 @@ build-go: buf-go
 
 build-web: buf-web
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
-	cd web/frontend/dls && npm ci && npm run build:prod && \
-	cd .. && npm ci && npx webpack build --config ./webpack.prod.js
+	cd web/frontend && npm ci --audit=false && npm run rollup
+	cd web/frontend && npm run build
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -45,13 +45,13 @@ buf-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s generate
 
 buf-web: tool-install
-	npm install
+	npm ci --audit=false
 	PATH=$(PATH_WITH_TOOLS) buf lint
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
 	PATH=$(PATH_WITH_TOOLS) buf generate --timeout 5m --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 
-lint: lint-go lint-web
+lint: lint-go
 
 lint-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
@@ -59,9 +59,8 @@ lint-go: tool-install
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
-lint-web:
-	cd web/frontend/dls && npm ci && npm run lint
-	cd web/frontend && npm ci && npm run lint
+lint-web: buf-web
+	cd web/frontend && npm ci --audit=false && npm run rollup && npm run lint
 
 cover:
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
@@ -72,7 +71,7 @@ test-go:
 	./etc/test.sh
 
 test-web: build-web
-	cd web/frontend/dls && npm run test:unit
+	cd web/frontend && npm run test:unit
 
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
