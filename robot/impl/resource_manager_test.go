@@ -1619,11 +1619,12 @@ func TestUpdateConfig(t *testing.T) {
 
 	local, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
-	err = manager.updateServices(ctx, []config.Service{svc1}, []config.Service{svc1}, &draftRobot{original: local})
+	newService, err := manager.processService(ctx, svc1, nil, local)
+	test.That(t, err, test.ShouldBeNil)
+	newService, err = manager.processService(ctx, svc1, newService, local)
 	test.That(t, err, test.ShouldBeNil)
 
-	resource := manager.resources.Nodes[svc1.ResourceName()]
-	mockRe, ok := resource.(*mock)
+	mockRe, ok := newService.(*mock)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, mockRe, test.ShouldNotBeNil)
 	test.That(t, mockRe.reconfigCount, test.ShouldEqual, 1)

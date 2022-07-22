@@ -32,12 +32,13 @@ var (
 
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
-	captureDir   = "/tmp/capture"
-	armDir       = captureDir + "/arm/arm1/GetEndPosition"
-	testSvcName1 = "svc1"
-	testSvcName2 = "svc2"
-	emptyFileBytesSize = 30     // size of leading metadata message
 
+	syncIntervalMins   = 0.0041 // 250ms
+	captureDir         = "/tmp/capture"
+	armDir             = captureDir + "/arm/arm1/GetEndPosition"
+	emptyFileBytesSize = 30 // size of leading metadata message
+	testSvcName1       = "svc1"
+	testSvcName2       = "svc2"
 )
 
 // readDir filters out folders from a slice of FileInfos.
@@ -544,7 +545,6 @@ func TestManualAndScheduledSync(t *testing.T) {
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 }
 
-
 func TestRegisteredReconfigurable(t *testing.T) {
 	s := registry.ResourceSubtypeLookup(datamanager.Subtype)
 	test.That(t, s, test.ShouldNotBeNil)
@@ -655,5 +655,4 @@ func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
 		return nil, errors.New("failed to get service config")
 	}
 	return svcConfig, nil
-
 }
