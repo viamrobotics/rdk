@@ -512,7 +512,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.closeCollectors()
 		return err
 	}
-
 	if cfg.Cloud != nil {
 		svc.partID = cfg.Cloud.ID
 	}
@@ -541,7 +540,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	toggledSyncOff := toggledSync && svc.syncDisabled
 	toggledSyncOn := toggledSync && !svc.syncDisabled
 
-	// If sync has been toggled on, we synced the previous file and create a new one.
+	// If sync has been toggled on, sync previously captured files and update the capture directory.
 	updateCaptureDir := (svc.captureDir != svcConfig.CaptureDir) || toggledSyncOn
 	svc.captureDir = svcConfig.CaptureDir
 
