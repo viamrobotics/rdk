@@ -15,7 +15,7 @@ func TestFFmpegCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	path := artifact.MustPath("component/camera/ffmpeg/testsrc.mpg")
-	cam, err := NewFFMPEGCamera(&AttrConfig{Source: path}, logger)
+	cam, err := NewFFMPEGCamera(&AttrConfig{VideoPath: path}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 5; i++ {
 		_, _, err := cam.Next(ctx)
