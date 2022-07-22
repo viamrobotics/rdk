@@ -23,6 +23,7 @@ func TestBasic(t *testing.T) {
 
 		o := Get(ctx2)
 		test.That(t, o, test.ShouldNotBeNil)
+		test.That(t, len(o.myManager.ops), test.ShouldNotEqual, 0)
 		test.That(t, o.ID.String(), test.ShouldNotEqual, "")
 		test.That(t, len(h.All()), test.ShouldEqual, 1)
 		test.That(t, h.All()[0].ID, test.ShouldEqual, o.ID)
@@ -45,5 +46,20 @@ func TestBasic(t *testing.T) {
 
 		test.That(t, ctx3.Err(), test.ShouldBeNil)
 		test.That(t, ctx2.Err(), test.ShouldNotBeNil)
+	}()
+
+	func() {
+		ctx4, cleanup4 := h.Create(ctx, "/proto.rpc.webrtc.v1.SignalingService/Answer", nil)
+		defer cleanup4()
+		ctx5, cleanup5 := h.Create(ctx, "/proto.api.robot.v1.RobotService/StreamStatus", nil)
+		defer cleanup5()
+
+		test.That(t, ctx4.Value(opidKey), test.ShouldBeNil)
+		test.That(t, ctx5.Value(opidKey), test.ShouldBeNil)
+
+		ctx6, cleanup6 := h.Create(ctx, "/proto.api.robot.v1.RobotService/", nil)
+		defer cleanup6()
+		o6 := Get(ctx6)
+		test.That(t, len(o6.myManager.ops), test.ShouldEqual, 1)
 	}()
 }
