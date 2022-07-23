@@ -1,12 +1,16 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
+	"math/rand"
 	"testing"
 
 	"go.viam.com/test"
 )
+
+func rr(r *rand.Rand) float64 {
+	return (r.Float64() * 4) - 2
+}
 
 func TestAxisAngleRoundTrip(t *testing.T) {
 	data := []R4AA{
@@ -14,6 +18,11 @@ func TestAxisAngleRoundTrip(t *testing.T) {
 		{1, 1, 0, 0},
 		{1, 0, 1, 0},
 		{1, 0, 0, 1},
+	}
+
+	r := rand.New(rand.NewSource(517))
+	for len(data) < 100 {
+		data = append(data, R4AA{rr(r), rr(r), rr(r), rr(r)})
 	}
 
 	// Quaternion [x, y, z, w]
@@ -40,10 +49,7 @@ func TestAxisAngleRoundTrip(t *testing.T) {
 			test.That(t, q.Imag, test.ShouldAlmostEqual, qc[idx][0], .00001)
 			test.That(t, q.Jmag, test.ShouldAlmostEqual, qc[idx][1], .00001)
 			test.That(t, q.Kmag, test.ShouldAlmostEqual, qc[idx][2], .00001)
-		} else {
-			fmt.Printf("%#v\n%#v\n---\n", d, q)
 		}
-
 	}
 }
 
@@ -53,6 +59,11 @@ func TestOrientationVectorRoundTrip(t *testing.T) {
 		{1, 1, 0, 0},
 		{1, 0, 1, 0},
 		{1, 0, 0, 1},
+	}
+
+	r := rand.New(rand.NewSource(517))
+	for len(data) < 100 {
+		data = append(data, OrientationVector{rr(r), rr(r), rr(r), rr(r)})
 	}
 
 	for _, d := range data {
@@ -73,12 +84,17 @@ func TestEulerRoundTrip(t *testing.T) {
 		{1, 0, 1},
 	}
 
+	r := rand.New(rand.NewSource(517))
+	for len(data) < 100 {
+		data = append(data, EulerAngles{rr(r), rr(r), rr(r)})
+	}
+
 	// Quaternion [x, y, z, w]
 	// from https://www.andre-gaschler.com/rotationconverter/
 	qc := [][]float64{
 		{0.4794255, 0, 0, 0.8775826},
-		{0.4207355, 0.4207355, 0.2298488, 0.7701512},
-		{0.4207355, -0.2298488, 0.4207355, 0.7701512},
+		{0.4207355, 0.4207355, -0.2298488, 0.7701512},
+		{0.4207355, 0.2298488, 0.4207355, 0.7701512},
 	}
 
 	for idx, d := range data {
@@ -93,12 +109,8 @@ func TestEulerRoundTrip(t *testing.T) {
 			test.That(t, q.Imag, test.ShouldAlmostEqual, qc[idx][0], .00001)
 			test.That(t, q.Jmag, test.ShouldAlmostEqual, qc[idx][1], .00001)
 			test.That(t, q.Kmag, test.ShouldAlmostEqual, qc[idx][2], .00001)
-		} else {
-			fmt.Printf("%#v\n%#v\n---\n", d, q)
 		}
-
 	}
-
 }
 
 func TestOVToEuler(t *testing.T) {
@@ -108,16 +120,13 @@ func TestOVToEuler(t *testing.T) {
 	}
 
 	data := []p{
-		{OrientationVectorDegrees{90, 0, 1, 0}, EulerAngles{math.Pi / 2, 0, 0}},
+		{OrientationVectorDegrees{90, 0, 1, 0}, EulerAngles{math.Pi / 2, 0, math.Pi}},
 	}
 
 	for _, d := range data {
 		e2 := d.ov.EulerAngles()
-		fmt.Printf("%#v\n%#v\n%#v\n---\n", d.ov, d.e, e2)
 		test.That(t, e2.Roll, test.ShouldAlmostEqual, d.e.Roll)
 		test.That(t, e2.Pitch, test.ShouldAlmostEqual, d.e.Pitch)
 		test.That(t, e2.Yaw, test.ShouldAlmostEqual, d.e.Yaw)
-
 	}
-
 }
