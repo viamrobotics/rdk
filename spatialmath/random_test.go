@@ -8,8 +8,12 @@ import (
 	"go.viam.com/test"
 )
 
-func rr(r *rand.Rand) float64 {
-	return (r.Float64() * 4) - 2
+func rr(r *rand.Rand, rng float64) float64 {
+	return (r.Float64() * rng) - (rng / 2)
+}
+
+func rrpi(r *rand.Rand) float64 {
+	return rr(r, math.Pi)
 }
 
 func TestAxisAngleRoundTrip(t *testing.T) {
@@ -22,7 +26,7 @@ func TestAxisAngleRoundTrip(t *testing.T) {
 
 	r := rand.New(rand.NewSource(517))
 	for len(data) < 100 {
-		data = append(data, R4AA{rr(r), rr(r), rr(r), rr(r)})
+		data = append(data, R4AA{rrpi(r), rrpi(r), rrpi(r), rrpi(r)})
 	}
 
 	// Quaternion [x, y, z, w]
@@ -36,9 +40,13 @@ func TestAxisAngleRoundTrip(t *testing.T) {
 
 	for idx, d := range data {
 		d.Normalize()
+		d.fixOrientation()
+
 		q := Quaternion(d.Quaternion())
 
 		d2 := q.AxisAngles()
+		d2.fixOrientation() // TODO(bijan): should this be in AxisAngles
+
 		test.That(t, d2.Theta, test.ShouldAlmostEqual, d.Theta)
 		test.That(t, d2.RX, test.ShouldAlmostEqual, d.RX)
 		test.That(t, d2.RY, test.ShouldAlmostEqual, d.RY)
@@ -63,7 +71,7 @@ func TestOrientationVectorRoundTrip(t *testing.T) {
 
 	r := rand.New(rand.NewSource(517))
 	for len(data) < 100 {
-		data = append(data, OrientationVector{rr(r), rr(r), rr(r), rr(r)})
+		data = append(data, OrientationVector{rrpi(r), rrpi(r), rrpi(r), rrpi(r)})
 	}
 
 	for _, d := range data {
@@ -86,7 +94,7 @@ func TestEulerRoundTrip(t *testing.T) {
 
 	r := rand.New(rand.NewSource(517))
 	for len(data) < 100 {
-		data = append(data, EulerAngles{rr(r), rr(r), rr(r)})
+		data = append(data, EulerAngles{rrpi(r), rrpi(r), rrpi(r)})
 	}
 
 	// Quaternion [x, y, z, w]
