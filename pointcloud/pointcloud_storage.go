@@ -8,7 +8,6 @@ import (
 type storage interface {
 	Size() int
 	Set(p r3.Vector, d Data) error
-	Unset(x, y, z float64)
 	At(x, y, z float64) (Data, bool)
 	Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool)
 	EditSupported() bool
@@ -47,10 +46,6 @@ func (ms *mapStorage) Set(v r3.Vector, d Data) error {
 	}
 	ms.points[v] = d
 	return nil
-}
-
-func (ms *mapStorage) Unset(x, y, z float64) {
-	delete(ms.points, r3.Vector{x, y, z})
 }
 
 func (ms *mapStorage) At(x, y, z float64) (Data, bool) {
