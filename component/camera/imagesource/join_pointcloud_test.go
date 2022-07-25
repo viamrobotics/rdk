@@ -336,16 +336,20 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 }
 
 func TestFixedPointCloudICP(t *testing.T) {
+	ctx := context.Background()
 	r := makeFakeRobotICP(t)
 	// PoV from base1
 	attrs := &JoinAttrs{
+		AttrConfig: &camera.AttrConfig{
+			Stream: "",
+		},
 		SourceCameras: []string{"cam1", "cam2"},
 		TargetFrame:   "base1",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
+	joinedCam, err := newJoinPointCloudSource(ctx, r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
-	pc, err := joinedCam.NextPointCloud(context.Background())
+	pc, err := joinedCam.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 100)
 }
@@ -355,6 +359,9 @@ func TestTwinPointCloudICP(t *testing.T) {
 	r := makeFakeRobotICP(t)
 
 	attrs := &JoinAttrs{
+		AttrConfig: &camera.AttrConfig{
+			Stream: "",
+		},
 		SourceCameras: []string{"cam3", "cam4"},
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
@@ -378,6 +385,9 @@ func TestMultiPointCloudICP(t *testing.T) {
 	r := makeFakeRobotICP(t)
 
 	attrs := &JoinAttrs{
+		AttrConfig: &camera.AttrConfig{
+			Stream: "",
+		},
 		SourceCameras: []string{"cam3", "cam4", "cam5"},
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
