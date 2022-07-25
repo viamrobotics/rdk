@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils/artifact"
 )
 
-func TestFFmpegCamera(t *testing.T) {
+func TestFFMPEGCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	path := artifact.MustPath("component/camera/ffmpeg/testsrc.mpg")
@@ -24,7 +24,7 @@ func TestFFmpegCamera(t *testing.T) {
 	test.That(t, viamutils.TryClose(context.Background(), cam), test.ShouldBeNil)
 }
 
-func TestComputerWithoutFFmpeg(t *testing.T) {
+func TestFFMPEGNotFound(t *testing.T) {
 	oldpath := os.Getenv("PATH")
 	defer func() {
 		os.Setenv("PATH", oldpath)
