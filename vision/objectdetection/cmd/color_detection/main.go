@@ -4,10 +4,7 @@ import (
 	"context"
 	"flag"
 	"image"
-	"net"
-	"net/url"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -45,37 +42,19 @@ func main() {
 	}
 	if *imgPtr != "" {
 		src := &simpleSource{*imgPtr}
-		cam, err := camera.New(src, nil, nil)
+		cam, err := camera.New(src, nil)
 		if err != nil {
 			logger.Fatal(err)
 		}
 		pipeline(cam, *threshPtr, *sizePtr, *colorPtr, logger)
 	} else {
-		u, err := url.Parse(*urlPtr)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		logger.Infof("url parse: %v", u)
-		host, port, err := net.SplitHostPort(u.Host)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		args := u.Path + "?" + u.RawQuery
-		logger.Infof("host: %s, port: %s, args: %s", host, port, args)
-		portNum, err := strconv.ParseInt(port, 0, 32)
-		if err != nil {
-			logger.Fatal(err)
-		}
 		cfg := &imagesource.ServerAttrs{
-			Host:    host,
-			Port:    int(portNum),
-			Args:    args,
-			Aligned: false,
+			URL: *urlPtr,
 			AttrConfig: &camera.AttrConfig{
 				Stream: *streamPtr,
 			},
 		}
-		src, err := imagesource.NewServerSource(cfg, logger)
+		src, err := imagesource.NewServerSource(context.Background(), cfg, logger)
 		if err != nil {
 			logger.Fatal(err)
 		}
