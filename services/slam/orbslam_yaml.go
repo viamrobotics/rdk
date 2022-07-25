@@ -130,7 +130,6 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 	if loadMapTimeStamp == "" {
 		loadMapTimeStamp = time.Now().UTC().Format("2006-01-02T15_04_05.0000")
 	} else {
-		// loadMapName := filepath.Join(slamSvc.dataDirectory, "map", slamSvc.cameraName+"_data_"+loadMapTimeStamp)
 		orbslam.LoadMapLoc = loadMapName
 	}
 	saveMapTimeStamp := time.Now().UTC().Format("2006-01-02T15_04_05.0000") // timestamp to save at end of run
