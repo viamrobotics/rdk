@@ -11,6 +11,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -19,7 +20,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
-	viamutils "go.viam.com/utils"
 )
 
 func init() {

@@ -19,10 +19,8 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-var (
-	// ErrNoIntrinsics is when a camera does not have intrinsics parameters or other parameters.
-	ErrNoIntrinsics = errors.New("camera intrinsic parameters are not available")
-)
+// ErrNoIntrinsics is when a camera does not have intrinsics parameters or other parameters.
+var ErrNoIntrinsics = errors.New("camera intrinsic parameters are not available")
 
 // NewNoIntrinsicsError is used when the intriniscs are not defined.
 func NewNoIntrinsicsError(msg string) error {
