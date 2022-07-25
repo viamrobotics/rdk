@@ -2669,6 +2669,16 @@
       }
     }
   },
+  "component": {
+    "camera": {
+      "ffmpeg": {
+        "testsrc.mpg": {
+          "hash": "3db8bb7ff7845790c0a770dc19b7dd46",
+          "size": 13914
+        }
+      }
+    }
+  },
   "compression_artifacts": {
     "chess_blur_0.png": {
       "hash": "24b19b768e75fc1a019f82b8c3722a92",

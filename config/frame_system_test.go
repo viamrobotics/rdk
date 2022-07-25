@@ -161,10 +161,9 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		test.That(t, part, test.ShouldBeNil)
 	})
 	t.Run("converts to frame system part", func(t *testing.T) {
-		testPose := spatial.NewPoseFromAxisAngle(
+		testPose := spatial.NewPoseFromOrientation(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
-			r3.Vector{X: 0., Y: 1., Z: 0.},
-			math.Pi/2,
+			&spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 1, RZ: 0},
 		)
 		transform := &commonpb.Transform{
 			ReferenceFrame: "child",
