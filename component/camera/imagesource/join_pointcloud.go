@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,9 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
-	"gonum.org/v1/gonum/diff/fd"
-	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/optimize"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/generic"
@@ -47,7 +45,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newJoinPointCloudSource(ctx, r, attrs)
+			return newJoinPointCloudSource(ctx, r, logger, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_pointclouds",
@@ -83,23 +81,12 @@ type (
 
 const (
 	// Null is a default value for the merge method.
-	Null MergeMethodType = ""
+	Null = MergeMethodType("")
 	// Naive is the naive merge method.
-	Naive MergeMethodType = "naive"
+	Naive = MergeMethodType("naive")
 	// ICP is the ICP merge method.
-	ICP MergeMethodType = "icp"
+	ICP = MergeMethodType("icp")
 )
-
-func readMergeMethodType(s string) (MergeMethodType, error) {
-	switch s {
-	case "naive", "":
-		return Naive, nil
-	case "icp":
-		return ICP, nil
-	default:
-		return Null, newMergeMethodUnsupportedError(s)
-	}
-}
 
 func newMergeMethodUnsupportedError(method string) MergeMethodUnsupportedError {
 	return errors.Errorf("merge method %s not supported", method)
@@ -116,11 +103,12 @@ type joinPointCloudSource struct {
 	robot         robot.Robot
 	stream        camera.StreamType
 	mergeMethod   MergeMethodType
+	logger        golog.Logger
 }
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
 // reference frame of targetName.
-func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
+func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger, attrs *JoinAttrs) (camera.Camera, error) {
 	joinSource := &joinPointCloudSource{}
 	// frame to merge from
 	joinSource.sourceCameras = make([]camera.Camera, len(attrs.SourceCameras))
@@ -138,11 +126,9 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttr
 	joinSource.robot = r
 	joinSource.stream = camera.StreamType(attrs.Stream)
 
-	mergeMethod, err := readMergeMethodType(attrs.MergeMethod)
-	if err != nil {
-		return nil, fmt.Errorf("invalid merge method (%s): %w", attrs.MergeMethod, err)
-	}
-	joinSource.mergeMethod = mergeMethod
+	joinSource.logger = l
+
+	joinSource.mergeMethod = MergeMethodType(attrs.MergeMethod)
 
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
 		proj, _ := camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx])
@@ -155,12 +141,10 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttr
 // and puts the points in one point cloud in the frame of targetFrame.
 func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	switch jpcs.mergeMethod {
-	case Naive:
+	case Naive, Null:
 		return jpcs.NextPointCloudNaive(ctx)
 	case ICP:
-		return jpcs.nextPointCloudICP(ctx)
-	case Null:
-		return jpcs.NextPointCloudNaive(ctx)
+		return jpcs.NextPointCloudICP(ctx)
 	default:
 		return nil, newMergeMethodUnsupportedError(string(jpcs.mergeMethod))
 	}
@@ -273,135 +257,9 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 	return pcTo, nil
 }
 
-type icpMergeResultInfo struct {
-	x0        []float64
-	optResult optimize.Result
-}
-
-func (jpcs *joinPointCloudSource) mergePointCloudsICP(ctx context.Context, sourceIndex int, fs *referenceframe.FrameSystem,
-	inputs *map[string][]referenceframe.Input, target *pointcloud.KDTree,
-) (pointcloud.PointCloud, icpMergeResultInfo, error) {
-	// This function registers a point cloud to the reference frame of a target point cloud.
-	// This is accomplished using ICP (Iterative Closest Point) to align the two point clouds.
-	// The loss function being used is the average distance between corresponding points in the registered point clouds.
-	// The optimization is performed using BFGS (Broyden-Fletcher-Goldfarb-Shanno)
-	// optimization on parameters representing a transformation matrix.
-
-	// nolint: ifshort
-	debug := false // In a future PR (when jpcs is a camera) this will be done with a param.
-	pcSrc, err := jpcs.sourceCameras[sourceIndex].NextPointCloud(ctx)
-	if err != nil {
-		return nil, icpMergeResultInfo{}, err
-	}
-
-	sourcePointList := make([]r3.Vector, pcSrc.Size())
-	nearestNeighborBuffer := make([]r3.Vector, pcSrc.Size())
-
-	var nearest r3.Vector
-	var index int
-	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		sourcePointList[index] = p
-		nearest, _, _, _ = target.NearestNeighbor(p)
-		nearestNeighborBuffer[index] = nearest
-		index++
-		return true
-	})
-	// create optimization problem
-	optFunc := func(x []float64) float64 {
-		// x is an 6-vector used to create a pose
-		point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
-		orient := spatialmath.EulerAngles{Roll: x[3], Pitch: x[4], Yaw: x[5]}
-
-		pose := spatialmath.NewPoseFromOrientation(point, &orient)
-
-		// compute the error
-		var dist float64
-		var currPose spatialmath.Pose
-		// TODO parallelize this
-		for i := 0; i < len(sourcePointList); i++ {
-			currPose = spatialmath.NewPoseFromPoint(sourcePointList[i])
-			transformedP := spatialmath.Compose(pose, currPose).Point()
-			nearest := nearestNeighborBuffer[i]
-			nearestNeighborBuffer[i], _, _, _ = target.NearestNeighbor(transformedP)
-			dist += math.Sqrt(math.Pow((transformedP.X-nearest.X), 2) +
-				math.Pow((transformedP.Y-nearest.Y), 2) +
-				math.Pow((transformedP.Z-nearest.Z), 2))
-		}
-
-		return dist / float64(pcSrc.Size())
-	}
-	grad := func(grad, x []float64) {
-		fd.Gradient(grad, optFunc, x, nil)
-	}
-	hess := func(h *mat.SymDense, x []float64) {
-		fd.Hessian(h, optFunc, x, nil)
-	}
-
-	sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[sourceIndex], spatialmath.NewZeroPose())
-	theTransform, err := (*fs).Transform(*inputs, sourceFrame, jpcs.targetName)
-	if err != nil {
-		return nil, icpMergeResultInfo{}, err
-	}
-	x0 := make([]float64, 6)
-	x0[0] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().X
-	x0[1] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Y
-	x0[2] = theTransform.(*referenceframe.PoseInFrame).Pose().Point().Z
-	x0[3] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Roll
-	x0[4] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Pitch
-	x0[5] = theTransform.(*referenceframe.PoseInFrame).Pose().Orientation().EulerAngles().Yaw
-
-	if debug {
-		utils.Logger.Debugf("x0 = %v", x0)
-	}
-
-	prob := optimize.Problem{Func: optFunc, Grad: grad, Hess: hess}
-
-	// setup optimizer
-	settings := &optimize.Settings{
-		GradientThreshold: 0,
-		Converger: &optimize.FunctionConverge{
-			Relative:   1e-10,
-			Absolute:   1e-10,
-			Iterations: 100,
-		},
-		MajorIterations: 100,
-		// Recorder:        optimize.NewPrinter(),
-	}
-
-	method := &optimize.BFGS{
-		Linesearcher: &optimize.Bisection{
-			CurvatureFactor: 0.9,
-		},
-	}
-
-	// run optimization
-	res, err := optimize.Minimize(prob, x0, settings, method)
-	if debug {
-		utils.Logger.Debugf("res = %v, err = %v", res, err)
-	}
-
-	x := res.Location.X
-
-	// create the new pose
-	point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
-	orient := spatialmath.EulerAngles{Roll: x[3], Pitch: x[4], Yaw: x[5]}
-	pose := spatialmath.NewPoseFromOrientation(point, &orient)
-
-	// transform the pointcloud
-	registeredPointCloud := pointcloud.NewWithPrealloc(pcSrc.Size())
-	pcSrc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		posePoint := spatialmath.NewPoseFromPoint(p)
-		transformedP := spatialmath.Compose(pose, posePoint).Point()
-		err := registeredPointCloud.Set(transformedP, d)
-		return err == nil
-	})
-
-	return registeredPointCloud, icpMergeResultInfo{x0: x0, optResult: *res}, nil
-}
-
-func (jpcs *joinPointCloudSource) nextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
-	debug := false // In a future PR (when jpcs is a camera) this will be done with a param.
-	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
+func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
+	debug := os.Getenv("VIAM_DEBUG") != "" // In a future PR (when jpcs is a camera) this will be done with a param.
+	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudICP")
 	defer span.End()
 
 	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
@@ -414,7 +272,7 @@ func (jpcs *joinPointCloudSource) nextPointCloudICP(ctx context.Context) (pointc
 		return nil, err
 	}
 
-	var targetIndex int
+	targetIndex := 0
 
 	for i, camName := range jpcs.sourceNames {
 		if camName == jpcs.targetName {
@@ -434,18 +292,30 @@ func (jpcs *joinPointCloudSource) nextPointCloudICP(ctx context.Context) (pointc
 			continue
 		}
 
-		registeredPointCloud, info, err := jpcs.mergePointCloudsICP(ctx, i, &fs, &inputs, finalPointCloud)
+		pcSrc, err := jpcs.sourceCameras[i].NextPointCloud(ctx)
 		if err != nil {
-			panic(err) // TODO(erh) is there something better to do?
+			return nil, err
+		}
+
+		sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[i], spatialmath.NewZeroPose())
+		theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
+		if err != nil {
+			return nil, err
+		}
+
+		registeredPointCloud, info, err := pointcloud.RegisterPointCloudICP(pcSrc, finalPointCloud,
+			theTransform.(*referenceframe.PoseInFrame).Pose())
+		if err != nil {
+			return nil, err
 		}
 		if debug {
-			utils.Logger.Debugf("Learned Transform = %v", info.optResult.Location.X)
+			jpcs.logger.Debugf("Learned Transform = %v", info.OptResult.Location.X)
 		}
-		transformDist := math.Sqrt(math.Pow(info.optResult.Location.X[0]-info.x0[0], 2) +
-			math.Pow(info.optResult.Location.X[1]-info.x0[1], 2) +
-			math.Pow(info.optResult.Location.X[2]-info.x0[2], 2))
+		transformDist := math.Sqrt(math.Pow(info.OptResult.Location.X[0]-info.X0[0], 2) +
+			math.Pow(info.OptResult.Location.X[1]-info.X0[1], 2) +
+			math.Pow(info.OptResult.Location.X[2]-info.X0[2], 2))
 		if transformDist > 100 {
-			utils.Logger.Warnf(`Transform is %f away from transform defined in frame system. 
+			jpcs.logger.Warnf(`Transform is %f away from transform defined in frame system. 
 			This may indicate an incorrect frame system.`, transformDist)
 		}
 		// TODO(aidanglickman) this loop is highly parallelizable, not yet making use
@@ -460,6 +330,9 @@ func (jpcs *joinPointCloudSource) nextPointCloudICP(ctx context.Context) (pointc
 			}
 			return true
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return finalPointCloud, nil
