@@ -99,6 +99,9 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 				} else {
 					seen[p] = true
 					ptLabel := vox.PointLabels[i]
+					if _, ok := pointsByLabel[ptLabel]; !ok {
+						pointsByLabel[ptLabel] = make(map[r3.Vector]Data)
+					}
 					pointsByLabel[ptLabel][p] = d
 				}
 				i++
