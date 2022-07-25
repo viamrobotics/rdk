@@ -116,7 +116,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
 	}
-	joinedCam, err := newJoinPointCloudSource(context.Background(), r, attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -145,7 +145,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 		TargetFrame:   "cam1",
 		MergeMethod:   "naive",
 	}
-	joinedCam, err = newJoinPointCloudSource(context.Background(), r, attrs)
+	joinedCam, err = newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -343,7 +343,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 		TargetFrame:   "base1",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudSource(r, attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -359,7 +359,7 @@ func TestTwinPointCloudICP(t *testing.T) {
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudSource(r, attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -382,7 +382,7 @@ func TestMultiPointCloudICP(t *testing.T) {
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudSource(r, attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
