@@ -73,6 +73,7 @@ func (s *subtypeServer) GetFrame(
 	if req.MimeType == "" || req.MimeType == utils.MimeTypeViamBest {
 		switch img.(type) {
 		case *rimage.ImageWithDepth:
+			// TODO(DATA-237) remove this data type
 			req.MimeType = utils.MimeTypeRawIWD
 		default:
 			req.MimeType = utils.MimeTypeRawRGBA
@@ -96,6 +97,7 @@ func (s *subtypeServer) GetFrame(
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
 	case utils.MimeTypeRawIWD:
+		// TODO(DATA-237) remove this data type
 		resp.MimeType = utils.MimeTypeRawIWD
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
@@ -106,16 +108,18 @@ func (s *subtypeServer) GetFrame(
 			return nil, fmt.Errorf("error writing %s: %w", utils.MimeTypeRawIWD, err)
 		}
 	case utils.MimeTypeRawDepth:
+		// TODO(DATA-237) remove this data type
 		resp.MimeType = utils.MimeTypeRawDepth
-		iwd, ok := img.(*rimage.ImageWithDepth)
+		dm, ok := img.(*rimage.DepthMap)
 		if !ok {
-			return nil, utils.NewUnexpectedTypeError(iwd, img)
+			return nil, utils.NewUnexpectedTypeError(dm, img)
 		}
-		_, err := iwd.Depth.WriteTo(&buf)
+		_, err := dm.WriteTo(&buf)
 		if err != nil {
 			return nil, err
 		}
 	case utils.MimeTypeBoth:
+		// TODO(DATA-237) remove this data type
 		resp.MimeType = utils.MimeTypeBoth
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
