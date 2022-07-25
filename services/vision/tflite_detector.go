@@ -152,7 +152,7 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
 func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
 	logger golog.Logger, origW, origH int,
 ) []objectdetection.Detection {
-	_, span := trace.StartSpan(ctx, "service::vision::addTFLiteModel")
+	_, span := trace.StartSpan(ctx, "service::vision::unpackTensors")
 	defer span.End()
 	// Gather slices for the bboxes, scores, and labels, using TensorOrder
 	var labels []int

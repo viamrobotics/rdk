@@ -112,10 +112,11 @@ type dataCaptureConfigs struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir          string   `json:"capture_dir"`
-	AdditionalSyncPaths []string `json:"additional_sync_paths"`
-	SyncIntervalMins    float64  `json:"sync_interval_mins"`
-	Disabled            bool     `json:"disabled"`
+	CaptureDir            string   `json:"capture_dir"`
+	AdditionalSyncPaths   []string `json:"additional_sync_paths"`
+	SyncIntervalMins      float64  `json:"sync_interval_mins"`
+	CaptureDisabled       bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled bool     `json:"sync_disabled"`
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
@@ -172,6 +173,8 @@ type dataManagerService struct {
 	r                         robot.Robot
 	logger                    golog.Logger
 	captureDir                string
+	captureDisabled           bool
+	syncDisabled              bool
 	collectors                map[componentMethodMetadata]collectorAndConfig
 	syncer                    syncManager
 	syncIntervalMins          float64
@@ -314,7 +317,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(intervalMins float64) {
+func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -516,15 +519,15 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	if cfg.Cloud != nil {
 		svc.partID = cfg.Cloud.ID
 	}
+
+	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
+	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
-	if svcConfig.Disabled {
+	if toggledCaptureOff {
 		svc.closeCollectors()
 		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
 		return nil
 	}
-
-	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
-	svc.captureDir = svcConfig.CaptureDir
 
 	allComponentAttributes, err := getAllDataCaptureConfigs(cfg)
 	if err != nil {
@@ -536,13 +539,25 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
-	// If the sync config has changed, update the syncer.
-	if svcConfig.SyncIntervalMins != svc.syncIntervalMins ||
+	toggledSync := svc.syncDisabled != svcConfig.ScheduledSyncDisabled
+	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
+	toggledSyncOff := toggledSync && svc.syncDisabled
+	toggledSyncOn := toggledSync && !svc.syncDisabled
+
+	// If sync has been toggled on, sync previously captured files and update the capture directory.
+	updateCaptureDir := (svc.captureDir != svcConfig.CaptureDir) || toggledSyncOn
+	svc.captureDir = svcConfig.CaptureDir
+
+	// Stop syncing if newly disabled in the config.
+	if toggledSyncOff {
+		svc.initOrUpdateSyncer(ctx, 0)
+	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
 		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
+		// If the sync config has changed, update the syncer.
 		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
-		svc.initOrUpdateSyncer(svcConfig.SyncIntervalMins)
+		svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	}
 

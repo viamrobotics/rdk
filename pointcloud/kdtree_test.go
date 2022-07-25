@@ -172,16 +172,6 @@ func TestNewEmptyKDtree(t *testing.T) {
 	ps = kdt.RadiusNearestNeighbors(pt0, 3.2, false)
 	test.That(t, ps, test.ShouldHaveLength, 1)
 	test.That(t, ps[0].P, test.ShouldResemble, pt1)
-
-	// remove the point
-	kdt.Unset(0, 0, 1)
-	_, _, d, got = kdt.NearestNeighbor(pt0)
-	test.That(t, got, test.ShouldBeFalse)
-	test.That(t, d, test.ShouldEqual, 0.)
-	ps = kdt.KNearestNeighbors(pt0, 5, false)
-	test.That(t, ps, test.ShouldResemble, []*PointAndData{})
-	ps = kdt.RadiusNearestNeighbors(pt0, 3.2, false)
-	test.That(t, ps, test.ShouldResemble, []*PointAndData{})
 }
 
 func TestStatisticalOutlierFilter(t *testing.T) {
