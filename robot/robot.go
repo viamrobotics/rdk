@@ -81,7 +81,7 @@ type LocalRobot interface {
 
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
-	Reconfigure(ctx context.Context, newConfig *config.Config) error
+	Reconfigure(ctx context.Context, newConfig *config.Config)
 
 	// StartWeb starts the web server, will return an error if server is already up.
 	StartWeb(ctx context.Context, o weboptions.Options) error

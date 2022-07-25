@@ -24,23 +24,25 @@ func (vs kdValues) Pivot(d kdtree.Dim) int {
 // KDTree extends PointCloud and orders the points in 3D space to implement nearest neighbor algos.
 type KDTree struct {
 	tree     *kdtree.Tree
-	rebuild  bool
-	toRemove map[r3.Vector]bool
+	metadata MetaData
 }
 
 // NewKDTree creates a KDTree from an input PointCloud.
 func NewKDTree(pc PointCloud) *KDTree {
 	t := &KDTree{
 		tree:     kdtree.New(kdValues{}, false),
-		rebuild:  false,
-		toRemove: map[r3.Vector]bool{},
+		metadata: NewMetaData(),
 	}
 
 	if pc != nil {
 		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+			_, pointExists := t.At(p.X, p.Y, p.Z)
 			err := t.Set(p, d)
 			if err != nil {
 				panic(err)
+			}
+			if !pointExists {
+				t.metadata.Merge(p, d)
 			}
 			return true
 		})
@@ -51,30 +53,12 @@ func NewKDTree(pc PointCloud) *KDTree {
 
 // MetaData returns the meta data.
 func (kd *KDTree) MetaData() MetaData {
-	panic(1)
+	return kd.metadata
 }
 
 // Size returns the size of the pointcloud.
 func (kd *KDTree) Size() int {
 	return kd.tree.Len()
-}
-
-func (kd *KDTree) rebuildIfNeeded() {
-	if !kd.rebuild {
-		return
-	}
-
-	n := kdtree.New(kdValues{}, false)
-	kd.Iterate(0, 0, func(v r3.Vector, d Data) bool {
-		if !kd.toRemove[v] {
-			n.Insert(&PointAndData{v, d}, false)
-		}
-		return true
-	})
-
-	kd.tree = n
-	kd.toRemove = map[r3.Vector]bool{}
-	kd.rebuild = false
 }
 
 // Set adds a new point to the PointCloud and tree. Does not rebalance the tree.
@@ -83,13 +67,8 @@ func (kd *KDTree) Set(p r3.Vector, d Data) error {
 	return nil
 }
 
-// Unset removes the point from the PointCloud and sets a flag to rebuild the tree next time NN is used.
-func (kd *KDTree) Unset(x, y, z float64) {
-	kd.toRemove[r3.Vector{x, y, z}] = true
-	kd.rebuild = true
-}
-
-// At gets removes the point from the PointCloud and sets a flag to rebuild the tree next time NN is used.
+// At gets the point at position (x,y,z) from the PointCloud.
+// It returns the data of the nearest neighbor and a boolean representing whether there is a point at that position.
 func (kd *KDTree) At(x, y, z float64) (Data, bool) {
 	p, d, _, got := kd.NearestNeighbor(r3.Vector{x, y, z})
 	if !got {
@@ -103,7 +82,6 @@ func (kd *KDTree) At(x, y, z float64) (Data, bool) {
 
 // NearestNeighbor returns the nearest point and its distance from the input point.
 func (kd *KDTree) NearestNeighbor(p r3.Vector) (r3.Vector, Data, float64, bool) {
-	kd.rebuildIfNeeded()
 	c, dist := kd.tree.Nearest(&PointAndData{p, nil})
 	if c == nil {
 		return r3.Vector{}, nil, 0.0, false
@@ -144,7 +122,6 @@ func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*Poi
 		tempK++
 	}
 
-	kd.rebuildIfNeeded()
 	keep := kdtree.NewNKeeper(tempK)
 	kd.tree.NearestSet(keep, &PointAndData{p, nil})
 	return keeperToArray(keep.Heap, p, includeSelf, k)
@@ -154,7 +131,6 @@ func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*Poi
 // If includeSelf is true and if the point p is in the point cloud, point p will also be returned in the slice
 // as the first element with distance 0.
 func (kd *KDTree) RadiusNearestNeighbors(p r3.Vector, r float64, includeSelf bool) []*PointAndData {
-	kd.rebuildIfNeeded()
 	keep := kdtree.NewDistKeeper(r)
 	kd.tree.NearestSet(keep, &PointAndData{p, nil})
 	return keeperToArray(keep.Heap, p, includeSelf, math.MaxInt)

@@ -447,10 +447,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 					logger.Errorw("error processing config", "error", err)
 					continue
 				}
-				if err := myRobot.Reconfigure(ctx, processedConfig); err != nil {
-					logger.Fatalw("error reconfiguring robot", "error", err)
-					continue
-				}
+				myRobot.Reconfigure(ctx, processedConfig)
 
 				// restart web service if necessary
 				diff, err := config.DiffConfigs(oldCfg, processedConfig)
