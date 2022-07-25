@@ -49,7 +49,7 @@ func (slamSvc *slamService) orbCamMaker(intrinsics *transform.PinholeCameraIntri
 		Stereob:        stereoB,
 		StereoThDepth:  stereoThDepth,
 		DepthMapFactor: depthMapFactor,
-		FPSCamera:      int8(slamSvc.dataRateMs),
+		FPSCamera:      int16(slamSvc.dataRateMs),
 		FileVersion:    fileVersion,
 	}
 	if orbslam.NFeatures, err = slamSvc.orbConfigToInt("orb_n_features", 1250); err != nil {
@@ -95,7 +95,7 @@ type ORBsettings struct {
 	Stereob        float32 `yaml:"Stereo.b"`
 	StereoThDepth  float32 `yaml:"Stereo.ThDepth"`
 	DepthMapFactor float32 `yaml:"RGBD.DepthMapFactor"`
-	FPSCamera      int8    `yaml:"Camera.fps"`
+	FPSCamera      int16   `yaml:"Camera.fps"`
 	SaveMapLoc     string  `yaml:"System.SaveAtlasToFile"`
 	LoadMapLoc     string  `yaml:"System.LoadAtlasFromFile"`
 }
@@ -197,20 +197,19 @@ func (slamSvc *slamService) checkMaps() (string, error) {
 	root := filepath.Join(slamSvc.dataDirectory, "map")
 	mapExt := ".osa"
 	mapTimestamp := time.Time{}
-	var mapPath string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() && filepath.Ext(path) == mapExt {
+			_, filename := filepath.Split(path)
 			// check if the file uses our format and grab timestamp if it does
-			timestampLoc := strings.Index(path, "_data_") + len("_data_")
-			if timestampLoc != -1 {
+			timestampLoc := strings.Index(filename, "_data_") + len("_data_")
+			if timestampLoc != -1+len("_data_") {
 				timeFormat := "2006-01-02T15_04_05.0000"
-				timestamp, err := time.Parse(timeFormat, path[timestampLoc:strings.Index(path, mapExt)])
+				timestamp, err := time.Parse(timeFormat, filename[timestampLoc:strings.Index(filename, mapExt)])
 				if err != nil {
 					return err
 				}
 				if timestamp.After(mapTimestamp) {
 					mapTimestamp = timestamp
-					mapPath = path
 				}
 			}
 		}
@@ -219,7 +218,8 @@ func (slamSvc *slamService) checkMaps() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if mapPath == "" {
+	// do not error out here, instead orbslam will build a map from scratch
+	if mapTimestamp.IsZero() {
 		slamSvc.logger.Debugf("No maps found in directory %s", root)
 		return "", nil
 	}
