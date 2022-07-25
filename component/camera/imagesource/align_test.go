@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -42,7 +41,12 @@ func TestAlignTypeError(t *testing.T) {
 	depthSrc := &StaticSource{DepthImg: dm}
 	depthCam, err := camera.New(depthSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
-	attrs := &alignAttrs{}
+	attrs := &alignAttrs{
+		AttrConfig: &camera.AttrConfig{
+			Width:  100,
+			Height: 200,
+		},
+	}
 	// test Warp error
 	attrs.Warp = []float64{4.5, 6.}
 	_, err = newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
@@ -57,10 +61,10 @@ func TestAlignTypeError(t *testing.T) {
 	attrs.IntrinsicExtrinsic = "a"
 	_, err = newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldBeError, utils.NewUnexpectedTypeError(&transform.DepthColorIntrinsicsExtrinsics{}, attrs.IntrinsicExtrinsic))
-	// test no types error
+	// test no types
 	attrs.IntrinsicExtrinsic = nil
 	_, err = newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
-	test.That(t, err, test.ShouldBeError, errors.New("no valid alignment attribute field provided"))
+	test.That(t, err, test.ShouldBeNil)
 }
 
 // nolint:dupl

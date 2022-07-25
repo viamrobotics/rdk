@@ -132,7 +132,7 @@ func getAligner(attrs *alignAttrs, logger golog.Logger) (rimage.Aligner, error) 
 		}
 		return cam, nil
 	default:
-		return nil, errors.New("no valid alignment attribute field provided")
+		return nil, nil
 	}
 }
 
@@ -215,6 +215,9 @@ func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), erro
 		if err != nil {
 			return nil, nil, err
 		}
+		if acd.aligner == nil {
+			return dm, depthCloser, nil
+		}
 		_, alignedDepth, err := acd.aligner.AlignColorAndDepthImage(colDimImage, dm)
 		return alignedDepth, depthCloser, err
 	default:
@@ -255,6 +258,9 @@ func (acd *alignColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Poin
 		}
 	})
 	acd.activeBackgroundWorkers.Wait()
+	if acd.aligner == nil {
+		return acd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)
+	}
 	alignedColor, alignedDepth, err := acd.aligner.AlignColorAndDepthImage(rimage.ConvertImage(col), dm)
 	if err != nil {
 		return nil, err
