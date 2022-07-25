@@ -55,16 +55,17 @@ canon-test: canon-update
 	$(DOCKER_CMD) make build lint test
 
 # Canon shells use the raw (non-cached) canon docker image
+canon-shell: DOCKER_TAG = $(DOCKER_NATIVE_TAG_CACHE)
 canon-shell: canon-update
 	$(DOCKER_CMD) bash
 
 canon-shell-amd64: DOCKER_PLATFORM = --platform linux/amd64
-canon-shell-amd64: DOCKER_TAG = amd64
+canon-shell-amd64: DOCKER_TAG = amd64-cache
 canon-shell-amd64: canon-update
 	$(DOCKER_CMD) bash
 
 canon-shell-arm64: DOCKER_PLATFORM = --platform linux/arm64
-canon-shell-arm64: DOCKER_TAG = arm64
+canon-shell-arm64: DOCKER_TAG = arm64-cache
 canon-shell-arm64: canon-update
 	$(DOCKER_CMD) bash
 
@@ -73,8 +74,8 @@ canon-shell-arm64: canon-update
 canon-cache: canon-update canon-cache-build canon-cache-upload
 
 canon-cache-build:
-	docker buildx build $(DOCKER_NETRC_BUILD) --load --no-cache --platform linux/amd64 -f etc/Dockerfile.amd64-cache -t 'ghcr.io/viamrobotics/canon:amd64-cache' .
-	docker buildx build $(DOCKER_NETRC_BUILD) --load --no-cache --platform linux/arm64 -f etc/Dockerfile.arm64-cache -t 'ghcr.io/viamrobotics/canon:arm64-cache' .
+	docker buildx build $(DOCKER_NETRC_BUILD) --build-arg BASE_TAG=amd64 --load --no-cache --platform linux/amd64 -f etc/Dockerfile.cache -t 'ghcr.io/viamrobotics/canon:amd64-cache' .
+	docker buildx build $(DOCKER_NETRC_BUILD) --build-arg BASE_TAG=arm64 --load --no-cache --platform linux/arm64 -f etc/Dockerfile.cache -t 'ghcr.io/viamrobotics/canon:arm64-cache' .
 
 canon-cache-upload:
 	docker push 'ghcr.io/viamrobotics/canon:amd64-cache'

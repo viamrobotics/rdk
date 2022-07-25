@@ -38,7 +38,7 @@ func TestNewTfLiteDetector(t *testing.T) {
 	test.That(t, model, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	gotDetections, err := got2(pic)
+	gotDetections, err := got2(ctx, pic)
 	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, 0.789)
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.7)
 

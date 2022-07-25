@@ -3,51 +3,71 @@ package imagesource
 import (
 	"context"
 	"image"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
+const debugImageSource = "VIAM_DEBUG"
+
+func debugImageSourceOrSkip(t *testing.T) {
+	t.Helper()
+	imageSourceTest := os.Getenv(debugImageSource)
+	if imageSourceTest == "" {
+		t.Skipf("set environmental variable %q to run this test", debugImageSource)
+	}
+}
+
 func TestAlignTypeError(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/intel515/chairs.both.gz"), false)
+	// TODO(DATA-237) remove .both files
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
-	colorSrc := &StaticSource{ii.Color}
-	colorCam, err := camera.New(colorSrc, nil, nil)
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
-	depthSrc := &StaticSource{ii.Depth}
-	depthCam, err := camera.New(depthSrc, nil, nil)
+	colorSrc := &StaticSource{ColorImg: im}
+	colorCam, err := camera.New(colorSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
-	attrs := &alignAttrs{}
+	depthSrc := &StaticSource{DepthImg: dm}
+	depthCam, err := camera.New(depthSrc, nil)
+	test.That(t, err, test.ShouldBeNil)
+	attrs := &alignAttrs{
+		AttrConfig: &camera.AttrConfig{
+			Width:  100,
+			Height: 200,
+		},
+	}
 	// test Warp error
 	attrs.Warp = []float64{4.5, 6.}
-	_, err = newAlignColorDepth(colorCam, depthCam, attrs, logger)
+	_, err = newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldBeError, utils.NewUnexpectedTypeError(&transform.AlignConfig{}, attrs.Warp))
 	// test Homography error
 	attrs.Warp = nil
 	attrs.Homography = 4
-	_, err = newAlignColorDepth(colorCam, depthCam, attrs, logger)
+	_, err = newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldBeError, utils.NewUnexpectedTypeError(&transform.RawDepthColorHomography{}, attrs.Homography))
 	// test Extrinsics errors
 	attrs.Homography = nil
 	attrs.IntrinsicExtrinsic = "a"
-	_, err = newAlignColorDepth(colorCam, depthCam, attrs, logger)
+	_, err = newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldBeError, utils.NewUnexpectedTypeError(&transform.DepthColorIntrinsicsExtrinsics{}, attrs.IntrinsicExtrinsic))
-	// test no types error
+	// test no types
 	attrs.IntrinsicExtrinsic = nil
-	_, err = newAlignColorDepth(colorCam, depthCam, attrs, logger)
-	test.That(t, err, test.ShouldBeError, errors.New("no valid alignment attribute field provided"))
+	_, err = newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldBeNil)
 }
 
+// nolint:dupl
 func TestAlignIntrinsics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
@@ -59,10 +79,15 @@ func TestAlignIntrinsics(t *testing.T) {
 	test.That(t, attrs, test.ShouldNotBeNil)
 	attrs.Warp = nil
 	attrs.Homography = nil
+	attrs.Height = 720
+	attrs.Width = 1280
 
-	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/intel515/chairs.both.gz"), false)
+	// TODO(DATA-237) remove .both files
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
-	aligned := applyAlignment(t, ii, attrs, logger)
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	test.That(t, err, test.ShouldBeNil)
+	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
@@ -78,6 +103,8 @@ func TestAlignWarp(t *testing.T) {
 	test.That(t, attrs, test.ShouldNotBeNil)
 	attrs.IntrinsicExtrinsic = nil
 	attrs.Homography = nil
+	attrs.Height = 342
+	attrs.Width = 448
 
 	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
 		utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color",
@@ -85,12 +112,16 @@ func TestAlignWarp(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	attrs.CameraParameters = warpParams
 
-	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"), false)
+	// TODO(DATA-237) remove .both files
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
-	aligned := applyAlignment(t, ii, attrs, logger)
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"))
+	test.That(t, err, test.ShouldBeNil)
+	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
+// nolint:dupl
 func TestAlignHomography(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
@@ -103,33 +134,39 @@ func TestAlignHomography(t *testing.T) {
 	test.That(t, attrs, test.ShouldNotBeNil)
 	attrs.IntrinsicExtrinsic = nil
 	attrs.Warp = nil
-
-	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"), false)
+	attrs.Height = 768
+	attrs.Width = 1024
+	// TODO(DATA-237) remove .both files
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
-	aligned := applyAlignment(t, ii, attrs, logger)
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	test.That(t, err, test.ShouldBeNil)
+	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
 func applyAlignment(
 	t *testing.T,
-	ii *rimage.ImageWithDepth,
+	img *rimage.Image,
+	dm *rimage.DepthMap,
 	attrs *alignAttrs,
 	logger golog.Logger,
-) *rimage.ImageWithDepth {
+) (pointcloud.PointCloud, rimage.Projector) {
 	t.Helper()
-	colorSrc := &StaticSource{ii.Color}
-	colorCam, err := camera.New(colorSrc, nil, nil)
+	colorSrc := &StaticSource{ColorImg: img}
+	colorCam, err := camera.New(colorSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
-	depthSrc := &StaticSource{ii.Depth}
-	depthCam, err := camera.New(depthSrc, nil, nil)
+	depthSrc := &StaticSource{DepthImg: dm}
+	depthCam, err := camera.New(depthSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
-	is, err := newAlignColorDepth(colorCam, depthCam, attrs, logger)
+	is, err := newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	rawAligned, _, err := is.Next(context.Background())
+	alignedPointCloud, err := is.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	fixed := rimage.ConvertToImageWithDepth(rawAligned)
-	return fixed
+	proj, err := is.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	return alignedPointCloud, proj
 }
 
 type alignTestHelper struct {
@@ -146,25 +183,26 @@ func (h *alignTestHelper) Process(
 ) error {
 	t.Helper()
 	var err error
-	ii := rimage.ConvertToImageWithDepth(img)
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth_"+h.name)
+	// TODO(DATA-237) remove .both files
+	im := rimage.ConvertImage(img)
+	dm, err := rimage.ConvertImageToDepthMap(img)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "depth_"+h.name)
 
-	fixed := applyAlignment(t, ii, h.attrs, logger)
+	aligned, intrinsics := applyAlignment(t, im, dm, h.attrs, logger)
+	fixedColor, fixedDepth, err := intrinsics.PointCloudToRGBD(aligned)
+	test.That(t, err, test.ShouldBeNil)
 
-	pCtx.GotDebugImage(fixed.Color, "color-fixed_"+h.name)
-	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed_"+h.name)
+	pCtx.GotDebugImage(fixedColor, "color-fixed_"+h.name)
+	pCtx.GotDebugImage(fixedDepth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed_"+h.name)
 
-	pCtx.GotDebugImage(fixed.Overlay(), "overlay_"+h.name)
+	pCtx.GotDebugImage(rimage.Overlay(fixedColor, fixedDepth), "overlay_"+h.name)
 
-	// get pointcloud
-	pc, err := h.attrs.CameraParameters.RGBDToPointCloud(fixed.Color, fixed.Depth)
+	// convert back to pointcloud again and compare
+	pc, err := h.attrs.CameraParameters.RGBDToPointCloud(fixedColor, fixedDepth)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud_"+h.name)
-
-	// go back to image with depth
-	roundTripColor, roundTripDepth, err := h.attrs.CameraParameters.PointCloudToRGBD(pc)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(rimage.Overlay(roundTripColor, roundTripDepth), "from-pointcloud_"+h.name)
+	test.That(t, pc, test.ShouldResemble, aligned)
 
 	return nil
 }
@@ -180,6 +218,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 
 	c.Warp = nil
 	c.Homography = nil
+	// TODO(DATA-237) remove .both files
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c, "intrinsics"})
 	test.That(t, err, test.ShouldBeNil)
@@ -201,6 +240,7 @@ func TestAlignGripperWarp(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	c.CameraParameters = warpParams
+	// TODO(DATA-237) remove .both files
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
 	d.Process(t, &alignTestHelper{c, "warp"})
 	test.That(t, err, test.ShouldBeNil)
@@ -217,6 +257,7 @@ func TestAlignGripperHomography(t *testing.T) {
 
 	c.IntrinsicExtrinsic = nil
 	c.Warp = nil
+	// TODO(DATA-237) remove .both files
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c, "homography"})
 	test.That(t, err, test.ShouldBeNil)

@@ -2669,6 +2669,16 @@
       }
     }
   },
+  "component": {
+    "camera": {
+      "ffmpeg": {
+        "testsrc.mpg": {
+          "hash": "3db8bb7ff7845790c0a770dc19b7dd46",
+          "size": 13914
+        }
+      }
+    }
+  },
   "compression_artifacts": {
     "chess_blur_0.png": {
       "hash": "24b19b768e75fc1a019f82b8c3722a92",
@@ -3457,6 +3467,10 @@
     "board1.png": {
       "hash": "31e840fe79ed74ccb1f3359ef6d7e969",
       "size": 1302105
+    },
+    "board1_gray.png": {
+      "hash": "25993f4c19eec20d5acb8b10b6d3ef66",
+      "size": 96058
     },
     "board2.dat.gz": {
       "hash": "e5ba35b11cc8bf0c25cd997751b00b51",

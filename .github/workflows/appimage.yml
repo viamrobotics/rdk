@@ -8,75 +8,144 @@ on:
         required: true
       REPO_READ_TOKEN:
         required: true
+      GIT_ACCESS_TOKEN:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
 jobs:
-  appimages_amd64:
-    name: (x64) Viam Server AppImage
+  appimage:
+    name: AppImage Build
+    strategy:
+      matrix:
+        include:
+          - arch: [x64, qemu-host]
+            image: ghcr.io/viamrobotics/canon:amd64-cache
+            platform: linux/amd64
+          - arch: [arm64, qemu-host]
+            image: ghcr.io/viamrobotics/canon:arm64-cache
+            platform: linux/arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with: 
+        fetch-depth: 2
+
+    - name: Clean and configure git for private repos
+      run: |
+        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
+        make clean-all
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Build and Package (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'appimage')
+      run: |
+        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" appimage
+
+    - name: Upload Files (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'appimage')
+      uses: google-github-actions/upload-cloud-storage@v0.5.0
+      with:
+        headers: "Cache-Control: no-cache"
+        path: 'etc/packaging/appimages/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: '*'
+        parent: false
+        gzip: false
+
+    - name: Build and Package (Latest)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      run: |
+        make BUILD_CHANNEL="latest" appimage
+
+    - name: Upload Files (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: google-github-actions/upload-cloud-storage@v0.5.0
+      with:
+        headers: "Cache-Control: no-cache"
+        path: 'etc/packaging/appimages/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/testing/${{ github.sha }}/'
+        glob: '*'
+        parent: false
+        gzip: false
+
+  appimage_comment:
+    name: Add AppImage Links
+    if: contains(github.event.pull_request.labels.*.name, 'appimage')
+    needs: appimage
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
+    timeout-minutes: 5
+
+    steps:
+    - name: Add links
+      uses: marocchino/sticky-pull-request-comment@v2.2.0
+      with:
+        recreate: true
+        GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
+        message: |
+          AppImages ready!
+          <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64.AppImage>
+          <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-aarch64.AppImage>
+
+  appimage_test:
+    name: AppImage Test & Deploy
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    strategy:
+      matrix:
+        arch: [[x64, qemu-host], [arm64, qemu-host]]
+    needs: appimage
+    runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v2
-      with: 
-        fetch-depth: 2
-
-    - name: Build and Package
+    - name: Clean Workspace
       run: |
-        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
-        make clean-all appimage
+        shopt -s dotglob
+        sudo chown -R `whoami` ./
+        rm -rf ./*
 
-    - name: Authorize GCP Upload
+    - name: Test AppImage
+      run: |
+        export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
+        cd $TEST_DIR
+
+        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
+        chmod 755 viam-server
+
+        export RAND_PORT=$((30000 + $RANDOM))
+        echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
+
+        ./viam-server test.json &
+        curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
+        export RET1=$?
+        kill %%
+        wait $!
+        export RET2=$?
+        cd - && rm -rf $TEST_DIR
+        [ $RET1 == 0 ] && [ $RET1 == 0 ]
+
+    - name: Authorize GCP
       uses: google-github-actions/auth@v0.4.3
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
-    - name: Upload Files
-      uses: google-github-actions/upload-cloud-storage@v0.5.0
-      with:
-        headers: "Cache-Control: no-cache"
-        path: 'etc/packaging/appimages/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/'
-        glob: '*'
-        parent: false
-        gzip: false
+    - name: Set up Cloud SDK
+      uses: 'google-github-actions/setup-gcloud@v0'
 
-  appimages_arm64:
-    name: (arm64) Viam Server AppImage
-    runs-on: [arm64, qemu-host]
-    container:
-      image: ghcr.io/viamrobotics/canon:arm64-cache
-      options: --platform linux/arm64
-    timeout-minutes: 15
-
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v2
-      with: 
-        fetch-depth: 2
-
-    - name: Build and Package
+    - name: Publish AppImage
       run: |
-        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
-        make clean-all appimage
-
-    - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v0.4.3
-      with:
-        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
-
-    - name: Upload Files
-      uses: google-github-actions/upload-cloud-storage@v0.5.0
-      with:
-        headers: "Cache-Control: no-cache"
-        path: 'etc/packaging/appimages/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/'
-        glob: '*'
-        parent: false
-        gzip: false
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ github.sha }}/*`uname -m`*" "gs://packages.viam.com/apps/viam-server/"
