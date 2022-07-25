@@ -7,16 +7,19 @@ import (
 	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
+// PointAndData is a tiny struct to facilitate returning nearest neighbors in a neat way.
 type PointAndData struct {
 	P r3.Vector
 	D Data
 }
-type KDComparableR3Vector struct {
+
+// wraps r3.vector to make it compatible with kd trees.
+type treeComparableR3Vector struct {
 	vec r3.Vector
 }
 
-func (v KDComparableR3Vector) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
-	v2, ok := c.(KDComparableR3Vector)
+func (v treeComparableR3Vector) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
+	v2, ok := c.(treeComparableR3Vector)
 	if !ok {
 		panic("KDComparableR3Vector Compare got wrong data")
 	}
@@ -32,19 +35,19 @@ func (v KDComparableR3Vector) Compare(c kdtree.Comparable, d kdtree.Dim) float64
 	}
 }
 
-func (v KDComparableR3Vector) Dims() int {
+func (v treeComparableR3Vector) Dims() int {
 	return 3
 }
 
-func (v KDComparableR3Vector) Distance(c kdtree.Comparable) float64 {
-	v2, ok := c.(KDComparableR3Vector)
+func (v treeComparableR3Vector) Distance(c kdtree.Comparable) float64 {
+	v2, ok := c.(treeComparableR3Vector)
 	if !ok {
 		panic("KDComparableR3Vector Distance got wrong data")
 	}
 	return v.vec.Distance(v2.vec)
 }
 
-type kdValues []KDComparableR3Vector
+type kdValues []treeComparableR3Vector
 
 func (vs kdValues) Index(i int) kdtree.Comparable { return vs[i] }
 
@@ -75,6 +78,7 @@ func (kdv kdValuesSlicer) Slice(start, end int) kdtree.SortSlicer {
 	kdv.vs = kdv.vs[start:end]
 	return kdv
 }
+
 func (kdv kdValuesSlicer) Swap(i, j int) {
 	kdv.vs[i], kdv.vs[j] = kdv.vs[j], kdv.vs[i]
 }
@@ -129,9 +133,8 @@ func (kd *KDTree) Size() int {
 
 // Set adds a new point to the PointCloud and tree. Does not rebalance the tree.
 func (kd *KDTree) Set(p r3.Vector, d Data) error {
-	kd.tree.Insert(KDComparableR3Vector{p}, false)
-	err := kd.points.Set(p, d)
-	if err != nil {
+	kd.tree.Insert(treeComparableR3Vector{p}, false)
+	if err := kd.points.Set(p, d); err != nil {
 		return err
 	}
 	kd.meta.Merge(p, d)
@@ -153,11 +156,11 @@ func (kd *KDTree) At(x, y, z float64) (Data, bool) {
 
 // NearestNeighbor returns the nearest point and its distance from the input point.
 func (kd *KDTree) NearestNeighbor(p r3.Vector) (r3.Vector, Data, float64, bool) {
-	c, dist := kd.tree.Nearest(&KDComparableR3Vector{p})
+	c, dist := kd.tree.Nearest(&treeComparableR3Vector{p})
 	if c == nil {
 		return r3.Vector{}, nil, 0.0, false
 	}
-	p2, ok := c.(KDComparableR3Vector)
+	p2, ok := c.(treeComparableR3Vector)
 	if !ok {
 		panic("kdtree.Comparable is not a Point")
 	}
@@ -174,7 +177,7 @@ func keeperToArray(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bo
 		if heap[i].Comparable == nil {
 			continue
 		}
-		pp, ok := heap[i].Comparable.(KDComparableR3Vector)
+		pp, ok := heap[i].Comparable.(treeComparableR3Vector)
 		if !ok {
 			panic("impossible")
 		}
@@ -202,9 +205,8 @@ func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*Poi
 	}
 
 	keep := kdtree.NewNKeeper(tempK)
-	kd.tree.NearestSet(keep, &KDComparableR3Vector{p})
+	kd.tree.NearestSet(keep, &treeComparableR3Vector{p})
 	return keeperToArray(keep.Heap, kd.points, p, includeSelf, k)
-
 }
 
 // RadiusNearestNeighbors returns the nearest points within a radius r (inclusive) ordered by distance.
@@ -212,14 +214,14 @@ func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*Poi
 // as the first element with distance 0.
 func (kd *KDTree) RadiusNearestNeighbors(p r3.Vector, r float64, includeSelf bool) []*PointAndData {
 	keep := kdtree.NewDistKeeper(r)
-	kd.tree.NearestSet(keep, &KDComparableR3Vector{p})
+	kd.tree.NearestSet(keep, &treeComparableR3Vector{p})
 	return keeperToArray(keep.Heap, kd.points, p, includeSelf, math.MaxInt)
 }
 
 // Iterate iterates over all points in the cloud.
 func (kd *KDTree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool) {
 	kd.tree.Do(func(c kdtree.Comparable, b *kdtree.Bounding, depth int) bool {
-		p, ok := c.(KDComparableR3Vector)
+		p, ok := c.(treeComparableR3Vector)
 		if !ok {
 			panic("Comparable is not a Point")
 		}
