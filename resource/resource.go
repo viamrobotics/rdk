@@ -225,3 +225,16 @@ type MovingCheckable interface {
 	// IsMoving returns whether the resource is moving or not
 	IsMoving(context.Context) (bool, error)
 }
+
+// Stoppable is implemented when a resource of a robot can stop its movement.
+type Stoppable interface {
+	// Stop stops all movement for the resource
+	Stop(context.Context, map[string]interface{}) error
+}
+
+// OldStoppable will be deprecated soon. See Stoppable.
+// TODO[RSDK-328].
+type OldStoppable interface {
+	// Stop stops all movement for the resource
+	Stop(context.Context) error
+}

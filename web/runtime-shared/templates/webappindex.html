@@ -10,18 +10,17 @@
       window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
 
-    <!-- Configure static file path for Prime component library -->
-    <link rel="preload" href="/static/prime.css" as="style">
-
     {{ if .External }}
+    <link rel="preload" href="/static/rdk/prime.css" as="style">
     <link rel="stylesheet" href="/static/rdk/main.css" />
+    <script type="module">window.PRIME_CONFIG = { base: '/static/rdk' }</script>
     {{ else if eq .Env "production" }}
+    <link rel="preload" href="/static/prime.css" as="style">
     <link rel="stylesheet" href="/static/main.css" />
+    <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
+    {{ else if eq .Env "development" }}
+    <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
     {{ end }}
-
-    <script type="module">
-      window.PRIME_CONFIG = { base: '/static' }
-    </script>
   </head>
 
   <body>

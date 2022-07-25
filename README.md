@@ -13,7 +13,8 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 
 ## Dependencies
 
-* Run `make setup` or `etc/setup.sh` (if make is not yet installed) to install a full dev environment.
+* Install `make`.
+* Run `make setup` to install a full dev environment.
   * Note that on Raspberry Pi, Nvidia Jetson, etc. only a minimal environment is installed.
 
 ### First time run
@@ -26,7 +27,7 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 * Write tests!
 * Work in your own fork, not a fork of the company repository.
 * Follow this [Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
-* Always run `make lint` and test before pushing. `make build` should be run if `control.js` or proto files have changed. `make setup` should be run if any dependencies have changed (run it once per PR to check), but does not need to be run otherwise.
+* Always run `make lint` and test before pushing. `make build` should be run if `control.js` or proto files have changed. `make setup` should be run if any dependencies have changed, but does not need to be run otherwise.
 * If `control.js`, `webappindex.html` or proto files have changed, double check the UI still works through the instructions in [here](#first-time-run)
 * Usually merge and squash your PRs and more rarely do merge commits with each commit being a logical unit of work.
 * If you add a new package, please add it to this README.
@@ -56,6 +57,11 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 * After merging, the PR will be automatically closed, and you can use the link to delete the now-merged source branch if you like.
 * Also after merging, tests will run directly against the main branch as a final caution, and if successful, new AppImages will be built for the "latest" build channel of viam server.
 * Note that after merging (or otherwise closing a PR) the build channel for the PR's AppImages will be deleted. Any in-use copies of the PR-specific viam-server will need to be replaced with a normal ("latest") build (which should now include your newly merged features.)
+
+### Troubleshooting `make setup`
+
+#### Setup is hanging on brew update
+If while running setup, you see brew hanging on update, you may be getting rate limited by GitHub while brew is inspecting taps via the GitHub public API. In this case, the only reasonable solution is to use a GitHub PAT (Personal Access Token) for brew. To do so, create a PAT with no scoped permissions following https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token. Then, in your `~/.bash_profile` or `~/.zprofile`, add `export HOMEBREW_GITHUB_API_TOKEN=yourpat` and try again.
 
 ### Canon Tooling
 * To provide a consistent build environment, the same "canonical" docker images used by automated testing and building are available to use on your desktop environment as well.

@@ -46,7 +46,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
 			}
-			return NewFFMPEGCamera(attrs, logger)
+			return NewFFMPEGCamera(ctx, attrs, logger)
 		},
 	})
 
@@ -78,10 +78,12 @@ type ffmpegCamera struct {
 	gostream.ImageSource
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
+	inClose                 func() error
+	outClose                func() error
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFMPEGCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, error) {
+func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger) (camera.Camera, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
@@ -101,6 +103,12 @@ func NewFFMPEGCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, err
 
 	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
 	in, out := io.Pipe()
+
+	// Note(erd): For some reason, when running with the race detector, we need to close the pipe
+	// even if we kill the process in order for the underlying command Wait to complete.
+	ffCam.inClose = in.Close
+	ffCam.outClose = out.Close
+
 	var ffmpegErr atomic.Value
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
@@ -115,8 +123,6 @@ func NewFFMPEGCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, err
 		}
 	}, func() {
 		cancel()
-		viamutils.UncheckedError(in.Close())
-		viamutils.UncheckedError(out.Close())
 		ffCam.activeBackgroundWorkers.Done()
 	})
 
@@ -162,11 +168,13 @@ func NewFFMPEGCamera(attrs *AttrConfig, logger golog.Logger) (camera.Camera, err
 		}
 		return latestFrame.Load().(image.Image), func() {}, nil
 	})
-
-	return camera.New(ffCam, attrs.AttrConfig, nil)
+	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
+	return camera.New(ffCam, proj)
 }
 
 func (fc *ffmpegCamera) Close() {
 	fc.cancelFunc()
+	viamutils.UncheckedError(fc.inClose())
+	viamutils.UncheckedError(fc.outClose())
 	fc.activeBackgroundWorkers.Wait()
 }
