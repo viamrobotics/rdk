@@ -14,6 +14,7 @@ export default defineConfig({
     }),
   ],
   build: {
+    minify: 'terser',
     rollupOptions: {
       input: {
         control: './src/main.js',

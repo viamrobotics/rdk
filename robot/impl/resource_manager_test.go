@@ -48,6 +48,7 @@ import (
 	camerapb "go.viam.com/rdk/proto/api/component/camera/v1"
 	gripperpb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -1577,6 +1578,79 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 			subtypesM[subtype2].AsProto(), cameraDesc.AsProto(), protocmp.Transform()) ||
 			cmp.Equal(subtypesM[subtype2].AsProto(), gripperDesc.AsProto(), protocmp.Transform()),
 		test.ShouldBeTrue)
+}
+
+func TestUpdateConfig(t *testing.T) {
+	// given a service subtype is reconfigurable, check if it has been reconfigured
+	const SubtypeName = resource.SubtypeName("testSubType")
+
+	Subtype := resource.NewSubtype(
+		resource.ResourceNamespaceRDK,
+		resource.ResourceTypeService,
+		SubtypeName,
+	)
+
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+
+	r, err := New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r, test.ShouldNotBeNil)
+
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+	})
+
+	registry.RegisterService(Subtype, registry.Service{
+		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+			return &mock{}, nil
+		},
+	})
+
+	manager := managerForDummyRobot(r)
+	defer func() {
+		test.That(t, utils.TryClose(ctx, manager), test.ShouldBeNil)
+	}()
+
+	svc1 := config.Service{Name: "", Namespace: resource.ResourceNamespaceRDK, Type: "testSubType"}
+
+	local, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+	newService, err := manager.processService(ctx, svc1, nil, local)
+	test.That(t, err, test.ShouldBeNil)
+	newService, err = manager.processService(ctx, svc1, newService, local)
+	test.That(t, err, test.ShouldBeNil)
+
+	mockRe, ok := newService.(*mock)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, mockRe, test.ShouldNotBeNil)
+	test.That(t, mockRe.reconfigCount, test.ShouldEqual, 1)
+	test.That(t, mockRe.wrap, test.ShouldEqual, 1)
+
+	defer func() {
+		test.That(t, utils.TryClose(ctx, local), test.ShouldBeNil)
+	}()
+}
+
+var _ = resource.Reconfigurable(&mock{})
+
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	sMock, _ := s.(*mock)
+	sMock.wrap++
+	return sMock, nil
+}
+
+type mock struct {
+	wrap          int
+	reconfigCount int
+}
+
+func (m *mock) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	m.reconfigCount++
+	return nil
 }
 
 // A dummyRobot implements wraps an robot.Robot. It's only use for testing purposes.
