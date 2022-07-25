@@ -21,7 +21,7 @@ type treeComparableR3Vector struct {
 func (v treeComparableR3Vector) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
 	v2, ok := c.(treeComparableR3Vector)
 	if !ok {
-		panic("KDComparableR3Vector Compare got wrong data")
+		panic("treeComparableR3Vector Compare got wrong data")
 	}
 	switch d {
 	case 0:
@@ -31,7 +31,7 @@ func (v treeComparableR3Vector) Compare(c kdtree.Comparable, d kdtree.Dim) float
 	case 2:
 		return v.vec.Z - v2.vec.Z
 	default:
-		panic("illegal dimension fed to KDComparableR3Vector.Compare")
+		panic("illegal dimension fed to treeComparableR3Vector.Compare")
 	}
 }
 
@@ -42,7 +42,7 @@ func (v treeComparableR3Vector) Dims() int {
 func (v treeComparableR3Vector) Distance(c kdtree.Comparable) float64 {
 	v2, ok := c.(treeComparableR3Vector)
 	if !ok {
-		panic("KDComparableR3Vector Distance got wrong data")
+		panic("treeComparableR3Vector Distance got wrong data")
 	}
 	return v.vec.Distance(v2.vec)
 }
