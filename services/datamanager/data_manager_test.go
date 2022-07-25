@@ -34,6 +34,9 @@ var (
 
 	captureDir = "/tmp/capture"
 	armDir     = captureDir + "/arm/arm1/GetEndPosition"
+
+	syncIntervalMins   = 0.0041 // 250ms
+	emptyFileBytesSize = 30     // size of leading metadata message
 )
 
 // readDir filters out folders from a slice of FileInfos.
@@ -109,46 +112,99 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 }
 
 func TestNewDataManager(t *testing.T) {
-	svc := newTestDataManager(t, "arm1", "")
-	// Set capture parameters in Update.
-	conf := setupConfig(t, configPath)
-	svcConfig, ok, err := datamanager.GetServiceConfig(conf)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, err, test.ShouldBeNil)
+	dmsvc := newTestDataManager(t, "arm1", "")
+	testCfg := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
+
+	// Empty config at initialization.
+	captureDir := "/tmp/capture"
 	defer resetFolder(t, captureDir)
-	svc.Update(context.Background(), conf)
-	sleepTime := time.Millisecond * 5
-	time.Sleep(sleepTime)
+	dmsvc.Update(context.Background(), testCfg)
+	captureTime := time.Millisecond * 100
+	time.Sleep(captureTime)
 
-	// Verify that the single configured collector wrote to its file.
-	files, err := ioutil.ReadDir(svcConfig.CaptureDir)
+	err := dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(files), test.ShouldEqual, 1)
+	flushWritersTime := time.Millisecond * 10
+	time.Sleep(flushWritersTime)
 
-	// Verify that after close is called, the collector is no longer writing.
-	oldSize := files[0].Size()
-	err = svc.Close(context.Background())
+	// Check that a collector wrote to file.
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	filesInArmDir, err := readDir(t, armDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+	oldSize := filesInArmDir[0].Size()
+	test.That(t, oldSize, test.ShouldBeGreaterThan, emptyFileBytesSize)
+
 	// When Close returns all background processes in svc should be closed, but still sleep for 100ms to verify
 	// that there's not a resource leak causing writes to still happens after Close() returns.
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(captureTime)
 	test.That(t, err, test.ShouldBeNil)
-	newSize := files[0].Size()
+	filesInArmDir, err = readDir(t, armDir)
+	test.That(t, err, test.ShouldBeNil)
+	newSize := filesInArmDir[0].Size()
 	test.That(t, oldSize, test.ShouldEqual, newSize)
+}
+
+func TestCaptureDisabled(t *testing.T) {
+	// Empty config at initialization.
+	captureDir := "/tmp/capture"
+	dmsvc := newTestDataManager(t, "arm1", "")
+	// Set capture parameters in Update.
+	testCfg := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
+	dmCfg, err := getDataManagerConfig((testCfg))
+	test.That(t, err, test.ShouldBeNil)
+
+	defer resetFolder(t, captureDir)
+	dmsvc.Update(context.Background(), testCfg)
+	captureTime := time.Millisecond * 500
+	time.Sleep(captureTime)
+
+	// Call Update with a disabled capture and give the collector time to write to file.
+	dmCfg.CaptureDisabled = true
+	dmsvc.Update(context.Background(), testCfg)
+	flushWritersTime := time.Millisecond * 10
+	time.Sleep(flushWritersTime)
+
+	// Verify that the collector wrote to its file.
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	filesInArmDir, err := readDir(t, armDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+	test.That(t, filesInArmDir[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
+
+	// Re-enable capture.
+	dmCfg.CaptureDisabled = false
+	dmsvc.Update(context.Background(), testCfg)
+	time.Sleep(captureTime)
+
+	// Close service.
+	dmsvc.Close(context.Background())
+	time.Sleep(flushWritersTime)
+
+	// Verify that started collection began in a new file when it was re-enabled.
+	filesInArmDir, err = readDir(t, armDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 2)
+
+	// Verify that something different was written to both files.
+	test.That(t, filesInArmDir[0], test.ShouldNotEqual, filesInArmDir[1])
+	test.That(t, filesInArmDir[1].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 }
 
 func TestNewRemoteDataManager(t *testing.T) {
 	// Empty config at initialization.
-	svc := newTestDataManager(t, "localArm", "remoteArm")
+	captureDir := "/tmp/capture"
+	dmsvc := newTestDataManager(t, "localArm", "remoteArm")
 
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
 	defer resetFolder(t, captureDir)
-	svc.Update(context.Background(), conf)
+	dmsvc.Update(context.Background(), conf)
 	sleepTime := time.Millisecond * 100
 	time.Sleep(sleepTime)
 
 	// Verify that after close is called, the collector is no longer writing.
-	err := svc.Close(context.Background())
+	err := dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify that the local and remote collectors wrote to their files.
@@ -181,10 +237,10 @@ func TestRecoversAfterKilled(t *testing.T) {
 	}
 
 	testCfg := setupConfig(t, configPath)
-	err = setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
+	dmCfg, err := getDataManagerConfig((testCfg))
 	test.That(t, err, test.ShouldBeNil)
-	err = setConfigAdditionalSyncPaths(testCfg, dirs)
-	test.That(t, err, test.ShouldBeNil)
+	dmCfg.SyncIntervalMins = configSyncIntervalMins
+	dmCfg.AdditionalSyncPaths = dirs
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
@@ -242,12 +298,10 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	defer resetFolder(t, td)
 
 	testCfg := setupConfig(t, configPath)
-	err := setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
+	dmCfg, err := getDataManagerConfig((testCfg))
 	test.That(t, err, test.ShouldBeNil)
-
-	// Add a directory path to additionalSyncPaths that does not exist. The data manager should create it.
-	err = setConfigAdditionalSyncPaths(testCfg, []string{td})
-	test.That(t, err, test.ShouldBeNil)
+	dmCfg.SyncIntervalMins = syncIntervalMins
+	dmCfg.AdditionalSyncPaths = []string{td}
 
 	// Initialize the data manager and update it with our config. The call to Update(ctx, conf) should create the
 	// arbitrary sync paths directory it in the file system.
@@ -261,30 +315,6 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	_ = dmsvc.Close(context.TODO())
 	_, err = os.Stat(td)
 	test.That(t, errors.Is(err, nil), test.ShouldBeTrue)
-}
-
-func setconfigSyncIntervalMins(config *config.Config, interval float64) error {
-	svcConfig, ok, err := datamanager.GetServiceConfig(config)
-	if !ok {
-		return errors.New("failed to get service config")
-	}
-	if err != nil {
-		return err
-	}
-	svcConfig.SyncIntervalMins = interval
-	return nil
-}
-
-func setConfigAdditionalSyncPaths(config *config.Config, dirs []string) error {
-	svcConfig, ok, err := datamanager.GetServiceConfig(config)
-	if !ok {
-		return errors.New("failed to get service config")
-	}
-	if err != nil {
-		return err
-	}
-	svcConfig.AdditionalSyncPaths = dirs
-	return nil
 }
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
@@ -356,10 +386,10 @@ func TestManualSync(t *testing.T) {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
 	testCfg := setupConfig(t, configPath)
-	err = setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
+	dmCfg, err := getDataManagerConfig((testCfg))
 	test.That(t, err, test.ShouldBeNil)
-	err = setConfigAdditionalSyncPaths(testCfg, dirs)
-	test.That(t, err, test.ShouldBeNil)
+	dmCfg.SyncIntervalMins = configSyncIntervalMins
+	dmCfg.AdditionalSyncPaths = dirs
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
@@ -409,11 +439,13 @@ func TestScheduledSync(t *testing.T) {
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
+	// Use config with 250ms sync interval.
+	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
-	err = setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
+	dmCfg, err := getDataManagerConfig((testCfg))
 	test.That(t, err, test.ShouldBeNil)
-	err = setConfigAdditionalSyncPaths(testCfg, dirs)
-	test.That(t, err, test.ShouldBeNil)
+	dmCfg.SyncIntervalMins = configSyncIntervalMins
+	dmCfg.AdditionalSyncPaths = dirs
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
@@ -423,6 +455,13 @@ func TestScheduledSync(t *testing.T) {
 		lock.Unlock()
 		return nil
 	}
+
+	// Make the captureDir where we're logging data for our arm.
+	captureDir := "/tmp/capture"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
+
+	// Clear the capture dir after we're done.
+	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
@@ -456,11 +495,12 @@ func TestManualAndScheduledSync(t *testing.T) {
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
+	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
-	err = setconfigSyncIntervalMins(testCfg, configSyncIntervalMins)
+	dmCfg, err := getDataManagerConfig((testCfg))
 	test.That(t, err, test.ShouldBeNil)
-	err = setConfigAdditionalSyncPaths(testCfg, dirs)
-	test.That(t, err, test.ShouldBeNil)
+	dmCfg.SyncIntervalMins = configSyncIntervalMins
+	dmCfg.AdditionalSyncPaths = dirs
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
@@ -470,6 +510,11 @@ func TestManualAndScheduledSync(t *testing.T) {
 		lock.Unlock()
 		return nil
 	}
+
+	// Make the captureDir where we're logging data for our arm.
+	captureDir := "/tmp/capture"
+	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
@@ -496,4 +541,63 @@ func TestManualAndScheduledSync(t *testing.T) {
 		t.Fatalf("failed to list files in armDir")
 	}
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+}
+
+func TestSyncDisabled(t *testing.T) {
+	uploaded := []string{}
+	lock := sync.Mutex{}
+	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+		lock.Lock()
+		uploaded = append(uploaded, path)
+		lock.Unlock()
+		return nil
+	}
+	configPath := "robots/configs/fake_data_manager.json"
+	testCfg := setupConfig(t, configPath)
+	dmCfg, err := getDataManagerConfig((testCfg))
+	test.That(t, err, test.ShouldBeNil)
+	dmCfg.SyncIntervalMins = syncIntervalMins
+
+	// Make the captureDir where we're logging data for our arm.
+	captureDir := "/tmp/capture"
+	armDir := captureDir + "/arm/arm1/"
+	defer resetFolder(t, armDir)
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t, "arm1", "")
+	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.Update(context.TODO(), testCfg)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
+	time.Sleep(time.Millisecond * 150)
+
+	// Simulate disabling sync.
+	dmCfg.ScheduledSyncDisabled = true
+	dmsvc.Update(context.Background(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Validate nothing has been synced yet.
+	test.That(t, len(uploaded), test.ShouldEqual, 0)
+
+	// Re-enable sync.
+	dmCfg.ScheduledSyncDisabled = false
+	dmsvc.Update(context.Background(), testCfg)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms and ensure three files were uploaded:
+	// one from file immediately uploaded when sync was re-enabled and two after.
+	time.Sleep(time.Millisecond * 600)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(uploaded), test.ShouldEqual, 3)
+}
+
+func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
+	svcConfig, ok, err := datamanager.GetServiceConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errors.New("failed to get service config")
+	}
+	return svcConfig, nil
 }
