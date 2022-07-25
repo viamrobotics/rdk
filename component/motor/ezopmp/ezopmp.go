@@ -104,7 +104,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c *Config, logger
 
 	flowRate, err := m.findMaxFlowRate(ctx)
 	if err != nil {
-		return nil, errors.New("can't find max flow rate")
+		return nil, errors.Errorf("can't find max flow rate: %v", err)
 	}
 	m.maxFlowRate = flowRate
 
@@ -142,10 +142,12 @@ func (m *Ezopmp) Validate() error {
 	}
 
 	if m.I2CAddress == 0 {
+		m.logger.Warn("i2c address set at 103")
 		m.I2CAddress = 103
 	}
 
 	if m.maxReadBits == 0 {
+		m.logger.Warn("max_read_bits set to 39")
 		m.maxReadBits = 39
 	}
 
