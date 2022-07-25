@@ -556,7 +556,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 func TestSyncDisabled(t *testing.T) {
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFn := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -575,7 +575,7 @@ func TestSyncDisabled(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFn(uploadFn)
+	dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
