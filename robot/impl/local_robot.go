@@ -161,6 +161,46 @@ func (r *localRobot) Close(ctx context.Context) error {
 	return r.manager.Close(ctx)
 }
 
+// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
+func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+	// Stop all operations
+	for _, op := range r.OperationManager().All() {
+		op.Cancel()
+	}
+
+	// Stop all stoppable resources
+	resourceErrs := []string{}
+	for _, name := range r.ResourceNames() {
+		res, err := r.ResourceByName(name)
+		if err != nil {
+			resourceErrs = append(resourceErrs, name.Name)
+			continue
+		}
+
+		sr, ok := res.(resource.Stoppable)
+		if ok {
+			err = sr.Stop(ctx, extra[name])
+			if err != nil {
+				resourceErrs = append(resourceErrs, name.Name)
+			}
+		}
+
+		// TODO[njooma]: OldStoppable - Will be deprecated
+		osr, ok := res.(resource.OldStoppable)
+		if ok {
+			err = osr.Stop(ctx)
+			if err != nil {
+				resourceErrs = append(resourceErrs, name.Name)
+			}
+		}
+	}
+
+	if len(resourceErrs) > 0 {
+		return errors.Errorf("failed to stop components named %s", strings.Join(resourceErrs, ","))
+	}
+	return nil
+}
+
 // Config returns the config used to construct the robot. Only local resources are returned.
 // This is allowed to be partial or empty.
 func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
@@ -423,7 +463,15 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	if f == nil {
 		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
 	}
-	return f.Constructor(ctx, r, config, r.logger)
+	svc, err := f.Constructor(ctx, r, config, r.logger)
+	if err != nil {
+		return nil, err
+	}
+	c := registry.ResourceSubtypeLookup(rName.Subtype)
+	if c == nil || c.Reconfigurable == nil {
+		return svc, nil
+	}
+	return c.Reconfigurable(svc)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
@@ -472,12 +520,6 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	return c.Reconfigurable(newResource)
 }
 
-// ConfigUpdateable is implemented when component/service of a robot should be updated with the config.
-type ConfigUpdateable interface {
-	// Update updates the resource
-	Update(context.Context, *config.Config) error
-}
-
 func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	resources := map[resource.Name]interface{}{}
 	for _, n := range r.ResourceNames() {
@@ -501,7 +543,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 				continue
 			}
 		}
-		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
+		if configUpdateable, ok := svc.(config.Updateable); ok {
 			if err := configUpdateable.Update(ctx, r.config); err != nil {
 				r.Logger().Errorw("config for service failed to update", "resource", name, "error", err)
 				continue

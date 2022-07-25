@@ -39,7 +39,7 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 // GetProperties calls the injected GetProperties or the real version.
 func (c *Camera) GetProperties(ctx context.Context) (rimage.Projector, error) {
-	if c.NextFunc == nil {
+	if c.GetPropertiesFunc == nil {
 		return c.Camera.GetProperties(ctx)
 	}
 	return c.GetPropertiesFunc(ctx)
