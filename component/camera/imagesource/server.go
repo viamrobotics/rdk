@@ -14,6 +14,7 @@ import (
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -22,7 +23,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
-	viamutils "go.viam.com/utils"
 )
 
 func init() {
