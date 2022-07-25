@@ -1,8 +1,4 @@
-// Package baseremotecontrol implements a remote control for a base.
-// TODO:
-// - reintroduce throttle state
-// - movement calculations
-// - button map changing
+// Package armremotecontrol implements a remote control for a base.
 package armremotecontrol
 
 import (
@@ -22,12 +18,24 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// constants for arm controll
-// TODO: determine controls types needed
+// constants for arm control
 const (
 	jointByJointControl = controlMode(iota)
 	endPointControl
 	SubtypeName = resource.SubtypeName("arm_remote_control")
+	noop        = armEvent(iota)
+	setPosition
+	getPosition
+	setJoint
+	getJoint
+	pincerClose
+	pincerOpen
+	changeMode
+	namedPoseExecute
+	namedPosePreview
+	changeCollisionAvoidance
+	changeJointGroup
+	stop
 )
 
 // Subtype is a constant that identifies the remote control resource subtype.
@@ -59,6 +67,7 @@ func init() {
 
 // ControlMode is the control type for the remote control.
 type controlMode uint8
+type armEvent uint8
 
 // Config describes how to configure the service.
 type Config struct {
@@ -73,9 +82,42 @@ type remoteService struct {
 	arm             arm.Arm
 	inputController input.Controller
 	controlMode     controlMode
+	armEvent        armEvent
+	config          *Config
+	logger          golog.Logger
+}
 
-	config *Config
-	logger golog.Logger
+type armState struct {
+	event   armEvent
+	buttons map[input.Control]bool
+	arrows  map[input.Control]float64
+}
+
+func (cs *armState) init() {
+	cs.event = noop
+
+	cs.buttons = map[input.Control]bool{
+		input.ButtonSouth:  false,
+		input.ButtonEast:   false,
+		input.ButtonWest:   false,
+		input.ButtonNorth:  false,
+		input.ButtonLT:     false,
+		input.ButtonRT:     false,
+		input.ButtonSelect: false,
+		input.ButtonStart:  false,
+		input.ButtonMenu:   false,
+	}
+
+	cs.arrows = map[input.Control]float64{
+		input.AbsoluteX:     0.0,
+		input.AbsoluteY:     0.0,
+		input.AbsoluteZ:     0.0,
+		input.AbsoluteRX:    0.0,
+		input.AbsoluteRY:    0.0,
+		input.AbsoluteRZ:    0.0,
+		input.AbsoluteHat0X: 0.0,
+		input.AbsoluteHat0Y: 0.0,
+	}
 }
 
 // New returns a new remote control service for the given robot.
@@ -100,7 +142,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	case "endPointControl":
 		controlMode1 = endPointControl
 	default:
-		controlMode1 = jointByJoint
+		controlMode1 = jointByJointControl
 	}
 
 	remoteSvc := &remoteService{
@@ -120,6 +162,9 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 // Start is the main control loops for sending events from controller to base.
 func (svc *remoteService) start(ctx context.Context) error {
+	state := &armState{}
+	state.init()
+
 	var lastEvent input.Event
 	var onlyOneAtATime sync.Mutex
 
@@ -141,15 +186,16 @@ func (svc *remoteService) start(ctx context.Context) error {
 	for _, control := range svc.controllerInputs() {
 		// Register button changes & joystick modes
 		err := svc.inputController.RegisterControlCallback(
-			ctx, control,
+			ctx,
+			control,
 			[]input.EventType{input.ButtonChange, input.PositionChangeAbs},
-			nil,
+			remoteCtl,
 		)
 		if err != nil {
 			return err
 		}
 	}
-	svc.logger.Infof("Arm Controller service started with intial mode of: %s", svc.controlMode)
+	svc.logger.Infof("Arm Controller service started with initial mode of: %v", svc.controlMode)
 	return nil
 }
 
@@ -186,133 +232,104 @@ func (svc *remoteService) controllerInputs() []input.Control {
 		input.ButtonNorth,
 		input.ButtonLT,
 		input.ButtonRT,
-		input.ButtonLThumb,
-		input.ButtonRThumb,
 		input.ButtonSelect,
 		input.ButtonStart,
 		input.ButtonMenu,
 	}
 }
 
-func parseEndPointEvent(event input.Event) (msg, bool, err) {
-	switch event.Control {
-	case input.AbsoluteX:
-		return "[end-point] Z Rotation", false, nil
-	case input.AbsoluteY:
-		return "[end-point] Y Rotation", false, nil
-	case input.AbsoluteZ:
-		return "[end-point] X Rotation", false, nil
-	case input.AbsoluteRX:
-		return "[end-point] X Linear", false, nil
-	case input.AbsoluteRY:
-		return "[end-point] Y Linear", false, nil
-	case input.AbsoluteRZ:
-		return "[end-point] X Rotation", false, nil
-	case input.AbsoluteHat0X:
-		return "[end-point] NOTHING", false, nil
-	case input.AbsoluteHat0Y:
-		return "[end-point] Z Linear", false, nil
-	case input.ButtonSouth:
-		return "[end-point] STOP", false, nil
-	case input.ButtonEast:
-		return "[end-point] Named Pose Preview", false, nil
-	case input.ButtonWest:
-		return "[end-point] control mode pressed, will switch modes", true, nil
-	case input.ButtonNorth:
-		return "[end-point] Named Pose Execute", false, nil
-	case input.ButtonLT:
-		return "[end-point] X Rotation Possibly ()", false, nil
-	case input.ButtonRT:
-		return "[end-point] X Rotation Possibly ()", false, nil
-	case input.ButtonLThumb:
-		return "[end-point] Pincer Close (trigger)", false, nil
-	case input.ButtonRThumb:
-		return "[end-point] Pincer Open (trigger)", false, nil
-	case input.ButtonSelect:
-		return "[end-point] Disable collision avoidance", false, nil
-	case input.ButtonStart:
-		return "[end-point] Change Joint Groups", false, nil
-	case input.ButtonMenu:
-		return "[end-point] Enable collision avoidance", false, nil
+func parseEndPointEvent(event input.Event, state *armState) error {
+	switch event.Event {
+	case input.ButtonPress:
+		state.buttons[event.Control] = true
+	case input.ButtonRelease:
+		state.buttons[event.Control] = false
+	case input.PositionChangeAbs:
+		state.arrows[event.Control] = event.Value
 	default:
-		return nil, nil, errors.New("invalid button for mode")
+		return errors.New("invalid event")
 	}
-
-	return msg, controlMode, nil
-
+	return nil
 }
 
-func parseJointByJointEvent(event input.Event) bool {
-	switch event.Control {
-	case input.AbsoluteX:
-		return "[joint-by-joint] Drive 5", false, nil
-	case input.AbsoluteY:
-		return "[joint-by-joint] Drive 6", false, nil
-	case input.AbsoluteZ:
-		return "[joint-by-joint] Z Pincer Close (Trigger Maybe)", false, nil
-	case input.AbsoluteRX:
-		return "[joint-by-joint] Drive 4", false, nil
-	case input.AbsoluteRY:
-		return "[joint-by-joint] Drive 3", false, nil
-	case input.AbsoluteRZ:
-		return "[joint-by-joint] RZ Pincer Open (Trigger Maybe)", false, nil
-	case input.AbsoluteHat0X:
-		return "[joint-by-joint] Drive 1", false, nil
-	case input.AbsoluteHat0Y:
-		return "[joint-by-joint] Drive 2", false, nil
-	case input.ButtonSouth:
-		return "[joint-by-joint] STOP", false, nil
-	case input.ButtonEast:
-		return "[joint-by-joint] Named Pose Preview", false, nil
-	case input.ButtonWest:
-		return "[joint-by-joint] control mode pressed, will switch modes", true, nil
-	case input.ButtonNorth:
-		return "[joint-by-joint] Named Pose Execute", false, nil
-	case input.ButtonLT:
-		return "[joint-by-joint] Pincer Open (trigger)", false, nil
-	case input.ButtonRT:
-		return "[joint-by-joint] Pincer Close (trigger)", false, nil
-	case input.ButtonLThumb:
-		return "[joint-by-joint] Drive 7", false, nil
-	case input.ButtonRThumb:
-		return "[joint-by-joint] Drive 7", false, nil
-	case input.ButtonSelect:
-		return "[joint-by-joint] enable collision detection", false, nil
-	case input.ButtonStart:
-		return "[joint-by-joint] change joint groups", false, nil
-	case input.ButtonMenu:
-		return "[joint-by-joint] disable collision avoidance", false, nil
+func parseJointByJointEvent(event input.Event, state *armState) error {
+	switch event.Event {
+	case input.ButtonPress:
+		state.buttons[event.Control] = true
+	case input.ButtonRelease:
+		state.buttons[event.Control] = false
+	case input.PositionChangeAbs:
+		state.arrows[event.Control] = event.Value
 	default:
-		return nil, nil, errors.New("invalid button for mode")
+		return errors.New("invalid event")
 	}
+
+	switch event.Control {
+	case input.AbsoluteX, // joint1
+		input.AbsoluteY,     // joint2
+		input.AbsoluteRX,    // joint3
+		input.AbsoluteRY,    // joint4
+		input.AbsoluteHat0X, // joint5
+		input.AbsoluteHat0Y, // joint6
+		input.AbsoluteZ,     // joint7
+		input.AbsoluteRZ:    // joint7
+		if state.arrows[event.Control] != 0.0 {
+			state.event = setJoint
+		}
+	case input.ButtonSouth:
+		state.event = stop
+	case input.ButtonWest:
+		state.event = changeMode
+	case input.ButtonEast:
+		state.event = namedPosePreview
+	case input.ButtonNorth:
+		state.event = namedPoseExecute
+	case input.ButtonStart:
+		state.event = changeJointGroup
+	case input.ButtonSelect, input.ButtonMenu:
+		state.event = changeCollisionAvoidance
+	}
+	return nil
 }
 
-// TODO: This code is terrible clean it up
-func (svc *remoteService) processEvent(ctx context.Context, event input.Event) error {
-	var msg string
-	var switchMode bool
-	var err error
-	switch svc.controlMode {
+func parseEvent(mode controlMode, state *armState, event input.Event) error {
+	switch mode {
 	case endPointControl:
-		msg, switchMode, err = parseEndPointEvent(event)
+		return parseEndPointEvent(event, state)
 	case jointByJointControl:
-		msg, switchMode, err = parseJointByJointEvent(event)
+		return parseJointByJointEvent(event, state)
+	default:
+		return errors.New("invalid mode")
 	}
+}
 
+func (svc *remoteService) processEvent(ctx context.Context, state *armState, event input.Event) error {
+	err := parseEvent(svc.controlMode, state, event)
 	if err != nil {
 		svc.logger.Errorw("error processing event", "error", err)
 		return err
 	}
 
-	svc.logger.Info("%s", msg)
-	if switchMode {
-		svc.logger.Info("switch arm control mode")
-		if svc.controlMode == endPointControl {
-			svc.controlMode = jointByJointControl
-		} else {
-			svc.controlMode = endPointControl
-		}
+	switch state.event {
+	case setPosition:
+		svc.logger.Debug("setPosition")
+	case getPosition:
+		svc.logger.Debug("getPosition")
+	case setJoint:
+		svc.logger.Debugf("setJoint(%f)", event.Value)
+	case getJoint:
+		svc.logger.Debug("getJoint")
+	case pincerClose:
+		svc.logger.Debug("pincerClose")
+	case pincerOpen:
+		svc.logger.Debug("pincerOpen")
+	case noop:
+		return nil
+	default:
+		svc.logger.Debugf("bad option: %q", state.event)
 	}
 
+	// clear event
+	state.event = noop
 	return nil
 }
