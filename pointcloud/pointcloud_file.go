@@ -540,7 +540,7 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 		pointBuf := make([]float64, 3)
 		colorData := NewBasicData()
 		for j := 0; j < 3; j++ {
-			buf, err := readPoint(in, header, j)
+			buf, err := readBuffer(in, header, j)
 			if errors.Is(err, io.EOF) {
 				break
 			}
@@ -549,7 +549,7 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 		point := r3.Vector{X: 1000. * pointBuf[0], Y: 1000. * pointBuf[1], Z: 1000. * pointBuf[2]}
 
 		if header.fields == pcdPointColor && !errors.Is(err, io.EOF) {
-			buf, err := readPoint(in, header, 3)
+			buf, err := readBuffer(in, header, 3)
 			if errors.Is(err, io.EOF) {
 				break
 			}
@@ -567,7 +567,8 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 	return pc, nil
 }
 
-func readPoint(in *bufio.Reader, header pcdHeader, index int) ([]byte, error) {
+// reads a specified amount of bytes from a buffer. The number of bytes specified is defined from the pcd.
+func readBuffer(in *bufio.Reader, header pcdHeader, index int) ([]byte, error) {
 	buf := make([]byte, header.size[index])
 	read, err := io.ReadFull(in, buf)
 	if err != nil {
