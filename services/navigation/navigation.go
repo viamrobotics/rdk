@@ -22,6 +22,7 @@ import (
 	servicepb "go.viam.com/rdk/proto/api/service/navigation/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	rdkutils "go.viam.com/rdk/utils"
@@ -41,6 +42,7 @@ func init() {
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
+		Reconfigurable: WrapWithReconfigurable,
 	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
@@ -83,6 +85,11 @@ type Service interface {
 	AddWaypoint(ctx context.Context, point *geo.Point) error
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
 }
+
+var (
+	_ = Service(&reconfigurableNavigation{})
+	_ = resource.Reconfigurable(&reconfigurableNavigation{})
+)
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("navigation")
@@ -332,6 +339,83 @@ func (svc *navService) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
 	return utils.TryClose(ctx, svc.store)
+}
+
+type reconfigurableNavigation struct {
+	mu     sync.RWMutex
+	actual Service
+}
+
+func (svc *reconfigurableNavigation) GetMode(ctx context.Context) (Mode, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetMode(ctx)
+}
+
+func (svc *reconfigurableNavigation) SetMode(ctx context.Context, mode Mode) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.SetMode(ctx, mode)
+}
+
+func (svc *reconfigurableNavigation) GetLocation(ctx context.Context) (*geo.Point, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetLocation(ctx)
+}
+
+// Waypoint.
+func (svc *reconfigurableNavigation) GetWaypoints(ctx context.Context) ([]Waypoint, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetWaypoints(ctx)
+}
+
+func (svc *reconfigurableNavigation) AddWaypoint(ctx context.Context, point *geo.Point) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.AddWaypoint(ctx, point)
+}
+
+func (svc *reconfigurableNavigation) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.RemoveWaypoint(ctx, id)
+}
+
+func (svc *reconfigurableNavigation) Close(ctx context.Context, id primitive.ObjectID) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return utils.TryClose(ctx, svc.actual)
+}
+
+// Reconfigure replaces the old navigation service with a new navigation.
+func (svc *reconfigurableNavigation) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableNavigation)
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := utils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
+}
+
+// WrapWithReconfigurable wraps a navigation service as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, rdkutils.NewUnimplementedInterfaceError("navigation.Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableNavigation); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableNavigation{actual: svc}, nil
 }
 
 func fixAngle(a float64) float64 {

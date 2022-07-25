@@ -18,6 +18,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -35,6 +36,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -64,6 +66,7 @@ func init() {
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
+		Reconfigurable: WrapWithReconfigurable,
 	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
@@ -221,6 +224,11 @@ type AttrConfig struct {
 	InputFilePattern string            `json:"input_file_pattern"`
 	Port             string            `json:"port"`
 }
+
+var (
+	_ = Service(&reconfigurableSlam{})
+	_ = resource.Reconfigurable(&reconfigurableSlam{})
+)
 
 // Service describes the functions that are available to the service.
 type Service interface {
@@ -674,6 +682,63 @@ func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context, cam camera.
 		return filename, err
 	}
 	return filename, f.Close()
+}
+
+type reconfigurableSlam struct {
+	mu     sync.RWMutex
+	actual Service
+}
+
+func (svc *reconfigurableSlam) GetPosition(ctx context.Context, val string) (*referenceframe.PoseInFrame, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetPosition(ctx, val)
+}
+
+func (svc *reconfigurableSlam) GetMap(ctx context.Context,
+	name string,
+	mimeType string,
+	cp *referenceframe.PoseInFrame,
+	include bool,
+) (string, image.Image, *vision.Object, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetMap(ctx, name, mimeType, cp, include)
+}
+
+func (svc *reconfigurableSlam) Close(ctx context.Context, id primitive.ObjectID) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return goutils.TryClose(ctx, svc.actual)
+}
+
+// Reconfigure replaces the old slam service with a new slam.
+func (svc *reconfigurableSlam) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableSlam)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := goutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
+}
+
+// WrapWithReconfigurable wraps a slam service as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("slam.Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableSlam); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableSlam{actual: svc}, nil
 }
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
