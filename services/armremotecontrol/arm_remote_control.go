@@ -18,24 +18,17 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// constants for arm control
+// constants
 const (
-	jointByJointControl = controlMode(iota)
+	JointByJointControl = controlMode(iota) // control modes
 	endPointControl
-	SubtypeName = resource.SubtypeName("arm_remote_control")
-	noop        = armEvent(iota)
-	setPosition
-	getPosition
-	setJoint
-	getJoint
-	pincerClose
-	pincerOpen
-	changeMode
-	namedPoseExecute
-	namedPosePreview
-	changeCollisionAvoidance
-	changeJointGroup
-	stop
+	SubtypeName = resource.SubtypeName("arm_remote_control") // resource name
+	noop        = armEvent(iota)                             // controller events
+	leftJoystick
+	rightJoystick
+	directionalHat
+	triggerZ
+	buttonPressed
 )
 
 // Subtype is a constant that identifies the remote control resource subtype.
@@ -87,15 +80,20 @@ type remoteService struct {
 	logger          golog.Logger
 }
 
-type armState struct {
-	event   armEvent
+type controllerState struct {
+	event   controllerEvent
+	x       float64
+	y       float64
+	z       float64
 	buttons map[input.Control]bool
 	arrows  map[input.Control]float64
 }
 
-func (cs *armState) init() {
+func (cs *controllerState) init() {
 	cs.event = noop
-
+	cs.x = 0.0
+	cs.y = 0.0
+	cs.z = 0.0
 	cs.buttons = map[input.Control]bool{
 		input.ButtonSouth:  false,
 		input.ButtonEast:   false,
@@ -162,7 +160,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 // Start is the main control loops for sending events from controller to base.
 func (svc *remoteService) start(ctx context.Context) error {
-	state := &armState{}
+	state := &controllerState{}
 	state.init()
 
 	var lastEvent input.Event
@@ -238,7 +236,7 @@ func (svc *remoteService) controllerInputs() []input.Control {
 	}
 }
 
-func parseEndPointEvent(event input.Event, state *armState) error {
+func parseEndPointEvent(event input.Event, state *controllerState) error {
 	switch event.Event {
 	case input.ButtonPress:
 		state.buttons[event.Control] = true
@@ -252,12 +250,13 @@ func parseEndPointEvent(event input.Event, state *armState) error {
 	return nil
 }
 
-func parseJointByJointEvent(event input.Event, state *armState) error {
+func parseJointByJointEvent(event input.Event, state *controllerState) error {
 	switch event.Event {
 	case input.ButtonPress:
 		state.buttons[event.Control] = true
 	case input.ButtonRelease:
 		state.buttons[event.Control] = false
+		return nil
 	case input.PositionChangeAbs:
 		state.arrows[event.Control] = event.Value
 	default:
@@ -273,9 +272,19 @@ func parseJointByJointEvent(event input.Event, state *armState) error {
 		input.AbsoluteHat0Y, // joint6
 		input.AbsoluteZ,     // joint7
 		input.AbsoluteRZ:    // joint7
-		if state.arrows[event.Control] != 0.0 {
-			state.event = setJoint
+		if state.arrows[input.AbsoluteX] != 0.0 || state.arrows[input.AbsoluteY] != 0.0 {
+			state.event = processXY
+		} else if state.arrows[input.AbsoluteRX] != 0.0 || state.arrows[input.AbsoluteRY] != 0.0 {
+			state.event = processRXRY
+		} else if state.arrows[input.AbsoluteHat0X] != 0.0 || state.arrows[input.AbsoluteHat0Y] != 0.0 {
+			state.event = processHat0XHat0Y
+		} else if state.arrows[input.AbsoluteZ] != 0.0 || state.arrows[input.AbsoluteRZ] != 0.0 {
+			state.event = processZRZ
 		}
+	case input.ButtonLT:
+		state.event = pincerOpen
+	case input.ButtonRT:
+		state.event = pincerClose
 	case input.ButtonSouth:
 		state.event = stop
 	case input.ButtonWest:
@@ -284,15 +293,15 @@ func parseJointByJointEvent(event input.Event, state *armState) error {
 		state.event = namedPosePreview
 	case input.ButtonNorth:
 		state.event = namedPoseExecute
-	case input.ButtonStart:
+	case input.ButtonMenu:
 		state.event = changeJointGroup
-	case input.ButtonSelect, input.ButtonMenu:
+	case input.ButtonSelect, input.ButtonStart:
 		state.event = changeCollisionAvoidance
 	}
 	return nil
 }
 
-func parseEvent(mode controlMode, state *armState, event input.Event) error {
+func parseControllerEvent(mode controlMode, state *controllerState, event input.Event) error {
 	switch mode {
 	case endPointControl:
 		return parseEndPointEvent(event, state)
@@ -303,8 +312,8 @@ func parseEvent(mode controlMode, state *armState, event input.Event) error {
 	}
 }
 
-func (svc *remoteService) processEvent(ctx context.Context, state *armState, event input.Event) error {
-	err := parseEvent(svc.controlMode, state, event)
+func (svc *remoteService) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
+	err := parseControlerEvent(svc.controlMode, state, event)
 	if err != nil {
 		svc.logger.Errorw("error processing event", "error", err)
 		return err
@@ -313,16 +322,34 @@ func (svc *remoteService) processEvent(ctx context.Context, state *armState, eve
 	switch state.event {
 	case setPosition:
 		svc.logger.Debug("setPosition")
-	case getPosition:
-		svc.logger.Debug("getPosition")
-	case setJoint:
-		svc.logger.Debugf("setJoint(%f)", event.Value)
-	case getJoint:
-		svc.logger.Debug("getJoint")
 	case pincerClose:
 		svc.logger.Debug("pincerClose")
 	case pincerOpen:
 		svc.logger.Debug("pincerOpen")
+	case changeMode:
+		svc.logger.Debug("changeMode")
+	case namedPoseExecute:
+		svc.logger.Debug("namedPoseExecute")
+	case namedPosePreview:
+		svc.logger.Debug("namedPosePreview")
+	case changeCollisionAvoidance:
+		svc.logger.Debug("changeCollisionAvoidance")
+	case changeJointGroup:
+		svc.logger.Debug("changeJointGroup")
+	case processXY:
+		svc.logger.Debugf("processXY(%f, %f)", state.arrows[input.AbsoluteX], state.arrows[input.AbsoluteY])
+	case processRXRY:
+		svc.logger.Debugf("processRXRY(%f, %f)", state.arrows[input.AbsoluteRX], state.arrows[input.AbsoluteRY])
+	case processHat0XHat0Y:
+		svc.logger.Debugf("processHat0XHat0Y(%f, %f)", state.arrows[input.AbsoluteHat0X], state.arrows[input.AbsoluteHat0Y])
+	case processZRZ:
+		svc.logger.Debugf("processZRZ(%f, %f)", state.arrows[input.AbsoluteZ], state.arrows[input.AbsoluteRZ])
+	case stop:
+		err := svc.arm.Stop(ctx, nil)
+		if err != nil {
+			svc.logger.Info("stop failed")
+		}
+		svc.logger.Debug("stop")
 	case noop:
 		return nil
 	default:
