@@ -48,6 +48,7 @@ jobs:
         git add .
         chown -R testbot .
         sudo -u testbot bash -lc '${{ matrix.build_lint }}'
+
         GEN_DIFF=$(git status -s)
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build lint" resulted in changes not in git' 1>&2
