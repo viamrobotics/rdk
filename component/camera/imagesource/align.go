@@ -171,9 +171,9 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 	var proj rimage.Projector
 	switch stream {
 	case camera.ColorStream, camera.UnspecifiedStream, camera.BothStream:
-		proj = camera.GetProjector(ctx, attrs.AttrConfig, color)
+		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, color)
 	case camera.DepthStream:
-		proj = camera.GetProjector(ctx, attrs.AttrConfig, depth)
+		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, depth)
 	default:
 		return nil, camera.NewUnsupportedStreamError(stream)
 	}

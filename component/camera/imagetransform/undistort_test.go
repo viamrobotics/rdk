@@ -84,7 +84,8 @@ func TestUndistortImageWithDepth(t *testing.T) {
 
 	// success - attrs does not have cam parameters, but source does
 	source = &imagesource.StaticSource{ColorImg: img, DepthImg: img}
-	cam, err = camera.New(source, camera.GetProjector(context.Background(), &camera.AttrConfig{CameraParameters: undistortTestParams}, nil))
+	proj, _ := camera.GetProjector(context.Background(), &camera.AttrConfig{CameraParameters: undistortTestParams}, nil)
+	cam, err = camera.New(source, proj)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrs.CameraParameters = nil

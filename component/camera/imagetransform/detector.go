@@ -37,7 +37,8 @@ func init() {
 			}
 			confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
 			detector := &detectorSource{cam, sourceName, attrs.DetectorName, confFilter, r, logger}
-			return camera.New(detector, camera.GetProjector(ctx, attrs.AttrConfig, cam))
+			proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, cam)
+			return camera.New(detector, proj)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(

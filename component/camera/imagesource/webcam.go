@@ -244,5 +244,6 @@ func tryWebcamOpen(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return camera.New(reader, camera.GetProjector(ctx, attrs.AttrConfig, nil))
+	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
+	return camera.New(reader, proj)
 }

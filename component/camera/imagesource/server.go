@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
+	viamutils "go.viam.com/utils"
 )
 
 func init() {
@@ -91,19 +92,19 @@ func init() {
 // dualServerSource stores two URLs, one which points the color source and the other to the
 // depth source.
 type dualServerSource struct {
-	client     http.Client
-	ColorURL   string // this is for a generic image
-	DepthURL   string // this suuports monochrome Z16 depth images
-	Intrinsics *transform.PinholeCameraIntrinsics
-	Stream     camera.StreamType // returns color or depth frame with calls of Next
+	client                  http.Client
+	ColorURL                string // this is for a generic image
+	DepthURL                string // this suuports monochrome Z16 depth images
+	Intrinsics              *transform.PinholeCameraIntrinsics
+	Stream                  camera.StreamType // returns color or depth frame with calls of Next
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 // dualServerAttrs is the attribute struct for dualServerSource.
 type dualServerAttrs struct {
 	*camera.AttrConfig
-	Color                   string `json:"color"`
-	Depth                   string `json:"depth"`
-	activeBackgroundWorkers sync.WaitGroup
+	Color string `json:"color"`
+	Depth string `json:"depth"`
 }
 
 // newDualServerSource creates the ImageSource that streams color/depth/both data from two external servers, one for each channel.
@@ -117,7 +118,8 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 		Intrinsics: cfg.CameraParameters,
 		Stream:     camera.StreamType(cfg.Stream),
 	}
-	return camera.New(imgSrc, camera.GetProjector(ctx, cfg.AttrConfig, nil))
+	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
+	return camera.New(imgSrc, proj)
 }
 
 // Next requests either the color or depth frame, depending on what the config specifies.
@@ -144,25 +146,25 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	}
 	var color *rimage.Image
 	var depth *rimage.DepthMap
-	var errColor error
-	var errDepth error
 	// do a parallel request for the color and depth image
 	// get color image
 	ds.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
+	viamutils.PanicCapturingGo(func() {
 		defer ds.activeBackgroundWorkers.Done()
-		color, errColor = readColorURL(ctx, ds.client, ds.ColorURL)
-		if errColor != nil {
-			panic(errColor)
+		var err error
+		color, err = readColorURL(ctx, ds.client, ds.ColorURL)
+		if err != nil {
+			panic(err)
 		}
 	})
 	// get depth image
 	ds.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
+	viamutils.PanicCapturingGo(func() {
 		defer ds.activeBackgroundWorkers.Done()
-		depth, errDepth = readDepthURL(ctx, ds.client, ds.DepthURL)
-		if errColor != nil {
-			panic(errDepth)
+		var err error
+		depth, err = readDepthURL(ctx, ds.client, ds.DepthURL)
+		if err != nil {
+			panic(err)
 		}
 	})
 	ds.activeBackgroundWorkers.Wait()
@@ -242,5 +244,6 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 		stream:     camera.StreamType(cfg.Stream),
 		Intrinsics: cfg.AttrConfig.CameraParameters,
 	}
-	return camera.New(imgSrc, camera.GetProjector(ctx, cfg.AttrConfig, nil))
+	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
+	return camera.New(imgSrc, proj)
 }
