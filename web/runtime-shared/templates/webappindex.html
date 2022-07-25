@@ -27,14 +27,17 @@
     <div id="app"></div>
 
     {{ if .External }}
-    <script src="/static/rdk/control.js"></script>
+    <script type="module" src="/static/rdk/api.js"></script>
+    <script type="module" src="/static/rdk/control.js"></script>
     {{ else }}
 
     {{ if eq .Env "development" }}
-    <script type="module" src="http://localhost:5173/src/main.js"></script>
+    <script type="module" src="http://localhost:5174/src/api.js"></script>
+    <script type="module" src="http://localhost:5174/src/main.js"></script>
     {{ end }}
 
     {{ if eq .Env "production" }}
+    <script type="module" src="/static/api.js"></script>
     <script type="module" src="/static/control.js"></script>
     {{ end }}
 
