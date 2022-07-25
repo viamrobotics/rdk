@@ -1,4 +1,7 @@
-package imagesource
+// Package imagetransform defines cameras that apply transforms for images in an image transformation pipeline.
+// They are not original generators of image, but require an image source in order to function.
+// They are typically registered as cameras in the API.
+package imagetransform
 
 import (
 	"context"
@@ -38,7 +41,8 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for identity (%s): %w", sourceName, err)
 			}
-			return camera.New(source, attrs, source)
+			proj, _ := camera.GetProjector(ctx, attrs, source)
+			return camera.New(source, proj)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "identity",
@@ -67,7 +71,8 @@ func init() {
 				return nil, fmt.Errorf("no source camera for rotate (%s): %w", sourceName, err)
 			}
 			imgSrc := &rotateImageDepthSource{source}
-			return camera.New(imgSrc, attrs, source)
+			proj, _ := camera.GetProjector(ctx, attrs, source)
+			return camera.New(imgSrc, proj)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "rotate",
@@ -106,7 +111,8 @@ func init() {
 			}
 
 			imgSrc := gostream.ResizeImageSource{Src: source, Width: width, Height: height}
-			return camera.New(imgSrc, attrs, nil) // camera parameters from source camera do not work for resized images
+			proj, _ := camera.GetProjector(ctx, attrs, nil)
+			return camera.New(imgSrc, proj) // camera parameters from source camera do not work for resized images)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "resize",
@@ -124,7 +130,7 @@ type rotateImageDepthSource struct {
 
 // Next TODO.
 func (rids *rotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "camera::imagesource::rotate::Next")
+	ctx, span := trace.StartSpan(ctx, "camera::imagetransform::rotate::Next")
 	defer span.End()
 	orig, release, err := rids.Original.Next(ctx)
 	if err != nil {
