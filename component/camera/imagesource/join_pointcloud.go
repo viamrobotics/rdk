@@ -101,7 +101,8 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttr
 	joinSource.robot = r
 	joinSource.stream = camera.StreamType(attrs.Stream)
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
-		return camera.New(joinSource, camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx]))
+		proj, _ := camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx])
+		return camera.New(joinSource, proj)
 	}
 	return camera.New(joinSource, nil)
 }

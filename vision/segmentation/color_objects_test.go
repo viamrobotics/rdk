@@ -24,7 +24,8 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	cameraAttrs := &camera.AttrConfig{CameraParameters: params}
 	c := &imagesource.StaticSource{img.Color, img.Depth, params}
-	cam, err := camera.New(c, camera.GetProjector(context.Background(), cameraAttrs, nil))
+	proj, _ := camera.GetProjector(context.Background(), cameraAttrs, nil)
+	cam, err := camera.New(c, proj)
 	test.That(t, err, test.ShouldBeNil)
 	// create config
 	cfg := config.AttributeMap{

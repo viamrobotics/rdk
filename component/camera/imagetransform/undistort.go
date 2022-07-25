@@ -57,7 +57,7 @@ type undistortSource struct {
 }
 
 func newUndistortSource(ctx context.Context, source camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
-	proj := camera.GetProjector(ctx, attrs, source)
+	proj, _ := camera.GetProjector(ctx, attrs, source)
 	intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 	if !ok {
 		return nil, transform.NewNoIntrinsicsError("")

@@ -26,7 +26,8 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
-			return camera.New(imgSrc, camera.GetProjector(ctx, attrs.AttrConfig, nil))
+			proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
+			return camera.New(imgSrc, proj)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
