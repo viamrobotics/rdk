@@ -42,14 +42,14 @@ func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.T
 		// get the 3D detections, and turn them into 2D image and depthmap
 		pc, err := cam.NextPointCloud(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "detection segmenter")
 		}
 		img, dm, err := proj.PointCloudToRGBD(pc)
 		if err != nil {
 			return nil, err
 		}
 		im := rimage.CloneImage(img)
-		dets, err := detector(im) // detector may modify the input image
+		dets, err := detector(ctx, im) // detector may modify the input image
 		if err != nil {
 			return nil, err
 		}

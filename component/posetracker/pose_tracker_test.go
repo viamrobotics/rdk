@@ -143,10 +143,9 @@ type mock struct {
 func (m *mock) GetPoses(ctx context.Context, bodyNames []string) (posetracker.BodyToPoseInFrame, error) {
 	return posetracker.BodyToPoseInFrame{
 		"body1": referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
-		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromAxisAngle(
+		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: 2, Y: 4, Z: 6},
-			r3.Vector{X: 0, Y: 0, Z: 1},
-			math.Pi,
+			&spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1},
 		)),
 	}, nil
 }
@@ -174,10 +173,9 @@ func TestReconfigurablePoseTracker(t *testing.T) {
 
 	expectedPoses := posetracker.BodyToPoseInFrame{
 		"body1": referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
-		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromAxisAngle(
+		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: 2, Y: 4, Z: 6},
-			r3.Vector{X: 0, Y: 0, Z: 1},
-			math.Pi,
+			&spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1},
 		)),
 	}
 	poses, err := reconfPT1.(posetracker.PoseTracker).GetPoses(context.Background(), []string{})

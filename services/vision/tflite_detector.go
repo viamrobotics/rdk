@@ -66,7 +66,7 @@ func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Lo
 	}
 
 	// This function to be returned is the detector.
-	return func(img image.Image) ([]objectdetection.Detection, error) {
+	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
 		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
 		outTensors, err := tfliteInfer(ctx, model, resizedImg)
@@ -152,7 +152,7 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
 func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
 	logger golog.Logger, origW, origH int,
 ) []objectdetection.Detection {
-	_, span := trace.StartSpan(ctx, "service::vision::addTFLiteModel")
+	_, span := trace.StartSpan(ctx, "service::vision::unpackTensors")
 	defer span.End()
 	// Gather slices for the bboxes, scores, and labels, using TensorOrder
 	var labels []int
