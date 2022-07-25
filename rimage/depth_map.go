@@ -282,20 +282,6 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	return &dm, nil
 }
 
-// NewDepthMapFromImageFile extract the depth map from a Z16 image file or a .both.gz image file.
-func NewDepthMapFromImageFile(fn string) (*DepthMap, error) {
-	img, err := readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
-	if err != nil {
-		return nil, err
-	}
-	dm, err := ConvertImageToDepthMap(img)
-	if err != nil {
-		return nil, err
-	}
-
-	return dm, nil
-}
-
 // ConvertImageToDepthMap takes an image and figures out if it's already an ImageWithDepth
 // or if it can be converted into one.
 func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
