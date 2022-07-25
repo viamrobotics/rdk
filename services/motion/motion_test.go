@@ -54,10 +54,9 @@ func TestMoveFailures(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, "cannot move component with respect to its own frame, will always be at its own origin")
 	})
 	t.Run("fail on disconnected supplemental frames in world state", func(t *testing.T) {
-		testPose := spatialmath.NewPoseFromAxisAngle(
+		testPose := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
-			r3.Vector{X: 0., Y: 1., Z: 0.},
-			math.Pi/2,
+			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 		transformMsgs := []*commonpb.Transform{
 			{
@@ -88,10 +87,9 @@ func TestMove(t *testing.T) {
 	})
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		testPose := spatialmath.NewPoseFromAxisAngle(
+		testPose := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
-			r3.Vector{X: 0., Y: 1., Z: 0.},
-			math.Pi/2,
+			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 
 		transformMsgs := []*commonpb.Transform{
@@ -165,10 +163,9 @@ func TestGetPose(t *testing.T) {
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
-	testPose := spatialmath.NewPoseFromAxisAngle(
+	testPose := spatialmath.NewPoseFromOrientation(
 		r3.Vector{X: 0., Y: 0., Z: 0.},
-		r3.Vector{X: 0., Y: 1., Z: 0.},
-		math.Pi/2,
+		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 	transformMsgs := []*commonpb.Transform{
 		{
