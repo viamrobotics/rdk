@@ -18,6 +18,8 @@
     <link rel="preload" href="/static/prime.css" as="style">
     <link rel="stylesheet" href="/static/main.css" />
     <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
+    {{ else if eq .Env "development" }}
+    <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
     {{ end }}
   </head>
 
