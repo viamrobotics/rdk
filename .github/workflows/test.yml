@@ -49,7 +49,14 @@ jobs:
         chown -R testbot .
         sudo -u testbot bash -lc '${{ matrix.build_lint }}'
 
-        GEN_DIFF=$(git status -s)
+        NOW=$(date "+%s")
+        CUTOFF_DATE=$(date -d"2022/07/27 00:00:00" "+%s")
+        if [ "$NOW" -gt "$CUTOFF_DATE" ]; then
+          echo "stop ignoring web/runtime-shared/static/control.js"
+          exit 1
+        fi
+
+        GEN_DIFF=$(git status -s | grep -v web/runtime-shared/static/control.js)
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build lint" resulted in changes not in git' 1>&2
             git status
