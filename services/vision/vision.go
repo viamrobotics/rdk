@@ -4,9 +4,12 @@ package vision
 
 import (
 	"context"
+	"sync"
 
 	"github.com/edaniels/golog"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.opencensus.io/trace"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/camera"
@@ -14,6 +17,7 @@ import (
 	servicepb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -36,6 +40,7 @@ func init() {
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
+		Reconfigurable: WrapWithReconfigurable,
 	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
@@ -62,6 +67,11 @@ type Service interface {
 	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*viz.Object, error)
 }
+
+var (
+	_ = Service(&reconfigurableVision{})
+	_ = resource.Reconfigurable(&reconfigurableVision{})
+)
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("vision")
@@ -144,22 +154,6 @@ type visionService struct {
 	detReg detectorMap
 	segReg segmenterMap
 	logger golog.Logger
-}
-
-// Update will create a new completely vision service from the input config.
-func (vs *visionService) Update(ctx context.Context, conf config.Service) error {
-	ctx, span := trace.StartSpan(ctx, "service::vision::Update")
-	defer span.End()
-	newService, err := New(ctx, vs.r, conf, vs.logger)
-	if err != nil {
-		return err
-	}
-	svc, ok := newService.(*visionService)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newService)
-	}
-	*vs = *svc
-	return nil
 }
 
 // Detection Methods
@@ -266,4 +260,84 @@ func (vs *visionService) Close() error {
 		}
 	}
 	return nil
+}
+
+type reconfigurableVision struct {
+	mu     sync.RWMutex
+	actual Service
+}
+
+func (svc *reconfigurableVision) GetDetectorNames(ctx context.Context) ([]string, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetDetectorNames(ctx)
+}
+
+func (svc *reconfigurableVision) AddDetector(ctx context.Context, cfg DetectorConfig) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.AddDetector(ctx, cfg)
+}
+
+func (svc *reconfigurableVision) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetDetections(ctx, cameraName, detectorName)
+}
+
+func (svc *reconfigurableVision) GetSegmenterNames(ctx context.Context) ([]string, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetSegmenterNames(ctx)
+}
+
+func (svc *reconfigurableVision) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetSegmenterParameters(ctx, segmenterName)
+}
+
+func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
+	cameraName,
+	segmenterName string,
+	params config.AttributeMap,
+) ([]*viz.Object, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
+}
+
+func (svc *reconfigurableVision) Close(ctx context.Context, id primitive.ObjectID) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return goutils.TryClose(ctx, svc.actual)
+}
+
+// Reconfigure replaces the old vision service with a new vision.
+func (svc *reconfigurableVision) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableVision)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := goutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
+}
+
+// WrapWithReconfigurable wraps a vision service as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("vision.Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableVision); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableVision{actual: svc}, nil
 }

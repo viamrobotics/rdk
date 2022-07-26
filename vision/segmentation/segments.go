@@ -102,7 +102,6 @@ func (c *Segments) MergeClusters(from, to int) error {
 	c.Objects[from].Iterate(0, 0, func(v r3.Vector, d pc.Data) bool {
 		c.Indices[v] = to
 		err = c.Objects[to].Set(v, d)
-		c.Objects[from].Unset(v.X, v.Y, v.Z)
 		return err == nil
 	})
 	if err != nil {

@@ -37,6 +37,8 @@ type RobotServiceClient interface {
 	GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error)
 	// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
 	StreamStatus(ctx context.Context, in *StreamStatusRequest, opts ...grpc.CallOption) (RobotService_StreamStatusClient, error)
+	// StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement
+	StopAll(ctx context.Context, in *StopAllRequest, opts ...grpc.CallOption) (*StopAllResponse, error)
 }
 
 type robotServiceClient struct {
@@ -160,6 +162,15 @@ func (x *robotServiceStreamStatusClient) Recv() (*StreamStatusResponse, error) {
 	return m, nil
 }
 
+func (c *robotServiceClient) StopAll(ctx context.Context, in *StopAllRequest, opts ...grpc.CallOption) (*StopAllResponse, error) {
+	out := new(StopAllResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/StopAll", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -179,6 +190,8 @@ type RobotServiceServer interface {
 	GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error)
 	// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
 	StreamStatus(*StreamStatusRequest, RobotService_StreamStatusServer) error
+	// StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement
+	StopAll(context.Context, *StopAllRequest) (*StopAllResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -215,6 +228,9 @@ func (UnimplementedRobotServiceServer) GetStatus(context.Context, *GetStatusRequ
 }
 func (UnimplementedRobotServiceServer) StreamStatus(*StreamStatusRequest, RobotService_StreamStatusServer) error {
 	return status.Errorf(codes.Unimplemented, "method StreamStatus not implemented")
+}
+func (UnimplementedRobotServiceServer) StopAll(context.Context, *StopAllRequest) (*StopAllResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopAll not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -412,6 +428,24 @@ func (x *robotServiceStreamStatusServer) Send(m *StreamStatusResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _RobotService_StopAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopAllRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).StopAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/StopAll",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).StopAll(ctx, req.(*StopAllRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -454,6 +488,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetStatus",
 			Handler:    _RobotService_GetStatus_Handler,
+		},
+		{
+			MethodName: "StopAll",
+			Handler:    _RobotService_StopAll_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

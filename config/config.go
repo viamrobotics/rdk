@@ -2,6 +2,7 @@
 package config
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -464,4 +465,10 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 		out.Remotes[idx] = remoteCopy
 	}
 	return &out, nil
+}
+
+// Updateable is implemented when component/service of a robot should be updated with the config.
+type Updateable interface {
+	// Update updates the resource
+	Update(context.Context, *Config) error
 }
