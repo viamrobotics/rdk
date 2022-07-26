@@ -99,28 +99,28 @@ type boat struct {
 	logger golog.Logger
 }
 
-func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	if distanceMm < 0 {
 		mmPerSec *= -1
 		distanceMm *= -1
 	}
-	err := b.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{})
+	err := b.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{}, extra)
 	if err != nil {
 		return err
 	}
 	s := time.Duration(float64(time.Millisecond) * math.Abs(float64(distanceMm)))
 	utils.SelectContextOrWait(ctx, s)
-	return b.Stop(ctx)
+	return b.Stop(ctx, nil)
 }
 
-func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	millis := 1000 * (angleDeg / degsPerSec)
-	err := b.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: -1 * degsPerSec})
+	err := b.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: -1 * degsPerSec}, extra)
 	if err != nil {
 		return err
 	}
 	utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*millis))
-	return b.Stop(ctx)
+	return b.Stop(ctx, nil)
 }
 
 func (b *boat) startVelocityThread() error {
@@ -207,7 +207,7 @@ func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVeloc
 	return linear, angular
 }
 
-func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	b.logger.Debugf("SetVelocity %v %v", linear, angular)
 	_, done := b.opMgr.New(ctx)
 	defer done()
@@ -230,7 +230,7 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 	return nil
 }
 
-func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	b.logger.Debugf("SetPower %v %v", linear, angular)
 	ctx, done := b.opMgr.New(ctx)
 	defer done()
@@ -250,7 +250,7 @@ func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) 
 	for idx, p := range power {
 		err := b.motors[idx].SetPower(ctx, p)
 		if err != nil {
-			return multierr.Combine(b.Stop(ctx), err)
+			return multierr.Combine(b.Stop(ctx, nil), err)
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -266,7 +266,7 @@ func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) 
 	return nil
 }
 
-func (b *boat) Stop(ctx context.Context) error {
+func (b *boat) Stop(ctx context.Context, extra map[string]interface{}) error {
 	b.stateMutex.Lock()
 	b.state.velocityLinearGoal = r3.Vector{}
 	b.state.velocityAngularGoal = r3.Vector{}
@@ -303,5 +303,5 @@ func (b *boat) Close(ctx context.Context) error {
 		b.cancel = nil
 		b.waitGroup.Wait()
 	}
-	return b.Stop(ctx)
+	return b.Stop(ctx, nil)
 }
