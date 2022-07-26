@@ -139,7 +139,7 @@ func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image
 }
 
 // imageToUInt8Buffer reads an image into a byte slice in the most common sense way.
-// Left to right like a book; R, then G, then B. No funny stuff. Assumes values should be between 0-255
+// Left to right like a book; R, then G, then B. No funny stuff. Assumes values should be between 0-255.
 func imageToUInt8Buffer(img image.Image) []byte {
 	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
 	for y := 0; y < img.Bounds().Dy(); y++ {
@@ -155,7 +155,7 @@ func imageToUInt8Buffer(img image.Image) []byte {
 }
 
 // imageToFloatBuffer reads an image into a byte slice (buffer) the most common sense way.
-// Left to right like a book; R, then G, then B. No funny stuff. Assumes values between -1 and 1
+// Left to right like a book; R, then G, then B. No funny stuff. Assumes values between -1 and 1.
 func imageToFloatBuffer(img image.Image) []float32 {
 	output := make([]float32, img.Bounds().Dx()*img.Bounds().Dy()*3)
 	for y := 0; y < img.Bounds().Dy(); y++ {
