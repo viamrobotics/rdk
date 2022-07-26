@@ -11,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
@@ -21,6 +22,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
@@ -41,7 +43,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newJoinPointCloudSource(r, attrs)
+			return newJoinPointCloudSource(ctx, r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_pointclouds",
@@ -62,6 +64,7 @@ func init() {
 
 // JoinAttrs is the attribute struct for joinPointCloudSource.
 type JoinAttrs struct {
+	*camera.AttrConfig
 	TargetFrame   string   `json:"target_frame"`
 	SourceCameras []string `json:"source_cameras"`
 }
@@ -75,11 +78,12 @@ type joinPointCloudSource struct {
 	sourceNames   []string
 	targetName    string
 	robot         robot.Robot
+	stream        camera.StreamType
 }
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
 // reference frame of targetName.
-func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
+func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
 	joinSource := &joinPointCloudSource{}
 	// frame to merge from
 	joinSource.sourceCameras = make([]camera.Camera, len(attrs.SourceCameras))
@@ -95,10 +99,12 @@ func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, er
 	// frame to merge to
 	joinSource.targetName = attrs.TargetFrame
 	joinSource.robot = r
+	joinSource.stream = camera.StreamType(attrs.Stream)
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
-		return camera.New(joinSource, nil, joinSource.sourceCameras[idx])
+		proj, _ := camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx])
+		return camera.New(joinSource, proj)
 	}
-	return camera.New(joinSource, nil, nil)
+	return camera.New(joinSource, nil)
 }
 
 // NextPointCloud gets all the point clouds from the source cameras,
@@ -247,8 +253,12 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 // Next gets the merged point cloud from all sources, and then uses a projection to turn it into a 2D image.
 func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 	var proj rimage.Projector
+	var err error
 	if idx, ok := contains(jpcs.sourceNames, jpcs.targetName); ok {
-		proj = camera.Projector(jpcs.sourceCameras[idx])
+		proj, err = jpcs.sourceCameras[idx].GetProperties(ctx)
+		if err != nil && !errors.Is(err, transform.ErrNoIntrinsics) {
+			return nil, nil, err
+		}
 	}
 	if proj == nil { // use a default projector if target frame doesn't have one
 		proj = &rimage.ParallelProjection{}
@@ -261,8 +271,14 @@ func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func()
 	if err != nil {
 		return nil, nil, err
 	}
-	iwd := rimage.MakeImageWithDepth(img, dm, true)
-	return iwd, func() {}, nil
+	switch jpcs.stream {
+	case camera.UnspecifiedStream, camera.ColorStream, camera.BothStream:
+		return img, func() {}, nil
+	case camera.DepthStream:
+		return dm, func() {}, nil
+	default:
+		return nil, nil, camera.NewUnsupportedStreamError(jpcs.stream)
+	}
 }
 
 func contains(s []string, str string) (int, bool) {

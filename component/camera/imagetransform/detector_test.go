@@ -1,4 +1,4 @@
-package imagesource
+package imagetransform
 
 import (
 	"context"
@@ -68,6 +68,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 			"source":        "fake_cam",
 			"detector_name": "detector_color",
 		},
+		DependsOn: []string{"fake_cam"},
 	}
 	cfg.Components = append(cfg.Components, detectorComp)
 	tfliteComp := config.Component{
@@ -79,6 +80,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 			"detector_name":        "detector_tflite",
 			"confidence_threshold": 0.35,
 		},
+		DependsOn: []string{"fake_cam"},
 	}
 	cfg.Components = append(cfg.Components, tfliteComp)
 	newConfFile, err := writeTempConfig(cfg)
