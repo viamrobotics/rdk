@@ -5,11 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
-
-	"math/rand"
 
 	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
@@ -2033,27 +2032,27 @@ func TestRobotReconfigure(t *testing.T) {
 		// config1
 		config1 := &config.Config{
 			Processes: []pexec.ProcessConfig{
-				pexec.ProcessConfig{
+				{
 					ID:      "shouldfail", // this process won't be executed
 					Name:    "false",
 					OneShot: true,
 				},
-				pexec.ProcessConfig{
+				{
 					ID:      "noexec", // file exist but exec bit not set
 					Name:    noExecF.Name(),
 					OneShot: true,
 				},
-				pexec.ProcessConfig{
+				{
 					ID:   "shouldsuceed", // this keep succeeding
 					Name: "true",
 				},
-				pexec.ProcessConfig{
+				{
 					ID:      "noexist", // file doesn't exists
 					Name:    fmt.Sprintf("%s/%s", tempDir, "noexistfile"),
 					OneShot: true,
 					Log:     true,
 				},
-				pexec.ProcessConfig{
+				{
 					ID:   "filehandle", // this keep succeeding and will be changed
 					Name: "true",
 				},
@@ -2072,17 +2071,17 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		config2 := &config.Config{
 			Processes: []pexec.ProcessConfig{
-				pexec.ProcessConfig{
+				{
 					ID:      "shouldfail", // now it succeeds
 					Name:    "true",
 					OneShot: true,
 				},
-				pexec.ProcessConfig{
+				{
 					ID:      "shouldsuceed", // now it fails
 					Name:    "false",
 					OneShot: true,
 				},
-				pexec.ProcessConfig{
+				{
 					ID:   "filehandle", // this transfer originF to targetF after 3s
 					Name: "bash",
 					Args: []string{
@@ -2106,12 +2105,15 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		r := make([]byte, 128)
 		n, err := targetF.Read(r)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, n, test.ShouldEqual, 0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, n, test.ShouldEqual, 128)
 		utils.SelectContextOrWait(context.Background(), 3*time.Second)
 		_, err = targetF.Seek(0, 0)
 		test.That(t, err, test.ShouldBeNil)
 		n, err = targetF.Read(r)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, n, test.ShouldEqual, 128)
+		test.That(t, r, test.ShouldResemble, token)
 		utils.SelectContextOrWait(context.Background(), 3*time.Second)
 		_, err = targetF.Read(r)
 		test.That(t, err, test.ShouldNotBeNil)
