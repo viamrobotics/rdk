@@ -114,7 +114,7 @@ jobs:
     steps:
       - name: Check Results
         run: |
-          echo Test Pi: {{ $job.needs.test_pi.result }}
-          echo Main Tests: {{ $job.needs.test_pi.result }}
-          [ "{{ $job.needs.test_pi.result }}" == "success" ] && \
-          [ "{{ $job.needs.build_and_test.result }}" == "success" ]
+          echo Test Pi: {{ needs.test_pi.result }}
+          echo Main Tests: {{ needs.test_pi.result }}
+          [ "{{ needs.test_pi.result }}" == "success" ] && \
+          [ "{{ needs.build_and_test.result }}" == "success" ]
