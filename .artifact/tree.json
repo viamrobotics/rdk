@@ -50308,6 +50308,14 @@
       "fakelabels.txt": {
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
         "size": 50
+      },
+      "mobilenet.tflite": {
+        "hash": "66ee95e3edbaa9b3de5138cf1cbb127d",
+        "size": 1866640
+      },
+      "ssdmobilenet.tflite": {
+        "hash": "4c421353bf0a105c5ffba593ffee4099",
+        "size": 27523960
       }
     },
     "white1.png": {
