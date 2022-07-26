@@ -36,5 +36,25 @@
       "name": "mock7",
       "type": "arm"
     }
+  ],
+  "processes":
+  [
+    {
+      "id": "nonzero",
+      "name": "false",
+      "one_shot": true
+    },
+    {
+      "id": "zero",
+      "name": "true",
+      "one_shot": true
+    },
+    {
+      "id": "noexists",
+      "name": "noexistsp",
+      "args":[],
+      "log" : true,
+      "one_shot": true
+    }
   ]
 }

@@ -727,7 +727,7 @@ func TestManagerNewComponent(t *testing.T) {
 	}
 	diff, err := config.DiffConfigs(&config.Config{}, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, robotForRemote.manager.updateResourceGraph(diff, func(name string) (resource.Name, bool) {
+	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {
 			if c.Name == name {
 				return c.ResourceName(), true
@@ -755,7 +755,7 @@ func TestManagerNewComponent(t *testing.T) {
 		ConvertedAttributes: &board.Config{},
 		DependsOn:           []string{"arm3"},
 	})
-	err = robotForRemote.manager.updateResourceGraph(diff, func(name string) (resource.Name, bool) {
+	err = robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {
 			if c.Name == name {
 				return c.ResourceName(), true

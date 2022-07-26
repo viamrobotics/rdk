@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
@@ -1951,6 +1953,15 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
+		// adding more edge cases for processes
+		tmpF, err := ioutil.TempFile("", "nonexec*.sh")
+		test.That(t, err, test.ShouldBeNil)
+		conf1.Processes = append(conf1.Processes, pexec.ProcessConfig{
+			ID:      "noexec",
+			Name:    tmpF.Name(),
+			OneShot: true,
+			Log:     true,
+		})
 		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
@@ -1980,6 +1991,21 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		_, err = arm.FromRobot(robot, "mock7")
 		test.That(t, err, test.ShouldBeNil)
+		_, ok := robot.ProcessManager().ProcessByID("nonzero")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("noexists")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("noexec")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("zero")
+		test.That(t, ok, test.ShouldBeTrue)
+
+		conf2.Processes = append(conf2.Processes, pexec.ProcessConfig{
+			ID:      "noexec",
+			Name:    "true",
+			Log:     true,
+			OneShot: true,
+		})
 		robot.Reconfigure(context.Background(), conf2)
 		mockNames = []resource.Name{
 			mockNamed("mock1"),
@@ -1997,6 +2023,16 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = arm.FromRobot(robot, "arm1")
 		test.That(t, err, test.ShouldNotBeNil)
 		_, err = robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
+		_, ok = robot.ProcessManager().ProcessByID("nonzero")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("noexists")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("noexec")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("zero")
+		test.That(t, ok, test.ShouldBeFalse)
+		err = tmpF.Close()
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
