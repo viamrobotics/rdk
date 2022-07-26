@@ -30,25 +30,5 @@
       "name": "mock2",
       "type": "mock"
     }
-  ],
-  "processes":
-  [
-    {
-      "id": "nonzero",
-      "name": "true",
-      "one_shot": true
-    },
-    {
-      "id": "noexists",
-      "name": "date",
-      "args":[],
-      "log" : true,
-      "one_shot": true
-    },
-    {
-      "id": "zero",
-      "name": "false",
-      "one_shot": true
-    }
   ]
 }
