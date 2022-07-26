@@ -110,7 +110,11 @@ jobs:
     name: All Tests Passing
     needs: [test_pi, build_and_test]
     runs-on: [x64, qemu-host]
+    if: always()
     steps:
-      - name: Pass
+      - name: Check Results
         run: |
-          true
+          echo Test Pi: {{ $job.needs.test_pi.result }}
+          echo Main Tests: {{ $job.needs.test_pi.result }}
+          [ "{{ $job.needs.test_pi.result }}" == "success" ] && \
+          [ "{{ $job.needs.build_and_test.result }}" == "success" ]
