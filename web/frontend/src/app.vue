@@ -1017,7 +1017,7 @@ export default {
       console.debug('connecting');
       document.querySelector('#connecting').classList.remove('hidden');
       try {
-        await connect(authEntity, creds);
+        await window.connect(authEntity, creds);
         this.loadCurrentOps();
       } catch (error) {
         toast.error(`failed to connect: ${error}`);
