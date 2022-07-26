@@ -156,6 +156,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		opt.maxSolutions = solutionsToSeed
 	}
 
+	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
@@ -481,4 +482,36 @@ func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
 		pos[i] = jRange * by
 	}
 	return pos
+}
+
+func extractPath(startMap, goalMap map[*configuration]*configuration, q1, q2 *configuration) []*configuration {
+	// need to figure out which of the two configurations is in the start map
+	var startReached, goalReached *configuration
+	if _, ok := startMap[q1]; ok {
+		startReached, goalReached = q1, q2
+	} else {
+		startReached, goalReached = q2, q1
+	}
+
+	// extract the path to the seed
+	path := []*configuration{}
+	for startReached != nil {
+		path = append(path, startReached)
+		startReached = startMap[startReached]
+	}
+
+	// reverse the slice
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+
+	// skip goalReached configuration and go directly to its parent in order to not repeat this node
+	goalReached = goalMap[goalReached]
+
+	// extract the path to the goal
+	for goalReached != nil {
+		path = append(path, goalReached)
+		goalReached = goalMap[goalReached]
+	}
+	return path
 }
