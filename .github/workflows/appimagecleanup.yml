@@ -15,7 +15,6 @@ on:
 
 jobs:
   name: Clean Test AppImages
-    needs: appimage_test
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
