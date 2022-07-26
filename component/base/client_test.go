@@ -162,7 +162,7 @@ func TestClient(t *testing.T) {
 
 		err = workingBaseClient2.Spin(context.Background(), angleDeg, degsPerSec, nil)
 		test.That(t, err, test.ShouldBeNil)
-		expectedArgs := []interface{}{angleDeg, degsPerSec, nil}
+		expectedArgs := []interface{}{angleDeg, degsPerSec, map[string]interface{}{}}
 		test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
