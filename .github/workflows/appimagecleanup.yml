@@ -14,7 +14,8 @@ on:
 # Don't forget to tag back to @main before merge.
 
 jobs:
-  name: Clean Test AppImages
+  clean_appimages:
+    name: Clean Test AppImages
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
