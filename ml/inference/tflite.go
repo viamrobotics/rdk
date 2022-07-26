@@ -149,7 +149,6 @@ func getInfo(inter Interpreter) *TFLiteInfo {
 	}
 
 	info := &TFLiteInfo{
-		//TODO: Khari?? We can't depend on this to be true. Maybe just send over input.Dim
 		InputHeight:       input.Dim(1),
 		InputWidth:        input.Dim(2),
 		InputChannels:     input.Dim(3),
