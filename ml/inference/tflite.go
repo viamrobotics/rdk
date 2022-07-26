@@ -126,8 +126,10 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 	return modelStruct, nil
 }
 
+// InTensorType is a wrapper around a string that details the allowed input tensor types.
 type InTensorType string
 
+// UInt8 and Float32 are the currently supported input tensor types.
 const (
 	UInt8   = InTensorType("UInt8")
 	Float32 = InTensorType("Float32")

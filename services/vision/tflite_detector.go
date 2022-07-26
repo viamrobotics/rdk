@@ -116,9 +116,9 @@ func addTFLiteModel(ctx context.Context, filepath string, numThreads *int) (*inf
 func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image) ([]interface{}, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::tfliteInfer")
 	defer span.End()
+
 	// Converts the image to bytes before sending it off
-	inType := model.Info.InputTensorType
-	switch inType {
+	switch model.Info.InputTensorType {
 	case inf.UInt8:
 		imgBuff := imageToUInt8Buffer(image)
 		out, err := model.Infer(imgBuff)
