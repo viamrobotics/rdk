@@ -69,6 +69,8 @@ type JoinAttrs struct {
 	TargetFrame   string   `json:"target_frame"`
 	SourceCameras []string `json:"source_cameras"`
 	MergeMethod   string   `json:"merge_method"`
+	// Closeness defines how close 2 points should be together to be considered the same point when merged.
+	Closeness float64 `json:"closeness"`
 }
 
 type (
@@ -104,6 +106,7 @@ type joinPointCloudSource struct {
 	mergeMethod   MergeMethodType
 	logger        golog.Logger
 	debug         bool
+	closeness     float64
 }
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
@@ -125,6 +128,7 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 	joinSource.targetName = attrs.TargetFrame
 	joinSource.robot = r
 	joinSource.stream = camera.StreamType(attrs.Stream)
+	joinSource.closeness = attrs.Closeness
 
 	joinSource.logger = l
 	joinSource.debug = attrs.Debug
@@ -322,7 +326,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
 			nearest, _, _, _ := finalPointCloud.NearestNeighbor(p)
 			distance := math.Sqrt(math.Pow(p.X-nearest.X, 2) + math.Pow(p.Y-nearest.Y, 2) + math.Pow(p.Z-nearest.Z, 2))
-			if distance > 1e-2 { // TODO This should probably be a param. Value is highly dependent on the size and accuracy of given pointclouds.
+			if distance > jpcs.closeness {
 				err = finalPointCloud.Set(p, d)
 				if err != nil {
 					return false

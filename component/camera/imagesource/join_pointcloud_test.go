@@ -356,6 +356,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 		SourceCameras: []string{"cam1", "cam2"},
 		TargetFrame:   "base1",
 		MergeMethod:   "icp",
+		Closeness:     0.01,
 	}
 	joinedCam, err := newJoinPointCloudSource(ctx, r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
