@@ -84,10 +84,13 @@ func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
 
 // Create progress directory in filesystem if it does not already exist.
 func (pt *progressTracker) initProgressDir() error {
-	if _, err := os.Stat(pt.progressDir); os.IsNotExist(err) {
+	_, err := os.Stat(pt.progressDir)
+	if os.IsNotExist(err) {
 		if err := os.MkdirAll(pt.progressDir, os.ModePerm); err != nil {
 			return err
 		}
+	} else if err != nil {
+		return err
 	}
 	return nil
 }

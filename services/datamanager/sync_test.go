@@ -374,126 +374,110 @@ func TestPartialUpload(t *testing.T) {
 	msg1 := []byte("viam")
 	msg2 := []byte("robotics")
 	msg3 := []byte("builds cool software")
-	tests := []struct {
-		name                         string
-		toSend                       [][]byte
-		expProgressIndexWhenCanceled int
-		expDataBeforeCanceled        [][]byte
-		expDataAfterCanceled         [][]byte
-	}{
+	msg4 := toProto(anyStruct{})
+	msg5 := toProto(anyStruct{Field1: false})
+	msg6 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
+
+	tests := []*partialUploadTestcase{
 		{
-			name:                         "Upload of non-empty file should resume from last point if it is canceled.",
-			toSend:                       [][]byte{msg1, msg2, msg3},
-			expProgressIndexWhenCanceled: 2,
-			expDataBeforeCanceled:        [][]byte{msg1, msg2},
-			expDataAfterCanceled:         [][]byte{msg3},
+			name: "Binary upload of non-empty file should resume from last point if it is " +
+				"canceled.",
+			toSend:                    createBinarySensorData([][]byte{msg1, msg2, msg3}),
+			progressIndexWhenCanceled: 2,
+			expDataBeforeCanceled:     createBinarySensorData([][]byte{msg1, msg2}),
+			expDataAfterCanceled:      createBinarySensorData([][]byte{msg3}),
+			dataType:                  v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		{
-			name: "Upload of empty file should not upload anything when it is started nor if it " +
+			name: "Binary upload of empty file should not upload anything when it is started nor if it " +
 				"is resumed.",
-			toSend:                       [][]byte{},
-			expProgressIndexWhenCanceled: 0,
-			expDataBeforeCanceled:        [][]byte{},
-			expDataAfterCanceled:         [][]byte{},
+			toSend:                    createBinarySensorData([][]byte{}),
+			progressIndexWhenCanceled: 0,
+			expDataBeforeCanceled:     createBinarySensorData([][]byte{}),
+			expDataAfterCanceled:      createBinarySensorData([][]byte{}),
+			dataType:                  v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		{
-			name: "Upload with no more messages to send after it's canceled should not upload " +
+			name: "Binary upload with no more messages to send after it's canceled should not upload " +
 				"anything after resuming.",
-			toSend:                       [][]byte{msg1, msg2},
-			expProgressIndexWhenCanceled: 2,
-			expDataBeforeCanceled:        [][]byte{msg1, msg2},
-			expDataAfterCanceled:         [][]byte{},
+			toSend:                    createBinarySensorData([][]byte{msg1, msg2}),
+			progressIndexWhenCanceled: 2,
+			expDataBeforeCanceled:     createBinarySensorData([][]byte{msg1, msg2}),
+			expDataAfterCanceled:      createBinarySensorData([][]byte{}),
+			dataType:                  v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		{
-			name: "Upload that is interrupted before sending a single message should resume and send all" +
+			name: "Binary upload that is interrupted before sending a single message should resume and send all" +
 				"messages.",
-			toSend:                       [][]byte{msg1, msg2},
-			expProgressIndexWhenCanceled: 0,
-			expDataBeforeCanceled:        [][]byte{},
-			expDataAfterCanceled:         [][]byte{msg1, msg2},
+			toSend:                    createBinarySensorData([][]byte{msg1, msg2}),
+			progressIndexWhenCanceled: 0,
+			expDataBeforeCanceled:     createBinarySensorData([][]byte{}),
+			expDataAfterCanceled:      createBinarySensorData([][]byte{msg1, msg2}),
+			dataType:                  v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		},
+		{
+			name: "Tabular upload of non-empty file should resume from last point if it is" +
+				"canceled.",
+			toSend:                    createTabularSensorData([]*structpb.Struct{msg4, msg5, msg6}),
+			progressIndexWhenCanceled: 2,
+			expDataBeforeCanceled:     createTabularSensorData([]*structpb.Struct{msg4, msg5}),
+			expDataAfterCanceled:      createTabularSensorData([]*structpb.Struct{msg6}),
+			dataType:                  v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+		},
+		{
+			name: "Tabular upload of empty file should not upload anything when it is started nor if it " +
+				"is resumed.",
+			toSend:                    createTabularSensorData([]*structpb.Struct{}),
+			progressIndexWhenCanceled: 0,
+			expDataBeforeCanceled:     createTabularSensorData([]*structpb.Struct{}),
+			expDataAfterCanceled:      createTabularSensorData([]*structpb.Struct{}),
+			dataType:                  v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 		},
 	}
 
 	for _, tc := range tests {
-		t.Log(tc.name)
+		t.Run(tc.name, func(t *testing.T) {
+			// Create temp data capture file.
+			tf, err := createTmpDataCaptureFile()
+			if err != nil {
+				t.Errorf("%s cannot create temporary data capture file for testing: %v", tc.name, err)
+			}
+			defer os.Remove(tf.Name())
 
-		// Create temp data capture file.
-		tf, err := createTmpDataCaptureFile()
-		if err != nil {
-			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
-		}
-		defer os.Remove(tf.Name())
+			writeCaptureMetadataToFile(t, tc.dataType, tf)
 
-		// First write metadata to file.
-		captureMetadata := v1.DataCaptureMetadata{
-			ComponentType:    componentType,
-			ComponentName:    componentName,
-			MethodName:       methodName,
-			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			MethodParameters: nil,
-		}
-		if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
-			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
-				tc.name, err)
-		}
+			// Next write sensor data to file.
+			if err := writeSensorData(tf, tc.toSend); err != nil {
+				t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
+			}
 
-		// Next write sensor data to file.
-		if err := writeBinarySensorData(tf, tc.toSend); err != nil {
-			t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
-		}
+			// Sync using mock client.
+			mc := initMockClient(len(tc.expDataBeforeCanceled))
+			sut := newTestSyncer(t, mc, nil)
+			sut.Sync([]string{tf.Name()})
+			time.Sleep(time.Millisecond * 100)
+			compareUploadRequestsMockClient(t, false, mc, getUploadRequests(tc.expDataBeforeCanceled, tc.dataType,
+				filepath.Base(tf.Name())))
 
-		// cancelIndex gives mock client capacity to "send" metadata message in addition to succeeding sensordata
-		// messages.
-		var cancelIndex int
-		if len(tc.expDataBeforeCanceled) == 0 {
-			cancelIndex = 0
-		} else {
-			cancelIndex = len(tc.expDataBeforeCanceled) + 1
-		}
+			// Only verify progress file existence and content if the upload has expected messages after being canceled.
+			path := filepath.Join(progressDir, filepath.Base(tf.Name()))
+			if len(tc.expDataAfterCanceled) > 0 {
+				test.That(t, fileExists(path), test.ShouldBeTrue)
+				progressIndex, err := sut.progressTracker.getProgressFileIndex(path)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, progressIndex, test.ShouldEqual, tc.progressIndexWhenCanceled)
+			}
+			sut.Close()
 
-		// Create mock client & syncer. Then sync temp data capture file.
-		mc := &mockClient{
-			sent:        []*v1.UploadRequest{},
-			lock:        sync.Mutex{},
-			cancelIndex: cancelIndex,
-		}
-		sut := newTestSyncer(t, mc, nil)
-		sut.Sync([]string{tf.Name()})
-		time.Sleep(time.Millisecond * 100)
-		expMsgsBeforeCancel := buildBinarySensorMsgs(tc.expDataBeforeCanceled, tf.Name())
-		mc.lock.Lock()
-		compareUploadRequests(t, false, mc.sent, expMsgsBeforeCancel)
-		mc.lock.Unlock()
-
-		// Only verify progress file existence and content if the upload has expected messages after being canceled.
-		path := filepath.Join(progressDir, filepath.Base(tf.Name()))
-		if len(tc.expDataAfterCanceled) > 0 {
-			test.That(t, fileExists(path), test.ShouldBeTrue)
-			progressIndex, err := sut.progressTracker.getProgressFileIndex(path)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, progressIndex, test.ShouldEqual, tc.expProgressIndexWhenCanceled)
-		}
-		sut.Close()
-
-		// Reset mock client to be empty (simulates a full reboot of client).
-		if len(tc.expDataAfterCanceled) == 0 {
-			cancelIndex = 0
-		} else {
-			cancelIndex = len(tc.expDataAfterCanceled) + 1
-		}
-		mc.sent = []*v1.UploadRequest{}
-		mc.lock = sync.Mutex{}
-		mc.cancelIndex = cancelIndex
-
-		sut = newTestSyncer(t, mc, nil)
-		sut.Sync([]string{tf.Name()})
-		time.Sleep(time.Millisecond * 100)
-		sut.Close()
-
-		expMsgsAfterCancel := buildBinarySensorMsgs(tc.expDataAfterCanceled, tf.Name())
-		mc.lock.Lock()
-		compareUploadRequests(t, false, mc.sent, expMsgsAfterCancel)
-		mc.lock.Unlock()
-		test.That(t, fileExists(path), test.ShouldBeFalse)
+			// Reset mock client to be empty (simulates a full reboot of client). Then sync using mock client.
+			mc = initMockClient(len(tc.expDataAfterCanceled))
+			sut = newTestSyncer(t, mc, nil)
+			sut.Sync([]string{tf.Name()})
+			time.Sleep(time.Millisecond * 100)
+			sut.Close()
+			compareUploadRequestsMockClient(t, false, mc, getUploadRequests(tc.expDataAfterCanceled, tc.dataType,
+				filepath.Base(tf.Name())))
+			test.That(t, fileExists(path), test.ShouldBeFalse)
+		})
 	}
 }
