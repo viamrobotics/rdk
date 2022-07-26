@@ -4,9 +4,13 @@ package wit
 import (
 	"bufio"
 	"context"
+
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"math"
+
+	"os"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -82,7 +86,7 @@ func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 // NewWit creates a new Wit IMU.
 func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	options := slib.OpenOptions{
-		BaudRate:        9600,
+		BaudRate:        115200,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
@@ -105,6 +109,11 @@ func NewWit(deps registry.Dependencies, config config.Component, logger golog.Lo
 	var ctx context.Context
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
+
+	// logging
+	csvFile, _ := os.Create("/home/skarpoor12/data/motion/imu2.csv")
+	csvwriter := csv.NewWriter(csvFile)
+
 	utils.PanicCapturingGo(func() {
 		defer utils.UncheckedErrorFunc(port.Close)
 		defer i.activeBackgroundWorkers.Done()
@@ -124,6 +133,14 @@ func NewWit(deps registry.Dependencies, config config.Component, logger golog.Lo
 					i.lastError = err
 				} else {
 					i.lastError = i.parseWIT(line)
+
+					// logging
+					data := []string{fmt.Sprintf("%f", i.orientation.Roll), fmt.Sprintf("%f", i.orientation.Pitch), fmt.Sprintf("%f", i.orientation.Yaw), fmt.Sprintf("%f", i.acceleration.X), fmt.Sprintf("%f", i.acceleration.Y), fmt.Sprintf("%f", i.acceleration.Z)}
+					err = csvwriter.Write(data)
+					if err != nil {
+						fmt.Println("ERROR: ", err)
+					}
+					fmt.Println("WRITING: ", data)
 				}
 			}()
 		}
