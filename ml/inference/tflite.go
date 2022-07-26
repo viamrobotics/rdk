@@ -126,13 +126,20 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 	return modelStruct, nil
 }
 
+type InTensorType string
+
+const (
+	UInt8   = InTensorType("UInt8")
+	Float32 = InTensorType("Float32")
+)
+
 // TFLiteInfo holds information about a model that are useful for creating input tensors bytes.
 type TFLiteInfo struct {
 	InputHeight       int
 	InputWidth        int
 	InputChannels     int
 	InputShape        []int
-	InputTensorType   string
+	InputTensorType   InTensorType
 	InputTensorCount  int
 	OutputTensorCount int
 	OutputTensorTypes []string
@@ -153,7 +160,7 @@ func getInfo(inter Interpreter) *TFLiteInfo {
 		InputWidth:        input.Dim(2),
 		InputChannels:     input.Dim(3),
 		InputShape:        input.Shape(),
-		InputTensorType:   input.Type().String(),
+		InputTensorType:   InTensorType(input.Type().String()),
 		InputTensorCount:  inter.GetInputTensorCount(),
 		OutputTensorCount: numOut,
 		OutputTensorTypes: outTypes,

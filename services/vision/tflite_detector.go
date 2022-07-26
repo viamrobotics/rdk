@@ -119,14 +119,14 @@ func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image
 	// Converts the image to bytes before sending it off
 	inType := model.Info.InputTensorType
 	switch inType {
-	case "UInt8":
+	case inf.UInt8:
 		imgBuff := imageToUInt8Buffer(image)
 		out, err := model.Infer(imgBuff)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
 		}
 		return out, nil
-	case "Float32":
+	case inf.Float32:
 		imgBuff := imageToFloatBuffer(image)
 		out, err := model.Infer(imgBuff)
 		if err != nil {
