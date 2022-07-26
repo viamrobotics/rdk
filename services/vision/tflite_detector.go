@@ -35,7 +35,7 @@ type TFLiteDetectorConfig struct {
 func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
 	defer span.End()
-	
+
 	// Read those parameters into a TFLiteDetectorConfig
 	var t TFLiteDetectorConfig
 	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
@@ -55,8 +55,8 @@ func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Lo
 	}
 
 	var inHeight, inWidth uint
-	shape := model.Info.InputShape
-	if getIndex(shape, 3) == 1 {
+
+	if shape := model.Info.InputShape; getIndex(shape, 3) == 1 {
 		inHeight, inWidth = uint(shape[2]), uint(shape[3])
 	} else {
 		inHeight, inWidth = uint(shape[1]), uint(shape[2])
@@ -136,7 +136,6 @@ func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image
 	default:
 		return nil, errors.New("invalid input type. try uint8 or float32")
 	}
-
 }
 
 func imageToUInt8Buffer(img image.Image) []byte {
@@ -157,9 +156,8 @@ func imageToUInt8Buffer(img image.Image) []byte {
 // Left to right like a book; R, then G, then B. No funny stuff.
 // This works!! (can be copied DIRECTLY onto the input tensor).
 func imageToFloatBuffer(img image.Image) []float32 {
-
 	output := make([]float32, img.Bounds().Dx()*img.Bounds().Dy()*3)
-	//Do float stuff. Assume -1 to 1?
+	// Do float stuff. Assume -1 to 1?
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()

@@ -88,9 +88,59 @@ func TestNewTfLiteDetector(t *testing.T) {
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.7)
 
 	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "17")
-	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "17")
+	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "17")
 
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestMoreDetectorModels(t *testing.T) {
+	// Test that a detector would give an expected output on the dog image
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Build SSD detector
+	ctx := context.Background()
+	modelLoc := artifact.MustPath("vision/tflite/ssdmobilenet.tflite")
+	cfg := DetectorConfig{
+		Name: "testssddetector", Type: "tflite",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+	outSSD, outSSDModel, err := NewTFLiteDetector(ctx, &cfg, golog.NewTestLogger(t))
+	test.That(t, outSSDModel, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test that SSD detector output is as expected on image
+	got, err := outSSD(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got[0].Label(), test.ShouldResemble, "17")
+	test.That(t, got[1].Label(), test.ShouldResemble, "17")
+	test.That(t, got[0].Score(), test.ShouldBeGreaterThan, 0.82)
+	test.That(t, got[1].Score(), test.ShouldBeGreaterThan, 0.8)
+
+	modelLoc = artifact.MustPath("vision/tflite/mobilenet.tflite")
+	cfg = DetectorConfig{
+		Name: "mobilenetdetector", Type: "tflite",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+
+	outMNet, outMNetModel, err := NewTFLiteDetector(ctx, &cfg, golog.NewTestLogger(t))
+	test.That(t, outMNetModel, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	got2, err := outMNet(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got2[0].Label(), test.ShouldResemble, "0")
+	test.That(t, got2[1].Label(), test.ShouldResemble, "0")
+	test.That(t, got2[0].Score(), test.ShouldBeGreaterThan, 0.89)
+	test.That(t, got2[1].Score(), test.ShouldBeGreaterThan, 0.89)
 }
 
 func TestLabelReader(t *testing.T) {
