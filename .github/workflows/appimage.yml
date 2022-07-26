@@ -146,6 +146,8 @@ jobs:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     timeout-minutes: 5
+
+    steps:
     - name: Authorize GCP
       uses: google-github-actions/auth@v0.4.3
       with:
