@@ -128,11 +128,11 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 		slamSvc.logger.Debugf("Error occurred while parsing %s for maps, building map from scratch", slamSvc.dataDirectory)
 	}
 	if loadMapTimeStamp == "" {
-		loadMapTimeStamp = time.Now().UTC().Format("2006-01-02T15_04_05.0000")
+		loadMapTimeStamp = time.Now().UTC().Format(slamTimeFormat)
 	} else {
 		orbslam.LoadMapLoc = loadMapName
 	}
-	saveMapTimeStamp := time.Now().UTC().Format("2006-01-02T15_04_05.0000") // timestamp to save at end of run
+	saveMapTimeStamp := time.Now().UTC().Format(slamTimeFormat) // timestamp to save at end of run
 	saveMapName := filepath.Join(slamSvc.dataDirectory, "map", slamSvc.cameraName+"_data_"+saveMapTimeStamp)
 	orbslam.SaveMapLoc = saveMapName
 
@@ -206,8 +206,7 @@ func (slamSvc *slamService) checkMaps() (string, string, error) {
 			// check if the file uses our format and grab timestamp if it does
 			timestampLoc := strings.Index(filename, "_data_") + len("_data_")
 			if timestampLoc != -1+len("_data_") {
-				timeFormat := "2006-01-02T15_04_05.0000"
-				timestamp, err := time.Parse(timeFormat, filename[timestampLoc:strings.Index(filename, mapExt)])
+				timestamp, err := time.Parse(slamTimeFormat, filename[timestampLoc:strings.Index(filename, mapExt)])
 				if err != nil {
 					slamSvc.logger.Debugf("Unable to parse map %s, %v", path, err)
 					return nil
@@ -229,5 +228,5 @@ func (slamSvc *slamService) checkMaps() (string, string, error) {
 		return "", "", nil
 	}
 	slamSvc.logger.Infof("Previous map found, using %v", mapPath)
-	return mapTimestamp.UTC().Format("2006-01-02T15_04_05.0000"), mapPath, nil
+	return mapTimestamp.UTC().Format(slamTimeFormat), mapPath, nil
 }
