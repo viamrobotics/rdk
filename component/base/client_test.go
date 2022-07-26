@@ -31,19 +31,20 @@ func setupWorkingBase(
 	workingBase.MoveStraightFunc = func(
 		ctx context.Context, distanceMm int,
 		mmPerSec float64,
+		extra map[string]interface{},
 	) error {
-		argsReceived["MoveStraight"] = []interface{}{distanceMm, mmPerSec}
+		argsReceived["MoveStraight"] = []interface{}{distanceMm, mmPerSec, extra}
 		return nil
 	}
 
 	workingBase.SpinFunc = func(
-		ctx context.Context, angleDeg, degsPerSec float64,
+		ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
 	) error {
-		argsReceived["Spin"] = []interface{}{angleDeg, degsPerSec}
+		argsReceived["Spin"] = []interface{}{angleDeg, degsPerSec, extra}
 		return nil
 	}
 
-	workingBase.StopFunc = func(ctx context.Context) error {
+	workingBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
 	}
 
@@ -58,16 +59,18 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	brokenBase.MoveStraightFunc = func(
 		ctx context.Context,
 		distanceMm int, mmPerSec float64,
+		extra map[string]interface{},
 	) error {
 		return errors.New(errMsg)
 	}
 	brokenBase.SpinFunc = func(
 		ctx context.Context,
 		angleDeg, degsPerSec float64,
+		extra map[string]interface{},
 	) error {
 		return errors.New(errMsg)
 	}
-	brokenBase.StopFunc = func(ctx context.Context) error {
+	brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errors.New(errMsg)
 	}
 	brokenBase.GetWidthFunc = func(ctx context.Context) (int, error) {
@@ -127,9 +130,14 @@ func TestClient(t *testing.T) {
 	t.Run("working base client", func(t *testing.T) {
 		distance := 42
 		mmPerSec := 42.0
-		err = workingBaseClient.MoveStraight(context.Background(), distance, mmPerSec)
+		err = workingBaseClient.MoveStraight(
+			context.Background(),
+			distance,
+			mmPerSec,
+			map[string]interface{}{"foo": "bar"},
+		)
 		test.That(t, err, test.ShouldBeNil)
-		expectedArgs := []interface{}{distance, mmPerSec}
+		expectedArgs := []interface{}{distance, mmPerSec, map[string]interface{}{"foo": "bar"}}
 		test.That(t, argsReceived["MoveStraight"], test.ShouldResemble, expectedArgs)
 
 		// Do
@@ -138,7 +146,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		err = workingBaseClient.Stop(context.Background())
+		err = workingBaseClient.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -152,9 +160,9 @@ func TestClient(t *testing.T) {
 		degsPerSec := 42.0
 		angleDeg := 30.0
 
-		err = workingBaseClient2.Spin(context.Background(), angleDeg, degsPerSec)
+		err = workingBaseClient2.Spin(context.Background(), angleDeg, degsPerSec, nil)
 		test.That(t, err, test.ShouldBeNil)
-		expectedArgs := []interface{}{angleDeg, degsPerSec}
+		expectedArgs := []interface{}{angleDeg, degsPerSec, nil}
 		test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -166,13 +174,13 @@ func TestClient(t *testing.T) {
 		failingBaseClient := base.NewClientFromConn(context.Background(), conn, failBaseName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = failingBaseClient.MoveStraight(context.Background(), 42, 42.0)
+		err = failingBaseClient.MoveStraight(context.Background(), 42, 42.0, nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
-		err = failingBaseClient.Spin(context.Background(), 42.0, 42.0)
+		err = failingBaseClient.Spin(context.Background(), 42.0, 42.0, nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
-		err = failingBaseClient.Stop(context.Background())
+		err = failingBaseClient.Stop(context.Background(), nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
 		test.That(t, utils.TryClose(context.Background(), failingBaseClient), test.ShouldBeNil)
