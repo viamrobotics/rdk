@@ -436,7 +436,7 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 				return fmt.Errorf("invalid VIEWPOINT field %s: %w", token, err)
 			}
 		}
-		pcdHeader.viewpoint = spatialmath.NewPoseFromOrientationVector(
+		pcdHeader.viewpoint = spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: viewpoint[0], Y: viewpoint[1], Z: viewpoint[2]},
 			spatialmath.QuatToOV(quat.Number{Real: viewpoint[3], Imag: viewpoint[4], Jmag: viewpoint[5], Kmag: viewpoint[6]}),
 		)
@@ -535,34 +535,49 @@ func readPCDAscii(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 
 func readPCDBinary(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 	var err error
-	var read int
 	pc := NewWithPrealloc(int(header.points))
 	for i := 0; i < int(header.points); i++ {
-		pointBuf := make([]float64, int(header.fields))
-		for j := 0; j < int(header.fields); j++ {
-			buf := make([]byte, header.size[j])
-			read, err = io.ReadFull(in, buf)
+		pointBuf := make([]float64, 3)
+		colorData := NewBasicData()
+		for j := 0; j < 3; j++ {
+			buf, err := readBuffer(in, header, j)
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			if err != nil {
-				return nil, err
-			}
-			if read != int(header.size[j]) {
-				return nil, fmt.Errorf("unexpected number of bytes read %d", read)
-			}
 			pointBuf[j] = readFloat(binary.LittleEndian.Uint32(buf))
 		}
-		point, data, err := readSliceToPoint(pointBuf, header)
+		point := r3.Vector{X: 1000. * pointBuf[0], Y: 1000. * pointBuf[1], Z: 1000. * pointBuf[2]}
+
+		if header.fields == pcdPointColor && !errors.Is(err, io.EOF) {
+			buf, err := readBuffer(in, header, 3)
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			colorBuf := int(binary.LittleEndian.Uint32(buf))
+			colorData = NewColoredData(_pcdIntToColor(colorBuf))
+		}
 		if err != nil {
 			return nil, err
 		}
-		err = pc.Set(point, data)
+		err = pc.Set(point, colorData)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return pc, nil
+}
+
+// reads a specified amount of bytes from a buffer. The number of bytes specified is defined from the pcd.
+func readBuffer(in *bufio.Reader, header pcdHeader, index int) ([]byte, error) {
+	buf := make([]byte, header.size[index])
+	read, err := io.ReadFull(in, buf)
+	if err != nil {
+		return nil, err
+	}
+	if read != int(header.size[index]) {
+		return nil, fmt.Errorf("unexpected number of bytes read %d", read)
+	}
+	return buf, nil
 }
 
 func readSliceToPoint(slice []float64, header pcdHeader) (r3.Vector, Data, error) {
