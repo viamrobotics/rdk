@@ -12,6 +12,51 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
+func BenchmarkAddTFLiteDetector(b *testing.B) {
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	cfg := DetectorConfig{
+		Name: "testdetector", Type: "tflite",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+	ctx := context.Background()
+	logger := golog.NewLogger("benchmark")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _, err := NewTFLiteDetector(ctx, &cfg, logger)
+		test.That(b, err, test.ShouldBeNil)
+	}
+}
+
+func BenchmarkGetTFLiteDetections(b *testing.B) {
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	test.That(b, err, test.ShouldBeNil)
+	cfg := DetectorConfig{
+		Name: "testdetector", Type: "tflite",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+	ctx := context.Background()
+	logger := golog.NewLogger("benchmark")
+	det, model, err := NewTFLiteDetector(ctx, &cfg, logger)
+	test.That(b, model, test.ShouldNotBeNil)
+	test.That(b, err, test.ShouldBeNil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		detections, err := det(ctx, pic)
+		test.That(b, detections, test.ShouldNotBeNil)
+		test.That(b, err, test.ShouldBeNil)
+	}
+}
+
 func TestNewTfLiteDetector(t *testing.T) {
 	// Test that empty config gives error about loading model
 	emptyCfg := DetectorConfig{}

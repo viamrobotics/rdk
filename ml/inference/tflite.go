@@ -131,6 +131,7 @@ type TFLiteInfo struct {
 	InputHeight       int
 	InputWidth        int
 	InputChannels     int
+	InputShape        []int
 	InputTensorType   string
 	InputTensorCount  int
 	OutputTensorCount int
@@ -148,9 +149,11 @@ func getInfo(inter Interpreter) *TFLiteInfo {
 	}
 
 	info := &TFLiteInfo{
+		//TODO: Khari?? We can't depend on this to be true. Maybe just send over input.Dim
 		InputHeight:       input.Dim(1),
 		InputWidth:        input.Dim(2),
 		InputChannels:     input.Dim(3),
+		InputShape:        input.Shape(),
 		InputTensorType:   input.Type().String(),
 		InputTensorCount:  inter.GetInputTensorCount(),
 		OutputTensorCount: numOut,
