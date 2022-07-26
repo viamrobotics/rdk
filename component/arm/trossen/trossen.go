@@ -27,6 +27,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
 
@@ -108,6 +109,25 @@ func (config *AttrConfig) Validate(path string) error {
 	}
 
 	return nil
+}
+
+//go:embed wx250s_kinematics.json
+var wx250smodeljson []byte
+
+//go:embed vx300s_kinematics.json
+var vx300smodeljson []byte
+
+func init() {
+	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewArm(r, config.Attributes, logger, wx250smodeljson)
+		},
+	})
+	registry.RegisterComponent(arm.Subtype, "vx300s", registry.Component{
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewArm(r, config.Attributes, logger, vx300smodeljson)
+		},
+	})
 }
 
 // NewArm returns an instance of Arm given a model json.
