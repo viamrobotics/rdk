@@ -4,10 +4,15 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/camera"
@@ -102,15 +107,16 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	return r
 }
 
-func TestJoinPointCloud(t *testing.T) {
+func TestJoinPointCloudNaive(t *testing.T) {
 	r := makeFakeRobot(t)
 	// PoV from base1
 	attrs := &JoinAttrs{
 		AttrConfig:    &camera.AttrConfig{},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "base1",
+		MergeMethod:   "naive",
 	}
-	joinedCam, err := newJoinPointCloudSource(context.Background(), r, attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, golog.NewTestLogger(t), attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -137,8 +143,9 @@ func TestJoinPointCloud(t *testing.T) {
 		AttrConfig:    &camera.AttrConfig{},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "cam1",
+		MergeMethod:   "naive",
 	}
-	joinedCam, err = newJoinPointCloudSource(context.Background(), r, attrs)
+	joinedCam, err = newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -159,4 +166,254 @@ func TestJoinPointCloud(t *testing.T) {
 	img, _, err = joinedCam.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1, 100))
+}
+
+func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (pointcloud.PointCloud, error) {
+	t.Helper()
+	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
+	if err != nil {
+		return nil, err
+	}
+	pc, err := pointcloud.ReadPCD(pcdFile)
+	if err != nil {
+		return nil, err
+	}
+
+	if numPoints == 0 {
+		return pc, nil
+	}
+
+	shortenedPC := pointcloud.NewWithPrealloc(numPoints)
+
+	counter := numPoints
+	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		if counter > 0 {
+			err = shortenedPC.Set(p, d)
+			counter--
+		}
+		return err == nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return shortenedPC, nil
+}
+
+func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
+	// Makes a fake robot with a fake frame system and multiple cameras for testing.
+	// Cam 1: Read from a test PCD file. A smaller sample of points.
+	// Cam 2: A direct transformation applied to Cam 1.
+	// This is useful for basic checking of the ICP algorithm, as it should converge immediately.
+	// Cam 3: Read from a test PCD file. Representative of a real pointcloud captured in tandem with Cam 4.
+	// Cam 4: Read from a test PCD file. Captured in a real environment with a known rough offset from Cam 3.
+
+	// Cam 1 and 2 Are programatically set to have a difference of 100 in the Z direction.
+	// Cam 3 and 4 Sensors are approximately 33 cm apart with an unknown slight rotation.
+	t.Helper()
+	logger := golog.NewTestLogger(t)
+	cam1 := &inject.Camera{}
+	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return startPC, nil
+	}
+	cam2 := &inject.Camera{}
+	transformedPC := pointcloud.NewWithPrealloc(100)
+	transformPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 100})
+	counter := 100
+	startPC.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		if counter > 0 {
+			pointPose := spatialmath.NewPoseFromPoint(p)
+			transPoint := spatialmath.Compose(transformPose, pointPose)
+			err = transformedPC.Set(transPoint.Point(), d)
+			if err != nil {
+				return false
+			}
+			counter--
+		}
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return transformedPC, nil
+	}
+
+	cam3 := &inject.Camera{}
+	pc3, err := makePointCloudFromArtifact(t, "pointcloud/bun000.pcd", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pc3, nil
+	}
+
+	cam4 := &inject.Camera{}
+	pc4, err := makePointCloudFromArtifact(t, "pointcloud/bun045.pcd", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cam4.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pc4, nil
+	}
+
+	cam5 := &inject.Camera{}
+	pc5, err := makePointCloudFromArtifact(t, "pointcloud/bun090.pcd", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cam5.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pc5, nil
+	}
+
+	base1 := &inject.Base{}
+
+	r := &inject.Robot{}
+	fsParts := framesystemparts.Parts{
+		{
+			Name:        "base1",
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+		},
+		{
+			Name:        "cam1",
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+		},
+		{
+			Name:        "cam2",
+			FrameConfig: &config.Frame{Parent: "cam1", Translation: spatialmath.TranslationConfig{0, 0, -100}},
+		},
+		{
+			Name:        "cam3",
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+		},
+		{
+			Name: "cam4",
+			FrameConfig: &config.Frame{
+				Parent: "cam3", Translation: spatialmath.TranslationConfig{-60, 0, -10},
+				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0},
+			},
+		},
+		{
+			Name: "cam5",
+			FrameConfig: &config.Frame{
+				Parent: "cam4", Translation: spatialmath.TranslationConfig{-60, 0, 10},
+				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3},
+			},
+		},
+	}
+	r.FrameSystemConfigFunc = func(
+		ctx context.Context, additionalTransforms []*commonpb.Transform,
+	) (framesystemparts.Parts, error) {
+		return fsParts, nil
+	}
+
+	r.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{
+			camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"),
+			camera.Named("cam4"), camera.Named("cam5"), base.Named("base1"),
+		}
+	}
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+		switch n.Name {
+		case "cam1":
+			return cam1, nil
+		case "cam2":
+			return cam2, nil
+		case "cam3":
+			return cam3, nil
+		case "cam4":
+			return cam4, nil
+		case "cam5":
+			return cam5, nil
+		case "base1":
+			return base1, nil
+		default:
+			return nil, rdkutils.NewResourceNotFoundError(n)
+		}
+	}
+	return r, nil
+}
+
+func TestFixedPointCloudICP(t *testing.T) {
+	ctx := context.Background()
+	r, err := makeFakeRobotICP(t)
+	test.That(t, err, test.ShouldBeNil)
+	// PoV from base1
+	attrs := &JoinAttrs{
+		AttrConfig: &camera.AttrConfig{
+			Stream: "",
+		},
+		SourceCameras: []string{"cam1", "cam2"},
+		TargetFrame:   "base1",
+		MergeMethod:   "icp",
+		Closeness:     0.01,
+	}
+	joinedCam, err := newJoinPointCloudSource(ctx, r, utils.Logger, attrs)
+	test.That(t, err, test.ShouldBeNil)
+	pc, err := joinedCam.NextPointCloud(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc.Size(), test.ShouldEqual, 100)
+}
+
+func TestTwinPointCloudICP(t *testing.T) {
+	t.Skip("Test is too large for now.")
+	r, err := makeFakeRobotICP(t)
+	test.That(t, err, test.ShouldBeNil)
+
+	attrs := &JoinAttrs{
+		AttrConfig: &camera.AttrConfig{
+			Stream: "",
+		},
+		SourceCameras: []string{"cam3", "cam4"},
+		TargetFrame:   "cam3",
+		MergeMethod:   "icp",
+	}
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
+	test.That(t, err, test.ShouldBeNil)
+	pc, err := joinedCam.NextPointCloud(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	filename := "test_twin_" + time.Now().Format(time.RFC3339) + "*.pcd"
+	file, err := os.CreateTemp("/tmp", filename)
+	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
+
+	utils.Logger.Debugf("Number of points: %d", pc.Size())
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldNotBeNil)
+}
+
+func TestMultiPointCloudICP(t *testing.T) {
+	t.Skip("Test is too large for now.")
+	r, err := makeFakeRobotICP(t)
+	test.That(t, err, test.ShouldBeNil)
+
+	attrs := &JoinAttrs{
+		AttrConfig: &camera.AttrConfig{
+			Stream: "",
+		},
+		SourceCameras: []string{"cam3", "cam4", "cam5"},
+		TargetFrame:   "cam3",
+		MergeMethod:   "icp",
+	}
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
+	test.That(t, err, test.ShouldBeNil)
+	pc, err := joinedCam.NextPointCloud(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	filename := "test_multi_" + time.Now().Format(time.RFC3339) + "*.pcd"
+	file, err := os.CreateTemp("/tmp", filename)
+	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldNotBeNil)
 }
