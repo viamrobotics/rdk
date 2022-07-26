@@ -3,9 +3,11 @@ package armremotecontrol
 
 import (
 	"context"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
@@ -20,15 +22,15 @@ import (
 
 // constants
 const (
-	JointByJointControl = controlMode(iota) // control modes
+	jointByJointControl = controlMode(iota) // control modes
 	endPointControl
-	SubtypeName = resource.SubtypeName("arm_remote_control") // resource name
-	noop        = armEvent(iota)                             // controller events
+	noop = controllerEvent(iota) // controller events
 	leftJoystick
 	rightJoystick
 	directionalHat
 	triggerZ
 	buttonPressed
+	SubtypeName = resource.SubtypeName("arm_remote_control") // resource name
 )
 
 // Subtype is a constant that identifies the remote control resource subtype.
@@ -60,13 +62,12 @@ func init() {
 
 // ControlMode is the control type for the remote control.
 type controlMode uint8
-type armEvent uint8
+type controllerEvent uint8
 
 // Config describes how to configure the service.
 type Config struct {
 	ArmName             string `json:"arm"`
 	InputControllerName string `json:"input_controller"`
-	ControlModeName     string `json:"control_mode"`
 	ArmSpeed            string `json:"arm_speed"`
 }
 
@@ -74,26 +75,22 @@ type Config struct {
 type remoteService struct {
 	arm             arm.Arm
 	inputController input.Controller
-	controlMode     controlMode
-	armEvent        armEvent
 	config          *Config
 	logger          golog.Logger
 }
 
+// controllerState used to manage controller for arm
 type controllerState struct {
 	event   controllerEvent
-	x       float64
-	y       float64
-	z       float64
+	mode    controlMode
+	axis    r3.Vector
 	buttons map[input.Control]bool
 	arrows  map[input.Control]float64
 }
 
 func (cs *controllerState) init() {
 	cs.event = noop
-	cs.x = 0.0
-	cs.y = 0.0
-	cs.z = 0.0
+	cs.mode = jointByJointControl
 	cs.buttons = map[input.Control]bool{
 		input.ButtonSouth:  false,
 		input.ButtonEast:   false,
@@ -106,6 +103,7 @@ func (cs *controllerState) init() {
 		input.ButtonMenu:   false,
 	}
 
+	// should we group?
 	cs.arrows = map[input.Control]float64{
 		input.AbsoluteX:     0.0,
 		input.AbsoluteY:     0.0,
@@ -133,20 +131,9 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, err
 	}
 
-	var controlMode1 controlMode
-	switch svcConfig.ControlModeName {
-	case "jointByJointControl":
-		controlMode1 = jointByJointControl
-	case "endPointControl":
-		controlMode1 = endPointControl
-	default:
-		controlMode1 = jointByJointControl
-	}
-
 	remoteSvc := &remoteService{
 		arm:             arm1,
 		inputController: controller,
-		controlMode:     controlMode1,
 		config:          svcConfig,
 		logger:          logger,
 	}
@@ -193,7 +180,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 			return err
 		}
 	}
-	svc.logger.Infof("Arm Controller service started with initial mode of: %v", svc.controlMode)
+	svc.logger.Infof("Arm Controller service started with initial mode of: %v", state.mode)
 	return nil
 }
 
@@ -236,127 +223,152 @@ func (svc *remoteService) controllerInputs() []input.Control {
 	}
 }
 
-func parseEndPointEvent(event input.Event, state *controllerState) error {
-	switch event.Event {
-	case input.ButtonPress:
-		state.buttons[event.Control] = true
-	case input.ButtonRelease:
-		state.buttons[event.Control] = false
-	case input.PositionChangeAbs:
-		state.arrows[event.Control] = event.Value
-	default:
-		return errors.New("invalid event")
+func similar(a, b r3.Vector, deltaThreshold float64) bool {
+	if math.Abs(a.X-b.X) > deltaThreshold {
+		return false
+	}
+
+	if math.Abs(a.Y-b.Y) > deltaThreshold {
+		return false
+	}
+
+	if math.Abs(a.Z-b.Z) > deltaThreshold {
+		return false
+	}
+	return true
+}
+
+func processCommand(ctx context.Context, svc *remoteService, state *controllerState) error {
+	// there is probably a better way
+	if state.buttons[input.ButtonSouth] {
+		svc.logger.Debug("attempting stop")
+		return svc.arm.Stop(ctx, nil)
+	} else if state.buttons[input.ButtonEast] {
+		svc.logger.Debug("attempting named pose preview")
+		return nil
+	} else if state.buttons[input.ButtonWest] {
+		svc.logger.Debug("switching control mode")
+		if state.mode == jointByJointControl {
+			svc.logger.Debug("switching control mode JBJ -> EP")
+			state.mode = endPointControl
+		} else if state.mode == endPointControl {
+			svc.logger.Debug("switching control mode: EP -> JBJ")
+			state.mode = jointByJointControl
+		}
+		return nil
+	} else if state.buttons[input.ButtonNorth] {
+		svc.logger.Debug("attempting named pose execute")
+		return nil
+	} else if state.buttons[input.ButtonLT] {
+		svc.logger.Debug("attempting to close pincer")
+		return nil
+	} else if state.buttons[input.ButtonRT] {
+		svc.logger.Debug("attempting to open pincer")
+		return nil
+	} else if state.buttons[input.ButtonSelect] {
+		svc.logger.Debug("attempting disable collision avoidance")
+		return nil
+	} else if state.buttons[input.ButtonStart] {
+		svc.logger.Debug("attempting enable collision avoidance")
+		return nil
+	} else if state.buttons[input.ButtonMenu] {
+		svc.logger.Debug("attempting to change joint group")
+		return nil
 	}
 	return nil
 }
 
-func parseJointByJointEvent(event input.Event, state *controllerState) error {
+func processArmEndPoint(ctx context.Context, svc *remoteService, state *controllerState) error {
+	var zeroAxis r3.Vector
+	if similar(state.axis, zeroAxis, .001) {
+		return nil
+	}
+	svc.logger.Debugf("EP  processing(%s), Joystick mode: %d", state.axis, state.mode)
+	return nil
+}
+
+func processArmJoint(ctx context.Context, svc *remoteService, state *controllerState) error {
+	var zeroAxis r3.Vector
+	if similar(state.axis, zeroAxis, .001) {
+		return nil
+	}
+	svc.logger.Debugf("JBJ  processing(%s), Joystick mode: %d", state.axis, state.mode)
+	return nil
+}
+
+func processArmControl(ctx context.Context, svc *remoteService, state *controllerState) error {
+	switch state.event {
+	case leftJoystick, rightJoystick, directionalHat, triggerZ:
+		switch state.mode {
+		case jointByJointControl:
+			return processArmJoint(ctx, svc, state)
+		case endPointControl:
+			return processArmJoint(ctx, svc, state)
+		}
+	case buttonPressed:
+		return processCommand(ctx, svc, state)
+	}
+	return nil
+}
+
+// parseControllerEvent sets up controller state based on event
+func processControllerEvent(state *controllerState, event input.Event) {
 	switch event.Event {
 	case input.ButtonPress:
 		state.buttons[event.Control] = true
 	case input.ButtonRelease:
 		state.buttons[event.Control] = false
-		return nil
+		return
 	case input.PositionChangeAbs:
 		state.arrows[event.Control] = event.Value
-	default:
-		return errors.New("invalid event")
 	}
 
 	switch event.Control {
-	case input.AbsoluteX, // joint1
-		input.AbsoluteY,     // joint2
-		input.AbsoluteRX,    // joint3
-		input.AbsoluteRY,    // joint4
-		input.AbsoluteHat0X, // joint5
-		input.AbsoluteHat0Y, // joint6
-		input.AbsoluteZ,     // joint7
-		input.AbsoluteRZ:    // joint7
-		if state.arrows[input.AbsoluteX] != 0.0 || state.arrows[input.AbsoluteY] != 0.0 {
-			state.event = processXY
-		} else if state.arrows[input.AbsoluteRX] != 0.0 || state.arrows[input.AbsoluteRY] != 0.0 {
-			state.event = processRXRY
-		} else if state.arrows[input.AbsoluteHat0X] != 0.0 || state.arrows[input.AbsoluteHat0Y] != 0.0 {
-			state.event = processHat0XHat0Y
-		} else if state.arrows[input.AbsoluteZ] != 0.0 || state.arrows[input.AbsoluteRZ] != 0.0 {
-			state.event = processZRZ
-		}
-	case input.ButtonLT:
-		state.event = pincerOpen
-	case input.ButtonRT:
-		state.event = pincerClose
-	case input.ButtonSouth:
-		state.event = stop
-	case input.ButtonWest:
-		state.event = changeMode
-	case input.ButtonEast:
-		state.event = namedPosePreview
-	case input.ButtonNorth:
-		state.event = namedPoseExecute
-	case input.ButtonMenu:
-		state.event = changeJointGroup
-	case input.ButtonSelect, input.ButtonStart:
-		state.event = changeCollisionAvoidance
-	}
-	return nil
-}
-
-func parseControllerEvent(mode controlMode, state *controllerState, event input.Event) error {
-	switch mode {
-	case endPointControl:
-		return parseEndPointEvent(event, state)
-	case jointByJointControl:
-		return parseJointByJointEvent(event, state)
-	default:
-		return errors.New("invalid mode")
+	case input.AbsoluteX:
+		state.axis.X = event.Value
+		state.event = leftJoystick
+	case input.AbsoluteY:
+		state.axis.Y = event.Value
+		state.event = leftJoystick
+	case input.AbsoluteRX:
+		state.axis.X = event.Value
+		state.event = rightJoystick
+	case input.AbsoluteRY:
+		state.axis.Y = event.Value
+		state.event = rightJoystick
+	case input.AbsoluteHat0X:
+		state.axis.X = event.Value
+		state.event = directionalHat
+	case input.AbsoluteHat0Y:
+		state.axis.Y = event.Value
+		state.event = directionalHat
+	case input.AbsoluteZ:
+		state.axis.Z = event.Value
+		state.event = triggerZ
+	case input.AbsoluteRZ:
+		state.axis.Z = event.Value
+		state.event = triggerZ
+	case input.ButtonLT,
+		input.ButtonRT,
+		input.ButtonSouth,
+		input.ButtonWest,
+		input.ButtonEast,
+		input.ButtonNorth,
+		input.ButtonMenu,
+		input.ButtonSelect,
+		input.ButtonStart:
+		state.event = buttonPressed
+		state.axis.X = 0.0
+		state.axis.Y = 0.0
+		state.axis.Y = 0.0
 	}
 }
 
 func (svc *remoteService) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
-	err := parseControlerEvent(svc.controlMode, state, event)
-	if err != nil {
-		svc.logger.Errorw("error processing event", "error", err)
+	// setup controller to execute arm control
+	processControllerEvent(state, event)
+	if err := processArmControl(ctx, svc, state); err != nil {
 		return err
 	}
-
-	switch state.event {
-	case setPosition:
-		svc.logger.Debug("setPosition")
-	case pincerClose:
-		svc.logger.Debug("pincerClose")
-	case pincerOpen:
-		svc.logger.Debug("pincerOpen")
-	case changeMode:
-		svc.logger.Debug("changeMode")
-	case namedPoseExecute:
-		svc.logger.Debug("namedPoseExecute")
-	case namedPosePreview:
-		svc.logger.Debug("namedPosePreview")
-	case changeCollisionAvoidance:
-		svc.logger.Debug("changeCollisionAvoidance")
-	case changeJointGroup:
-		svc.logger.Debug("changeJointGroup")
-	case processXY:
-		svc.logger.Debugf("processXY(%f, %f)", state.arrows[input.AbsoluteX], state.arrows[input.AbsoluteY])
-	case processRXRY:
-		svc.logger.Debugf("processRXRY(%f, %f)", state.arrows[input.AbsoluteRX], state.arrows[input.AbsoluteRY])
-	case processHat0XHat0Y:
-		svc.logger.Debugf("processHat0XHat0Y(%f, %f)", state.arrows[input.AbsoluteHat0X], state.arrows[input.AbsoluteHat0Y])
-	case processZRZ:
-		svc.logger.Debugf("processZRZ(%f, %f)", state.arrows[input.AbsoluteZ], state.arrows[input.AbsoluteRZ])
-	case stop:
-		err := svc.arm.Stop(ctx, nil)
-		if err != nil {
-			svc.logger.Info("stop failed")
-		}
-		svc.logger.Debug("stop")
-	case noop:
-		return nil
-	default:
-		svc.logger.Debugf("bad option: %q", state.event)
-	}
-
-	// clear event
-	state.event = noop
 	return nil
 }
