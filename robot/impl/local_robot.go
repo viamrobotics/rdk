@@ -441,7 +441,6 @@ func newWithResources(
 
 	r.config = &config.Config{}
 
-	r.manager.processConfig(ctx, cfg)
 	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
@@ -686,6 +685,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if diff.ResourcesEqual {
 		return
 	}
+	r.logger.Debugf("reconfiguring with %+v", diff)
 	// First we remove resources and their children that are not in the graph.
 	filtered, err := r.manager.FilterFromConfig(ctx, diff.Removed, r.logger)
 	if err != nil {
