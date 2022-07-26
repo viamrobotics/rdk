@@ -70,7 +70,7 @@ type JoinAttrs struct {
 	SourceCameras []string `json:"source_cameras"`
 	MergeMethod   string   `json:"merge_method"`
 	// Closeness defines how close 2 points should be together to be considered the same point when merged.
-	Closeness float64 `json:"closeness"`
+	Closeness float64 `json:"closeness_mm"`
 }
 
 type (
@@ -308,7 +308,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 		}
 
 		registeredPointCloud, info, err := pointcloud.RegisterPointCloudICP(pcSrc, finalPointCloud,
-			theTransform.(*referenceframe.PoseInFrame).Pose(), false)
+			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcs.debug)
 		if err != nil {
 			return nil, err
 		}

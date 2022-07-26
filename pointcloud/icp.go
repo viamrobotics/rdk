@@ -117,7 +117,6 @@ func RegisterPointCloudICP(pcSrc PointCloud, target *KDTree, guess spatialmath.P
 
 	// transform the pointcloud
 	registeredPointCloud := NewWithPrealloc(pcSrc.Size())
-	err = nil
 	pcSrc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		posePoint := spatialmath.NewPoseFromPoint(p)
 		transformedP := spatialmath.Compose(pose, posePoint).Point()
