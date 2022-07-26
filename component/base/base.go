@@ -43,7 +43,7 @@ func init() {
 	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "base".
+//SubtypeName is a constant that identifies the component resource subtype string "base".
 const SubtypeName = resource.SubtypeName("base")
 
 // Subtype is a constant that identifies the component resource subtype.
