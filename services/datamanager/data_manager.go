@@ -324,7 +324,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) {
+func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) error {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -336,7 +336,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 
 	syncer, err := newSyncer(svc.logger, svc.uploadFunc, svc.partID)
 	if err != nil {
-		svc.logger.Errorw("failed to initialize new syncer", "error", err)
+		return errors.Errorf("failed to initialize new syncer: %s", err)
 	}
 	svc.syncer = syncer
 
@@ -363,6 +363,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 		// Kick off background routine to periodically sync files.
 		svc.startSyncBackgroundRoutine(intervalMins)
 	}
+	return nil
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
@@ -478,14 +479,18 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
-		svc.initOrUpdateSyncer(ctx, 0)
+		if err := svc.initOrUpdateSyncer(ctx, 0); err != nil {
+			return err
+		}
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
 		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
 		// If the sync config has changed, update the syncer.
 		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
-		svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins)
+		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins); err != nil {
+			return err
+		}
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	}
 

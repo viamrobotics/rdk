@@ -109,7 +109,9 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 }
 
 type anyStruct struct {
-	Field bool
+	Field1 bool
+	Field2 int
+	Field3 string
 }
 
 func toProto(r interface{}) *structpb.Struct {
@@ -120,20 +122,83 @@ func toProto(r interface{}) *structpb.Struct {
 	return msg
 }
 
-// Writes the protobuf message to f.
 func writeBinarySensorData(f *os.File, toWrite [][]byte) error {
+	if _, err := f.Seek(0, 0); err != nil {
+		return err
+	}
 	for _, bytes := range toWrite {
-		msg := &v1.SensorData{
+		sd := &v1.SensorData{
 			Data: &v1.SensorData_Binary{
 				Binary: bytes,
 			},
 		}
-		_, err := pbutil.WriteDelimited(f, msg)
+		_, err := pbutil.WriteDelimited(f, sd)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func writeSensorData(f *os.File, sds []*v1.SensorData) error {
+	for _, sd := range sds {
+		_, err := pbutil.WriteDelimited(f, sd)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createBinarySensorData(toWrite [][]byte) []*v1.SensorData {
+	sds := []*v1.SensorData{}
+	for _, bytes := range toWrite {
+		sd := &v1.SensorData{
+			Data: &v1.SensorData_Binary{
+				Binary: bytes,
+			},
+		}
+		sds = append(sds, sd)
+	}
+	return sds
+}
+
+func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
+	sds := []*v1.SensorData{}
+	for _, contents := range toWrite {
+		sd := &v1.SensorData{
+			Data: &v1.SensorData_Struct{
+				Struct: contents,
+			},
+		}
+		sds = append(sds, sd)
+	}
+	return sds
+}
+
+func getUploadRequests(sds []*v1.SensorData, dt v1.DataType, fileName string) []*v1.UploadRequest {
+	urs := []*v1.UploadRequest{}
+	if len(sds) == 0 {
+		return []*v1.UploadRequest{}
+	}
+	urs = append(urs, &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			Metadata: &v1.UploadMetadata{
+				PartId:        partID,
+				Type:          dt,
+				FileName:      fileName,
+				ComponentType: componentType,
+				ComponentName: componentName,
+				MethodName:    methodName,
+			},
+		},
+	})
+	for _, sd := range sds {
+		urs = append(urs, &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_SensorContents{SensorContents: sd},
+		})
+	}
+	return urs
 }
 
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
@@ -188,4 +253,49 @@ func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
 		})
 	}
 	return expMsgs
+}
+
+type partialUploadTestcase struct {
+	name                      string
+	toSend                    []*v1.SensorData
+	progressIndexWhenCanceled int
+	expDataBeforeCanceled     []*v1.SensorData
+	expDataAfterCanceled      []*v1.SensorData
+	dataType                  v1.DataType
+}
+
+func initMockClient(lenMsgsToSend int) *mockClient {
+	// cancelIndex gives mock client capacity to "send" metadata message in addition to succeeding sensordata
+	// messages.
+	cancelIndex := 0
+	if lenMsgsToSend != 0 {
+		cancelIndex = lenMsgsToSend + 1
+	}
+	return &mockClient{
+		sent:        []*v1.UploadRequest{},
+		lock:        sync.Mutex{},
+		cancelIndex: cancelIndex,
+	}
+}
+
+// nolint:thelper
+func writeCaptureMetadataToFile(t *testing.T, dt v1.DataType, tf *os.File) {
+	// First write metadata to file.
+	captureMetadata := v1.DataCaptureMetadata{
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       methodName,
+		Type:             dt,
+		MethodParameters: nil,
+	}
+	if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
+		t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
+	}
+}
+
+// nolint:thelper
+func compareUploadRequestsMockClient(t *testing.T, isTabular bool, mc *mockClient, expMsgs []*v1.UploadRequest) {
+	mc.lock.Lock()
+	compareUploadRequests(t, false, mc.sent, expMsgs)
+	mc.lock.Unlock()
 }

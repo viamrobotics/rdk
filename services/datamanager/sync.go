@@ -107,8 +107,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 		} else {
 			s.progressTracker.unmark(path)
 			if err := s.progressTracker.deleteProgressFile(filepath.Join(s.progressTracker.progressDir,
-				filepath.Base(path))); err !=
-				nil {
+				filepath.Base(path))); err != nil {
 				s.logger.Errorw("error while removing progress file from disk", "error", err)
 			}
 		}
@@ -177,7 +176,7 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	if isDataCaptureFile(f) {
 		captureMD, err := readDataCaptureMetadata(f)
 		if err != nil {
-			return &v1.UploadMetadata{}, err
+			return nil, err
 		}
 		md = &v1.UploadMetadata{
 			PartId:           partID,
@@ -214,11 +213,6 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 	if err != nil {
 		return err
 	}
-	req := &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: md,
-		},
-	}
 
 	var getNextUploadRequest getNextUploadRequestFunc
 	var processUploadRequest processUploadRequestFunc
@@ -246,6 +240,11 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 	}
 
 	// Send metadata upload request.
+	req := &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			Metadata: md,
+		},
+	}
 	if err := client.Send(req); err != nil {
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
@@ -304,6 +303,10 @@ func sendReq(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest
 }
 
 func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
+	finfo, err := f.Stat()
+	if err != nil {
+		return err
+	}
 	// Get file progress to see if upload has been attempted. If yes, resume from upload progress point and if not,
 	// create an upload progress file.
 	progressFilePath := filepath.Join(pt.progressDir, filepath.Base(dcFileName))
@@ -326,10 +329,6 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 
 	// Check remaining data capture file contents so we know whether to continue upload process.
 	currentOffset, err := f.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-	finfo, err := f.Stat()
 	if err != nil {
 		return err
 	}
