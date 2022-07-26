@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math"
-	"strconv"
-	"fmt"
-	"encoding/csv"
 	"os"
+	"strconv"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -38,17 +38,53 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	withAgile := true
+	withAgile := false
+	collectData := true
+
+	if collectData {
+		robot, err := client.New(
+			context.Background(),
+			"agilex-limo-main.60758fe0f6.viam.cloud",
+			logger,
+			client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
+				Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
+				Payload: "pem1epjv07fq2cz2z5723gq6ntuyhue5t30boohkiz3iqht4",
+			})),
+		)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		defer robot.Close(context.Background())
+		logger.Info("Resources:")
+		logger.Info(robot.ResourceNames())
+
+		// limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
+		// limo1 := limo.(base.Base)
+
+		// limo1.Spin(ctx, 360, 20)
+		// time.Sleep(time.Millisecond * 2000)
+
+		// limo1.Spin(ctx, -360, 20)
+		// time.Sleep(time.Millisecond * 2000)
+
+		// limo1.Spin(ctx, 360, 20)
+		// time.Sleep(time.Millisecond * 2000)
+
+		// limo1.Spin(ctx, -360, 20)
+		// time.Sleep(time.Millisecond * 2000)
+
+		return nil
+	}
 
 	if withAgile {
 		robot, err := client.New(
-		ctx,
-		"agilex-limo-main.60758fe0f6.viam.cloud",
-		logger,
-		client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
-			Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
-			Payload: "pem1epjv07fq2cz2z5723gq6ntuyhue5t30boohkiz3iqht4",
-		})),
+			ctx,
+			"agilex-limo-main.60758fe0f6.viam.cloud",
+			logger,
+			client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
+				Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
+				Payload: "pem1epjv07fq2cz2z5723gq6ntuyhue5t30boohkiz3iqht4",
+			})),
 		)
 		if err != nil {
 			logger.Debug(err)
@@ -75,8 +111,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			logger.Fatal(err.Error())
 		}
 
-
-
 		limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
 
 		limo1 := limo.(base.Base)
@@ -85,7 +119,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		next := make([]float64, 3)
 
 		savePath(d, waypoints)
-
 
 		for i, wp := range waypoints {
 			if i == 0 {
@@ -160,12 +193,10 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
 				next[j] = wp[j].Value
 			}
 
-
 			pathOptions := d.AllOptions(start, next, true)[0]
 
 			dubinsPath := pathOptions.DubinsPath
 			fmt.Println("FINALPATH: ", dubinsPath)
-
 
 			sstra := "0"
 			last := fixAngle(dubinsPath[2], withAgile)
@@ -174,20 +205,18 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
 				last = dubinsPath[2]
 			}
 
-			writeData := []string {fmt.Sprintf("%f", fixAngle(start[0], withAgile)), fmt.Sprintf("%f",fixAngle(start[1], withAgile)), fmt.Sprintf("%f",fixAngle(start[2], withAgile)), fmt.Sprintf("%f",fixAngle(dubinsPath[0], withAgile)), fmt.Sprintf("%f",fixAngle(dubinsPath[1], withAgile)), fmt.Sprintf("%f",last), sstra}
+			writeData := []string{fmt.Sprintf("%f", fixAngle(start[0], withAgile)), fmt.Sprintf("%f", fixAngle(start[1], withAgile)), fmt.Sprintf("%f", fixAngle(start[2], withAgile)), fmt.Sprintf("%f", fixAngle(dubinsPath[0], withAgile)), fmt.Sprintf("%f", fixAngle(dubinsPath[1], withAgile)), fmt.Sprintf("%f", last), sstra}
 			_ = csvwriter.Write(writeData)
 			fmt.Println("WRITING: ", writeData)
-				
+
 			for j := 0; j < 3; j++ {
 				start[j] = next[j]
 			}
 		}
 	}
 	//last point
-	writeData := []string {fmt.Sprintf("%f",start[0]), fmt.Sprintf("%f",start[1]), fmt.Sprintf("%f",start[2]), fmt.Sprintf("%d",0), fmt.Sprintf("%d",0), fmt.Sprintf("%d",0), fmt.Sprintf("%d",0)}
+	writeData := []string{fmt.Sprintf("%f", start[0]), fmt.Sprintf("%f", start[1]), fmt.Sprintf("%f", start[2]), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0)}
 	_ = csvwriter.Write(writeData)
-
-	
 
 	csvwriter.Flush()
 	csvFile.Close()
@@ -199,7 +228,7 @@ func fixAngle(ang float64, withAgile bool) float64 {
 	if !withAgile {
 		return ang
 	}
-	deg := ang*180/math.Pi
+	deg := ang * 180 / math.Pi
 	return deg
 
 }
@@ -286,7 +315,7 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) (motionplan.Dubins
 	}
 
 	// setup planner
-	radius := config.Radius*1000.0/gridConversion
+	radius := config.Radius * 1000.0 / gridConversion
 	fmt.Println("Radius", radius)
 	d := motionplan.Dubins{Radius: radius, PointSeparation: config.PointSep}
 	dubins, err := motionplan.NewDubinsRRTMotionPlanner(model, 1, logger, d)
