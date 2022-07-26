@@ -200,20 +200,20 @@ func (slamSvc *slamService) checkMaps() (string, string, error) {
 	mapTimestamp := time.Time{}
 	var mapPath string
 
-	err := filepath.WalkDir(root, func(path string, di fs.DirEntry, err error) error {
-		if !di.IsDir() && filepath.Ext(path) == mapExt {
-			_, filename := filepath.Split(path)
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if !entry.IsDir() && filepath.Ext(path) == mapExt {
+
 			// check if the file uses our format and grab timestamp if it does
-			timestampLoc := strings.Index(filename, "_data_") + len("_data_")
+			timestampLoc := strings.Index(entry.Name(), "_data_") + len("_data_")
 			if timestampLoc != -1+len("_data_") {
-				timestamp, err := time.Parse(slamTimeFormat, filename[timestampLoc:strings.Index(filename, mapExt)])
+				timestamp, err := time.Parse(slamTimeFormat, entry.Name()[timestampLoc:strings.Index(entry.Name(), mapExt)])
 				if err != nil {
 					slamSvc.logger.Debugf("Unable to parse map %s, %v", path, err)
 					return nil
 				}
 				if timestamp.After(mapTimestamp) {
 					mapTimestamp = timestamp
-					mapPath = path[0:strings.Index(path, mapExt)]
+					mapPath = path[:strings.Index(path, mapExt)]
 				}
 			}
 		}
