@@ -202,7 +202,6 @@ func (slamSvc *slamService) checkMaps() (string, string, error) {
 
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if !entry.IsDir() && filepath.Ext(path) == mapExt {
-
 			// check if the file uses our format and grab timestamp if it does
 			timestampLoc := strings.Index(entry.Name(), "_data_") + len("_data_")
 			if timestampLoc != -1+len("_data_") {
@@ -213,7 +212,7 @@ func (slamSvc *slamService) checkMaps() (string, string, error) {
 				}
 				if timestamp.After(mapTimestamp) {
 					mapTimestamp = timestamp
-					mapPath = path[:strings.Index(path, mapExt)]
+					mapPath = path[0:strings.Index(path, mapExt)]
 				}
 			}
 		}
