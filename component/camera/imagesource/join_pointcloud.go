@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"math"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -104,6 +103,7 @@ type joinPointCloudSource struct {
 	stream        camera.StreamType
 	mergeMethod   MergeMethodType
 	logger        golog.Logger
+	debug         bool
 }
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
@@ -127,6 +127,7 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 	joinSource.stream = camera.StreamType(attrs.Stream)
 
 	joinSource.logger = l
+	joinSource.debug = attrs.Debug
 
 	joinSource.mergeMethod = MergeMethodType(attrs.MergeMethod)
 
@@ -151,7 +152,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 }
 
 func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudNaive")
 	defer span.End()
 
 	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
@@ -258,7 +259,6 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 }
 
 func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
-	debug := os.Getenv("VIAM_DEBUG") != "" // In a future PR (when jpcs is a camera) this will be done with a param.
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudICP")
 	defer span.End()
 
@@ -304,11 +304,11 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 		}
 
 		registeredPointCloud, info, err := pointcloud.RegisterPointCloudICP(pcSrc, finalPointCloud,
-			theTransform.(*referenceframe.PoseInFrame).Pose())
+			theTransform.(*referenceframe.PoseInFrame).Pose(), false)
 		if err != nil {
 			return nil, err
 		}
-		if debug {
+		if jpcs.debug {
 			jpcs.logger.Debugf("Learned Transform = %v", info.OptResult.Location.X)
 		}
 		transformDist := math.Sqrt(math.Pow(info.OptResult.Location.X[0]-info.X0[0], 2) +

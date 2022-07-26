@@ -2,7 +2,6 @@ package pointcloud
 
 import (
 	"math"
-	"os"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
@@ -20,15 +19,13 @@ type IcpMergeResultInfo struct {
 }
 
 // RegisterPointCloudICP registers a source pointcloud to a target pointcloud, starting from an initial guess using ICP.
-func RegisterPointCloudICP(pcSrc PointCloud, target *KDTree, guess spatialmath.Pose,
+func RegisterPointCloudICP(pcSrc PointCloud, target *KDTree, guess spatialmath.Pose, debug bool,
 ) (PointCloud, IcpMergeResultInfo, error) {
 	// This function registers a point cloud to the reference frame of a target point cloud.
 	// This is accomplished using ICP (Iterative Closest Point) to align the two point clouds.
 	// The loss function being used is the average distance between corresponding points in the registered point clouds.
 	// The optimization is performed using BFGS (Broyden-Fletcher-Goldfarb-Shanno)
 	// optimization on parameters representing a transformation matrix.
-
-	debug := os.Getenv("VIAM_DEBUG") != "" // In a future PR (when jpcs is a camera) this will be done with a param.
 
 	sourcePointList := make([]r3.Vector, pcSrc.Size())
 	nearestNeighborBuffer := make([]r3.Vector, pcSrc.Size())
@@ -126,6 +123,9 @@ func RegisterPointCloudICP(pcSrc PointCloud, target *KDTree, guess spatialmath.P
 		err := registeredPointCloud.Set(transformedP, d)
 		return err == nil
 	})
+	if err != nil {
+		return nil, IcpMergeResultInfo{}, err
+	}
 
 	return registeredPointCloud, IcpMergeResultInfo{X0: x0, OptResult: *res}, nil
 }
