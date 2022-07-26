@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"math/rand"
+
 	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -1953,15 +1955,6 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
-		// adding more edge cases for processes
-		tmpF, err := ioutil.TempFile("", "nonexec*.sh")
-		test.That(t, err, test.ShouldBeNil)
-		conf1.Processes = append(conf1.Processes, pexec.ProcessConfig{
-			ID:      "noexec",
-			Name:    tmpF.Name(),
-			OneShot: true,
-			Log:     true,
-		})
 		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
@@ -1991,21 +1984,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		_, err = arm.FromRobot(robot, "mock7")
 		test.That(t, err, test.ShouldBeNil)
-		_, ok := robot.ProcessManager().ProcessByID("nonzero")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("noexists")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("noexec")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("zero")
-		test.That(t, ok, test.ShouldBeTrue)
-
-		conf2.Processes = append(conf2.Processes, pexec.ProcessConfig{
-			ID:      "noexec",
-			Name:    "true",
-			Log:     true,
-			OneShot: true,
-		})
 		robot.Reconfigure(context.Background(), conf2)
 		mockNames = []resource.Name{
 			mockNamed("mock1"),
@@ -2024,15 +2002,122 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		_, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		_, ok = robot.ProcessManager().ProcessByID("nonzero")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("noexists")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("noexec")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("zero")
+	})
+	t.Run("test processes", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
+		tempDir := t.TempDir()
+		robot, err := New(context.Background(), &config.Config{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+		// create a unexecutable file
+		noExecF, err := ioutil.TempFile(tempDir, "noexec*.sh")
+		test.That(t, err, test.ShouldBeNil)
+		err = noExecF.Close()
+		test.That(t, err, test.ShouldBeNil)
+		// create a origin file
+		originF, err := ioutil.TempFile(tempDir, "origin*")
+		test.That(t, err, test.ShouldBeNil)
+		token := make([]byte, 128)
+		_, err = rand.Read(token)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = originF.Write(token)
+		test.That(t, err, test.ShouldBeNil)
+		err = originF.Sync()
+		test.That(t, err, test.ShouldBeNil)
+		// create a target file
+		targetF, err := ioutil.TempFile(tempDir, "target*")
+		test.That(t, err, test.ShouldBeNil)
+
+		// config1
+		config1 := &config.Config{
+			Processes: []pexec.ProcessConfig{
+				pexec.ProcessConfig{
+					ID:      "shouldfail", // this process won't be executed
+					Name:    "false",
+					OneShot: true,
+				},
+				pexec.ProcessConfig{
+					ID:      "noexec", // file exist but exec bit not set
+					Name:    noExecF.Name(),
+					OneShot: true,
+				},
+				pexec.ProcessConfig{
+					ID:   "shouldsuceed", // this keep succeeding
+					Name: "true",
+				},
+				pexec.ProcessConfig{
+					ID:      "noexist", // file doesn't exists
+					Name:    fmt.Sprintf("%s/%s", tempDir, "noexistfile"),
+					OneShot: true,
+					Log:     true,
+				},
+				pexec.ProcessConfig{
+					ID:   "filehandle", // this keep succeeding and will be changed
+					Name: "true",
+				},
+			},
+		}
+		robot.Reconfigure(context.Background(), config1)
+		_, ok := robot.ProcessManager().ProcessByID("shouldfail")
 		test.That(t, ok, test.ShouldBeFalse)
-		err = tmpF.Close()
+		_, ok = robot.ProcessManager().ProcessByID("shouldsuceed")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("noexist")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("noexec")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("filehandle")
+		test.That(t, ok, test.ShouldBeTrue)
+		config2 := &config.Config{
+			Processes: []pexec.ProcessConfig{
+				pexec.ProcessConfig{
+					ID:      "shouldfail", // now it succeeds
+					Name:    "true",
+					OneShot: true,
+				},
+				pexec.ProcessConfig{
+					ID:      "shouldsuceed", // now it fails
+					Name:    "false",
+					OneShot: true,
+				},
+				pexec.ProcessConfig{
+					ID:   "filehandle", // this transfer originF to targetF after 3s
+					Name: "bash",
+					Args: []string{
+						"-c",
+						fmt.Sprintf("sleep 2; cat %s >> %s", originF.Name(), targetF.Name()),
+					},
+					OneShot: true,
+				},
+			},
+		}
+		robot.Reconfigure(context.Background(), config2)
+		_, ok = robot.ProcessManager().ProcessByID("shouldfail")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("shouldsuceed")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("noexist")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("noexec")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("filehandle")
+		test.That(t, ok, test.ShouldBeTrue)
+		r := make([]byte, 128)
+		n, err := targetF.Read(r)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, n, test.ShouldEqual, 0)
+		utils.SelectContextOrWait(context.Background(), 3*time.Second)
+		_, err = targetF.Seek(0, 0)
+		test.That(t, err, test.ShouldBeNil)
+		n, err = targetF.Read(r)
+		utils.SelectContextOrWait(context.Background(), 3*time.Second)
+		_, err = targetF.Read(r)
+		test.That(t, err, test.ShouldNotBeNil)
+		err = originF.Close()
+		test.That(t, err, test.ShouldBeNil)
+		err = targetF.Close()
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
