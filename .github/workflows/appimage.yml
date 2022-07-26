@@ -31,6 +31,8 @@ jobs:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
     timeout-minutes: 15
+    outputs:
+      date: ${{ steps.build_test_app.outputs.date }}
 
     steps:
     - name: Checkout Code
@@ -65,9 +67,10 @@ jobs:
         gzip: false
 
     - name: Build and Package (Latest)
+      id: build_test_app
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
-        echo "date=`date +%F`" >> $GITHUB_ENV
+        echo "::set-output name=date::`date +%F`"
         make BUILD_CHANNEL="latest" appimage
 
     - name: Upload Files (Testing)
@@ -76,7 +79,7 @@ jobs:
       with:
         headers: "Cache-Control: no-cache"
         path: 'etc/packaging/appimages/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/testing/${{ env.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-server/testing/${{ steps.build_test_app.outputs.date }}/${{ github.sha }}/'
         glob: '*'
         parent: false
         gzip: false
@@ -124,7 +127,7 @@ jobs:
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/${{ env.date }}/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
+        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))

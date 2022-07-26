@@ -1,4 +1,4 @@
-name: Docker
+name: AppImage Cleanup
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -6,12 +6,8 @@ concurrency:
 
 on:
   schedule:
-    - cron: '0 * * * *' # once a month (15th) at 6AM UTC (1AM/EST, 2AM/EDT) SMURF
+    - cron: '0 7 15 * *' # once a month (15th) at 7AM UTC (2AM/EST, 3AM/EDT) SMURF
   workflow_dispatch:
-
-# To test workflow updates you need to work in a branch directly on viamrobotics/rdk
-# and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
-# Don't forget to tag back to @main before merge.
 
 jobs:
   clean_appimages:
@@ -34,3 +30,4 @@ jobs:
     - name: Remove Failed Test AppImages
       run: |
         gsutil rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*"
+        true
