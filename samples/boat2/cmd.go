@@ -57,7 +57,7 @@ type boat struct {
 	previousSpins []float64
 }
 
-func (b *boat) Stop(ctx context.Context) error {
+func (b *boat) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return multierr.Combine(
 		b.starboard.Stop(ctx),
 		b.port.Stop(ctx),
@@ -205,7 +205,7 @@ func newBoat(ctx context.Context, deps registry.Dependencies, logger golog.Logge
 		return nil, errors.Wrap(err, "no port motor")
 	}
 
-	err = b.Stop(ctx)
+	err = b.Stop(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +250,7 @@ func newBoat(ctx context.Context, deps registry.Dependencies, logger golog.Logge
 	return b, nil
 }
 
-func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	speed := 0.7
 	if distanceMm >= 9*1000 {
 		speed = 1.0
@@ -283,15 +283,15 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 	return b.SteerAndMove(ctx, dir, speed)
 }
 
-func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return errors.New("boat can't set power yet")
 }
 
-func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return errors.New("boat can't set velocity yet")
 }
 
-func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	b.lastSpin = angleDeg
 	b.previousSpins = append(b.previousSpins, b.lastSpin)
 
@@ -330,7 +330,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) e
 			left := math.Abs(angleDeg) - rdkutils.AngleDiffDeg(startAngle, now.EulerAngles().Yaw)
 			logger.Infof("\t left %v (%#v %#v)\n", left, startAngle, now.EulerAngles().Yaw)
 			if left < 5 || left > 180 {
-				return b.Stop(ctx)
+				return b.Stop(ctx, nil)
 			}
 		}
 	}
@@ -357,7 +357,7 @@ func (b *boat) IsMoving(ctx context.Context) (bool, error) {
 }
 
 func (b *boat) Close(ctx context.Context) error {
-	return b.Stop(ctx)
+	return b.Stop(ctx, nil)
 }
 
 // Do is unimplemented.

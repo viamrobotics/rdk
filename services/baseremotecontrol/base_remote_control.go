@@ -223,11 +223,12 @@ func (svc *remoteService) processEvent(ctx context.Context, state *throttleState
 				Y: svc.config.MaxAngularVelocity * newAngular.Y,
 				Z: svc.config.MaxAngularVelocity * newAngular.Z,
 			},
+			nil,
 		); err != nil {
 			return err
 		}
 	} else {
-		if err := svc.base.SetPower(ctx, newLinear, newAngular); err != nil {
+		if err := svc.base.SetPower(ctx, newLinear, newAngular, nil); err != nil {
 			return err
 		}
 	}
