@@ -116,7 +116,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
 	}
-	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, golog.NewTestLogger(t), attrs)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -188,16 +188,19 @@ func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int
 	counter := numPoints
 	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
 		if counter > 0 {
-			shortenedPC.Set(p, d)
+			err = shortenedPC.Set(p, d)
 			counter--
 		}
-		return true
+		return err == nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	return shortenedPC, nil
 }
 
-func makeFakeRobotICP(t *testing.T) robot.Robot {
+func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	// Makes a fake robot with a fake frame system and multiple cameras for testing.
 	// Cam 1: Read from a test PCD file. A smaller sample of points.
 	// Cam 2: A direct transformation applied to Cam 1.
@@ -225,11 +228,17 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 		if counter > 0 {
 			pointPose := spatialmath.NewPoseFromPoint(p)
 			transPoint := spatialmath.Compose(transformPose, pointPose)
-			transformedPC.Set(transPoint.Point(), d)
+			err = transformedPC.Set(transPoint.Point(), d)
+			if err != nil {
+				return false
+			}
 			counter--
 		}
 		return true
 	})
+	if err != nil {
+		return nil, err
+	}
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return transformedPC, nil
 	}
@@ -332,12 +341,13 @@ func makeFakeRobotICP(t *testing.T) robot.Robot {
 			return nil, rdkutils.NewResourceNotFoundError(n)
 		}
 	}
-	return r
+	return r, nil
 }
 
 func TestFixedPointCloudICP(t *testing.T) {
 	ctx := context.Background()
-	r := makeFakeRobotICP(t)
+	r, err := makeFakeRobotICP(t)
+	test.That(t, err, test.ShouldBeNil)
 	// PoV from base1
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
@@ -356,7 +366,8 @@ func TestFixedPointCloudICP(t *testing.T) {
 
 func TestTwinPointCloudICP(t *testing.T) {
 	t.Skip("Test is too large for now.")
-	r := makeFakeRobotICP(t)
+	r, err := makeFakeRobotICP(t)
+	test.That(t, err, test.ShouldBeNil)
 
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
@@ -382,7 +393,8 @@ func TestTwinPointCloudICP(t *testing.T) {
 
 func TestMultiPointCloudICP(t *testing.T) {
 	t.Skip("Test is too large for now.")
-	r := makeFakeRobotICP(t)
+	r, err := makeFakeRobotICP(t)
+	test.That(t, err, test.ShouldBeNil)
 
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
