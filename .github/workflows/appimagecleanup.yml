@@ -1,0 +1,36 @@
+name: Docker
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  schedule:
+    - cron: '0 * * * *' # once a month (15th) at 6AM UTC (1AM/EST, 2AM/EDT) SMURF
+  workflow_dispatch:
+
+# To test workflow updates you need to work in a branch directly on viamrobotics/rdk
+# and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
+# Don't forget to tag back to @main before merge.
+
+jobs:
+  name: Clean Test AppImages
+    needs: appimage_test
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 5
+
+    steps:
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Set up Cloud SDK
+      uses: 'google-github-actions/setup-gcloud@v0'
+
+    - name: Remove Failed Test AppImages
+      run: |
+        gsutil rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*"
