@@ -16,6 +16,7 @@ import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors
 import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service.esm';
 import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
+import { normalizeRemoteName } from './lib/resource';
 
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
@@ -94,7 +95,8 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
       video.autoplay = true;
       video.controls = false;
       video.playsInline = true;
-      const streamName = event.streams[0].id;
+      let streamName = event.streams[0].id;
+      streamName = normalizeRemoteName(streamName);
       const streamContainer = document.querySelector(`#stream-${streamName}`);
       if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
         streamContainer.querySelectorAll('video')[0].remove();
