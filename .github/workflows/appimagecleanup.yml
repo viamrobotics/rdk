@@ -29,5 +29,5 @@ jobs:
 
     - name: Remove Failed Test AppImages
       run: |
-        gsutil rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*"
+        gsutil -m rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*"
         true
