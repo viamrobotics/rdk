@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/media"
-
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
