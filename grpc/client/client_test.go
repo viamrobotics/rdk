@@ -749,7 +749,7 @@ func TestClientReconnect(t *testing.T) {
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
 
-	// Note: There's a slight chance this test can fail if someoneone else
+	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
 	listener, err = net.Listen("tcp", listener.Addr().String())
 	test.That(t, err, test.ShouldBeNil)
