@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -148,15 +146,14 @@ type alignAttrs struct {
 
 // alignColorDepth takes a color and depth image source and aligns them together.
 type alignColorDepth struct {
-	color, depth            gostream.ImageSource
-	aligner                 rimage.Aligner
-	projector               rimage.Projector
-	stream                  camera.StreamType
-	height                  int // height of the aligned image
-	width                   int // width of the aligned image
-	debug                   bool
-	logger                  golog.Logger
-	activeBackgroundWorkers sync.WaitGroup
+	color, depth gostream.ImageSource
+	aligner      rimage.Aligner
+	projector    rimage.Projector
+	stream       camera.StreamType
+	height       int // height of the aligned image
+	width        int // width of the aligned image
+	debug        bool
+	logger       golog.Logger
 }
 
 // newAlignColorDepth creates a gostream.ImageSource that aligned color and depth channels.
@@ -231,33 +228,10 @@ func (acd *alignColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	if acd.projector == nil {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
-	var col image.Image
-	var dm *rimage.DepthMap
-	// do a parallel request for the color and depth image
-	// get color image
-	acd.activeBackgroundWorkers.Add(1)
-	viamutils.PanicCapturingGo(func() {
-		defer acd.activeBackgroundWorkers.Done()
-		var err error
-		col, _, err = acd.color.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-	})
-	// get depth image
-	acd.activeBackgroundWorkers.Add(1)
-	viamutils.PanicCapturingGo(func() {
-		defer acd.activeBackgroundWorkers.Done()
-		d, _, err := acd.depth.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-		dm, err = rimage.ConvertImageToDepthMap(d)
-		if err != nil {
-			panic(err)
-		}
-	})
-	acd.activeBackgroundWorkers.Wait()
+	col, dm := camera.SimultaneousColorDepthRequest(ctx, acd.color, acd.depth)
+	if col == nil || dm == nil {
+		return nil, errors.New("requested color or depth image from camera is nil")
+	}
 	if acd.aligner == nil {
 		return acd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)
 	}
