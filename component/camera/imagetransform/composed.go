@@ -26,7 +26,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*camera.TransformConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -35,9 +35,9 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_to_pretty",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
+			var conf camera.TransformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &camera.AttrConfig{})
+		}, &camera.TransformConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -48,7 +48,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*camera.TransformConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -57,35 +57,35 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "overlay",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
+			var conf camera.TransformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &camera.AttrConfig{})
+		}, &camera.TransformConfig{})
 }
 
 type overlaySource struct {
-	source gostream.ImageSource
+	colorSource camera.Camera
+	depthSource camera.Camera
 }
 
 func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) {
-	i, closer, err := os.source.Next(ctx)
-	if err != nil {
-		return i, closer, err
+	col, dm := camera.SimultaneousColorDepthRequest(ctx, os.colorSource, os.depthSource)
+	if col == nil || dm == nil {
+		return nil, nil, errors.New("requested color or depth image from camera is nil")
 	}
-	defer closer()
-	ii := rimage.ConvertToImageWithDepth(i)
-	if ii.Depth == nil {
-		return nil, nil, errors.New("no depth")
-	}
-	return ii.Overlay(), func() {}, nil
+	return rimage.Overlay(rimage.ConvertImage(col), dm), func() {}, nil
 }
 
-func newOverlay(ctx context.Context, deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
-	source, err := camera.FromDependencies(deps, attrs.Source)
+func newOverlay(ctx context.Context, deps registry.Dependencies, attrs *camera.TransformConfig) (camera.Camera, error) {
+	colorSource, err := camera.FromDependencies(deps, attrs.ColorSource)
 	if err != nil {
-		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
+		return nil, fmt.Errorf("no color source camera (%s): %w", attrs.ColorSource, err)
 	}
-	imgSrc := &overlaySource{source}
-	proj, _ := camera.GetProjector(ctx, attrs, source)
+	depthSource, err := camera.FromDependencies(deps, attrs.DepthSource)
+	if err != nil {
+		return nil, fmt.Errorf("no depth source camera (%s): %w", attrs.DepthSource, err)
+	}
+	imgSrc := &overlaySource{colorSource, depthSource}
+	proj, _ := camera.GetProjector(ctx, attrs, colorSource)
 	return camera.New(imgSrc, proj)
 }
 
