@@ -2029,6 +2029,10 @@ func TestRobotReconfigure(t *testing.T) {
 		targetF, err := ioutil.TempFile(tempDir, "target*")
 		test.That(t, err, test.ShouldBeNil)
 
+		// create a second target file
+		target2F, err := ioutil.TempFile(tempDir, "target*")
+		test.That(t, err, test.ShouldBeNil)
+
 		// config1
 		config1 := &config.Config{
 			Processes: []pexec.ProcessConfig{
@@ -2056,6 +2060,16 @@ func TestRobotReconfigure(t *testing.T) {
 					ID:   "filehandle", // this keep succeeding and will be changed
 					Name: "true",
 				},
+				{
+					ID:   "touch", // touch a file
+					Name: "sh",
+					CWD:  tempDir,
+					Args: []string{
+						"-c",
+						"sleep 0.4;touch afile",
+					},
+					OneShot: true,
+				},
 			},
 		}
 		robot.Reconfigure(context.Background(), config1)
@@ -2069,6 +2083,11 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeFalse)
 		_, ok = robot.ProcessManager().ProcessByID("filehandle")
 		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("touch")
+		test.That(t, ok, test.ShouldBeTrue)
+		utils.SelectContextOrWait(context.Background(), 1*time.Second)
+		_, err = os.Stat(fmt.Sprintf("%s/%s", tempDir, "afile"))
+		test.That(t, err, test.ShouldBeNil)
 		config2 := &config.Config{
 			Processes: []pexec.ProcessConfig{
 				{
@@ -2082,13 +2101,32 @@ func TestRobotReconfigure(t *testing.T) {
 					OneShot: true,
 				},
 				{
-					ID:   "filehandle", // this transfer originF to targetF after 3s
-					Name: "bash",
+					ID:   "filehandle", // this transfer originF to targetF after 2s
+					Name: "sh",
 					Args: []string{
 						"-c",
 						fmt.Sprintf("sleep 2; cat %s >> %s", originF.Name(), targetF.Name()),
 					},
 					OneShot: true,
+				},
+				{
+					ID:   "filehandle2", // this transfer originF to targetF after 2s
+					Name: "sh",
+					Args: []string{
+						"-c",
+						fmt.Sprintf("sleep 0.4;cat %s >> %s", originF.Name(), target2F.Name()),
+					},
+				},
+				{
+					ID:   "remove", // remove the file
+					Name: "sh",
+					CWD:  tempDir,
+					Args: []string{
+						"-c",
+						"sleep 0.2;rm afile",
+					},
+					OneShot: true,
+					Log:     true,
 				},
 			},
 		}
@@ -2102,6 +2140,10 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("noexec")
 		test.That(t, ok, test.ShouldBeFalse)
 		_, ok = robot.ProcessManager().ProcessByID("filehandle")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("touch")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("remove")
 		test.That(t, ok, test.ShouldBeTrue)
 		r := make([]byte, 128)
 		n, err := targetF.Read(r)
@@ -2121,6 +2163,13 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		err = targetF.Close()
 		test.That(t, err, test.ShouldBeNil)
+		stat, err := target2F.Stat()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, stat.Size(), test.ShouldBeGreaterThan, 128)
+		err = target2F.Close()
+		test.That(t, err, test.ShouldBeNil)
+		_, err = os.Stat(fmt.Sprintf("%s/%s", tempDir, "afile"))
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
 
