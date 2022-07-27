@@ -32,7 +32,12 @@ func (g *Gantry) GetPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (g *Gantry) MoveToPosition(ctx context.Context, positions []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (g *Gantry) MoveToPosition(
+	ctx context.Context,
+	positions []float64,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	if g.MoveToPositionFunc == nil {
 		return g.LocalGantry.MoveToPosition(ctx, positions, worldState, extra)
 	}

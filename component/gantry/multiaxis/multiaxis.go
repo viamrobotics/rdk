@@ -99,7 +99,12 @@ func newMultiAxis(
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (g *multiAxis) MoveToPosition(
+	ctx context.Context,
+	positions []float64,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 

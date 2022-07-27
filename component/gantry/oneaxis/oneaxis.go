@@ -381,7 +381,12 @@ func (g *oneAxis) GetLengths(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (g *oneAxis) MoveToPosition(
+	ctx context.Context,
+	positions []float64,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 

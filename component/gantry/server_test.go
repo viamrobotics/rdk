@@ -44,7 +44,12 @@ func TestServer(t *testing.T) {
 		extra1 = extra
 		return pos1, nil
 	}
-	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+	injectGantry.MoveToPositionFunc = func(
+		ctx context.Context,
+		pos []float64,
+		worldState *commonpb.WorldState,
+		extra map[string]interface{},
+	) error {
 		gantryPos = pos
 		extra1 = extra
 		return nil
@@ -62,7 +67,12 @@ func TestServer(t *testing.T) {
 	injectGantry2.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return nil, errors.New("can't get position")
 	}
-	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+	injectGantry2.MoveToPositionFunc = func(
+		ctx context.Context,
+		pos []float64,
+		worldState *commonpb.WorldState,
+		extra map[string]interface{},
+	) error {
 		gantryPos = pos
 		return errors.New("can't move to position")
 	}
