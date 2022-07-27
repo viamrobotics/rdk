@@ -219,12 +219,12 @@ func newInterceptingGPSBase(deps registry.Dependencies, c config.Component) (bas
 	return intBase, nil
 }
 
-func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	loc, err := b.g.ReadLocation(ctx)
 	if err != nil {
 		return err
 	}
-	err = b.b.MoveStraight(ctx, distanceMm, mmPerSec)
+	err = b.b.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 	if err != nil {
 		return err
 	}
@@ -236,8 +236,8 @@ func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, 
 	return nil
 }
 
-func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
-	err := b.b.Spin(ctx, angleDeg, degsPerSec)
+func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+	err := b.b.Spin(ctx, angleDeg, degsPerSec, extra)
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func (b *interceptingGPSBase) GetWidth(ctx context.Context) (int, error) {
 	return 600, nil
 }
 
-func (b *interceptingGPSBase) Stop(ctx context.Context) error {
+func (b *interceptingGPSBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
@@ -264,7 +264,7 @@ const maxMmPerSec = 300
 // from angular to represent X, Y unit vectors, respectively, from a joystick control. Using the result of
 // the sum of these two vectors: the angle represents bearing and the magnitude represents power.
 // You can think of this as using a joystick to control a base from a birds eye view on a map.
-func (b *interceptingGPSBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (b *interceptingGPSBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	b.mu.Lock()
 	b.linearPower = linear
 	b.angularPower = angular
@@ -272,7 +272,7 @@ func (b *interceptingGPSBase) SetPower(ctx context.Context, linear, angular r3.V
 	return nil
 }
 
-func (b *interceptingGPSBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (b *interceptingGPSBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return nil
 }
 
