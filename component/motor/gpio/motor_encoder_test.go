@@ -29,7 +29,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 	cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
 	fakeMotor := &fakemotor.Motor{
-		Encoder:           fakemotor.Encoder{Valid: true},
+		Encoder:           &fakemotor.Encoder{},
 		PositionReporting: true,
 		TicksPerRotation:  100,
 		MaxRPM:            100,
@@ -249,7 +249,7 @@ func TestMotorEncoderHall(t *testing.T) {
 		t.Helper()
 		cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
 		fakeMotor := &fakemotor.Motor{
-			Encoder:           fakemotor.Encoder{Valid: true},
+			Encoder:           &fakemotor.Encoder{},
 			PositionReporting: true,
 			TicksPerRotation:  100,
 			MaxRPM:            100,
