@@ -30,7 +30,7 @@ type GetEndPositionRequest struct {
 
 	// Name of an arm
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Additional arguments to the method.
+	// Additional arguments to the method
 	Extra *structpb.Struct `protobuf:"bytes,99,opt,name=extra,proto3" json:"extra,omitempty"`
 }
 
@@ -186,7 +186,7 @@ type GetJointPositionsRequest struct {
 
 	// Name of an arm
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Additional arguments to the method.
+	// Additional arguments to the method
 	Extra *structpb.Struct `protobuf:"bytes,99,opt,name=extra,proto3" json:"extra,omitempty"`
 }
 
@@ -293,7 +293,7 @@ type MoveToPositionRequest struct {
 	Name       string         `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	To         *v1.Pose       `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
 	WorldState *v1.WorldState `protobuf:"bytes,3,opt,name=world_state,json=worldState,proto3,oneof" json:"world_state,omitempty"`
-	// Additional arguments to the method.
+	// Additional arguments to the method
 	Extra *structpb.Struct `protobuf:"bytes,99,opt,name=extra,proto3" json:"extra,omitempty"`
 }
 
@@ -405,7 +405,7 @@ type MoveToJointPositionsRequest struct {
 	// A list of joint positions
 	// There should be 1 entry in the list per joint DOF, ordered spatially from the base toward the end effector
 	Positions *JointPositions `protobuf:"bytes,2,opt,name=positions,proto3" json:"positions,omitempty"`
-	// Additional arguments to the method.
+	// Additional arguments to the method
 	Extra *structpb.Struct `protobuf:"bytes,99,opt,name=extra,proto3" json:"extra,omitempty"`
 }
 
@@ -507,7 +507,7 @@ type StopRequest struct {
 
 	// Name of an arm
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Additional arguments to the method.
+	// Additional arguments to the method
 	Extra *structpb.Struct `protobuf:"bytes,99,opt,name=extra,proto3" json:"extra,omitempty"`
 }
 

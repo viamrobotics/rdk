@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -43,7 +44,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newJoinPointCloudSource(ctx, r, attrs)
+			return newJoinPointCloudSource(ctx, r, logger, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_pointclouds",
@@ -67,6 +68,29 @@ type JoinAttrs struct {
 	*camera.AttrConfig
 	TargetFrame   string   `json:"target_frame"`
 	SourceCameras []string `json:"source_cameras"`
+	MergeMethod   string   `json:"merge_method"`
+	// Closeness defines how close 2 points should be together to be considered the same point when merged.
+	Closeness float64 `json:"closeness_mm"`
+}
+
+type (
+	// MergeMethodType Defines which strategy is used for merging.
+	MergeMethodType string
+	// MergeMethodUnsupportedError is returned when the merge method is not supported.
+	MergeMethodUnsupportedError error
+)
+
+const (
+	// Null is a default value for the merge method.
+	Null = MergeMethodType("")
+	// Naive is the naive merge method.
+	Naive = MergeMethodType("naive")
+	// ICP is the ICP merge method.
+	ICP = MergeMethodType("icp")
+)
+
+func newMergeMethodUnsupportedError(method string) MergeMethodUnsupportedError {
+	return errors.Errorf("merge method %s not supported", method)
 }
 
 // joinPointCloudSource takes image sources that can produce point clouds and merges them together from
@@ -79,11 +103,15 @@ type joinPointCloudSource struct {
 	targetName    string
 	robot         robot.Robot
 	stream        camera.StreamType
+	mergeMethod   MergeMethodType
+	logger        golog.Logger
+	debug         bool
+	closeness     float64
 }
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
 // reference frame of targetName.
-func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
+func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger, attrs *JoinAttrs) (camera.Camera, error) {
 	joinSource := &joinPointCloudSource{}
 	// frame to merge from
 	joinSource.sourceCameras = make([]camera.Camera, len(attrs.SourceCameras))
@@ -100,6 +128,13 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttr
 	joinSource.targetName = attrs.TargetFrame
 	joinSource.robot = r
 	joinSource.stream = camera.StreamType(attrs.Stream)
+	joinSource.closeness = attrs.Closeness
+
+	joinSource.logger = l
+	joinSource.debug = attrs.Debug
+
+	joinSource.mergeMethod = MergeMethodType(attrs.MergeMethod)
+
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
 		proj, _ := camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx])
 		return camera.New(joinSource, proj)
@@ -110,7 +145,18 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttr
 // NextPointCloud gets all the point clouds from the source cameras,
 // and puts the points in one point cloud in the frame of targetFrame.
 func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud")
+	switch jpcs.mergeMethod {
+	case Naive, Null:
+		return jpcs.NextPointCloudNaive(ctx)
+	case ICP:
+		return jpcs.NextPointCloudICP(ctx)
+	default:
+		return nil, newMergeMethodUnsupportedError(string(jpcs.mergeMethod))
+	}
+}
+
+func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudNaive")
 	defer span.End()
 
 	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
@@ -166,7 +212,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 							newPose := spatialmath.Compose(theTransform.(*referenceframe.PoseInFrame).Pose(), savedDualQuat)
 							p = newPose.Point()
 						}
-						batch = append(batch, pointcloud.PointAndData{p, d})
+						batch = append(batch, pointcloud.PointAndData{P: p, D: d})
 						if len(batch) > batchSize {
 							finalPoints <- batch
 							batch = make([]pointcloud.PointAndData, 0, batchSize)
@@ -216,6 +262,86 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	return pcTo, nil
 }
 
+func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudICP")
+	defer span.End()
+
+	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	inputs, err := jpcs.initializeInputs(ctx, fs)
+	if err != nil {
+		return nil, err
+	}
+
+	targetIndex := 0
+
+	for i, camName := range jpcs.sourceNames {
+		if camName == jpcs.targetName {
+			targetIndex = i
+			break
+		}
+	}
+
+	targetPointCloud, err := jpcs.sourceCameras[targetIndex].NextPointCloud(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	finalPointCloud := pointcloud.NewKDTree(targetPointCloud)
+	for i := range jpcs.sourceCameras {
+		if i == targetIndex {
+			continue
+		}
+
+		pcSrc, err := jpcs.sourceCameras[i].NextPointCloud(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[i], spatialmath.NewZeroPose())
+		theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
+		if err != nil {
+			return nil, err
+		}
+
+		registeredPointCloud, info, err := pointcloud.RegisterPointCloudICP(pcSrc, finalPointCloud,
+			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcs.debug)
+		if err != nil {
+			return nil, err
+		}
+		if jpcs.debug {
+			jpcs.logger.Debugf("Learned Transform = %v", info.OptResult.Location.X)
+		}
+		transformDist := math.Sqrt(math.Pow(info.OptResult.Location.X[0]-info.X0[0], 2) +
+			math.Pow(info.OptResult.Location.X[1]-info.X0[1], 2) +
+			math.Pow(info.OptResult.Location.X[2]-info.X0[2], 2))
+		if transformDist > 100 {
+			jpcs.logger.Warnf(`Transform is %f away from transform defined in frame system. 
+			This may indicate an incorrect frame system.`, transformDist)
+		}
+		// TODO(aidanglickman) this loop is highly parallelizable, not yet making use
+		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+			nearest, _, _, _ := finalPointCloud.NearestNeighbor(p)
+			distance := math.Sqrt(math.Pow(p.X-nearest.X, 2) + math.Pow(p.Y-nearest.Y, 2) + math.Pow(p.Z-nearest.Z, 2))
+			if distance > jpcs.closeness {
+				err = finalPointCloud.Set(p, d)
+				if err != nil {
+					return false
+				}
+			}
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return finalPointCloud, nil
+}
+
 // initalizeInputs gets all the input positions for the robot components in order to calculate the frame system offsets.
 func (jpcs *joinPointCloudSource) initializeInputs(
 	ctx context.Context,
@@ -263,6 +389,7 @@ func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func()
 	if proj == nil { // use a default projector if target frame doesn't have one
 		proj = &rimage.ParallelProjection{}
 	}
+
 	pc, err := jpcs.NextPointCloud(ctx)
 	if err != nil {
 		return nil, nil, err

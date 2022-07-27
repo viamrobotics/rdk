@@ -17,6 +17,28 @@ import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_
 import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
 
+import commonApi from './gen/proto/api/common/v1/common_pb.esm';
+import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
+import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
+import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
+import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
+import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
+import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
+import streamApi from './gen/proto/stream/v1/stream_pb.esm';
+
+/**
+ * Every window variable on this page is being currently used by the blockly page in App.
+ * Once we switch blockly to using import / export we should remove / clean up these window variables.
+ */
+window.commonApi = commonApi;
+window.armApi = armApi;
+window.baseApi = baseApi;
+window.cameraApi = cameraApi;
+window.gripperApi = gripperApi;
+window.sensorsApi = sensorsApi;
+window.servoApi = servoApi;
+window.streamApi = streamApi;
+
 let savedAuthEntity;
 let savedCreds;
 
@@ -47,6 +69,10 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
     webrtcOptions: { rtcConfig },
   };
   const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
+
+  // save authEntity, creds
+  savedAuthEntity = authEntity;
+  savedCreds = creds;
   
   if (webrtcEnabled) {
     opts.webrtcOptions.signalingAuthEntity = opts.authEntity;
@@ -104,10 +130,6 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   window.sensorsService = new SensorsServiceClient(webrtcHost, { transport: transportFactory });
   window.servoService = new ServoServiceClient(webrtcHost, { transport: transportFactory });
   window.slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
-
-  // save authEntity, creds
-  savedAuthEntity = authEntity;
-  savedCreds = creds;
 };
 
 window.connect = connect;
