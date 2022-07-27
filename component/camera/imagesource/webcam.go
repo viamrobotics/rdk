@@ -38,7 +38,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return NewWebcamSource(attrs, logger)
+			return NewWebcamSource(ctx, attrs, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, model,
@@ -187,7 +187,7 @@ func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediad
 }
 
 // NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
-func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
+func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
 	var err error
 
 	debug := attrs.Debug
@@ -195,7 +195,7 @@ func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, er
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(attrs, attrs.Path, constraints)
+		return tryWebcamOpen(ctx, attrs, attrs.Path, constraints)
 	}
 
 	var pattern *regexp.Regexp
@@ -219,7 +219,7 @@ func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, er
 			continue
 		}
 
-		s, err := tryWebcamOpen(attrs, label, constraints)
+		s, err := tryWebcamOpen(ctx, attrs, label, constraints)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -235,10 +235,15 @@ func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, er
 	return nil, errors.New("found no webcams")
 }
 
-func tryWebcamOpen(attrs *WebcamAttrs, path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
+func tryWebcamOpen(ctx context.Context,
+	attrs *WebcamAttrs,
+	path string,
+	constraints mediadevices.MediaStreamConstraints,
+) (camera.Camera, error) {
 	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err
 	}
-	return camera.New(reader, attrs.AttrConfig, nil)
+	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
+	return camera.New(reader, proj)
 }

@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
@@ -32,11 +33,12 @@ var (
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
 
-	captureDir = "/tmp/capture"
-	armDir     = captureDir + "/arm/arm1/GetEndPosition"
-
 	syncIntervalMins   = 0.0041 // 250ms
-	emptyFileBytesSize = 30     // size of leading metadata message
+	captureDir         = "/tmp/capture"
+	armDir             = captureDir + "/arm/arm1/GetEndPosition"
+	emptyFileBytesSize = 30 // size of leading metadata message
+	testSvcName1       = "svc1"
+	testSvcName2       = "svc2"
 )
 
 // readDir filters out folders from a slice of FileInfos.
@@ -541,6 +543,59 @@ func TestManualAndScheduledSync(t *testing.T) {
 		t.Fatalf("failed to list files in armDir")
 	}
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
+}
+
+func TestRegisteredReconfigurable(t *testing.T) {
+	s := registry.ResourceSubtypeLookup(datamanager.Subtype)
+	test.That(t, s, test.ShouldNotBeNil)
+	r := s.Reconfigurable
+	test.That(t, r, test.ShouldNotBeNil)
+}
+
+func TestWrapWithReconfigurable(t *testing.T) {
+	svc := &mock{name: testSvcName1}
+	reconfSvc1, err := datamanager.WrapWithReconfigurable(svc)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = datamanager.WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("data_manager.Service", nil))
+
+	reconfSvc2, err := datamanager.WrapWithReconfigurable(reconfSvc1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc1)
+}
+
+func TestReconfigurable(t *testing.T) {
+	actualSvc1 := &mock{name: testSvcName1}
+	reconfSvc1, err := datamanager.WrapWithReconfigurable(actualSvc1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc1, test.ShouldNotBeNil)
+
+	actualArm2 := &mock{name: testSvcName2}
+	reconfSvc2, err := datamanager.WrapWithReconfigurable(actualArm2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc2, test.ShouldNotBeNil)
+	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)
+
+	err = reconfSvc1.Reconfigure(context.Background(), reconfSvc2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc1, test.ShouldResemble, reconfSvc2)
+	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 1)
+
+	err = reconfSvc1.Reconfigure(context.Background(), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfSvc1, nil))
+}
+
+type mock struct {
+	datamanager.Service
+	name        string
+	reconfCount int
+}
+
+func (m *mock) Close(ctx context.Context) error {
+	m.reconfCount++
+	return nil
 }
 
 func TestSyncDisabled(t *testing.T) {
