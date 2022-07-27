@@ -10,32 +10,34 @@
       window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
 
-    <!-- Configure static file path for Prime component library -->
-    <link rel="preload" href="/static/prime.css" as="style">
-
     {{ if .External }}
-    <link rel="stylesheet" href="/static/rdk/main.css" />
+    <link rel="preload" href="/static/rdk/prime.css?v={{ .Version }}" as="style">
+    <link rel="stylesheet" href="/static/rdk/main.css?v={{ .Version }}" />
+    <script type="module">window.PRIME_CONFIG = { base: '/static/rdk' }</script>
     {{ else if eq .Env "production" }}
+    <link rel="preload" href="/static/prime.css" as="style">
     <link rel="stylesheet" href="/static/main.css" />
+    <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
+    {{ else if eq .Env "development" }}
+    <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
     {{ end }}
-
-    <script type="module">
-      window.PRIME_CONFIG = { base: '/static' }
-    </script>
   </head>
 
   <body>
     <div id="app"></div>
 
     {{ if .External }}
-    <script src="/static/rdk/control.js"></script>
+    <script type="module" src="/static/rdk/api.js?v={{ .Version }}"></script>
+    <script type="module" src="/static/rdk/control.js?v={{ .Version }}"></script>
     {{ else }}
 
     {{ if eq .Env "development" }}
-    <script type="module" src="http://localhost:5173/src/main.js"></script>
+    <script type="module" src="http://localhost:5174/src/api.js"></script>
+    <script type="module" src="http://localhost:5174/src/main.js"></script>
     {{ end }}
 
     {{ if eq .Env "production" }}
+    <script type="module" src="/static/api.js"></script>
     <script type="module" src="/static/control.js"></script>
     {{ end }}
 

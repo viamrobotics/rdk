@@ -318,14 +318,6 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	return allErrs
 }
 
-// processConfig ingests a given config and constructs all constituent parts.
-func (manager *resourceManager) processConfig(
-	ctx context.Context,
-	config *config.Config,
-) {
-	manager.newProcesses(ctx, config.Processes)
-}
-
 // completeConfig process the tree in reverse order and attempts to build
 // or reconfigure resources that are wrapped in a placeholderResource.
 func (manager *resourceManager) completeConfig(
@@ -464,9 +456,15 @@ func (manager *resourceManager) newProcesses(ctx context.Context, processes []pe
 		}
 	}
 
+	// TODO(RSDK-470): This should not be called multiple times.
 	err = manager.processManager.Start(ctx)
 	if err != nil {
 		manager.logger.Errorw("there are process(es) that failed to start", "error", err)
+
+		// TODO(RSDK-470): This is necessary because a failed Start is a failed process manager
+		// and can no longer be used/salvaged.
+		manager.processManager = nil
+		manager.processManager = pexec.NewProcessManager(manager.logger)
 	}
 }
 

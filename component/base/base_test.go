@@ -302,17 +302,18 @@ func TestDoMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	err1 := errors.New("oh no")
-	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64) error {
+	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 		return err1
 	}
 
-	m := base.Move{DistanceMm: 1}
+	m := base.Move{DistanceMm: 1, Extra: map[string]interface{}{"foo": "bar"}}
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 
-	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64) error {
+	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 		test.That(t, distanceMm, test.ShouldEqual, m.DistanceMm)
 		test.That(t, mmPerSec, test.ShouldEqual, m.MmPerSec)
+		test.That(t, extra, test.ShouldResemble, m.Extra)
 		return nil
 	}
 	err = base.DoMove(context.Background(), m, dev)
@@ -322,7 +323,7 @@ func TestDoMove(t *testing.T) {
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 
-	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 		return err1
 	}
 
@@ -330,9 +331,10 @@ func TestDoMove(t *testing.T) {
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 
-	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 		test.That(t, angleDeg, test.ShouldEqual, m.AngleDeg)
 		test.That(t, degsPerSec, test.ShouldEqual, m.DegsPerSec)
+		test.That(t, extra, test.ShouldResemble, m.Extra)
 		return nil
 	}
 
@@ -349,7 +351,7 @@ func TestDoMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("if rotation succeeds but moving straight fails, report rotation", func(t *testing.T) {
-		dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64) error {
+		dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 			return err1
 		}
 

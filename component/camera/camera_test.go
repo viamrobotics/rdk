@@ -236,7 +236,7 @@ type simpleSource struct {
 }
 
 func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
-	img, err := rimage.NewImageWithDepth(artifact.MustPath(s.filePath+".png"), artifact.MustPath(s.filePath+".dat.gz"), true)
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath(s.filePath + ".dat.gz"))
 	return img, func() {}, err
 }
 
@@ -246,54 +246,50 @@ func TestNewCamera(t *testing.T) {
 	imgSrc := &simpleSource{"rimage/board1"}
 
 	// no camera
-	_, err := camera.New(nil, nil, nil)
+	_, err := camera.New(nil, nil)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot have a nil image source"))
 
 	// camera with no camera parameters
-	cam1, err := camera.New(imgSrc, nil, nil)
+	cam1, err := camera.New(imgSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok := cam1.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeFalse)
-	proj := camera.Projector(cam1)
+	proj, err := cam1.GetProperties(context.Background())
 	test.That(t, proj, test.ShouldBeNil)
+	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// camera with camera parameters
-	cam2, err := camera.New(imgSrc, attrs1, cam1)
+	proj, _ = camera.GetProjector(context.Background(), attrs1, cam1)
+	cam2, err := camera.New(imgSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam2.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeTrue)
-	proj = camera.Projector(cam2)
-	test.That(t, proj, test.ShouldNotBeNil)
+	proj2, err := cam2.GetProperties(context.Background())
+	test.That(t, proj2, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 
 	// camera with camera parameters inherited  from other camera
-	cam3, err := camera.New(imgSrc, nil, cam2)
+	proj, _ = camera.GetProjector(context.Background(), nil, cam2)
+	cam3, err := camera.New(imgSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam3.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, cam3.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam2.(camera.WithProjector).GetProjector())
-	proj = camera.Projector(cam3)
-	test.That(t, proj, test.ShouldNotBeNil)
+	proj3, err := cam3.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proj3, test.ShouldResemble, proj2)
 
 	// camera with different camera parameters, will not inherit
-	cam4, err := camera.New(imgSrc, attrs2, cam2)
+	proj, _ = camera.GetProjector(context.Background(), attrs2, cam2)
+	cam4, err := camera.New(imgSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam4.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, cam4.(camera.WithProjector).GetProjector(), test.ShouldNotResemble, cam2.(camera.WithProjector).GetProjector())
-	proj = camera.Projector(cam4)
-	test.That(t, proj, test.ShouldNotBeNil)
+	proj4, err := cam4.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proj4, test.ShouldNotResemble, proj2)
 
 	// cam4 wrapped with reconfigurable
 	reconfig, err := camera.WrapWithReconfigurable(cam4)
 	test.That(t, err, test.ShouldBeNil)
 	fakeCamera := reconfig.(camera.Camera)
-	cam5, err := camera.New(imgSrc, nil, fakeCamera)
+	proj, _ = camera.GetProjector(context.Background(), nil, fakeCamera)
+	cam5, err := camera.New(imgSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam5.(camera.WithProjector)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, cam5.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam4.(camera.WithProjector).GetProjector())
-	proj = camera.Projector(fakeCamera)
-	test.That(t, proj, test.ShouldNotBeNil)
+	proj5, err := cam5.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proj5, test.ShouldResemble, proj4)
 }
 
 type cloudSource struct {
@@ -308,16 +304,16 @@ func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 
 func TestCameraWithNoProjector(t *testing.T) {
 	imgSrc := &simpleSource{"rimage/board1"}
-	noProj, err := camera.New(imgSrc, nil, nil)
+	noProj, err := camera.New(imgSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = noProj.NextPointCloud(context.Background())
-	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector/Camera Intrinsics associated with it")
+	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 	_, err = noProj.GetProperties(context.Background())
-	test.That(t, err.Error(), test.ShouldContainSubstring, transform.NewNoIntrinsicsError("").Error())
+	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// make a camera with a NextPointCloudFunction
 	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}
-	noProj2, err := camera.New(imgSrc2, nil, nil)
+	noProj2, err := camera.New(imgSrc2, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -337,18 +333,20 @@ func TestCameraWithProjector(t *testing.T) {
 			Ppy:    100,
 		},
 	}
-	cam, err := camera.New(imgSrc, attrs1, nil)
+	proj, _ := camera.GetProjector(context.Background(), attrs1, nil)
+	cam, err := camera.New(imgSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := cam.NextPointCloud(context.Background())
 	test.That(t, pc.Size(), test.ShouldEqual, 921600)
 	test.That(t, err, test.ShouldBeNil)
-	proj, err := cam.GetProperties(context.Background())
+	proj, err = cam.GetProperties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, proj, test.ShouldNotBeNil)
 
 	// camera with a point cloud function
 	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}
-	cam2, err := camera.New(imgSrc2, nil, cam)
+	proj, _ = camera.GetProjector(context.Background(), nil, cam)
+	cam2, err := camera.New(imgSrc2, proj)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = cam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
