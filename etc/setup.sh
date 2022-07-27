@@ -123,10 +123,11 @@ mod_profiles(){
 	test -f ~/.zprofile && ( grep -q viamdevrc ~/.zprofile || echo "source ~/.viamdevrc" >> ~/.zprofile )
 	test -f ~/.zshrc && ( grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc )
 
-	# Once again seems to be needed, now that API is a distinct private repo
-	git config --global --get-regexp url. > /dev/null
+	# We have some private repos for now so exclude them from https in order to utilize SSH keys.
+	git config --global --get-regexp url.ssh://git@github.com/viamrobotics > /dev/null
 	if [ $? -ne 0 ]; then
-		git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+		git config --global url.ssh://git@github.com/viamrobotics/rdk.insteadOf https://github.com/viamrobotics/rdk
+		git config --global url.ssh://git@github.com/viamrobotics/api.insteadOf https://github.com/viamrobotics/api
 	fi
 	mkdir -p ~/.ssh
 	grep -q github.com ~/.ssh/known_hosts || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
@@ -163,9 +164,6 @@ do_brew(){
 		exit 1
 	fi
 
-	brew uninstall "go@1.17"
-	brew uninstall "node@16"
-	brew uninstall "protobuf@3.19"
 	brew unlink "gcc" "go" "node" "protobuf"
 	brew link --overwrite "gcc@11" "go@1.18" "node@18" "protobuf@3" || exit 1
 

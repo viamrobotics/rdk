@@ -20,16 +20,16 @@ import (
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 	fakeoneaxis := &inject.Gantry{
 		LocalGantry: nil,
-		GetPositionFunc: func(ctx context.Context) ([]float64, error) {
+		GetPositionFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return positions, nil
 		},
-		MoveToPositionFunc: func(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error {
+		MoveToPositionFunc: func(ctx context.Context, positions []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 			return nil
 		},
-		GetLengthsFunc: func(ctx context.Context) ([]float64, error) {
+		GetLengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return []float64{length}, nil
 		},
-		StopFunc: func(ctx context.Context) error {
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
 			return nil
 		},
 		CloseFunc: func(ctx context.Context) error {
@@ -44,7 +44,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 
 func createFakeDeps() registry.Dependencies {
 	fakeGantry := &inject.Gantry{
-		GetLengthsFunc: func(ctx context.Context) ([]float64, error) {
+		GetLengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return []float64{1}, nil
 		},
 	}
@@ -114,17 +114,17 @@ func TestMoveToPosition(t *testing.T) {
 	positions := []float64{}
 
 	fakemultiaxis := &multiAxis{}
-	err := fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{})
+	err := fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
 	positions = []float64{1, 2, 3}
-	err = fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{})
+	err = fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
 	positions = []float64{1, 2}
-	err = fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{})
+	err = fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -151,12 +151,12 @@ func TestGetPosition(t *testing.T) {
 	ctx := context.Background()
 
 	fakemultiaxis := &multiAxis{subAxes: threeAxes}
-	pos, err := fakemultiaxis.GetPosition(ctx)
+	pos, err := fakemultiaxis.GetPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldResemble, []float64{1, 5, 9})
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
-	pos, err = fakemultiaxis.GetPosition(ctx)
+	pos, err = fakemultiaxis.GetPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldResemble, []float64{1, 5})
 }
@@ -164,18 +164,18 @@ func TestGetPosition(t *testing.T) {
 func TestGetLengths(t *testing.T) {
 	ctx := context.Background()
 	fakemultiaxis := &multiAxis{}
-	lengths, err := fakemultiaxis.GetLengths(ctx)
+	lengths, err := fakemultiaxis.GetLengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{})
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
-	lengths, err = fakemultiaxis.GetLengths(ctx)
+	lengths, err = fakemultiaxis.GetLengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{1, 2, 3})
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
 
-	lengths, err = fakemultiaxis.GetLengths(ctx)
+	lengths, err = fakemultiaxis.GetLengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{5, 6})
 }
@@ -183,13 +183,13 @@ func TestGetLengths(t *testing.T) {
 func TestStop(t *testing.T) {
 	ctx := context.Background()
 	fakemultiaxis := &multiAxis{}
-	test.That(t, fakemultiaxis.Stop(ctx), test.ShouldBeNil)
+	test.That(t, fakemultiaxis.Stop(ctx, nil), test.ShouldBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
-	test.That(t, fakemultiaxis.Stop(ctx), test.ShouldBeNil)
+	test.That(t, fakemultiaxis.Stop(ctx, nil), test.ShouldBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
-	test.That(t, fakemultiaxis.Stop(ctx), test.ShouldBeNil)
+	test.That(t, fakemultiaxis.Stop(ctx, nil), test.ShouldBeNil)
 }
 
 func TestCurrentInputs(t *testing.T) {

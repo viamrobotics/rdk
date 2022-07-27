@@ -550,7 +550,7 @@ func TestGetPosition(t *testing.T) {
 		limitType:       limitTwoPin,
 		logger:          logger,
 	}
-	positions, err := fakegantry.GetPosition(ctx)
+	positions, err := fakegantry.GetPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, positions, test.ShouldResemble, []float64{0})
 
@@ -568,7 +568,7 @@ func TestGetPosition(t *testing.T) {
 		positionLimits:  []float64{0, 1},
 		logger:          logger,
 	}
-	positions, err = fakegantry.GetPosition(ctx)
+	positions, err = fakegantry.GetPosition(ctx, nil)
 	test.That(t, positions, test.ShouldResemble, []float64{})
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -587,7 +587,7 @@ func TestGetLengths(t *testing.T) {
 		lengthMm: float64(1.0),
 	}
 	ctx := context.Background()
-	fakelengths, err := fakegantry.GetLengths(ctx)
+	fakelengths, err := fakegantry.GetLengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.ShouldHaveLength(t, fakelengths, test.ShouldEqual(float64(1.0)))
 }
@@ -602,24 +602,24 @@ func TestMoveToPosition(t *testing.T) {
 		limitHigh: true,
 	}
 	pos := []float64{1, 2}
-	err := fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{})
+	err := fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry MoveToPosition needs 1 position, got: 2")
 
 	pos = []float64{1}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{})
+	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got 1.00 max is 0.00")
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0, 4}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{})
+	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0.01, .01}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
 	fakegantry.motor = &inject.Motor{StopFunc: func(ctx context.Context) error { return errors.New("err") }}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{})
+	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	injectGPIOPin := &inject.GPIOPin{}
@@ -638,7 +638,7 @@ func TestMoveToPosition(t *testing.T) {
 	}
 
 	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil }}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{})
+	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPinGood, nil }}
@@ -646,11 +646,11 @@ func TestMoveToPosition(t *testing.T) {
 		StopFunc: func(ctx context.Context) error { return nil },
 		GoToFunc: func(ctx context.Context, rpm float64, rotations float64) error { return errors.New("err") },
 	}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{})
+	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.motor = &inject.Motor{GoToFunc: func(ctx context.Context, rpm float64, rotations float64) error { return nil }}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{})
+	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -681,7 +681,7 @@ func TestStop(t *testing.T) {
 		positionLimits:  []float64{0, 2},
 	}
 
-	test.That(t, fakegantry.Stop(ctx), test.ShouldBeNil)
+	test.That(t, fakegantry.Stop(ctx, nil), test.ShouldBeNil)
 }
 
 func TestCurrentInputs(t *testing.T) {
