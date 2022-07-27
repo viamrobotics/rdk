@@ -77,6 +77,13 @@ service RobotService {
       get: "/viam/api/v1/status/stream"
     };
   }
+
+  // StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement
+  rpc StopAll(StopAllRequest) returns (StopAllResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/stop_all"
+    };
+  }
 }
 
 message FrameSystemConfig {
@@ -194,3 +201,14 @@ message StreamStatusRequest {
 message StreamStatusResponse {
   repeated Status status = 1;
 }
+
+message StopExtraParameters {
+  common.v1.ResourceName name = 1;
+  google.protobuf.Struct params = 2;
+}
+
+message StopAllRequest {
+  repeated StopExtraParameters extra = 99;
+}
+
+message StopAllResponse {}

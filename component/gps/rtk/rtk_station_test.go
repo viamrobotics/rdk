@@ -239,7 +239,7 @@ func TestConnect(t *testing.T) {
 
 	g.info.mountPoint = "mp"
 	err = g.GetStream()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no such host")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "lookup fakeurl")
 }
 
 // Helpers

@@ -11,11 +11,11 @@ import (
 	"go.viam.com/utils/artifact"
 )
 
-func TestFFmpegCamera(t *testing.T) {
+func TestFFMPEGCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	path := artifact.MustPath("component/camera/ffmpeg/testsrc.mpg")
-	cam, err := NewFFMPEGCamera(&AttrConfig{VideoPath: path}, logger)
+	cam, err := NewFFMPEGCamera(ctx, &AttrConfig{VideoPath: path}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 5; i++ {
 		_, _, err := cam.Next(ctx)
@@ -24,12 +24,12 @@ func TestFFmpegCamera(t *testing.T) {
 	test.That(t, viamutils.TryClose(context.Background(), cam), test.ShouldBeNil)
 }
 
-func TestComputerWithoutFFmpeg(t *testing.T) {
+func TestFFMPEGNotFound(t *testing.T) {
 	oldpath := os.Getenv("PATH")
 	defer func() {
 		os.Setenv("PATH", oldpath)
 	}()
 	os.Unsetenv("PATH")
-	_, err := NewFFMPEGCamera(nil, nil)
+	_, err := NewFFMPEGCamera(context.Background(), nil, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 }

@@ -199,6 +199,9 @@ func testNoColorBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
+	data, dataFlag := cloud2.At(-1, -2, 5)
+	test.That(t, dataFlag, test.ShouldBeTrue)
+	test.That(t, data.HasColor(), test.ShouldBeFalse)
 }
 
 func testPCDOutput(t *testing.T, cloud2 PointCloud) {
@@ -243,6 +246,13 @@ func testBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
+	data, dataFlag := cloud2.At(-1, -2, 5)
+	test.That(t, dataFlag, test.ShouldBeTrue)
+	test.That(t, data.HasColor(), test.ShouldBeTrue)
+	r, g, b := data.RGB255()
+	test.That(t, r, test.ShouldEqual, 255)
+	test.That(t, g, test.ShouldEqual, 1)
+	test.That(t, b, test.ShouldEqual, 2)
 }
 
 func testLargeBinaryNoError(t *testing.T) {

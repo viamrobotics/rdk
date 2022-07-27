@@ -35,7 +35,7 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gantry.GetPosition(ctx)
+		v, err := gantry.GetPosition(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
 		}
@@ -56,7 +56,7 @@ func newGetLengthsCollector(resource interface{}, params data.CollectorParams) (
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gantry.GetLengths(ctx)
+		v, err := gantry.GetLengths(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getLengths.String(), err)
 		}
