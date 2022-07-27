@@ -48,8 +48,8 @@ jobs:
         git add .
         chown -R testbot .
         sudo -u testbot bash -lc '${{ matrix.build_lint }}'
-
         GEN_DIFF=$(git status -s)
+
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build lint" resulted in changes not in git' 1>&2
             git status
@@ -110,7 +110,11 @@ jobs:
     name: All Tests Passing
     needs: [test_pi, build_and_test]
     runs-on: [x64, qemu-host]
+    if: always()
     steps:
-      - name: Pass
+      - name: Check Results
         run: |
-          true
+          echo Test Pi: ${{ needs.test_pi.result }}
+          echo Main Tests: ${{ needs.build_and_test.result }}
+          [ "${{ needs.test_pi.result }}" == "success" ] && \
+          [ "${{ needs.build_and_test.result }}" == "success" ]

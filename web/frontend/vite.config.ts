@@ -14,9 +14,11 @@ export default defineConfig({
     }),
   ],
   build: {
+    minify: 'terser',
     rollupOptions: {
       input: {
         control: './src/main.js',
+        api: './src/api.js',
       },
       output: {
         entryFileNames: '[name].js',
@@ -24,5 +26,8 @@ export default defineConfig({
       },
     },
     outDir: '../runtime-shared/static',
+  },
+  server: {
+    port: 5174,
   },
 });
