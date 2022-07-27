@@ -47,7 +47,7 @@ func TestConnect(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	err = g.GetStream(mountPoint, 10)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no such host")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "lookup fakeurl")
 }
 
 func TestNewRTKGPS(t *testing.T) {
