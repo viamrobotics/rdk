@@ -46,7 +46,7 @@ func TestFileUpload(t *testing.T) {
 		mc := &mockClient{
 			sent:        []*v1.UploadRequest{},
 			lock:        sync.Mutex{},
-			cancelIndex: 100,
+			cancelIndex: -1,
 		}
 
 		// Create temp file to be used as examples of reading data from the files into buffers
@@ -141,7 +141,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		mc := &mockClient{
 			sent:        []*v1.UploadRequest{},
 			lock:        sync.Mutex{},
-			cancelIndex: 100,
+			cancelIndex: -1,
 		}
 
 		// Create temp data capture file.
@@ -243,7 +243,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		mc := &mockClient{
 			sent:        []*v1.UploadRequest{},
 			lock:        sync.Mutex{},
-			cancelIndex: 100,
+			cancelIndex: -1,
 		}
 
 		// Create temp file to be used as examples of reading data from the files into buffers and finally to have
@@ -293,7 +293,7 @@ func TestUploadsOnce(t *testing.T) {
 	mc := &mockClient{
 		sent:        []*v1.UploadRequest{},
 		lock:        sync.Mutex{},
-		cancelIndex: 100,
+		cancelIndex: -1,
 	}
 	sut := newTestSyncer(t, mc, nil)
 
@@ -339,7 +339,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	mc := &mockClient{
 		sent:        []*v1.UploadRequest{},
 		lock:        sync.Mutex{},
-		cancelIndex: 100,
+		cancelIndex: -1,
 	}
 	sut := newTestSyncer(t, mc, uploadFunc)
 

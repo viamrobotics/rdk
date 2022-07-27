@@ -39,7 +39,7 @@ type mockClient struct {
 
 func (m *mockClient) Send(req *v1.UploadRequest) error {
 	m.lock.Lock()
-	if len(m.sent) < (m.cancelIndex) {
+	if m.cancelIndex != len(m.sent) {
 		m.sent = append(m.sent, req)
 		m.lock.Unlock()
 		return nil
