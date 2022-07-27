@@ -21,6 +21,7 @@ import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 
 import {
+  normalizeRemoteName,
   resourceNameToSubtypeString,
   resourceNameToString,
   filterResources,
@@ -557,7 +558,9 @@ export default {
         if (err) {
           return;
         }
-        const streamContainer = document.querySelector(`#stream-${cameraName}`);
+        const streamName = normalizeRemoteName(cameraName);
+        const streamContainer = document.querySelector(`#stream-${streamName}`);
+        console.log(streamContainer)
         if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
           streamContainer.querySelectorAll('video')[0].remove();
         }
@@ -580,7 +583,8 @@ export default {
           if (err) {
             return;
           }
-          const streamContainer = document.querySelector(`#stream-${cameraName}`);
+          const streamName = normalizeRemoteName(cameraName)
+          const streamContainer = document.querySelector(`#stream-${streamName}`);
           if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
             streamContainer.querySelectorAll('video')[0].remove();
           }
@@ -847,7 +851,8 @@ export default {
       }
     },
     viewCamera(name) {
-      const streamContainer = document.querySelector(`#stream-${name}`);
+      const streamName = normalizeRemoteName(name);
+      const streamContainer = document.querySelector(`#stream-${streamName}`);
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
       streamService.addStream(req, {}, (err, resp) => {

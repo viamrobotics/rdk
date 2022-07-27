@@ -5,6 +5,10 @@ interface Resource {
   namespace: string
 }
 
+export const normalizeRemoteName = (name: string) =>{
+  return name.replace(":", "-");
+}
+
 const sortByName = (a: Resource, b: Resource) => {
   if (a.name < b.name) {
     return -1;
