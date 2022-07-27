@@ -2298,7 +2298,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.That(t, remote3.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Note: There's a slight chance this test can fail if someoneone else
+	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
 	listener2, err = net.Listen("tcp", listener2.Addr().String())
 	test.That(t, err, test.ShouldBeNil)
