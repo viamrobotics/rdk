@@ -253,8 +253,8 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 	return nil
 }
 
-// SimultaneousColorDepthRequest will call Next on both the color and depth camera as simultaneously as possible.
-func SimultaneousColorDepthRequest(ctx context.Context, color, depth Camera) (image.Image, *rimage.DepthMap) {
+// SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.
+func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.ImageSource) (image.Image, *rimage.DepthMap) {
 	wg := sync.WaitGroup{}
 	var col image.Image
 	var dm *rimage.DepthMap
