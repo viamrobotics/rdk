@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
 	"sync"
@@ -18,6 +17,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/resource"
 )
@@ -159,10 +159,7 @@ func TestNewWatcherFile(t *testing.T) {
 func TestNewWatcherCloud(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	randomPort, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", randomPort))
-	test.That(t, err, test.ShouldBeNil)
+	listener := testutils.ReserveRandomListener(t)
 	httpServer := &http.Server{
 		ReadTimeout:    10 * time.Second,
 		MaxHeaderBytes: 1 << 20,

@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -2163,22 +2162,22 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	port1, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr1 := fmt.Sprintf("localhost:%d", port1)
 	options := weboptions.New()
-	options.Network.BindAddress = addr1
+	options.Network.BindAddress = ""
+	listener1 := testutils.ReserveRandomListener(t)
+	addr1 := listener1.Addr().String()
+	options.Network.Listener = listener1
 	err = remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remote2, err := New(ctx, cfg, loggerR)
 	test.That(t, err, test.ShouldBeNil)
 
-	port2, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr2 := fmt.Sprintf("localhost:%d", port2)
 	options = weboptions.New()
-	options.Network.BindAddress = addr2
+	options.Network.BindAddress = ""
+	listener2 := testutils.ReserveRandomListener(t)
+	addr2 := listener2.Addr().String()
+	options.Network.Listener = listener2
 
 	localConfig := &config.Config{
 		Components: []config.Component{
