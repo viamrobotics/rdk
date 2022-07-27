@@ -264,14 +264,14 @@ func (svc *navService) startWaypoint() error {
 				// TODO(erh->erd): maybe need an arc/stroke abstraction?
 				// - Remember that we added -1*bearingDelta instead of steeringDir
 				// - Test both naval/land to prove it works
-				if err := svc.base.Spin(ctx, -1*bearingDelta, 45); err != nil {
+				if err := svc.base.Spin(ctx, -1*bearingDelta, 45, nil); err != nil {
 					return fmt.Errorf("error turning: %w", err)
 				}
 
 				distanceMm := distanceToGoal * 1000 * 1000
 				distanceMm = math.Min(distanceMm, 10*1000)
 
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), 500); err != nil {
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), 500, nil); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 
