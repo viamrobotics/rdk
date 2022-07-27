@@ -2064,8 +2064,10 @@ func TestRobotReconfigure(t *testing.T) {
 					ID:   "touch", // touch a file
 					Name: "sh",
 					CWD:  tempDir,
-					Args: []string{"-c",
-						"sleep 0.4;touch afile"},
+					Args: []string{
+						"-c",
+						"sleep 0.4;touch afile",
+					},
 					OneShot: true,
 				},
 			},
@@ -2119,8 +2121,10 @@ func TestRobotReconfigure(t *testing.T) {
 					ID:   "remove", // remove the file
 					Name: "sh",
 					CWD:  tempDir,
-					Args: []string{"-c",
-						"sleep 0.2;rm afile"},
+					Args: []string{
+						"-c",
+						"sleep 0.2;rm afile",
+					},
 					OneShot: true,
 					Log:     true,
 				},
