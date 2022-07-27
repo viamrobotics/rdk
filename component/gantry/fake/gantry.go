@@ -50,7 +50,12 @@ func (g *Gantry) GetLengths(ctx context.Context, extra map[string]interface{}) (
 }
 
 // MoveToPosition is in meters.
-func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (g *Gantry) MoveToPosition(
+	ctx context.Context,
+	positionsMm []float64,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	g.positionsMm = positionsMm
 	return nil
 }

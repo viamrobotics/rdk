@@ -78,7 +78,12 @@ func (c *client) GetLengths(ctx context.Context, extra map[string]interface{}) (
 	return lengths.LengthsMm, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (c *client) MoveToPosition(
+	ctx context.Context,
+	positionsMm []float64,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return err
