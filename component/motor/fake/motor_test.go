@@ -13,7 +13,7 @@ import (
 func TestEncoder(t *testing.T) {
 	ctx := context.Background()
 
-	e := Encoder{Valid: true}
+	e := Encoder{}
 
 	// Get and set position
 	pos, err := e.GetPosition(ctx)
@@ -46,7 +46,7 @@ func TestMotorInit(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           Encoder{Valid: true},
+		Encoder:           &Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		TicksPerRotation:  1,
@@ -67,7 +67,7 @@ func TestGoFor(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           Encoder{Valid: true},
+		Encoder:           &Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		TicksPerRotation:  1,
@@ -88,7 +88,7 @@ func TestGoTo(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           Encoder{Valid: true},
+		Encoder:           &Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		TicksPerRotation:  1,
@@ -108,7 +108,7 @@ func TestGoTillStop(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           Encoder{Valid: true},
+		Encoder:           &Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		TicksPerRotation:  1,
@@ -124,7 +124,7 @@ func TestResetZeroPosition(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           Encoder{Valid: true},
+		Encoder:           &Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		TicksPerRotation:  1,
@@ -144,7 +144,7 @@ func TestPower(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           Encoder{Valid: true},
+		Encoder:           &Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		TicksPerRotation:  1,

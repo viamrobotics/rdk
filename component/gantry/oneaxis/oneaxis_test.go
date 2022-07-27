@@ -74,7 +74,7 @@ func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
 	logger := golog.NewTestLogger(t)
 
 	fakeMotor := &fake.Motor{
-		Encoder:           fake.Encoder{Valid: true},
+		Encoder:           &fake.Encoder{},
 		PositionReporting: true,
 		TicksPerRotation:  1,
 		MaxRPM:            60,

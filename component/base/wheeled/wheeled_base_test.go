@@ -22,7 +22,7 @@ func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	result := make(registry.Dependencies)
 	for _, dep := range deps {
 		result[motor.Named(dep)] = &fake.Motor{
-			Encoder:           fake.Encoder{Valid: true},
+			Encoder:           &fake.Encoder{},
 			PositionReporting: true,
 			TicksPerRotation:  1,
 			MaxRPM:            60,
