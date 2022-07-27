@@ -18,14 +18,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - arch: [x64, qemu-host]
+          - arch: [special]
             image: ghcr.io/viamrobotics/canon:amd64-cache
             platform: linux/amd64
             build_lint: 'make build lint'
-          - arch: [arm64, qemu-host]
-            image: ghcr.io/viamrobotics/canon:arm64-cache
-            platform: linux/arm64
-            build_lint: 'make build-go lint-go'
+          # - arch: [arm64, qemu-host]
+          #   image: ghcr.io/viamrobotics/canon:arm64-cache
+          #   platform: linux/arm64
+          #   build_lint: 'make build-go lint-go'
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
