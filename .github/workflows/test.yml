@@ -14,7 +14,6 @@ env:
 
 jobs:
   build_and_test:
-    if: 0 == 1
     name: Build and Test
     strategy:
       matrix:
@@ -117,7 +116,5 @@ jobs:
         run: |
           echo Test Pi: ${{ needs.test_pi.result }}
           echo Main Tests: ${{ needs.build_and_test.result }}
-          #smurf
-          #[ "${{ needs.test_pi.result }}" == "success" ] && \
-          #[ "${{ needs.build_and_test.result }}" == "success" ]
-          true
+          [ "${{ needs.test_pi.result }}" == "success" ] && \
+          [ "${{ needs.build_and_test.result }}" == "success" ]
