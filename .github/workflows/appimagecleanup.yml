@@ -6,7 +6,7 @@ concurrency:
 
 on:
   schedule:
-    - cron: '0 7 15 * *' # once a month (15th) at 7AM UTC (2AM/EST, 3AM/EDT) SMURF
+    - cron: '0 7 15 * *' # once a month (15th) at 7AM UTC (2AM/EST, 3AM/EDT)
   workflow_dispatch:
 
 jobs:
