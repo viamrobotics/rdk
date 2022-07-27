@@ -560,7 +560,6 @@ export default {
         }
         const streamName = normalizeRemoteName(cameraName);
         const streamContainer = document.querySelector(`#stream-${streamName}`);
-        console.log(streamContainer)
         if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
           streamContainer.querySelectorAll('video')[0].remove();
         }
