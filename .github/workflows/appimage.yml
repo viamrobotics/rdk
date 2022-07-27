@@ -31,6 +31,8 @@ jobs:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
     timeout-minutes: 15
+    outputs:
+      date: ${{ steps.build_test_app.outputs.date }}
 
     steps:
     - name: Checkout Code
@@ -65,8 +67,10 @@ jobs:
         gzip: false
 
     - name: Build and Package (Latest)
+      id: build_test_app
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
+        echo "::set-output name=date::`date +%F`"
         make BUILD_CHANNEL="latest" appimage
 
     - name: Upload Files (Testing)
@@ -75,7 +79,7 @@ jobs:
       with:
         headers: "Cache-Control: no-cache"
         path: 'etc/packaging/appimages/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/testing/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-server/testing/${{ steps.build_test_app.outputs.date }}/${{ github.sha }}/'
         glob: '*'
         parent: false
         gzip: false
@@ -102,7 +106,7 @@ jobs:
           <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-aarch64.AppImage>
 
   appimage_test:
-    name: AppImage Test & Deploy
+    name: AppImage Test
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
       matrix:
@@ -110,6 +114,8 @@ jobs:
     needs: appimage
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
+    outputs:
+      date: ${{ needs.appimage.outputs.date }}
 
     steps:
     - name: Clean Workspace
@@ -123,7 +129,7 @@ jobs:
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
+        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
@@ -138,6 +144,16 @@ jobs:
         cd - && rm -rf $TEST_DIR
         [ $RET1 == 0 ] && [ $RET1 == 0 ]
 
+  appimage_deploy:
+    name: AppImage Deploy
+    needs: appimage_test
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 5
+
+    steps:
     - name: Authorize GCP
       uses: google-github-actions/auth@v0.4.3
       with:
@@ -148,4 +164,4 @@ jobs:
 
     - name: Publish AppImage
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ github.sha }}/*`uname -m`*" "gs://packages.viam.com/apps/viam-server/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"

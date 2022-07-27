@@ -1,4 +1,4 @@
-package imagesource
+package imagetransform
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newPreprocessDepth(deps, attrs)
+			return newPreprocessDepth(ctx, deps, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "preprocess_depth",
@@ -63,11 +63,12 @@ func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(),
 	return ii, func() {}, nil
 }
 
-func newPreprocessDepth(deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newPreprocessDepth(ctx context.Context, deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
 	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
 	imgSrc := &preprocessDepthSource{source}
-	return camera.New(imgSrc, attrs, source)
+	proj, _ := camera.GetProjector(ctx, attrs, source)
+	return camera.New(imgSrc, proj)
 }
