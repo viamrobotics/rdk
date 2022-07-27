@@ -6,7 +6,7 @@ concurrency:
 
 on:
   pull_request:
-    branches: [ 'smurf' ]
+    branches: [ 'main' ]
     types: [ 'closed' ]
 
 jobs:

@@ -164,4 +164,4 @@ jobs:
 
     - name: Publish AppImage
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/smurf/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
