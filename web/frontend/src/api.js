@@ -36,10 +36,15 @@ window.armApi = armApi;
 window.baseApi = baseApi;
 window.cameraApi = cameraApi;
 window.gripperApi = gripperApi;
-window.robotApi = robotApi;
 window.sensorsApi = sensorsApi;
 window.servoApi = servoApi;
 window.streamApi = streamApi;
+/**
+ * This window variable is used by the config page to access the discovery service.
+ * As with variables above, once we switch to using import / export we should
+ * remove / clean up these window variables.
+ */
+window.robotApi = robotApi;
 
 let savedAuthEntity;
 let savedCreds;
