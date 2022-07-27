@@ -2004,7 +2004,7 @@ func TestRobotReconfigure(t *testing.T) {
 	})
 	t.Run("test processes", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
-		tempDir := t.TempDir()
+		tempDir := testutils.TempDirT(t, ".", "")
 		robot, err := New(context.Background(), &config.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
