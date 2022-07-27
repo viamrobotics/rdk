@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"bytes"
 	"context"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -2175,7 +2176,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	options = weboptions.New()
 	options.Network.BindAddress = ""
-	listener2 := testutils.ReserveRandomListener(t)
+	var listener2 net.Listener = testutils.ReserveRandomListener(t)
 	addr2 := listener2.Addr().String()
 	options.Network.Listener = listener2
 
@@ -2297,6 +2298,11 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.That(t, remote3.Close(context.Background()), test.ShouldBeNil)
 	}()
 
+	// Note: There's a slight chance this test can fail if someoneone else
+	// claims the port we just released by closing the server.
+	listener2, err = net.Listen("tcp", listener2.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+	options.Network.Listener = listener2
 	err = remote3.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 

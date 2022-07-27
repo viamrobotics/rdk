@@ -508,6 +508,10 @@ func TestWebUpdate(t *testing.T) {
 
 	svc2 := web.New(ctx, robot2, logger)
 
+	listener = testutils.ReserveRandomListener(t)
+	addr = listener.Addr().String()
+	options.Network.Listener = listener
+
 	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -747,6 +751,9 @@ func TestForeignResource(t *testing.T) {
 		return foreignRes, nil
 	}
 
+	listener = testutils.ReserveRandomListener(t)
+	addr = listener.Addr().String()
+	options.Network.Listener = listener
 	svc = web.New(ctx, injectRobot, logger)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
