@@ -50,7 +50,7 @@ func init() {
 
 					m.PositionReporting = true
 
-					m.Encoder = Encoder{Valid: true}
+					m.Encoder = &Encoder{}
 					m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
 				} else {
 					m.PositionReporting = false
@@ -72,7 +72,6 @@ type Encoder struct {
 	position   float64
 	speed      float64 // ticks per minute
 	updateRate int64   // update position in start every updateRate ms
-	Valid      bool
 }
 
 // GetPosition returns the current position in terms of ticks.
@@ -139,7 +138,7 @@ type Motor struct {
 	PWM                     board.GPIOPin
 	PositionReporting       bool
 	Logger                  golog.Logger
-	Encoder                 Encoder
+	Encoder                 *Encoder
 	MaxRPM                  float64
 	TicksPerRotation        int
 	activeBackgroundWorkers sync.WaitGroup
@@ -152,7 +151,7 @@ func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.Encoder == (Encoder{}) {
+	if m.Encoder == nil {
 		return 0, errors.New("encoder is not defined")
 	}
 
@@ -179,7 +178,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	m.Logger.Debugf("Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 
-	if m.Encoder != (Encoder{}) {
+	if m.Encoder != nil {
 		if m.MaxRPM == 0 {
 			return errors.New("not supported, define max_rpm attribute != 0")
 		}
@@ -244,22 +243,22 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 // GoFor sets the given direction and an arbitrary power percentage.
 // If rpm is 0, the motor should immediately move to the final position.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	if m.Encoder == (Encoder{}) {
-		return errors.New("encoder is not defined")
-	}
-
 	if m.MaxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
 	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
-	curPos, err := m.GetPosition(ctx)
-	if err != nil {
-		return err
-	}
-	finalPos := curPos + dir*math.Abs(revolutions)
 
-	err = m.SetPower(ctx, powerPct)
+	var finalPos float64
+	if m.Encoder != nil {
+		curPos, err := m.GetPosition(ctx)
+		if err != nil {
+			return err
+		}
+		finalPos = curPos + dir*math.Abs(revolutions)
+	}
+
+	err := m.SetPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
@@ -274,14 +273,16 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 			return err
 		}
 
-		return m.Encoder.SetPosition(ctx, finalPos*float64(m.TicksPerRotation))
+		if m.Encoder != nil {
+			return m.Encoder.SetPosition(ctx, finalPos*float64(m.TicksPerRotation))
+		}
 	}
 	return nil
 }
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
-	if m.Encoder == (Encoder{}) {
+	if m.Encoder == nil {
 		return errors.New("encoder is not defined")
 	}
 
@@ -328,7 +329,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 
 // ResetZeroPosition resets the zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
-	if m.Encoder == (Encoder{}) {
+	if m.Encoder == nil {
 		return errors.New("encoder is not defined")
 	}
 
