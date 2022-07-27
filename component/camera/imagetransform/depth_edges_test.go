@@ -28,7 +28,7 @@ func debugImageTransformOrSkip(t *testing.T) {
 }
 
 func TestDepthSource(t *testing.T) {
-	img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &imagesource.StaticSource{DepthImg: img}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)

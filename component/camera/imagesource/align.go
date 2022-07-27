@@ -228,7 +228,7 @@ func (acd *alignColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	if acd.projector == nil {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
-	col, dm := camera.SimultaneousColorDepthRequest(ctx, acd.color, acd.depth)
+	col, dm := camera.SimultaneousColorDepthNext(ctx, acd.color, acd.depth)
 	if col == nil || dm == nil {
 		return nil, errors.New("requested color or depth image from camera is nil")
 	}

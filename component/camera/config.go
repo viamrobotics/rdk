@@ -49,27 +49,3 @@ func CommonCameraAttributes(attributes config.AttributeMap) (*AttrConfig, error)
 	}
 	return result, nil
 }
-
-// TransformConfig is exported to be used as an attribute map for settings common to all transforms.
-type TransformConfig struct {
-	ColorSource string `json:"color_source"`
-	DepthSource string `json:"depth_source"`
-	Stream      string `json:"output_stream"`
-	Hide        bool   `json:"hide"`
-	Debug       bool   `json:"debug"`
-	Dump        bool   `json:"dump"`
-}
-
-// TransformAttributes extracts the common transform attributes.
-func TransformAttributes(attributes config.AttributeMap) (*TransformConfig, error) {
-	var transformAttrs TransformConfig
-	attrs, err := config.TransformAttributeMapToStruct(&transformAttrs, attributes)
-	if err != nil {
-		return nil, err
-	}
-	result, ok := attrs.(*transformConfig)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(result, attrs)
-	}
-	return result, nil
-}
