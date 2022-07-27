@@ -5,7 +5,7 @@ interface Resource {
   namespace: string
 }
 
-export const normalizeRemoteName = (name: string) =>{
+export const normalizeRemoteName = (name: string) => {
   return name.replace(":", "-");
 }
 
