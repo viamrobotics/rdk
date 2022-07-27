@@ -363,7 +363,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 }
 
 // GetPosition returns the position in millimeters.
-func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
+func (g *oneAxis) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	pos, err := g.motor.GetPosition(ctx)
 	if err != nil {
 		return []float64{}, err
@@ -376,12 +376,12 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 }
 
 // GetLengths returns the physical lengths of an axis of a Gantry.
-func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
+func (g *oneAxis) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	return []float64{g.lengthMm}, nil
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error {
+func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -431,7 +431,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, world
 }
 
 // Stop stops the motor of the gantry.
-func (g *oneAxis) Stop(ctx context.Context) error {
+func (g *oneAxis) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	return g.motor.Stop(ctx)
@@ -468,7 +468,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 
 // CurrentInputs returns the current inputs of the Gantry frame.
 func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.GetPosition(ctx)
+	res, err := g.GetPosition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -477,5 +477,5 @@ func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, er
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
 func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{})
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{}, nil)
 }
