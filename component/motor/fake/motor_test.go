@@ -95,6 +95,7 @@ func TestGoTo(t *testing.T) {
 		MaxRPM:            60,
 	}
 
+	m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
 	err := m.GoTo(ctx, 60, 1)
 	test.That(t, err, test.ShouldBeNil)
 
