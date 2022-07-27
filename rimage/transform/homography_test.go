@@ -25,7 +25,7 @@ func (h *homographyTestHelper) Process(
 ) error {
 	t.Helper()
 	var err error
-	// currently the input image is still probably an ImageWithDepth, so conversion
+	// TODO(DATA-237) remove .both files
 	im := rimage.ConvertImage(img)
 	dm, err := rimage.ConvertImageToDepthMap(img)
 	test.That(t, err, test.ShouldBeNil)

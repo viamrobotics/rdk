@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -54,10 +55,9 @@ func TestMoveFailures(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, "cannot move component with respect to its own frame, will always be at its own origin")
 	})
 	t.Run("fail on disconnected supplemental frames in world state", func(t *testing.T) {
-		testPose := spatialmath.NewPoseFromAxisAngle(
+		testPose := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
-			r3.Vector{X: 0., Y: 1., Z: 0.},
-			math.Pi/2,
+			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 		transformMsgs := []*commonpb.Transform{
 			{
@@ -88,10 +88,9 @@ func TestMove(t *testing.T) {
 	})
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		testPose := spatialmath.NewPoseFromAxisAngle(
+		testPose := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
-			r3.Vector{X: 0., Y: 1., Z: 0.},
-			math.Pi/2,
+			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 
 		transformMsgs := []*commonpb.Transform{
@@ -165,10 +164,9 @@ func TestGetPose(t *testing.T) {
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
-	testPose := spatialmath.NewPoseFromAxisAngle(
+	testPose := spatialmath.NewPoseFromOrientation(
 		r3.Vector{X: 0., Y: 0., Z: 0.},
-		r3.Vector{X: 0., Y: 1., Z: 0.},
-		math.Pi/2,
+		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 	transformMsgs := []*commonpb.Transform{
 		{
@@ -221,7 +219,9 @@ func setupInjectRobot() (*inject.Robot, *mock) {
 
 type mock struct {
 	motion.Service
-	grabCount int
+	grabCount   int
+	name        string
+	reconfCount int
 }
 
 func (m *mock) Move(
@@ -241,6 +241,11 @@ func (m *mock) GetPose(
 	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	return &referenceframe.PoseInFrame{}, nil
+}
+
+func (m *mock) Close(ctx context.Context) error {
+	m.reconfCount++
+	return nil
 }
 
 func TestFromRobot(t *testing.T) {
@@ -271,4 +276,46 @@ func TestFromRobot(t *testing.T) {
 	svc, err = motion.FromRobot(r)
 	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motion.Name))
 	test.That(t, svc, test.ShouldBeNil)
+}
+
+func TestRegisteredReconfigurable(t *testing.T) {
+	s := registry.ResourceSubtypeLookup(motion.Subtype)
+	test.That(t, s, test.ShouldNotBeNil)
+	r := s.Reconfigurable
+	test.That(t, r, test.ShouldNotBeNil)
+}
+
+func TestWrapWithReconfigurable(t *testing.T) {
+	svc := &mock{name: "svc1"}
+	reconfSvc1, err := motion.WrapWithReconfigurable(svc)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = motion.WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", nil))
+
+	reconfSvc2, err := motion.WrapWithReconfigurable(reconfSvc1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc1)
+}
+
+func TestReconfigurable(t *testing.T) {
+	actualSvc1 := &mock{name: "svc1"}
+	reconfSvc1, err := motion.WrapWithReconfigurable(actualSvc1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc1, test.ShouldNotBeNil)
+
+	actualArm2 := &mock{name: "svc2"}
+	reconfSvc2, err := motion.WrapWithReconfigurable(actualArm2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc2, test.ShouldNotBeNil)
+	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)
+
+	err = reconfSvc1.Reconfigure(context.Background(), reconfSvc2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc1, test.ShouldResemble, reconfSvc2)
+	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 1)
+
+	err = reconfSvc1.Reconfigure(context.Background(), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfSvc1, nil))
 }

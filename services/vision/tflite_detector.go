@@ -35,6 +35,7 @@ type TFLiteDetectorConfig struct {
 func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
 	defer span.End()
+
 	// Read those parameters into a TFLiteDetectorConfig
 	var t TFLiteDetectorConfig
 	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
@@ -53,7 +54,13 @@ func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Lo
 		return nil, nil, errors.Wrap(err, "something wrong with adding the model")
 	}
 
-	inHeight, inWidth := uint(model.Info.InputHeight), uint(model.Info.InputWidth)
+	var inHeight, inWidth uint
+
+	if shape := model.Info.InputShape; getIndex(shape, 3) == 1 {
+		inHeight, inWidth = uint(shape[2]), uint(shape[3])
+	} else {
+		inHeight, inWidth = uint(shape[1]), uint(shape[2])
+	}
 
 	if params.LabelPath == nil {
 		blank := ""
@@ -109,24 +116,52 @@ func addTFLiteModel(ctx context.Context, filepath string, numThreads *int) (*inf
 func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image) ([]interface{}, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::tfliteInfer")
 	defer span.End()
+
 	// Converts the image to bytes before sending it off
-	imgBuff := imageToBuffer(image)
-	out, err := model.Infer(imgBuff)
-	if err != nil {
-		return nil, errors.Wrap(err, "couldn't infer from model")
+	switch model.Info.InputTensorType {
+	case inf.UInt8:
+		imgBuff := imageToUInt8Buffer(image)
+		out, err := model.Infer(imgBuff)
+		if err != nil {
+			return nil, errors.Wrap(err, "couldn't infer from model")
+		}
+		return out, nil
+	case inf.Float32:
+		imgBuff := imageToFloatBuffer(image)
+		out, err := model.Infer(imgBuff)
+		if err != nil {
+			return nil, errors.Wrap(err, "couldn't infer from model")
+		}
+		return out, nil
+	default:
+		return nil, errors.New("invalid input type. try uint8 or float32")
 	}
-	return out, nil
 }
 
-// imageToBuffer reads an image into a byte slice (buffer) the most common sense way.
-// Left to right like a book; R, then G, then B. No funny stuff.
-// This works!! (can be copied DIRECTLY onto the input tensor).
-func imageToBuffer(img image.Image) []byte {
+// imageToUInt8Buffer reads an image into a byte slice in the most common sense way.
+// Left to right like a book; R, then G, then B. No funny stuff. Assumes values should be between 0-255.
+func imageToUInt8Buffer(img image.Image) []byte {
 	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()
 			rr, gg, bb, _ := rgbaTo8Bit(r, g, b, a)
+			output[(y*img.Bounds().Dx()+x)*3+0] = rr
+			output[(y*img.Bounds().Dx()+x)*3+1] = gg
+			output[(y*img.Bounds().Dx()+x)*3+2] = bb
+		}
+	}
+	return output
+}
+
+// imageToFloatBuffer reads an image into a byte slice (buffer) the most common sense way.
+// Left to right like a book; R, then G, then B. No funny stuff. Assumes values between -1 and 1.
+func imageToFloatBuffer(img image.Image) []float32 {
+	output := make([]float32, img.Bounds().Dx()*img.Bounds().Dy()*3)
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			r, g, b, a := img.At(x, y).RGBA()
+			rr, gg, bb := float32(r)/float32(a)*2-1, float32(g)/float32(a)*2-1, float32(b)/float32(a)*2-1
 			output[(y*img.Bounds().Dx()+x)*3+0] = rr
 			output[(y*img.Bounds().Dx()+x)*3+1] = gg
 			output[(y*img.Bounds().Dx()+x)*3+2] = bb
@@ -152,7 +187,7 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
 func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
 	logger golog.Logger, origW, origH int,
 ) []objectdetection.Detection {
-	_, span := trace.StartSpan(ctx, "service::vision::addTFLiteModel")
+	_, span := trace.StartSpan(ctx, "service::vision::unpackTensors")
 	defer span.End()
 	// Gather slices for the bboxes, scores, and labels, using TensorOrder
 	var labels []int
@@ -180,6 +215,7 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 	bb := tensors[getIndex(tensorOrder, 0)]
 	ll := tensors[getIndex(tensorOrder, 1)]
 	ss := tensors[getIndex(tensorOrder, 2)]
+
 	for _, b := range bb.([]float32) {
 		bboxes = append(bboxes, float64(b))
 	}
