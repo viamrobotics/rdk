@@ -3,6 +3,7 @@ package fake
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -98,6 +99,7 @@ func TestGoTo(t *testing.T) {
 	m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
 	err := m.GoTo(ctx, 60, 1)
 	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(1100 * time.Millisecond)
 
 	pos, err := m.GetPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
