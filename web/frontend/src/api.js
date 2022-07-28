@@ -1,4 +1,17 @@
 import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
+import { normalizeRemoteName } from './lib/resource';
+
+import commonApi from './gen/proto/api/common/v1/common_pb.esm';
+import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
+import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
+import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
+import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
+import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
+import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
+import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
+import streamApi from './gen/proto/stream/v1/stream_pb.esm';
+import motorApi from './gen/proto/api/component/motor/v1/motor_pb.esm';
+
 import { RobotServiceClient } from './gen/proto/api/robot/v1/robot_pb_service.esm';
 import { ArmServiceClient } from './gen/proto/api/component/arm/v1/arm_pb_service.esm';
 import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_service.esm';
@@ -16,18 +29,6 @@ import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors
 import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service.esm';
 import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
-import { normalizeRemoteName } from './lib/resource';
-
-import commonApi from './gen/proto/api/common/v1/common_pb.esm';
-import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
-import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
-import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
-import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
-import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
-import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
-import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
-import streamApi from './gen/proto/stream/v1/stream_pb.esm';
-import motorApi from './gen/proto/api/component/motor/v1/motor_pb.esm';
 
 /**
  * Every window variable on this page is being currently used by the blockly page in App.
