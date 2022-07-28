@@ -49,6 +49,9 @@ const (
 	cameraValidationMaxTimeoutSec = 30
 	cameraValidationIntervalSec   = 1
 	dialMaxTimeoutSec             = 5
+	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
+	// time format for the slam service.
+	slamTimeFormat = "2006-01-02T15_04_05.0000"
 )
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
@@ -745,7 +748,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 func createTimestampFilename(cameraName, dataDirectory, fileType string) string {
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
-	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
+	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
 
 	return filename
 }

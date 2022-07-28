@@ -59,6 +59,7 @@ type piPigpio struct {
 	generic.Unimplemented
 	mu            sync.Mutex
 	cfg           *board.Config
+	duty          int // added for mutex
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
 	i2cs          map[string]board.I2C
@@ -274,9 +275,11 @@ func (pi *piPigpio) pwmBcom(bcom int) (float64, error) {
 // SetPWMBcom sets the given broadcom pin to the given PWM duty cycle.
 func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
 	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
-	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
-	if res != 0 {
-		return errors.Errorf("pwm set fail %d", res)
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
+	pi.duty = int(C.gpioPWM(C.uint(bcom), C.uint(dutyCycle)))
+	if pi.duty != 0 {
+		return errors.Errorf("pwm set fail %d", pi.duty)
 	}
 	return nil
 }
@@ -293,8 +296,12 @@ func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
 	}
 	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freqHz))
 
+	if newRes == C.PI_BAD_USER_GPIO {
+		return errors.New("pwm set freq failed")
+	}
+
 	if newRes != C.int(freqHz) {
-		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freqHz, newRes)
+		pi.logger.Infof("cannot set pwm freq to %d, setting to closest freq %d", freqHz, newRes)
 	}
 	return nil
 }
