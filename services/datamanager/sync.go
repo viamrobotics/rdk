@@ -72,7 +72,7 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) (*sync
 	}
 	ret.uploadFunc = uploadFunc
 	if err := ret.progressTracker.initProgressDir(); err != nil {
-		logger.Warn("couldn't initialize progress tracking directory")
+		return nil, errors.Wrap(err, "couldn't initialize progress tracking directory")
 	}
 	return &ret, nil
 }

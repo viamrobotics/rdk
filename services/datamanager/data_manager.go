@@ -336,7 +336,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 
 	syncer, err := newSyncer(svc.logger, svc.uploadFunc, svc.partID)
 	if err != nil {
-		return errors.Errorf("failed to initialize new syncer: %s", err)
+		return errors.Wrap(err, "failed to initialize new syncer")
 	}
 	svc.syncer = syncer
 
@@ -488,10 +488,10 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
+		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins); err != nil {
 			return err
 		}
-		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	}
 
 	// Initialize or add a collector based on changes to the component configurations.
