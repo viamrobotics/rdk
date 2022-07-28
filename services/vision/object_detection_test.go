@@ -28,7 +28,7 @@ func TestGetDetections(t *testing.T) {
 	r := buildRobotWithFakeCamera(t)
 	srv, err := vision.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
-	dets, err := srv.GetDetections(context.Background(), "fake_cam", "detect_red")
+	dets, err := srv.GetDetectionsFromCamera(context.Background(), "fake_cam", "detect_red")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dets, test.ShouldHaveLength, 1)
 	test.That(t, dets[0].Label(), test.ShouldEqual, "red")
@@ -37,9 +37,9 @@ func TestGetDetections(t *testing.T) {
 	test.That(t, box.Min, test.ShouldResemble, image.Point{110, 288})
 	test.That(t, box.Max, test.ShouldResemble, image.Point{183, 349})
 	// errors
-	_, err = srv.GetDetections(context.Background(), "fake_cam", "detect_blue")
+	_, err = srv.GetDetectionsFromCamera(context.Background(), "fake_cam", "detect_blue")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Detector with name")
-	_, err = srv.GetDetections(context.Background(), "real_cam", "detect_red")
+	_, err = srv.GetDetectionsFromCamera(context.Background(), "real_cam", "detect_red")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "\"rdk:component:camera/real_cam\" not found")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }

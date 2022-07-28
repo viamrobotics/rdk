@@ -81,6 +81,7 @@ func (server *subtypeServer) AddDetector(
 	return &pb.AddDetectorResponse{}, nil
 }
 
+// TODO: Khari: Add GetDetections() that just uses the image.
 func (server *subtypeServer) GetDetections(
 	ctx context.Context,
 	req *pb.GetDetectionsRequest,
@@ -91,7 +92,7 @@ func (server *subtypeServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.GetDetections(ctx, req.CameraName, req.DetectorName)
+	detections, err := svc.GetDetections(ctx, req.Image, int(req.Width), int(req.Height), req.MimeType, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +117,45 @@ func (server *subtypeServer) GetDetections(
 		protoDets = append(protoDets, d)
 	}
 	return &pb.GetDetectionsResponse{
+		Detections: protoDets,
+	}, nil
+}
+
+func (server *subtypeServer) GetDetectionsFromCamera(
+	ctx context.Context,
+	req *pb.GetDetectionsFromCameraRequest,
+) (*pb.GetDetectionsFromCameraResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetectionsFromCamera")
+	defer span.End()
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	detections, err := svc.GetDetectionsFromCamera(ctx, req.CameraName, req.DetectorName)
+	if err != nil {
+		return nil, err
+	}
+	protoDets := make([]*pb.Detection, 0, len(detections))
+	for _, det := range detections {
+		box := det.BoundingBox()
+		if box == nil {
+			return nil, errors.New("detection has no bounding box, must return a bounding box")
+		}
+		xMin := int64(box.Min.X)
+		yMin := int64(box.Min.Y)
+		xMax := int64(box.Max.X)
+		yMax := int64(box.Max.Y)
+		d := &pb.Detection{
+			XMin:       &xMin,
+			YMin:       &yMin,
+			XMax:       &xMax,
+			YMax:       &yMax,
+			Confidence: det.Score(),
+			ClassName:  det.Label(),
+		}
+		protoDets = append(protoDets, d)
+	}
+	return &pb.GetDetectionsFromCameraResponse{
 		Detections: protoDets,
 	}, nil
 }

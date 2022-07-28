@@ -14,9 +14,11 @@ import (
 type VisionService struct {
 	vision.Service
 	// detection functions
-	GetDetectorNamesFunc func(ctx context.Context) ([]string, error)
-	AddDetectorFunc      func(ctx context.Context, cfg vision.DetectorConfig) error
-	GetDetectionsFunc    func(ctx context.Context, cameraName, detectorName string) ([]objectdetection.Detection, error)
+	GetDetectorNamesFunc        func(ctx context.Context) ([]string, error)
+	AddDetectorFunc             func(ctx context.Context, cfg vision.DetectorConfig) error
+	GetDetectionsFromCameraFunc func(ctx context.Context, cameraName, detectorName string) ([]objectdetection.Detection, error)
+	GetDetectionsFunc           func(ctx context.Context, imgBytes []byte, width, height int,
+		mimeType, detectorName string) ([]objectdetection.Detection, error)
 	// segmentation functions
 	GetSegmenterNamesFunc      func(ctx context.Context) ([]string, error)
 	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
@@ -41,12 +43,24 @@ func (vs *VisionService) AddDetector(ctx context.Context, cfg vision.DetectorCon
 	return vs.AddDetectorFunc(ctx, cfg)
 }
 
-// GetDetections calls the injected Detect or the real variant.
-func (vs *VisionService) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objectdetection.Detection, error) {
+// GetDetectionsFromCamera calls the injected Detect or the real variant.
+func (vs *VisionService) GetDetectionsFromCamera(ctx context.Context,
+	cameraName, detectorName string,
+) ([]objectdetection.Detection, error) {
 	if vs.GetDetectionsFunc == nil {
-		return vs.Service.GetDetections(ctx, cameraName, detectorName)
+		return vs.Service.GetDetectionsFromCamera(ctx, cameraName, detectorName)
 	}
-	return vs.GetDetectionsFunc(ctx, cameraName, detectorName)
+	return vs.GetDetectionsFromCameraFunc(ctx, cameraName, detectorName)
+}
+
+// GetDetections calls the injected Detect or the real variant.
+func (vs *VisionService) GetDetections(ctx context.Context, imgBytes []byte, width, height int,
+	mimeType, detectorName string,
+) ([]objectdetection.Detection, error) {
+	if vs.GetDetectionsFunc == nil {
+		return vs.Service.GetDetections(ctx, imgBytes, width, height, mimeType, detectorName)
+	}
+	return vs.GetDetectionsFunc(ctx, imgBytes, width, height, mimeType, detectorName)
 }
 
 // GetObjectPointClouds calls the injected GetObjectPointClouds or the real variant.

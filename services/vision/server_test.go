@@ -133,7 +133,7 @@ func TestServerGetDetections(t *testing.T) {
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	// success
-	resp, err := server.GetDetections(context.Background(), &pb.GetDetectionsRequest{
+	resp, err := server.GetDetectionsFromCamera(context.Background(), &pb.GetDetectionsFromCameraRequest{
 		CameraName:   "fake_cam",
 		DetectorName: "detect_red",
 	})
@@ -146,7 +146,7 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, *(resp.Detections[0].XMax), test.ShouldEqual, 183)
 	test.That(t, *(resp.Detections[0].YMax), test.ShouldEqual, 349)
 	// failure - empty request
-	_, err = server.GetDetections(context.Background(), &pb.GetDetectionsRequest{})
+	_, err = server.GetDetectionsFromCamera(context.Background(), &pb.GetDetectionsFromCameraRequest{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
