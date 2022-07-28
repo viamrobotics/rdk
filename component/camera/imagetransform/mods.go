@@ -123,13 +123,13 @@ func init() {
 		&transformConfig{})
 }
 
-// rotateSource is the source to be rotated and the kind of image type
+// rotateSource is the source to be rotated and the kind of image type.
 type rotateSource struct {
 	original gostream.ImageSource
 	stream   camera.StreamType
 }
 
-// Next rotates the 2D image depending on the stream type
+// Next rotates the 2D image depending on the stream type.
 func (rs *rotateSource) Next(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imagetransform::rotate::Next")
 	defer span.End()

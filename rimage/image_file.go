@@ -49,7 +49,7 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	}
 }
 
-// Temporary function to create an imageWithDepth from both for rimage package. Will be removed soon
+// Temporary function to create an imageWithDepth from both for rimage package. Will be removed soon.
 func newImageWithDepthFromFile(fn string, aligned bool) (image.Image, error) {
 	if strings.HasSuffix(fn, ".both.gz") {
 		img, dm, err := ReadBothFromFile(fn)
