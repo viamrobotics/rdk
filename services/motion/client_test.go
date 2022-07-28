@@ -38,7 +38,7 @@ func TestClient(t *testing.T) {
 
 	injectMS := &inject.MotionService{}
 	omMap := map[resource.Name]interface{}{
-		motion.Name: injectMS,
+		motion.Named(testMotionServiceName): injectMS,
 	}
 	svc, err := subtype.New(omMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -66,7 +66,7 @@ func TestClient(t *testing.T) {
 
 		test.That(t, err, test.ShouldBeNil)
 
-		client := motion.NewClientFromConn(context.Background(), conn, "", logger)
+		client := motion.NewClientFromConn(context.Background(), conn, testMotionServiceName, logger)
 
 		receivedTransforms := make(map[string]*commonpb.Transform)
 		success := true
@@ -153,7 +153,7 @@ func TestClient(t *testing.T) {
 	t.Run("motion client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
+		client := resourceSubtype.RPCClient(context.Background(), conn, "motion1", logger)
 		client2, ok := client.(motion.Service)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -194,7 +194,7 @@ func TestClientDialerOption(t *testing.T) {
 
 	injectMS := &inject.MotionService{}
 	omMap := map[resource.Name]interface{}{
-		motion.Name: injectMS,
+		motion.Named(testMotionServiceName): injectMS,
 	}
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)

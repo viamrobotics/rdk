@@ -24,8 +24,8 @@ func NewServer(s subtype.Service) pb.MotionServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
-func (server *subtypeServer) service() (Service, error) {
-	resource := server.subtypeSvc.Resource(Name.String())
+func (server *subtypeServer) service(serviceName string) (Service, error) {
+	resource := server.subtypeSvc.Resource(serviceName)
 	if resource == nil {
 		return nil, utils.NewResourceNotFoundError(Name)
 	}
@@ -37,7 +37,7 @@ func (server *subtypeServer) service() (Service, error) {
 }
 
 func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 }
 
 func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,8 @@ func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	}
 
 	pose, err := svc.GetPose(
-		ctx, protoutils.ResourceNameFromProto(req.ComponentName),
+		ctx,
+		protoutils.ResourceNameFromProto(req.ComponentName),
 		req.DestinationFrame, req.GetSupplementalTransforms(),
 	)
 	if err != nil {

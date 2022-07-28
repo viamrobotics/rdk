@@ -30,6 +30,7 @@ func newServer(omMap map[resource.Name]interface{}) (pb.MotionServiceServer, err
 
 func TestServerMove(t *testing.T) {
 	grabRequest := &pb.MoveRequest{
+		Name:          testMotionServiceName,
 		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
@@ -41,7 +42,7 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion\" not found"))
 
 	// set up the robot with something that is not an motion service
-	omMap = map[resource.Name]interface{}{motion.Name: "not motion"}
+	omMap = map[resource.Name]interface{}{motion.Named(testMotionServiceName): "not motion"}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
@@ -50,7 +51,7 @@ func TestServerMove(t *testing.T) {
 	// error
 	injectMS := &inject.MotionService{}
 	omMap = map[resource.Name]interface{}{
-		motion.Name: injectMS,
+		motion.Named(testMotionServiceName): injectMS,
 	}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -79,4 +80,25 @@ func TestServerMove(t *testing.T) {
 	resp, err := server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
+
+	// // Multiple Servies work
+	// injectMS = &inject.MotionService{}
+	// injectMS2 := &inject.MotionService{}
+	// omMap = map[resource.Name]interface{}{
+	// 	motion.Named(testMotionServiceName):  injectMS,
+	// 	motion.Named(testMotionServiceName2): injectMS2,
+	// }
+	// server, err = newServer(omMap)
+	// injectMS.MoveFunc = func(
+	// 	ctx context.Context,
+	// 	componentName resource.Name,
+	// 	destination *referenceframe.PoseInFrame,
+	// 	worldState *commonpb.WorldState,
+	// ) (bool, error) {
+	// 	return true, nil
+	// }
+	// resp, err = server.Move(context.Background(), grabRequest)
+	// test.That(t, err, test.ShouldBeNil)
+	// test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
+
 }
