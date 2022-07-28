@@ -377,6 +377,10 @@ func newWithResources(
 			}
 		}
 	}()
+	// start process manager early
+	if err := r.manager.processManager.Start(ctx); err != nil {
+		return nil, err
+	}
 	// default services
 	for _, name := range defaultSvc {
 		cfg := config.Service{
@@ -691,14 +695,9 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
-	// This step is still around until we move Processes in the new config format
-	leftovers, err := r.manager.UpdateConfig(ctx, diff.Added, diff.Modified)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
 	// Second we update the resource graph.
 	// We pass a search function to look for dependencies, we should find them either in the current config or in the modified.
-	err = r.manager.updateResourceGraph(diff, func(name string) (resource.Name, bool) {
+	err = r.manager.updateResources(ctx, diff, func(name string) (resource.Name, bool) {
 		// first look in the current config if anything can be found
 		for _, c := range r.config.Components {
 			if c.Name == name {
@@ -720,10 +719,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 	r.config = newConfig
 	allErrs = multierr.Combine(allErrs, filtered.Close(ctx))
-	// this step will be removed once processes are brought into the dependency tree
-	for _, p := range leftovers.ReplacedProcesses {
-		allErrs = multierr.Combine(allErrs, p.Stop())
-	}
 	// Third we attempt to complete the config (see function for details)
 	r.manager.completeConfig(ctx, r)
 	r.updateDefaultServices(ctx)
