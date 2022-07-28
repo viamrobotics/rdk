@@ -366,6 +366,7 @@ func TestORBSLAMNew(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	t.Run("New orbslamv3 service with good camera in slam mode rgbd", func(t *testing.T) {
+		t.Skip("skipping since ImageWithDepth is no longer supported")
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_depth_camera"},
