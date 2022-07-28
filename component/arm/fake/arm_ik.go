@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	"math/rand"
 	// for arm model.
 	_ "embed"
 
@@ -39,7 +40,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 	if err != nil {
 		return nil, err
 	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, rand.New(rand.NewSource(1)), logger)
 	if err != nil {
 		return nil, err
 	}

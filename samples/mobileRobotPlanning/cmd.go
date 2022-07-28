@@ -4,37 +4,36 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"strconv"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
-var logger = golog.NewDevelopmentLogger("mobileRobotPlanning")
+var logger, err = zap.Config{
+	Level:             zap.NewAtomicLevelAt(zap.FatalLevel),
+	Encoding:          "console",
+	DisableStacktrace: true,
+}.Build()
 
 func main() {
-	// read config
-	config, err := parseJSONFile("samples/mobileRobotPlanning/planConfig.json")
+	config, err := parseJSONFile(utils.ResolveFile("samples/mobileRobotPlanning/planConfig.json"))
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
 
-	// plan
-	waypoints, err := plan(context.Background(), config)
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
-
-	// write output
-	if err := writeJSONFile("samples/mobileRobotPlanning/planOutput.json", waypoints); err != nil {
-		logger.Fatal(err.Error())
-	}
+	test("CBiRRT", config)
+	test("RRT", config)
 }
 
 type obstacle struct {
@@ -43,6 +42,9 @@ type obstacle struct {
 }
 
 type mobileRobotPlanConfig struct {
+	// number of tests to run
+	NumTests int `json:"tests"`
+
 	// planning conditions
 	Start []float64 `json:"start"`
 	Goal  []float64 `json:"goal"`
@@ -56,7 +58,37 @@ type mobileRobotPlanConfig struct {
 	Obstacles []obstacle `json:"obstacles"`
 }
 
-func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, error) {
+type plannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionplan.MotionPlanner, error)
+
+func test(planner string, config *mobileRobotPlanConfig) {
+	fmt.Println(planner)
+	total := 0.
+	var waypoints [][]frame.Input
+	for i := 0; i < config.NumTests; i++ {
+		switch planner {
+		case "CBiRRT":
+			waypoints, err = plan(context.Background(), motionplan.NewCBiRRTMotionPlanner, config, i)
+		case "RRT":
+			waypoints, err = plan(context.Background(), motionplan.NewRRTConnectMotionPlanner, config, i)
+		default:
+			logger.Fatal("planner " + planner + " not supported")
+		}
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+		score := evaluate(waypoints)
+		fmt.Println("Test ", i, ":\t", score)
+		total += score
+	}
+	fmt.Print("Average:\t", total/float64(config.NumTests), "\n\n")
+
+	// write output
+	if err := writeJSONFile(utils.ResolveFile("samples/mobileRobotPlanning/"+planner+"Output.test"), waypoints); err != nil {
+		logger.Fatal(err.Error())
+	}
+}
+
+func plan(ctx context.Context, planner plannerConstructor, config *mobileRobotPlanConfig, seed int) ([][]frame.Input, error) {
 	// parse input
 	start := frame.FloatsToInputs(config.Start)
 	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: config.Goal[0], Y: config.Goal[1], Z: 0}))
@@ -85,7 +117,7 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 	}
 
 	// setup planner
-	cbert, err := motionplan.NewCBiRRTMotionPlanner(model, 1, logger)
+	mp, err := planner(model, 1, rand.New(rand.NewSource(1)), logger.Sugar())
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +125,19 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(model, obstacleGeometries, map[string]spatial.Geometry{}))
 
 	// plan
-	waypoints, err := cbert.Plan(ctx, goal, start, opt)
+	waypoints, err := mp.Plan(ctx, goal, start, opt)
 	if err != nil {
 		return nil, err
 	}
 	return waypoints, nil
+}
+
+func evaluate(waypoints [][]frame.Input) float64 {
+	distance := 0.
+	for i := 0; i < len(waypoints)-1; i++ {
+		distance += motionplan.L2Distance(frame.InputsToFloats(waypoints[i]), frame.InputsToFloats(waypoints[i+1]))
+	}
+	return distance
 }
 
 func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {

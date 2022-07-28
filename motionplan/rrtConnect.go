@@ -47,7 +47,7 @@ type rrtConnectMotionPlanner struct {
 }
 
 // NewRRTConnectMotionPlan creates a rrtStarMotionPlanner object.
-func NewRRTConnectMotionPlan(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
+func NewRRTConnectMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
@@ -57,16 +57,17 @@ func NewRRTConnectMotionPlan(frame referenceframe.Frame, nCPU int, logger golog.
 	if err != nil {
 		return nil, err
 	}
-	mp := &rrtConnectMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist, nCPU: nCPU}
-
-	mp.qstep = getFrameSteps(frame, frameStep)
-	mp.iter = planIter
-	mp.stepSize = stepSize
-
-	//nolint:gosec
-	mp.randseed = rand.New(rand.NewSource(1))
-
-	return mp, nil
+	return &cBiRRTMotionPlanner{
+		solDist:         jointSolveDist,
+		solver:          ik,
+		fastGradDescent: nlopt,
+		frame:           frame,
+		logger:          logger,
+		qstep:           getFrameSteps(frame, frameStep),
+		iter:            planIter,
+		stepSize:        stepSize,
+		randseed:        seed,
+	}, nil
 }
 
 func (mp *rrtConnectMotionPlanner) Frame() referenceframe.Frame {

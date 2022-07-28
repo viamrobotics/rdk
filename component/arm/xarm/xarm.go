@@ -3,6 +3,7 @@ package xarm
 
 import (
 	"context"
+	"math/rand"
 	// for embedding model file.
 	_ "embed"
 	"errors"
@@ -121,7 +122,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 	}
 
 	nCPU := runtime.NumCPU()
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, rand.New(rand.NewSource(1)), logger)
 	if err != nil {
 		return nil, err
 	}

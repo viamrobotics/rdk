@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"math/rand"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -48,7 +49,7 @@ func TestSimple2DMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// plan
-	cbert, err := NewCBiRRTMotionPlanner(model, 1, logger)
+	cbert, err := NewCBiRRTMotionPlanner(model, 1, rand.New(rand.NewSource(1)), logger)
 	test.That(t, err, test.ShouldBeNil)
 	opt := NewDefaultPlannerOptions()
 	constraint := NewCollisionConstraint(model, obstacles, map[string]spatial.Geometry{})
@@ -83,7 +84,7 @@ func TestSimpleArmMotion(t *testing.T) {
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
+	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, rand.New(rand.NewSource(1)), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
@@ -104,7 +105,7 @@ func TestComplexArmMotion(t *testing.T) {
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
+	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, rand.New(rand.NewSource(1)), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
@@ -140,7 +141,7 @@ func TestSimpleMotionUR5e(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
+	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, rand.New(rand.NewSource(1)), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
