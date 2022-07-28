@@ -76,8 +76,10 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Name is the ShellService's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
+// Named is a helper for getting the named service's typed resource name.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
 
 // New returns a new shell service for the given robot.
 func New(logger golog.Logger) (Service, error) {
