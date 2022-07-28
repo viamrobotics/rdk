@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	// used to import model referenceframe.
 	_ "embed"
 
@@ -64,6 +65,7 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 
 // GetEndPosition returns the set position.
 func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	fmt.Println("calling EndPosition in fake")
 	return a.position, nil
 }
 
