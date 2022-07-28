@@ -275,7 +275,15 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 	}
 
 	// Close stream and receive response.
-	if _, err = client.CloseAndRecv(); err != nil {
+
+	// CLIENT-SIDE STREAMING
+	// if _, err = client.CloseAndRecv(); err != nil {
+	// 	return errors.Wrap(err, "error when closing the stream and receiving the response from "+
+	// 		"sync service backend")
+	// }
+
+	// BIDIRECTIONAL STREAMING
+	if err = client.CloseSend(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
 			"sync service backend")
 	}

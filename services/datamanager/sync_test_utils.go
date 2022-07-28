@@ -48,9 +48,15 @@ func (m *mockClient) Send(req *v1.UploadRequest) error {
 	return errors.New("cancel sending of upload request")
 }
 
-func (m *mockClient) CloseAndRecv() (*v1.UploadResponse, error) {
+// BIDIRECTIONAL-STREAMING
+func (m *mockClient) Recv() (*v1.UploadResponse, error) {
 	return &v1.UploadResponse{}, nil
 }
+
+// CLIENT-SIDE STREAMING
+// func (m *mockClient) CloseAndRecv() (*v1.UploadResponse, error) {
+// 	return &v1.UploadResponse{}, nil
+// }
 
 func (m *mockClient) Context() context.Context {
 	return context.TODO()
