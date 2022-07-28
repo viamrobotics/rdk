@@ -2,6 +2,8 @@ package fake
 
 import (
 	"context"
+	"math"
+
 	// for arm model.
 	_ "embed"
 
@@ -97,13 +99,23 @@ func (a *ArmIK) MoveToPosition(
 
 // MoveToJointPositions sets the joints.
 func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
-	a.joints = joints
+	for _, val := range joints.Values {
+		if math.Abs(val) > 360 {
+			return errors.New("invalid joint location")
+		}
+	}
+
+	a.joints.Values = joints.Values
 	return nil
 }
 
-// GetJointPositions returns the set joints.
+// GetJointPositions returns joints.
 func (a *ArmIK) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	return a.joints, nil
+	retJoint := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}}
+	for idx, _ := range a.joints.Values {
+		retJoint.Values[idx] = a.joints.Values[idx]
+	}
+	return &retJoint, nil
 }
 
 // Stop doesn't do anything for a fake arm.
