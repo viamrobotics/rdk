@@ -71,12 +71,38 @@ func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) error {
 	return nil
 }
 
-func (c *client) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+func (c *client) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetectionsFromCamera")
+	defer span.End()
+	resp, err := c.client.GetDetectionsFromCamera(ctx, &pb.GetDetectionsFromCameraRequest{
+		CameraName:   cameraName,
+		DetectorName: detectorName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	detections := make([]objdet.Detection, 0, len(resp.Detections))
+	for _, d := range resp.Detections {
+		if d.XMin == nil || d.XMax == nil || d.YMin == nil || d.YMax == nil {
+			return nil, fmt.Errorf("invalid detection %+v", d)
+		}
+		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
+		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
+		detections = append(detections, det)
+	}
+	return detections, nil
+}
+
+func (c *client) GetDetections(ctx context.Context, imgBytes []byte, width, height int,
+	mimeType, detectorName string,
+) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetections")
 	defer span.End()
 	resp, err := c.client.GetDetections(ctx, &pb.GetDetectionsRequest{
-		CameraName:   cameraName,
-		DetectorName: detectorName,
+		Image:    imgBytes,
+		Width:    int64(width),
+		Height:   int64(height),
+		MimeType: mimeType,
 	})
 	if err != nil {
 		return nil, err
