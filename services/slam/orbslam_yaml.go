@@ -2,9 +2,11 @@ package slam
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -48,7 +50,7 @@ func (slamSvc *slamService) orbCamMaker(intrinsics *transform.PinholeCameraIntri
 		Stereob:        stereoB,
 		StereoThDepth:  stereoThDepth,
 		DepthMapFactor: depthMapFactor,
-		FPSCamera:      int8(slamSvc.dataRateMs),
+		FPSCamera:      int16(slamSvc.dataRateMs),
 		FileVersion:    fileVersion,
 	}
 	if orbslam.NFeatures, err = slamSvc.orbConfigToInt("orb_n_features", 1250); err != nil {
@@ -94,12 +96,15 @@ type ORBsettings struct {
 	Stereob        float32 `yaml:"Stereo.b"`
 	StereoThDepth  float32 `yaml:"Stereo.ThDepth"`
 	DepthMapFactor float32 `yaml:"RGBD.DepthMapFactor"`
-	FPSCamera      int8    `yaml:"Camera.fps"`
+	FPSCamera      int16   `yaml:"Camera.fps"`
+	SaveMapLoc     string  `yaml:"System.SaveAtlasToFile"`
+	LoadMapLoc     string  `yaml:"System.LoadAtlasFromFile"`
 }
 
 // generate a .yaml file to be used with orbslam.
 func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) error {
-	proj, err := cam.GetProperties(ctx) // will be nil if no intrinsics
+	// Get the camera and check if the properties are valid
+	proj, err := cam.GetProperties(ctx)
 	if err != nil {
 		return err
 	}
@@ -107,28 +112,43 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 	if !ok {
 		return transform.NewNoIntrinsicsError("Intrinsics do not exist")
 	}
-	err = intrinsics.CheckValid()
-	if err != nil {
-		return err
-	}
 	if err = intrinsics.CheckValid(); err != nil {
 		return err
 	}
+	// create orbslam struct to generate yaml file with
 	orbslam, err := slamSvc.orbCamMaker(intrinsics)
 	if err != nil {
 		return err
 	}
+
+	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
+	// Check for maps in the specified directory and add map specifications to yaml config
+	loadMapTimeStamp, loadMapName, err := slamSvc.checkMaps()
+	if err != nil {
+		slamSvc.logger.Debugf("Error occurred while parsing %s for maps, building map from scratch", slamSvc.dataDirectory)
+	}
+	if loadMapTimeStamp == "" {
+		loadMapTimeStamp = time.Now().UTC().Format(slamTimeFormat)
+	} else {
+		orbslam.LoadMapLoc = loadMapName
+	}
+	saveMapTimeStamp := time.Now().UTC().Format(slamTimeFormat) // timestamp to save at end of run
+	saveMapName := filepath.Join(slamSvc.dataDirectory, "map", slamSvc.cameraName+"_data_"+saveMapTimeStamp)
+	orbslam.SaveMapLoc = saveMapName
+
+	// yamlFileName uses the timestamp from the loaded map if one was available
+	// this gives the option to load images into the map if they were generated at a later time
+	// orbslam also checks for the most recently generated yaml file to prevent any issues with timestamps here
+	yamlFileName := filepath.Join(slamSvc.dataDirectory, "config", slamSvc.cameraName+"_data_"+loadMapTimeStamp+".yaml")
+
+	// generate yaml file
 	yamlData, err := yaml.Marshal(&orbslam)
 	if err != nil {
 		return errors.Wrap(err, "Error while Marshaling YAML file")
 	}
-
-	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
-	timeStamp := time.Now().UTC().Format("2006-01-02T15_04_05.0000")
-	fileName := filepath.Join(slamSvc.dataDirectory, "config", slamSvc.cameraName+"_data_"+timeStamp+".yaml")
 	addLine := "%YAML:1.0\n"
 	//nolint:gosec
-	outfile, err := os.Create(fileName)
+	outfile, err := os.Create(yamlFileName)
 	if err != nil {
 		return err
 	}
@@ -170,4 +190,42 @@ func (slamSvc *slamService) orbConfigToFloat(key string, def float64) (float64, 
 		return 0, errors.Errorf("Parameter %s has an invalid definition", key)
 	}
 	return val, nil
+}
+
+// Checks the map folder within the data directory for an existing map.
+// Will grab the most recently generated map, if one exists.
+func (slamSvc *slamService) checkMaps() (string, string, error) {
+	root := filepath.Join(slamSvc.dataDirectory, "map")
+	mapExt := ".osa"
+	mapTimestamp := time.Time{}
+	var mapPath string
+
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if !entry.IsDir() && filepath.Ext(path) == mapExt {
+			// check if the file uses our format and grab timestamp if it does
+			timestampLoc := strings.Index(entry.Name(), "_data_") + len("_data_")
+			if timestampLoc != -1+len("_data_") {
+				timestamp, err := time.Parse(slamTimeFormat, entry.Name()[timestampLoc:strings.Index(entry.Name(), mapExt)])
+				if err != nil {
+					slamSvc.logger.Debugf("Unable to parse map %s, %v", path, err)
+					return nil
+				}
+				if timestamp.After(mapTimestamp) {
+					mapTimestamp = timestamp
+					mapPath = path[0:strings.Index(path, mapExt)]
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return "", "", err
+	}
+	// do not error out here, instead orbslam will build a map from scratch
+	if mapTimestamp.IsZero() {
+		slamSvc.logger.Debugf("No maps found in directory %s", root)
+		return "", "", nil
+	}
+	slamSvc.logger.Infof("Previous map found, using %v", mapPath)
+	return mapTimestamp.UTC().Format(slamTimeFormat), mapPath, nil
 }
