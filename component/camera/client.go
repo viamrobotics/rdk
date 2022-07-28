@@ -75,10 +75,6 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 		img := image.NewNRGBA(image.Rect(0, 0, int(resp.WidthPx), int(resp.HeightPx)))
 		img.Pix = resp.Image
 		return img, func() {}, nil
-	case utils.MimeTypeRawIWD:
-		// TODO(DATA-237) - remove
-		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.WidthPx), int(resp.HeightPx), resp.Image)
-		return img, func() {}, err
 	case utils.MimeTypeRawDepth:
 		depth, err := rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(resp.Image)))
 		return depth, func() {}, err

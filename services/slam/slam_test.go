@@ -143,8 +143,7 @@ func setupInjectRobot() *inject.Robot {
 			return cam, nil
 		case camera.Named("good_depth_camera"):
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"),
-					artifact.MustPath("rimage/board1.dat.gz"), true)
+				img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
 				return img, nil, err
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {

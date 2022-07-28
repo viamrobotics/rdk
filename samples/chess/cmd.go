@@ -10,7 +10,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime/pprof"
-	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -22,7 +21,6 @@ import (
 	"github.com/tonyOreglia/glee/pkg/position"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
@@ -450,7 +448,10 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		var dm *rimage.DepthMap
 		func() {
 			defer release()
-			dm = rimage.ConvertToImageWithDepth(raw).Depth
+			dm, err = rimage.ConvertImageToDepthMap(raw)
+			if err != nil {
+				rlog.Logger.Error("could not convert image to DepthMap")
+			}
 		}()
 		if dm == nil {
 			return errors.New("no depth on gripperCam")
@@ -596,8 +597,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 					return
 				}
 
-				annotated := theBoard.Annotate()
-
 				if theBoard.IsBoardBlocked() {
 					logger.Debug("board blocked")
 					boardState.Clear()
@@ -660,19 +659,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 							}
 						}
 					}
-				}
-
-				iwd := rimage.ConvertToImageWithDepth(annotated)
-				if atomic.LoadInt32(&wantPicture) != 0 {
-					tm := time.Now().Unix()
-
-					fn := artifact.MustNewPath(fmt.Sprintf("samples/chess/board-%d.both.gz", tm))
-					logger.Debugf("saving image %s", fn)
-					if err := iwd.WriteTo(fn); err != nil {
-						panic(err)
-					}
-
-					atomic.StoreInt32(&wantPicture, 0)
 				}
 			}()
 		}

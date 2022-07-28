@@ -33,7 +33,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
@@ -631,13 +630,7 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cam camera
 		// TODO 05/10/2022: the file type saving may change here based on John N.'s recommendation (whether to use poitntcloud or two images).
 		// Both file types soon will be deprecated.
 		// https://docs.google.com/document/d/1Fa8DY-a2dPhoGNLaUlsEgQ28kbgVexaacBtJrkwnwQQ/edit#heading=h.rhjz058xy3j5
-		iwd, ok := img.(*rimage.ImageWithDepth)
-		if !ok {
-			return filename, errors.Errorf("want %s but don't have %T", utils.MimeTypeBoth, iwd)
-		}
-		if err := rimage.EncodeBoth(iwd, w); err != nil {
-			return filename, err
-		}
+		return "", errors.New("imageWithDepth is no longer a supported data structure")
 	case dim2d, dim3d:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}

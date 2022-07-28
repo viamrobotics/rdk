@@ -29,7 +29,8 @@ import (
 func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	switch {
 	case strings.HasSuffix(path, ".both.gz"):
-		return ReadBothFromFile(path, aligned)
+		img, _, err := ReadBothFromFile(path)
+		return img, err
 	case strings.HasSuffix(path, ".dat.gz"):
 		return ParseDepthMap(path)
 	default:
@@ -48,6 +49,18 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	}
 }
 
+// Temporary function to create an imageWithDepth from both for rimage package. Will be removed soon
+func newImageWithDepthFromFile(fn string, aligned bool) (image.Image, error) {
+	if strings.HasSuffix(fn, ".both.gz") {
+		img, dm, err := ReadBothFromFile(fn)
+		if err != nil {
+			return nil, err
+		}
+		return &imageWithDepth{img, dm, aligned}, nil
+	}
+	return readImageFromFile(fn, aligned)
+}
+
 // NewImageFromFile returns an image read in from the given file.
 func NewImageFromFile(fn string) (*Image, error) {
 	img, err := readImageFromFile(fn, false) // extracting rgb, alignment doesn't matter
@@ -60,7 +73,13 @@ func NewImageFromFile(fn string) (*Image, error) {
 
 // NewDepthMapFromFile extract the depth map from a Z16 image file or a .both.gz image file.
 func NewDepthMapFromFile(fn string) (*DepthMap, error) {
-	img, err := readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
+	var img image.Image
+	var err error
+	if strings.HasSuffix(fn, ".both.gz") { // temporary fix since .both will be removed
+		_, img, err = ReadBothFromFile(fn)
+	} else {
+		img, err = readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +87,6 @@ func NewDepthMapFromFile(fn string) (*DepthMap, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return dm, nil
 }
 
@@ -102,7 +120,7 @@ func ConvertImage(img image.Image) *Image {
 		return ii
 	}
 
-	iwd, ok := img.(*ImageWithDepth)
+	iwd, ok := img.(*imageWithDepth)
 	if ok {
 		return iwd.Color
 	}
@@ -133,7 +151,7 @@ func CloneImage(img image.Image) *Image {
 	if ok {
 		return ii.Clone()
 	}
-	iwd, ok := img.(*ImageWithDepth)
+	iwd, ok := img.(*imageWithDepth)
 	if ok {
 		return iwd.Clone().Color
 	}
