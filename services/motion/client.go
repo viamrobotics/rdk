@@ -16,15 +16,17 @@ import (
 
 // client is a client satisfies the motion.proto contract.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.MotionServiceClient
 	logger golog.Logger
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+func newSvcClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) *client {
 	grpcClient := pb.NewMotionServiceClient(conn)
 	sc := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
@@ -34,7 +36,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
+	return newSvcClientFromConn(conn, name, logger)
 }
 
 func (c *client) Move(
@@ -44,6 +46,7 @@ func (c *client) Move(
 	worldState *commonpb.WorldState,
 ) (bool, error) {
 	resp, err := c.client.Move(ctx, &pb.MoveRequest{
+		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
@@ -61,6 +64,7 @@ func (c *client) GetPose(
 	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
+		Name:                   c.name,
 		ComponentName:          protoutils.ResourceNameToProto(componentName),
 		DestinationFrame:       destinationFrame,
 		SupplementalTransforms: supplementalTransforms,

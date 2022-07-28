@@ -85,9 +85,14 @@ var Subtype = resource.NewSubtype(
 // Name is the MotionService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// FromRobot retrieves the motion service of a robot.
-func FromRobot(r robot.Robot) (Service, error) {
-	resource, err := r.ResourceByName(Name)
+// Named is a helper for getting the named motion service's typed resource name.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
+
+// FromRobot retrieves the named motion service of a robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	resource, err := r.ResourceByName(Named(name))
 	if err != nil {
 		return nil, err
 	}

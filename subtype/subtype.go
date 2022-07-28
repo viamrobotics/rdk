@@ -44,6 +44,7 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	resources := make(map[string]interface{}, len(r))
 	for n, v := range r {
 		switch {
+		// can remove once default names are added
 		case n.Name == "":
 			resources[n.String()] = v
 		default:

@@ -346,9 +346,10 @@ func TestServiceResourceName(t *testing.T) {
 			config.Service{
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      "motion",
+				Name:      "motion1",
 			},
 			motion.Subtype,
-			resource.NameFromSubtype(motion.Subtype, ""),
+			resource.NameFromSubtype(motion.Subtype, "motion1"),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {

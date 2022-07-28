@@ -219,7 +219,7 @@ type ServiceType string
 
 // A Service describes the configuration of a service.
 type Service struct {
-	Name                string             `json:"name"` // NOTE: This property is deprecated for services
+	Name                string             `json:"name"`
 	Namespace           resource.Namespace `json:"namespace"`
 	Type                ServiceType        `json:"type"`
 	Attributes          AttributeMap       `json:"attributes"`
@@ -241,7 +241,7 @@ func (config *Service) ResourceName() resource.Name {
 	rName := resource.NewName(config.Namespace,
 		resource.ResourceTypeService,
 		resource.SubtypeName(cType),
-		cType)
+		config.Name)
 	if len(remotes) > 1 {
 		return rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
 	}
