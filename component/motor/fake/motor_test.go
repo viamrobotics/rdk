@@ -3,7 +3,6 @@ package fake
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -78,10 +77,6 @@ func TestGoFor(t *testing.T) {
 	m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
 	err := m.GoFor(ctx, 60, 1)
 	test.That(t, err, test.ShouldBeNil)
-
-	pos, err := m.GetPosition(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos, test.ShouldBeGreaterThan, 0)
 }
 
 func TestGoTo(t *testing.T) {
@@ -99,11 +94,6 @@ func TestGoTo(t *testing.T) {
 	m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
 	err := m.GoTo(ctx, 60, 1)
 	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(1100 * time.Millisecond)
-
-	pos, err := m.GetPosition(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos, test.ShouldBeGreaterThan, 0)
 }
 
 func TestGoTillStop(t *testing.T) {
