@@ -27,7 +27,7 @@ func NewServer(s subtype.Service) pb.MotionServiceServer {
 func (server *subtypeServer) service(serviceName string) (Service, error) {
 	resource := server.subtypeSvc.Resource(serviceName)
 	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Name)
+		return nil, utils.NewResourceNotFoundError(Named(serviceName))
 	}
 	svc, ok := resource.(Service)
 	if !ok {

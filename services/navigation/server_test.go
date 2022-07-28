@@ -59,7 +59,8 @@ func createWaypoints() ([]navigation.Waypoint, []*pb.Waypoint) {
 func TestServer(t *testing.T) {
 	injectSvc := &inject.NavigationService{}
 	resourceMap := map[resource.Name]interface{}{
-		navigation.Name: injectSvc,
+		navigation.Named(testSvcName1): injectSvc,
+		navigation.Named(testSvcName2): injectSvc,
 	}
 	injectSubtypeSvc, err := subtype.New(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -70,7 +71,7 @@ func TestServer(t *testing.T) {
 		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return navigation.ModeManual, nil
 		}
-		req := &pb.GetModeRequest{}
+		req := &pb.GetModeRequest{Name: testSvcName1}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_MANUAL)
@@ -79,7 +80,7 @@ func TestServer(t *testing.T) {
 		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return navigation.ModeWaypoint, nil
 		}
-		req = &pb.GetModeRequest{}
+		req = &pb.GetModeRequest{Name: testSvcName1}
 		resp, err = navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_WAYPOINT)
@@ -88,7 +89,7 @@ func TestServer(t *testing.T) {
 		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return navigation.Mode(math.MaxUint8), nil
 		}
-		req = &pb.GetModeRequest{}
+		req = &pb.GetModeRequest{Name: testSvcName1}
 		resp, err = navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_UNSPECIFIED)
@@ -98,7 +99,7 @@ func TestServer(t *testing.T) {
 		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return 0, errors.New("mode failed")
 		}
-		req := &pb.GetModeRequest{}
+		req := &pb.GetModeRequest{Name: testSvcName1}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
@@ -113,6 +114,7 @@ func TestServer(t *testing.T) {
 
 		// set manual mode
 		req := &pb.SetModeRequest{
+			Name: testSvcName1,
 			Mode: pb.Mode_MODE_MANUAL,
 		}
 		resp, err := navServer.SetMode(context.Background(), req)
@@ -122,6 +124,7 @@ func TestServer(t *testing.T) {
 
 		// set waypoint mode
 		req = &pb.SetModeRequest{
+			Name: testSvcName1,
 			Mode: pb.Mode_MODE_WAYPOINT,
 		}
 		resp, err = navServer.SetMode(context.Background(), req)
@@ -136,6 +139,7 @@ func TestServer(t *testing.T) {
 			return errors.New("failed to set mode")
 		}
 		req := &pb.SetModeRequest{
+			Name: testSvcName1,
 			Mode: pb.Mode_MODE_MANUAL,
 		}
 		resp, err := navServer.SetMode(context.Background(), req)
@@ -147,6 +151,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		req = &pb.SetModeRequest{
+			Name: testSvcName1,
 			Mode: pb.Mode_MODE_UNSPECIFIED,
 		}
 		resp, err = navServer.SetMode(context.Background(), req)
@@ -159,7 +164,7 @@ func TestServer(t *testing.T) {
 		injectSvc.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 			return loc, nil
 		}
-		req := &pb.GetLocationRequest{}
+		req := &pb.GetLocationRequest{Name: testSvcName1}
 		resp, err := navServer.GetLocation(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		protoLoc := resp.GetLocation()
@@ -171,7 +176,7 @@ func TestServer(t *testing.T) {
 		injectSvc.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 			return nil, errors.New("location retrieval failed")
 		}
-		req := &pb.GetLocationRequest{}
+		req := &pb.GetLocationRequest{Name: testSvcName1}
 		resp, err := navServer.GetLocation(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
@@ -182,7 +187,7 @@ func TestServer(t *testing.T) {
 		injectSvc.GetWaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
 			return waypoints, nil
 		}
-		req := &pb.GetWaypointsRequest{}
+		req := &pb.GetWaypointsRequest{Name: testSvcName1}
 		resp, err := navServer.GetWaypoints(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.GetWaypoints(), test.ShouldResemble, expectedResp)
@@ -192,7 +197,7 @@ func TestServer(t *testing.T) {
 		injectSvc.GetWaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
 			return nil, errors.New("waypoints retrieval failed")
 		}
-		req := &pb.GetWaypointsRequest{}
+		req := &pb.GetWaypointsRequest{Name: testSvcName1}
 		resp, err := navServer.GetWaypoints(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
@@ -205,6 +210,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		req := &pb.AddWaypointRequest{
+			Name: testSvcName1,
 			Location: &commonpb.GeoPoint{
 				Latitude:  90,
 				Longitude: 0,
@@ -226,6 +232,7 @@ func TestServer(t *testing.T) {
 			return errors.New("failed to add waypoint")
 		}
 		req := &pb.AddWaypointRequest{
+			Name: testSvcName1,
 			Location: &commonpb.GeoPoint{
 				Latitude:  90,
 				Longitude: 0,
@@ -245,7 +252,8 @@ func TestServer(t *testing.T) {
 		}
 		objectID := primitive.NewObjectID()
 		req := &pb.RemoveWaypointRequest{
-			Id: objectID.Hex(),
+			Name: testSvcName1,
+			Id:   objectID.Hex(),
 		}
 		resp, err := navServer.RemoveWaypoint(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
@@ -259,7 +267,8 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		req := &pb.RemoveWaypointRequest{
-			Id: "not a hex",
+			Name: testSvcName1,
+			Id:   "not a hex",
 		}
 		resp, err := navServer.RemoveWaypoint(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -270,7 +279,8 @@ func TestServer(t *testing.T) {
 			return errors.New("failed to remove waypoint")
 		}
 		req = &pb.RemoveWaypointRequest{
-			Id: primitive.NewObjectID().Hex(),
+			Name: testSvcName1,
+			Id:   primitive.NewObjectID().Hex(),
 		}
 		resp, err = navServer.RemoveWaypoint(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -278,7 +288,7 @@ func TestServer(t *testing.T) {
 	})
 
 	resourceMap = map[resource.Name]interface{}{
-		navigation.Name: "not a frame system",
+		navigation.Named(testSvcName1): "not a frame system",
 	}
 	injectSubtypeSvc, _ = subtype.New(resourceMap)
 	navServer = navigation.NewServer(injectSubtypeSvc)
@@ -286,34 +296,35 @@ func TestServer(t *testing.T) {
 	t.Run("failing on improper service interface", func(t *testing.T) {
 		improperImplErr := utils.NewUnimplementedInterfaceError("navigation.Service", "string")
 
-		getModeReq := &pb.GetModeRequest{}
+		getModeReq := &pb.GetModeRequest{Name: testSvcName1}
 		getModeResp, err := navServer.GetMode(context.Background(), getModeReq)
 		test.That(t, getModeResp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 
 		setModeReq := &pb.SetModeRequest{
+			Name: testSvcName1,
 			Mode: pb.Mode_MODE_MANUAL,
 		}
 		setModeResp, err := navServer.SetMode(context.Background(), setModeReq)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 		test.That(t, setModeResp, test.ShouldBeNil)
 
-		getLocReq := &pb.GetLocationRequest{}
+		getLocReq := &pb.GetLocationRequest{Name: testSvcName1}
 		getLocResp, err := navServer.GetLocation(context.Background(), getLocReq)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 		test.That(t, getLocResp, test.ShouldBeNil)
 
-		waypointReq := &pb.GetWaypointsRequest{}
+		waypointReq := &pb.GetWaypointsRequest{Name: testSvcName1}
 		waypointResp, err := navServer.GetWaypoints(context.Background(), waypointReq)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 		test.That(t, waypointResp, test.ShouldBeNil)
 
-		addWptReq := &pb.AddWaypointRequest{}
+		addWptReq := &pb.AddWaypointRequest{Name: testSvcName1}
 		addWptResp, err := navServer.AddWaypoint(context.Background(), addWptReq)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 		test.That(t, addWptResp, test.ShouldBeNil)
 
-		remWptReq := &pb.RemoveWaypointRequest{}
+		remWptReq := &pb.RemoveWaypointRequest{Name: testSvcName1}
 		remWptResp, err := navServer.RemoveWaypoint(context.Background(), remWptReq)
 		test.That(t, remWptResp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
@@ -322,9 +333,19 @@ func TestServer(t *testing.T) {
 	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
 	navServer = navigation.NewServer(injectSubtypeSvc)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
-		req := &pb.GetModeRequest{}
+		req := &pb.GetModeRequest{Name: testSvcName1}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(navigation.Name))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(navigation.Named(testSvcName1)))
+	})
+	t.Run("multiple services valid", func(t *testing.T) {
+		req := &pb.GetModeRequest{Name: testSvcName1}
+		resp, err := navServer.GetMode(context.Background(), req)
+		test.That(t, resp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(navigation.Named(testSvcName1)))
+		req = &pb.GetModeRequest{Name: testSvcName2}
+		resp, err = navServer.GetMode(context.Background(), req)
+		test.That(t, resp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(navigation.Named(testSvcName1)))
 	})
 }
