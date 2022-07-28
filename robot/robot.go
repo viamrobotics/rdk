@@ -131,7 +131,7 @@ func NamesBySubtype(r Robot, subtype resource.Subtype) []string {
 	names := []string{}
 	for _, n := range r.ResourceNames() {
 		if n.Subtype == subtype {
-			names = append(names, n.Name)
+			names = append(names, n.ShortName())
 		}
 	}
 	return names

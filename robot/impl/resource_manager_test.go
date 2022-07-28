@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -1347,11 +1346,11 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,

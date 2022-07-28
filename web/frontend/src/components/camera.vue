@@ -1,5 +1,6 @@
 <script setup lang="ts">
 
+import { normalizeRemoteName } from '../lib/resource';
 import { ref } from 'vue';
 import InfoButton from './info-button.vue';
 
@@ -202,7 +203,7 @@ const togglePCDExpand = () => {
           </div>
           <div
             v-if="camera"
-            :id="`stream-${props.streamName}`"
+            :id="`stream-${normalizeRemoteName(props.streamName)}`"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />
         </div>
