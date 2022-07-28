@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"math"
-	"net"
 	"os"
 	"strings"
 	"testing"
@@ -100,11 +99,11 @@ func TestConfigRemote(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr := fmt.Sprintf("localhost:%d", port)
 	options := weboptions.New()
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -302,11 +301,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 			}()
 
-			port, err := utils.TryReserveRandomPort()
-			test.That(t, err, test.ShouldBeNil)
 			options := weboptions.New()
-			addr := fmt.Sprintf("localhost:%d", port)
-			options.Network.BindAddress = addr
+			options.Network.BindAddress = ""
+			listener := testutils.ReserveRandomListener(t)
+			addr := listener.Addr().String()
+			options.Network.Listener = listener
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
@@ -531,11 +530,11 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	options.Network.Listener = listener
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,
@@ -796,11 +795,11 @@ func TestStopAll(t *testing.T) {
 	test.That(t, dummyArm2.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 	// Test OPID cancellation
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr := fmt.Sprintf("localhost:%d", port)
 	options := weboptions.New()
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1163,16 +1162,12 @@ func TestGetStatus(t *testing.T) {
 
 func TestGetStatusRemote(t *testing.T) {
 	// set up remotes
-	port1, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr1 := fmt.Sprintf("localhost:%d", port1)
-	listener1, err := net.Listen("tcp", addr1)
-	test.That(t, err, test.ShouldBeNil)
-	port2, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr2 := fmt.Sprintf("localhost:%d", port2)
-	listener2, err := net.Listen("tcp", addr2)
-	test.That(t, err, test.ShouldBeNil)
+	listener1 := testutils.ReserveRandomListener(t)
+	addr1 := listener1.Addr().String()
+
+	listener2 := testutils.ReserveRandomListener(t)
+	addr2 := listener2.Addr().String()
+
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
 	resourcesFunc := func() []resource.Name { return []resource.Name{arm.Named("arm1"), arm.Named("arm2")} }
@@ -1263,13 +1258,10 @@ func TestGetStatusRemote(t *testing.T) {
 
 func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	// set up remotes
-	port1, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr1 := fmt.Sprintf("localhost:%d", port1)
-	test.That(t, err, test.ShouldBeNil)
-	port2, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr2 := fmt.Sprintf("localhost:%d", port2)
+	listener1 := testutils.ReserveRandomListener(t)
+	addr1 := listener1.Addr().String()
+	listener2 := testutils.ReserveRandomListener(t)
+	addr2 := listener2.Addr().String()
 
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -1305,7 +1297,8 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
 	}()
 	options := weboptions.New()
-	options.Network.BindAddress = addr1
+	options.Network.BindAddress = ""
+	options.Network.Listener = listener1
 	err = r0.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1340,7 +1333,8 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		test.That(t, r1.Close(context.Background()), test.ShouldBeNil)
 	}()
 	options = weboptions.New()
-	options.Network.BindAddress = addr2
+	options.Network.BindAddress = ""
+	options.Network.Listener = listener2
 	err = r1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
