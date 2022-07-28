@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -213,4 +214,19 @@ func TestSerializationRotations(t *testing.T) {
 
 	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
+}
+
+func TestRandomFrameInputs(t *testing.T) {
+	frame, _ := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, nil)
+	seed := rand.New(rand.NewSource(23))
+	for i := 0; i < 100; i++ {
+		_, err := frame.Transform(RandomFrameInputs(frame, seed))
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	limitedFrame, _ := NewMobile2DFrame("", []Limit{{-2, 2}, {-2, 2}}, nil)
+	for i := 0; i < 100; i++ {
+		_, err := limitedFrame.Transform(RestrictedRandomFrameInputs(frame, seed, .2))
+		test.That(t, err, test.ShouldBeNil)
+	}
 }
