@@ -27,6 +27,7 @@ import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
 import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
+import motorApi from './gen/proto/api/component/motor/v1/motor_pb.esm';
 
 /**
  * Every window variable on this page is being currently used by the blockly page in App.
@@ -40,6 +41,7 @@ window.gripperApi = gripperApi;
 window.sensorsApi = sensorsApi;
 window.servoApi = servoApi;
 window.streamApi = streamApi;
+window.motorApi = motorApi;
 /**
  * This window variable is used by the config page to access the discovery service.
  * As with variables above, once we switch to using import / export we should
