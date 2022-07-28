@@ -110,8 +110,8 @@ func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name stri
 	remote := RemoteName(strings.Join(r[0:len(r)-1], ":"))
 	nameIdent := r[len(r)-1]
 	// Enable when other services other than motion are enabled
-	// isSubtype := subtype == SubtypeName("data_manager") || subtype == SubtypeName("vision") || subtype == SubtypeName("sensors")
-	if isService && subtype != SubtypeName("motion") {
+	isSubtype := subtype == SubtypeName("data_manager") || subtype == SubtypeName("vision") || subtype == SubtypeName("sensors")
+	if isService && isSubtype {
 		nameIdent = ""
 	}
 	return Name{
@@ -200,7 +200,7 @@ func (n Name) String() string {
 	if n.Remote != "" {
 		name = fmt.Sprintf("%s/%s:", name, n.Remote)
 	}
-	if n.Name != "" && (n.ResourceType != ResourceTypeService) {
+	if n.Name != "" && (n.ResourceType != ResourceTypeService || SubtypeName(n.Subtype.String()) == SubtypeName("motion")) {
 		if n.Remote != "" {
 			name = fmt.Sprintf("%s%s", name, n.Name)
 		} else {

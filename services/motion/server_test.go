@@ -81,24 +81,31 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 
-	// // Multiple Servies work
-	// injectMS = &inject.MotionService{}
-	// injectMS2 := &inject.MotionService{}
-	// omMap = map[resource.Name]interface{}{
-	// 	motion.Named(testMotionServiceName):  injectMS,
-	// 	motion.Named(testMotionServiceName2): injectMS2,
-	// }
-	// server, err = newServer(omMap)
-	// injectMS.MoveFunc = func(
-	// 	ctx context.Context,
-	// 	componentName resource.Name,
-	// 	destination *referenceframe.PoseInFrame,
-	// 	worldState *commonpb.WorldState,
-	// ) (bool, error) {
-	// 	return true, nil
-	// }
-	// resp, err = server.Move(context.Background(), grabRequest)
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
+	// Multiple Servies names Valid
+	injectMS = &inject.MotionService{}
+	omMap = map[resource.Name]interface{}{
+		motion.Named(testMotionServiceName):  injectMS,
+		motion.Named(testMotionServiceName2): injectMS,
+	}
+	server, err = newServer(omMap)
+	injectMS.MoveFunc = func(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *referenceframe.PoseInFrame,
+		worldState *commonpb.WorldState,
+	) (bool, error) {
+		return true, nil
+	}
+	resp, err = server.Move(context.Background(), grabRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
+	grabRequest2 := &pb.MoveRequest{
+		Name:          testMotionServiceName2,
+		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
+		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
+	}
+	resp, err = server.Move(context.Background(), grabRequest2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 
 }

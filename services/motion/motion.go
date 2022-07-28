@@ -82,9 +82,6 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Name is the MotionService's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
-
 // Named is a helper for getting the named motion service's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)

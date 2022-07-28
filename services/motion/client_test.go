@@ -207,11 +207,11 @@ func TestClientDialerOption(t *testing.T) {
 	ctx := rpc.ContextWithDialer(context.Background(), td)
 	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client1 := motion.NewClientFromConn(ctx, conn1, "", logger)
+	client1 := motion.NewClientFromConn(ctx, conn1, testMotionServiceName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2 := motion.NewClientFromConn(ctx, conn2, "", logger)
+	client2 := motion.NewClientFromConn(ctx, conn2, testMotionServiceName, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 

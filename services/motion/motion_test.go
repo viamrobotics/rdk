@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
+
 	// register.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -279,7 +280,7 @@ func TestFromRobot(t *testing.T) {
 	}
 
 	svc, err = motion.FromRobot(r, testMotionServiceName)
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motion.Name))
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motion.Named(testMotionServiceName)))
 	test.That(t, svc, test.ShouldBeNil)
 }
 
