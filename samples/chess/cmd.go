@@ -48,8 +48,6 @@ var (
 	BoardHeight    = -230.0
 	SafeMoveHeight = BoardHeight + 150
 
-	wantPicture = int32(0)
-
 	numPiecesCaptured = 0
 	logger            = golog.NewDevelopmentLogger("chess")
 )
@@ -600,18 +598,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 				if theBoard.IsBoardBlocked() {
 					logger.Debug("board blocked")
 					boardState.Clear()
-					wantPicture = 1
 				} else {
 					// boardState now owns theBoard
-					interessting, err := boardState.newData(theBoard)
+					_, err := boardState.newData(theBoard)
 					if err != nil {
-						wantPicture = 1
 						logger.Debug(err)
 						boardState.Clear()
-					} else if interessting {
-						wantPicture = 1
 					}
-
 					if boardState.Ready() {
 						if !initialPositionOk {
 							bb, err := boardState.GetBitBoard()
