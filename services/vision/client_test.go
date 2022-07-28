@@ -116,7 +116,7 @@ func TestClient(t *testing.T) {
 
 		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
 
-		dets, err := client.GetDetections(context.Background(), "fake_cam", "detect_red")
+		dets, err := client.GetDetectionsFromCamera(context.Background(), "fake_cam", "detect_red")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dets, test.ShouldHaveLength, 1)
 		test.That(t, dets[0].Label(), test.ShouldEqual, "red")
@@ -125,7 +125,7 @@ func TestClient(t *testing.T) {
 		test.That(t, box.Min, test.ShouldResemble, image.Point{110, 288})
 		test.That(t, box.Max, test.ShouldResemble, image.Point{183, 349})
 		// failure - no such camera
-		_, err = client.GetDetections(context.Background(), "no_camera", "detect_red")
+		_, err = client.GetDetectionsFromCamera(context.Background(), "no_camera", "detect_red")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
