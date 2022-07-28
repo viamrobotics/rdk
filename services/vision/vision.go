@@ -17,6 +17,7 @@ import (
 	servicepb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
@@ -63,7 +64,8 @@ type Service interface {
 	// detector methods
 	GetDetectorNames(ctx context.Context) ([]string, error)
 	AddDetector(ctx context.Context, cfg DetectorConfig) error
-	GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
+	GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
+	GetDetections(ctx context.Context, imgBytes []byte, width, height int, mimeType, detectorName string) ([]objdet.Detection, error)
 	// segmenter methods
 	GetSegmenterNames(ctx context.Context) ([]string, error)
 	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
@@ -180,8 +182,8 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg DetectorConfig) er
 }
 
 // GetDetections returns the detections of the next image from the given camera and the given detector.
-func (vs *visionService) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetections")
+func (vs *visionService) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetectionsFromCamera")
 	defer span.End()
 	cam, err := camera.FromRobot(vs.r, cameraName)
 	if err != nil {
@@ -196,6 +198,26 @@ func (vs *visionService) GetDetections(ctx context.Context, cameraName, detector
 		return nil, err
 	}
 	defer release()
+
+	return detector(ctx, img)
+}
+
+// GetDetections returns the detections of the next image from the given camera and the given detector.
+func (vs *visionService) GetDetections(ctx context.Context, imgBytes []byte, width, height int,
+	mimeType, detectorName string,
+) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetections")
+	defer span.End()
+
+	detector, err := vs.detReg.detectorLookup(detectorName)
+	if err != nil {
+		return nil, err
+	}
+
+	img, err := rimage.DecodeImage(ctx, imgBytes, mimeType, width, height)
+	if err != nil {
+		return nil, err
+	}
 
 	return detector(ctx, img)
 }
@@ -281,10 +303,18 @@ func (svc *reconfigurableVision) AddDetector(ctx context.Context, cfg DetectorCo
 	return svc.actual.AddDetector(ctx, cfg)
 }
 
-func (svc *reconfigurableVision) GetDetections(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+func (svc *reconfigurableVision) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetDetections(ctx, cameraName, detectorName)
+	return svc.actual.GetDetectionsFromCamera(ctx, cameraName, detectorName)
+}
+
+func (svc *reconfigurableVision) GetDetections(ctx context.Context, imgBytes []byte, width, height int,
+	mimeType, detectorName string,
+) ([]objdet.Detection, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetDetections(ctx, imgBytes, width, height, mimeType, detectorName)
 }
 
 func (svc *reconfigurableVision) GetSegmenterNames(ctx context.Context) ([]string, error) {
