@@ -1,34 +1,34 @@
-import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
-import { normalizeRemoteName } from './lib/resource';
+const { dialDirect, dialWebRTC } = require('@viamrobotics/rpc');
+const { normalizeRemoteName } = require('./lib/resource');
 
-import commonApi from './gen/proto/api/common/v1/common_pb.esm';
-import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
-import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
-import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
-import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
-import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
-import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
-import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
-import streamApi from './gen/proto/stream/v1/stream_pb.esm';
-import motorApi from './gen/proto/api/component/motor/v1/motor_pb.esm';
+const commonApi = require('./gen/proto/api/common/v2/common_pb.esm');
+const armApi = require('./gen/proto/api/component/arm/v1/arm_pb.esm');
+const baseApi = require('./gen/proto/api/component/base/v1/base_pb.esm');
+const cameraApi = require('./gen/proto/api/component/camera/v1/camera_pb.esm');
+const gripperApi = require('./gen/proto/api/component/gripper/v1/gripper_pb.esm');
+const robotApi = require('./gen/proto/api/robot/v1/robot_pb.esm');
+const sensorsApi = require('./gen/proto/api/service/sensors/v1/sensors_pb.esm');
+const servoApi = require('./gen/proto/api/component/servo/v1/servo_pb.esm');
+const streamApi = require('./gen/proto/stream/v1/stream_pb.esm');
+const motorApi = require('./gen/proto/api/component/motor/v1/motor_pb.esm');
 
-import { RobotServiceClient } from './gen/proto/api/robot/v1/robot_pb_service.esm';
-import { ArmServiceClient } from './gen/proto/api/component/arm/v1/arm_pb_service.esm';
-import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_service.esm';
-import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_service.esm';
-import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_pb_service.esm';
-import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service.esm';
-import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service.esm';
-import { IMUServiceClient } from './gen/proto/api/component/imu/v1/imu_pb_service.esm';
-import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
-import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service.esm';
-import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service.esm';
-import { MotionServiceClient } from './gen/proto/api/service/motion/v1/motion_pb_service.esm';
-import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service.esm';
-import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors_pb_service.esm';
-import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service.esm';
-import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
-import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
+const { RobotServiceClient } = require('./gen/proto/api/robot/v1/robot_pb_service.esm');
+const { ArmServiceClient } = require('./gen/proto/api/component/arm/v1/arm_pb_service.esm');
+const { BaseServiceClient } = require('./gen/proto/api/component/base/v1/base_pb_service.esm');
+const { BoardServiceClient } = require('./gen/proto/api/component/board/v1/board_pb_service.esm');
+const { CameraServiceClient } = require('./gen/proto/api/component/camera/v1/camera_pb_service.esm');
+const { GantryServiceClient } = require('./gen/proto/api/component/gantry/v1/gantry_pb_service.esm');
+const { GripperServiceClient } = require('./gen/proto/api/component/gripper/v1/gripper_pb_service.esm');
+const { IMUServiceClient } = require('./gen/proto/api/component/imu/v1/imu_pb_service.esm');
+const { InputControllerServiceClient } = require('./gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm');
+const { MotorServiceClient } = require('./gen/proto/api/component/motor/v1/motor_pb_service.esm');
+const { NavigationServiceClient } = require('./gen/proto/api/service/navigation/v1/navigation_pb_service.esm');
+const { MotionServiceClient } = require('./gen/proto/api/service/motion/v1/motion_pb_service.esm');
+const { VisionServiceClient } = require('./gen/proto/api/service/vision/v1/vision_pb_service.esm');
+const { SensorsServiceClient } = require('./gen/proto/api/service/sensors/v1/sensors_pb_service.esm');
+const { ServoServiceClient } = require('./gen/proto/api/component/servo/v1/servo_pb_service.esm');
+const { SLAMServiceClient } = require('./gen/proto/api/service/slam/v1/slam_pb_service.esm');
+const { StreamServiceClient } = require('./gen/proto/stream/v1/stream_pb_service.esm');
 
 /**
  * Every window variable on this page is being currently used by the blockly page in App.
