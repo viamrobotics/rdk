@@ -181,7 +181,7 @@ func (s *subtypeServer) GetPointCloud(
 	ctx context.Context,
 	req *pb.GetPointCloudRequest,
 ) (*pb.GetPointCloudResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::server::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "camera::server::GetPointCloud")
 	defer span.End()
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
