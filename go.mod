@@ -86,6 +86,8 @@ require (
 	periph.io/x/host/v3 v3.7.2
 )
 
+replace go.viam.com/api => /Users/maxhorowitz/repositories/api
+
 require (
 	4d63.com/gochecknoglobals v0.1.0 // indirect
 	cloud.google.com/go v0.100.2 // indirect
