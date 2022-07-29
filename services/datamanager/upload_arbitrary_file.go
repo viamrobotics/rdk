@@ -10,7 +10,9 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 )
 
-func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient, md *v1.UploadMetadata, f *os.File) error {
+func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient, md *v1.UploadMetadata,
+	f *os.File,
+) error {
 	// Send metadata upload request.
 	req := &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
