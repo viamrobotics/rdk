@@ -81,20 +81,22 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 		}
 	}()
 
-	select {
-	case <-ctx.Done():
-		return context.Canceled
-	case <-progress:
-		uploadResponse := <-progress
-		requestsWritten := uploadResponse.GetRequestsWritten()
-		fmt.Println("TODO: deal with requestsWritten: ", requestsWritten)
-	default:
-		// Loop until there is no more content to be read from file.
-		for {
+	eof := false
+	for {
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		case <-progress:
+			uploadResponse := <-progress
+			requestsWritten := uploadResponse.GetRequestsWritten()
+			fmt.Println("TODO: deal with requestsWritten: ", requestsWritten)
+		default:
+			// Loop until there is no more content to be read from file.
 			// Get the next UploadRequest from the file.
 			uploadReq, err := getNextUploadRequest(ctx, f)
 			// If the error is EOF, break from loop.
 			if errors.Is(err, io.EOF) {
+				eof = true
 				break
 			}
 			if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
@@ -108,6 +110,9 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 			if err = processUploadRequest(client, uploadReq); err != nil {
 				return err
 			}
+		}
+		if eof {
+			break
 		}
 	}
 
