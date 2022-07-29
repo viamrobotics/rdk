@@ -2,7 +2,6 @@ package datamanager
 
 import (
 	"context"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -44,12 +43,8 @@ type syncer struct {
 	cancelFunc        func()
 }
 
-type (
-	getNextUploadRequestFunc func(ctx context.Context, f *os.File) (*v1.UploadRequest, error)
-	processUploadRequestFunc func(client v1.DataSyncService_UploadClient, req *v1.UploadRequest) error
-	uploadFunc               func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
-		partID string) error
-)
+type uploadFunc func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
+	partID string) error
 
 // TODO DATA-206: instantiate a client
 // newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
@@ -197,7 +192,7 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	return md, nil
 }
 
-func (s *syncer) uploadFileUnidirectional(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
@@ -214,178 +209,14 @@ func (s *syncer) uploadFileUnidirectional(ctx context.Context, client v1.DataSyn
 		return err
 	}
 
-	var getNextUploadRequest getNextUploadRequestFunc
-	var processUploadRequest processUploadRequestFunc
 	switch md.GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		err = initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), md)
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		getNextUploadRequest = getNextSensorUploadRequest
-		processUploadRequest = func(client v1.DataSyncService_UploadClient, req *v1.UploadRequest) error {
-			return sendReqAndUpdateProgress(client, req, s.progressTracker, f.Name())
-		}
-
+		return uploadDataCaptureFile(ctx, s, client, md, f)
 	case v1.DataType_DATA_TYPE_FILE:
-		getNextUploadRequest = getNextFileUploadRequest
-		processUploadRequest = sendReq
+		return uploadArbitraryFile(ctx, s, client, md, f)
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return errors.New("no data type specified in upload metadata")
 	default:
 		return errors.New("no data type specified in upload metadata")
 	}
-
-	// Send metadata upload request.
-	req := &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: md,
-		},
-	}
-	if err := client.Send(req); err != nil {
-		return errors.Wrap(err, "error while sending upload metadata")
-	}
-
-	// Loop until there is no more content to be read from file.
-	for {
-		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextUploadRequest(ctx, f)
-		// If the error is EOF, break from loop.
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
-			continue
-		}
-		// If there is any other error, return it.
-		if err != nil {
-			return err
-		}
-
-		if err = processUploadRequest(client, uploadReq); err != nil {
-			return err
-		}
-	}
-
-	if err = f.Close(); err != nil {
-		return err
-	}
-
-	// Close the send direction of the stream.
-	if err = client.CloseSend(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-			"sync service backend")
-	}
-
-	return nil
-}
-
-func sendReqAndUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt progressTracker,
-	dcFileName string,
-) error {
-	if err := client.Send(uploadReq); err != nil {
-		return errors.Wrap(err, "error while sending uploadRequest")
-	}
-	if err := pt.incrementProgressFileIndex(filepath.Join(pt.progressDir, filepath.Base(dcFileName))); err != nil {
-		return err
-	}
-	return nil
-}
-
-func sendReq(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest) error {
-	if err := client.Send(uploadReq); err != nil {
-		return errors.Wrap(err, "error while sending uploadRequest")
-	}
-	return nil
-}
-
-func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
-	finfo, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	// Get file progress to see if upload has been attempted. If yes, resume from upload progress point and if not,
-	// create an upload progress file.
-	progressFilePath := filepath.Join(pt.progressDir, filepath.Base(dcFileName))
-	progressIndex, err := pt.getProgressFileIndex(progressFilePath)
-	if err != nil {
-		return err
-	}
-	if progressIndex == 0 {
-		if err := pt.createProgressFile(progressFilePath); err != nil {
-			return err
-		}
-	}
-
-	// Sets the next file pointer to the next sensordata message that needs to be uploaded.
-	for i := 0; i < progressIndex; i++ {
-		if _, err := getNextSensorUploadRequest(ctx, f); err != nil {
-			return err
-		}
-	}
-
-	// Check remaining data capture file contents so we know whether to continue upload process.
-	currentOffset, err := f.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-	if currentOffset == finfo.Size() {
-		return io.EOF
-	}
-	return nil
-}
-
-func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
-	select {
-	case <-ctx.Done():
-		return nil, context.Canceled
-	default:
-
-		// Get the next file data reading from file, check for an error.
-		next, err := readNextFileChunk(f)
-		if err != nil {
-			return nil, err
-		}
-		// Otherwise, return an UploadRequest and no error.
-		return &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_FileContents{
-				FileContents: next,
-			},
-		}, nil
-	}
-}
-
-func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
-	select {
-	case <-ctx.Done():
-		return nil, context.Canceled
-	default:
-
-		// Get the next sensor data reading from file, check for an error.
-		next, err := readNextSensorData(f)
-		if err != nil {
-			return nil, err
-		}
-		// Otherwise, return an UploadRequest and no error.
-		return &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_SensorContents{
-				SensorContents: next,
-			},
-		}, nil
-	}
-}
-
-func readNextFileChunk(f *os.File) (*v1.FileData, error) {
-	byteArr := make([]byte, uploadChunkSize)
-	numBytesRead, err := f.Read(byteArr)
-	if numBytesRead < uploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &v1.FileData{Data: byteArr}, nil
 }
