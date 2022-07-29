@@ -63,21 +63,21 @@ type Base interface {
 	// MoveStraight moves the robot straight a given distance at a given speed.
 	// If a distance or speed of zero is given, the base will stop.
 	// This method blocks until completed or cancelled
-	MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error
+	MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
 
 	// Spin spins the robot by a given angle in degrees at a given speed.
 	// If a speed of 0 the base will stop.
 	// This method blocks until completed or cancelled
-	Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error
+	Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error
 
-	SetPower(ctx context.Context, linear, angular r3.Vector) error
+	SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
 	// linear is in mmPerSec
 	// angular is in degsPerSec
-	SetVelocity(ctx context.Context, linear, angular r3.Vector) error
+	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
 	// Stop stops the base. It is assumed the base stops immediately.
-	Stop(ctx context.Context) error
+	Stop(ctx context.Context, extra map[string]interface{}) error
 
 	generic.Generic
 }
@@ -160,35 +160,35 @@ func (r *reconfigurableBase) Do(ctx context.Context, cmd map[string]interface{})
 }
 
 func (r *reconfigurableBase) MoveStraight(
-	ctx context.Context, distanceMm int, mmPerSec float64,
+	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveStraight(ctx, distanceMm, mmPerSec)
+	return r.actual.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
-func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Spin(ctx, angleDeg, degsPerSec)
+	return r.actual.Spin(ctx, angleDeg, degsPerSec, extra)
 }
 
-func (r *reconfigurableBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (r *reconfigurableBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.SetPower(ctx, linear, angular)
+	return r.actual.SetPower(ctx, linear, angular, extra)
 }
 
-func (r *reconfigurableBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (r *reconfigurableBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.SetVelocity(ctx, linear, angular)
+	return r.actual.SetVelocity(ctx, linear, angular, extra)
 }
 
-func (r *reconfigurableBase) Stop(ctx context.Context) error {
+func (r *reconfigurableBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Stop(ctx)
+	return r.actual.Stop(ctx, extra)
 }
 
 func (r *reconfigurableBase) UpdateAction(c *config.Component) config.UpdateActionType {
@@ -284,19 +284,20 @@ type Move struct {
 	MmPerSec   float64
 	AngleDeg   float64
 	DegsPerSec float64
+	Extra      map[string]interface{}
 }
 
 // DoMove performs the given move on the given base.
 func DoMove(ctx context.Context, move Move, base Base) error {
 	if move.AngleDeg != 0 {
-		err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec)
+		err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Extra)
 		if err != nil {
 			return err
 		}
 	}
 
 	if move.DistanceMm != 0 {
-		err := base.MoveStraight(ctx, move.DistanceMm, move.MmPerSec)
+		err := base.MoveStraight(ctx, move.DistanceMm, move.MmPerSec, move.Extra)
 		if err != nil {
 			return err
 		}

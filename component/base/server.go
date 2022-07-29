@@ -53,7 +53,7 @@ func (s *subtypeServer) MoveStraight(
 	if reqMmPerSec != 0 {
 		mmPerSec = reqMmPerSec
 	}
-	err = base.MoveStraight(ctx, int(req.DistanceMm), mmPerSec)
+	err = base.MoveStraight(ctx, int(req.DistanceMm), mmPerSec, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (s *subtypeServer) Spin(
 	if reqDegsPerSec != 0 {
 		degsPerSec = reqDegsPerSec
 	}
-	err = base.Spin(ctx, req.GetAngleDeg(), degsPerSec)
+	err = base.Spin(ctx, req.GetAngleDeg(), degsPerSec, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (s *subtypeServer) SetPower(
 		return nil, err
 	}
 
-	err = base.SetPower(ctx, convertVector(req.GetLinear()), convertVector(req.GetAngular()))
+	err = base.SetPower(ctx, convertVector(req.GetLinear()), convertVector(req.GetAngular()), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (s *subtypeServer) SetVelocity(
 		return nil, err
 	}
 
-	err = base.SetVelocity(ctx, convertVector(req.GetLinear()), convertVector(req.GetAngular()))
+	err = base.SetVelocity(ctx, convertVector(req.GetLinear()), convertVector(req.GetAngular()), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (s *subtypeServer) Stop(
 	if err != nil {
 		return nil, err
 	}
-	if err = base.Stop(ctx); err != nil {
+	if err = base.Stop(ctx, req.Extra.AsMap()); err != nil {
 		return nil, err
 	}
 	return &pb.StopResponse{}, nil

@@ -21,6 +21,7 @@ import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 
 import {
+  normalizeRemoteName,
   resourceNameToSubtypeString,
   resourceNameToString,
   filterResources,
@@ -164,6 +165,8 @@ export default {
       sensorNames: [],
       streamNames: [],
       cameraFrameIntervalId: null,
+      slamImageIntervalId: null,
+      slamPCDIntervalId: null,
       segmenterNames: [],
       segmenterParameterNames: [],
       segmenterParameters: {},
@@ -557,7 +560,8 @@ export default {
         if (err) {
           return;
         }
-        const streamContainer = document.querySelector(`#stream-${cameraName}`);
+        const streamName = normalizeRemoteName(cameraName);
+        const streamContainer = document.querySelector(`#stream-${streamName}`);
         if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
           streamContainer.querySelectorAll('video')[0].remove();
         }
@@ -580,7 +584,8 @@ export default {
           if (err) {
             return;
           }
-          const streamContainer = document.querySelector(`#stream-${cameraName}`);
+          const streamName = normalizeRemoteName(cameraName)
+          const streamContainer = document.querySelector(`#stream-${streamName}`);
           if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
             streamContainer.querySelectorAll('video')[0].remove();
           }
@@ -617,6 +622,19 @@ export default {
 
       this.getSegmenterNames();
     },
+    updateSLAMImageRefreshFrequency(time) {
+      clearInterval(this.slamImageIntervalId);
+      if (time === 'manual') {
+        this.viewSLAMImageMap();
+      } else if (time === 'off') {
+        // do nothing
+      } else {
+        this.viewSLAMImageMap();
+        this.slamImageIntervalId = window.setInterval(() => {
+          this.viewSLAMImageMap();
+        }, Number(time) * 1000);
+      }
+    },
     viewSLAMImageMap() {
       const req = new slamApi.GetMapRequest();
       req.setName('UI');
@@ -631,19 +649,36 @@ export default {
         this.imageMapTemp = URL.createObjectURL(blob);
       });
     },
-    viewSLAMPCDMap() {
-      const req = new slamApi.GetMapRequest();
-      req.setName('UI');
-      req.setMimeType('pointcloud/pcd');
-      this.initPCDIfNeeded();
-      slamService.getMap(req, {}, (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          return;
+    updateSLAMPCDRefreshFrequency(time, load) {
+      clearInterval(this.slamPCDIntervalId);
+      if (time === 'manual') {
+        this.viewSLAMPCDMap(load);
+      } else if (time === 'off') {
+        // do nothing
+      } else {
+        this.viewSLAMPCDMap(load);
+        this.slamPCDIntervalId = window.setInterval(() => {
+          this.viewSLAMPCDMap();
+        }, Number(time) * 1000);
+      }
+    },
+    viewSLAMPCDMap(load) {
+      this.$nextTick(() => {
+        const req = new slamApi.GetMapRequest();
+        req.setName('UI');
+        req.setMimeType('pointcloud/pcd');
+        if (load) {
+          this.initPCD();
         }
-        const pcObject = resp.getPointCloud();
-        this.fullcloud = pcObject.getPointCloud_asB64();
-        this.pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
+        slamService.getMap(req, {}, (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (err) {
+            return;
+          }
+          const pcObject = resp.getPointCloud();
+          this.fullcloud = pcObject.getPointCloud_asB64();
+          this.pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
+        });
       });
     },
     getReadings(sensorNames) {
@@ -847,7 +882,8 @@ export default {
       }
     },
     viewCamera(name) {
-      const streamContainer = document.querySelector(`#stream-${name}`);
+      const streamName = normalizeRemoteName(name);
+      const streamContainer = document.querySelector(`#stream-${streamName}`);
       const req = new streamApi.AddStreamRequest();
       req.setName(name);
       streamService.addStream(req, {}, (err, resp) => {
@@ -1079,6 +1115,9 @@ export default {
       if (pcdGlobal) {
         return;
       }
+      initPCD();
+    },
+    initPCD() {
       this.pcdClick.enable = true;
 
       const sphereGeometry = new THREE.SphereGeometry(0.009, 32, 32);
@@ -2106,8 +2145,8 @@ function setBoundingBox(box, centerPoint) {
     <Slam
       v-if="filterResources(resources, 'rdk', 'service', 'slam').length > 0"
       :image-map="imageMapTemp"
-      @refresh-image-map="viewSLAMImageMap"
-      @refresh-pcd-map="viewSLAMPCDMap"
+      @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
+      @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
     />
   </div>
 </template>
