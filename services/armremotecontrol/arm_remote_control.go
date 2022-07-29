@@ -10,21 +10,20 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
 // constants
 const (
-	jointByJointControl = controlMode(iota) // control modes
-	endPointControl
 	noop = controllerEvent(iota) // controller events
 	leftJoystick
 	rightJoystick
@@ -47,6 +46,9 @@ var Name = resource.NameFromSubtype(Subtype, "")
 func init() {
 	registry.RegisterService(Subtype, registry.Service{Constructor: New})
 	cType := config.ServiceType(SubtypeName)
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+	})
 
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
@@ -62,63 +64,56 @@ func init() {
 }
 
 // ControlMode is the control type for the remote control.
-type controlMode uint8
+type controlMode string
 type controllerEvent uint8
 
 // Config describes how to configure the service.
 type Config struct {
-	ArmName               string            `json:"arm"`
-	InputControllerName   string            `json:"input_controller"`
-	ArmSpeed              string            `json:"arm_speed"`
-	ArmStep               float64           `json:"arm_step"`
-	StartingArmMode       string            `json:"starting_arm_mode"`
-	DefaultJointStep      float64           `json:"default_joint_step"`
-	ControllerSensitivity int               `json:"controller_sensitivity"`
-	ControllerModes       []controllerModes `json:"controller_modes"`
+	ArmName               string           `json:"arm"`
+	InputControllerName   string           `json:"input_controller"`
+	DefaultJointStep      float64          `json:"default_joint_step"`
+	DefaultPoseStep       float64          `json:"default_pose_step"`
+	ControllerSensitivity float64          `json:"controller_sensitivity"`
+	ControllerModes       []controllerMode `json:"controller_modes"`
 }
 
-type controllerModes struct {
-	ModeName string             `json:"mode_name"`
-	Mappings controllerMappings `json:"mappings"`
+type controllerMode struct {
+	ModeName string            `json:"mode_name"`
+	Mappings controllerMapping `json:"mappings"`
 }
 
-type controllerMappings struct {
-	JointOne   string `json:"joint_one"`
-	JointTwo   string `json:"joint_two"`
-	JointThree string `json:"joint_three"`
-	JointFour  string `json:"joint_four"`
-	JointFive  string `json:"joint_five"`
-	JointSix   string `json:"joint_six"`
-	LinearX    string `json:"linear_x"`
-	LinearY    string `json:"linear_y"`
-	LinearZ    string `json:"linear_z"`
-	RotationX  string `json:"rotation_x"`
-	RotationY  string `json:"rotation_y"`
-	RotationZ  string `json:"rotation_z"`
-}
-
-// RemoteService is the structure of the remote service.
-type remoteService struct {
-	arm             arm.Arm
-	inputController input.Controller
-	config          *Config
-	logger          golog.Logger
+type controllerMapping struct {
+	JointOne   string `json:"joint_one,omitempty"`
+	JointTwo   string `json:"joint_two,omitempty"`
+	JointThree string `json:"joint_three,omitempty"`
+	JointFour  string `json:"joint_four,omitempty"`
+	JointFive  string `json:"joint_five,omitempty"`
+	JointSix   string `json:"joint_six,omitempty"`
+	LinearX    string `json:"linear_x,omitempty"`
+	LinearY    string `json:"linear_y,omitempty"`
+	LinearZ    string `json:"linear_z,omitempty"`
+	RotationX  string `json:"rotation_x,omitempty"`
+	RotationY  string `json:"rotation_y,omitempty"`
+	RotationZ  string `json:"rotation_z,omitempty"`
+	Theta      string `json:"theta,omitempty"`
 }
 
 // controllerState used to manage controller for arm
 // TODO: can we remove button & arrow maps
 type controllerState struct {
-	event   controllerEvent
-	mode    controlMode
-	axis    r3.Vector // capture joystick events
-	buttons map[input.Control]bool
-	arrows  map[input.Control]float64
+	event      controllerEvent
+	curModeIdx int
+	mapping    controllerMapping
+	axis       r3.Vector // capture joystick events
+	buttons    map[input.Control]bool
+	arrows     map[input.Control]float64
 }
 
+// state of control, event, axis, mode, command
 func (cs *controllerState) init() {
 	cs.event = noop
 	cs.axis = r3.Vector{}
-	cs.mode = jointByJointControl
+	cs.curModeIdx = 0
 	cs.buttons = map[input.Control]bool{
 		input.ButtonSouth:  false,
 		input.ButtonEast:   false,
@@ -129,6 +124,17 @@ func (cs *controllerState) init() {
 		input.ButtonSelect: false,
 		input.ButtonStart:  false,
 		input.ButtonMenu:   false,
+	}
+}
+
+// how to do mapping
+func (cs *controllerState) set(event input.Event, remoteConfig Config) {
+	switch event.Event {
+	case input.ButtonPress, input.ButtonRelease:
+		cs.event = buttonPressed
+		cs.buttons[event.Control] = !cs.buttons[event.Control]
+	case input.PositionChangeAbs:
+		break
 	}
 }
 
@@ -157,6 +163,16 @@ func (cs *controllerState) isInvalid(sensitivity float64) bool {
 
 	return true
 }
+
+// RemoteService is the structure of the remote service.
+type remoteService struct {
+	arm             arm.Arm
+	inputController input.Controller
+	config          *Config
+	logger          golog.Logger
+}
+
+var _ = resource.Reconfigurable(&reconfigurableArmRemoteControl{})
 
 // New returns a new remote control service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
@@ -264,6 +280,57 @@ func (svc *remoteService) controllerInputs() []input.Control {
 	}
 }
 
+func (svc *remoteService) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
+	// setup controller state to execute new arm control
+	processControllerEvent(state, event)
+	// execute stated arm control
+	if err := processArmControl(ctx, svc, state); err != nil {
+		return err
+	}
+	// reset state
+	state.reset()
+	return nil
+}
+
+type reconfigurableArmRemoteControl struct {
+	mu     sync.RWMutex
+	actual *remoteService
+}
+
+func (svc *reconfigurableArmRemoteControl) Close(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return viamutils.TryClose(ctx, svc.actual)
+}
+
+func (svc *reconfigurableArmRemoteControl) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableArmRemoteControl)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := viamutils.TryClose(ctx, &svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
+}
+
+// WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	if reconfigurable, ok := s.(*reconfigurableArmRemoteControl); ok {
+		return reconfigurable, nil
+	}
+
+	svc, ok := s.(remoteService)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(&remoteService{}, s)
+	}
+
+	return &reconfigurableArmRemoteControl{actual: &svc}, nil
+}
+
 func processCommand(ctx context.Context, svc *remoteService, state *controllerState) error {
 	if state.buttons[input.ButtonSouth] {
 		svc.logger.Info("arm stopping")
@@ -271,12 +338,9 @@ func processCommand(ctx context.Context, svc *remoteService, state *controllerSt
 	} else if state.buttons[input.ButtonEast] {
 		svc.logger.Debug("attempting named pose preview")
 	} else if state.buttons[input.ButtonWest] {
-		svc.logger.Info("switching joint control mode")
-		if state.mode == jointByJointControl {
-			state.mode = endPointControl
-		} else if state.mode == endPointControl {
-			state.mode = jointByJointControl
-		}
+		prevMode := svc.config.ControllerModes[state.curModeIdx].ModeName
+		state.curModeIdx += 1 % len(svc.config.ControllerModes)
+		svc.logger.Infof("switching joint control mode from %s to %s", prevMode, svc.config.ControllerModes[state.curModeIdx].ModeName)
 	} else if state.buttons[input.ButtonNorth] {
 		svc.logger.Debug("attempting named pose execute")
 	} else if state.buttons[input.ButtonLT] {
@@ -294,7 +358,7 @@ func processCommand(ctx context.Context, svc *remoteService, state *controllerSt
 }
 
 func processArmEndPoint(ctx context.Context, svc *remoteService, state *controllerState) error {
-	if state.isInvalid(5) {
+	if state.isInvalid(svc.config.ControllerSensitivity) {
 		return nil
 	}
 
@@ -302,22 +366,23 @@ func processArmEndPoint(ctx context.Context, svc *remoteService, state *controll
 	if err != nil {
 		return err
 	}
-	newPose := &commonpb.Pose{}
+
+	poseStep := svc.config.DefaultPoseStep
 
 	switch state.event {
 	case leftJoystick:
-		newPose.Z = currentPose.Z + (math.Round(state.axis.Z) * 10)
+		currentPose.Z += (math.Round(state.axis.Z) * poseStep)
 	case rightJoystick:
-		newPose.Y = currentPose.Y + (math.Round(state.axis.X) * 10)
-		newPose.X = currentPose.X + (math.Round(state.axis.Y) * 10)
+		currentPose.Y += (math.Round(state.axis.X) * poseStep)
+		currentPose.X += (math.Round(state.axis.Y) * poseStep)
 	case directionalHat:
-		newPose.OZ = currentPose.OZ + (math.Round(state.axis.X) * 10)
-		newPose.OY = currentPose.OY + (math.Round(state.axis.Y) * 10)
+		currentPose.OZ += (math.Round(state.axis.X) * poseStep)
+		currentPose.OY += (math.Round(state.axis.Y) * poseStep)
 	case triggerZ:
-		newPose.OX = currentPose.OX + (math.Round(state.axis.Z) * 10)
+		currentPose.OX += (math.Round(state.axis.Z) * poseStep)
 	}
 
-	err = svc.arm.MoveToPosition(ctx, newPose, nil, nil)
+	err = svc.arm.MoveToPosition(ctx, currentPose, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -325,7 +390,7 @@ func processArmEndPoint(ctx context.Context, svc *remoteService, state *controll
 }
 
 func processArmJoint(ctx context.Context, svc *remoteService, state *controllerState) error {
-	if state.isInvalid(5) {
+	if state.isInvalid(svc.config.ControllerSensitivity) {
 		return nil
 	}
 
@@ -334,16 +399,18 @@ func processArmJoint(ctx context.Context, svc *remoteService, state *controllerS
 		return err
 	}
 
+	jointStep := svc.config.DefaultJointStep
+
 	switch state.event {
 	case leftJoystick:
-		jointPositions.Values[0] += (math.Round(state.axis.X) * 10)
-		jointPositions.Values[1] += (math.Round(state.axis.Y) * 10)
+		jointPositions.Values[0] += (math.Round(state.axis.X) * jointStep)
+		jointPositions.Values[1] += (math.Round(state.axis.Y) * jointStep)
 	case rightJoystick:
-		jointPositions.Values[2] += (math.Round(state.axis.Y) * 10)
-		jointPositions.Values[3] += (math.Round(state.axis.X) * 10)
+		jointPositions.Values[2] += (math.Round(state.axis.Y) * jointStep)
+		jointPositions.Values[3] += (math.Round(state.axis.X) * jointStep)
 	case directionalHat:
-		jointPositions.Values[4] += (math.Round(state.axis.X) * 10)
-		jointPositions.Values[5] += (math.Round(state.axis.Y) * 10)
+		jointPositions.Values[4] += (math.Round(state.axis.X) * jointStep)
+		jointPositions.Values[5] += (math.Round(state.axis.Y) * jointStep)
 	case triggerZ:
 		break
 	}
@@ -409,16 +476,4 @@ func processControllerEvent(state *controllerState, event input.Event) {
 		input.ButtonMenu, input.ButtonSelect, input.ButtonStart:
 		state.event = buttonPressed
 	}
-}
-
-func (svc *remoteService) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
-	// setup controller state to execute new arm control
-	processControllerEvent(state, event)
-	// execute stated arm control
-	if err := processArmControl(ctx, svc, state); err != nil {
-		return err
-	}
-	// reset state
-	state.reset()
-	return nil
 }
