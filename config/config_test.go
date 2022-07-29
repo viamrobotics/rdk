@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"net"
 	"os"
 	"testing"
 
@@ -230,6 +231,12 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `bind_address`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `missing port`)
+
+	invalidNetwork.Network.BindAddress = "woop"
+	invalidNetwork.Network.Listener = &net.TCPListener{}
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `only set one of`)
 
 	invalidAuthConfig := config.Config{
 		Auth: config.AuthConfig{},

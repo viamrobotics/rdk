@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -727,7 +726,7 @@ func TestManagerNewComponent(t *testing.T) {
 	}
 	diff, err := config.DiffConfigs(&config.Config{}, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, robotForRemote.manager.updateResourceGraph(diff, func(name string) (resource.Name, bool) {
+	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {
 			if c.Name == name {
 				return c.ResourceName(), true
@@ -755,7 +754,7 @@ func TestManagerNewComponent(t *testing.T) {
 		ConvertedAttributes: &board.Config{},
 		DependsOn:           []string{"arm3"},
 	})
-	err = robotForRemote.manager.updateResourceGraph(diff, func(name string) (resource.Name, bool) {
+	err = robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {
 			if c.Name == name {
 				return c.ResourceName(), true
@@ -1347,11 +1346,11 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,

@@ -138,7 +138,7 @@ type dataManagerService struct {
 	syncIntervalMins          float64
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
-	uploadFunc                uploadFn
+	uploadFunc                uploadFunc
 	updateCollectorsCancelFn  func()
 	additionalSyncPaths       []string
 	partID                    string
@@ -324,7 +324,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) {
+func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) error {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -334,7 +334,11 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 
 	svc.cancelSyncBackgroundRoutine()
 
-	svc.syncer = newSyncer(svc.logger, svc.uploadFunc, svc.partID)
+	syncer, err := newSyncer(svc.logger, svc.uploadFunc, svc.partID)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize new syncer")
+	}
+	svc.syncer = syncer
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
@@ -359,6 +363,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 		// Kick off background routine to periodically sync files.
 		svc.startSyncBackgroundRoutine(intervalMins)
 	}
+	return nil
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
@@ -474,15 +479,19 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
-		svc.initOrUpdateSyncer(ctx, 0)
+		if err := svc.initOrUpdateSyncer(ctx, 0); err != nil {
+			return err
+		}
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
 		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
 		// If the sync config has changed, update the syncer.
 		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
-		svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins); err != nil {
+			return err
+		}
 	}
 
 	// Initialize or add a collector based on changes to the component configurations.

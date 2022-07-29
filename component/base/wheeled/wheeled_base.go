@@ -73,13 +73,13 @@ type wheeledBase struct {
 	opMgr operation.SingleOperationManager
 }
 
-func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
-		err := base.Stop(ctx)
+		err := base.Stop(ctx, nil)
 		if err != nil {
 			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
 		}
@@ -92,13 +92,13 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
-func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
 	// Stop the motors if the speed or distance are 0
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
-		err := base.Stop(ctx)
+		err := base.Stop(ctx, nil)
 		if err != nil {
 			return errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
 		}
@@ -123,7 +123,7 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-		return multierr.Combine(err, base.Stop(ctx))
+		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 	return nil
 }
@@ -154,18 +154,19 @@ func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float
 	return left, right
 }
 
-func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 	l, r := base.velocityMath(linear.Y, angular.Z)
 	return base.runAll(ctx, l, 0, r, 0)
 }
 
-func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 
 	lPower, rPower := base.setPowerMath(linear, angular)
 
 	// Send motor commands
+	// TODO[RSDK-328] Fix these when motor extra params are ready
 	var err error
 	for _, m := range base.left {
 		err = multierr.Combine(err, m.SetPower(ctx, lPower))
@@ -176,7 +177,7 @@ func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector
 	}
 
 	if err != nil {
-		return multierr.Combine(err, base.Stop(ctx))
+		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 
 	return nil
@@ -248,12 +249,12 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 
 		if anyOff {
 			// once one motor turns off, we turn them all off
-			return base.Stop(ctx)
+			return base.Stop(ctx, nil)
 		}
 	}
 }
 
-func (base *wheeledBase) Stop(ctx context.Context) error {
+func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	var err error
 	for _, m := range base.allMotors {
 		err = multierr.Combine(err, m.Stop(ctx))
@@ -275,7 +276,7 @@ func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 }
 
 func (base *wheeledBase) Close(ctx context.Context) error {
-	return base.Stop(ctx)
+	return base.Stop(ctx, nil)
 }
 
 func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
