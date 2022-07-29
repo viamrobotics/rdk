@@ -2,7 +2,6 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -58,8 +57,10 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			return context.Canceled
 		case <-progress:
 			uploadResponse := <-progress
-			requestsWritten := uploadResponse.GetRequestsWritten()
-			fmt.Println("TODO: deal with requestsWritten: ", requestsWritten)
+			if err := s.progressTracker.updateProgressFileIndex(filepath.Join(s.progressTracker.progressDir, filepath.
+				Base(f.Name())), int(uploadResponse.GetRequestsWritten())); err != nil {
+				return err
+			}
 		default:
 			// Get the next UploadRequest from the file.
 			uploadReq, err := getNextSensorUploadRequest(ctx, f)
@@ -78,10 +79,6 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			if err = client.Send(uploadReq); err != nil {
 				return errors.Wrap(err, "error while sending uploadRequest")
 			}
-			if err := s.progressTracker.incrementProgressFileIndex(filepath.Join(s.progressTracker.progressDir, filepath.
-				Base(f.Name()))); err != nil {
-				return err
-			}
 		}
 		if eof {
 			break
@@ -93,9 +90,8 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 	}
 
 	// Close stream and receive response.
-	if _, err := client.Recv(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-			"sync service backend")
+	if err := client.CloseSend(); err != nil {
+		return errors.Wrap(err, "error when closing the stream")
 	}
 
 	return nil
