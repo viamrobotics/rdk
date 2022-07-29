@@ -18,6 +18,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         control: './src/main.js',
+        service: './src/service.js',
         api: './src/api.js',
       },
       output: {
