@@ -695,7 +695,7 @@ func (c *AppClient) StartRobotPartShell(
 
 	var found *resource.Name
 	for _, name := range robotClient.ResourceNames() {
-		if name == shell.Name {
+		if name.Subtype == shell.Subtype {
 			nameCopy := name
 			found = &nameCopy
 			break
