@@ -10,7 +10,9 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 )
 
-func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient, md *v1.UploadMetadata, f *os.File) error {
+func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient,
+	md *v1.UploadMetadata, f *os.File,
+) error {
 	err := initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), md)
 	if errors.Is(err, io.EOF) {
 		return nil

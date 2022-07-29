@@ -219,5 +219,4 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 	default:
 		return errors.New("no data type specified in upload metadata")
 	}
-
 }
