@@ -66,6 +66,7 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			uploadReq, err := getNextSensorUploadRequest(ctx, f)
 			// If the error is EOF, break from loop.
 			if errors.Is(err, io.EOF) {
+				eof = true
 				break
 			}
 			if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
@@ -81,6 +82,7 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			}
 		}
 		if eof {
+			eof = false
 			break
 		}
 	}
