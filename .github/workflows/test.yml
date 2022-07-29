@@ -108,7 +108,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_pi, build_and_test, special]
+    needs: [test_pi, build_and_test]
     runs-on: [x64, qemu-host]
     if: always()
     steps:
