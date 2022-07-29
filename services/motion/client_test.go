@@ -153,7 +153,7 @@ func TestClient(t *testing.T) {
 	t.Run("motion client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, "motion1", logger)
+		client := resourceSubtype.RPCClient(context.Background(), conn, testMotionServiceName, logger)
 		client2, ok := client.(motion.Service)
 		test.That(t, ok, test.ShouldBeTrue)
 
