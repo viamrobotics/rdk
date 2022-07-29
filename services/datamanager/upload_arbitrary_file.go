@@ -39,8 +39,8 @@ func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncServi
 			return err
 		}
 
-		if err = sendReq(client, uploadReq); err != nil {
-			return err
+		if err = client.Send(uploadReq); err != nil {
+			return errors.Wrap(err, "error while sending uploadRequest")
 		}
 	}
 
@@ -87,11 +87,4 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 		return nil, err
 	}
 	return &v1.FileData{Data: byteArr}, nil
-}
-
-func sendReq(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest) error {
-	if err := client.Send(uploadReq); err != nil {
-		return errors.Wrap(err, "error while sending uploadRequest")
-	}
-	return nil
 }

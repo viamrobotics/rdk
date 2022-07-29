@@ -47,7 +47,11 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			return err
 		}
 
-		if err = sendReqAndUpdateProgress(client, uploadReq, s.progressTracker, f.Name()); err != nil {
+		if err = client.Send(uploadReq); err != nil {
+			return errors.Wrap(err, "error while sending uploadRequest")
+		}
+		if err := s.progressTracker.incrementProgressFileIndex(filepath.Join(s.progressTracker.progressDir, filepath.
+			Base(f.Name()))); err != nil {
 			return err
 		}
 	}
@@ -119,16 +123,4 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 			},
 		}, nil
 	}
-}
-
-func sendReqAndUpdateProgress(client v1.DataSyncService_UploadClient, uploadReq *v1.UploadRequest, pt progressTracker,
-	dcFileName string,
-) error {
-	if err := client.Send(uploadReq); err != nil {
-		return errors.Wrap(err, "error while sending uploadRequest")
-	}
-	if err := pt.incrementProgressFileIndex(filepath.Join(pt.progressDir, filepath.Base(dcFileName))); err != nil {
-		return err
-	}
-	return nil
 }
