@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	objdet "go.viam.com/rdk/vision/objectdetection"
@@ -93,15 +94,19 @@ func (c *client) GetDetectionsFromCamera(ctx context.Context, cameraName, detect
 	return detections, nil
 }
 
-func (c *client) GetDetections(ctx context.Context, imgBytes []byte, width, height int,
-	mimeType, detectorName string,
+func (c *client) GetDetections(ctx context.Context, img image.Image, detectorName string,
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetections")
 	defer span.End()
+	mimeType := utils.MimeTypeJPEG
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetDetections(ctx, &pb.GetDetectionsRequest{
 		Image:    imgBytes,
-		Width:    int64(width),
-		Height:   int64(height),
+		Width:    int64(img.Bounds().Dx()),
+		Height:   int64(img.Bounds().Dy()),
 		MimeType: mimeType,
 	})
 	if err != nil {
