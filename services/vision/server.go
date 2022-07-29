@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -91,7 +92,11 @@ func (server *subtypeServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.GetDetections(ctx, req.Image, int(req.Width), int(req.Height), req.MimeType, req.DetectorName)
+	img, err := rimage.DecodeImage(ctx, req.Image, req.MimeType, int(req.Width), int(req.Height))
+	if err != nil {
+		return nil, err
+	}
+	detections, err := svc.GetDetections(ctx, img, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
