@@ -197,7 +197,7 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	return md, nil
 }
 
-func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+func (s *syncer) uploadFileUnidirectional(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
 	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
@@ -274,15 +274,7 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 		return err
 	}
 
-	// Close stream and receive response.
-
-	// CLIENT-SIDE STREAMING
-	// if _, err = client.CloseAndRecv(); err != nil {
-	// 	return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-	// 		"sync service backend")
-	// }
-
-	// BIDIRECTIONAL STREAMING
+	// Close the send direction of the stream.
 	if err = client.CloseSend(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
 			"sync service backend")
