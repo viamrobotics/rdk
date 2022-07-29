@@ -442,39 +442,6 @@ func cleanAppImageEnv() error {
 	return nil
 }
 
-// newProcesses constructs all processes defined.
-func (manager *resourceManager) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) {
-	// If we're in an AppImage, clean the environment before external execution.
-	err := cleanAppImageEnv()
-	if err != nil {
-		manager.logger.Errorw("failed to properly clean AppImage", "error", err)
-	}
-
-	for _, procConf := range processes {
-		if err := manager.newProcess(ctx, procConf); err != nil {
-			manager.logger.Errorw("failed to create new process", "error", err)
-		}
-	}
-
-	// TODO(RSDK-470): This should not be called multiple times.
-	err = manager.processManager.Start(ctx)
-	if err != nil {
-		manager.logger.Errorw("there are process(es) that failed to start", "error", err)
-
-		// TODO(RSDK-470): This is necessary because a failed Start is a failed process manager
-		// and can no longer be used/salvaged.
-		manager.processManager = nil
-		manager.processManager = pexec.NewProcessManager(manager.logger)
-	}
-}
-
-func (manager *resourceManager) newProcess(ctx context.Context, procConf pexec.ProcessConfig) error {
-	if _, err := manager.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
-		return err
-	}
-	return nil
-}
-
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (manager *resourceManager) processRemote(ctx context.Context,
 	config config.Remote,
@@ -508,36 +475,6 @@ func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
 		return part, ok
 	}
 	return nil, false
-}
-
-func (manager *resourceManager) UpdateConfig(ctx context.Context,
-	added *config.Config,
-	modified *config.ModifiedConfigDiff,
-) (PartsMergeResult, error) {
-	var leftovers PartsMergeResult
-	replacedProcesses, err := manager.updateProcesses(ctx, added.Processes, modified.Processes)
-	leftovers.ReplacedProcesses = replacedProcesses
-	if err != nil {
-		return leftovers, err
-	}
-	return leftovers, nil
-}
-
-func (manager *resourceManager) updateProcesses(ctx context.Context,
-	addProcesses []pexec.ProcessConfig,
-	modifiedProcesses []pexec.ProcessConfig,
-) ([]pexec.ManagedProcess, error) {
-	var replacedProcess []pexec.ManagedProcess
-	manager.newProcesses(ctx, addProcesses)
-	for _, p := range modifiedProcesses {
-		old, ok := manager.processManager.ProcessByID(p.ID)
-		if !ok {
-			return replacedProcess, errors.Errorf("cannot replace non-existing process %q", p.ID)
-		}
-		manager.newProcesses(ctx, []pexec.ProcessConfig{p})
-		replacedProcess = append(replacedProcess, old)
-	}
-	return replacedProcess, nil
 }
 
 func (manager *resourceManager) reconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
@@ -749,7 +686,8 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 // updateResourceGraph using the difference between current config
 // and next we create resource wrappers to be consumed ny completeConfig later on
 // Ideally at the end of this function we should have a complete graph representation of the configuration.
-func (manager *resourceManager) updateResourceGraph(
+func (manager *resourceManager) updateResources(
+	ctx context.Context,
 	config *config.Diff,
 	fn translateToName,
 ) error {
@@ -779,6 +717,31 @@ func (manager *resourceManager) updateResourceGraph(
 	for _, r := range config.Modified.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, r, []string{}, fn))
+	}
+	// processes are not added into the resource tree as they belong to a process manager
+	if err := cleanAppImageEnv(); err != nil {
+		manager.logger.Errorw("error cleaning up app image environement", "error", err)
+	}
+	for _, p := range config.Added.Processes {
+		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
+		if err != nil {
+			manager.logger.Errorw("error while adding process, skipping", "process", p.ID, "error", err)
+			continue
+		}
+	}
+	for _, p := range config.Modified.Processes {
+		if oldProc, ok := manager.processManager.RemoveProcessByID(p.ID); ok {
+			if err := oldProc.Stop(); err != nil {
+				manager.logger.Errorw("couldn't stop process", "process", p.ID, "error", err)
+			}
+		} else {
+			manager.logger.Errorw("couldn't find modified process", "process", p.ID)
+		}
+		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
+		if err != nil {
+			manager.logger.Errorw("error while changing process, skipping", "process", p.ID, "error", err)
+			continue
+		}
 	}
 	return allErrs
 }
@@ -816,14 +779,14 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 	filtered := newResourceManager(manager.opts, logger)
 
 	for _, conf := range conf.Processes {
-		proc, ok := manager.processManager.ProcessByID(conf.ID)
+		proc, ok := manager.processManager.RemoveProcessByID(conf.ID)
 		if !ok {
+			manager.logger.Errorw("couldn't remove process", "process", conf.ID)
 			continue
 		}
 		if _, err := filtered.processManager.AddProcess(ctx, proc, false); err != nil {
-			return nil, err
+			manager.logger.Errorw("couldn't add process", "process", conf.ID, "error", err)
 		}
-		manager.processManager.RemoveProcessByID(conf.ID)
 	}
 	for _, conf := range conf.Remotes {
 		remoteName := fromRemoteNameToRemoteNodeName(conf.Name)
