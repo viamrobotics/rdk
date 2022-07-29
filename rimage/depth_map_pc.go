@@ -44,7 +44,7 @@ func (dm *dmPointCloudAdapter) Size() int {
 }
 
 func (dm *dmPointCloudAdapter) MetaData() pointcloud.MetaData {
-	//TODO(DATA-314): this metadata is wrong, limits are all 0
+	// TODO(DATA-314): this metadata is wrong, limits are all 0
 	return dm.metadata
 }
 
