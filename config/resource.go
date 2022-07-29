@@ -310,6 +310,7 @@ func (config *Service) Validate(path string) error {
 	if config.Type == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "type")
 	}
+	// Will enable this check when default names have been provided for sensors/datamanager/vision services
 	// Validate that all serviice have name
 	// config.Name == "" {
 	// 	return utils.NewConfigValidationFieldRequiredError(path, "name")

@@ -200,7 +200,8 @@ func (n Name) String() string {
 	if n.Remote != "" {
 		name = fmt.Sprintf("%s/%s:", name, n.Remote)
 	}
-	if n.Name != "" && (n.ResourceType != ResourceTypeService || SubtypeName(n.Subtype.String()) == SubtypeName("motion")) {
+	// Can remove when default services are handled
+	if n.Name != "" && (n.ResourceType != ResourceTypeService) {
 		if n.Remote != "" {
 			name = fmt.Sprintf("%s%s", name, n.Name)
 		} else {
