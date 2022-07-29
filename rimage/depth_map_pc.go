@@ -13,6 +13,10 @@ func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 	pc := &dmPointCloudAdapter{
 		dm: dm,
 		p:  p,
+		metadata: pointcloud.MetaData{
+			HasColor: false,
+			HasValue: false,
+		},
 	}
 
 	for x := 0; x < dm.Width(); x++ {
@@ -29,9 +33,10 @@ func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 }
 
 type dmPointCloudAdapter struct {
-	dm   *DepthMap
-	p    Projector
-	size int
+	dm       *DepthMap
+	p        Projector
+	size     int
+	metadata pointcloud.MetaData
 }
 
 func (dm *dmPointCloudAdapter) Size() int {
@@ -39,7 +44,8 @@ func (dm *dmPointCloudAdapter) Size() int {
 }
 
 func (dm *dmPointCloudAdapter) MetaData() pointcloud.MetaData {
-	panic(1)
+	//TODO(DATA-314): this metadata is wrong, limits are all 0
+	return dm.metadata
 }
 
 func (dm *dmPointCloudAdapter) Set(p r3.Vector, d pointcloud.Data) error {
