@@ -87,7 +87,7 @@ func TestServerMove(t *testing.T) {
 		motion.Named(testMotionServiceName):  injectMS,
 		motion.Named(testMotionServiceName2): injectMS,
 	}
-	server, err = newServer(omMap)
+	server, _ = newServer(omMap)
 	injectMS.MoveFunc = func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -107,5 +107,4 @@ func TestServerMove(t *testing.T) {
 	resp, err = server.Move(context.Background(), grabRequest2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
-
 }
