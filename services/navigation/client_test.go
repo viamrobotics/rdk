@@ -171,7 +171,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client test 2 for working navigation service", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		dialedClient := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
+		dialedClient := resourceSubtype.RPCClient(context.Background(), conn, testSvcName1, logger)
 		workingDialedClient, ok := dialedClient.(navigation.Service)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -212,7 +212,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client test for failing navigation service", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		dialedClient := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
+		dialedClient := resourceSubtype.RPCClient(context.Background(), conn, testSvcName1, logger)
 		failingDialedClient, ok := dialedClient.(navigation.Service)
 		test.That(t, ok, test.ShouldBeTrue)
 

@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/navigation"
@@ -577,7 +578,18 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return rdkutils.NewUnexpectedTypeError(myB, rdkutils.UnwrapProxy(b))
 	}
 
-	navServiceTemp, err := myRobot.ResourceByName(navigation.Name)
+	var found *resource.Name
+	for _, name := range myRobot.ResourceNames() {
+		if name.Subtype == navigation.Subtype {
+			nameCopy := name
+			found = &nameCopy
+			break
+		}
+	}
+	if found == nil {
+		return errors.Wrapf(err, "no navigation service")
+	}
+	navServiceTemp, err := myRobot.ResourceByName(navigation.Named(found.ShortName()))
 	if err != nil {
 		return errors.Wrapf(err, "no navigation service")
 	}

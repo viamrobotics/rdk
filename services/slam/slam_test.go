@@ -42,6 +42,11 @@ const (
 	timePadding = 5
 )
 
+const (
+	testSlamServiceName  = "slam1"
+	testSlamServiceName2 = "slam2"
+)
+
 var cam = &inject.Camera{}
 
 func createFakeSLAMLibraries() {

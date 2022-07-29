@@ -26,7 +26,7 @@ import (
 func TestServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
 	resourceMap := map[resource.Name]interface{}{
-		slam.Name: injectSvc,
+		slam.Named(testSlamServiceName): injectSvc,
 	}
 	injectSubtypeSvc, err := subtype.New(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -41,7 +41,7 @@ func TestServer(t *testing.T) {
 		}
 
 		reqPos := &pb.GetPositionRequest{
-			Name: "viam",
+			Name: testSlamServiceName,
 		}
 		respPos, err := slamServer.GetPosition(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
@@ -64,7 +64,7 @@ func TestServer(t *testing.T) {
 		}
 
 		reqMap := &pb.GetMapRequest{
-			Name:               "viam",
+			Name:               testSlamServiceName,
 			MimeType:           utils.MimeTypePCD,
 			CameraPosition:     referenceframe.PoseInFrameToProtobuf(pSucc).Pose,
 			IncludeRobotMarker: true,
@@ -74,7 +74,7 @@ func TestServer(t *testing.T) {
 		test.That(t, respMap.MimeType, test.ShouldEqual, utils.MimeTypePCD)
 
 		reqMap = &pb.GetMapRequest{
-			Name:               "viam",
+			Name:               testSlamServiceName,
 			MimeType:           utils.MimeTypeJPEG,
 			CameraPosition:     referenceframe.PoseInFrameToProtobuf(pSucc).Pose,
 			IncludeRobotMarker: true,
@@ -90,7 +90,7 @@ func TestServer(t *testing.T) {
 		}
 
 		req := &pb.GetPositionRequest{
-			Name: "viam",
+			Name: testSlamServiceName,
 		}
 		resp, err := slamServer.GetPosition(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -113,7 +113,7 @@ func TestServer(t *testing.T) {
 	})
 
 	resourceMap = map[resource.Name]interface{}{
-		slam.Name: "not a frame system",
+		slam.Named(testSlamServiceName): "not a frame system",
 	}
 	injectSubtypeSvc, _ = subtype.New(resourceMap)
 	slamServer = slam.NewServer(injectSubtypeSvc)
@@ -121,12 +121,12 @@ func TestServer(t *testing.T) {
 	t.Run("failing on improper service interface", func(t *testing.T) {
 		improperImplErr := utils.NewUnimplementedInterfaceError("slam.Service", "string")
 
-		getPositionReq := &pb.GetPositionRequest{}
+		getPositionReq := &pb.GetPositionRequest{Name: testSlamServiceName}
 		getModeResp, err := slamServer.GetPosition(context.Background(), getPositionReq)
 		test.That(t, getModeResp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 
-		getMapReq := &pb.GetMapRequest{}
+		getMapReq := &pb.GetMapRequest{Name: testSlamServiceName}
 		setModeResp, err := slamServer.GetMap(context.Background(), getMapReq)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 		test.That(t, setModeResp, test.ShouldBeNil)
@@ -138,6 +138,33 @@ func TestServer(t *testing.T) {
 		req := &pb.GetPositionRequest{}
 		resp, err := slamServer.GetPosition(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(slam.Name))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(slam.Named(testSlamServiceName)))
+	})
+	t.Run("Multiple services Valid", func(t *testing.T) {
+		resourceMap = map[resource.Name]interface{}{
+			slam.Named(testSlamServiceName):  injectSvc,
+			slam.Named(testSlamServiceName2): injectSvc,
+		}
+		injectSubtypeSvc, err := subtype.New(resourceMap)
+		test.That(t, err, test.ShouldBeNil)
+		slamServer = slam.NewServer(injectSubtypeSvc)
+		pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+		pSucc := referenceframe.NewPoseInFrame("frame", pose)
+		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+			return pSucc, nil
+		}
+
+		reqPos := &pb.GetPositionRequest{
+			Name: testSlamServiceName,
+		}
+		respPos, err := slamServer.GetPosition(context.Background(), reqPos)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, referenceframe.ProtobufToPoseInFrame(respPos.Pose).FrameName(), test.ShouldEqual, pSucc.FrameName())
+		reqPos = &pb.GetPositionRequest{
+			Name: testSlamServiceName2,
+		}
+		respPos, err = slamServer.GetPosition(context.Background(), reqPos)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, referenceframe.ProtobufToPoseInFrame(respPos.Pose).FrameName(), test.ShouldEqual, pSucc.FrameName())
 	})
 }

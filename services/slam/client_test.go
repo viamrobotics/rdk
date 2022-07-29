@@ -60,7 +60,7 @@ func TestClientWorkingService(t *testing.T) {
 		return mimeType, imSucc, nil, nil
 	}
 
-	workingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Name: workingSLAMService})
+	workingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(testSlamServiceName): workingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
 	resourceSubtype := registry.ResourceSubtypeLookup(slam.Subtype)
@@ -83,7 +83,7 @@ func TestClientWorkingService(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Name.String(), logger)
+		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(testSlamServiceName).String(), logger)
 		// test get position
 		pInFrame, err := workingSLAMClient.GetPosition(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
@@ -168,7 +168,7 @@ func TestClientFailingService(t *testing.T) {
 		return mimeType, imFail, pcFail, errors.New("failure to get map")
 	}
 
-	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Name: failingSLAMService})
+	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(testSlamServiceName): failingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
 	resourceSubtype := registry.ResourceSubtypeLookup(slam.Subtype)
@@ -183,7 +183,7 @@ func TestClientFailingService(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Name.String(), logger)
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(testSlamServiceName).String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// test get position
