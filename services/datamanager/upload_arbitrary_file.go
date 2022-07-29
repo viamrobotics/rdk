@@ -2,9 +2,7 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -25,54 +23,24 @@ func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncServi
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
-	// Create channel between goroutine that's waiting for UploadResponse and the main goroutine which is persisting
-	// file upload progress to disk.
-	progress := make(chan v1.UploadResponse)
-	go func() {
-		for {
-			ur, err := client.Recv()
-			if err == io.EOF {
-				close(progress)
-				return
-			}
-			if err != nil {
-				log.Fatalf("Unable to receive UploadResponse from server %v", err)
-			}
-			progress <- *ur
-		}
-	}()
-
-	eof := false
 	// Loop until there is no more content to be read from file.
 	for {
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		case <-progress:
-			uploadResponse := <-progress
-			requestsWritten := uploadResponse.GetRequestsWritten()
-			fmt.Println("TODO: deal with requestsWritten: ", requestsWritten)
-		default:
-			// Get the next UploadRequest from the file.
-			uploadReq, err := getNextFileUploadRequest(ctx, f)
-			// If the error is EOF, break from loop.
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
-				continue
-			}
-			// If there is any other error, return it.
-			if err != nil {
-				return err
-			}
-
-			if err = client.Send(uploadReq); err != nil {
-				return errors.Wrap(err, "error while sending uploadRequest")
-			}
-		}
-		if eof {
+		// Get the next UploadRequest from the file.
+		uploadReq, err := getNextFileUploadRequest(ctx, f)
+		// If the error is EOF, break from loop.
+		if errors.Is(err, io.EOF) {
 			break
+		}
+		if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
+			continue
+		}
+		// If there is any other error, return it.
+		if err != nil {
+			return err
+		}
+
+		if err = client.Send(uploadReq); err != nil {
+			return errors.Wrap(err, "error while sending uploadRequest")
 		}
 	}
 
@@ -81,9 +49,8 @@ func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncServi
 	}
 
 	// Close stream and receive response.
-	if _, err := client.Recv(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-			"sync service backend")
+	if err := client.CloseSend(); err != nil {
+		return errors.Wrap(err, "error when closing the stream")
 	}
 
 	return nil
