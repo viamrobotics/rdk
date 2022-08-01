@@ -16,10 +16,11 @@ func main() {
 	}
 
 	var dm *rimage.DepthMap
+	var img *rimage.Image
 	var err error
 
 	if fn := flag.Arg(0); strings.HasSuffix(fn, ".both.gz") {
-		_, dm, err = rimage.ReadBothFromFile(fn) // just extracting depth data
+		img, dm, err = rimage.ReadBothFromFile(fn)
 	} else {
 		dm, err = rimage.ParseDepthMap(flag.Arg(0))
 	}
@@ -27,8 +28,15 @@ func main() {
 		panic(err)
 	}
 
-	img := dm.ToGray16Picture()
-	if err := rimage.WriteImageToFile(flag.Arg(1), img); err != nil {
+	depth := dm.ToGray16Picture()
+	if err := rimage.WriteImageToFile(flag.Arg(1)+".png", depth); err != nil {
 		panic(err)
+	}
+	if img != nil {
+		fn2 := flag.Arg(1) + "-color.png"
+		err = img.WriteTo(fn2)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
