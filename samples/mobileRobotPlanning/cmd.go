@@ -63,27 +63,27 @@ type plannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logge
 func test(planner string, config *mobileRobotPlanConfig) {
 	fmt.Println(planner)
 	total := 0.
-	var waypoints [][]frame.Input
+	allPaths := make([][][]frame.Input, config.NumTests)
 	for i := 0; i < config.NumTests; i++ {
 		switch planner {
 		case "CBiRRT":
-			waypoints, err = plan(context.Background(), motionplan.NewCBiRRTMotionPlanner, config, i)
+			allPaths[i], err = plan(context.Background(), motionplan.NewCBiRRTMotionPlanner, config, i)
 		case "RRT":
-			waypoints, err = plan(context.Background(), motionplan.NewRRTConnectMotionPlanner, config, i)
+			allPaths[i], err = plan(context.Background(), motionplan.NewRRTConnectMotionPlanner, config, i)
 		default:
 			logger.Fatal("planner " + planner + " not supported")
 		}
 		if err != nil {
 			logger.Fatal(err.Error())
 		}
-		score := evaluate(waypoints)
+		score := evaluate(allPaths[i])
 		fmt.Println("Test ", i, ":\t", score)
 		total += score
 	}
 	fmt.Print("Average:\t", total/float64(config.NumTests), "\n\n")
 
 	// write output
-	if err := writeJSONFile(utils.ResolveFile("samples/mobileRobotPlanning/"+planner+"Output.test"), waypoints); err != nil {
+	if err := writeJSONFile(utils.ResolveFile("samples/mobileRobotPlanning/"+planner+"Output.test"), allPaths); err != nil {
 		logger.Fatal(err.Error())
 	}
 }
@@ -117,7 +117,7 @@ func plan(ctx context.Context, planner plannerConstructor, config *mobileRobotPl
 	}
 
 	// setup planner
-	mp, err := planner(model, 1, rand.New(rand.NewSource(1)), logger.Sugar())
+	mp, err := planner(model, 1, rand.New(rand.NewSource(int64(seed))), logger.Sugar())
 	if err != nil {
 		return nil, err
 	}

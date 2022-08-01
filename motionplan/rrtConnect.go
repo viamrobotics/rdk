@@ -57,7 +57,7 @@ func NewRRTConnectMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand
 	if err != nil {
 		return nil, err
 	}
-	return &cBiRRTMotionPlanner{
+	return &rrtConnectMotionPlanner{
 		solDist:         jointSolveDist,
 		solver:          ik,
 		fastGradDescent: nlopt,
