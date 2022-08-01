@@ -38,8 +38,9 @@ func TestUndistortSetup(t *testing.T) {
 	source := &imagesource.StaticSource{ColorImg: img}
 	cam, err := camera.New(source, nil)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = cam.GetProperties(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
+	props, err := cam.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.IntrinsicParams, test.ShouldBeNil)
 
 	// no camera parameters
 	attrs := &transformConfig{}

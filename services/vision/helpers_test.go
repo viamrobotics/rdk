@@ -137,8 +137,7 @@ func (c *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 	return pcA, nil
 }
 
-func (c *cloudSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
-	var proj rimage.Projector
+func (c *cloudSource) GetProperties(ctx context.Context) (camera.Properties, error) {
 	intrinsics := &transform.PinholeCameraIntrinsics{
 		Width:      1280,
 		Height:     720,
@@ -148,9 +147,7 @@ func (c *cloudSource) GetProperties(ctx context.Context) (rimage.Projector, erro
 		Ppy:        100,
 		Distortion: transform.DistortionModel{},
 	}
-
-	proj = intrinsics
-	return proj, nil
+	return camera.Properties{HasDepth: true, IntrinsicParams: intrinsics}, nil
 }
 
 func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

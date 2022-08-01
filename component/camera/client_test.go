@@ -45,7 +45,6 @@ func TestClient(t *testing.T) {
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	var projA rimage.Projector
 	intrinsics := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
 		Height: 720,
@@ -54,7 +53,6 @@ func TestClient(t *testing.T) {
 		Ppx:    100,
 		Ppy:    100,
 	}
-	projA = intrinsics
 
 	var imageReleased bool
 	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -63,8 +61,8 @@ func TestClient(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCamera.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
-		return projA, nil
+	injectCamera.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{HasDepth: true, IntrinsicParams: intrinsics}, nil
 	}
 
 	injectCamera2 := &inject.Camera{}
@@ -74,8 +72,8 @@ func TestClient(t *testing.T) {
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
 	}
-	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
-		return nil, errors.New("can't get camera properties")
+	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, errors.New("can't get camera properties")
 	}
 
 	resources := map[resource.Name]interface{}{

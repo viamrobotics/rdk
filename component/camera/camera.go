@@ -74,12 +74,18 @@ type Camera interface {
 	gostream.ImageSource
 	generic.Generic
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
-	GetProperties(ctx context.Context) (rimage.Projector, error)
+	GetProperties(ctx context.Context) (Properties, error)
 }
 
 // A PointCloudSource is a source that can generate pointclouds.
 type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+}
+
+// Properties is a lookup for a camera's features and settings.
+type Properties struct {
+	HasDepth        bool
+	IntrinsicParams *transform.PinholeCameraIntrinsics
 }
 
 // GetProjector either gets the camera parameters from the config, or if the camera has a parent source,
@@ -91,12 +97,13 @@ func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) (
 	}
 	// inherit camera parameters from source camera if possible.
 	if parentSource != nil {
-		proj, err := parentSource.GetProperties(ctx)
-		if errors.Is(err, transform.ErrNoIntrinsics) {
+		props, err := parentSource.GetProperties(ctx)
+		if props.IntrinsicParams == nil {
 			return nil, false
 		} else if err != nil {
 			panic(err)
 		}
+		proj := props.IntrinsicParams
 		return proj, true
 	}
 	return nil, false
@@ -144,11 +151,12 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	return dm.ToPointCloud(is.projector), nil
 }
 
-func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
+func (is *imageSource) GetProperties(ctx context.Context) (Properties, error) {
+	result := Properties{HasDepth: true}
 	if is.projector != nil {
-		return is.projector, nil
+		result.IntrinsicParams = is.projector.(*transform.PinholeCameraIntrinsics)
 	}
-	return nil, transform.NewNoIntrinsicsError("No features in config")
+	return result, nil
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
@@ -224,7 +232,7 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 	return c.actual.NextPointCloud(ctx)
 }
 
-func (c *reconfigurableCamera) GetProperties(ctx context.Context) (rimage.Projector, error) {
+func (c *reconfigurableCamera) GetProperties(ctx context.Context) (Properties, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.GetProperties(ctx)

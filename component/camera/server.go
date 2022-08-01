@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -145,16 +144,17 @@ func (s *subtypeServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	proj, err := camera.GetProperties(ctx) // will be nil if no intrinsics
+	props, err := camera.GetProperties(ctx)
 	if err != nil {
 		return nil, err
 	}
-	intrinsics := proj.(*transform.PinholeCameraIntrinsics)
-	err = intrinsics.CheckValid()
-	if err != nil {
-		return nil, err
+	intrinsics := props.IntrinsicParams
+	if intrinsics != nil {
+		err = intrinsics.CheckValid()
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	camIntrinsics := &pb.IntrinsicParameters{
 		WidthPx:   uint32(intrinsics.Width),
 		HeightPx:  uint32(intrinsics.Height),
@@ -164,6 +164,7 @@ func (s *subtypeServer) GetProperties(
 		CenterYPx: intrinsics.Ppy,
 	}
 	return &pb.GetPropertiesResponse{
+		HasDepth:            props.HasDepth,
 		IntrinsicParameters: camIntrinsics,
 	}, nil
 }

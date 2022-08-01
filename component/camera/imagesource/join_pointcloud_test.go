@@ -21,8 +21,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
@@ -40,8 +38,8 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc1, nil
 	}
-	cam1.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
-		return nil, transform.NewNoIntrinsicsError("")
+	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
 	cam2 := &inject.Camera{}
 	pc2 := pointcloud.New()
@@ -50,8 +48,8 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc2, nil
 	}
-	cam2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
-		return nil, transform.NewNoIntrinsicsError("")
+	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
 	cam3 := &inject.Camera{}
 	pc3 := pointcloud.New()
@@ -60,8 +58,8 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc3, nil
 	}
-	cam3.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
-		return nil, transform.NewNoIntrinsicsError("")
+	cam3.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
 	base1 := &inject.Base{}
 
@@ -172,6 +170,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 
 	img, _, err = joinedCam.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	// fmt.Println(img)
 	test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1, 100))
 }
 
