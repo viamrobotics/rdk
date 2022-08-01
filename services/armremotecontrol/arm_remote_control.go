@@ -73,10 +73,7 @@ func init() {
 	}, &Config{})
 }
 
-// ControlMode is the control type for the remote control.
-type controlMode string
 type controllerEvent uint8
-type jointIndex uint8
 type armPart string
 
 // Config describes how to configure the service.
@@ -102,7 +99,6 @@ type controllerState struct {
 	joints     map[armPart]float64
 	endpoints  map[armPart]float64
 	buttons    map[input.Control]bool
-	arrows     map[input.Control]float64
 }
 
 // state of control, event, axis, mode, command
@@ -143,8 +139,11 @@ func (cs *controllerState) init() {
 func (cs *controllerState) set(event input.Event, remoteConfig Config) {
 	mappings := remoteConfig.ControllerModes[cs.curModeIdx].Mappings
 	switch event.Event {
-	case input.ButtonPress, input.ButtonRelease:
+	case input.ButtonPress:
 		cs.event = buttonPressed
+		cs.buttons[event.Control] = !cs.buttons[event.Control]
+	case input.ButtonRelease:
+		cs.event = noop
 		cs.buttons[event.Control] = !cs.buttons[event.Control]
 	case input.PositionChangeAbs:
 		ap := mappings[event.Control]
@@ -166,13 +165,13 @@ func (cs *controllerState) set(event input.Event, remoteConfig Config) {
 // reset state
 func (cs *controllerState) reset() {
 	cs.event = noop
-	for k, _ := range cs.endpoints {
+	for k := range cs.endpoints {
 		cs.endpoints[k] = 0.0
 	}
-	for k, _ := range cs.joints {
+	for k := range cs.joints {
 		cs.joints[k] = 0.0
 	}
-	for k, _ := range cs.buttons {
+	for k := range cs.buttons {
 		cs.buttons[k] = false
 	}
 }
@@ -201,7 +200,7 @@ func (cs *controllerState) isInvalid(sensitivity float64) bool {
 }
 
 // RemoteService is the structure of the remote service.
-type remoteService struct {
+type armRemoteService struct {
 	arm             arm.Arm
 	inputController input.Controller
 	config          *Config
@@ -225,22 +224,22 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, err
 	}
 
-	remoteSvc := &remoteService{
+	armRemoteSvc := &armRemoteService{
 		arm:             arm1,
 		inputController: controller,
 		config:          svcConfig,
 		logger:          logger,
 	}
 
-	if err := remoteSvc.start(ctx); err != nil {
+	if err := armRemoteSvc.start(ctx); err != nil {
 		return nil, errors.Errorf("error with starting remote control service: %q", err)
 	}
 
-	return remoteSvc, nil
+	return armRemoteSvc, nil
 }
 
 // Start is the main control loops for sending events from controller to base.
-func (svc *remoteService) start(ctx context.Context) error {
+func (svc *armRemoteService) start(ctx context.Context) error {
 	state := &controllerState{}
 	state.init()
 
@@ -278,7 +277,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 }
 
 // Close out of all remote control related systems.
-func (svc *remoteService) Close(ctx context.Context) error {
+func (svc *armRemoteService) Close(ctx context.Context) error {
 	for _, control := range svc.controllerInputs() {
 		err := svc.inputController.RegisterControlCallback(
 			ctx,
@@ -294,7 +293,7 @@ func (svc *remoteService) Close(ctx context.Context) error {
 }
 
 // controllerInputs returns the list of inputs from the controller that are being monitored for that control mode.
-func (svc *remoteService) controllerInputs() []input.Control {
+func (svc *armRemoteService) controllerInputs() []input.Control {
 	return []input.Control{
 		input.AbsoluteX,
 		input.AbsoluteY,
@@ -316,11 +315,11 @@ func (svc *remoteService) controllerInputs() []input.Control {
 	}
 }
 
-func (svc *remoteService) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
+func (svc *armRemoteService) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
 	// set state to be executed
 	state.set(event, *svc.config)
 	// execute stated arm control
-	if err := processArmEvent(ctx, svc, state); err != nil {
+	if err := processArmControllerEvent(ctx, svc, state); err != nil {
 		state.reset()
 		return err
 	}
@@ -331,7 +330,7 @@ func (svc *remoteService) processEvent(ctx context.Context, state *controllerSta
 
 type reconfigurableArmRemoteControl struct {
 	mu     sync.RWMutex
-	actual *remoteService
+	actual *armRemoteService
 }
 
 func (svc *reconfigurableArmRemoteControl) Close(ctx context.Context) error {
@@ -360,42 +359,43 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	svc, ok := s.(remoteService)
+	svc, ok := s.(armRemoteService)
 	if !ok {
-		return nil, utils.NewUnexpectedTypeError(&remoteService{}, s)
+		return nil, utils.NewUnexpectedTypeError(&armRemoteService{}, s)
 	}
 
 	return &reconfigurableArmRemoteControl{actual: &svc}, nil
 }
 
-func processCommandEvent(ctx context.Context, svc *remoteService, state *controllerState) error {
+// processCommandEvent should properly map to arm control functions
+func processCommandEvent(ctx context.Context, svc *armRemoteService, state *controllerState) error {
 	if state.buttons[input.ButtonSouth] {
-		svc.logger.Info("arm stopping")
+		svc.logger.Info("stopping arm")
 		return svc.arm.Stop(ctx, nil)
 	} else if state.buttons[input.ButtonEast] {
-		svc.logger.Debug("attempting named pose preview")
+		svc.logger.Debug("previewing pose [TODO]")
 	} else if state.buttons[input.ButtonWest] {
 		// move through state
 		prevMode := svc.config.ControllerModes[state.curModeIdx].ModeName
-		state.curModeIdx += 1 % len(svc.config.ControllerModes)
-		svc.logger.Infof("switching joint control mode from %s to %s", prevMode, svc.config.ControllerModes[state.curModeIdx].ModeName)
+		state.curModeIdx = (state.curModeIdx + 1) % len(svc.config.ControllerModes)
+		svc.logger.Infof("switched joint control(from:%s,to:%s)", prevMode, svc.config.ControllerModes[state.curModeIdx].ModeName)
 	} else if state.buttons[input.ButtonNorth] {
-		svc.logger.Debug("attempting named pose execute")
+		svc.logger.Debug("executing named pose [TODO]")
 	} else if state.buttons[input.ButtonLT] {
-		svc.logger.Debug("attempting to close pincer")
+		svc.logger.Debug("closing pincer [TODO]")
 	} else if state.buttons[input.ButtonRT] {
-		svc.logger.Debug("attempting to open pincer")
+		svc.logger.Debug("opening pincer [TODO]")
 	} else if state.buttons[input.ButtonSelect] {
-		svc.logger.Debug("attempting disable collision avoidance")
+		svc.logger.Debug("disable collision avoidance [TODO]")
 	} else if state.buttons[input.ButtonStart] {
-		svc.logger.Debug("attempting enable collision avoidance")
+		svc.logger.Debug("enable collision avoidance [TODO]")
 	} else if state.buttons[input.ButtonMenu] {
-		svc.logger.Debug("attempting to change joint group")
+		svc.logger.Debug("change joint group [TODO]")
 	}
 	return nil
 }
 
-func processArmEndPointEvent(ctx context.Context, svc *remoteService, state *controllerState) error {
+func processArmEndPointEvent(ctx context.Context, svc *armRemoteService, state *controllerState) error {
 	if state.isInvalid(svc.config.ControllerSensitivity) {
 		return nil
 	}
@@ -421,7 +421,7 @@ func processArmEndPointEvent(ctx context.Context, svc *remoteService, state *con
 	return nil
 }
 
-func processArmJointEvent(ctx context.Context, svc *remoteService, state *controllerState) error {
+func processArmJointEvent(ctx context.Context, svc *armRemoteService, state *controllerState) error {
 	if state.isInvalid(svc.config.ControllerSensitivity) {
 		return nil
 	}
@@ -446,7 +446,7 @@ func processArmJointEvent(ctx context.Context, svc *remoteService, state *contro
 	return nil
 }
 
-func processArmEvent(ctx context.Context, svc *remoteService, state *controllerState) error {
+func processArmControllerEvent(ctx context.Context, svc *armRemoteService, state *controllerState) error {
 	switch state.event {
 	case endPointEvent:
 		return processArmEndPointEvent(ctx, svc, state)
