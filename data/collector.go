@@ -98,7 +98,10 @@ func (c *collector) Collect() error {
 	defer span.End()
 
 	c.backgroundWorkers.Add(1)
-	utils.PanicCapturingGo(c.capture)
+	utils.PanicCapturingGo(func() {
+		defer c.backgroundWorkers.Done()
+		c.capture()
+	})
 	return c.write()
 }
 
@@ -107,8 +110,6 @@ func (c *collector) Collect() error {
 // avoid wasting CPU on a thread that's idling for the vast majority of the time.
 // [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
 func (c *collector) capture() {
-	defer c.backgroundWorkers.Done()
-
 	if c.interval < sleepCaptureCutoff {
 		c.sleepBasedCapture()
 	} else {
