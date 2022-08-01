@@ -33,30 +33,40 @@ func TestClient(t *testing.T) {
 	workingMotor := &inject.Motor{}
 	failingMotor := &inject.Motor{}
 
+	var actualExtra map[string]interface{}
+
 	workingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+		actualExtra = extra
 		return nil
 	}
 	workingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+		actualExtra = extra
 		return nil
 	}
 	workingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
+		actualExtra = extra
 		return nil
 	}
 	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
+		actualExtra = extra
 		return nil
 	}
 	workingMotor.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		actualExtra = extra
 		return 42.0, nil
 	}
 	workingMotor.GetFeaturesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+		actualExtra = extra
 		return map[motor.Feature]bool{
 			motor.PositionReporting: true,
 		}, nil
 	}
 	workingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		actualExtra = extra
 		return nil
 	}
 	workingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		actualExtra = extra
 		return true, nil
 	}
 
@@ -142,9 +152,10 @@ func TestClient(t *testing.T) {
 		err = workingMotorClient.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		isOn, err := workingMotorClient.IsPowered(context.Background(), nil)
+		isOn, err := workingMotorClient.IsPowered(context.Background(), map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 
 		test.That(t, utils.TryClose(context.Background(), workingMotorClient), test.ShouldBeNil)
 
