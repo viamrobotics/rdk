@@ -66,6 +66,7 @@ func testPointCloudStorage(t *testing.T, ms storage) {
 	// Batches greater than the number of points
 	testPointCloudIterate(t, ms, ms.Size()*2, expectedCentroid)
 }
+
 func testPointCloudIterate(t *testing.T, ms storage, numBatches int, expectedCentroid r3.Vector) {
 	t.Helper()
 
@@ -76,7 +77,7 @@ func testPointCloudIterate(t *testing.T, ms storage, numBatches int, expectedCen
 			totalX += p.X
 			totalY += p.Y
 			totalZ += p.Z
-			count += 1
+			count++
 			return true
 		})
 		test.That(t, count, test.ShouldEqual, ms.Size())
