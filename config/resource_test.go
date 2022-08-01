@@ -260,6 +260,7 @@ func TestServiceValidate(t *testing.T) {
 
 	t.Run("config valid", func(t *testing.T) {
 		validConfig := config.Service{
+			Name: "frame1",
 			Type: "frame_system",
 		}
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
@@ -268,6 +269,7 @@ func TestServiceValidate(t *testing.T) {
 	t.Run("ConvertedAttributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name:                "frame1",
 				Type:                "frame_system",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
@@ -278,6 +280,7 @@ func TestServiceValidate(t *testing.T) {
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name: "frame1",
 				Type: "frame_system",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{
 					Thing: "i am a thing!",
@@ -291,6 +294,7 @@ func TestServiceValidate(t *testing.T) {
 	t.Run("Attributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name:       "frame1",
 				Type:       "frame_system",
 				Attributes: config.AttributeMap{"attr": &testutils.FakeConvertedAttributes{Thing: ""}},
 			}
@@ -301,6 +305,7 @@ func TestServiceValidate(t *testing.T) {
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name: "frame1",
 				Type: "frame_system",
 				Attributes: config.AttributeMap{
 					"attr": testutils.FakeConvertedAttributes{
@@ -321,6 +326,21 @@ func TestServiceValidate(t *testing.T) {
 		}
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 		test.That(t, validConfig.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+	})
+
+	t.Run("no name", func(t *testing.T) {
+		invalidConfig := config.Service{
+			Type: "thingy",
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `name" is required`)
+	})
+	t.Run("no name default service", func(t *testing.T) {
+		validConfig := config.Service{
+			Type: "vision",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 	})
 
 	t.Run("with namespace", func(t *testing.T) {

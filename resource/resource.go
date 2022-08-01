@@ -109,10 +109,10 @@ func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name stri
 	r := strings.Split(name, ":")
 	remote := RemoteName(strings.Join(r[0:len(r)-1], ":"))
 	nameIdent := r[len(r)-1]
-	// Enable when other services other than motion are enabled
+	// These services are default services and will always use the name builtin
 	isSubtype := subtype == SubtypeName("data_manager") || subtype == SubtypeName("vision") || subtype == SubtypeName("sensors")
 	if isService && isSubtype {
-		nameIdent = ""
+		nameIdent = "builtin"
 	}
 	return Name{
 		Subtype: resourceSubtype,

@@ -312,9 +312,13 @@ func (config *Service) Validate(path string) error {
 	}
 	// Will enable this check when default names have been provided for sensors/datamanager/vision services
 	// Validate that all serviice have name
-	// config.Name == "" {
-	// 	return utils.NewConfigValidationFieldRequiredError(path, "name")
-	// }
+	if config.Name == "" {
+		if config.Type == "data_manager" || config.Type == "vision" || config.Type == "sensors" {
+			config.Name = "builtin"
+		} else {
+			return utils.NewConfigValidationFieldRequiredError(path, "name")
+		}
+	}
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
