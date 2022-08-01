@@ -17,8 +17,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var logger = golog.NewDevelopmentLogger("armplay")
-
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
@@ -84,6 +82,8 @@ func TestConstraintPath(t *testing.T) {
 }
 
 func TestLineFollow(t *testing.T) {
+	var logger = golog.NewDevelopmentLogger("armplay")
+
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,
 		Y:  -447,
