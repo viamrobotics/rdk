@@ -179,7 +179,7 @@ func TestClose(t *testing.T) {
 	}
 	c, _ := NewCollector(dummyStructCapturer, params)
 	go c.Collect()
-	time.Sleep(time.Millisecond * 25)
+	time.Sleep(time.Millisecond * 50)
 
 	// Close and measure fileSize.
 	c.Close()
@@ -285,7 +285,7 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	}
 	c, _ := NewCollector(errorCapturer, params)
 	go c.Collect()
-	time.Sleep(30 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	c.Close()
 
 	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
