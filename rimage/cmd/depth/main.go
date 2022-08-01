@@ -33,7 +33,7 @@ func main() {
 		panic(err)
 	}
 	if img != nil {
-		fn2 := flag.Arg(1) + "-color.png"
+		fn2 := flag.Arg(1) + "_color.png"
 		err = img.WriteTo(fn2)
 		if err != nil {
 			panic(err)
