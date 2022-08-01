@@ -12,3 +12,8 @@ func TestMapStorage(t *testing.T) {
 	test.That(t, ms.IsOrdered(), test.ShouldEqual, false)
 	testPointCloudStorage(t, &ms)
 }
+
+func BenchmarkMapStorage(b *testing.B) {
+	ms := mapStorage{points: make(map[r3.Vector]Data)}
+	benchPointCloudStorage(b, &ms)
+}
