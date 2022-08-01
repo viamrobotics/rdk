@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -48,6 +47,7 @@ import (
 	camerapb "go.viam.com/rdk/proto/api/component/camera/v1"
 	gripperpb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -726,7 +726,7 @@ func TestManagerNewComponent(t *testing.T) {
 	}
 	diff, err := config.DiffConfigs(&config.Config{}, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, robotForRemote.manager.updateResourceGraph(diff, func(name string) (resource.Name, bool) {
+	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {
 			if c.Name == name {
 				return c.ResourceName(), true
@@ -754,7 +754,7 @@ func TestManagerNewComponent(t *testing.T) {
 		ConvertedAttributes: &board.Config{},
 		DependsOn:           []string{"arm3"},
 	})
-	err = robotForRemote.manager.updateResourceGraph(diff, func(name string) (resource.Name, bool) {
+	err = robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {
 			if c.Name == name {
 				return c.ResourceName(), true
@@ -1346,11 +1346,11 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,
@@ -1579,6 +1579,79 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 		test.ShouldBeTrue)
 }
 
+func TestUpdateConfig(t *testing.T) {
+	// given a service subtype is reconfigurable, check if it has been reconfigured
+	const SubtypeName = resource.SubtypeName("testSubType")
+
+	Subtype := resource.NewSubtype(
+		resource.ResourceNamespaceRDK,
+		resource.ResourceTypeService,
+		SubtypeName,
+	)
+
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+
+	r, err := New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r, test.ShouldNotBeNil)
+
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+	})
+
+	registry.RegisterService(Subtype, registry.Service{
+		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+			return &mock{}, nil
+		},
+	})
+
+	manager := managerForDummyRobot(r)
+	defer func() {
+		test.That(t, utils.TryClose(ctx, manager), test.ShouldBeNil)
+	}()
+
+	svc1 := config.Service{Name: "", Namespace: resource.ResourceNamespaceRDK, Type: "testSubType"}
+
+	local, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+	newService, err := manager.processService(ctx, svc1, nil, local)
+	test.That(t, err, test.ShouldBeNil)
+	newService, err = manager.processService(ctx, svc1, newService, local)
+	test.That(t, err, test.ShouldBeNil)
+
+	mockRe, ok := newService.(*mock)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, mockRe, test.ShouldNotBeNil)
+	test.That(t, mockRe.reconfigCount, test.ShouldEqual, 1)
+	test.That(t, mockRe.wrap, test.ShouldEqual, 1)
+
+	defer func() {
+		test.That(t, utils.TryClose(ctx, local), test.ShouldBeNil)
+	}()
+}
+
+var _ = resource.Reconfigurable(&mock{})
+
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	sMock, _ := s.(*mock)
+	sMock.wrap++
+	return sMock, nil
+}
+
+type mock struct {
+	wrap          int
+	reconfigCount int
+}
+
+func (m *mock) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	m.reconfigCount++
+	return nil
+}
+
 // A dummyRobot implements wraps an robot.Robot. It's only use for testing purposes.
 type dummyRobot struct {
 	mu      sync.Mutex
@@ -1665,6 +1738,10 @@ func (rr *dummyRobot) Logger() golog.Logger {
 
 func (rr *dummyRobot) Close(ctx context.Context) error {
 	return utils.TryClose(ctx, rr.robot)
+}
+
+func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+	return rr.robot.StopAll(ctx, extra)
 }
 
 // managerForDummyRobot integrates all parts from a given robot
