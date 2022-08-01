@@ -70,6 +70,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableMotionService{})
 	_ = resource.Reconfigurable(&reconfigurableMotionService{})
+	_ = utils.Closer(&reconfigurableMotionService{})
 )
 
 // SubtypeName is the name of the type of service.

@@ -69,6 +69,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableDataManager{})
 	_ = resource.Reconfigurable(&reconfigurableDataManager{})
+	_ = utils.Closer(&reconfigurableDataManager{})
 )
 
 // SubtypeName is the name of the type of service.

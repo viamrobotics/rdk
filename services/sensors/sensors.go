@@ -59,6 +59,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableSensors{})
 	_ = resource.Reconfigurable(&reconfigurableSensors{})
+	_ = utils.Closer(&reconfigurableSensors{})
 )
 
 // SubtypeName is the name of the type of service.
