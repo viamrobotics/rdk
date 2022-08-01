@@ -186,8 +186,8 @@ func (svc *dataManagerService) closeCollectors() {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			currCollector.Collector.Close()
-			wg.Done()
 		}()
 		delete(svc.collectors, md)
 	}
