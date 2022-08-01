@@ -12,3 +12,8 @@ func TestMatrixStorage(t *testing.T) {
 	test.That(t, ms.IsOrdered(), test.ShouldEqual, true)
 	testPointCloudStorage(t, &ms)
 }
+
+func BenchmarkMatrixStorage(b *testing.B) {
+	ms := matrixStorage{points: make([]PointAndData, 0), indexMap: make(map[r3.Vector]uint)}
+	benchPointCloudStorage(b, &ms)
+}
