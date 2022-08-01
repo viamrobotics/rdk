@@ -2,10 +2,9 @@ package fake
 
 import (
 	"context"
-	"math"
-
 	// for arm model.
 	_ "embed"
+	"math"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -112,9 +111,7 @@ func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositi
 // GetJointPositions returns joints.
 func (a *ArmIK) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	retJoint := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}}
-	for idx, _ := range a.joints.Values {
-		retJoint.Values[idx] = a.joints.Values[idx]
-	}
+	retJoint.Values = a.joints.Values
 	return &retJoint, nil
 }
 

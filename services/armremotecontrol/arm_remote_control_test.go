@@ -55,22 +55,22 @@ func TestArmRemoteControl(t *testing.T) {
 			{
 				ModeName: "joint",
 				Mappings: map[input.Control]armPart{
-					input.AbsoluteX: jointOne,
-					input.AbsoluteY: jointTwo,
-					input.AbsoluteRY: jointThree,
-					input.AbsoluteRX: jointFour,
+					input.AbsoluteX:     jointOne,
+					input.AbsoluteY:     jointTwo,
+					input.AbsoluteRY:    jointThree,
+					input.AbsoluteRX:    jointFour,
 					input.AbsoluteHat0X: jointFive,
 					input.AbsoluteHat0Y: jointSix,
 				},
 			}, {
 				ModeName: "endpoint",
 				Mappings: map[input.Control]armPart{
-					input.AbsoluteX: "ox",
-					input.AbsoluteY: "z",
+					input.AbsoluteX:     "ox",
+					input.AbsoluteY:     "z",
 					input.AbsoluteHat0X: "oz",
 					input.AbsoluteHat0Y: "oy",
-					input.AbsoluteRY: "x",
-					input.AbsoluteRX: "y",
+					input.AbsoluteRY:    "x",
+					input.AbsoluteRX:    "y",
 				},
 			},
 		},
@@ -216,7 +216,7 @@ func returnMock(name string) armRemoteService {
 
 func stateShouldBeZero(state *controllerState) bool {
 	for _, v := range state.buttons {
-		if  v {
+		if v {
 			return false
 		}
 	}
@@ -246,22 +246,22 @@ func TestState(t *testing.T) {
 			{
 				ModeName: "joint",
 				Mappings: map[input.Control]armPart{
-					input.AbsoluteX: jointOne,
-					input.AbsoluteY: jointTwo,
-					input.AbsoluteRY: jointThree,
-					input.AbsoluteRX: jointFour,
+					input.AbsoluteX:     jointOne,
+					input.AbsoluteY:     jointTwo,
+					input.AbsoluteRY:    jointThree,
+					input.AbsoluteRX:    jointFour,
 					input.AbsoluteHat0X: jointFive,
 					input.AbsoluteHat0Y: jointSix,
 				},
 			}, {
 				ModeName: "endpoint",
 				Mappings: map[input.Control]armPart{
-					input.AbsoluteX: "ox",
-					input.AbsoluteY: "z",
+					input.AbsoluteX:     "ox",
+					input.AbsoluteY:     "z",
 					input.AbsoluteHat0X: "oz",
 					input.AbsoluteHat0Y: "oy",
-					input.AbsoluteRY: "x",
-					input.AbsoluteRX: "y",
+					input.AbsoluteRY:    "x",
+					input.AbsoluteRX:    "y",
 				},
 			},
 		},
@@ -270,7 +270,7 @@ func TestState(t *testing.T) {
 	// setup state
 	state := &controllerState{}
 	state.init()
-	
+
 	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
 	test.That(t, state.curModeIdx, test.ShouldEqual, 0)
 	// button pressed
@@ -314,5 +314,4 @@ func TestState(t *testing.T) {
 	state.reset()
 	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
 	test.That(t, state.event, test.ShouldEqual, noop)
-	
 }

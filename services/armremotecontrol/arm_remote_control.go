@@ -21,7 +21,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// constants
+// constants.
 const (
 	noop = controllerEvent(iota) // controller events
 	jointEvent
@@ -73,8 +73,10 @@ func init() {
 	}, &Config{})
 }
 
-type controllerEvent uint8
-type armPart string
+type (
+	controllerEvent uint8
+	armPart         string
+)
 
 // Config describes how to configure the service.
 type Config struct {
@@ -92,7 +94,7 @@ type controllerMode struct {
 }
 
 // controllerState used to manage controller for arm
-// TODO: can we remove button & arrow maps
+// TODO: can we remove button & arrow maps.
 type controllerState struct {
 	event      controllerEvent
 	curModeIdx int
@@ -101,7 +103,7 @@ type controllerState struct {
 	buttons    map[input.Control]bool
 }
 
-// state of control, event, axis, mode, command
+// state of control, event, axis, mode, command.
 func (cs *controllerState) init() {
 	cs.event = noop
 	cs.curModeIdx = 0
@@ -135,9 +137,10 @@ func (cs *controllerState) init() {
 	}
 }
 
-// how to do mapping
+// how to do mapping.
 func (cs *controllerState) set(event input.Event, remoteConfig Config) {
 	mappings := remoteConfig.ControllerModes[cs.curModeIdx].Mappings
+	//exhaustive:ignore
 	switch event.Event {
 	case input.ButtonPress:
 		cs.event = buttonPressed
@@ -162,7 +165,7 @@ func (cs *controllerState) set(event input.Event, remoteConfig Config) {
 	}
 }
 
-// reset state
+// reset state.
 func (cs *controllerState) reset() {
 	cs.event = noop
 	for k := range cs.endpoints {
@@ -176,9 +179,10 @@ func (cs *controllerState) reset() {
 	}
 }
 
-// isInvalid: currently assume sensitivity is 0-5
+// isInvalid: currently assume sensitivity is 0-5.
 func (cs *controllerState) isInvalid(sensitivity float64) bool {
 	sensitivity = (94 + sensitivity) * 0.01
+	//exhaustive:ignore
 	switch cs.event {
 	case jointEvent:
 		for _, val := range cs.joints {
@@ -367,30 +371,33 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableArmRemoteControl{actual: &svc}, nil
 }
 
-// processCommandEvent should properly map to arm control functions
+// processCommandEvent should properly map to arm control functions.
 func processCommandEvent(ctx context.Context, svc *armRemoteService, state *controllerState) error {
-	if state.buttons[input.ButtonSouth] {
+	switch {
+	case state.buttons[input.ButtonSouth]:
 		svc.logger.Info("stopping arm")
 		return svc.arm.Stop(ctx, nil)
-	} else if state.buttons[input.ButtonEast] {
+	case state.buttons[input.ButtonEast]:
 		svc.logger.Debug("previewing pose [TODO]")
-	} else if state.buttons[input.ButtonWest] {
+	case state.buttons[input.ButtonWest]:
 		// move through state
 		prevMode := svc.config.ControllerModes[state.curModeIdx].ModeName
 		state.curModeIdx = (state.curModeIdx + 1) % len(svc.config.ControllerModes)
 		svc.logger.Infof("switched joint control(from:%s,to:%s)", prevMode, svc.config.ControllerModes[state.curModeIdx].ModeName)
-	} else if state.buttons[input.ButtonNorth] {
+	case state.buttons[input.ButtonNorth]:
 		svc.logger.Debug("executing named pose [TODO]")
-	} else if state.buttons[input.ButtonLT] {
+	case state.buttons[input.ButtonLT]:
 		svc.logger.Debug("closing pincer [TODO]")
-	} else if state.buttons[input.ButtonRT] {
+	case state.buttons[input.ButtonRT]:
 		svc.logger.Debug("opening pincer [TODO]")
-	} else if state.buttons[input.ButtonSelect] {
+	case state.buttons[input.ButtonSelect]:
 		svc.logger.Debug("disable collision avoidance [TODO]")
-	} else if state.buttons[input.ButtonStart] {
+	case state.buttons[input.ButtonStart]:
 		svc.logger.Debug("enable collision avoidance [TODO]")
-	} else if state.buttons[input.ButtonMenu] {
+	case state.buttons[input.ButtonMenu]:
 		svc.logger.Debug("change joint group [TODO]")
+	default:
+		return errors.New("invalid button option")
 	}
 	return nil
 }
@@ -447,6 +454,7 @@ func processArmJointEvent(ctx context.Context, svc *armRemoteService, state *con
 }
 
 func processArmControllerEvent(ctx context.Context, svc *armRemoteService, state *controllerState) error {
+	//exhaustive:ignore
 	switch state.event {
 	case endPointEvent:
 		return processArmEndPointEvent(ctx, svc, state)
