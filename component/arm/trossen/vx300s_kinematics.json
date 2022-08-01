@@ -1,0 +1,155 @@
+{
+    "name": "vx300s",
+    "links": [
+        {
+            "id": "base",
+            "parent": "world",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "id": "base_top",
+            "parent": "waist",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": 126.75
+            }
+        },
+        {
+            "id": "upper_arm",
+            "parent": "shoulder",
+            "translation": {
+                "x": 60,
+                "y": 0,
+                "z": 300
+            }
+        },
+        {
+            "id": "forearm",
+            "parent": "elbow",
+            "translation": {
+                "x": 300,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "id": "wrist_link",
+            "parent": "wrist",
+            "translation": {
+                "x": 70,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "id": "gripper",
+            "parent": "wrist_rot",
+            "translation": {
+                "x": 136.58,
+                "y": 0,
+                "z": 0
+            },
+            "orientation": {
+                "type": "ov_degrees",
+                "value": {
+                    "x": 1,
+                    "y": 0,
+                    "z": 0,
+                    "th": 0
+                }
+            }
+        }
+    ],
+    "joints": [
+        {
+            "id": "waist",
+            "type": "revolute",
+            "parent": "base",
+            "axis": {
+                "x": 0,
+                "y": 0,
+                "z": 1
+            },
+            "max": 179,
+            "min": -179
+        },
+        {
+            "id": "shoulder",
+            "type": "revolute",
+            "parent": "base_top",
+            "axis": {
+                "x": 0,
+                "y": 1,
+                "z": 0
+            },
+            "max": 114,
+            "min": -108
+        },
+        {
+            "id": "elbow",
+            "type": "revolute",
+            "parent": "upper_arm",
+            "axis": {
+                "x": 0,
+                "y": 1,
+                "z": 0
+            },
+            "max": 92,
+            "min": -123
+        },
+        {
+            "id": "forearm_rot",
+            "type": "revolute",
+            "parent": "forearm",
+            "axis": {
+                "x": 1,
+                "y": 0,
+                "z": 0
+            },
+            "max": 179,
+            "min": -179
+        },
+        {
+            "id": "wrist",
+            "type": "revolute",
+            "parent": "forearm_rot",
+            "axis": {
+                "x": 0,
+                "y": 1,
+                "z": 0
+            },
+            "max": 123,
+            "min": -100
+        },
+        {
+            "id": "wrist_rot",
+            "type": "revolute",
+            "parent": "wrist_link",
+            "axis": {
+                "x": 1,
+                "y": 0,
+                "z": 0
+            },
+            "max": 179,
+            "min": -179
+        }
+    ],
+    "tolerances": {
+        "translation": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "orientation": {
+            "th": 1.0,
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        }
+    }
+}

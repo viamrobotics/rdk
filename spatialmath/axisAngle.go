@@ -88,6 +88,17 @@ func (r4 *R4AA) Normalize() {
 	r4.RZ /= norm
 }
 
+// Normalize scales the x, y, and z components of a R4 axis angle to be on the unit sphere.
+func (r4 *R4AA) fixOrientation() {
+	// TODO(bijan): should this be part of normalize
+	if r4.Theta < 0.0 {
+		r4.Theta *= -1.
+		r4.RX *= -1.
+		r4.RY *= -1.
+		r4.RZ *= -1.
+	}
+}
+
 // R3ToR4 converts an R3 angle axis to R4.
 func R3ToR4(aa r3.Vector) *R4AA {
 	if aa == (r3.Vector{1, 0, 0}) { // zero

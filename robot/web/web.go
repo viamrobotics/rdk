@@ -219,7 +219,12 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	svc.cancelFunc = cancelFunc
 
-	return svc.runWeb(cancelCtx, o)
+	if err := svc.runWeb(cancelCtx, o); err != nil {
+		cancelFunc()
+		svc.cancelFunc = nil
+		return err
+	}
+	return nil
 }
 
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
@@ -427,9 +432,15 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 // runWeb takes the given robot and options and runs the web server. This function will
 // block until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (err error) {
-	listener, err := net.Listen("tcp", options.Network.BindAddress)
-	if err != nil {
-		return err
+	if options.Network.BindAddress != "" && options.Network.Listener != nil {
+		return errors.New("may only set one of network bind address or listener")
+	}
+	listener := options.Network.Listener
+	if listener == nil {
+		listener, err = net.Listen("tcp", options.Network.BindAddress)
+		if err != nil {
+			return err
+		}
 	}
 
 	listenerTCPAddr, ok := listener.Addr().(*net.TCPAddr)
