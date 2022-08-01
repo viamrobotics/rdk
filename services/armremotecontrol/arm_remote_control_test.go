@@ -3,14 +3,14 @@ package armremotecontrol
 import (
 	"context"
 	"testing"
+	"time"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
-	fakearm "go.viam.com/rdk/component/arm"
+	fakearm "go.viam.com/rdk/component/arm/fake"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -51,6 +51,29 @@ func TestArmRemoteControl(t *testing.T) {
 		DefaultJointStep:      10.0,
 		DefaultPoseStep:       0.10,
 		ControllerSensitivity: 5.0,
+		ControllerModes: []controllerMode{
+			{
+				ModeName: "joint",
+				Mappings: map[input.Control]armPart{
+					input.AbsoluteX: jointOne,
+					input.AbsoluteY: jointTwo,
+					input.AbsoluteRY: jointThree,
+					input.AbsoluteRX: jointFour,
+					input.AbsoluteHat0X: jointFive,
+					input.AbsoluteHat0Y: jointSix,
+				},
+			}, {
+				ModeName: "endpoint",
+				Mappings: map[input.Control]armPart{
+					input.AbsoluteX: "ox",
+					input.AbsoluteY: "z",
+					input.AbsoluteHat0X: "oz",
+					input.AbsoluteHat0Y: "oy",
+					input.AbsoluteRY: "x",
+					input.AbsoluteRX: "y",
+				},
+			},
+		},
 	}
 
 	// New arm_remote_control check
@@ -62,7 +85,7 @@ func TestArmRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, ok := tmpSvc.(*remoteService)
+	svc, ok := tmpSvc.(*armRemoteService)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Controller import failure
@@ -128,63 +151,9 @@ func TestArmRemoteControl(t *testing.T) {
 	err = svc.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = svc1.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = svc2.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = svc3.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = svc4.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
 	// Close out check
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestLowLevel(t *testing.T) {
-	test.That(t, scaleThrottle(.01), test.ShouldAlmostEqual, 0, .001)
-	test.That(t, scaleThrottle(-.01), test.ShouldAlmostEqual, 0, .001)
-
-	test.That(t, scaleThrottle(.33), test.ShouldAlmostEqual, 0.4, .001)
-	test.That(t, scaleThrottle(.81), test.ShouldAlmostEqual, 0.9, .001)
-	test.That(t, scaleThrottle(1.0), test.ShouldAlmostEqual, 1.0, .001)
-
-	test.That(t, scaleThrottle(-.81), test.ShouldAlmostEqual, -0.9, .001)
-	test.That(t, scaleThrottle(-1.0), test.ShouldAlmostEqual, -1.0, .001)
-}
-
-func TestSimilar(t *testing.T) {
-	test.That(t, similar(r3.Vector{}, r3.Vector{}, 1), test.ShouldBeTrue)
-	test.That(t, similar(r3.Vector{X: 2}, r3.Vector{}, 1), test.ShouldBeFalse)
-	test.That(t, similar(r3.Vector{Y: 2}, r3.Vector{}, 1), test.ShouldBeFalse)
-	test.That(t, similar(r3.Vector{Z: 2}, r3.Vector{}, 1), test.ShouldBeFalse)
-}
-
-func TestParseEvent(t *testing.T) {
-	state := throttleState{}
-
-	l, a := parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteX, Value: .5})
-	test.That(t, similar(state.linearThrottle, r3.Vector{}, .1), test.ShouldBeTrue)
-	test.That(t, similar(state.angularThrottle, r3.Vector{}, .1), test.ShouldBeTrue)
-
-	test.That(t, similar(l, r3.Vector{}, .1), test.ShouldBeTrue)
-	test.That(t, similar(a, r3.Vector{Z: -.5}, .1), test.ShouldBeTrue)
-
-	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteY, Value: .5})
-	test.That(t, similar(l, r3.Vector{Z: -.5}, .1), test.ShouldBeTrue)
-	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
-
-	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteRX, Value: .5})
-	test.That(t, similar(l, r3.Vector{X: .5}, .1), test.ShouldBeTrue)
-	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
-
-	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteRY, Value: .5})
-	test.That(t, similar(l, r3.Vector{Y: -.5}, .1), test.ShouldBeTrue)
-	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
 }
 
 func TestRegisteredReconfigurable(t *testing.T) {
@@ -198,19 +167,19 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	actualSvc := returnMock("svc1")
 	reconfSvc, err := WrapWithReconfigurable(actualSvc)
 	test.That(t, err, test.ShouldBeNil)
-	rBRC, ok := reconfSvc.(*reconfigurableBaseRemoteControl)
+	rBRC, ok := reconfSvc.(*reconfigurableArmRemoteControl)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	_, err = WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&remoteService{}, nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&armRemoteService{}, nil))
 
 	reconfSvc2, err := WrapWithReconfigurable(reconfSvc)
 	test.That(t, err, test.ShouldBeNil)
-	rBRC2, ok := reconfSvc2.(*reconfigurableBaseRemoteControl)
+	rBRC2, ok := reconfSvc2.(*reconfigurableArmRemoteControl)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	name1 := rBRC.actual.config.BaseName
-	name2 := rBRC2.actual.config.BaseName
+	name1 := rBRC.actual.config.ArmName
+	name2 := rBRC2.actual.config.ArmName
 
 	test.That(t, name1, test.ShouldEqual, name2)
 }
@@ -219,28 +188,131 @@ func TestReconfigure(t *testing.T) {
 	actualSvc := returnMock("svc1")
 	reconfSvc, err := WrapWithReconfigurable(actualSvc)
 	test.That(t, err, test.ShouldBeNil)
-	rBRC, ok := reconfSvc.(*reconfigurableBaseRemoteControl)
+	rBRC, ok := reconfSvc.(*reconfigurableArmRemoteControl)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	actualSvc2 := returnMock("svc1")
 	reconfSvc2, err := WrapWithReconfigurable(actualSvc2)
 	test.That(t, err, test.ShouldBeNil)
-	rBRC2, ok := reconfSvc2.(*reconfigurableBaseRemoteControl)
+	rBRC2, ok := reconfSvc2.(*reconfigurableArmRemoteControl)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, rBRC2, test.ShouldNotBeNil)
 
 	err = reconfSvc.Reconfigure(context.Background(), reconfSvc2)
 	test.That(t, err, test.ShouldBeNil)
-	name1 := rBRC.actual.config.BaseName
-	name2 := rBRC2.actual.config.BaseName
+	name1 := rBRC.actual.config.ArmName
+	name2 := rBRC2.actual.config.ArmName
 	test.That(t, name1, test.ShouldEqual, name2)
 
 	err = reconfSvc.Reconfigure(context.Background(), nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&reconfigurableBaseRemoteControl{}, nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&reconfigurableArmRemoteControl{}, nil))
 }
 
-func returnMock(name string) remoteService {
-	return remoteService{
-		config: &Config{BaseName: name},
+func returnMock(name string) armRemoteService {
+	return armRemoteService{
+		config: &Config{ArmName: name},
 	}
+}
+
+func stateShouldBeZero(state *controllerState) bool {
+	for _, v := range state.buttons {
+		if  v {
+			return false
+		}
+	}
+
+	for _, v := range state.endpoints {
+		if v > 0.0 {
+			return false
+		}
+	}
+
+	for _, v := range state.joints {
+		if v > 0.0 {
+			return false
+		}
+	}
+	return true
+}
+
+func TestState(t *testing.T) {
+	cfg := &Config{
+		ArmName:               "",
+		InputControllerName:   "",
+		DefaultJointStep:      10.0,
+		DefaultPoseStep:       0.10,
+		ControllerSensitivity: 5.0,
+		ControllerModes: []controllerMode{
+			{
+				ModeName: "joint",
+				Mappings: map[input.Control]armPart{
+					input.AbsoluteX: jointOne,
+					input.AbsoluteY: jointTwo,
+					input.AbsoluteRY: jointThree,
+					input.AbsoluteRX: jointFour,
+					input.AbsoluteHat0X: jointFive,
+					input.AbsoluteHat0Y: jointSix,
+				},
+			}, {
+				ModeName: "endpoint",
+				Mappings: map[input.Control]armPart{
+					input.AbsoluteX: "ox",
+					input.AbsoluteY: "z",
+					input.AbsoluteHat0X: "oz",
+					input.AbsoluteHat0Y: "oy",
+					input.AbsoluteRY: "x",
+					input.AbsoluteRX: "y",
+				},
+			},
+		},
+	}
+
+	// setup state
+	state := &controllerState{}
+	state.init()
+	
+	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
+	test.That(t, state.curModeIdx, test.ShouldEqual, 0)
+	// button pressed
+	state.set(input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonNorth, Value: 1}, *cfg)
+	test.That(t, state.buttons[input.ButtonNorth], test.ShouldBeTrue)
+	test.That(t, state.event, test.ShouldEqual, buttonPressed)
+	state.reset()
+	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
+	test.That(t, state.event, test.ShouldEqual, noop)
+	// joint test valid value
+	state.set(input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 1.0}, *cfg)
+	test.That(t, state.event, test.ShouldEqual, jointEvent)
+	test.That(t, state.isInvalid(cfg.ControllerSensitivity), test.ShouldBeFalse)
+	test.That(t, state.joints[jointOne], test.ShouldEqual, 1.0)
+	state.reset()
+	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
+	test.That(t, state.event, test.ShouldEqual, noop)
+	// joint test invalid value
+	state.set(input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.9}, *cfg)
+	test.That(t, state.event, test.ShouldEqual, jointEvent)
+	test.That(t, state.isInvalid(cfg.ControllerSensitivity), test.ShouldBeTrue)
+	test.That(t, state.joints[jointOne], test.ShouldEqual, 0.9)
+	state.reset()
+	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
+	test.That(t, state.event, test.ShouldEqual, noop)
+	// switch mode (emulating commands as these are not finalized)
+	state.curModeIdx = 1
+	// end point Valid Value
+	state.set(input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 1.0}, *cfg)
+	test.That(t, state.event, test.ShouldEqual, endPointEvent)
+	test.That(t, state.isInvalid(cfg.ControllerSensitivity), test.ShouldBeFalse)
+	test.That(t, state.endpoints[ox], test.ShouldEqual, 1.0)
+	state.reset()
+	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
+	test.That(t, state.event, test.ShouldEqual, noop)
+	// end point test invalid value
+	state.set(input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.9}, *cfg)
+	test.That(t, state.event, test.ShouldEqual, endPointEvent)
+	test.That(t, state.isInvalid(cfg.ControllerSensitivity), test.ShouldBeTrue)
+	test.That(t, state.endpoints[ox], test.ShouldEqual, 0.9)
+	state.reset()
+	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
+	test.That(t, state.event, test.ShouldEqual, noop)
+	
 }
