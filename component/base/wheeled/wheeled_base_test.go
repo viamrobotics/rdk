@@ -276,8 +276,6 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeLessThan, math.Abs(revR))
 
-		// TODO: End up in the same spot?
-
 		// Go forward-right (↱)
 		fwdL, fwdR = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: -1})
 		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
@@ -290,7 +288,10 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
 
-		// TODO: End up in the same spot?
+		// Test spin
+		spinL, spinR := base.setPowerMath(r3.Vector{Y: 0}, r3.Vector{Z: -1})
+		test.That(t, spinL, test.ShouldBeLessThanOrEqualTo, 0)
+		test.That(t, spinR, test.ShouldBeGreaterThan, 0)
 	})
 }
 
