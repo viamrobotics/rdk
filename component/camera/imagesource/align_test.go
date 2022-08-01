@@ -86,7 +86,7 @@ func applyAlignment(
 	test.That(t, err, test.ShouldBeNil)
 	proj, err := is.GetProperties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	return alignedPointCloud, proj
+	return alignedPointCloud, proj.IntrinsicParams
 }
 
 // nolint:dupl

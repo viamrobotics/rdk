@@ -87,7 +87,8 @@ message GetPropertiesRequest {
 }
 
 message GetPropertiesResponse {
-  IntrinsicParameters intrinsic_parameters = 1;
+  bool has_depth = 1;
+  IntrinsicParameters intrinsic_parameters = 2;
 }
 
 message Webcams {

@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
@@ -381,14 +380,16 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 	var proj rimage.Projector
 	var err error
+	// use a default projector if target frame doesn't have one
+	proj = &rimage.ParallelProjection{}
 	if idx, ok := contains(jpcs.sourceNames, jpcs.targetName); ok {
-		proj, err = jpcs.sourceCameras[idx].GetProperties(ctx)
-		if err != nil && !errors.Is(err, transform.ErrNoIntrinsics) {
+		props, err := jpcs.sourceCameras[idx].GetProperties(ctx)
+		if err != nil {
 			return nil, nil, err
 		}
-	}
-	if proj == nil { // use a default projector if target frame doesn't have one
-		proj = &rimage.ParallelProjection{}
+		if props.IntrinsicParams != nil {
+			proj = props.IntrinsicParams
+		}
 	}
 
 	pc, err := jpcs.NextPointCloud(ctx)

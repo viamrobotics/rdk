@@ -81,29 +81,33 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	}()
 }
 
-func (c *client) GetProperties(ctx context.Context) (rimage.Projector, error) {
-	var proj rimage.Projector
+func (c *client) GetProperties(ctx context.Context) (Properties, error) {
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return nil, err
+		return Properties{}, err
 	}
-	intrinsics := &transform.PinholeCameraIntrinsics{
-		Width:      int(resp.IntrinsicParameters.WidthPx),
-		Height:     int(resp.IntrinsicParameters.HeightPx),
-		Fx:         resp.IntrinsicParameters.FocalXPx,
-		Fy:         resp.IntrinsicParameters.FocalYPx,
-		Ppx:        resp.IntrinsicParameters.CenterXPx,
-		Ppy:        resp.IntrinsicParameters.CenterYPx,
-		Distortion: transform.DistortionModel{},
+	var intrinsics *transform.PinholeCameraIntrinsics
+	if resp.IntrinsicParameters != nil {
+		intrinsics = &transform.PinholeCameraIntrinsics{
+			Width:      int(resp.IntrinsicParameters.WidthPx),
+			Height:     int(resp.IntrinsicParameters.HeightPx),
+			Fx:         resp.IntrinsicParameters.FocalXPx,
+			Fy:         resp.IntrinsicParameters.FocalYPx,
+			Ppx:        resp.IntrinsicParameters.CenterXPx,
+			Ppy:        resp.IntrinsicParameters.CenterYPx,
+			Distortion: transform.DistortionModel{},
+		}
+		err = intrinsics.CheckValid()
+		if err != nil {
+			return Properties{}, err
+		}
 	}
-	err = intrinsics.CheckValid()
-	if err != nil {
-		return nil, err
-	}
-	proj = intrinsics
-	return proj, nil
+	return Properties{
+		HasDepth:        resp.GetHasDepth(),
+		IntrinsicParams: intrinsics,
+	}, nil
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

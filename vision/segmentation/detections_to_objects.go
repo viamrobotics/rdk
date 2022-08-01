@@ -35,10 +35,11 @@ func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.T
 				return nil, err
 			}
 		}
-		proj, err := cam.GetProperties(ctx)
+		props, err := cam.GetProperties(ctx)
 		if err != nil {
 			return nil, err
 		}
+		proj := props.IntrinsicParams
 		// get the 3D detections, and turn them into 2D image and depthmap
 		pc, err := cam.NextPointCloud(ctx)
 		if err != nil {

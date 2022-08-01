@@ -252,16 +252,16 @@ func TestNewCamera(t *testing.T) {
 	// camera with no camera parameters
 	cam1, err := camera.New(imgSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
-	proj, err := cam1.GetProperties(context.Background())
-	test.That(t, proj, test.ShouldBeNil)
-	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
+	props, _ := cam1.GetProperties(context.Background())
+	test.That(t, props.HasDepth, test.ShouldBeTrue)
+	test.That(t, props.IntrinsicParams, test.ShouldBeNil)
 
 	// camera with camera parameters
-	proj, _ = camera.GetProjector(context.Background(), attrs1, cam1)
+	proj, _ := camera.GetProjector(context.Background(), attrs1, cam1)
 	cam2, err := camera.New(imgSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
 	proj2, err := cam2.GetProperties(context.Background())
-	test.That(t, proj2, test.ShouldNotBeNil)
+	test.That(t, proj2.IntrinsicParams, test.ShouldResemble, proj)
 	test.That(t, err, test.ShouldBeNil)
 
 	// camera with camera parameters inherited  from other camera
@@ -270,7 +270,7 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	proj3, err := cam3.GetProperties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, proj3, test.ShouldResemble, proj2)
+	test.That(t, proj3.IntrinsicParams, test.ShouldResemble, proj2.IntrinsicParams)
 
 	// camera with different camera parameters, will not inherit
 	proj, _ = camera.GetProjector(context.Background(), attrs2, cam2)
@@ -278,7 +278,7 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	proj4, err := cam4.GetProperties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, proj4, test.ShouldNotResemble, proj2)
+	test.That(t, proj4.IntrinsicParams, test.ShouldNotResemble, proj2)
 
 	// cam4 wrapped with reconfigurable
 	reconfig, err := camera.WrapWithReconfigurable(cam4)
@@ -289,7 +289,7 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	proj5, err := cam5.GetProperties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, proj5, test.ShouldResemble, proj4)
+	test.That(t, proj5.IntrinsicParams, test.ShouldResemble, proj4.IntrinsicParams)
 }
 
 type cloudSource struct {
@@ -307,8 +307,6 @@ func TestCameraWithNoProjector(t *testing.T) {
 	noProj, err := camera.New(imgSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = noProj.NextPointCloud(context.Background())
-	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
-	_, err = noProj.GetProperties(context.Background())
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// make a camera with a NextPointCloudFunction
@@ -339,9 +337,9 @@ func TestCameraWithProjector(t *testing.T) {
 	pc, err := cam.NextPointCloud(context.Background())
 	test.That(t, pc.Size(), test.ShouldEqual, 921600)
 	test.That(t, err, test.ShouldBeNil)
-	proj, err = cam.GetProperties(context.Background())
+	props, err := cam.GetProperties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, proj, test.ShouldNotBeNil)
+	test.That(t, props, test.ShouldNotBeNil)
 
 	// camera with a point cloud function
 	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}
