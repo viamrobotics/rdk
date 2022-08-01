@@ -39,7 +39,7 @@ type Encoder interface {
 	ResetToZero(ctx context.Context, offset float64) error
 
 	// TicksPerRotation returns the number of ticks needed for a full rotation
-	TicksPerRotation(ctx context.Context) (float64, error)
+	TicksPerRotation(ctx context.Context) (int64, error)
 
 	generic.Generic
 }
@@ -116,7 +116,7 @@ func (r *reconfigurableEncoder) ResetToZero(ctx context.Context, offset float64)
 	return r.actual.ResetToZero(ctx, offset)
 }
 
-func (r *reconfigurableEncoder) TicksPerRotation(ctx context.Context) (float64, error) {
+func (r *reconfigurableEncoder) TicksPerRotation(ctx context.Context) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.TicksPerRotation(ctx)
@@ -161,7 +161,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 // Config describes the configuration of an encoder.
 type Config struct {
-	Pins          struct{}             `json:"pins"`
+	Pins          interface{}            `json:"pins"`
 	BoardName     string                `json:"board"`
 
 	TicksPerRotation int     `json:"ticks_per_rotation,omitempty"`
