@@ -96,7 +96,7 @@ type KDTree struct {
 func NewKDTree(pc PointCloud) *KDTree {
 	t := &KDTree{
 		tree:   kdtree.New(kdValues{}, false),
-		points: &matrixStorage{points: make([]PointAndData, pc.Size()), indexMap: make(map[r3.Vector]uint, pc.Size())},
+		points: &matrixStorage{points: []PointAndData{}, indexMap: map[r3.Vector]uint{}},
 		meta:   NewMetaData(),
 	}
 

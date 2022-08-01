@@ -19,7 +19,7 @@ type roundingPointCloud struct {
 // NewRoundingPointCloud returns a new, empty, rounding PointCloud.
 func NewRoundingPointCloud() PointCloud {
 	return &roundingPointCloud{
-		points: &matrixStorage{points: make([]PointAndData, 0), indexMap: make(map[r3.Vector]uint, 0)},
+		points: &matrixStorage{points: []PointAndData{}, indexMap: map[r3.Vector]uint{}},
 		meta:   NewMetaData(),
 	}
 }
