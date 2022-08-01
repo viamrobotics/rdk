@@ -454,6 +454,17 @@ func TestClose(t *testing.T) {
 	test.That(t, actualMotor1.reconfCount, test.ShouldEqual, 1)
 }
 
+func TestExtra(t *testing.T) {
+	actualMotor1 := &mock{Name: testMotorName}
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualMotor1.extra, test.ShouldEqual, nil)
+	err = reconfMotor1.(motor.Motor).SetPower(context.Background(), 0, map[string]interface{}{"foo": "bar", "baz": [3]int{1, 2, 3}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualMotor1.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar", "baz": [3]int{1, 2, 3}})
+}
+
 var (
 	position  = 5.5
 	features  = map[motor.Feature]bool{motor.PositionReporting: true}
@@ -473,20 +484,24 @@ type mock struct {
 	stopCount     int
 	poweredCount  int
 	reconfCount   int
+	extra         map[string]interface{}
 }
 
 func (m *mock) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.powerCount++
+	m.extra = extra
 	return nil
 }
 
 func (m *mock) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
 	m.goForCount++
+	m.extra = extra
 	return nil
 }
 
 func (m *mock) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
 	m.goToCount++
+	m.extra = extra
 	return nil
 }
 
@@ -497,21 +512,25 @@ func (m *mock) ResetZeroPosition(ctx context.Context, offset float64, extra map[
 
 func (m *mock) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.posCount++
+	m.extra = extra
 	return position, nil
 }
 
 func (m *mock) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	m.featuresCount++
+	m.extra = extra
 	return features, nil
 }
 
 func (m *mock) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stopCount++
+	m.extra = extra
 	return nil
 }
 
 func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	m.poweredCount++
+	m.extra = extra
 	return isPowered, nil
 }
 

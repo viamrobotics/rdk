@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/motor"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -243,4 +244,28 @@ func TestServerResetZeroPosition(t *testing.T) {
 	resp, err = motorServer.ResetZeroPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+//nolint:dupl
+func TestServerExtraParams(t *testing.T) {
+	motorServer, workingMotor, _, _ := newServer()
+
+	var actualExtra map[string]interface{}
+	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
+		actualExtra = extra
+		return nil
+	}
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+
+	ext, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
+
+	req := pb.ResetZeroPositionRequest{Name: testMotorName, Offset: 1.1, Extra: ext}
+	resp, err := motorServer.ResetZeroPosition(context.Background(), &req)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualExtra["foo"], test.ShouldEqual, expectedExtra["foo"])
+	test.That(t, actualExtra["baz"], test.ShouldResemble, expectedExtra["baz"])
 }

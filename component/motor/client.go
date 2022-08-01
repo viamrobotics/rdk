@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
+	"go.viam.com/rdk/protoutils"
 )
 
 // serviceClient is a client that satisfies the motor.proto contract.
@@ -141,7 +142,7 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 func (c *client) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
 	}
