@@ -68,18 +68,18 @@ func Named(name string) resource.Name {
 // Gantry is used for controlling gantries of N axis.
 type Gantry interface {
 	// GetPosition returns the position in meters
-	GetPosition(ctx context.Context) ([]float64, error)
+	GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
 	// MoveToPosition is in meters
 	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState) error
+	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error
 
 	// GetLengths is the length of gantries in meters
-	GetLengths(ctx context.Context) ([]float64, error)
+	GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
 	// Stop stops the gantry. It is assumed the gantry stops immediately.
-	Stop(ctx context.Context) error
+	Stop(ctx context.Context, extra map[string]interface{}) error
 
 	generic.Generic
 	referenceframe.ModelFramer
@@ -131,12 +131,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", resource)
 	}
-	positions, err := gantry.GetPosition(ctx)
+	positions, err := gantry.GetPosition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	lengths, err := gantry.GetLengths(ctx)
+	lengths, err := gantry.GetLengths(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -194,17 +194,17 @@ func (g *reconfigurableGantry) Do(ctx context.Context, cmd map[string]interface{
 }
 
 // GetPosition returns the position in meters.
-func (g *reconfigurableGantry) GetPosition(ctx context.Context) ([]float64, error) {
+func (g *reconfigurableGantry) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.GetPosition(ctx)
+	return g.actual.GetPosition(ctx, extra)
 }
 
 // GetLengths returns the position in meters.
-func (g *reconfigurableGantry) GetLengths(ctx context.Context) ([]float64, error) {
+func (g *reconfigurableGantry) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.GetLengths(ctx)
+	return g.actual.GetLengths(ctx, extra)
 }
 
 // position is in meters.
@@ -212,16 +212,17 @@ func (g *reconfigurableGantry) MoveToPosition(
 	ctx context.Context,
 	positionsMm []float64,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.MoveToPosition(ctx, positionsMm, worldState)
+	return g.actual.MoveToPosition(ctx, positionsMm, worldState, extra)
 }
 
-func (g *reconfigurableGantry) Stop(ctx context.Context) error {
+func (g *reconfigurableGantry) Stop(ctx context.Context, extra map[string]interface{}) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.actual.Stop(ctx)
+	return g.actual.Stop(ctx, extra)
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {
