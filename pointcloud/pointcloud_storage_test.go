@@ -2,14 +2,18 @@ package pointcloud
 
 import (
 	"image/color"
+	"sync"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 )
 
 func testPointCloudStorage(t *testing.T, ms storage) {
 	t.Helper()
+
+	emptyCopy := ms
 	var point r3.Vector
 	var data, gotData Data
 	var found bool
@@ -43,4 +47,70 @@ func testPointCloudStorage(t *testing.T, ms storage) {
 	gotData, found = ms.At(3, 1, 7)
 	test.That(t, found, test.ShouldEqual, false)
 	test.That(t, gotData, test.ShouldBeNil)
+
+	// Iteration
+	newMs := emptyCopy
+	testPointCloudIterate(t, newMs)
+}
+
+func testPointCloudIterate(t *testing.T, ms storage) {
+	t.Helper()
+
+	ms.Set(r3.Vector{1, 2, 3}, NewColoredData(color.NRGBA{255, 124, 43, 255}))
+	ms.Set(r3.Vector{4, 2, 3}, NewColoredData(color.NRGBA{232, 111, 75, 255}))
+	ms.Set(r3.Vector{3, 1, 7}, NewColoredData(color.NRGBA{22, 1, 78, 255}))
+	expectedCentroid := r3.Vector{8 / 3.0, 5 / 3.0, 13 / 3.0}
+
+	// One batch
+	testPointCloudIterateHelper(t, ms, 1, expectedCentroid)
+
+	// Batches equal to the number of points
+	testPointCloudIterateHelper(t, ms, ms.Size(), expectedCentroid)
+
+	// Batches greater than the number of points
+	testPointCloudIterateHelper(t, ms, ms.Size()*2, expectedCentroid)
+}
+
+func testPointCloudIterateHelper(t *testing.T, ms storage, numBatches int, expectedCentroid r3.Vector) {
+	t.Helper()
+
+	var totalX, totalY, totalZ float64
+	var count int
+	var wg sync.WaitGroup
+	wg.Add(numBatches)
+	totalXChan := make(chan float64, numBatches)
+	totalYChan := make(chan float64, numBatches)
+	totalZChan := make(chan float64, numBatches)
+	countChan := make(chan int, numBatches)
+	for loop := 0; loop < numBatches; loop++ {
+		f := func(myBatch int) {
+			defer wg.Done()
+			var totalXBuf, totalYBuf, totalZBuf float64
+			var countBuf int
+			ms.Iterate(numBatches, myBatch, func(p r3.Vector, d Data) bool {
+				totalXBuf += p.X
+				totalYBuf += p.Y
+				totalZBuf += p.Z
+				countBuf++
+				return true
+			})
+			totalXChan <- totalXBuf
+			totalYChan <- totalYBuf
+			totalZChan <- totalZBuf
+			countChan <- countBuf
+		}
+		loopCopy := loop
+		utils.PanicCapturingGo(func() { f(loopCopy) })
+	}
+	wg.Wait()
+	for loop := 0; loop < numBatches; loop++ {
+		totalX += <-totalXChan
+		totalY += <-totalYChan
+		totalZ += <-totalZChan
+		count += <-countChan
+	}
+	test.That(t, count, test.ShouldEqual, ms.Size())
+	test.That(t, totalX/float64(count), test.ShouldAlmostEqual, expectedCentroid.X)
+	test.That(t, totalY/float64(count), test.ShouldAlmostEqual, expectedCentroid.Y)
+	test.That(t, totalZ/float64(count), test.ShouldAlmostEqual, expectedCentroid.Z)
 }
