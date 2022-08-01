@@ -315,11 +315,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
-	go func() {
-		if err := collector.Collect(); err != nil {
-			svc.logger.Error(err.Error())
-		}
-	}()
+	collector.Collect()
 
 	return &componentMetadata, nil
 }
