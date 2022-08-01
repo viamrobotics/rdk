@@ -19,7 +19,7 @@ func New() PointCloud {
 // NewWithPrealloc returns an empty, preallocated PointCloud backed by a basicPointCloud.
 func NewWithPrealloc(size int) PointCloud {
 	return &basicPointCloud{
-		points: &matrixStorage{points: []PointAndData{}, indexMap: map[r3.Vector]uint{}},
+		points: &matrixStorage{points: make([]PointAndData, 0, size), indexMap: make(map[r3.Vector]uint, size)},
 		meta:   NewMetaData(),
 	}
 }
