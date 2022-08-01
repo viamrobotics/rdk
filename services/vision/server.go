@@ -28,7 +28,7 @@ func NewServer(s subtype.Service) pb.VisionServiceServer {
 }
 
 func (server *subtypeServer) service() (Service, error) {
-	resource := server.subtypeSvc.Resource(Name.String())
+	resource := server.subtypeSvc.Resource(Name.Name)
 	if resource == nil {
 		return nil, utils.NewResourceNotFoundError(Name)
 	}
