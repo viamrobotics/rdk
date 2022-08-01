@@ -142,7 +142,7 @@ func (pCtx *ProcessorContext) GotDebugPointCloud(pc pointcloud.PointCloud, name 
 		if err != nil {
 			panic(err)
 		}
-		err = pointcloud.ToPCD(pc, f, pointcloud.PCDAscii)
+		err = pointcloud.ToPCD(pc, f, pointcloud.PCDBinary)
 		if err != nil {
 			panic(err)
 		}
