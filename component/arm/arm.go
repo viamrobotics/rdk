@@ -195,6 +195,7 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 func (r *reconfigurableArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	fmt.Println("EndPosition in Wrap")
 	return r.actual.GetEndPosition(ctx, extra)
 }
 

@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -41,18 +42,22 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	address     string
-	conn        rpc.ClientConn
-	client      pb.RobotServiceClient
-	refClient   *grpcreflect.Client
-	dialOptions []rpc.DialOption
+	address         string
+	conn            rpc.ClientConn
+	client          pb.RobotServiceClient
+	refClient       *grpcreflect.Client
+	dialOptions     []rpc.DialOption
+	children        map[resource.Name]interface{}
+	checkedChildren map[resource.Name]bool
+	newChildren     []interface{}
 
 	mu                  *sync.RWMutex
 	resourceNames       []resource.Name
 	resourceRPCSubtypes []resource.RPCSubtype
 
-	connected  bool
-	changeChan chan bool
+	connected       bool
+	changeChan      chan bool
+	connectedBefore bool
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
@@ -70,6 +75,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
+	fmt.Println("new client created")
 
 	closeCtx, cancel := context.WithCancel(ctx)
 
@@ -82,6 +88,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		closeContext:            closeCtx,
 		dialOptions:             rOpts.dialOptions,
 		notifyParent:            nil,
+		children:                make(map[resource.Name]interface{}),
 	}
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
@@ -120,6 +127,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 func (rc *RobotClient) SetParentNotifier(f func()) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
+	fmt.Println("parent notifier set")
 	rc.notifyParent = f
 }
 
@@ -132,13 +140,19 @@ func (rc *RobotClient) Connected() bool {
 func (rc *RobotClient) Changed() <-chan bool {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
+
 	if rc.changeChan == nil {
 		rc.changeChan = make(chan bool)
 	}
 	return rc.changeChan
 }
 
+func (rc *RobotClient) GetChildren() map[resource.Name]interface{} {
+	return rc.children
+}
+
 func (rc *RobotClient) connect(ctx context.Context) error {
+	fmt.Println("call connect")
 	if rc.conn != nil {
 		if err := rc.conn.Close(); err != nil {
 			return err
@@ -160,10 +174,65 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	rc.client = client
 	rc.refClient = refClient
 	rc.connected = true
+	fmt.Println("just reconnected")
+	if rc.connectedBefore {
+
+		fmt.Println("check resources")
+		// refresh first to get the new resources
+		err = rc.updateResources(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Println(rc.resourceNames)
+		fmt.Println(rc.children)
+
+		// 1. get new resourceNames that are actually in the config now
+		// 2. check those against the clients that were previously created
+		// 3. remove the remaining clients that were not touched/no longer exist
+		for _, name := range rc.resourceNames {
+			if client := rc.children[name]; client != nil {
+				// that means this client was previously initiated and called
+				newClient, err := rc.createClient(name)
+				if err != nil {
+					return err
+				}
+				reconfigurableNewClient, ok := newClient.(resource.Reconfigurable)
+				if !ok {
+					fmt.Println("reconfigurableNewClient not reconfigurable")
+					continue
+				}
+				reconfigurableClient, ok := client.(resource.Reconfigurable)
+				if !ok {
+					fmt.Println("reconfigurableClient not reconfigurable")
+					continue
+				}
+				err = reconfigurableClient.Reconfigure(ctx, reconfigurableNewClient)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		for childName, checked := range rc.checkedChildren {
+			if !checked {
+				child := rc.children[childName]
+				utils.TryClose(ctx, child)
+				rc.children[childName] = nil
+				rc.checkedChildren[childName] = false
+			}
+		}
+
+	} else {
+		rc.connectedBefore = true
+	}
+
+	fmt.Println("connected is now true")
+	// now that connected is true, we should call resourceByName and do something to reconnect
 	if rc.changeChan != nil {
 		rc.changeChan <- true
 	}
 	if rc.notifyParent != nil {
+		fmt.Println("notifying parent")
 		rc.notifyParent()
 	}
 	return nil
@@ -172,6 +241,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 // checkConnection either checks if the client is still connected, or attempts to reconnect to the remote.
 func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Duration, reconnectEvery time.Duration) {
 	for {
+		fmt.Println("checking connection")
 		var waitTime time.Duration
 		if rc.Connected() {
 			waitTime = checkEvery
@@ -231,10 +301,11 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 				if rc.changeChan != nil {
 					rc.changeChan <- true
 				}
-				if rc.notifyParent != nil {
-					rc.Logger().Debugf("connection was lost for remote %q", rc.address)
-					rc.notifyParent()
-				}
+				rc.Logger().Debugf("connection was lost for remote %q", rc.address)
+				// if rc.notifyParent != nil {
+				// 	rc.Logger().Debugf("connection was lost for remote %q", rc.address)
+				// 	rc.notifyParent()
+				// }
 				rc.mu.Unlock()
 			}
 		}
@@ -286,33 +357,49 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
+	fmt.Println("rr ResourceByName")
 	if err := rc.checkConnected(); err != nil {
 		return nil, err
 	}
+	if client := rc.children[name]; client != nil {
+		return client, nil
+	}
+	resourceClient, err := rc.createClient(name)
+	if err != nil {
+		return nil, err
+	}
+	rc.children[name] = resourceClient
+	return resourceClient, nil
+}
+
+func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 	c := registry.ResourceSubtypeLookup(name.Subtype)
 	if c == nil || c.RPCClient == nil {
 		if name.Namespace != resource.ResourceNamespaceRDK {
 			return grpc.NewForeignResource(name, rc.conn), nil
 		}
-
 		// registration doesn't exist
 		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
 	nameR := name.ShortName()
 	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
+
 	return resourceClient, nil
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {
+	fmt.Println("call resources")
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
+		fmt.Println("failed ResourceNames")
 		return nil, nil, err
 	}
 
 	var resTypes []resource.RPCSubtype
 	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
 	if err == nil {
+		fmt.Println("ResourceRPCSubtypes not erroring")
 		reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
 
 		resTypes = make([]resource.RPCSubtype, 0, len(typesResp.ResourceRpcSubtypes))
@@ -357,10 +444,15 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
+	fmt.Println("call Refresh")
 	if err := rc.checkConnected(); err != nil {
 		return err
 	}
+	return rc.updateResources(ctx)
 
+}
+
+func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
 	names, rpcSubtypes, err := rc.resources(ctx)
 	// only return if it is not unimplemented - means a bigger error came up
@@ -402,12 +494,15 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 		return nil
 	}
 	names := make([]resource.Name, 0, len(rc.resourceNames))
+	fmt.Println("checking name differences")
 	for _, v := range rc.resourceNames {
 		rName := resource.NewName(v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name)
 		names = append(
 			names,
 			rName.PrependRemote(v.Remote),
 		)
+		fmt.Printf("old name %s \n", v)
+		fmt.Printf("new name %s \n", rName)
 	}
 	return names
 }

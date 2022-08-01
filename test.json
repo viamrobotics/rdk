@@ -1,0 +1,37 @@
+{
+  "network": {
+    "bind_address":":8080"
+  },
+    "components": [
+      {
+        "attributes": {
+          "i2cs": [
+            {
+              "bus": "1",
+              "name": "ezopmp"
+            }
+          ]
+        },
+        "depends_on": [],
+        "model": "pi",
+        "name": "pi",
+        "service_config": [],
+        "type": "board"
+      },
+      {
+        "attributes": {
+          "bus_name": "ezopmp",
+          "board": "pi",
+          "i2c_address": 103,
+          "max_read_bits": 39
+        },
+        "depends_on": [
+          "pi"
+        ],
+        "model": "ezopmp",
+        "name": "ezopmp",
+        "service_config": [],
+        "type": "motor"
+      }
+    ]
+  }

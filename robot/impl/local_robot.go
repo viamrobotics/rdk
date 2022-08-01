@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -362,10 +363,13 @@ func newWithResources(
 			case <-closeCtx.Done():
 				return
 			case n, ok := <-r.remotesChanged:
+				// this will now ONLY be call on connect and NOT disconnect
+
 				if !ok {
 					return
 				}
 				if rr, ok := r.manager.RemoteByName(n); ok {
+					fmt.Println("remote has changed, update remote stuff")
 					rn := fromRemoteNameToRemoteNodeName(n)
 					r.manager.updateRemoteResourceNames(ctx, rn, rr, r)
 					r.updateDefaultServices(ctx)

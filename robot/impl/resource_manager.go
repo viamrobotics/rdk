@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -114,12 +115,20 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 // 2) A remote resource is being deleted but a local resource depends on it.
 // It will be renamed as unknown and its local children are going to be destroyed.
 func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, remoteName resource.Name, rr robot.Robot, lr *localRobot) {
+	fmt.Println("update remote resource names called")
 	visited := map[resource.Name]bool{}
-	newResources := rr.ResourceNames()
+	rc, ok := rr.(*client.RobotClient)
+	if !ok {
+		manager.logger.Error("not a robot client")
+		return
+	}
+
+	newResources := rc.ResourceNames()
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		visited[res] = false
 	}
+
 	for _, res := range newResources {
 		rrName := res
 		res = res.PrependRemote(resource.RemoteName(remoteName.Name))
@@ -127,7 +136,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 			visited[res] = true
 			continue
 		}
-		iface, err := rr.ResourceByName(rrName)
+		iface, err := rr.ResourceByName(rrName) // this returns the remote object client OR a foreign resource
 		if err != nil {
 			manager.logger.Errorw("couldn't obtain remote resource interface",
 				"name", rrName,
@@ -152,6 +161,9 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 		}
 	}
 	for res, visit := range visited {
+		// this loops through all of visited to see which ones are FALSE, meaning they are
+		// NOT a part of the new resources in current robot. If remote is disconnected
+		// then none of the nodes in this graph will have been visited
 		if !visit {
 			manager.logger.Debugf("deleting res %q", res)
 			err := manager.markChildrenForUpdate(ctx, res, lr)
