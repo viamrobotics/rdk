@@ -98,6 +98,8 @@ Some guidelines on using these:
 
 To start the client development environment, first run the same `go run` command mentioned in getting started, but with the environmental variable `ENV=development` (like: `ENV=development go run web/cmd/server/main.go robots/configs/fake.json`). Then navigate to `web/frontend` and run `npm start` in a new terminal tab.
 
+Note that you should still visit `localhost:8080` to view the app, not `localhost:5173`. The latter is a hot module replacement server that rebuilds frontend asset changes.
+
 ### Testing with big data
 
 Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull down with git and is typically not needed except for certain tests. In order to add large data test artifacts, you need to do the following:
