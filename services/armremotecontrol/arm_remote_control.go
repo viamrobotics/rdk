@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
@@ -25,12 +24,23 @@ import (
 // constants
 const (
 	noop = controllerEvent(iota) // controller events
-	leftJoystick
-	rightJoystick
-	directionalHat
-	triggerZ
+	jointEvent
+	endPointEvent
 	buttonPressed
 	SubtypeName = resource.SubtypeName("arm_remote_control") // resource name
+	jointOne    = armPart("jointOne")
+	jointTwo    = armPart("jointTwo")
+	jointThree  = armPart("jointThree")
+	jointFour   = armPart("jointFour")
+	jointFive   = armPart("jointFive")
+	jointSix    = armPart("jointSix")
+	x           = armPart("x")
+	y           = armPart("y")
+	z           = armPart("z")
+	ox          = armPart("ox")
+	oy          = armPart("oy")
+	oz          = armPart("oz")
+	theta       = armPart("theta")
 )
 
 // Subtype is a constant that identifies the remote control resource subtype.
@@ -66,6 +76,8 @@ func init() {
 // ControlMode is the control type for the remote control.
 type controlMode string
 type controllerEvent uint8
+type jointIndex uint8
+type armPart string
 
 // Config describes how to configure the service.
 type Config struct {
@@ -78,24 +90,8 @@ type Config struct {
 }
 
 type controllerMode struct {
-	ModeName string            `json:"mode_name"`
-	Mappings controllerMapping `json:"mappings"`
-}
-
-type controllerMapping struct {
-	JointOne   string `json:"joint_one,omitempty"`
-	JointTwo   string `json:"joint_two,omitempty"`
-	JointThree string `json:"joint_three,omitempty"`
-	JointFour  string `json:"joint_four,omitempty"`
-	JointFive  string `json:"joint_five,omitempty"`
-	JointSix   string `json:"joint_six,omitempty"`
-	LinearX    string `json:"linear_x,omitempty"`
-	LinearY    string `json:"linear_y,omitempty"`
-	LinearZ    string `json:"linear_z,omitempty"`
-	RotationX  string `json:"rotation_x,omitempty"`
-	RotationY  string `json:"rotation_y,omitempty"`
-	RotationZ  string `json:"rotation_z,omitempty"`
-	Theta      string `json:"theta,omitempty"`
+	ModeName string                    `json:"mode_name"`
+	Mappings map[input.Control]armPart `json:"mappings"`
 }
 
 // controllerState used to manage controller for arm
@@ -103,8 +99,8 @@ type controllerMapping struct {
 type controllerState struct {
 	event      controllerEvent
 	curModeIdx int
-	mapping    controllerMapping
-	axis       r3.Vector // capture joystick events
+	joints     map[armPart]float64
+	endpoints  map[armPart]float64
 	buttons    map[input.Control]bool
 	arrows     map[input.Control]float64
 }
@@ -112,8 +108,24 @@ type controllerState struct {
 // state of control, event, axis, mode, command
 func (cs *controllerState) init() {
 	cs.event = noop
-	cs.axis = r3.Vector{}
 	cs.curModeIdx = 0
+	cs.endpoints = map[armPart]float64{
+		x:     0.0,
+		y:     0.0,
+		z:     0.0,
+		ox:    0.0,
+		oy:    0.0,
+		oz:    0.0,
+		theta: 0.0,
+	}
+	cs.joints = map[armPart]float64{
+		jointOne:   0.0,
+		jointTwo:   0.0,
+		jointThree: 0.0,
+		jointFour:  0.0,
+		jointFive:  0.0,
+		jointSix:   0.0,
+	}
 	cs.buttons = map[input.Control]bool{
 		input.ButtonSouth:  false,
 		input.ButtonEast:   false,
@@ -129,20 +141,37 @@ func (cs *controllerState) init() {
 
 // how to do mapping
 func (cs *controllerState) set(event input.Event, remoteConfig Config) {
+	mappings := remoteConfig.ControllerModes[cs.curModeIdx].Mappings
 	switch event.Event {
 	case input.ButtonPress, input.ButtonRelease:
 		cs.event = buttonPressed
 		cs.buttons[event.Control] = !cs.buttons[event.Control]
 	case input.PositionChangeAbs:
-		break
+		ap := mappings[event.Control]
+		switch ap {
+		case jointOne, jointTwo, jointThree, jointFour, jointFive, jointSix:
+			cs.event = jointEvent
+			cs.joints[ap] = event.Value
+		case x, y, z, ox, oy, oz, theta:
+			cs.event = endPointEvent
+			cs.endpoints[ap] = event.Value
+		default:
+			cs.event = noop
+		}
+	default:
+		cs.event = noop
 	}
 }
 
 // reset state
 func (cs *controllerState) reset() {
 	cs.event = noop
-	cs.axis = r3.Vector{}
-
+	for k, _ := range cs.endpoints {
+		cs.endpoints[k] = 0.0
+	}
+	for k, _ := range cs.joints {
+		cs.joints[k] = 0.0
+	}
 	for k, _ := range cs.buttons {
 		cs.buttons[k] = false
 	}
@@ -151,17 +180,24 @@ func (cs *controllerState) reset() {
 // isInvalid: currently assume sensitivity is 0-5
 func (cs *controllerState) isInvalid(sensitivity float64) bool {
 	sensitivity = (94 + sensitivity) * 0.01
-	if math.Abs(cs.axis.X)-sensitivity > 0 {
+	switch cs.event {
+	case jointEvent:
+		for _, val := range cs.joints {
+			if math.Abs(val)-sensitivity > 0 {
+				return false
+			}
+		}
+		return true
+	case endPointEvent:
+		for _, val := range cs.endpoints {
+			if math.Abs(val)-sensitivity > 0 {
+				return false
+			}
+		}
+		return true
+	default:
 		return false
 	}
-	if math.Abs(cs.axis.Y)-sensitivity > 0 {
-		return false
-	}
-	if math.Abs(cs.axis.Z)-sensitivity > 0 {
-		return false
-	}
-
-	return true
 }
 
 // RemoteService is the structure of the remote service.
@@ -281,10 +317,11 @@ func (svc *remoteService) controllerInputs() []input.Control {
 }
 
 func (svc *remoteService) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
-	// setup controller state to execute new arm control
-	processControllerEvent(state, event)
+	// set state to be executed
+	state.set(event, *svc.config)
 	// execute stated arm control
-	if err := processArmControl(ctx, svc, state); err != nil {
+	if err := processArmEvent(ctx, svc, state); err != nil {
+		state.reset()
 		return err
 	}
 	// reset state
@@ -331,13 +368,14 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableArmRemoteControl{actual: &svc}, nil
 }
 
-func processCommand(ctx context.Context, svc *remoteService, state *controllerState) error {
+func processCommandEvent(ctx context.Context, svc *remoteService, state *controllerState) error {
 	if state.buttons[input.ButtonSouth] {
 		svc.logger.Info("arm stopping")
 		return svc.arm.Stop(ctx, nil)
 	} else if state.buttons[input.ButtonEast] {
 		svc.logger.Debug("attempting named pose preview")
 	} else if state.buttons[input.ButtonWest] {
+		// move through state
 		prevMode := svc.config.ControllerModes[state.curModeIdx].ModeName
 		state.curModeIdx += 1 % len(svc.config.ControllerModes)
 		svc.logger.Infof("switching joint control mode from %s to %s", prevMode, svc.config.ControllerModes[state.curModeIdx].ModeName)
@@ -357,7 +395,7 @@ func processCommand(ctx context.Context, svc *remoteService, state *controllerSt
 	return nil
 }
 
-func processArmEndPoint(ctx context.Context, svc *remoteService, state *controllerState) error {
+func processArmEndPointEvent(ctx context.Context, svc *remoteService, state *controllerState) error {
 	if state.isInvalid(svc.config.ControllerSensitivity) {
 		return nil
 	}
@@ -368,19 +406,13 @@ func processArmEndPoint(ctx context.Context, svc *remoteService, state *controll
 	}
 
 	poseStep := svc.config.DefaultPoseStep
-
-	switch state.event {
-	case leftJoystick:
-		currentPose.Z += (math.Round(state.axis.Z) * poseStep)
-	case rightJoystick:
-		currentPose.Y += (math.Round(state.axis.X) * poseStep)
-		currentPose.X += (math.Round(state.axis.Y) * poseStep)
-	case directionalHat:
-		currentPose.OZ += (math.Round(state.axis.X) * poseStep)
-		currentPose.OY += (math.Round(state.axis.Y) * poseStep)
-	case triggerZ:
-		currentPose.OX += (math.Round(state.axis.Z) * poseStep)
-	}
+	currentPose.Y += (math.Round(state.endpoints[x]) * poseStep)
+	currentPose.X += (math.Round(state.endpoints[y]) * poseStep)
+	currentPose.Z += (math.Round(state.endpoints[z]) * poseStep)
+	currentPose.OX += (math.Round(state.endpoints[ox]) * poseStep)
+	currentPose.OY += (math.Round(state.endpoints[oy]) * poseStep)
+	currentPose.OZ += (math.Round(state.endpoints[oz]) * poseStep)
+	currentPose.Theta += (math.Round(state.endpoints[theta]) * poseStep)
 
 	err = svc.arm.MoveToPosition(ctx, currentPose, nil, nil)
 	if err != nil {
@@ -389,7 +421,7 @@ func processArmEndPoint(ctx context.Context, svc *remoteService, state *controll
 	return nil
 }
 
-func processArmJoint(ctx context.Context, svc *remoteService, state *controllerState) error {
+func processArmJointEvent(ctx context.Context, svc *remoteService, state *controllerState) error {
 	if state.isInvalid(svc.config.ControllerSensitivity) {
 		return nil
 	}
@@ -400,20 +432,12 @@ func processArmJoint(ctx context.Context, svc *remoteService, state *controllerS
 	}
 
 	jointStep := svc.config.DefaultJointStep
-
-	switch state.event {
-	case leftJoystick:
-		jointPositions.Values[0] += (math.Round(state.axis.X) * jointStep)
-		jointPositions.Values[1] += (math.Round(state.axis.Y) * jointStep)
-	case rightJoystick:
-		jointPositions.Values[2] += (math.Round(state.axis.Y) * jointStep)
-		jointPositions.Values[3] += (math.Round(state.axis.X) * jointStep)
-	case directionalHat:
-		jointPositions.Values[4] += (math.Round(state.axis.X) * jointStep)
-		jointPositions.Values[5] += (math.Round(state.axis.Y) * jointStep)
-	case triggerZ:
-		break
-	}
+	jointPositions.Values[0] += (math.Round(state.joints[jointOne]) * jointStep)
+	jointPositions.Values[1] += (math.Round(state.joints[jointTwo]) * jointStep)
+	jointPositions.Values[2] += (math.Round(state.joints[jointThree]) * jointStep)
+	jointPositions.Values[3] += (math.Round(state.joints[jointFour]) * jointStep)
+	jointPositions.Values[4] += (math.Round(state.joints[jointFive]) * jointStep)
+	jointPositions.Values[5] += (math.Round(state.joints[jointSix]) * jointStep)
 
 	err = svc.arm.MoveToJointPositions(ctx, jointPositions, nil)
 	if err != nil {
@@ -422,58 +446,14 @@ func processArmJoint(ctx context.Context, svc *remoteService, state *controllerS
 	return nil
 }
 
-func processArmControl(ctx context.Context, svc *remoteService, state *controllerState) error {
+func processArmEvent(ctx context.Context, svc *remoteService, state *controllerState) error {
 	switch state.event {
-	case leftJoystick, rightJoystick, directionalHat, triggerZ:
-		switch state.mode {
-		case endPointControl:
-			return processArmEndPoint(ctx, svc, state)
-		case jointByJointControl:
-			return processArmJoint(ctx, svc, state)
-		}
+	case endPointEvent:
+		return processArmEndPointEvent(ctx, svc, state)
+	case jointEvent:
+		return processArmJointEvent(ctx, svc, state)
 	case buttonPressed:
-		return processCommand(ctx, svc, state)
+		return processCommandEvent(ctx, svc, state)
 	}
 	return nil
-}
-
-// processControllerEvent sets up controller state based on event
-func processControllerEvent(state *controllerState, event input.Event) {
-	switch event.Event {
-	case input.ButtonPress:
-		state.buttons[event.Control] = true
-	case input.ButtonRelease:
-		state.buttons[event.Control] = false
-	}
-
-	switch event.Control {
-	case input.AbsoluteX:
-		state.axis.X = event.Value
-		state.event = leftJoystick
-	case input.AbsoluteY:
-		state.axis.Y = event.Value
-		state.event = leftJoystick
-	case input.AbsoluteRX:
-		state.axis.X = event.Value
-		state.event = rightJoystick
-	case input.AbsoluteRY:
-		state.axis.Y = event.Value
-		state.event = rightJoystick
-	case input.AbsoluteHat0X:
-		state.axis.X = event.Value
-		state.event = directionalHat
-	case input.AbsoluteHat0Y:
-		state.axis.Y = event.Value
-		state.event = directionalHat
-	case input.AbsoluteZ:
-		state.axis.Z = -1 * event.Value
-		state.event = triggerZ
-	case input.AbsoluteRZ:
-		state.axis.Z = event.Value
-		state.event = triggerZ
-	case input.ButtonLT, input.ButtonRT, input.ButtonSouth,
-		input.ButtonWest, input.ButtonEast, input.ButtonNorth,
-		input.ButtonMenu, input.ButtonSelect, input.ButtonStart:
-		state.event = buttonPressed
-	}
 }

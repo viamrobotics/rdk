@@ -1,4 +1,4 @@
-package baseremotecontrol
+package armremotecontrol
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
-	fakearm "go.viam.com/rdk/component/base/arm"
+	fakearm "go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
