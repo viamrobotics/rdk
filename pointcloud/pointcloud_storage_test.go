@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"image/color"
+	"math/rand"
 	"sync"
 	"testing"
 
@@ -135,6 +136,35 @@ func testPointCloudIterate(t *testing.T, ms storage, numBatches int, expectedCen
 			test.That(t, totalX/float64(count), test.ShouldAlmostEqual, expectedCentroid.X)
 			test.That(t, totalY/float64(count), test.ShouldAlmostEqual, expectedCentroid.Y)
 			test.That(t, totalZ/float64(count), test.ShouldAlmostEqual, expectedCentroid.Z)
+		}
+	}
+}
+
+func benchPointCloudStorage(b *testing.B, ms storage) {
+	b.Helper()
+
+	pc_max := 10_000.
+	for i := 0; i < b.N; i++ {
+		rand.Seed(0)
+		pointList := make([]PointAndData, 0, 10_000)
+		for j := 0; j < cap(pointList); j++ {
+			pointList = append(pointList, PointAndData{r3.Vector{rand.Float64() * pc_max, rand.Float64() * pc_max, rand.Float64() * pc_max},
+				NewColoredData(color.NRGBA{uint8(rand.Intn(256)), uint8(rand.Intn(256)), uint8(rand.Intn(256)), 255})})
+		}
+		// Set all points
+		for _, p := range pointList {
+			ms.Set(p.P, p.D)
+		}
+		// Retrieve all points
+		for _, p := range pointList {
+			_, found := ms.At(p.P.X, p.P.Y, p.P.Z)
+			if !found {
+				b.Errorf("Point %v not found", p.P)
+			}
+		}
+		// Overwrite all points
+		for _, p := range pointList {
+			ms.Set(p.P, p.D)
 		}
 	}
 }
