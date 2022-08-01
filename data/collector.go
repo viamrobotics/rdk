@@ -43,7 +43,7 @@ type Collector interface {
 	SetTarget(file *os.File)
 	GetTarget() *os.File
 	Close()
-	Collect() error
+	Collect()
 }
 
 type collector struct {
@@ -93,7 +93,7 @@ func (c *collector) Close() {
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
 // c.target.
-func (c *collector) Collect() error {
+func (c *collector) Collect() {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
@@ -102,7 +102,13 @@ func (c *collector) Collect() error {
 		defer c.backgroundWorkers.Done()
 		c.capture()
 	})
-	return c.write()
+	c.backgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer c.backgroundWorkers.Done()
+		if err := c.write(); err != nil {
+			c.logger.Errorw(fmt.Sprintf("failed to write to file %s", c.target.Name()), "error", err)
+		}
+	})
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach

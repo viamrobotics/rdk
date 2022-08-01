@@ -145,7 +145,7 @@ func TestSuccessfulWrite(t *testing.T) {
 		target, _ := ioutil.TempFile("", "whatever")
 		tc.params.Target = target
 		c, _ := NewCollector(tc.capturer, tc.params)
-		go c.Collect()
+		c.Collect()
 
 		// Verify that it writes to the file at all.
 		time.Sleep(tc.wait)
@@ -178,8 +178,8 @@ func TestClose(t *testing.T) {
 		Logger:        l,
 	}
 	c, _ := NewCollector(dummyStructCapturer, params)
-	go c.Collect()
-	time.Sleep(time.Millisecond * 50)
+	c.Collect()
+	time.Sleep(time.Millisecond * 25)
 
 	// Close and measure fileSize.
 	c.Close()
@@ -207,7 +207,7 @@ func TestSetTarget(t *testing.T) {
 		Logger:        l,
 	}
 	c, _ := NewCollector(dummyStructCapturer, params)
-	go c.Collect()
+	c.Collect()
 	time.Sleep(time.Millisecond * 30)
 
 	// Change target, verify that target1 was written to.
@@ -244,12 +244,7 @@ func TestSwallowsErrors(t *testing.T) {
 	c, _ := NewCollector(errorCapturer, params)
 	errorChannel := make(chan error)
 	defer close(errorChannel)
-	go func() {
-		err := c.Collect()
-		if err != nil {
-			errorChannel <- err
-		}
-	}()
+	c.Collect()
 	time.Sleep(30 * time.Millisecond)
 	c.Close()
 
@@ -284,8 +279,8 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 		Logger:        logger,
 	}
 	c, _ := NewCollector(errorCapturer, params)
-	go c.Collect()
-	time.Sleep(50 * time.Millisecond)
+	c.Collect()
+	time.Sleep(25 * time.Millisecond)
 	c.Close()
 
 	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
