@@ -1,0 +1,44 @@
+name: License Finder
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      REPO_READ_TOKEN:
+        required: true
+  pull_request:
+    branches: [ 'main' ]
+  push:
+    branches: [ '!main' ]
+
+env:
+  GOPRIVATE: 'github.com/viamrobotics/*,go.viam.com/*'
+
+jobs:
+  build_and_test:
+    name: Audit 3rd-Party Licenses
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out code in rdk directory
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - name: Run license finder
+        run: |
+          # use dlf script with altered tty settings (no interactive mode)
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/pivotal/LicenseFinder/master/dlf | sed 's/scan -it/scan -i/g')" -s <<'EOF'
+          # upgrade golang to version 1.18
+          wget --no-verbose https://dl.google.com/go/go1.18.linux-amd64.tar.gz
+          tar -xf go1.18.linux-amd64.tar.gz
+          rm -rf /go
+          mv go /
+          rm go1.18.linux-amd64.tar.gz
+          # allow private modules
+          export GOPRIVATE='github.com/viamrobotics/*,go.viam.com/*'
+          echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
+          # audit licenses
+          license_finder
+          EOF
