@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -48,9 +49,14 @@ func clientFromSvcClient(sc *serviceClient, name string) Gantry {
 	return &client{sc, name}
 }
 
-func (c *client) GetPosition(ctx context.Context) ([]float64, error) {
+func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return nil, err
@@ -58,9 +64,14 @@ func (c *client) GetPosition(ctx context.Context) ([]float64, error) {
 	return resp.PositionsMm, nil
 }
 
-func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
+func (c *client) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return nil, err
+	}
 	lengths, err := c.client.GetLengths(ctx, &pb.GetLengthsRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return nil, err
@@ -68,17 +79,31 @@ func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
 	return lengths.LengthsMm, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState) error {
-	_, err := c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
+func (c *client) MoveToPosition(
+	ctx context.Context,
+	positionsMm []float64,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:        c.name,
 		PositionsMm: positionsMm,
 		WorldState:  worldState,
+		Extra:       ext,
 	})
 	return err
 }
 
-func (c *client) Stop(ctx context.Context) error {
-	_, err := c.client.Stop(ctx, &pb.StopRequest{Name: c.name})
+func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.Stop(ctx, &pb.StopRequest{Name: c.name, Extra: ext})
 	return err
 }
 
@@ -88,7 +113,7 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.GetPosition(ctx)
+	res, err := c.GetPosition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +121,7 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{})
+	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{}, nil)
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

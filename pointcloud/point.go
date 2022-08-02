@@ -2,10 +2,8 @@ package pointcloud
 
 import (
 	"image/color"
-	"math"
 
 	"github.com/golang/geo/r3"
-	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
 // NewVector convenience method for creating a vector.
@@ -69,55 +67,6 @@ type Data interface {
 
 	// SetIntensity sets the intensity on the point.
 	SetIntensity(v uint16) Data
-}
-
-// PointAndData convenient utility, try not to use too often for performance reasons.
-type PointAndData struct {
-	P r3.Vector
-	D Data
-}
-
-// Compare utility method for kdtree.
-func (v PointAndData) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
-	p2, ok := c.(*PointAndData)
-	if !ok {
-		panic("PointAndData Compare got wrong data")
-	}
-	v1, v2 := v.P, p2.P
-	switch d {
-	case 0:
-		return v1.X - v2.X
-	case 1:
-		return v1.Y - v2.Y
-	case 2:
-		return v1.Z - v2.Z
-	default:
-		panic("illegal dimension fed to basicPoint.Compare")
-	}
-}
-
-// Dims how many dimensions are in the data, in this case always 3.
-func (v PointAndData) Dims() int {
-	return 3
-}
-
-// Distance for kdtree.
-func (v PointAndData) Distance(c kdtree.Comparable) float64 {
-	p2, ok := c.(*PointAndData)
-	if !ok {
-		panic("PointAndData Compare got wrong data")
-	}
-	v1, v2 := v.P, p2.P
-	return math.Sqrt(math.Pow(v2.X-v1.X, 2) + math.Pow(v2.Y-v1.Y, 2) + math.Pow(v2.Z-v1.Z, 2))
-}
-
-// TODO(bhaney): this is gross, refactor so not needed.
-func getPositions(foo []PointAndData) []r3.Vector {
-	v := make([]r3.Vector, len(foo))
-	for idx, x := range foo {
-		v[idx] = x.P
-	}
-	return v
 }
 
 type basicData struct {

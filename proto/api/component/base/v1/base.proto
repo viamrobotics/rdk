@@ -3,6 +3,7 @@ syntax = "proto3";
 package proto.api.component.base.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
 
 option go_package = "go.viam.com/rdk/proto/api/component/base/v1";
@@ -57,6 +58,8 @@ message MoveStraightRequest {
   int64 distance_mm = 2;
   // Desired travel velocity in millimeters/second
   double mm_per_sec = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message MoveStraightResponse {}
@@ -68,6 +71,8 @@ message SpinRequest {
   double angle_deg = 2;
   // Desired angular velocity
   double degs_per_sec = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message SpinResponse {}
@@ -75,6 +80,8 @@ message SpinResponse {}
 message StopRequest {
   // Name of a base
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message StopResponse {}
@@ -86,6 +93,8 @@ message SetPowerRequest {
   common.v1.Vector3 linear = 2;
   // Desired angular power percentage % as -1 -> 1
   common.v1.Vector3 angular = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message SetPowerResponse {}
@@ -97,6 +106,8 @@ message SetVelocityRequest {
   common.v1.Vector3 linear = 2;
   // Desired angular velocity in degrees per second
   common.v1.Vector3 angular = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message SetVelocityResponse {}

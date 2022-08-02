@@ -13,6 +13,7 @@ import (
 	fakebase "go.viam.com/rdk/component/base/fake"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
@@ -397,3 +398,60 @@ func TestParseEvent(t *testing.T) {
 	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
 }
 
+func TestRegisteredReconfigurable(t *testing.T) {
+	s := registry.ResourceSubtypeLookup(Subtype)
+	test.That(t, s, test.ShouldNotBeNil)
+	r := s.Reconfigurable
+	test.That(t, r, test.ShouldNotBeNil)
+}
+
+func TestWrapWithReconfigurable(t *testing.T) {
+	actualSvc := returnMock("svc1")
+	reconfSvc, err := WrapWithReconfigurable(actualSvc)
+	test.That(t, err, test.ShouldBeNil)
+	rBRC, ok := reconfSvc.(*reconfigurableBaseRemoteControl)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	_, err = WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&remoteService{}, nil))
+
+	reconfSvc2, err := WrapWithReconfigurable(reconfSvc)
+	test.That(t, err, test.ShouldBeNil)
+	rBRC2, ok := reconfSvc2.(*reconfigurableBaseRemoteControl)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	name1 := rBRC.actual.config.BaseName
+	name2 := rBRC2.actual.config.BaseName
+
+	test.That(t, name1, test.ShouldEqual, name2)
+}
+
+func TestReconfigure(t *testing.T) {
+	actualSvc := returnMock("svc1")
+	reconfSvc, err := WrapWithReconfigurable(actualSvc)
+	test.That(t, err, test.ShouldBeNil)
+	rBRC, ok := reconfSvc.(*reconfigurableBaseRemoteControl)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	actualSvc2 := returnMock("svc1")
+	reconfSvc2, err := WrapWithReconfigurable(actualSvc2)
+	test.That(t, err, test.ShouldBeNil)
+	rBRC2, ok := reconfSvc2.(*reconfigurableBaseRemoteControl)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, rBRC2, test.ShouldNotBeNil)
+
+	err = reconfSvc.Reconfigure(context.Background(), reconfSvc2)
+	test.That(t, err, test.ShouldBeNil)
+	name1 := rBRC.actual.config.BaseName
+	name2 := rBRC2.actual.config.BaseName
+	test.That(t, name1, test.ShouldEqual, name2)
+
+	err = reconfSvc.Reconfigure(context.Background(), nil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&reconfigurableBaseRemoteControl{}, nil))
+}
+
+func returnMock(name string) remoteService {
+	return remoteService{
+		config: &Config{BaseName: name},
+	}
+}

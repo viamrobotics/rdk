@@ -20,7 +20,6 @@ import (
 	"github.com/Masterminds/sprig"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
@@ -166,8 +165,6 @@ func allSourcesToDisplay(theRobot robot.Robot) map[string]gostream.ImageSource {
 	return sources
 }
 
-var defaultStreamConfig = x264.DefaultStreamConfig
-
 // A Service controls the web server for a robot.
 type Service interface {
 	// Start starts the web server
@@ -186,13 +183,18 @@ type StreamServer struct {
 }
 
 // New returns a new web service for the given robot.
-func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
+func New(ctx context.Context, r robot.Robot, logger golog.Logger, opts ...Option) Service {
+	var wOpts options
+	for _, opt := range opts {
+		opt.apply(&wOpts)
+	}
 	webSvc := &webService{
 		r:            r,
 		logger:       logger,
 		rpcServer:    nil,
 		streamServer: nil,
 		services:     make(map[resource.Subtype]subtype.Service),
+		opts:         wOpts,
 	}
 	return webSvc
 }
@@ -203,6 +205,7 @@ type webService struct {
 	rpcServer    rpc.Server
 	streamServer *StreamServer
 	services     map[resource.Subtype]subtype.Service
+	opts         options
 
 	logger                  golog.Logger
 	cancelFunc              func()
@@ -219,7 +222,12 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	svc.cancelFunc = cancelFunc
 
-	return svc.runWeb(cancelCtx, o)
+	if err := svc.runWeb(cancelCtx, o); err != nil {
+		cancelFunc()
+		svc.cancelFunc = nil
+		return err
+	}
+	return nil
 }
 
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
@@ -318,10 +326,16 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		return nil
 	}
 	sources := allSourcesToDisplay(svc.r)
+	if svc.opts.streamConfig == nil {
+		if len(sources) != 0 {
+			svc.logger.Debug("not starting streams due to no stream config being set")
+		}
+		return nil
+	}
 
 	for name, source := range sources {
 		// Configure new stream
-		config := defaultStreamConfig
+		config := *svc.opts.streamConfig
 		config.Name = name
 		stream, err := svc.streamServer.Server.NewStream(config)
 
@@ -349,13 +363,16 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 	sources := allSourcesToDisplay(svc.r)
 	var streams []gostream.Stream
 
-	if len(sources) == 0 {
+	if svc.opts.streamConfig == nil || len(sources) == 0 {
+		if len(sources) != 0 {
+			svc.logger.Debug("not starting streams due to no stream config being set")
+		}
 		noopServer, err := gostream.NewStreamServer(streams...)
 		return &StreamServer{noopServer, false}, err
 	}
 
 	for name := range sources {
-		config := defaultStreamConfig
+		config := *svc.opts.streamConfig
 		config.Name = name
 		stream, err := gostream.NewStream(config)
 		if err != nil {
@@ -427,9 +444,15 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 // runWeb takes the given robot and options and runs the web server. This function will
 // block until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (err error) {
-	listener, err := net.Listen("tcp", options.Network.BindAddress)
-	if err != nil {
-		return err
+	if options.Network.BindAddress != "" && options.Network.Listener != nil {
+		return errors.New("may only set one of network bind address or listener")
+	}
+	listener := options.Network.Listener
+	if listener == nil {
+		listener, err = net.Listen("tcp", options.Network.BindAddress)
+		if err != nil {
+			return err
+		}
 	}
 
 	listenerTCPAddr, ok := listener.Addr().(*net.TCPAddr)

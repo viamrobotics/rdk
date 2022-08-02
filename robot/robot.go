@@ -63,6 +63,9 @@ type Robot interface {
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error
+
+	// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement
+	StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 }
 
 // A Refresher can refresh the contents of a robot.
@@ -128,7 +131,7 @@ func NamesBySubtype(r Robot, subtype resource.Subtype) []string {
 	names := []string{}
 	for _, n := range r.ResourceNames() {
 		if n.Subtype == subtype {
-			names = append(names, n.Name)
+			names = append(names, n.ShortName())
 		}
 	}
 	return names

@@ -3,6 +3,7 @@ syntax = "proto3";
 package proto.api.component.gantry.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
 
 option go_package = "go.viam.com/rdk/proto/api/component/gantry/v1";
@@ -41,6 +42,8 @@ service GantryService {
 
 message GetPositionRequest {
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GetPositionResponse {
@@ -51,12 +54,16 @@ message MoveToPositionRequest {
   string name = 1;
   repeated double positions_mm = 2;
   optional common.v1.WorldState world_state = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message MoveToPositionResponse {}
 
 message GetLengthsRequest {
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GetLengthsResponse {
@@ -66,6 +73,8 @@ message GetLengthsResponse {
 message StopRequest {
   // Name of a gantry
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message StopResponse {}

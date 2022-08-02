@@ -145,16 +145,16 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 				}
 			case !ptOk && neighborOk:
 				clusters.Indices[v] = neighborIndex // label the voxel coordinate
-				for _, p := range vox.Points {
-					err = clusters.AssignCluster(p.P, p.D, neighborIndex) // label all points in the voxel
+				for p, d := range vox.Points {
+					err = clusters.AssignCluster(p, d, neighborIndex) // label all points in the voxel
 					if err != nil {
 						return nil, err
 					}
 				}
 			case ptOk && !neighborOk:
 				clusters.Indices[nv] = ptIndex
-				for _, p := range neighborVox.Points {
-					err = clusters.AssignCluster(p.P, p.D, ptIndex)
+				for p, d := range neighborVox.Points {
+					err = clusters.AssignCluster(p, d, ptIndex)
 					if err != nil {
 						return nil, err
 					}
@@ -164,16 +164,16 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 		// if none of the neighbors were assigned a cluster, create a new cluster and assign all neighbors to it
 		if _, ok := clusters.Indices[v]; !ok {
 			clusters.Indices[v] = c
-			for _, p := range vox.Points {
-				err = clusters.AssignCluster(p.P, p.D, c)
+			for p, d := range vox.Points {
+				err = clusters.AssignCluster(p, d, c)
 				if err != nil {
 					return nil, err
 				}
 			}
 			for nv, neighborVox := range nn {
 				clusters.Indices[nv] = c
-				for _, p := range neighborVox.Points {
-					err = clusters.AssignCluster(p.P, p.D, c)
+				for p, d := range neighborVox.Points {
+					err = clusters.AssignCluster(p, d, c)
 					if err != nil {
 						return nil, err
 					}
