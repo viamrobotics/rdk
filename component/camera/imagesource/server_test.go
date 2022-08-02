@@ -24,8 +24,9 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image) {
 	expectedColor, err := rimage.NewImageFromFile(colorPath)
 	test.That(t, err, test.ShouldBeNil)
 	// get depth image
+	depthDatPath := artifact.MustPath("rimage/board1.dat.gz")
 	depthPath := artifact.MustPath("rimage/board1_gray.png")
-	expectedDepth, err := rimage.NewDepthMapFromFile(depthPath)
+	expectedDepth, err := rimage.NewDepthMapFromFile(depthDatPath)
 	test.That(t, err, test.ShouldBeNil)
 	// get color bytes
 	colorBytes, err := os.ReadFile(colorPath) // get png bytes
