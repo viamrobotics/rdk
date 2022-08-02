@@ -9,6 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/utils"
@@ -36,19 +37,20 @@ type DirectionAware interface {
 
 // SingleEncoder keeps track of a motor position using a rotary hall encoder.
 type SingleEncoder struct {
-	i        board.DigitalInterrupt
-	position int64
-	m        DirectionAware
+	generic.Unimplemented
+	I                board.DigitalInterrupt
+	position         int64
+	m                DirectionAware
 	ticksPerRotation int64
 
-	logger   golog.Logger
+	logger                  golog.Logger
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
 type SinglePin struct {
-	i string
+	I string
 }
 
 const (
@@ -74,9 +76,9 @@ func NewSingleEncoder(ctx context.Context, deps registry.Dependencies, config co
 				return nil, err
 			}
 
-			e.i, ok = board.DigitalInterruptByName(pins.i)
+			e.I, ok = board.DigitalInterruptByName(pins.I)
 			if !ok {
-				return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", pins.i)
+				return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", pins.I)
 			}
 		} else {
 			return nil, errors.New("Pin configuration not valid for SingleEncoder")
@@ -93,7 +95,7 @@ func NewSingleEncoder(ctx context.Context, deps registry.Dependencies, config co
 // Note: unsure about whether we still need onStart
 func (e *SingleEncoder) Start(ctx context.Context, onStart func()) {
 	encoderChannel := make(chan bool)
-	e.i.AddCallback(encoderChannel)
+	e.I.AddCallback(encoderChannel)
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		onStart()
@@ -123,9 +125,9 @@ func (e *SingleEncoder) GetTicksCount(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
-// ResetToZero sets the current position of the motor (adjusted by a given offset)
+// ResetZeroPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *SingleEncoder) ResetToZero(ctx context.Context, offset int64) error {
+func (e *SingleEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }

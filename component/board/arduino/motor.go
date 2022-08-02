@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -64,8 +63,8 @@ func configureMotorForBoard(
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
 
-	if motorConfig.EncoderA == "" || motorConfig.EncoderB == "" {
-		return nil, errors.New("arduino needs a and b hall encoders")
+	if motorConfig.Encoder == "" {
+		return nil, errors.New("arduino needs hall encoder")
 	}
 
 	if motorConfig.TicksPerRotation <= 0 {
@@ -88,15 +87,14 @@ func configureMotorForBoard(
 		motorConfig.Pins.EnablePinLow = "-1"
 	}
 
-	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
+	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s",
 		config.Name,
 		motorConfig.Pins.PWM,          // Optional if using A/B inputs (one of them will be PWMed if missing)
 		motorConfig.Pins.A,            // Use either A & B, or DIR inputs, never both
 		motorConfig.Pins.B,            // (A & B [& PWM] ) || (DIR & PWM)
 		motorConfig.Pins.Direction,    // PWM is also required when using DIR
 		motorConfig.Pins.EnablePinLow, // Always optional, inverting input (LOW = ENABLED)
-		motorConfig.EncoderA,
-		motorConfig.EncoderB,
+		motorConfig.Encoder,
 	)
 
 	res, err := b.runCommand(cmd)
@@ -111,7 +109,7 @@ func configureMotorForBoard(
 		config,
 		*motorConfig,
 		&arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name},
-		&encoder{b, *motorConfig, config.Name},
+		&encoder{b: b, cfg: *motorConfig, name: config.Name},
 		b.logger,
 	)
 	if err != nil {
@@ -251,10 +249,12 @@ type encoder struct {
 	b    *arduinoBoard
 	cfg  motor.Config
 	name string
+
+	generic.Unimplemented
 }
 
 // Position returns the current position in terms of ticks.
-func (e *encoder) GetPosition(ctx context.Context) (int64, error) {
+func (e *encoder) GetTicksCount(ctx context.Context) (int64, error) {
 	res, err := e.b.runCommand("motor-position " + e.name)
 	if err != nil {
 		return 0, err
@@ -268,13 +268,11 @@ func (e *encoder) GetPosition(ctx context.Context) (int64, error) {
 	return ticks, nil
 }
 
-// Start starts a background thread to run the encoder, if there is none needed this is a no-op.
-func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup, onStart func()) {
-	// no-op for arduino
-	onStart()
-}
-
 func (e *encoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
+}
+
+func (e *encoder) TicksPerRotation(ctx context.Context) (int64, error) {
+	return int64(e.cfg.TicksPerRotation), nil
 }

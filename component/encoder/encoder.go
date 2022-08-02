@@ -33,10 +33,10 @@ var Subtype = resource.NewSubtype(
 // A Encoder represents a physical motor connected to a board.
 type Encoder interface {
 	// GetTicksCount returns number of ticks since last zeroing
-	GetTicksCount(ctx context.Context) (float64, error)
+	GetTicksCount(ctx context.Context) (int64, error)
 
-	// ResetToZero resets the counted ticks to 0
-	ResetToZero(ctx context.Context, offset float64) error
+	// ResetZeroPosition resets the counted ticks to 0
+	ResetZeroPosition(ctx context.Context, offset int64) error
 
 	// TicksPerRotation returns the number of ticks needed for a full rotation
 	TicksPerRotation(ctx context.Context) (int64, error)
@@ -104,16 +104,16 @@ func (r *reconfigurableEncoder) Do(ctx context.Context, cmd map[string]interface
 	return r.actual.Do(ctx, cmd)
 }
 
-func (r *reconfigurableEncoder) GetTicksCount(ctx context.Context) (float64, error) {
+func (r *reconfigurableEncoder) GetTicksCount(ctx context.Context) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetTicksCount(ctx)
 }
 
-func (r *reconfigurableEncoder) ResetToZero(ctx context.Context, offset float64) error {
+func (r *reconfigurableEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.ResetToZero(ctx, offset)
+	return r.actual.ResetZeroPosition(ctx, offset)
 }
 
 func (r *reconfigurableEncoder) TicksPerRotation(ctx context.Context) (int64, error) {
@@ -161,8 +161,8 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 // Config describes the configuration of an encoder.
 type Config struct {
-	Pins          interface{}            `json:"pins"`
-	BoardName     string                `json:"board"`
+	Pins      interface{} `json:"pins"`
+	BoardName string      `json:"board"`
 
-	TicksPerRotation int     `json:"ticks_per_rotation,omitempty"`
+	TicksPerRotation int `json:"ticks_per_rotation,omitempty"`
 }

@@ -13,7 +13,9 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	picommon "go.viam.com/rdk/component/board/pi/common"
+	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/motor"
+
 	// for gpio motor.
 	_ "go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/component/servo"
@@ -142,7 +144,25 @@ func TestPiHardware(t *testing.T) {
 	motorReg := registry.ComponentLookup(motor.Subtype, picommon.ModelName)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
+	encoderReg := registry.ComponentLookup(encoder.Subtype, "hall-encoder")
+	test.That(t, encoderReg, test.ShouldNotBeNil)
+
 	deps := make(registry.Dependencies)
+	_, err = encoderReg.Constructor(ctx, deps, config.Component{
+		Name: "encoder1", ConvertedAttributes: &encoder.Config{
+			Pins: encoder.HallPins{
+				A: "hall-a",
+				B: "hall-b",
+			},
+			BoardName: "test",
+			TicksPerRotation: 200,
+		},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	motorDeps := make([]string, 0)
+	motorDeps = append(motorDeps, "encoder1")
+
 	motorInt, err := motorReg.Constructor(ctx, deps, config.Component{
 		Name: "motor1", ConvertedAttributes: &motor.Config{
 			Pins: motor.PinConfig{
@@ -150,11 +170,10 @@ func TestPiHardware(t *testing.T) {
 				B:   "40", // bcom 21
 				PWM: "7",  // bcom 4
 			},
-			EncoderA:         "hall-a",
-			EncoderB:         "hall-b",
-			TicksPerRotation: 200,
 			BoardName:        "test",
+			Encoder: "encoder1",
 		},
+		DependsOn: motorDeps,
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	motor1 := motorInt.(motor.Motor)

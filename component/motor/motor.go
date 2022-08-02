@@ -352,11 +352,8 @@ type Config struct {
 	DirectionFlip bool                  `json:"dir_flip,omitempty"`       // Flip the direction of the signal sent if there is a Dir pin
 	StepperDelay  uint                  `json:"stepper_delay,omitempty"`  // When using stepper motors, the time to remain high
 	ControlLoop   control.ControlConfig `json:"control_config,omitempty"` // Optional control loop
-
-	// Encoder Config
-	EncoderBoard     string  `json:"encoder_board,omitempty"`    // name of the board where encoders are; default is same as 'board'
-	EncoderA         string  `json:"encoder,omitempty"`          // name of the digital interrupt that is the encoder a
-	EncoderB         string  `json:"encoder_b,omitempty"`        // name of the digital interrupt that is hall encoder b
+	
+	Encoder			 string  `json:"encoder,omitempty"`			 // name of encoder
 	RampRate         float64 `json:"ramp_rate,omitempty"`        // how fast to ramp power to motor when using rpm control
 	MaxRPM           float64 `json:"max_rpm,omitempty"`          // RPM
 	MaxAcceleration  float64 `json:"max_acceleration,omitempty"` // RPM per second
