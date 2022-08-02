@@ -211,12 +211,12 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		// for each map get the nearest neighbor to the target
+		// attempt to extend map1 first
 		nearest1 := nm.nearestNeighbor(nmContext, target, map1)
-		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
-
-		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
 		map1reached := mp.constrainedExtend(ctx, opt, map1, nearest1, target)
+
+		// then attempt to extend map2 towards map 1
+		nearest2 := nm.nearestNeighbor(nmContext, map1reached, map2)
 		map2reached := mp.constrainedExtend(ctx, opt, map2, nearest2, map1reached)
 
 		corners[map1reached] = true

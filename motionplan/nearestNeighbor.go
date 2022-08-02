@@ -8,6 +8,8 @@ import (
 	"go.viam.com/utils"
 )
 
+const neighborsBeforeParallelization = 1000
+
 type neighborManager struct {
 	nnKeys    chan *configuration
 	neighbors chan *neighbor
@@ -27,7 +29,7 @@ func (nm *neighborManager) nearestNeighbor(
 	seed *configuration,
 	rrtMap map[*configuration]*configuration,
 ) *configuration {
-	if len(rrtMap) > 1000 {
+	if len(rrtMap) > neighborsBeforeParallelization {
 		// If the map is large, calculate distances in parallel
 		return nm.parallelNearestNeighbor(ctx, seed, rrtMap)
 	}
