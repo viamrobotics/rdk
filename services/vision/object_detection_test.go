@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 )
 
@@ -56,6 +58,16 @@ func TestAddDetector(t *testing.T) {
 			"segment_size": 100,
 		},
 	}
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	cfg2 := vision.DetectorConfig{
+		Name: "testdetector", Type: "tflite",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+
 	err := srv.AddDetector(context.Background(), cfg)
 	test.That(t, err, test.ShouldBeNil)
 	names, err := srv.GetDetectorNames(context.Background())
@@ -75,4 +87,16 @@ func TestAddDetector(t *testing.T) {
 	test.That(t, names, test.ShouldContain, "test")
 	test.That(t, names, test.ShouldNotContain, "will_fail")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	// test new GetDetections directly on image
+	err = srv.AddDetector(context.Background(), cfg2)
+	test.That(t, err, test.ShouldBeNil)
+	img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	dets, err := srv.GetDetections(context.Background(), img, "testdetector")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dets, test.ShouldNotBeNil)
+	test.That(t, dets[0].Label(), test.ShouldResemble, "17")
+	test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.79)
+	box := dets[0].BoundingBox()
+	test.That(t, box.Min, test.ShouldResemble, image.Point{126, 42})
+	test.That(t, box.Max, test.ShouldResemble, image.Point{199, 162})
 }

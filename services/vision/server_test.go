@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	// register cameras for testing.
@@ -13,6 +14,7 @@ import (
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -149,6 +151,39 @@ func TestServerGetDetections(t *testing.T) {
 	_, err = server.GetDetectionsFromCamera(context.Background(), &pb.GetDetectionsFromCameraRequest{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+
+	// test new getdetections straight from image
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	params, err := structpb.NewStruct(config.AttributeMap{
+		"model_path":  modelLoc,
+		"num_threads": 1,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// success
+	addDetResp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+		DetectorName:       "test",
+		DetectorModelType:  "tflite",
+		DetectorParameters: params,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, addDetResp, test.ShouldNotBeNil)
+	img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	imgBytes, err := rimage.EncodeImage(context.Background(), img, utils.MimeTypeJPEG)
+	test.That(t, err, test.ShouldBeNil)
+
+	resp2, err := server.GetDetections(context.Background(), &pb.GetDetectionsRequest{
+		Image:        imgBytes,
+		Width:        int64(img.Width()),
+		Height:       int64(img.Height()),
+		MimeType:     utils.MimeTypeJPEG,
+		DetectorName: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp2.Detections, test.ShouldNotBeNil)
+	test.That(t, resp2.Detections[0].ClassName, test.ShouldResemble, "17")
+	test.That(t, resp2.Detections[0].Confidence, test.ShouldBeGreaterThan, 0.79)
+	test.That(t, resp2.Detections[1].ClassName, test.ShouldResemble, "17")
+	test.That(t, resp2.Detections[1].Confidence, test.ShouldBeGreaterThan, 0.73)
 }
 
 func TestServerObjectSegmentation(t *testing.T) {
