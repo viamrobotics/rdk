@@ -42,6 +42,8 @@ func init() {
 			return New(ctx, r, c, logger)
 		},
 	})
+
+	resource.AddDefaultService(Name)
 }
 
 // A Readings ties both the sensor name and its reading together.
