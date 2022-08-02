@@ -59,6 +59,7 @@ var (
 	_ = PoseTracker(&reconfigurablePoseTracker{})
 	_ = sensor.Sensor(&reconfigurablePoseTracker{})
 	_ = resource.Reconfigurable(&reconfigurablePoseTracker{})
+	_ = viamutils.ContextCloser(&reconfigurablePoseTracker{})
 )
 
 // BodyToPoseInFrame represents a map of body names to PoseInFrames.

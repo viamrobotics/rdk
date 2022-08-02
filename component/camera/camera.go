@@ -162,6 +162,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Camera(&reconfigurableCamera{})
 	_ = resource.Reconfigurable(&reconfigurableCamera{})
+	_ = viamutils.ContextCloser(&reconfigurableCamera{})
 )
 
 // FromDependencies is a helper for getting the named camera from a collection of

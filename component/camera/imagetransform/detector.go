@@ -89,7 +89,7 @@ func (ds *detectorSource) Next(ctx context.Context) (image.Image, func(), error)
 	if err != nil {
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}
-	dets, err := srv.GetDetections(ctx, ds.cameraName, ds.detectorName)
+	dets, err := srv.GetDetectionsFromCamera(ctx, ds.cameraName, ds.detectorName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get detections: %w", err)
 	}

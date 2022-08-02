@@ -79,6 +79,7 @@ var (
 	_ = sensor.Sensor(&reconfigurableLocalGPS{})
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
 	_ = resource.Reconfigurable(&reconfigurableLocalGPS{})
+	_ = viamutils.ContextCloser(&reconfigurableLocalGPS{})
 )
 
 // FromDependencies is a helper for getting the named gps from a collection of
