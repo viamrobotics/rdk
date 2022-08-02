@@ -174,6 +174,7 @@ var (
 	_ = LocalGantry(&reconfigurableLocalGantry{})
 	_ = resource.Reconfigurable(&reconfigurableGantry{})
 	_ = resource.Reconfigurable(&reconfigurableLocalGantry{})
+	_ = viamutils.ContextCloser(&reconfigurableLocalGantry{})
 )
 
 type reconfigurableGantry struct {

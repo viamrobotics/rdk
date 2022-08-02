@@ -70,7 +70,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableVision{})
 	_ = resource.Reconfigurable(&reconfigurableVision{})
-	_ = utils.Closer(&reconfigurableVision{})
+	_ = goutils.ContextCloser(&reconfigurableVision{})
 )
 
 // SubtypeName is the name of the type of service.

@@ -89,7 +89,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableNavigation{})
 	_ = resource.Reconfigurable(&reconfigurableNavigation{})
-	_ = rdkutils.Closer(&reconfigurableNavigation{})
+	_ = utils.ContextCloser(&reconfigurableNavigation{})
 )
 
 // SubtypeName is the name of the type of service.

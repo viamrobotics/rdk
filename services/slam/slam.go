@@ -230,7 +230,7 @@ type AttrConfig struct {
 var (
 	_ = Service(&reconfigurableSlam{})
 	_ = resource.Reconfigurable(&reconfigurableSlam{})
-	_ = utils.Closer(&reconfigurableSlam{})
+	_ = goutils.ContextCloser(&reconfigurableSlam{})
 )
 
 // Service describes the functions that are available to the service.
