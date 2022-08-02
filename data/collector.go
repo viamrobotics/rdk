@@ -106,7 +106,6 @@ func (c *collector) Collect() {
 		defer c.backgroundWorkers.Done()
 		if err := c.write(); err != nil {
 			c.logger.Errorw(fmt.Sprintf("failed to write to file %s", c.target.Name()), "error", err)
-			return
 		}
 	})
 }
