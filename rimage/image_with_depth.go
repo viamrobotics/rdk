@@ -39,8 +39,8 @@ func Overlay(i *Image, dm *DepthMap) *image.NRGBA {
 	return img
 }
 
-// imageWithDepth is an image of color that has depth associated
-// with it. It may or may not be aligned.
+// imageWithDepth is an image of color that has depth associated with it.
+// It may or may not be aligned. It fulfills the image.Image interface.
 type imageWithDepth struct {
 	Color   *Image
 	Depth   *DepthMap
