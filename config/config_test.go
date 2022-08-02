@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	// motor attribute converters.
 	_ "go.viam.com/rdk/component/motor/fake"
+	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -87,10 +88,17 @@ func TestConfig3(t *testing.T) {
 			Direction: "io17",
 			PWM:       "io18",
 		},
-		EncoderA:         "encoder-steering-b",
-		EncoderB:         "encoder-steering-a",
+		Encoder:         "encoder1",
 		TicksPerRotation: 10000,
 		MaxPowerPct:      0.5,
+	})
+	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.Config{
+		Pins: encoder.HallPins{
+			A: 	"encoder-steering-b",
+			B:  "encoder-steering-a",
+		},
+		TicksPerRotation: 10000,
+		BoardName: "board1",
 	})
 }
 

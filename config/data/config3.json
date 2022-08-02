@@ -52,10 +52,23 @@
                     "dir": "io17",
                     "pwm": "io18"
                 },
-                "encoder": "encoder-steering-b",
-                "encoder_b": "encoder-steering-a",
-                "ticks_per_rotation": 10000,
+                "encoder": "encoder1",
                 "max_power_pct": 0.5
+            }
+        },
+        {
+            "name": "encoder1",
+            "type": "encoder",
+            "model": "fake",
+            "attributes":
+            {
+                "pins":
+                {
+                    "A": "encoder-steering-b",
+                    "B": "encoder-steering-a"
+                },
+                "ticks_per_rotation": 10000,
+                "board": "board1"
             }
         }
     ]

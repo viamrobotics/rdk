@@ -49,6 +49,7 @@ type SingleEncoder struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+// SinglePin defines the format the pin config should be in for SingleEncoder
 type SinglePin struct {
 	I string
 }
