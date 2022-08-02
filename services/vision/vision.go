@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -73,6 +72,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableVision{})
 	_ = resource.Reconfigurable(&reconfigurableVision{})
+	_ = goutils.ContextCloser(&reconfigurableVision{})
 )
 
 // SubtypeName is the name of the type of service.
@@ -309,7 +309,7 @@ func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
 	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
 }
 
-func (svc *reconfigurableVision) Close(ctx context.Context, id primitive.ObjectID) error {
+func (svc *reconfigurableVision) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
