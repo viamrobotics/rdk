@@ -145,8 +145,16 @@ func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float
 	fmt.Printf("rotate 45 degrees:\tr: %.3f, t: %.3f\n", r, t)
 
 	// convert to cartesian
-	left := r * math.Cos(t)
-	right := r * math.Sin(t)
+	// left := r * math.Cos(t)
+	// right := r * math.Sin(t)
+	var left, right float64
+	if x >= 0 {
+		left = r * math.Cos(t)
+		right = r * math.Sin(t)
+	} else {
+		left = r * math.Sin(t)
+		right = r * math.Cos(t)
+	}
 
 	fmt.Printf("back to cartesian:\tleft: %.3f, right: %.3f\n", left, right)
 

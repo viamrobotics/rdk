@@ -300,11 +300,17 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
 
-		// Test spin (↻)
-		fmt.Println("\nTest spin (↻)")
-		spinL, spinR := base.setPowerMath(r3.Vector{Y: 0}, r3.Vector{Z: -1})
+		// Test spin left (↺)
+		fmt.Println("\nTest spin left (↺)")
+		spinL, spinR := base.setPowerMath(r3.Vector{Y: 0}, r3.Vector{Z: 1})
 		test.That(t, spinL, test.ShouldBeLessThanOrEqualTo, 0)
 		test.That(t, spinR, test.ShouldBeGreaterThan, 0)
+
+		// Test spin right (↻)
+		fmt.Println("\nTest spin right (↻)")
+		spinL, spinR = base.setPowerMath(r3.Vector{Y: 0}, r3.Vector{Z: -1})
+		test.That(t, spinL, test.ShouldBeGreaterThan, 0)
+		test.That(t, spinR, test.ShouldBeLessThanOrEqualTo, 0)
 	})
 }
 
