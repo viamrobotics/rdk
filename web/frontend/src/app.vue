@@ -5,20 +5,23 @@ import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { toast } from './lib/toast';
-import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
-import commonApi from './gen/proto/api/common/v1/common_pb.esm';
-import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
-import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
-import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
-import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
-import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
-import imuApi from './gen/proto/api/component/imu/v1/imu_pb.esm';
-import motionApi from './gen/proto/api/service/motion/v1/motion_pb.esm';
-import visionApi from './gen/proto/api/service/vision/v1/vision_pb.esm';
-import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
-import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
-import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
-import streamApi from './gen/proto/stream/v1/stream_pb.esm';
+
+import {
+  armApi,
+  baseApi,
+  cameraApi,
+  commonApi,
+  gantryApi,
+  gripperApi,
+  imuApi,
+  motionApi,
+  robotApi,
+  slamApi,
+  sensorsApi,
+  servoApi,
+  streamApi,
+  visionApi,
+} from './api';
 
 import {
   normalizeRemoteName,
@@ -27,6 +30,7 @@ import {
   filterResources,
   filterRdkComponentsWithStatus,
 } from './lib/resource';
+
 import {
   BaseControlHelper,
   MotorControlHelper,
