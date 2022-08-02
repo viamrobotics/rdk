@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math/rand"
-	"sort"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
@@ -100,11 +99,6 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
 	}
 
-	// TODO(rb) this will go away when we move to a new configuration scheme
-	if opt.maxSolutions == 0 {
-		opt.maxSolutions = solutionsToSeed
-	}
-
 	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
@@ -112,23 +106,20 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		return
 	}
 
-	// TODO(rb) this code should be moved into getSolutions
-	keys := make([]float64, 0, len(solutions))
-	for k := range solutions {
-		keys = append(keys, k)
-	}
-	sort.Float64s(keys)
-	if len(keys) < opt.maxSolutions {
-		opt.maxSolutions = len(keys)
-	}
+	// publish endpoint of plan if it is known
 	if opt.maxSolutions == 1 && endpointPreview != nil {
-		endpointPreview <- &configuration{solutions[keys[0]]}
+		endpointPreview <- &configuration{solutions[0]}
+		endpointPreview = nil
 	}
 
-	// Initialize maps for start and goal
-	goalMap := make(map[*configuration]*configuration, opt.maxSolutions)
-	for _, k := range keys[:opt.maxSolutions] {
-		goalMap[&configuration{solutions[k]}] = nil
+	// initialize maps
+	nSolutions := opt.maxSolutions
+	if len(solutions) < nSolutions {
+		nSolutions = len(solutions)
+	}
+	goalMap := make(map[*configuration]*configuration, nSolutions)
+	for _, solution := range solutions[:nSolutions] {
+		goalMap[&configuration{solution}] = nil
 	}
 	startMap := make(map[*configuration]*configuration)
 	startMap[&configuration{seed}] = nil
@@ -139,7 +130,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := &configuration{referenceframe.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
+	target := &configuration{referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
