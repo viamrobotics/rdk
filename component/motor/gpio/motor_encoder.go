@@ -661,6 +661,5 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	// TODO[RSDK-328] Will need to be updated with BOARD
 	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)), extra)
 }
