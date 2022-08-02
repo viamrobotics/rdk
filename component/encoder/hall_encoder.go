@@ -9,6 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/utils"
@@ -30,20 +31,22 @@ func init() {
 
 // HallEncoder keeps track of a motor position using a rotary hall encoder.
 type HallEncoder struct {
-	a, b     board.DigitalInterrupt
-	position int64
-	pRaw     int64
-	pState   int64
+	A, B             board.DigitalInterrupt
+	position         int64
+	pRaw             int64
+	pState           int64
 	ticksPerRotation int64
 
-	logger   golog.Logger
+	logger                  golog.Logger
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+
+	generic.Unimplemented
 }
 
 type HallPins struct {
-	a, b string
+	A, B string
 }
 
 // NewHallEncoder creates a new HallEncoder.
@@ -60,14 +63,14 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 				return nil, err
 			}
 
-			e.a, ok = board.DigitalInterruptByName(pins.a)
+			e.A, ok = board.DigitalInterruptByName(pins.A)
 			if !ok {
-				return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", pins.a)
+				return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", pins.A)
 			}
 
-			e.b, ok = board.DigitalInterruptByName(pins.b)
+			e.B, ok = board.DigitalInterruptByName(pins.B)
 			if !ok {
-				return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", pins.b)
+				return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", pins.B)
 			}
 		} else {
 			return nil, errors.New("Pin configuration not valid for HallEncoder")
@@ -121,14 +124,14 @@ func (e *HallEncoder) Start(ctx context.Context, onStart func()) {
 	chanA := make(chan bool)
 	chanB := make(chan bool)
 
-	e.a.AddCallback(chanA)
-	e.b.AddCallback(chanB)
+	e.A.AddCallback(chanA)
+	e.B.AddCallback(chanB)
 
-	aLevel, err := e.a.Value(ctx)
+	aLevel, err := e.A.Value(ctx)
 	if err != nil {
 		utils.Logger.Errorw("error reading a level", "error", err)
 	}
-	bLevel, err := e.b.Value(ctx)
+	bLevel, err := e.B.Value(ctx)
 	if err != nil {
 		utils.Logger.Errorw("error reading b level", "error", err)
 	}
@@ -196,8 +199,8 @@ func (e *HallEncoder) GetTicksCount(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
-// ResetToZero resets the counted ticks to 0
-func (e *HallEncoder) ResetToZero(ctx context.Context, offset int64) error {
+// ResetZeroPosition resets the counted ticks to 0
+func (e *HallEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	atomic.StoreInt64(&e.position, offset)
 	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil

@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -50,46 +50,15 @@ func SetRPMSleepDebug(dur time.Duration, debug bool) func() {
 // WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
 func WrapMotorWithEncoder(
 	ctx context.Context,
-	encoderBoard board.Board,
+	e encoder.Encoder,
 	c config.Component,
 	mc motor.Config,
 	m motor.Motor,
 	logger golog.Logger,
 ) (motor.Motor, error) {
-	if mc.EncoderA == "" {
-		return m, nil
-	}
-
-	if mc.TicksPerRotation == 0 {
-		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", c.Name)
-	}
-
-	i, ok := encoderBoard.DigitalInterruptByName(mc.EncoderA)
-	if !ok {
-		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderA, c.Name)
-	}
-
-	var mm *EncodedMotor
-	var err error
-
-	if mc.EncoderB == "" {
-		encoder := board.NewSingleEncoder(i, mm)
-		mm, err = newEncodedMotor(c, mc, m, encoder, logger)
-		if err != nil {
-			return nil, err
-		}
-
-		// Adds encoded motor to encoder
-		encoder.AttachDirectionalAwareness(mm)
-	} else {
-		b, ok := encoderBoard.DigitalInterruptByName(mc.EncoderB)
-		if !ok {
-			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, c.Name)
-		}
-		mm, err = newEncodedMotor(c, mc, m, board.NewHallEncoder(i, b), logger)
-		if err != nil {
-			return nil, err
-		}
+	mm, err := newEncodedMotor(c, mc, m, e, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	mm.RPMMonitorStart()
@@ -102,7 +71,7 @@ func NewEncodedMotor(
 	config config.Component,
 	motorConfig motor.Config,
 	realMotor motor.Motor,
-	encoder board.Encoder,
+	encoder encoder.Encoder,
 	logger golog.Logger,
 ) (motor.LocalMotor, error) {
 	return newEncodedMotor(config, motorConfig, realMotor, encoder, logger)
@@ -112,7 +81,7 @@ func newEncodedMotor(
 	config config.Component,
 	motorConfig motor.Config,
 	realMotor motor.Motor,
-	encoder board.Encoder,
+	encoder encoder.Encoder,
 	logger golog.Logger,
 ) (*EncodedMotor, error) {
 	localReal, ok := realMotor.(motor.LocalMotor)
@@ -175,7 +144,7 @@ type EncodedMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cfg                     motor.Config
 	real                    motor.LocalMotor
-	encoder                 board.Encoder
+	encoder                 encoder.Encoder
 
 	stateMu *sync.RWMutex
 	state   EncodedMotorState
@@ -211,11 +180,16 @@ type EncodedMotorState struct {
 
 // GetPosition returns the position of the motor.
 func (m *EncodedMotor) GetPosition(ctx context.Context) (float64, error) {
-	ticks, err := m.encoder.GetPosition(ctx)
+	ticks, err := m.encoder.GetTicksCount(ctx)
 	if err != nil {
 		return 0, err
 	}
-	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
+	tpr, err := m.encoder.TicksPerRotation(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return float64(ticks) / float64(tpr), nil
 }
 
 // DirectionMoving returns the direction we are currently mpving in, with 1 representing
@@ -320,10 +294,7 @@ func (m *EncodedMotor) rpmMonitor(onStart func()) {
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
 
-	// just a convenient place to start the encoder listener
-	m.encoder.Start(m.cancelCtx, m.activeBackgroundWorkers, onStart)
-
-	lastPos, err := m.encoder.GetPosition(m.cancelCtx)
+	lastPos, err := m.encoder.GetTicksCount(m.cancelCtx)
 	if err != nil {
 		panic(err)
 	}
@@ -345,7 +316,7 @@ func (m *EncodedMotor) rpmMonitor(onStart func()) {
 		case <-timer.C:
 		}
 
-		pos, err := m.encoder.GetPosition(m.cancelCtx)
+		pos, err := m.encoder.GetTicksCount(m.cancelCtx)
 		if err != nil {
 			m.logger.Info("error getting encoder position, sleeping then continuing: %w", err)
 			if !utils.SelectContextOrWait(m.cancelCtx, 100*time.Millisecond) {
@@ -381,7 +352,11 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 
 	if m.state.regulated {
 		ticksLeft = (m.state.setPoint - pos) * int64(m.state.lastPowerPct/math.Abs(m.state.lastPowerPct))
-		rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
+		tpr, err := m.encoder.TicksPerRotation(m.cancelCtx)
+		if err != nil {
+			return
+		}
+		rotationsLeft := float64(ticksLeft) / float64(tpr)
 		if rotationsLeft <= 0 {
 			err := m.off(m.cancelCtx)
 			if err != nil {
@@ -407,7 +382,11 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime int64, desiredRPM, rotationsLeft float64, rpmDebug bool) {
 	lastPowerPct := m.state.lastPowerPct
 
-	rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
+	tpr, err := m.encoder.TicksPerRotation(m.cancelCtx)
+	if err != nil {
+		return
+	}
+	rotations := float64(pos-lastPos) / float64(tpr)
 	minutes := float64(now-lastTime) / (1e9 * 60)
 	currentRPM := rotations / minutes
 	if minutes == 0 {
@@ -505,9 +484,13 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm float64, revolutio
 		return err
 	}
 
-	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
+	tpr, err := m.encoder.TicksPerRotation(m.cancelCtx)
+	if err != nil {
+		return err
+	}
+	numTicks := int64(revolutions * float64(tpr))
 
-	pos, err := m.encoder.GetPosition(ctx)
+	pos, err := m.encoder.GetTicksCount(ctx)
 	if err != nil {
 		return err
 	}
@@ -661,5 +644,9 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
-	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
+	tpr, err := m.encoder.TicksPerRotation(m.cancelCtx)
+	if err != nil {
+		return err
+	}
+	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(tpr)))
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -22,23 +23,18 @@ func init() {
 				return nil, err
 			}
 
-			encoderBoard := actualBoard
-			if motorConfig.EncoderBoard != "" {
-				b, err := board.FromDependencies(deps, motorConfig.EncoderBoard)
-				if err != nil {
-					return nil, err
-				}
-				encoderBoard = b
-			}
-
 			m, err := NewMotor(actualBoard, *motorConfig, logger)
 			if err != nil {
 				return nil, err
 			}
 
-			m, err = WrapMotorWithEncoder(ctx, encoderBoard, config, *motorConfig, m, logger)
-			if err != nil {
-				return nil, err
+			if motorConfig.Encoder != "" {
+				e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
+
+				m, err = WrapMotorWithEncoder(ctx, e, config, *motorConfig, m, logger)
+				if err != nil {
+					return nil, err
+				}
 			}
 
 			err = m.Stop(ctx)
