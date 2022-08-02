@@ -12,28 +12,28 @@ import (
 type Base struct {
 	base.LocalBase
 	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64) error
-	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64) error
+	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
+	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error
 	GetWidthFunc     func(ctx context.Context) (int, error)
-	StopFunc         func(ctx context.Context) error
+	StopFunc         func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc     func(context.Context) (bool, error)
 	CloseFunc        func(ctx context.Context) error
 }
 
 // MoveStraight calls the injected MoveStraight or the real version.
-func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	if b.MoveStraightFunc == nil {
-		return b.LocalBase.MoveStraight(ctx, distanceMm, mmPerSec)
+		return b.LocalBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 	}
-	return b.MoveStraightFunc(ctx, distanceMm, mmPerSec)
+	return b.MoveStraightFunc(ctx, distanceMm, mmPerSec, extra)
 }
 
 // Spin calls the injected Spin or the real version.
-func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	if b.SpinFunc == nil {
-		return b.LocalBase.Spin(ctx, angleDeg, degsPerSec)
+		return b.LocalBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
-	return b.SpinFunc(ctx, angleDeg, degsPerSec)
+	return b.SpinFunc(ctx, angleDeg, degsPerSec, extra)
 }
 
 // GetWidth calls the injected GetWidth or the real version.
@@ -45,11 +45,11 @@ func (b *Base) GetWidth(ctx context.Context) (int, error) {
 }
 
 // Stop calls the injected Stop or the real version.
-func (b *Base) Stop(ctx context.Context) error {
+func (b *Base) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if b.StopFunc == nil {
-		return b.LocalBase.Stop(ctx)
+		return b.LocalBase.Stop(ctx, extra)
 	}
-	return b.StopFunc(ctx)
+	return b.StopFunc(ctx, extra)
 }
 
 // IsMoving calls the injected IsMoving or the real version.

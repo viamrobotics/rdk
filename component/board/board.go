@@ -162,6 +162,7 @@ var (
 	_ = LocalBoard(&reconfigurableLocalBoard{})
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
 	_ = resource.Reconfigurable(&reconfigurableLocalBoard{})
+	_ = viamutils.ContextCloser(&reconfigurableLocalBoard{})
 )
 
 // FromDependencies is a helper for getting the named board from a collection of

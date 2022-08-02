@@ -15,6 +15,7 @@ import (
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -52,7 +53,7 @@ type boat struct {
 	cancelCtx context.Context
 }
 
-func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	speed := (mmPerSec * 60.0) / float64(millisPerRotation)
 	rotations := float64(distanceMm) / millisPerRotation
 
@@ -66,26 +67,26 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 	return err
 }
 
-func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	return errors.New("boat can't spin yet")
 }
 
-func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return errors.New("boat can't set velocity yet")
 }
 
-func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return errors.New("boat can't set power yet")
 }
 
-func (b *boat) Stop(ctx context.Context) error {
+func (b *boat) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return multierr.Combine(b.starboard.Stop(ctx), b.port.Stop(ctx))
 }
 
 func (b *boat) Close(ctx context.Context) error {
 	defer b.activeBackgroundWorkers.Wait()
 	b.cancel()
-	return b.Stop(ctx)
+	return b.Stop(ctx, nil)
 }
 
 // Do is unimplemented.
@@ -181,7 +182,7 @@ func (b *boat) StartRC(ctx context.Context) {
 			}
 
 			if port < 8 && starboard < 8 {
-				err = b.Stop(ctx)
+				err = b.Stop(ctx, nil)
 			} else {
 				err = multierr.Combine(
 					b.starboard.GoFor(ctx, starboard, 0),
@@ -403,7 +404,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(
+		ctx,
+		cfg,
+		logger,
+		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+	)
 	if err != nil {
 		return err
 	}
