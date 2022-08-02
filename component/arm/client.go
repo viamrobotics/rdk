@@ -5,10 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/edaniels/golog"
-	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -16,9 +14,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/utils"
 )
 
 var errArmClientInputsNotSupport = errors.New("arm client does not support inputs directly")
@@ -51,88 +46,11 @@ type client struct {
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Arm {
 	sc := newSvcClientFromConn(conn, logger)
 	arm := clientFromSvcClient(sc, name)
-	return &reconfigurableClient{actual: arm}
+	return &reconfigurableArm{actual: arm}
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) Arm {
 	return &client{sc, name}
-}
-
-type reconfigurableClient struct {
-	mu     sync.RWMutex
-	actual Arm
-}
-
-func (c *reconfigurableClient) Reconfigure(ctx context.Context, newClient resource.Reconfigurable) error {
-	fmt.Println("call reconfigure in arm")
-	client, ok := newClient.(*reconfigurableClient)
-	if !ok {
-		return utils.NewUnexpectedTypeError(c, newClient)
-	}
-	if err := viamutils.TryClose(ctx, c.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	c.actual = client.actual
-	return nil
-}
-
-func (c *reconfigurableClient) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.GetEndPosition(ctx, extra)
-}
-
-func (c *reconfigurableClient) MoveToPosition(
-	ctx context.Context,
-	pose *commonpb.Pose,
-	worldState *commonpb.WorldState,
-	extra map[string]interface{},
-) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.MoveToPosition(ctx, pose, worldState, extra)
-}
-
-func (c *reconfigurableClient) MoveToJointPositions(ctx context.Context, positions *pb.JointPositions, extra map[string]interface{}) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.MoveToJointPositions(ctx, positions, extra)
-}
-
-func (c *reconfigurableClient) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.GetJointPositions(ctx, extra)
-}
-
-func (c *reconfigurableClient) Stop(ctx context.Context, extra map[string]interface{}) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.Stop(ctx, extra)
-}
-
-func (c *reconfigurableClient) ModelFrame() referenceframe.Model {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.ModelFrame()
-}
-
-func (c *reconfigurableClient) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.CurrentInputs(ctx)
-}
-
-func (c *reconfigurableClient) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.GoToInputs(ctx, goal)
-}
-
-func (c *reconfigurableClient) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.Do(ctx, cmd)
 }
 
 func (c *client) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
