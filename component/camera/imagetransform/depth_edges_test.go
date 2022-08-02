@@ -1,23 +1,36 @@
-package imagesource
+package imagetransform
 
 import (
 	"context"
 	"image"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
 
+const debugImageTransform = "VIAM_DEBUG"
+
+func debugImageTransformOrSkip(t *testing.T) {
+	t.Helper()
+	imageTransformTest := os.Getenv(debugImageTransform)
+	if imageTransformTest == "" {
+		t.Skipf("set environmental variable %q to run this test", debugImageTransform)
+	}
+}
+
 func TestDepthSource(t *testing.T) {
 	img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
-	source := &StaticSource{img}
+	source := &imagesource.StaticSource{DepthImg: img}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
 	blur := 3.0
 	ds := &depthEdgesSource{source, canny, blur}
@@ -26,7 +39,7 @@ func TestDepthSource(t *testing.T) {
 }
 
 type depthSourceTestHelper struct {
-	attrs *alignAttrs
+	proj rimage.Projector
 }
 
 func (h *depthSourceTestHelper) Process(
@@ -37,17 +50,12 @@ func (h *depthSourceTestHelper) Process(
 	logger golog.Logger,
 ) error {
 	t.Helper()
-	ii := rimage.ConvertToImageWithDepth(img)
-	// align the images
-	aligner, err := getAligner(h.attrs, logger)
+	dm, err := rimage.ConvertImageToDepthMap(img)
 	test.That(t, err, test.ShouldBeNil)
-	fixedColor, fixedDepth, err := aligner.AlignColorAndDepthImage(ii.Color, ii.Depth)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(fixedDepth.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
 
-	// change to use projection camera
 	// create edge map
-	source := &StaticSource{fixedDepth}
+	source := &imagesource.StaticSource{DepthImg: dm}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
 	blur := 3.0
 	ds := &depthEdgesSource{source, canny, blur}
@@ -57,24 +65,23 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugImage(edges, "edges-aligned-depth")
 
 	// make point cloud
-	fixedPointCloud, err := h.attrs.CameraParameters.RGBDToPointCloud(fixedColor, fixedDepth)
-	test.That(t, err, test.ShouldBeNil)
+	fixedPointCloud := dm.ToPointCloud(h.proj)
 	pCtx.GotDebugPointCloud(fixedPointCloud, "aligned-pointcloud")
 
 	// preprocess depth map
-	source = &StaticSource{fixedDepth}
+	source = &imagesource.StaticSource{DepthImg: dm}
 	rs := &preprocessDepthSource{source}
 
 	output, _, err := rs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	preprocessed := rimage.ConvertToImageWithDepth(output)
-
-	pCtx.GotDebugImage(preprocessed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "preprocessed-aligned-depth")
-	preprocessedPointCloud, err := h.attrs.CameraParameters.RGBDToPointCloud(preprocessed.Color, preprocessed.Depth)
+	preprocessed, err := rimage.ConvertImageToDepthMap(output)
 	test.That(t, err, test.ShouldBeNil)
+
+	pCtx.GotDebugImage(preprocessed.ToPrettyPicture(0, rimage.MaxDepth), "preprocessed-aligned-depth")
+	preprocessedPointCloud := preprocessed.ToPointCloud(h.proj)
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
-	source = &StaticSource{preprocessed}
+	source = &imagesource.StaticSource{DepthImg: preprocessed}
 	ds = &depthEdgesSource{source, canny, blur}
 	processedEdges, _, err := ds.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -85,29 +92,31 @@ func (h *depthSourceTestHelper) Process(
 }
 
 func TestDepthSourceGripper(t *testing.T) {
+	debugImageTransformOrSkip(t)
 	logger := golog.NewTestLogger(t)
-	debugImageSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined").ConvertedAttributes.(*alignAttrs)
+	c := config.FindComponent("combined").ConvertedAttributes.(*camera.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
+	proj := c.CameraParameters
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
-	err = d.Process(t, &depthSourceTestHelper{c})
+	err = d.Process(t, &depthSourceTestHelper{proj})
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestDepthSourceIntel(t *testing.T) {
+	debugImageTransformOrSkip(t)
 	logger := golog.NewTestLogger(t)
-	debugImageSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front").ConvertedAttributes.(*alignAttrs)
+	c := config.FindComponent("front").ConvertedAttributes.(*camera.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
+	proj := c.CameraParameters
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
-	err = d.Process(t, &depthSourceTestHelper{c})
+	err = d.Process(t, &depthSourceTestHelper{proj})
 	test.That(t, err, test.ShouldBeNil)
 }

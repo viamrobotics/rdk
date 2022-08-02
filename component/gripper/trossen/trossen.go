@@ -1,5 +1,5 @@
-// Package vx300s implements a vx300s gripper.
-package vx300s
+// Package trossen implements a trossen gripper.
+package trossen
 
 import (
 	"context"
@@ -23,6 +23,12 @@ import (
 )
 
 func init() {
+	registry.RegisterComponent(gripper.Subtype, "wx250s", registry.Component{
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return newGripper(config.Attributes, logger)
+		},
+	})
+
 	registry.RegisterComponent(gripper.Subtype, "vx300s", registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(config.Attributes, logger)
@@ -46,8 +52,8 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
-// vx300s TODO.
-type vx300s struct {
+// Gripper TODO.
+type Gripper struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
 	opMgr    operation.SingleOperationManager
@@ -59,7 +65,7 @@ func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.Lo
 	usbPort := attributes.String("usb_port")
 	jServo := findServo(usbPort, attributes.String("baud_rate"), logger)
 	err := jServo.SetTorqueEnable(true)
-	newGripper := vx300s{
+	newGripper := Gripper{
 		jServo:   jServo,
 		moveLock: getPortMutex(usbPort),
 	}
@@ -67,12 +73,12 @@ func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.Lo
 }
 
 // GetMoveLock TODO.
-func (g *vx300s) GetMoveLock() *sync.Mutex {
+func (g *Gripper) GetMoveLock() *sync.Mutex {
 	return g.moveLock
 }
 
 // Open TODO.
-func (g *vx300s) Open(ctx context.Context) error {
+func (g *Gripper) Open(ctx context.Context) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	g.moveLock.Lock()
@@ -103,7 +109,7 @@ func (g *vx300s) Open(ctx context.Context) error {
 }
 
 // Grab TODO.
-func (g *vx300s) Grab(ctx context.Context) (bool, error) {
+func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	_, done := g.opMgr.New(ctx)
 	defer done()
 	g.moveLock.Lock()
@@ -129,24 +135,24 @@ func (g *vx300s) Grab(ctx context.Context) (bool, error) {
 	return didGrab, nil
 }
 
-// Stop is unimplemented for vx300s.
-func (g *vx300s) Stop(ctx context.Context) error {
+// Stop is unimplemented for Gripper.
+func (g *Gripper) Stop(ctx context.Context) error {
 	// RSDK-388: Implement Stop
 	return gripper.ErrStopUnimplemented
 }
 
 // IsMoving returns whether the gripper is moving.
-func (g *vx300s) IsMoving(ctx context.Context) (bool, error) {
+func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
 // Close closes the connection, not the gripper.
-func (g *vx300s) Close() error {
+func (g *Gripper) Close() error {
 	return g.jServo.SetTorqueEnable(false)
 }
 
-// ModelFrame is unimplemented for vx300s.
-func (g *vx300s) ModelFrame() referenceframe.Model {
+// ModelFrame is unimplemented for Gripper.
+func (g *Gripper) ModelFrame() referenceframe.Model {
 	return nil
 }
 
