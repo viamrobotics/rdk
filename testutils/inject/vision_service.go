@@ -47,7 +47,7 @@ func (vs *VisionService) AddDetector(ctx context.Context, cfg vision.DetectorCon
 func (vs *VisionService) GetDetectionsFromCamera(ctx context.Context,
 	cameraName, detectorName string,
 ) ([]objectdetection.Detection, error) {
-	if vs.GetDetectionsFunc == nil {
+	if vs.GetDetectionsFromCameraFunc == nil {
 		return vs.Service.GetDetectionsFromCamera(ctx, cameraName, detectorName)
 	}
 	return vs.GetDetectionsFromCameraFunc(ctx, cameraName, detectorName)
