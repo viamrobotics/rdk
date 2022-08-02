@@ -128,6 +128,7 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	return nil
 }
 
+// TODO: rename function to something like `toDifferentialDrive`
 func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
 	x := linear.Y
 	y := angular.Z
@@ -136,20 +137,30 @@ func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float
 	r := math.Hypot(x, y)
 	t := math.Atan2(y, x)
 
+	fmt.Printf("vectors to polar:\tx(lin.Y): %.0f, y(ang.Z): %.0f -> r: %.3f, t: %.3f\n", x, y, r, t)
+
 	// rotate by 45 degrees
 	t += math.Pi / 4
 
-	// back to cartesian
+	fmt.Printf("rotate 45 degrees:\tr: %.3f, t: %.3f\n", r, t)
+
+	// convert to cartesian
 	left := r * math.Cos(t)
 	right := r * math.Sin(t)
+
+	fmt.Printf("back to cartesian:\tleft: %.3f, right: %.3f\n", left, right)
 
 	// rescale the new coords
 	left *= math.Sqrt(2)
 	right *= math.Sqrt(2)
 
+	fmt.Printf("scale by sqrt:\t\tleft: %.3f, right: %.3f\n", left, right)
+
 	// clamp to -1/+1
 	left = math.Max(-1, math.Min(left, 1))
 	right = math.Max(-1, math.Min(right, 1))
+
+	fmt.Printf("clamp to -1/+1:\t\tleft: %.3f, right: %.3f\n", left, right)
 
 	return left, right
 }
