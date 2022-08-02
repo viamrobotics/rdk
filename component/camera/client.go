@@ -77,12 +77,12 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 		img.Pix = resp.Image
 		return img, func() {}, nil
 	case utils.MimeTypeRawIWD:
+		// TODO(DATA-237) - remove
 		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.WidthPx), int(resp.HeightPx), resp.Image)
 		return img, func() {}, err
 	case utils.MimeTypeRawDepth:
 		depth, err := rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(resp.Image)))
-		img := rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToPrettyPicture(0, 0)), depth, true)
-		return img, func() {}, err
+		return depth, func() {}, err
 	case utils.MimeTypeJPEG:
 		img, err := jpeg.Decode(bytes.NewReader(resp.Image))
 		return img, func() {}, err

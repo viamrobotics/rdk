@@ -109,7 +109,6 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 		if err := pointcloud.ToPCD(pcData.PointCloud, &buf, pointcloud.PCDBinary); err != nil {
 			return nil, err
 		}
-
 		mapData := &pb.GetMapResponse_PointCloud{PointCloud: &commonpb.PointCloudObject{PointCloud: buf.Bytes()}}
 		resp = &pb.GetMapResponse{
 			MimeType: mimeType,

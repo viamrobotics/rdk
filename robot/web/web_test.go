@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"net"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -72,11 +72,17 @@ func TestWebStartOptions(t *testing.T) {
 
 	svc := web.New(ctx, injectRobot, logger)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
+
+	options.Network.BindAddress = "woop"
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "only set one of")
+	options.Network.BindAddress = ""
 
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -89,9 +95,9 @@ func TestWebStartOptions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
+	test.That(t, conn.Close(), test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestWebWithAuth(t *testing.T) {
@@ -111,11 +117,11 @@ func TestWebWithAuth(t *testing.T) {
 		t.Run(tc.Case, func(t *testing.T) {
 			svc := web.New(ctx, injectRobot, logger)
 
-			port, err := utils.TryReserveRandomPort()
-			test.That(t, err, test.ShouldBeNil)
 			options := weboptions.New()
-			addr := fmt.Sprintf("localhost:%d", port)
-			options.Network.BindAddress = addr
+			options.Network.BindAddress = ""
+			listener := testutils.ReserveRandomListener(t)
+			addr := listener.Addr().String()
+			options.Network.Listener = listener
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
@@ -140,7 +146,7 @@ func TestWebWithAuth(t *testing.T) {
 				options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 			}
 
-			err = svc.Start(ctx, options)
+			err := svc.Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
 			_, err = rgrpc.Dial(context.Background(), addr, logger)
@@ -260,11 +266,11 @@ func TestWebWithTLSAuth(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,
@@ -412,18 +418,17 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 
 	svc := web.New(ctx, injectRobot, logger)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	options.Network.Listener = listener
 	options.Auth.Handlers = []config.AuthHandlerConfig{
 		{
 			Type: "unknown",
 		},
 	}
 
-	err = svc.Start(ctx, options)
+	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
@@ -431,11 +436,10 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 
 	svc = web.New(ctx, injectRobot, logger)
 
-	port, err = utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options = weboptions.New()
-	addr = fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener = testutils.ReserveRandomListener(t)
+	options.Network.Listener = listener
 	options.Auth.Handlers = []config.AuthHandlerConfig{
 		{
 			Type: rpc.CredentialsTypeAPIKey,
@@ -455,12 +459,12 @@ func TestWebUpdate(t *testing.T) {
 
 	svc := web.New(ctx, robot, logger)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
-	err = svc.Start(ctx, options)
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
+	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
@@ -504,6 +508,10 @@ func TestWebUpdate(t *testing.T) {
 	}
 
 	svc2 := web.New(ctx, robot2, logger)
+
+	listener = testutils.ReserveRandomListener(t)
+	addr = listener.Addr().String()
+	options.Network.Listener = listener
 
 	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -569,14 +577,13 @@ func TestWebWithStreams(t *testing.T) {
 
 	// Start service
 	logger := golog.NewTestLogger(t)
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
-	svc := web.New(ctx, robot, logger)
-	test.That(t, err, test.ShouldBeNil)
-	err = svc.Start(ctx, options)
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
+	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Start a stream service client
@@ -627,14 +634,13 @@ func TestWebAddFirstStream(t *testing.T) {
 
 	// Start service
 	logger := golog.NewTestLogger(t)
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
-	svc := web.New(ctx, robot, logger)
-	test.That(t, err, test.ShouldBeNil)
-	err = svc.Start(ctx, options)
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
+	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Start a stream service client
@@ -691,12 +697,12 @@ func TestForeignResource(t *testing.T) {
 
 	svc := web.New(ctx, robot, logger)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
-	err = svc.Start(ctx, options)
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
+	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
@@ -715,12 +721,12 @@ func TestForeignResource(t *testing.T) {
 	remoteServer := grpc.NewServer()
 	mycomppb.RegisterMyComponentServiceServer(remoteServer, &myCompServer{})
 
-	listener, err := net.Listen("tcp", "localhost:0")
+	listenerR, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	go remoteServer.Serve(listener)
+	go remoteServer.Serve(listenerR)
 	defer remoteServer.Stop()
 
-	remoteConn, err := rgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	remoteConn, err := rgrpc.Dial(context.Background(), listenerR.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	resourceSubtype := resource.NewSubtype(
@@ -746,6 +752,9 @@ func TestForeignResource(t *testing.T) {
 		return foreignRes, nil
 	}
 
+	listener = testutils.ReserveRandomListener(t)
+	addr = listener.Addr().String()
+	options.Network.Listener = listener
 	svc = web.New(ctx, injectRobot, logger)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
