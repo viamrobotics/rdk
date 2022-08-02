@@ -33,7 +33,8 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
+	nav := newSvcClientFromConn(conn, logger)
+	return &reconfigurableNavigation{actual: nav}
 }
 
 func (c *client) GetMode(ctx context.Context) (Mode, error) {

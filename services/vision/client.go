@@ -41,7 +41,8 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
+	vis := newSvcClientFromConn(conn, logger)
+	return &reconfigurableVision{actual: vis}
 }
 
 func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
