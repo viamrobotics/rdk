@@ -81,11 +81,10 @@ func (c *collector) GetTarget() *os.File {
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
 // leaking goroutines. Close() can only be called once; attempting to Close an already closed Collector will panic.
 func (c *collector) Close() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
 	c.cancel()
 	c.backgroundWorkers.Wait()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
@@ -107,6 +106,7 @@ func (c *collector) Collect() {
 		defer c.backgroundWorkers.Done()
 		if err := c.write(); err != nil {
 			c.logger.Errorw(fmt.Sprintf("failed to write to file %s", c.target.Name()), "error", err)
+			return
 		}
 	})
 }
