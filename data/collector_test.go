@@ -11,7 +11,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
@@ -220,45 +219,6 @@ func TestSetTarget(t *testing.T) {
 	c.Close()
 	test.That(t, getFileSize(target1), test.ShouldEqual, sizeTgt1)
 	test.That(t, getFileSize(target2), test.ShouldBeGreaterThan, 0)
-}
-
-// Verifies that Collect does not error if it receives a single error when calling capture, and that those errors are
-// logged.
-func TestSwallowsErrors(t *testing.T) {
-	logger, logs := golog.NewObservedTestLogger(t)
-	target1, _ := ioutil.TempFile("", "whatever")
-	defer os.Remove(target1.Name())
-
-	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		return nil, errors.New("error")
-	})
-	params := CollectorParams{
-		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 10,
-		MethodParams:  map[string]string{"name": "test"},
-		Target:        target1,
-		QueueSize:     queueSize,
-		BufferSize:    bufferSize,
-		Logger:        logger,
-	}
-	c, _ := NewCollector(errorCapturer, params)
-	errorChannel := make(chan error)
-	defer close(errorChannel)
-	c.Collect()
-	time.Sleep(30 * time.Millisecond)
-	c.Close()
-
-	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
-	// write an error log for a few instructions after .Close() is called, and this test is reading from the logger).
-	time.Sleep(10 * time.Millisecond)
-
-	// Verify that no errors were passed into errorChannel, and that errors were logged.
-	select {
-	case err := <-errorChannel:
-		logger.Fatalf("Collector.Collect propogated error: %s", err)
-	default:
-		test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldBeGreaterThan, 0)
-	}
 }
 
 // TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
