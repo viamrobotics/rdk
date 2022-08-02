@@ -54,6 +54,8 @@ func init() {
 	},
 		&Attributes{},
 	)
+
+	resource.AddDefaultService(Name)
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.

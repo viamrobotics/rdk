@@ -30,9 +30,6 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
-	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
 
@@ -43,16 +40,7 @@ const (
 	framesystemName internalServiceName = "framesystem"
 )
 
-var (
-	_ = robot.LocalRobot(&localRobot{})
-
-	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{
-		sensors.Name,
-		datamanager.Name,
-		vision.Name,
-	}
-)
+var _ = robot.LocalRobot(&localRobot{})
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
@@ -382,7 +370,7 @@ func newWithResources(
 		return nil, err
 	}
 	// default services
-	for _, name := range defaultSvc {
+	for _, name := range resource.DefaultServices {
 		cfg := config.Service{
 			Namespace: name.Namespace,
 			Type:      config.ServiceType(name.ResourceSubtype),
@@ -538,7 +526,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 		resources[n] = res
 	}
 
-	for _, name := range defaultSvc {
+	for _, name := range resource.DefaultServices {
 		svc, err := r.ResourceByName(name)
 		if err != nil {
 			r.Logger().Errorw("resource not found", "error", utils.NewResourceNotFoundError(name))

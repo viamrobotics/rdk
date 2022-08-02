@@ -59,6 +59,8 @@ func init() {
 		}
 		return &conf, nil
 	}, &Config{})
+
+	resource.AddDefaultService(Name)
 }
 
 // Service defines what a Data Manager Service should expose to the users.
