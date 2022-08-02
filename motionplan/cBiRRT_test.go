@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"math/rand"
-	"sort"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -65,20 +64,14 @@ func TestSimpleLinearMotion(t *testing.T) {
 	seedMap[near1] = nil
 	target := &configuration{interp}
 
-	keys := make([]float64, 0, len(solutions))
-	for k := range solutions {
-		keys = append(keys, k)
-	}
-	sort.Float64s(keys)
-
 	goalMap := make(map[*configuration]*configuration)
 
-	if len(keys) < nSolutions {
-		nSolutions = len(keys)
+	if len(solutions) < nSolutions {
+		nSolutions = len(solutions)
 	}
 
-	for _, k := range keys[:nSolutions] {
-		goalMap[&configuration{solutions[k]}] = nil
+	for _, solution := range solutions[:nSolutions] {
+		goalMap[&configuration{solution}] = nil
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
