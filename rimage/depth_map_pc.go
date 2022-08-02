@@ -11,7 +11,7 @@ import (
 
 func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 	pc := &dmPointCloudAdapter{
-		dm: dm,
+		dm: dm.Clone(),
 		p:  p,
 	}
 
