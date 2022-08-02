@@ -171,12 +171,8 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	// initialize maps
-	nSolutions := opt.maxSolutions
-	if len(solutions) < nSolutions {
-		nSolutions = len(solutions)
-	}
-	goalMap := make(map[*configuration]*configuration, nSolutions)
-	for _, solution := range solutions[:nSolutions] {
+	goalMap := make(map[*configuration]*configuration, len(solutions))
+	for _, solution := range solutions {
 		goalMap[&configuration{solution}] = nil
 	}
 	corners := map[*configuration]bool{}
