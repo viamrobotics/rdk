@@ -41,11 +41,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-type reconfigurableClient struct {
-	mu     sync.RWMutex
-	actual Arm
-}
-
 // client is an arm client.
 type client struct {
 	*serviceClient
@@ -56,14 +51,16 @@ type client struct {
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Arm {
 	sc := newSvcClientFromConn(conn, logger)
 	arm := clientFromSvcClient(sc, name)
-	if arm == nil {
-		fmt.Println("arm is nil")
-	}
 	return &reconfigurableClient{actual: arm}
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) Arm {
 	return &client{sc, name}
+}
+
+type reconfigurableClient struct {
+	mu     sync.RWMutex
+	actual Arm
 }
 
 func (c *reconfigurableClient) Reconfigure(ctx context.Context, newClient resource.Reconfigurable) error {
@@ -82,7 +79,6 @@ func (c *reconfigurableClient) Reconfigure(ctx context.Context, newClient resour
 func (c *reconfigurableClient) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	fmt.Println("calling get end position in reconfigurable")
 	return c.actual.GetEndPosition(ctx, extra)
 }
 
