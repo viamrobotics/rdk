@@ -2,6 +2,7 @@ package wheeled
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -264,31 +265,43 @@ func TestFourWheelBase1(t *testing.T) {
 
 		var fwdL, fwdR, revL, revR float64
 
+		// Go straight (↑)
+		fmt.Println("\nGo straight (↑)")
+		fwdL, fwdR = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 0})
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
+		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(fwdR))
+
 		// Go forward-left (↰)
+		fmt.Println("\nGo forward-left (↰)")
 		fwdL, fwdR = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 1})
 		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
 		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldBeLessThan, math.Abs(fwdR))
 
 		// Go reverse-left (↲)
+		fmt.Println("\nGo reverse-left (↲)")
 		revL, revR = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{Z: 1})
 		test.That(t, revL, test.ShouldBeLessThan, 0)
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeLessThan, math.Abs(revR))
 
 		// Go forward-right (↱)
+		fmt.Println("\nGo forward-right (↱)")
 		fwdL, fwdR = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: -1})
 		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
 		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldBeGreaterThan, math.Abs(revL))
 
 		// Go reverse-right (↳)
+		fmt.Println("\nGo reverse-right (↳)")
 		revL, revR = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{Z: -1})
 		test.That(t, revL, test.ShouldBeLessThan, 0)
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
 
-		// Test spin
+		// Test spin (↻)
+		fmt.Println("\nTest spin (↻)")
 		spinL, spinR := base.setPowerMath(r3.Vector{Y: 0}, r3.Vector{Z: -1})
 		test.That(t, spinL, test.ShouldBeLessThanOrEqualTo, 0)
 		test.That(t, spinR, test.ShouldBeGreaterThan, 0)
