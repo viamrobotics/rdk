@@ -84,6 +84,7 @@ var (
 	_ = IMU(&reconfigurableIMU{})
 	_ = sensor.Sensor(&reconfigurableIMU{})
 	_ = resource.Reconfigurable(&reconfigurableIMU{})
+	_ = viamutils.ContextCloser(&reconfigurableIMU{})
 )
 
 // FromDependencies is a helper for getting the named imu from a collection of
