@@ -451,6 +451,10 @@ func newWithResources(
 		r.manager.addResource(name, res)
 	}
 
+	if len(resources) != 0 {
+		r.updateDefaultServices(ctx)
+	}
+
 	successful = true
 	return r, nil
 }
