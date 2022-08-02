@@ -1,0 +1,28 @@
+name: License Finder
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ 'main' ]
+  push:
+    branches: [ '!main' ]
+
+env:
+  GOPRIVATE: 'github.com/viamrobotics/*,go.viam.com/*'
+
+jobs:
+  build_and_test:
+    name: Audit 3rd-Party Licenses
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out code in rdk directory
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - name: Run license finder
+        run: |
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/pivotal/LicenseFinder/master/dlf)"
+          license_finder
