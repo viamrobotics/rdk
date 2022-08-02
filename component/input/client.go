@@ -54,7 +54,8 @@ type client struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Controller {
 	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(ctx, sc, name)
+	input := clientFromSvcClient(ctx, sc, name)
+	return &reconfigurableInputController{actual: input}
 }
 
 func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Controller {

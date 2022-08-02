@@ -58,7 +58,8 @@ type boardInfo struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Board {
 	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(ctx, sc, name)
+	board := clientFromSvcClient(ctx, sc, name)
+	return &reconfigurableBoard{actual: board}
 }
 
 func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Board {
