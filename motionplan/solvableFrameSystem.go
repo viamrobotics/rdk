@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"runtime"
 
 	"github.com/edaniels/golog"
@@ -104,7 +103,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	if fss.mpFunc != nil {
 		planner, err = fss.mpFunc(sf, runtime.NumCPU()/2, fss.logger)
 	} else {
-		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, rand.New(rand.NewSource(1)), fss.logger)
+		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, fss.logger)
 	}
 	if err != nil {
 		return nil, err

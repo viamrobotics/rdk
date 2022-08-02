@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
 	"go.viam.com/test"
@@ -39,8 +40,13 @@ type planConfig struct {
 	InteractionSpaces []spatial.Geometry
 }
 
+type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
+
 func TestUnconstrainedMotion(t *testing.T) {
-	planners := []plannerConstructor{NewRRTConnectMotionPlanner, NewCBiRRTMotionPlanner}
+	planners := []seededPlannerConstructor{
+		NewRRTConnectMotionPlannerWithSeed,
+		NewCBiRRTMotionPlannerWithSeed,
+	}
 	testCases := []struct {
 		name   string
 		config planConfig
@@ -63,7 +69,7 @@ func TestConstrainedArmMotion(t *testing.T) {
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, rand.New(rand.NewSource(1)), logger.Sugar())
+	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger.Sugar())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
@@ -209,53 +215,58 @@ func simpleUR5eMotion(t *testing.T) planConfig {
 	}
 }
 
-func testPlanner(t *testing.T, planner plannerConstructor, config *planConfig) {
+// testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
+// returns a valid set of waypoints
+func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planConfig) {
 	total := 0.
 	allPaths := make([][][]frame.Input, config.NumTests)
 	for i := 0; i < config.NumTests; i++ {
-		allPaths[i], err = plan(context.Background(), planner, config, i)
+		// setup planner
+		mp, err := planner(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(i))), logger.Sugar())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(allPaths[i]), test.ShouldNotEqual, 0)
-		score := evaluate(allPaths[i])
-		fmt.Println("Test ", i+1, ":\t", score)
-		total += score
+		opt := NewDefaultPlannerOptions()
+		toMap := func(geometries []spatial.Geometry) map[string]spatial.Geometry {
+			geometryMap := make(map[string]spatial.Geometry, 0)
+			for i, geometry := range geometries {
+				geometryMap[strconv.Itoa(i)] = geometry
+			}
+			return geometryMap
+		}
+		opt.AddConstraint("collision", NewCollisionConstraint(config.RobotFrame, toMap(config.Obstacles), toMap(config.InteractionSpaces)))
+
+		// plan
+		path, err := mp.Plan(context.Background(), config.Goal, config.Start, opt)
+		test.That(t, err, test.ShouldBeNil)
+
+		// evaluate
+		test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
+		distance := 0.
+		for j := 0; j < len(path)-1; j++ {
+			startPos, err := config.RobotFrame.Transform(path[j])
+			test.That(t, err, test.ShouldBeNil)
+			endPos, err := config.RobotFrame.Transform(path[j+1])
+			test.That(t, err, test.ShouldBeNil)
+			ok, _ := opt.constraintHandler.CheckConstraintPath(&ConstraintInput{
+				StartPos:   startPos,
+				EndPos:     endPos,
+				StartInput: path[j],
+				EndInput:   path[j+1],
+				Frame:      config.RobotFrame,
+			}, 1e-3)
+			// test.That(t, ok, test.ShouldBeTrue)
+			_ = ok
+			distance += L2Distance(frame.InputsToFloats(path[j]), frame.InputsToFloats(path[j+1]))
+		}
+
+		// log
+		fmt.Println("Test ", i+1, ":\t", distance)
+		total += distance
+		allPaths[i] = path
 	}
 	fmt.Print("Average:\t", total/float64(config.NumTests), "\n\n")
 
 	// write output
 	test.That(t, writeJSONFile(utils.ResolveFile("motionplan/output.test"), allPaths), test.ShouldBeNil)
-}
-
-func plan(ctx context.Context, planner plannerConstructor, config *planConfig, seed int) ([][]frame.Input, error) {
-	// setup planner
-	mp, err := planner(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(seed))), logger.Sugar())
-	if err != nil {
-		return nil, err
-	}
-	opt := NewDefaultPlannerOptions()
-	toMap := func(geometries []spatial.Geometry) map[string]spatial.Geometry {
-		geometryMap := make(map[string]spatial.Geometry, 0)
-		for i, geometry := range geometries {
-			geometryMap[strconv.Itoa(i)] = geometry
-		}
-		return geometryMap
-	}
-	opt.AddConstraint("collision", NewCollisionConstraint(config.RobotFrame, toMap(config.Obstacles), toMap(config.InteractionSpaces)))
-
-	// plan
-	waypoints, err := mp.Plan(ctx, config.Goal, config.Start, opt)
-	if err != nil {
-		return nil, err
-	}
-	return waypoints, nil
-}
-
-func evaluate(waypoints [][]frame.Input) float64 {
-	distance := 0.
-	for i := 0; i < len(waypoints)-1; i++ {
-		distance += L2Distance(frame.InputsToFloats(waypoints[i]), frame.InputsToFloats(waypoints[i+1]))
-	}
-	return distance
 }
 
 func writeJSONFile(filename string, data interface{}) error {

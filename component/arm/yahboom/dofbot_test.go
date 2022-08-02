@@ -2,7 +2,6 @@ package yahboom
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -28,7 +27,7 @@ func TestDofBotIK(t *testing.T) {
 
 	model, err := dofbotModel()
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, rand.New(rand.NewSource(1)), logger)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	goal := commonpb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}

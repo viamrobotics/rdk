@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -426,7 +425,7 @@ func Plan(
 	}
 
 	// conduct planning query
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, numCPUs, rand.New(rand.NewSource(1)), logger)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, numCPUs, logger)
 	if err != nil {
 		return nil, err
 	}

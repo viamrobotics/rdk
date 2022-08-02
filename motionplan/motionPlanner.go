@@ -5,9 +5,7 @@ import (
 	"context"
 	"errors"
 	"math"
-	"math/rand"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -37,8 +35,6 @@ type MotionPlanner interface {
 	Resolution() float64 // Resolution specifies how narrowly to check for constraints
 	Frame() frame.Frame  // Frame will return the frame used for planning
 }
-
-type plannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
 
 // needed to wrap slices so we can use them as map keys.
 type configuration struct {

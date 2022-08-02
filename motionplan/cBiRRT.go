@@ -52,7 +52,12 @@ type cBiRRTMotionPlanner struct {
 }
 
 // NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object.
-func NewCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+func NewCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
+	NewCBiRRTMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
+}
+
+// NewCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
+func NewCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
