@@ -81,7 +81,7 @@ func TestConstraintPath(t *testing.T) {
 }
 
 func TestLineFollow(t *testing.T) {
-	var logger = golog.NewDevelopmentLogger("armplay")
+	logger := golog.NewDevelopmentLogger("armplay")
 
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,

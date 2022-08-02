@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/referenceframe"
 )
 
 func TestNearestNeighbor(t *testing.T) {

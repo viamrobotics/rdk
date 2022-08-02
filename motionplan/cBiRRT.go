@@ -15,7 +15,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// TODO(rb) all these should be tied to default values for config somehow
+// TODO(rb) all these should be tied to default values for config somehow.
 const (
 	// The maximum percent of a joints range of motion to allow per step.
 	frameStep = 0.015
@@ -53,7 +53,8 @@ type cBiRRTMotionPlanner struct {
 
 // NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object.
 func NewCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
-	NewCBiRRTMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
+	//nolint:gosec
+	return NewCBiRRTMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
 }
 
 // NewCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -245,14 +246,13 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *configuration, sampleNum int) *conf
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= iterBeforeRand && sampleNum%4 >= 2 {
 		return &configuration{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
-	} else {
-		// Seeding nearby to valid points results in much faster convergence in less constrained space
-		q := &configuration{referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
-		for j, v := range rSeed.inputs {
-			q.inputs[j].Value += v.Value
-		}
-		return q
 	}
+	// Seeding nearby to valid points results in much faster convergence in less constrained space
+	q := &configuration{referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
+	for j, v := range rSeed.inputs {
+		q.inputs[j].Value += v.Value
+	}
+	return q
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
