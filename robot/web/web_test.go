@@ -639,7 +639,7 @@ func TestWebAddFirstStream(t *testing.T) {
 	listener := testutils.ReserveRandomListener(t)
 	addr := listener.Addr().String()
 	options.Network.Listener = listener
-	svc := web.New(ctx, robot, logger)
+	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
