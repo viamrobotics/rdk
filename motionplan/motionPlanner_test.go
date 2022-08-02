@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"strconv"
@@ -25,7 +24,7 @@ var (
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 )
 
-var logger, err = zap.Config{
+var logger, _ = zap.Config{
 	Level:             zap.NewAtomicLevelAt(zap.FatalLevel),
 	Encoding:          "console",
 	DisableStacktrace: true,
@@ -156,7 +155,7 @@ func TestFixOvIncrement(t *testing.T) {
 // simple2DMapConfig returns a planConfig with the following map
 //		- start at (-9, 9) and end at (9, 9)
 //      - bounds are from (-10, -10) to (10, 10)
-//      - obstacle from (-4, 4) to (4, 10)
+//      - obstacle from (-4, 2) to (4, 10)
 // ------------------------
 // | +      |    |      + |
 // |        |    |        |
@@ -167,8 +166,10 @@ func TestFixOvIncrement(t *testing.T) {
 // |                      |
 // |                      |
 // |                      |
-// ------------------------
+// ------------------------.
 func simple2DMap(t *testing.T) planConfig {
+	t.Helper()
+
 	// build model
 	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}
 	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
@@ -189,8 +190,9 @@ func simple2DMap(t *testing.T) planConfig {
 	}
 }
 
-// simpleArmMotion tests moving an xArm7
+// simpleArmMotion tests moving an xArm7.
 func simpleXArmMotion(t *testing.T) planConfig {
+	t.Helper()
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -204,6 +206,7 @@ func simpleXArmMotion(t *testing.T) planConfig {
 
 // simpleUR5eMotion tests a simple motion for a UR5e.
 func simpleUR5eMotion(t *testing.T) planConfig {
+	t.Helper()
 	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -216,9 +219,9 @@ func simpleUR5eMotion(t *testing.T) planConfig {
 }
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
-// returns a valid set of waypoints
+// returns a valid set of waypoints.
 func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planConfig) {
-	total := 0.
+	t.Helper()
 	allPaths := make([][][]frame.Input, config.NumTests)
 	for i := 0; i < config.NumTests; i++ {
 		// setup planner
@@ -240,7 +243,6 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 
 		// evaluate
 		test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
-		distance := 0.
 		for j := 0; j < len(path)-1; j++ {
 			startPos, err := config.RobotFrame.Transform(path[j])
 			test.That(t, err, test.ShouldBeNil)
@@ -252,18 +254,10 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 				StartInput: path[j],
 				EndInput:   path[j+1],
 				Frame:      config.RobotFrame,
-			}, 1e-3)
-			// test.That(t, ok, test.ShouldBeTrue)
-			_ = ok
-			distance += L2Distance(frame.InputsToFloats(path[j]), frame.InputsToFloats(path[j+1]))
+			}, mp.Resolution())
+			test.That(t, ok, test.ShouldBeTrue)
 		}
-
-		// log
-		fmt.Println("Test ", i+1, ":\t", distance)
-		total += distance
-		allPaths[i] = path
 	}
-	fmt.Print("Average:\t", total/float64(config.NumTests), "\n\n")
 
 	// write output
 	test.That(t, writeJSONFile(utils.ResolveFile("motionplan/output.test"), allPaths), test.ShouldBeNil)

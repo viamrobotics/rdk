@@ -60,8 +60,6 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input
 		// Default to [-999,999] as range if limits are infinite
 		if l == math.Inf(-1) {
 			l = -999
-		} else {
-
 		}
 		if u == math.Inf(1) {
 			u = 999

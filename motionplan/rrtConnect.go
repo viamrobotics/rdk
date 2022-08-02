@@ -46,12 +46,13 @@ type rrtConnectMotionPlanner struct {
 	randseed        *rand.Rand
 }
 
-// NewRRTConnectMotionPlan creates a rrtStarMotionPlanner object.
+// NewRRTConnectMotionPlanner creates a rrtConnectMotionPlanner object.
 func NewRRTConnectMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+	//nolint:gosec
 	return NewRRTConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
 }
 
-// NewRRTConnectMotionPlanWithSeed creates a rrtStarMotionPlanner object with a user specified random seed.
+// NewRRTConnectMotionPlannerWithSeed creates a rrtConnectMotionPlanner object with a user specified random seed.
 func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
@@ -151,7 +152,6 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	}
 	if opt.maxSolutions == 1 && endpointPreview != nil {
 		endpointPreview <- &configuration{solutions[keys[0]]}
-		endpointPreview = nil
 	}
 
 	// Initialize maps for start and goal

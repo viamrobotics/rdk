@@ -9,13 +9,12 @@ import (
 )
 
 type neighborManager struct {
-	nnKeys     chan *configuration
-	neighbors  chan *neighbor
-	nnLock     sync.RWMutex
-	seedPos    *configuration
-	ready      bool
-	nCPU       int
-	cancelFunc context.CancelFunc
+	nnKeys    chan *configuration
+	neighbors chan *neighbor
+	nnLock    sync.RWMutex
+	seedPos   *configuration
+	ready     bool
+	nCPU      int
 }
 
 type neighbor struct {
