@@ -104,10 +104,11 @@ func (c *client) GetDetections(ctx context.Context, img image.Image, detectorNam
 		return nil, err
 	}
 	resp, err := c.client.GetDetections(ctx, &pb.GetDetectionsRequest{
-		Image:    imgBytes,
-		Width:    int64(img.Bounds().Dx()),
-		Height:   int64(img.Bounds().Dy()),
-		MimeType: mimeType,
+		Image:        imgBytes,
+		Width:        int64(img.Bounds().Dx()),
+		Height:       int64(img.Bounds().Dy()),
+		MimeType:     mimeType,
+		DetectorName: detectorName,
 	})
 	if err != nil {
 		return nil, err
