@@ -2,10 +2,12 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
@@ -34,29 +36,43 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 
 	// Create channel between goroutine that's waiting for UploadResponse and the main goroutine which is persisting
 	// file upload progress to disk.
-	progress := make(chan v1.UploadResponse)
+	progress := make(chan v1.UploadResponse, 1)
+
+	// activeBackgroundWorkers ensures upload func waits for forked goroutines to terminate before exiting.
+	var activeBackgroundWorkers sync.WaitGroup
+
+	activeBackgroundWorkers.Add(1)
 	go func() {
+		defer activeBackgroundWorkers.Done()
 		for {
 			ur, err := client.Recv()
 			if err == io.EOF {
+				fmt.Println("GOT EOF")
 				close(progress)
-				return
+				break
+			} else {
+				if err != nil {
+					log.Fatalf("Unable to receive UploadResponse from server %v", err)
+				} else {
+					progress <- *ur
+					fmt.Println("LOOPING")
+				}
 			}
-			if err != nil {
-				log.Fatalf("Unable to receive UploadResponse from server %v", err)
-			}
-			progress <- *ur
+
 		}
+		fmt.Println("IT GOT HERE")
 	}()
 
 	eof := false
 	// Loop until there is no more content to be read from file.
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		select {
 		case <-ctx.Done():
 			return context.Canceled
-		case <-progress:
-			uploadResponse := <-progress
+		case uploadResponse := <-progress:
 			if err := s.progressTracker.updateProgressFileIndex(filepath.Join(s.progressTracker.progressDir, filepath.
 				Base(f.Name())), int(uploadResponse.GetRequestsWritten())); err != nil {
 				return err
@@ -86,6 +102,7 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			break
 		}
 	}
+	activeBackgroundWorkers.Wait()
 
 	if err := f.Close(); err != nil {
 		return err
