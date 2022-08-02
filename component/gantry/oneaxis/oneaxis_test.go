@@ -739,7 +739,11 @@ func TestCurrentInputs(t *testing.T) {
 
 	// out of bounds position
 	fakegantry = &oneAxis{
-		motor:          &inject.Motor{GetPositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) { return 5, errors.New("nope") }},
+		motor: &inject.Motor{
+			GetPositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+				return 5, errors.New("nope")
+			},
+		},
 		board:          createFakeBoard(),
 		limitHigh:      false,
 		logger:         logger,
