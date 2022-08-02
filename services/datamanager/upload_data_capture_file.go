@@ -2,7 +2,6 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -47,7 +46,6 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 		for {
 			ur, err := client.Recv()
 			if err == io.EOF {
-				fmt.Println("GOT EOF")
 				close(progress)
 				break
 			} else {
@@ -55,12 +53,10 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 					log.Fatalf("Unable to receive UploadResponse from server %v", err)
 				} else {
 					progress <- *ur
-					fmt.Println("LOOPING")
 				}
 			}
 
 		}
-		fmt.Println("IT GOT HERE")
 	}()
 
 	eof := false
