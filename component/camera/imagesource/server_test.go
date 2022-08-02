@@ -1,11 +1,8 @@
 package imagesource
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"image"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,21 +24,14 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image) {
 	expectedColor, err := rimage.NewImageFromFile(colorPath)
 	test.That(t, err, test.ShouldBeNil)
 	// get depth image
-	depthPath := artifact.MustPath("rimage/board1.dat.gz")
+	depthPath := artifact.MustPath("rimage/board1_gray.png")
 	expectedDepth, err := rimage.NewDepthMapFromFile(depthPath)
 	test.That(t, err, test.ShouldBeNil)
 	// get color bytes
 	colorBytes, err := os.ReadFile(colorPath) // get png bytes
 	test.That(t, err, test.ShouldBeNil)
 	// get depth bytes
-	depthBytesZipped, err := os.ReadFile(depthPath) // get .dat.gz bytes, need to unzip
-	test.That(t, err, test.ShouldBeNil)
-	gr, err := gzip.NewReader(bytes.NewBuffer(depthBytesZipped))
-	defer func() {
-		test.That(t, gr.Close(), test.ShouldBeNil)
-	}()
-	test.That(t, err, test.ShouldBeNil)
-	dataDepth, err := io.ReadAll(gr)
+	dataDepth, err := os.ReadFile(depthPath)
 	test.That(t, err, test.ShouldBeNil)
 	// create mock router
 	handleColor := func(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +39,7 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image) {
 		w.Write(colorBytes)
 	}
 	handleDepth := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "application/octet-stream")
+		w.Header().Add("Content-Type", "image/png")
 		w.Write(dataDepth)
 	}
 	router := http.NewServeMux()
