@@ -14,36 +14,14 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// const (
-// 	// The maximum percent of a joints range of motion to allow per step.
-// 	frameStep = 0.015
-// 	// If the dot product between two sets of joint angles is less than this, consider them identical.
-// 	jointSolveDist = 0.0001
-// 	// Number of planner iterations before giving up.
-// 	planIter = 2000
-// 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
-// 	solutionsToSeed = 10
-// 	// Check constraints are still met every this many mm/degrees of movement.
-// 	stepSize = 2
-// 	// Name of joint swing scorer.
-// 	jointConstraint = "defaultJointSwingConstraint"
-// 	// Max number of iterations of path smoothing to run.
-// 	smoothIter = 250
-// 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
-// 	iterBeforeRand = 50
-// )
-
 type rrtConnectMotionPlanner struct {
-	solDist         float64
-	solver          InverseKinematics
-	fastGradDescent *NloptIK
-	frame           referenceframe.Frame
-	logger          golog.Logger
-	qstep           []float64
-	iter            int
-	nCPU            int
-	stepSize        float64
-	randseed        *rand.Rand
+	solver   InverseKinematics
+	frame    referenceframe.Frame
+	logger   golog.Logger
+	iter     int
+	nCPU     int
+	stepSize float64
+	randseed *rand.Rand
 }
 
 // NewRRTConnectMotionPlanner creates a rrtConnectMotionPlanner object.
@@ -58,21 +36,14 @@ func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, se
 	if err != nil {
 		return nil, err
 	}
-	// nlopt should try only once
-	nlopt, err := CreateNloptIKSolver(frame, logger, 1)
-	if err != nil {
-		return nil, err
-	}
 	return &rrtConnectMotionPlanner{
-		solDist:         jointSolveDist,
-		solver:          ik,
-		fastGradDescent: nlopt,
-		frame:           frame,
-		logger:          logger,
-		qstep:           getFrameSteps(frame, frameStep),
-		iter:            planIter,
-		stepSize:        stepSize,
-		randseed:        seed,
+		solver:   ik,
+		frame:    frame,
+		logger:   logger,
+		iter:     planIter,
+		nCPU:     nCPU,
+		stepSize: stepSize,
+		randseed: seed,
 	}, nil
 }
 
