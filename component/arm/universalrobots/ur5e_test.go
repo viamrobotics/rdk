@@ -76,7 +76,7 @@ func testUR5eInverseKinements(t *testing.T, pos *commonpb.Pose) {
 
 	m, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := motionplan.NewCBiRRTMotionPlanner(m, 4, rand.New(rand.NewSource(1)), logger)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(m, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	steps, err := mp.Plan(ctx, pos, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil)

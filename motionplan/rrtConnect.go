@@ -48,6 +48,11 @@ type rrtConnectMotionPlanner struct {
 
 // NewRRTConnectMotionPlan creates a rrtStarMotionPlanner object.
 func NewRRTConnectMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+	return NewRRTConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
+}
+
+// NewRRTConnectMotionPlanWithSeed creates a rrtStarMotionPlanner object with a user specified random seed.
+func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
