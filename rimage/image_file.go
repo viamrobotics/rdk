@@ -83,11 +83,7 @@ func NewDepthMapFromFile(fn string) (*DepthMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	dm, err := ConvertImageToDepthMap(img)
-	if err != nil {
-		return nil, err
-	}
-	return dm, nil
+	return ConvertImageToDepthMap(img)
 }
 
 // WriteImageToFile writes the given image to a file at the supplied path.
