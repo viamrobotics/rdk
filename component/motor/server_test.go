@@ -246,7 +246,6 @@ func TestServerResetZeroPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-//nolint:dupl
 func TestServerExtraParams(t *testing.T) {
 	motorServer, workingMotor, _, _ := newServer()
 
