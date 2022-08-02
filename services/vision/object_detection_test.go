@@ -96,7 +96,4 @@ func TestAddDetector(t *testing.T) {
 	test.That(t, dets, test.ShouldNotBeNil)
 	test.That(t, dets[0].Label(), test.ShouldResemble, "17")
 	test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.79)
-	box := dets[0].BoundingBox()
-	test.That(t, box.Min, test.ShouldResemble, image.Point{126, 42})
-	test.That(t, box.Max, test.ShouldResemble, image.Point{199, 162})
 }
