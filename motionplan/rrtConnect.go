@@ -109,16 +109,11 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	// publish endpoint of plan if it is known
 	if opt.maxSolutions == 1 && endpointPreview != nil {
 		endpointPreview <- &configuration{solutions[0]}
-		endpointPreview = nil
 	}
 
 	// initialize maps
-	nSolutions := opt.maxSolutions
-	if len(solutions) < nSolutions {
-		nSolutions = len(solutions)
-	}
-	goalMap := make(map[*configuration]*configuration, nSolutions)
-	for _, solution := range solutions[:nSolutions] {
+	goalMap := make(map[*configuration]*configuration, len(solutions))
+	for _, solution := range solutions {
 		goalMap[&configuration{solution}] = nil
 	}
 	startMap := make(map[*configuration]*configuration)
