@@ -47,8 +47,6 @@ func init() {
 		},
 	},
 	)
-
-	resource.AddDefaultService(Name)
 }
 
 // A Service handles shells for a local robot.
