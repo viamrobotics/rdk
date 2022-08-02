@@ -3,14 +3,19 @@ package base
 
 import (
 	"context"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/utils"
 )
 
 // serviceClient is a client satisfies the arm.proto contract.
@@ -37,14 +42,68 @@ type client struct {
 	name string
 }
 
+type reconfigurableClient struct {
+	mu     sync.RWMutex
+	actual Base
+}
+
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Base {
 	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
+	base := clientFromSvcClient(sc, name)
+	return &reconfigurableClient{actual: base}
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) Base {
 	return &client{sc, name}
+}
+
+func (c *reconfigurableClient) Reconfigure(ctx context.Context, newClient resource.Reconfigurable) error {
+	client, ok := newClient.(*reconfigurableClient)
+	if !ok {
+		return utils.NewUnexpectedTypeError(c, newClient)
+	}
+	if err := viamutils.TryClose(ctx, c.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	c.actual = client.actual
+	return nil
+}
+
+func (c *reconfigurableClient) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.MoveStraight(ctx, distanceMm, mmPerSec)
+}
+
+func (c *reconfigurableClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.Spin(ctx, angleDeg, degsPerSec)
+}
+
+func (c *reconfigurableClient) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.SetPower(ctx, linear, angular)
+}
+
+func (c *reconfigurableClient) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.SetVelocity(ctx, linear, angular)
+}
+
+func (c *reconfigurableClient) Stop(ctx context.Context) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.Stop(ctx)
+}
+
+func (c *reconfigurableClient) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.Do(ctx, cmd)
 }
 
 func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
