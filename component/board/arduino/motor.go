@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/gpio"
@@ -44,7 +45,17 @@ func init() {
 				return nil, errors.New("expected board to be an arduino board")
 			}
 
-			return configureMotorForBoard(ctx, actualBoard, config, motorConfig)
+			if motorConfig.Encoder == "" {
+				return nil, errors.New("arduino motor expected non-empty string for encoder")
+			}
+			e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
+
+			actualEncoder, ok := utils.UnwrapProxy(e).(*Encoder)
+			if !ok {
+				return nil, errors.New("expected board to be an arduino board")
+			}
+
+			return configureMotorForBoard(ctx, actualBoard, config, motorConfig, actualEncoder)
 		},
 	}
 
@@ -58,13 +69,14 @@ func configureMotorForBoard(
 	b *arduinoBoard,
 	config config.Component,
 	motorConfig *motor.Config,
+	e 	*Encoder,
 ) (motor.LocalMotor, error) {
 	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
 
 	if motorConfig.Encoder == "" {
-		return nil, errors.New("arduino needs hall encoder")
+		return nil, errors.New("arduino motor needs encoder")
 	}
 
 	if motorConfig.TicksPerRotation <= 0 {
@@ -87,14 +99,15 @@ func configureMotorForBoard(
 		motorConfig.Pins.EnablePinLow = "-1"
 	}
 
-	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s",
+	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
 		config.Name,
 		motorConfig.Pins.PWM,          // Optional if using A/B inputs (one of them will be PWMed if missing)
 		motorConfig.Pins.A,            // Use either A & B, or DIR inputs, never both
 		motorConfig.Pins.B,            // (A & B [& PWM] ) || (DIR & PWM)
 		motorConfig.Pins.Direction,    // PWM is also required when using DIR
 		motorConfig.Pins.EnablePinLow, // Always optional, inverting input (LOW = ENABLED)
-		motorConfig.Encoder,
+		e.A,
+		e.B,
 	)
 
 	res, err := b.runCommand(cmd)
@@ -109,7 +122,7 @@ func configureMotorForBoard(
 		config,
 		*motorConfig,
 		&arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name},
-		&encoder{b: b, cfg: *motorConfig, name: config.Name},
+		e,
 		b.logger,
 	)
 	if err != nil {
@@ -243,36 +256,4 @@ func (m *arduinoMotor) ResetZeroPosition(ctx context.Context, offset float64) er
 
 func (m *arduinoMotor) Close(ctx context.Context) error {
 	return m.Stop(ctx)
-}
-
-type encoder struct {
-	b    *arduinoBoard
-	cfg  motor.Config
-	name string
-
-	generic.Unimplemented
-}
-
-// Position returns the current position in terms of ticks.
-func (e *encoder) GetTicksCount(ctx context.Context) (int64, error) {
-	res, err := e.b.runCommand("motor-position " + e.name)
-	if err != nil {
-		return 0, err
-	}
-
-	ticks, err := strconv.ParseInt(res, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("couldn't parse # ticks (%s) : %w", res, err)
-	}
-
-	return ticks, nil
-}
-
-func (e *encoder) ResetZeroPosition(ctx context.Context, offset int64) error {
-	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
-	return err
-}
-
-func (e *encoder) TicksPerRotation(ctx context.Context) (int64, error) {
-	return int64(e.cfg.TicksPerRotation), nil
 }

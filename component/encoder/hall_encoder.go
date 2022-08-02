@@ -45,6 +45,7 @@ type HallEncoder struct {
 	generic.Unimplemented
 }
 
+// HallPins defines the format the pin config should be in for HallEncoder
 type HallPins struct {
 	A, B string
 }
