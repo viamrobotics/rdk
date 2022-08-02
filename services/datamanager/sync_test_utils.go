@@ -2,6 +2,8 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -41,6 +43,11 @@ func (m *mockClient) Send(req *v1.UploadRequest) error {
 	m.lock.Lock()
 	if m.cancelIndex != len(m.sent) {
 		m.sent = append(m.sent, req)
+		if len(m.sent) == 1 {
+			fmt.Println("Metadata just sent.")
+		} else {
+			fmt.Println("Sending sensordata: ", string(req.GetSensorContents().GetBinary()))
+		}
 		m.lock.Unlock()
 		return nil
 	}
@@ -49,7 +56,10 @@ func (m *mockClient) Send(req *v1.UploadRequest) error {
 }
 
 func (m *mockClient) Recv() (*v1.UploadResponse, error) {
-	return &v1.UploadResponse{}, nil
+	if m.cancelIndex < len(m.sent) {
+		return &v1.UploadResponse{RequestsWritten: int32(len(m.sent))}, nil
+	}
+	return &v1.UploadResponse{}, io.EOF
 }
 
 func (m *mockClient) CloseSend() error {
