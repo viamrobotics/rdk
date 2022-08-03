@@ -35,7 +35,30 @@ type dubinsRRTMotionPlanner struct {
 	d               Dubins
 }
 
-// NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object.
+type obstacle struct {
+	Center []float64 `json:"center"`
+	Dims   []float64 `json:"dims"`
+}
+
+type MobileRobotPlanConfig struct {
+	Name           string  `json: name`
+	GridConversion float64 `json: grid_conversion` // in mm
+	// planning conditions
+	Start []float64 `json:"start"`
+	Goal  []float64 `json:"goal"`
+
+	// robot params
+	RobotDims []float64 `json:"robot-dims"`
+	Radius    float64   `json:"radius"`
+	PointSep  float64   `json:"point-sep"`
+
+	// map definition
+	Xlim      []float64  `json:"xlim"`
+	YLim      []float64  `json:"ylim"`
+	Obstacles []obstacle `json:"obstacles"`
+}
+
+// NewDubinsRRTMotionPlanner creates a dubinsRRTMotionPlanner object.
 func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger, d Dubins) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
@@ -232,9 +255,9 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 }
 
 func updateChildren(
-	relinkedNode *configuration, 
-	pathLenMap map[*configuration]float64, 
-	childMap map[*configuration][]*configuration, 
+	relinkedNode *configuration,
+	pathLenMap map[*configuration]float64,
+	childMap map[*configuration][]*configuration,
 	diff float64,
 ) {
 	pathLenMap[relinkedNode] -= diff
