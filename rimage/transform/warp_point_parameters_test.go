@@ -13,9 +13,8 @@ import (
 
 func TestRGBDToPointCloud(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"), false)
+	img, dm, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
 
 	// from robots/config/gripper-cam.json
 	config := &AlignConfig{
@@ -30,7 +29,7 @@ func TestRGBDToPointCloud(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// align images first
-	col, dm, err := dct.AlignColorAndDepthImage(iwd.Color, iwd.Depth)
+	col, dm, err := dct.AlignColorAndDepthImage(img, dm)
 	test.That(t, err, test.ShouldBeNil)
 	// project
 	pc, err := dct.RGBDToPointCloud(col, dm)
@@ -45,7 +44,7 @@ func TestRGBDToPointCloud(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "more than one cropping rectangle")
 
 	// image with depth with depth missing should return error
-	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
+	img, err = rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	pcBad, err := dct.RGBDToPointCloud(img, nil)
@@ -55,7 +54,7 @@ func TestRGBDToPointCloud(t *testing.T) {
 
 func TestWarpPointsTo3D(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"), false)
+	img, dm, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// from robots/config/gripper-cam.json
@@ -71,7 +70,7 @@ func TestWarpPointsTo3D(t *testing.T) {
 	dct, err := NewDepthColorWarpTransforms(config, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// align the images
-	img, dm, err := dct.AlignColorAndDepthImage(iwd.Color, iwd.Depth)
+	img, dm, err = dct.AlignColorAndDepthImage(img, dm)
 	test.That(t, err, test.ShouldBeNil)
 	// Check to see if the origin point on the pointcloud transformed correctly
 	vec, err := dct.ImagePointTo3DPoint(config.OutputOrigin, dm.Get(config.OutputOrigin))

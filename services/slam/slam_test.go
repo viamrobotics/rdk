@@ -143,8 +143,7 @@ func setupInjectRobot() *inject.Robot {
 			return cam, nil
 		case camera.Named("good_depth_camera"):
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"),
-					artifact.MustPath("rimage/board1.dat.gz"), true)
+				img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
 				return img, nil, err
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -367,6 +366,7 @@ func TestORBSLAMNew(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	t.Run("New orbslamv3 service with good camera in slam mode rgbd", func(t *testing.T) {
+		t.Skip("skipping since ImageWithDepth is no longer supported")
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_depth_camera"},
