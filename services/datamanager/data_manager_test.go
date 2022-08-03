@@ -661,6 +661,7 @@ func TestGetDurationFromHz(t *testing.T) {
 	test.That(t, datamanager.GetDurationFromHz(0.5), test.ShouldEqual, time.Second*2)
 	test.That(t, datamanager.GetDurationFromHz(1), test.ShouldEqual, time.Second)
 	test.That(t, datamanager.GetDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
+	test.That(t, datamanager.GetDurationFromHz(0), test.ShouldEqual, 0)
 }
 
 func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
