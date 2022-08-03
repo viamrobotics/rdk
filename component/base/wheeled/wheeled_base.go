@@ -115,11 +115,11 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	fs := []rdkutils.SimpleFunc{}
 
 	for _, m := range base.left {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations) })
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
 
 	for _, m := range base.right {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations) })
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations, nil) })
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
@@ -166,14 +166,13 @@ func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector
 	lPower, rPower := base.setPowerMath(linear, angular)
 
 	// Send motor commands
-	// TODO[RSDK-328] Fix these when motor extra params are ready
 	var err error
 	for _, m := range base.left {
-		err = multierr.Combine(err, m.SetPower(ctx, lPower))
+		err = multierr.Combine(err, m.SetPower(ctx, lPower, extra))
 	}
 
 	for _, m := range base.right {
-		err = multierr.Combine(err, m.SetPower(ctx, rPower))
+		err = multierr.Combine(err, m.SetPower(ctx, rPower, extra))
 	}
 
 	if err != nil {
@@ -232,7 +231,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 		anyOff := false
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			if err != nil {
 				return err
 			}
@@ -257,14 +256,14 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	var err error
 	for _, m := range base.allMotors {
-		err = multierr.Combine(err, m.Stop(ctx))
+		err = multierr.Combine(err, m.Stop(ctx, extra))
 	}
 	return err
 }
 
 func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 	for _, m := range base.allMotors {
-		isMoving, err := m.IsPowered(ctx)
+		isMoving, err := m.IsPowered(ctx, nil)
 		if err != nil {
 			return false, err
 		}

@@ -191,7 +191,7 @@ func (m *Motor) Close() {
 	if !active {
 		return
 	}
-	err := m.Stop(context.Background())
+	err := m.Stop(context.Background(), nil)
 	if err != nil {
 		m.c.logger.Error(err)
 	}
@@ -447,9 +447,9 @@ func (m *Motor) posToSteps(pos float64) int32 {
 
 // SetPower instructs the motor to go in a specific direction at a percentage
 // of power between -1 and 1. Scaled to MaxRPM.
-func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) < 0.001 {
-		return m.Stop(ctx)
+		return m.Stop(ctx, extra)
 	}
 	return m.Jog(ctx, powerPct*m.MaxRPM)
 }
@@ -493,7 +493,7 @@ func (m *Motor) stopJog() error {
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
-func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -522,7 +522,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target/position.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -550,7 +550,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	defer done()
 
 	defer func() {
-		if err := m.Stop(ctx); err != nil {
+		if err := m.Stop(ctx, nil); err != nil {
 			m.c.logger.Error(err)
 		}
 	}()
@@ -585,7 +585,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 }
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).
-func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(offset*float64(m.StepsPerRotation))))
@@ -593,14 +593,14 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 }
 
 // GetPosition reports the position in revolutions.
-func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
+func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	return m.doPosition()
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *Motor) Stop(ctx context.Context) error {
+func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 
@@ -632,7 +632,7 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // IsPowered returns whether or not the motor is currently moving.
-func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	return m.IsMoving(ctx)
 }
 
@@ -683,7 +683,7 @@ func (m *Motor) Home(ctx context.Context) error {
 
 	// wait for routine to finish
 	defer func() {
-		if err := m.Stop(ctx); err != nil {
+		if err := m.Stop(ctx, nil); err != nil {
 			m.c.logger.Error(err)
 		}
 	}()
@@ -831,6 +831,6 @@ func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]
 }
 
 // GetFeatures returns the additional features supported by this motor.
-func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+func (m *Motor) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{motor.PositionReporting: true}, nil
 }
