@@ -1,5 +1,5 @@
 // Package gps contains a gRPC based gps client.
-package gps
+package movementsensor
 
 import (
 	"context"

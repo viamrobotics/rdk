@@ -1,4 +1,4 @@
-package gps_test
+package movementsensor_test
 
 import (
 	"context"
