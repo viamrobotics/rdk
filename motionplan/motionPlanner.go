@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sort"
 
 	"go.viam.com/utils"
 
@@ -319,7 +320,14 @@ func getSolutions(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []frame.Input,
 	f frame.Frame,
-) (map[float64][]frame.Input, error) {
+) ([][]frame.Input, error) {
+	// Linter doesn't properly handle loop labels
+	//nolint:ifshort
+	nSolutions := opt.maxSolutions
+	if nSolutions == 0 {
+		nSolutions = solutionsToSeed
+	}
+
 	seedPos, err := f.Transform(seed)
 	if err != nil {
 		return nil, err
@@ -376,7 +384,7 @@ IK:
 				}
 
 				solutions[cScore] = step
-				if len(solutions) >= opt.maxSolutions && opt.maxSolutions > 0 {
+				if len(solutions) >= nSolutions {
 					// sufficient solutions found, stopping early
 					break IK
 				}
@@ -398,7 +406,17 @@ IK:
 		return nil, errors.New("unable to solve for position")
 	}
 
-	return solutions, nil
+	keys := make([]float64, 0, len(solutions))
+	for k := range solutions {
+		keys = append(keys, k)
+	}
+	sort.Float64s(keys)
+
+	orderedSolutions := make([][]frame.Input, 0)
+	for _, key := range keys {
+		orderedSolutions = append(orderedSolutions, solutions[key])
+	}
+	return orderedSolutions, nil
 }
 
 func inputDist(from, to []frame.Input) float64 {

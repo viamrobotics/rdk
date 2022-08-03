@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -581,7 +582,7 @@ func TestWebWithStreams(t *testing.T) {
 	listener := testutils.ReserveRandomListener(t)
 	addr := listener.Addr().String()
 	options.Network.Listener = listener
-	svc := web.New(ctx, robot, logger)
+	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -638,7 +639,7 @@ func TestWebAddFirstStream(t *testing.T) {
 	listener := testutils.ReserveRandomListener(t)
 	addr := listener.Addr().String()
 	options.Network.Listener = listener
-	svc := web.New(ctx, robot, logger)
+	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
