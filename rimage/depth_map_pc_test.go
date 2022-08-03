@@ -74,6 +74,8 @@ func TestDMPointCloudAdapterRace(t *testing.T) {
 	wg.Add(2)
 
 	utils.PanicCapturingGo(func() {
+		meta := raceAdapter.MetaData()
+		test.That(t, meta, test.ShouldNotBeNil)
 		defer wg.Done()
 	})
 	utils.PanicCapturingGo(func() {
