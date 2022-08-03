@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
@@ -48,7 +47,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Motor {
 }
 
 func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -62,7 +61,7 @@ func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[strin
 }
 
 func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -77,7 +76,7 @@ func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64, ex
 }
 
 func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -92,7 +91,7 @@ func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions floa
 }
 
 func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -106,7 +105,7 @@ func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra ma
 }
 
 func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
 	}
@@ -119,7 +118,7 @@ func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 func (c *client) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +131,7 @@ func (c *client) GetFeatures(ctx context.Context, extra map[string]interface{}) 
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
