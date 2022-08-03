@@ -61,21 +61,21 @@ type Motor struct {
 }
 
 // GetPosition always returns 0.
-func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
+func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.position, nil
 }
 
 // GetFeatures returns the status of whether the motor supports certain optional features.
-func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+func (m *Motor) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
 }
 
 // SetPower sets the given power percentage.
-func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.setPowerPct(powerPct)
@@ -107,7 +107,7 @@ func (m *Motor) Direction() int {
 }
 
 // GoFor sets the given direction and an arbitrary power percentage.
-func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -121,7 +121,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 }
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64, extra map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.position = pos
@@ -134,13 +134,13 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 }
 
 // ResetZeroPosition resets the zero position.
-func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.position = offset
 	return nil
 }
 
 // Stop has the motor pretend to be off.
-func (m *Motor) Stop(ctx context.Context) error {
+func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.setPowerPct(0.0)
@@ -148,7 +148,7 @@ func (m *Motor) Stop(ctx context.Context) error {
 }
 
 // IsPowered returns if the motor is pretending to be on or not.
-func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil

@@ -95,6 +95,7 @@ var (
 	_ = LocalBase(&reconfigurableLocalBase{})
 	_ = resource.Reconfigurable(&reconfigurableBase{})
 	_ = resource.Reconfigurable(&reconfigurableLocalBase{})
+	_ = viamutils.ContextCloser(&reconfigurableLocalBase{})
 )
 
 // FromDependencies is a helper for getting the named base from a collection of

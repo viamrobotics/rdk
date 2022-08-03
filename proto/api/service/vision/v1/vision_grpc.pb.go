@@ -26,6 +26,8 @@ type VisionServiceClient interface {
 	GetDetectorNames(ctx context.Context, in *GetDetectorNamesRequest, opts ...grpc.CallOption) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
 	AddDetector(ctx context.Context, in *AddDetectorRequest, opts ...grpc.CallOption) (*AddDetectorResponse, error)
+	// GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
+	GetDetectionsFromCamera(ctx context.Context, in *GetDetectionsFromCameraRequest, opts ...grpc.CallOption) (*GetDetectionsFromCameraResponse, error)
 	// GetDetections will return a list of detections in the next image given a camera and a detector
 	GetDetections(ctx context.Context, in *GetDetectionsRequest, opts ...grpc.CallOption) (*GetDetectionsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
@@ -58,6 +60,15 @@ func (c *visionServiceClient) GetDetectorNames(ctx context.Context, in *GetDetec
 func (c *visionServiceClient) AddDetector(ctx context.Context, in *AddDetectorRequest, opts ...grpc.CallOption) (*AddDetectorResponse, error) {
 	out := new(AddDetectorResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/AddDetector", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *visionServiceClient) GetDetectionsFromCamera(ctx context.Context, in *GetDetectionsFromCameraRequest, opts ...grpc.CallOption) (*GetDetectionsFromCameraResponse, error) {
+	out := new(GetDetectionsFromCameraResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetDetectionsFromCamera", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +119,8 @@ type VisionServiceServer interface {
 	GetDetectorNames(context.Context, *GetDetectorNamesRequest) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
 	AddDetector(context.Context, *AddDetectorRequest) (*AddDetectorResponse, error)
+	// GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
+	GetDetectionsFromCamera(context.Context, *GetDetectionsFromCameraRequest) (*GetDetectionsFromCameraResponse, error)
 	// GetDetections will return a list of detections in the next image given a camera and a detector
 	GetDetections(context.Context, *GetDetectionsRequest) (*GetDetectionsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
@@ -130,6 +143,9 @@ func (UnimplementedVisionServiceServer) GetDetectorNames(context.Context, *GetDe
 }
 func (UnimplementedVisionServiceServer) AddDetector(context.Context, *AddDetectorRequest) (*AddDetectorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddDetector not implemented")
+}
+func (UnimplementedVisionServiceServer) GetDetectionsFromCamera(context.Context, *GetDetectionsFromCameraRequest) (*GetDetectionsFromCameraResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDetectionsFromCamera not implemented")
 }
 func (UnimplementedVisionServiceServer) GetDetections(context.Context, *GetDetectionsRequest) (*GetDetectionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDetections not implemented")
@@ -188,6 +204,24 @@ func _VisionService_AddDetector_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VisionServiceServer).AddDetector(ctx, req.(*AddDetectorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VisionService_GetDetectionsFromCamera_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDetectionsFromCameraRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).GetDetectionsFromCamera(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/GetDetectionsFromCamera",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).GetDetectionsFromCamera(ctx, req.(*GetDetectionsFromCameraRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -278,6 +312,10 @@ var VisionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddDetector",
 			Handler:    _VisionService_AddDetector_Handler,
+		},
+		{
+			MethodName: "GetDetectionsFromCamera",
+			Handler:    _VisionService_GetDetectionsFromCamera_Handler,
 		},
 		{
 			MethodName: "GetDetections",

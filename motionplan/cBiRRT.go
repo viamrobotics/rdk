@@ -5,8 +5,6 @@ import (
 	"errors"
 	"math"
 	"math/rand"
-	"sort"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
@@ -16,6 +14,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+// TODO(rb) all these should be tied to default values for config somehow.
 const (
 	// The maximum percent of a joints range of motion to allow per step.
 	frameStep = 0.015
@@ -53,6 +52,12 @@ type cBiRRTMotionPlanner struct {
 
 // NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object.
 func NewCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
+	//nolint:gosec
+	return NewCBiRRTMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
+}
+
+// NewCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
+func NewCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
@@ -62,16 +67,17 @@ func NewCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.L
 	if err != nil {
 		return nil, err
 	}
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist, nCPU: nCPU}
-
-	mp.qstep = getFrameSteps(frame, frameStep)
-	mp.iter = planIter
-	mp.stepSize = stepSize
-
-	//nolint:gosec
-	mp.randseed = rand.New(rand.NewSource(1))
-
-	return mp, nil
+	return &cBiRRTMotionPlanner{
+		solDist:         jointSolveDist,
+		solver:          ik,
+		fastGradDescent: nlopt,
+		frame:           frame,
+		logger:          logger,
+		qstep:           getFrameSteps(frame, frameStep),
+		iter:            planIter,
+		stepSize:        stepSize,
+		randseed:        seed,
+	}, nil
 }
 
 func (mp *cBiRRTMotionPlanner) Frame() referenceframe.Frame {
@@ -137,8 +143,8 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
-	inputSteps := []*configuration{}
 
+	// use default options if none are provided
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
 		seedPos, err := mp.frame.Transform(seed)
@@ -151,59 +157,38 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
 	}
 
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// How many of the top solutions to try
-	// Solver will terminate after getting this many to save time
-	nSolutions := solutionsToSeed
-
-	if opt.maxSolutions == 0 {
-		opt.maxSolutions = nSolutions
-	}
-
+	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
 		return
 	}
 
-	// Get the N best solutions
-	keys := make([]float64, 0, len(solutions))
-	for k := range solutions {
-		keys = append(keys, k)
-	}
-	sort.Float64s(keys)
-
-	if len(keys) < nSolutions {
-		nSolutions = len(keys)
-	}
-	if nSolutions == 1 && endpointPreview != nil && len(inputSteps) != 0 {
-		endpointPreview <- inputSteps[len(inputSteps)-1]
+	// publish endpoint of plan if it is known
+	if opt.maxSolutions == 1 && endpointPreview != nil {
+		endpointPreview <- &configuration{solutions[0]}
 		endpointPreview = nil
 	}
 
-	goalMap := make(map[*configuration]*configuration, nSolutions)
-
-	for _, k := range keys[:nSolutions] {
-		goalMap[&configuration{solutions[k]}] = nil
+	// initialize maps
+	goalMap := make(map[*configuration]*configuration, len(solutions))
+	for _, solution := range solutions {
+		goalMap[&configuration{solution}] = nil
 	}
-
 	corners := map[*configuration]bool{}
-
 	seedMap := make(map[*configuration]*configuration)
 	seedMap[&configuration{seed}] = nil
 
-	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := &configuration{referenceframe.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
-
-	var rSeed *configuration
-
-	nn := &neighborManager{nCPU: mp.nCPU}
-
-	// Create a reference to the two maps so that wew can alternate which one is grown
+	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := seedMap, goalMap
 
+	// TODO(rb) package neighborManager better
+	nm := &neighborManager{nCPU: mp.nCPU}
+	nmContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
+	target := &configuration{referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
@@ -212,74 +197,48 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		var m1reached, m2reached *configuration
+		// attempt to extend map1 first
+		nearest1 := nm.nearestNeighbor(nmContext, target, map1)
+		map1reached := mp.constrainedExtend(ctx, opt, map1, nearest1, target)
 
-		// extend seed tree first
-		nearest := nn.nearestNeighbor(ctxWithCancel, target, map1)
-		// Extend map1 as far towards target as it can get. It may or may not reach it.
-		m1reached = mp.constrainedExtend(ctx, opt, map1, nearest, target)
-		// Find the nearest point in map2 to the furthest point reached in map1
-		near2 := nn.nearestNeighbor(ctxWithCancel, m1reached, map2)
-		// extend map1 towards the point in map1
-		m2reached = mp.constrainedExtend(ctx, opt, map2, near2, m1reached)
-		rSeed = m1reached
+		// then attempt to extend map2 towards map 1
+		nearest2 := nm.nearestNeighbor(nmContext, map1reached, map2)
+		map2reached := mp.constrainedExtend(ctx, opt, map2, nearest2, map1reached)
 
-		corners[m1reached] = true
-		corners[m2reached] = true
+		corners[map1reached] = true
+		corners[map2reached] = true
 
-		if inputDist(m1reached.inputs, m2reached.inputs) < mp.solDist {
+		if inputDist(map1reached.inputs, map2reached.inputs) < mp.solDist {
 			cancel()
-
-			// extract the path to the seed
-			var seedReached, goalReached *configuration
-			// Need to figure out which of m1/m2 is seed/goal
-			if _, ok := seedMap[m1reached]; ok {
-				seedReached, goalReached = m1reached, m2reached
-			} else {
-				seedReached, goalReached = m2reached, m1reached
-			}
-
-			// extract the path to the seed
-			for seedReached != nil {
-				inputSteps = append(inputSteps, seedReached)
-				seedReached = seedMap[seedReached]
-			}
-			// reverse the slice
-			for i, j := 0, len(inputSteps)-1; i < j; i, j = i+1, j-1 {
-				inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
-			}
-			goalReached = goalMap[goalReached]
-			// extract the path to the goal
-			for goalReached != nil {
-				inputSteps = append(inputSteps, goalReached)
-				goalReached = goalMap[goalReached]
-			}
+			path := extractPath(seedMap, goalMap, map1reached, map2reached)
 			if endpointPreview != nil {
-				endpointPreview <- inputSteps[len(inputSteps)-1]
+				endpointPreview <- path[len(path)-1]
 			}
-
-			finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
+			finalSteps := mp.SmoothPath(ctx, opt, path, corners)
 			solutionChan <- &planReturn{steps: finalSteps}
 			return
 		}
 
-		// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
-		// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
-		if i >= iterBeforeRand && i%4 >= 2 {
-			target = &configuration{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
-		} else {
-			// Seeding nearby to valid points results in much faster convergence in less constrained space
-			target = &configuration{referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
-			for j, v := range rSeed.inputs {
-				target.inputs[j].Value += v.Value
-			}
-		}
-
-		// Swap the maps
+		// sample near map 1 and switch which map is which to keep adding to them even
+		target = mp.sample(map1reached, i)
 		map1, map2 = map2, map1
 	}
 
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
+}
+
+func (mp *cBiRRTMotionPlanner) sample(rSeed *configuration, sampleNum int) *configuration {
+	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
+	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
+	if sampleNum >= iterBeforeRand && sampleNum%4 >= 2 {
+		return &configuration{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+	}
+	// Seeding nearby to valid points results in much faster convergence in less constrained space
+	q := &configuration{referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
+	for j, v := range rSeed.inputs {
+		q.inputs[j].Value += v.Value
+	}
+	return q
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
@@ -517,124 +476,34 @@ func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
 	return pos
 }
 
-// Used for coordinating parallel computations of nearestNeighbor.
-type neighborManager struct {
-	nnKeys    chan *configuration
-	neighbors chan *neighbor
-	nnLock    sync.RWMutex
-	seedPos   *configuration
-	ready     bool
-	nCPU      int
-}
-
-type neighbor struct {
-	dist float64
-	sol  *configuration
-}
-
-func (nm *neighborManager) nearestNeighbor(
-	ctx context.Context,
-	seed *configuration,
-	rrtMap map[*configuration]*configuration,
-) *configuration {
-	if len(rrtMap) > 1000 {
-		// If the map is large, calculate distances in parallel
-		return nm.parallelNearestNeighbor(ctx, seed, rrtMap)
+func extractPath(startMap, goalMap map[*configuration]*configuration, q1, q2 *configuration) []*configuration {
+	// need to figure out which of the two configurations is in the start map
+	var startReached, goalReached *configuration
+	if _, ok := startMap[q1]; ok {
+		startReached, goalReached = q1, q2
+	} else {
+		startReached, goalReached = q2, q1
 	}
-	bestDist := math.Inf(1)
-	var best *configuration
-	for k := range rrtMap {
-		dist := inputDist(seed.inputs, k.inputs)
-		if dist < bestDist {
-			bestDist = dist
-			best = k
-		}
+
+	// extract the path to the seed
+	path := []*configuration{}
+	for startReached != nil {
+		path = append(path, startReached)
+		startReached = startMap[startReached]
 	}
-	return best
-}
 
-func (nm *neighborManager) parallelNearestNeighbor(
-	ctx context.Context,
-	seed *configuration,
-	rrtMap map[*configuration]*configuration,
-) *configuration {
-	nm.ready = false
-	nm.startNNworkers(ctx)
-	defer close(nm.nnKeys)
-	defer close(nm.neighbors)
-	nm.nnLock.Lock()
-	nm.seedPos = seed
-	nm.nnLock.Unlock()
-
-	for k := range rrtMap {
-		nm.nnKeys <- k
+	// reverse the slice
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
 	}
-	nm.nnLock.Lock()
-	nm.ready = true
-	nm.nnLock.Unlock()
-	var best *configuration
-	bestDist := math.Inf(1)
-	returned := 0
-	for returned < nm.nCPU {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
 
-		select {
-		case nn := <-nm.neighbors:
-			returned++
-			if nn.dist < bestDist {
-				bestDist = nn.dist
-				best = nn.sol
-			}
-		default:
-		}
+	// skip goalReached configuration and go directly to its parent in order to not repeat this node
+	goalReached = goalMap[goalReached]
+
+	// extract the path to the goal
+	for goalReached != nil {
+		path = append(path, goalReached)
+		goalReached = goalMap[goalReached]
 	}
-	return best
-}
-
-func (nm *neighborManager) startNNworkers(ctx context.Context) {
-	nm.neighbors = make(chan *neighbor, nm.nCPU)
-	nm.nnKeys = make(chan *configuration, nm.nCPU)
-	for i := 0; i < nm.nCPU; i++ {
-		utils.PanicCapturingGo(func() {
-			nm.nnWorker(ctx)
-		})
-	}
-}
-
-func (nm *neighborManager) nnWorker(ctx context.Context) {
-	var best *configuration
-	bestDist := math.Inf(1)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		select {
-		case k := <-nm.nnKeys:
-			if k != nil {
-				nm.nnLock.RLock()
-				dist := inputDist(nm.seedPos.inputs, k.inputs)
-				nm.nnLock.RUnlock()
-				if dist < bestDist {
-					bestDist = dist
-					best = k
-				}
-			}
-		default:
-			nm.nnLock.RLock()
-			if nm.ready {
-				nm.nnLock.RUnlock()
-				nm.neighbors <- &neighbor{bestDist, best}
-				return
-			}
-			nm.nnLock.RUnlock()
-		}
-	}
+	return path
 }
