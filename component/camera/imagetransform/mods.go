@@ -32,7 +32,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*transformConfig)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -41,16 +41,16 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for identity (%s): %w", sourceName, err)
 			}
-			proj, _ := camera.GetProjector(ctx, attrs, source)
+			proj, _ := camera.GetProjector(ctx, nil, source)
 			return camera.New(source, proj)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "identity",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
+			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&camera.AttrConfig{})
+		&transformConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -61,7 +61,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*transformConfig)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -70,17 +70,17 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for rotate (%s): %w", sourceName, err)
 			}
-			imgSrc := &rotateImageDepthSource{source}
-			proj, _ := camera.GetProjector(ctx, attrs, source)
+			imgSrc := &rotateSource{source, camera.StreamType(attrs.Stream)}
+			proj, _ := camera.GetProjector(ctx, nil, source)
 			return camera.New(imgSrc, proj)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "rotate",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
+			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&camera.AttrConfig{})
+		&transformConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -91,7 +91,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*transformConfig)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -111,42 +111,47 @@ func init() {
 			}
 
 			imgSrc := gostream.ResizeImageSource{Src: source, Width: width, Height: height}
-			proj, _ := camera.GetProjector(ctx, attrs, nil)
-			return camera.New(imgSrc, proj) // camera parameters from source camera do not work for resized images)
+			proj, _ := camera.GetProjector(ctx, nil, nil) // camera parameters from source camera do not work for resized images
+			return camera.New(imgSrc, proj)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "resize",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
+			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&camera.AttrConfig{})
+		&transformConfig{})
 }
 
-// rotateImageDepthSource TODO.
-type rotateImageDepthSource struct {
-	Original gostream.ImageSource
+// rotateSource is the source to be rotated and the kind of image type.
+type rotateSource struct {
+	original gostream.ImageSource
+	stream   camera.StreamType
 }
 
-// Next TODO.
-func (rids *rotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
+// Next rotates the 2D image depending on the stream type.
+func (rs *rotateSource) Next(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imagetransform::rotate::Next")
 	defer span.End()
-	orig, release, err := rids.Original.Next(ctx)
+	orig, release, err := rs.original.Next(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer release()
-
-	iwd, ok := orig.(*rimage.ImageWithDepth)
-	if !ok {
-		return imaging.Rotate(orig, 180, color.Black), func() {}, nil
+	switch rs.stream {
+	case camera.ColorStream, camera.UnspecifiedStream, camera.BothStream:
+		return imaging.Rotate(orig, 180, color.Black), release, nil
+	case camera.DepthStream:
+		dm, err := rimage.ConvertImageToDepthMap(orig)
+		if err != nil {
+			return nil, nil, err
+		}
+		return dm.Rotate(180), release, nil
+	default:
+		return nil, nil, camera.NewUnsupportedStreamError(rs.stream)
 	}
-
-	return iwd.Rotate(180), func() {}, nil
 }
 
 // Close TODO.
-func (rids *rotateImageDepthSource) Close(ctx context.Context) error {
-	return utils.TryClose(ctx, rids.Original)
+func (rs *rotateSource) Close(ctx context.Context) error {
+	return utils.TryClose(ctx, rs.original)
 }
