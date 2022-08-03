@@ -13,7 +13,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-type rrtConnectMotionPlanner struct {
+type rrtStarConnectMotionPlanner struct {
 	solver   InverseKinematics
 	frame    referenceframe.Frame
 	logger   golog.Logger
@@ -23,19 +23,23 @@ type rrtConnectMotionPlanner struct {
 	randseed *rand.Rand
 }
 
-// NewRRTConnectMotionPlanner creates a rrtConnectMotionPlanner object.
-func NewRRTConnectMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+// TODO(rb): find a reasonable default for this
+// neighborhoodSize represents the number of neighbors to find in a k-nearest neighbors search
+const neighborhoodSize = 5
+
+// NewRRTStarConnectMotionPlanner creates a rrtStarConnectMotionPlanner object.
+func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
 	//nolint:gosec
-	return NewRRTConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
+	return NewRRTStarConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
 }
 
-// NewRRTConnectMotionPlannerWithSeed creates a rrtConnectMotionPlanner object with a user specified random seed.
-func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+// NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
+func NewRRTStarConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
 	}
-	return &rrtConnectMotionPlanner{
+	return &rrtStarConnectMotionPlanner{
 		solver:   ik,
 		frame:    frame,
 		logger:   logger,
@@ -46,15 +50,15 @@ func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, se
 	}, nil
 }
 
-func (mp *rrtConnectMotionPlanner) Frame() referenceframe.Frame {
+func (mp *rrtStarConnectMotionPlanner) Frame() referenceframe.Frame {
 	return mp.frame
 }
 
-func (mp *rrtConnectMotionPlanner) Resolution() float64 {
+func (mp *rrtStarConnectMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
+func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
@@ -77,7 +81,7 @@ func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 
 // planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
 // Separating this allows other things to call planRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
-func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
+func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
@@ -138,24 +142,12 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		// for each map get the nearest neighbor to the target
 		nearest1 := nm.nearestNeighbor(nmContext, target, map1)
-		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
 
-		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
-		map1reached := mp.checkPath(ctx, opt, nearest1.inputs, target.inputs)
+		// TODO(rb): potentially either add a steer() function or get the closest valid point from constraint checker
+		map1reached := mp.checkPath(opt, nearest1.inputs, target.inputs)
 		if map1reached {
-			map1[target] = nearest1
-		}
-		map2reached := mp.checkPath(ctx, opt, nearest2.inputs, target.inputs)
-		if map2reached {
-			map2[target] = nearest2
-		}
-
-		if map1reached && map2reached {
-			cancel()
-			solutionChan <- &planReturn{steps: extractPath(startMap, goalMap, target, target)}
-			return
+			mp.extend(map1, nm, nearest1, target)
 		}
 
 		target = mp.sample()
@@ -166,11 +158,26 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
-func (mp *rrtConnectMotionPlanner) sample() *configuration {
+func (mp *rrtStarConnectMotionPlanner) sample() *configuration {
 	return &configuration{inputs: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
 }
 
-func (mp *rrtConnectMotionPlanner) checkPath(ctx context.Context, opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
+func (mp *rrtStarConnectMotionPlanner) extend(
+	tree map[*configuration]*configuration,
+	nm *neighborManager,
+	nearest, new *configuration,
+) *configuration {
+	min := nearest
+	// TODO get k nearest neighbors
+
+	minCost := nearest.cost + inputDist(nearest.inputs, new.inputs)
+}
+
+func (mp *rrtStarConnectMotionPlanner) connect() *configuration {
+	return nil
+}
+
+func (mp *rrtStarConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
 	seedPos, err := mp.frame.Transform(seedInputs)
 	if err != nil {
 		return false
@@ -191,4 +198,22 @@ func (mp *rrtConnectMotionPlanner) checkPath(ctx context.Context, opt *PlannerOp
 		mp.Resolution(),
 	)
 	return ok
+}
+
+// TODO(rb): bring this into the neighbor manager class
+func kNearestNeighbors(tree map[*configuration][*configuration], target *configuration) []*configuration {
+	kNeighbors := neighborhoodSize
+	if neighborhoodSize > len(tree) {
+		kNeighbors = len(tree)
+	}
+
+	neighbors := make([]*configuration, kNeighbors)
+	for q, _ := range tree {
+		if len(nm.neighbors) < kNeighbors || q.cost < neighbors[kNeighbors - 1] {
+			// insert into queue
+			for i, n := range neighbors {
+				if q.cost < neighbor.q.cost
+			}
+		}
+	}
 }

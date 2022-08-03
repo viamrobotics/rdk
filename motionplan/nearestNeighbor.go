@@ -3,6 +3,7 @@ package motionplan
 import (
 	"context"
 	"math"
+	"sort"
 	"sync"
 
 	"go.viam.com/utils"
@@ -22,6 +23,22 @@ type neighborManager struct {
 type neighbor struct {
 	dist float64
 	q    *configuration
+}
+
+func kNearestNeighbors(rrtMap map[*configuration]*configuration, target *configuration) []*neighbor {
+	kNeighbors := neighborhoodSize
+	if neighborhoodSize > len(rrtMap) {
+		kNeighbors = len(rrtMap)
+	}
+
+	allCosts := make([]*neighbor, 0)
+	for node, _ := range rrtMap {
+		allCosts = append(allCosts, &neighbor{dist: inputDist(node.inputs, target.inputs), q: node})
+	}
+	sort.Slice(allCosts, func(i, j int) bool {
+		return allCosts[i].dist < allCosts[j].dist
+	})
+	return allCosts[:kNeighbors]
 }
 
 func (nm *neighborManager) nearestNeighbor(

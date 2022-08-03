@@ -59,10 +59,10 @@ func TestSimpleLinearMotion(t *testing.T) {
 	solutions, err := getSolutions(ctx, opt, mp.solver, pos, home7, mp.Frame())
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &configuration{home7}
+	near1 := &configuration{inputs: home7}
 	seedMap := make(map[*configuration]*configuration)
 	seedMap[near1] = nil
-	target := &configuration{interp}
+	target := &configuration{inputs: interp}
 
 	goalMap := make(map[*configuration]*configuration)
 
@@ -71,7 +71,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 
 	for _, solution := range solutions[:nSolutions] {
-		goalMap[&configuration{solution}] = nil
+		goalMap[&configuration{inputs: solution}] = nil
 	}
 	nn := &neighborManager{nCPU: nCPU}
 

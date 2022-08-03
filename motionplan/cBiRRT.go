@@ -166,18 +166,18 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 	// publish endpoint of plan if it is known
 	if opt.maxSolutions == 1 && endpointPreview != nil {
-		endpointPreview <- &configuration{solutions[0]}
+		endpointPreview <- &configuration{inputs: solutions[0]}
 		endpointPreview = nil
 	}
 
 	// initialize maps
 	goalMap := make(map[*configuration]*configuration, len(solutions))
 	for _, solution := range solutions {
-		goalMap[&configuration{solution}] = nil
+		goalMap[&configuration{inputs: solution}] = nil
 	}
 	corners := map[*configuration]bool{}
 	seedMap := make(map[*configuration]*configuration)
-	seedMap[&configuration{seed}] = nil
+	seedMap[&configuration{inputs: seed}] = nil
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := seedMap, goalMap
@@ -188,7 +188,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
-	target := &configuration{referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
+	target := &configuration{inputs: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
@@ -231,10 +231,10 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *configuration, sampleNum int) *conf
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= iterBeforeRand && sampleNum%4 >= 2 {
-		return &configuration{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+		return &configuration{inputs: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	q := &configuration{referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
+	q := &configuration{inputs: referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
 	for j, v := range rSeed.inputs {
 		q.inputs[j].Value += v.Value
 	}
@@ -282,7 +282,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		if newNear != nil {
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-			near = &configuration{newNear}
+			near = &configuration{inputs: newNear}
 			rrtMap[near] = oldNear
 		} else {
 			break
