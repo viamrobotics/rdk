@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/config"
 )
 
@@ -37,10 +38,21 @@ func TestArduinoPWM(t *testing.T) {
 								B:            "7",
 								EnablePinLow: "8",
 							},
-							EncoderA:         "3",
-							EncoderB:         "2",
 							TicksPerRotation: 2000,
 							PWMFreq:          2000,
+						},
+					},
+					{
+						Name:  "e1",
+						Model: "arduino",
+						Type:  encoder.SubtypeName,
+						ConvertedAttributes: &EncoderConfig{
+							Pins: EncoderPins{
+								A:            "3",
+								B:            "2",
+							},
+							TicksPerRotation: 2000,
+							MotorName: "m1",
 						},
 					},
 				},
@@ -60,10 +72,21 @@ func TestArduinoPWM(t *testing.T) {
 								B:            "7",
 								EnablePinLow: "8",
 							},
-							EncoderA:         "3",
-							EncoderB:         "2",
 							TicksPerRotation: 2000,
 							PWMFreq:          2000,
+						},
+					},
+					{
+						Name:  "e1",
+						Model: "arduino",
+						Type:  encoder.SubtypeName,
+						ConvertedAttributes: &EncoderConfig{
+							Pins: EncoderPins{
+								A:            "3",
+								B:            "2",
+							},
+							TicksPerRotation: 2000,
+							MotorName: "m1",
 						},
 					},
 				},
@@ -82,10 +105,21 @@ func TestArduinoPWM(t *testing.T) {
 								PWM:       "5",
 								Direction: "10",
 							},
-							EncoderA:         "3",
-							EncoderB:         "2",
 							TicksPerRotation: 2000,
 							PWMFreq:          2000,
+						},
+					},
+					{
+						Name:  "e1",
+						Model: "arduino",
+						Type:  encoder.SubtypeName,
+						ConvertedAttributes: &EncoderConfig{
+							Pins: EncoderPins{
+								A:            "3",
+								B:            "2",
+							},
+							TicksPerRotation: 2000,
+							MotorName: "m1",
 						},
 					},
 				},
@@ -106,10 +140,21 @@ func TestArduinoPWM(t *testing.T) {
 								B:            "7",
 								EnablePinLow: "8",
 							},
-							EncoderA:         "3",
-							EncoderB:         "2",
 							TicksPerRotation: 2000,
 							PWMFreq:          2000,
+						},
+					},
+					{
+						Name:  "e1",
+						Model: "arduino",
+						Type:  encoder.SubtypeName,
+						ConvertedAttributes: &EncoderConfig{
+							Pins: EncoderPins{
+								A:            "3",
+								B:            "2",
+							},
+							TicksPerRotation: 2000,
+							MotorName: "m1",
 						},
 					},
 				},
@@ -125,11 +170,15 @@ func TestArduinoPWM(t *testing.T) {
 			}
 			test.That(t, err, test.ShouldBeNil)
 
+			ecfg := tc.conf.Components[1].ConvertedAttributes.(*EncoderConfig)
+			ePins := ecfg.Pins.(*EncoderPins)
+
 			_, err = configureMotorForBoard(
 				ctx,
 				b,
 				tc.conf.Components[0],
 				tc.conf.Components[0].ConvertedAttributes.(*motor.Config),
+				&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
 			)
 
 			if tc.err == "" {
@@ -177,9 +226,20 @@ func TestArduinoMotorABPWM(t *testing.T) {
 						B:            "39",
 						EnablePinLow: "-1",
 					},
-					EncoderA:         "20",
-					EncoderB:         "21",
 					TicksPerRotation: 980,
+				},
+			},
+			{
+				Name:  "e1",
+				Model: "arduino",
+				Type:  encoder.SubtypeName,
+				ConvertedAttributes: &EncoderConfig{
+					Pins: EncoderPins{
+						A:            "20",
+						B:            "21",
+					},
+					TicksPerRotation: 980,
+					MotorName: "m1",
 				},
 			},
 		},
@@ -193,7 +253,16 @@ func TestArduinoMotorABPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := configureMotorForBoard(context.Background(), b, cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
+	ecfg := cfg.Components[1].ConvertedAttributes.(*EncoderConfig)
+	ePins := ecfg.Pins.(*EncoderPins)
+
+	m, err := configureMotorForBoard(
+				context.Background(), 
+				b, 
+				cfg.Components[0], 
+				cfg.Components[0].ConvertedAttributes.(*motor.Config),
+				&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
+			)
 	test.That(t, err, test.ShouldBeNil)
 
 	arduinoMotorTests(ctx, t, m)
@@ -216,9 +285,20 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 						Direction:    "6",
 						EnablePinLow: "7",
 					},
-					EncoderA:         "3",
-					EncoderB:         "2",
 					TicksPerRotation: 2000,
+				},
+			},
+			{
+				Name:  "e1",
+				Model: "arduino",
+				Type:  encoder.SubtypeName,
+				ConvertedAttributes: &EncoderConfig{
+					Pins: EncoderPins{
+						A:            "3",
+						B:            "2",
+					},
+					TicksPerRotation: 2000,
+					MotorName: "m1",
 				},
 			},
 		},
@@ -232,7 +312,16 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := configureMotorForBoard(context.Background(), b, cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
+	ecfg := cfg.Components[1].ConvertedAttributes.(*EncoderConfig)
+	ePins := ecfg.Pins.(*EncoderPins)
+
+	m, err := configureMotorForBoard(
+		context.Background(), 
+		b, 
+		cfg.Components[0], 
+		cfg.Components[0].ConvertedAttributes.(*motor.Config),
+		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	arduinoMotorTests(ctx, t, m)
@@ -255,9 +344,20 @@ func TestArduinoMotorAB(t *testing.T) {
 						B:            "6",
 						EnablePinLow: "7",
 					},
-					EncoderA:         "3",
-					EncoderB:         "2",
 					TicksPerRotation: 2000,
+				},
+			},
+			{
+				Name:  "e1",
+				Model: "arduino",
+				Type:  encoder.SubtypeName,
+				ConvertedAttributes: &EncoderConfig{
+					Pins: EncoderPins{
+						A:            "3",
+						B:            "2",
+					},
+					TicksPerRotation: 2000,
+					MotorName: "m1",
 				},
 			},
 		},
@@ -271,7 +371,16 @@ func TestArduinoMotorAB(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := configureMotorForBoard(context.Background(), b, cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
+	ecfg := cfg.Components[1].ConvertedAttributes.(*EncoderConfig)
+	ePins := ecfg.Pins.(*EncoderPins)
+
+	m, err := configureMotorForBoard(
+		context.Background(), 
+		b, 
+		cfg.Components[0], 
+		cfg.Components[0].ConvertedAttributes.(*motor.Config),
+		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	arduinoMotorTests(ctx, t, m)
