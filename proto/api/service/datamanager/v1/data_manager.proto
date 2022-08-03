@@ -17,6 +17,8 @@ service DataManagerService {
   }
 }
 
-message SyncRequest {}
+message SyncRequest {
+  string name = 1;
+}
 
 message SyncResponse {}

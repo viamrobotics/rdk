@@ -26,14 +26,17 @@ service SensorsService {
   }
 }
 
-message GetSensorsRequest {}
+message GetSensorsRequest {
+  string name = 1;
+}
 
 message GetSensorsResponse {
   repeated common.v1.ResourceName sensor_names = 1;
 }
 
 message GetReadingsRequest {
-  repeated common.v1.ResourceName sensor_names = 1;
+  string name = 1;
+  repeated common.v1.ResourceName sensor_names = 2;
 }
 
 message Readings {
