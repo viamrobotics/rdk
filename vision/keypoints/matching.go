@@ -7,6 +7,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/keypoints/descriptors"
 )
 
 var logger = golog.NewLogger("matching")
@@ -43,23 +44,13 @@ type DescriptorMatch struct {
 // DescriptorMatches contains the descriptors and their matches.
 type DescriptorMatches struct {
 	Indices      []DescriptorMatch
-	Descriptors1 Descriptors
-	Descriptors2 Descriptors
-}
-
-func convertDescriptorsToFloats(desc Descriptors) [][]float64 {
-	out := make([][]float64, len(desc))
-	for i := range out {
-		out[i] = []float64(desc[i])
-	}
-	return out
+	Descriptors1 descriptors.Descriptors
+	Descriptors2 descriptors.Descriptors
 }
 
 // MatchKeypoints takes 2 sets of descriptors and performs matching.
-func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.Logger) *DescriptorMatches {
-	d1 := convertDescriptorsToFloats(desc1)
-	d2 := convertDescriptorsToFloats(desc2)
-	distances, err := utils.PairwiseDistance(d1, d2, utils.Hamming)
+func MatchKeypoints(desc1, desc2 descriptors.Descriptors, cfg *MatchingConfig, logger golog.Logger) *DescriptorMatches {
+	distances, err := utils.DescriptorsHammingDistance(desc1.Descriptors, desc2.Descriptors)
 	if err != nil {
 		return nil
 	}

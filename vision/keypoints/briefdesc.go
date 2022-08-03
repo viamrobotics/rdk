@@ -86,7 +86,8 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 	}
 	for k, kp := range kps.Points {
 		paddedKp := image.Point{kp.X + 8, kp.Y + 8}
-		descriptor := make(Descriptor, cfg.N)
+		// Divide by 64 since we store a descriptor as a uint64 array.
+		descriptor := make(Descriptor, cfg.N/64)
 		cosTheta := 1.0
 		sinTheta := 0.0
 		// if use orientation and keypoints are oriented, compute rotation matrix
@@ -105,7 +106,9 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 			outy1 := int(math.Round(sinTheta*x1 + cosTheta*y1))
 			// fill BRIEF descriptor
 			if padded.At(paddedKp.X+outx0, paddedKp.Y+outy0).(color.Gray).Y < padded.At(paddedKp.X+outx1, paddedKp.Y+outy1).(color.Gray).Y {
-				descriptor[i] = 1.
+				descriptorNum := int64(i / 64)
+				numPos := i % 64
+				descriptor[descriptorNum] |= (1 << numPos)
 			}
 		}
 		descriptors[k] = descriptor
