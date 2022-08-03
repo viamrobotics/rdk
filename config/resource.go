@@ -119,13 +119,16 @@ func (config *Component) Validate(path string) ([]string, error) {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
+	if strings.Contains(string(config.Namespace), ":") {
+		return nil, errors.Errorf("resevered character : used in namespace name:%q", config.Namespace)
+	}
+
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if strings.Contains(config.Name, ":") {
 		return nil, errors.Errorf("resevered character : used in resource name:%q", config.Name)
 	}
-
 	for key, value := range config.Attributes {
 		fieldPath := fmt.Sprintf("%s.%s", path, key)
 		switch v := value.(type) {
@@ -319,6 +322,10 @@ func (config *Service) Validate(path string) error {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
+	if strings.Contains(string(config.Namespace), ":") {
+		return errors.Errorf("resevered character : used in namespace name:%q", config.Namespace)
+	}
+
 	if strings.Contains(config.Name, ":") {
 		return errors.Errorf("resevered character : used in resource name:%q", config.Name)
 	}
