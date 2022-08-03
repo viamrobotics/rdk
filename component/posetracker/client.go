@@ -38,8 +38,7 @@ type client struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) PoseTracker {
 	sc := newSvcClientFromConn(conn, logger)
-	tracker := clientFromSvcClient(sc, name)
-	return &reconfigurablePoseTracker{actual: tracker}
+	return clientFromSvcClient(sc, name)
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) PoseTracker {
