@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
@@ -15,8 +16,8 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-func decodeColor(colorData []byte) (image.Image, error) {
-	img, _, err := image.Decode(bytes.NewBuffer(colorData))
+func decodeImage(imgData []byte) (image.Image, error) {
+	img, _, err := image.Decode(bytes.NewBuffer(imgData))
 	return img, err
 }
 
@@ -53,7 +54,7 @@ func readColorURL(ctx context.Context, client http.Client, url string) (*rimage.
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready color url")
 	}
-	img, err := decodeColor(colorData)
+	img, err := decodeImage(colorData)
 	if err != nil {
 		return nil, err
 	}
@@ -66,5 +67,13 @@ func readDepthURL(ctx context.Context, client http.Client, url string) (*rimage.
 		return nil, errors.Wrap(err, "couldn't ready depth url")
 	}
 	// do this first and make sure ok before creating any mats
-	return decodeDepth(depthData)
+	// both and dat.gz files are deprecated, will be able to remove these soon.
+	if strings.HasSuffix(url, "dat") || strings.HasSuffix(url, "dat.gz") || strings.HasSuffix(url, "both") {
+		return decodeDepth(depthData)
+	}
+	img, err := decodeImage(depthData)
+	if err != nil {
+		return nil, err
+	}
+	return rimage.ConvertImageToDepthMap(img)
 }
