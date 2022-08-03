@@ -153,9 +153,9 @@ func TestUndistortDepthMap(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "input DepthMap is nil")
 
 	// wrong size error
-	imgWrong, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"), true)
+	_, dmWrong, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = params.UndistortDepthMap(imgWrong.Depth)
+	_, err = params.UndistortDepthMap(dmWrong)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 
 	// correct undistortion

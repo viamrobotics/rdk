@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rlog"
 )
 
 func main() {
@@ -17,31 +16,25 @@ func main() {
 	}
 
 	var dm *rimage.DepthMap
-	var pc *rimage.ImageWithDepth
+	var img *rimage.Image
 	var err error
 
 	if fn := flag.Arg(0); strings.HasSuffix(fn, ".both.gz") {
-		pc, err = rimage.ReadBothFromFile(fn, false) // just extracting depth data
-		if pc != nil {
-			dm = pc.Depth
-		}
+		img, dm, err = rimage.ReadBothFromFile(fn)
 	} else {
 		dm, err = rimage.ParseDepthMap(flag.Arg(0))
 	}
-
 	if err != nil {
 		panic(err)
 	}
 
-	img := dm.ToGray16Picture()
-	if err := rimage.WriteImageToFile(flag.Arg(1), img); err != nil {
+	depth := dm.ToGray16Picture()
+	if err := rimage.WriteImageToFile(flag.Arg(1)+".png", depth); err != nil {
 		panic(err)
 	}
-
-	if pc != nil {
-		fn2 := flag.Arg(1) + "-color.png"
-		rlog.Logger.Info(fn2)
-		err = pc.Color.WriteTo(fn2)
+	if img != nil {
+		fn2 := flag.Arg(1) + "_color.png"
+		err = img.WriteTo(fn2)
 		if err != nil {
 			panic(err)
 		}
