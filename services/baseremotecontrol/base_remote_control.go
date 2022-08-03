@@ -87,7 +87,10 @@ type remoteService struct {
 	logger golog.Logger
 }
 
-var _ = resource.Reconfigurable(&reconfigurableBaseRemoteControl{})
+var (
+	_ = resource.Reconfigurable(&reconfigurableBaseRemoteControl{})
+	_ = viamutils.ContextCloser(&reconfigurableBaseRemoteControl{})
+)
 
 // New returns a new remote control service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
