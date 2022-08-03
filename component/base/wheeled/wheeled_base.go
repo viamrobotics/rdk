@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -17,8 +18,11 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
+	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -443,4 +447,108 @@ func CreateWheeledBase(
 	base.allMotors = append(base.allMotors, base.right...)
 
 	return base, nil
+}
+
+func (base *wheeledBase) Move(
+	ctx context.Context,
+	config *motionplan.MobileRobotPlanConfig,
+	logger golog.Logger,
+) error {
+	// parse input
+	start := frame.FloatsToInputs(config.Start)
+	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: config.Goal[0], Y: config.Goal[1], Z: 0}))
+	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: config.RobotDims[0], Y: config.RobotDims[1], Z: 1}, spatial.NewZeroPose())
+	if err != nil {
+		return err
+	}
+	limits := []frame.Limit{{Min: config.Xlim[0], Max: config.Xlim[1]}, {Min: config.YLim[0], Max: config.YLim[1]}}
+	// TODO(rb) add logic to parse limit input to check for infinite limits
+	// limits = []frame.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}}
+	obstacleGeometries := map[string]spatial.Geometry{}
+	for i, o := range config.Obstacles {
+		box, err := spatial.NewBox(spatial.NewPoseFromPoint(
+			r3.Vector{X: o.Center[0], Y: o.Center[1], Z: 0}),
+			r3.Vector{X: o.Dims[0], Y: o.Dims[1], Z: 1})
+		if err != nil {
+			return err
+		}
+		obstacleGeometries[strconv.Itoa(i)] = box
+	}
+
+	// build model
+	model, err := frame.NewMobile2DFrame(config.Name, limits, robotGeometry)
+	if err != nil {
+		return err
+	}
+
+	// setup planner
+	radius := config.Radius * 1000.0 / config.GridConversion
+	fmt.Println("Radius", radius)
+	d := motionplan.Dubins{Radius: radius, PointSeparation: config.PointSep}
+	dubins, err := motionplan.NewDubinsRRTMotionPlanner(model, 1, logger, d)
+	if err != nil {
+		return err
+	}
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(model, obstacleGeometries, map[string]spatial.Geometry{}))
+
+	// plan
+	waypoints, err := dubins.Plan(ctx, goal, start, opt)
+	if err != nil {
+		return err
+	}
+
+	// move to waypoints
+	start_move := make([]float64, 3)
+	next_move := make([]float64, 3)
+
+	for i, wp := range waypoints {
+		if i == 0 {
+			for j := 0; j < 3; j++ {
+				start_move[j] = wp[j].Value
+			}
+		} else {
+			for j := 0; j < 3; j++ {
+				next_move[j] = wp[j].Value
+			}
+
+			pathOptions := d.AllOptions(start_move, next_move, true)[0]
+
+			dubinsPath := pathOptions.DubinsPath
+			straight := pathOptions.Straight
+
+			base.MoveToWaypointDubins(ctx, config, dubinsPath, straight)
+
+			for j := 0; j < 3; j++ {
+				start_move[j] = next_move[j]
+			}
+		}
+	}
+
+	return nil
+}
+
+func fixAngle(ang float64, withAgile bool) float64 {
+	// angle should be between principle of values: -90 to 90 degrees
+	if !withAgile {
+		return ang
+	}
+	deg := ang * 180 / math.Pi
+	return deg
+
+}
+
+func (base *wheeledBase) MoveToWaypointDubins(ctx context.Context, config *motionplan.MobileRobotPlanConfig, path []float64, straight bool) {
+	//first turn
+	base.Spin(ctx, -fixAngle(path[0], true), 20) //base is currently configured backwards
+
+	//second turn/straight
+	if straight {
+		base.MoveStraight(ctx, int(path[2]*config.GridConversion), 100) //constant speed right now
+	} else {
+		base.Spin(ctx, -fixAngle(path[2], true), 20)
+	}
+
+	//last turn
+	base.Spin(ctx, -fixAngle(path[1], true), 40)
 }
