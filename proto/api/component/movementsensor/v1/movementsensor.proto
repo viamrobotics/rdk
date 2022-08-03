@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package proto.api.component.movementsensor.v1;
+
+import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
+
+option go_package = "go.viam.com/rdk/proto/api/component/movementsensor/v1";
+option java_package = "com.viam.rdk.proto.api.component.movementsensor.v1";
+
+service MovementSensorService {
+  rpc GetLinearVelocity(GetLinearVelocityRequest) returns (GetLinearVelocityResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/movementsensor/{name}/linear_velocity"
+    };
+  }
+
+  rpc GetAngularVelocity(GetAngularVelocityRequest) returns (GetAngularVelocityResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/movementsensor/{name}/angular_velocity"
+    };
+  }
+
+  rpc GetCompassHeading(GetCompassHeadingRequest) returns (GetCompassHeadingResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/movementsensor/{name}/compass_heading"
+    };
+  }
+
+  rpc GetOrientation(GetOrientationRequest) returns (GetOrientationResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/movementsensor/{name}/orientation"
+    };
+  }
+
+  rpc GetPosition(GetPositionRequest) returns (GetPositionResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/movementsensor/{name}/position"
+    };
+  }
+}
+
+message GetLinearVelocityRequest {
+  // Name of a movement sensor
+  string name = 1;
+}
+
+message GetLinearVelocityResponse {
+  // linear velocity contains velocity in mm/s across x/y/z axes
+  common.v1.Vector3 linear_velocity = 1;
+}
+
+message GetAngularVelocityRequest {
+  // Name of a movement sensor
+  string name = 1;
+}
+
+message GetAngularVelocityResponse {
+  // angular velocity contains velocity in degrees/s across x/y/z axes
+  common.v1.Vector3 angular_velocity = 1;
+}
+
+message GetCompassHeadingRequest {
+  // Name of a movement sensor
+  string name = 1;
+}
+
+message GetCompassHeadingResponse {
+  // A number from 0-359 where
+  // 0 is North, 90 is East, 180 is South, and 270 is   West
+  double value = 1;
+}
+
+message GetOrientationRequest {
+  // Name of a movement sensor
+  string name = 1;
+}
+
+message GetOrientationResponse {
+  // A vector representing an OX, OY, OZ
+  common.v1.Vector3 orientation = 1;
+}
+
+message GetPositionRequest {
+  // Name of a movement sensor
+  string name = 1;
+}
+
+message GetPositionResponse {
+  // X, Y, Z absolute positions in the world.
+  // X is a positive or negative float. In the case //where X reports Latitude, it is limited to values //between  90 and -90.
+  // Y is a positive or negative float. In the case //where Y reports Longitude, it is limited to values //between 180 and -180
+  // Z is a positive or negative float. In the case    //where Z reports altitude, negative numbers are //below sea level and positive numbers are above sea //level. For hardware that does not report altitude, //the last value always will be 0
+  common.v1.Vector3 coordinates = 1;
+
+  float accuracy_mm = 2;
+}
