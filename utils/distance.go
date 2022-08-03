@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/gonum/floats"
+	"go.viam.com/rdk/vision/keypoints/descriptors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -46,6 +47,51 @@ func PairwiseDistance(pts1, pts2 [][]float64, distType DistanceType) (*mat.Dense
 		}
 	}
 	return distances, nil
+}
+
+// DescriptorsHammingDistnace computes the pairwise distances between 2 descriptors.
+func DescriptorsHammingDistance(descs1, descs2 []descriptors.Descriptor) ([][]int, error) {
+	var m int
+	var n int
+	m = len(descs1)
+	n = len(descs2)
+
+	// Instantiate distances array.
+	distances := make([][]int, m)
+	for i := range distances {
+		distances[i] = make([]int, n)
+	}
+
+	for i := 0; i < m; i++ {
+		for j := 0; j < n; j++ {
+			d, err := DescHammingDistance(descs1[i], descs2[j])
+			if err != nil {
+				return nil, err
+			}
+			distances[i][j] = d
+		}
+	}
+	return distances, nil
+}
+
+func DescHammingDistance(desc1, desc2 descriptors.Descriptor) (int, error) {
+	if len(desc1.Bits) != len(desc2.Bits) {
+		return 0, errors.New("descriptors must have same length")
+	}
+	var x uint64
+	var y uint64
+	var dist int
+	for i := 0; i < len(desc1.Bits); i++ {
+		x = desc1.Bits[i]
+		y = desc2.Bits[i]
+		// ^= is bitwise XOR
+		x ^= y
+		for x > 0 {
+			dist += 1
+			x &= x - 1
+		}
+	}
+	return dist, nil
 }
 
 // GetArgMinDistancesPerRow returns in a slice of int the index of the point with minimum distance for each row.
