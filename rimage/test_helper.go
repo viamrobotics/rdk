@@ -142,7 +142,7 @@ func (pCtx *ProcessorContext) GotDebugPointCloud(pc pointcloud.PointCloud, name 
 		if err != nil {
 			panic(err)
 		}
-		err = pointcloud.ToPCD(pc, f, pointcloud.PCDAscii)
+		err = pointcloud.ToPCD(pc, f, pointcloud.PCDBinary)
 		if err != nil {
 			panic(err)
 		}
@@ -216,7 +216,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 				t.Helper()
 				t.Parallel()
 				d.logger.Debug(currentFile)
-				img, err := readImageFromFile(currentFile, d.imagesAligned)
+				img, err := newImageWithDepthFromFile(currentFile, d.imagesAligned)
 				test.That(t, err, test.ShouldBeNil)
 
 				pCtx := &ProcessorContext{
