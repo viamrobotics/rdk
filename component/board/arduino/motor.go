@@ -39,7 +39,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			// Note(erd): this would not be needed if encoders were a component
+			
 			actualBoard, ok := utils.UnwrapProxy(b).(*arduinoBoard)
 			if !ok {
 				return nil, errors.New("expected board to be an arduino board")
@@ -118,6 +118,7 @@ func configureMotorForBoard(
 	if res != "ok" {
 		return nil, fmt.Errorf("got unknown response when configureMotor %s", res)
 	}
+
 	m, err := gpio.NewEncodedMotor(
 		config,
 		*motorConfig,

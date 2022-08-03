@@ -19,7 +19,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		encoder.Subtype,
-		"arduino-encoder",
+		"arduino",
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -47,7 +47,7 @@ func NewEncoder(ctx context.Context, deps registry.Dependencies, config config.C
 			return nil, errors.New("expected board to be an arduino board")
 		}
 
-		if pins, ok := cfg.Pins.(*Pins); ok {
+		if pins, ok := cfg.Pins.(*EncoderPins); ok {
 			e.A = pins.A
 			e.B = pins.B
 		} else {
@@ -76,8 +76,8 @@ type Encoder struct {
 	generic.Unimplemented
 }
 
-// Pins defines the format the pin config should be in for Encoder
-type Pins struct {
+// EncoderPins defines the format the pin config should be in for Encoder
+type EncoderPins struct {
 	A, B string
 }
 

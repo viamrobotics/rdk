@@ -530,40 +530,17 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	})
 
-	t.Run("wrap motor with encoder no ticksPerRotation", func(t *testing.T) {
-		fakeMotor := &fakemotor.Motor{}
-		m, err := WrapMotorWithEncoder(
-			context.Background(),
-			nil,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a"},
-			fakeMotor,
-			logger,
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, m, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
-	})
-
 	t.Run("wrap motor with single encoder", func(t *testing.T) {
 		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
+		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
+		e := &encoder.SingleEncoder{I: b.Digitals["a"]}
+
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
-			b,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", TicksPerRotation: 100},
-			fakeMotor,
-			logger,
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, m, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
-
-		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
-		m, err = WrapMotorWithEncoder(
-			context.Background(),
-			b,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", TicksPerRotation: 100},
+			e,
+			config.Component{Name: "motor1"}, motor.Config{TicksPerRotation: 100},
 			fakeMotor,
 			logger,
 		)
@@ -577,21 +554,14 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
+		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
+		b.Digitals["b"] = &board.BasicDigitalInterrupt{}
+		e := &encoder.HallEncoder{A: b.Digitals["a"], B: b.Digitals["b"]}
+
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
-			b,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", TicksPerRotation: 100, EncoderB: "b"},
-			fakeMotor,
-			logger,
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, m, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
-
-		m, err = WrapMotorWithEncoder(
-			context.Background(),
-			b,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", EncoderB: "b", TicksPerRotation: 100},
+			e,
+			config.Component{Name: "motor1"}, motor.Config{TicksPerRotation: 100},
 			fakeMotor,
 			logger,
 		)
