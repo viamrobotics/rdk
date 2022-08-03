@@ -283,7 +283,8 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
 // control the angle.
 func triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
-	switch event.Control { 
+	//nolint:exhaustive
+	switch event.Control {
 	case input.AbsoluteZ:
 		speed -= 0.05
 		speed = math.Max(-1, speed)
@@ -292,7 +293,6 @@ func triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64
 		speed = math.Min(1, speed)
 	case input.AbsoluteX:
 		angle = event.Value
-	default:
 	}
 
 	return speed, angle
@@ -303,12 +303,12 @@ func buttonControlEvent(event input.Event, buttons map[input.Control]bool) (floa
 	var speed float64
 	var angle float64
 
-	switch event.Event { 
+	//nolint:exhaustive
+	switch event.Event {
 	case input.ButtonPress:
 		buttons[event.Control] = true
 	case input.ButtonRelease:
 		buttons[event.Control] = false
-	default:
 	}
 
 	if buttons[input.ButtonNorth] == buttons[input.ButtonSouth] {
@@ -346,12 +346,12 @@ func arrowEvent(event input.Event, arrows map[input.Control]float64) (float64, f
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
 func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64) {
-	switch event.Control { 
+	//nolint:exhaustive
+	switch event.Control {
 	case input.AbsoluteY:
 		y = -1.0 * event.Value
 	case input.AbsoluteX:
 		x = -1.0 * event.Value
-	default:
 	}
 
 	return scaleThrottle(y), scaleThrottle(x)
@@ -360,7 +360,8 @@ func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64
 // right joystick is forward/back, strafe right/left
 // left joystick is spin right/left & up/down.
 func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vector) {
-	switch event.Control { 
+	//nolint:exhaustive
+	switch event.Control {
 	case input.AbsoluteX:
 		angular.Z = scaleThrottle(-1.0 * event.Value)
 	case input.AbsoluteY:
@@ -369,7 +370,6 @@ func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vec
 		linear.X = scaleThrottle(event.Value)
 	case input.AbsoluteRY:
 		linear.Y = scaleThrottle(-1.0 * event.Value)
-	default:
 	}
 
 	return linear, angular
