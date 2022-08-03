@@ -2,9 +2,15 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"testing"
 
+	"github.com/edaniels/golog"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 )
 
@@ -86,3 +92,49 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 
 //nolint: unused
 func (m mockDataSyncServiceServer) mustEmbedUnimplementedDataSyncServiceServer() {}
+
+func TestDataCaptureUpload(t *testing.T) {
+	// Register mock datamanager service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer.RegisterServiceServer(
+		context.Background(),
+		&v1.DataSyncService_ServiceDesc,
+		mockDataSyncServiceServer{},
+		v1.RegisterDataSyncServiceHandlerFromEndpoint,
+	)
+
+	// Stand up the server. Defer stopping the server.
+	go func() {
+		err := rpcServer.Start()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	// Dial connection.
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	rawAddress := fmt.Sprintf("localhost:%d", port)
+	test.That(t, err, test.ShouldBeNil)
+	conn, err := rpc.DialDirectGRPC(
+		context.Background(),
+		rawAddress,
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Defer closing the connection.
+	defer func() {
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+	client := v1.NewDataSyncServiceClient(conn)
+	print(client)
+
+	// Validate that the client responds properly to whatever is sent by the mocked server.
+
+}
