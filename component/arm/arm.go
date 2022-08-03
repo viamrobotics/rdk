@@ -32,6 +32,7 @@ import (
 var numCPUs = 4
 
 func init() {
+	fmt.Println("arm is registered")
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
 		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {

@@ -458,6 +458,7 @@ func newWithResources(
 
 // New returns a new robot with parts sourced from the given config.
 func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
+	fmt.Println("new robot created")
 	return newWithResources(ctx, cfg, nil, logger, opts...)
 }
 
@@ -496,8 +497,10 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
+	fmt.Println("got resource name")
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
+		fmt.Println("failed at component lookup")
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 

@@ -202,10 +202,12 @@ func RegisteredServices() map[string]Service {
 
 // RegisteredComponents returns a copy of the registered components.
 func RegisteredComponents() map[string]Component {
+	fmt.Println("getting registered components")
 	copied, err := copystructure.Copy(componentRegistry)
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println(copied)
 	return copied.(map[string]Component)
 }
 
