@@ -6,9 +6,9 @@ import (
 	"sync"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/utils"
 )
 
 func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
