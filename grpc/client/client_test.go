@@ -318,10 +318,10 @@ func TestStatusClient(t *testing.T) {
 
 	motor1, err := motor.FromRobot(client, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	err = motor1.SetPower(context.Background(), 0)
+	err = motor1.SetPower(context.Background(), 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoFor(context.Background(), 0, 0)
+	err = motor1.GoFor(context.Background(), 0, 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 

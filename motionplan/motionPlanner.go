@@ -322,7 +322,7 @@ func getSolutions(ctx context.Context,
 	f frame.Frame,
 ) ([][]frame.Input, error) {
 	// Linter doesn't properly handle loop labels
-	//nolint:ifshort
+	// nolint:ifshort
 	nSolutions := opt.maxSolutions
 	if nSolutions == 0 {
 		nSolutions = solutionsToSeed

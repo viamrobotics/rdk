@@ -55,7 +55,7 @@ var Subtype = resource.NewSubtype(
 type Motor interface {
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational
-	SetPower(ctx context.Context, powerPct float64) error
+	SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error
 
 	// GoFor instructs the motor to go in a specific direction for a specific amount of
 	// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
@@ -63,30 +63,30 @@ type Motor interface {
 	// negative the motor will spin in the forward direction.
 	// If revolutions is 0, this will run the motor at rpm indefinitely
 	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-	GoFor(ctx context.Context, rpm float64, revolutions float64) error
+	GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 	// towards the specified target/position
 	// This will block until the position has been reached
-	GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error
+	GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error
 
 	// Set the current position (+/- offset) to be the new zero (home) position.
-	ResetZeroPosition(ctx context.Context, offset float64) error
+	ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error
 
 	// GetPosition reports the position of the motor based on its encoder. If it's not supported, the returned
 	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
 	// back into calls of GoFor.
-	GetPosition(ctx context.Context) (float64, error)
+	GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error)
 
 	// GetFeatures returns whether or not the motor supports certain optional features.
-	GetFeatures(ctx context.Context) (map[Feature]bool, error)
+	GetFeatures(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
 
 	// Stop turns the power to the motor off immediately, without any gradual step down.
-	Stop(ctx context.Context) error
+	Stop(ctx context.Context, extra map[string]interface{}) error
 
 	// IsPowered returns whether or not the motor is currently on.
-	IsPowered(ctx context.Context) (bool, error)
+	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error)
 
 	generic.Generic
 }
@@ -155,17 +155,17 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("LocalMotor", resource)
 	}
-	isPowered, err := motor.IsPowered(ctx)
+	isPowered, err := motor.IsPowered(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	features, err := motor.GetFeatures(ctx)
+	features, err := motor.GetFeatures(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	var position float64
 	if features[PositionReporting] {
-		position, err = motor.GetPosition(ctx)
+		position, err = motor.GetPosition(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -199,52 +199,52 @@ func (r *reconfigurableMotor) Do(ctx context.Context, cmd map[string]interface{}
 	return r.actual.Do(ctx, cmd)
 }
 
-func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) error {
+func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.SetPower(ctx, powerPct)
+	return r.actual.SetPower(ctx, powerPct, extra)
 }
 
-func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GoFor(ctx, rpm, revolutions)
+	return r.actual.GoFor(ctx, rpm, revolutions, extra)
 }
 
-func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
+func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GoTo(ctx, rpm, positionRevolutions)
+	return r.actual.GoTo(ctx, rpm, positionRevolutions, extra)
 }
 
-func (r *reconfigurableMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (r *reconfigurableMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.ResetZeroPosition(ctx, offset)
+	return r.actual.ResetZeroPosition(ctx, offset, extra)
 }
 
-func (r *reconfigurableMotor) GetPosition(ctx context.Context) (float64, error) {
+func (r *reconfigurableMotor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetPosition(ctx)
+	return r.actual.GetPosition(ctx, extra)
 }
 
-func (r *reconfigurableMotor) GetFeatures(ctx context.Context) (map[Feature]bool, error) {
+func (r *reconfigurableMotor) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetFeatures(ctx)
+	return r.actual.GetFeatures(ctx, extra)
 }
 
-func (r *reconfigurableMotor) Stop(ctx context.Context) error {
+func (r *reconfigurableMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Stop(ctx)
+	return r.actual.Stop(ctx, extra)
 }
 
-func (r *reconfigurableMotor) IsPowered(ctx context.Context) (bool, error) {
+func (r *reconfigurableMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.IsPowered(ctx)
+	return r.actual.IsPowered(ctx, extra)
 }
 
 func (r *reconfigurableMotor) Close(ctx context.Context) error {
