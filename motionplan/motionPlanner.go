@@ -40,6 +40,7 @@ type MotionPlanner interface {
 // needed to wrap slices so we can use them as map keys.
 type configuration struct {
 	inputs []frame.Input
+	cost   float64
 }
 
 type planReturn struct {
