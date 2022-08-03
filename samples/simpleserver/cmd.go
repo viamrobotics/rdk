@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
@@ -33,6 +34,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			arm1Name: arm1,
 		},
 		logger,
+		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
 	)
 	if err != nil {
 		return err
