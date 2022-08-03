@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"errors"
 	"image"
 	"sync"
 
@@ -36,32 +35,62 @@ func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 
 	wg.Wait()
 	return &dmPointCloudAdapter{
-		dm:   newDm,
-		size: size,
-		p:    p,
+		dm:     newDm,
+		size:   size,
+		p:      p,
+		cache:  pointcloud.NewWithPrealloc(size),
+		cached: false,
 	}
 }
 
 type dmPointCloudAdapter struct {
-	dm   *DepthMap
-	p    Projector
-	size int
+	dm     *DepthMap
+	p      Projector
+	size   int
+	cache  pointcloud.PointCloud
+	cached bool
 }
 
 func (dm *dmPointCloudAdapter) Size() int {
 	return dm.size
 }
 
+// genCache generates the cache if it is not already generated.
+func (dm *dmPointCloudAdapter) genCache() {
+	if dm.cached {
+		return
+	}
+	var wg sync.WaitGroup
+	const numLoops = 8
+	wg.Add(numLoops)
+	for loop := 0; loop < numLoops; loop++ {
+		f := func(loop int) {
+			defer wg.Done()
+			// dm.Iterate automatically caches results
+			dm.Iterate(numLoops, loop, func(p r3.Vector, d pointcloud.Data) bool {
+				return true
+			})
+		}
+		loopCopy := loop
+		utils.PanicCapturingGo(func() { f(loopCopy) })
+	}
+	wg.Wait()
+	dm.cached = true
+}
+
 func (dm *dmPointCloudAdapter) MetaData() pointcloud.MetaData {
-	panic(1)
+	dm.genCache()
+	return dm.cache.MetaData()
 }
 
 func (dm *dmPointCloudAdapter) Set(p r3.Vector, d pointcloud.Data) error {
-	return errors.New("dmPointCloudAdapter doesn't support Set")
+	dm.genCache()
+	return dm.cache.Set(p, d)
 }
 
 func (dm *dmPointCloudAdapter) At(x, y, z float64) (pointcloud.Data, bool) {
-	panic(7)
+	dm.genCache()
+	return dm.cache.At(x, y, z)
 }
 
 func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Vector, d pointcloud.Data) bool) {
@@ -78,9 +107,19 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Ve
 			if err != nil {
 				panic(err)
 			}
+			if !dm.cached {
+				err = dm.cache.Set(vec, nil)
+				if err != nil {
+					panic(err)
+				}
+			}
 			if !fn(vec, nil) {
 				return
 			}
 		}
+	}
+	// Since there is no orchestrator for Iterate, we need to check within each process
+	if dm.size == dm.cache.Size() {
+		dm.cached = true
 	}
 }
