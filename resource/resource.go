@@ -53,6 +53,12 @@ func (t Type) Validate() error {
 	if t.ResourceType == "" {
 		return errors.New("type field for resource missing or invalid")
 	}
+	if strings.Contains(string(t.Namespace), ":") {
+		return errors.Errorf("resevered character : used in namespace name:%q", t.Namespace)
+	}
+	if strings.Contains(string(t.ResourceType), ":") {
+		return errors.Errorf("resevered character : used in resourcetype name:%q", t.ResourceType)
+	}
 	return nil
 }
 
@@ -86,6 +92,9 @@ func (s Subtype) Validate() error {
 	}
 	if s.ResourceSubtype == "" {
 		return errors.New("subtype field for resource missing or invalid")
+	}
+	if strings.Contains(string(s.ResourceSubtype), ":") {
+		return errors.Errorf("resevered character : used in resource subtype name:%q", s.ResourceSubtype)
 	}
 	return nil
 }
@@ -189,7 +198,13 @@ func (n Name) ShortName() string {
 
 // Validate ensures that important fields exist and are valid.
 func (n Name) Validate() error {
-	return n.Subtype.Validate()
+	if err := n.Subtype.Validate(); err != nil {
+		return err
+	}
+	if strings.Contains(n.Name, ":") {
+		return errors.Errorf("resevered character : used in resource name:%q", n.Name)
+	}
+	return nil
 }
 
 // String returns the fully qualified name for the resource.

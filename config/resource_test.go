@@ -95,6 +95,17 @@ func TestComponentValidate(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "resevered character : used")
 	})
+
+	t.Run("reserved character in namespace", func(t *testing.T) {
+		invalidConfig := config.Component{
+			Namespace: "ac:me",
+			Name:      "foo",
+			Type:      "arm",
+		}
+		_, err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "resevered character : used")
+	})
 }
 
 func TestComponentResourceName(t *testing.T) {
@@ -343,10 +354,22 @@ func TestServiceValidate(t *testing.T) {
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 		test.That(t, validConfig.Namespace, test.ShouldEqual, "acme")
 	})
+
 	t.Run("reserved character in name", func(t *testing.T) {
 		invalidConfig := config.Service{
 			Namespace: "acme",
 			Name:      "fo:o",
+			Type:      "thingy",
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "resevered character : used")
+	})
+
+	t.Run("reserved character in namespace", func(t *testing.T) {
+		invalidConfig := config.Service{
+			Namespace: "ac:me",
+			Name:      "foo",
 			Type:      "thingy",
 		}
 		err := invalidConfig.Validate("path")
