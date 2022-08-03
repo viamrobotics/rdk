@@ -129,13 +129,13 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 						return
 					}
 					defer release()
-					pc := rimage.ConvertToImageWithDepth(img)
-					if pc.Depth == nil {
+					pc, err := rimage.ConvertImageToDepthMap(img)
+					if err != nil {
 						logger.Warn("no depth data")
 						depthErr = true
 						return
 					}
-					err = pc.WriteTo(artifact.MustNewPath(fmt.Sprintf("samples/minirover/rover-centering-%d.both.gz", time.Now().Unix())))
+					err = pc.WriteToFile(artifact.MustNewPath(fmt.Sprintf("samples/minirover/rover-centering-%d.dat.gz", time.Now().Unix())))
 					if err != nil {
 						logger.Debugf("error writing %s", err)
 					}
