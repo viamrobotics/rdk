@@ -108,8 +108,6 @@ func (g *GPS) ReadValid(ctx context.Context) (bool, error) {
 
 // GetReadings returns the set readings.
 func (g *GPS) GetReadings(ctx context.Context) ([]interface{}, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	return gps.GetReadings(ctx, g)
 }
 
