@@ -2,6 +2,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,8 +13,8 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -157,14 +158,24 @@ func TestSensorUploadBinary(t *testing.T) {
 			toSend:  [][]byte{msgBin1, msgBin2, msgBin3},
 			expData: [][]byte{msgBin1, msgBin2, msgBin3},
 		},
+		{
+			name: `stream of a lot of binary sensor data readings should send multiple ACKs of data persisted to 
+			GCS`,
+			toSend:  [][]byte{msgBin1, msgBin2, msgBin3, msgBin1, msgBin2, msgBin3, msgBin1, msgBin2, msgBin3},
+			expData: [][]byte{msgBin1, msgBin2, msgBin3, msgBin1, msgBin2, msgBin3, msgBin1, msgBin2, msgBin3},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			mc := &mockClient{
-				sent:        []*v1.UploadRequest{},
-				lock:        sync.Mutex{},
-				cancelIndex: -1,
+				sent:             []*v1.UploadRequest{},
+				cancelIndex:      -1,
+				sentSinceLastAck: 0,
+				sendAckInterval:  2,
+				sendAck:          false,
+				sendEOF:          false,
+				lock:             sync.Mutex{},
 			}
 
 			// Create temp file to be used as examples of reading data from the files into buffers and finally to have
@@ -322,28 +333,8 @@ func TestPartialUpload(t *testing.T) {
 	}
 }
 
-type mockDataSyncService_UploadServer struct {
-	grpc.ServerStream
-}
-
-func (m *mockDataSyncService_UploadServer) Send(*v1.UploadResponse) error {
-	return nil
-}
-func (m *mockDataSyncService_UploadServer) Recv() (*v1.UploadRequest, error) {
-	return &v1.UploadRequest{}, nil
-}
-
-type mockDataSyncServiceServer struct {
-	v1.UnimplementedDataSyncServiceServer
-}
-
-func (m mockDataSyncServiceServer) Upload(stream mockDataSyncService_UploadServer) error {
-	return nil
-}
-
-func (m mockDataSyncServiceServer) mustEmbedUnimplementedDataSyncServiceServer() {}
-
 func TestDataCaptureUpload(t *testing.T) {
+	// Register mock datamanager service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
@@ -353,5 +344,37 @@ func TestDataCaptureUpload(t *testing.T) {
 		mockDataSyncServiceServer{},
 		v1.RegisterDataSyncServiceHandlerFromEndpoint,
 	)
+
+	// Stand up the server. Defer stopping the server.
+	go func() {
+		err := rpcServer.Start()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	// Dial connection.
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	rawAddress := fmt.Sprintf("localhost:%d", port)
+	test.That(t, err, test.ShouldBeNil)
+	conn, err := rpc.DialDirectGRPC(
+		context.Background(),
+		rawAddress,
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Defer closing the connection.
+	defer func() {
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+	client := v1.NewDataSyncServiceClient(conn)
+	print(client)
+
+	// Validate that the client responds properly to whatever is sent by the mocked server.
 
 }
