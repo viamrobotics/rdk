@@ -52,13 +52,6 @@ window.robotApi = robotApi;
 let savedAuthEntity;
 let savedCreds;
 
-const {
-  webrtcEnabled,
-  webrtcHost,
-  webrtcAdditionalICEServers,
-  webrtcSignalingAddress,
-} = window;
-
 const rtcConfig = {
   iceServers: [
     {
@@ -67,8 +60,8 @@ const rtcConfig = {
   ],
 };
 
-if (webrtcAdditionalICEServers) {
-  rtcConfig.iceServers = [...rtcConfig.iceServers, ...webrtcAdditionalICEServers];
+if (window.webrtcAdditionalICEServers) {
+  rtcConfig.iceServers = [...rtcConfig.iceServers, ...window.webrtcAdditionalICEServers];
 }
 
 const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
@@ -84,11 +77,11 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   savedAuthEntity = authEntity;
   savedCreds = creds;
   
-  if (webrtcEnabled) {
+  if (window.webrtcEnabled) {
     opts.webrtcOptions.signalingAuthEntity = opts.authEntity;
     opts.webrtcOptions.signalingCredentials = opts.credentials;
 
-    const webRTCConn = await dialWebRTC(webrtcSignalingAddress || impliedURL, webrtcHost, opts);
+    const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress || impliedURL, window.webrtcHost, opts);
     transportFactory = webRTCConn.transportFactory;
 
     webRTCConn.peerConnection.ontrack = (event) => {
@@ -123,24 +116,24 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
     transportFactory = await dialDirect(impliedURL, opts);
   }
 
-  window.streamService = new StreamServiceClient(webrtcHost, { transport: transportFactory });
-  window.robotService = new RobotServiceClient(webrtcHost, { transport: transportFactory });
+  window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
   // TODO(RSDK-144): these should be created as needed
-  window.armService = new ArmServiceClient(webrtcHost, { transport: transportFactory });
-  window.baseService = new BaseServiceClient(webrtcHost, { transport: transportFactory });
-  window.boardService = new BoardServiceClient(webrtcHost, { transport: transportFactory });
-  window.cameraService = new CameraServiceClient(webrtcHost, { transport: transportFactory });
-  window.gantryService = new GantryServiceClient(webrtcHost, { transport: transportFactory });
-  window.gripperService = new GripperServiceClient(webrtcHost, { transport: transportFactory });
-  window.imuService = new IMUServiceClient(webrtcHost, { transport: transportFactory });
-  window.inputControllerService = new InputControllerServiceClient(webrtcHost, { transport: transportFactory });
-  window.motorService = new MotorServiceClient(webrtcHost, { transport: transportFactory });
-  window.navigationService = new NavigationServiceClient(webrtcHost, { transport: transportFactory });
-  window.motionService = new MotionServiceClient(webrtcHost, { transport: transportFactory });
-  window.visionService = new VisionServiceClient(webrtcHost, { transport: transportFactory });
-  window.sensorsService = new SensorsServiceClient(webrtcHost, { transport: transportFactory });
-  window.servoService = new ServoServiceClient(webrtcHost, { transport: transportFactory });
-  window.slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
+  window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.imuService = new IMUServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.navigationService = new NavigationServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.motionService = new MotionServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.visionService = new VisionServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.slamService = new SLAMServiceClient(window.webrtcHost, { transport: transportFactory });
 };
 
 window.connect = connect;
