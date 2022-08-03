@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/pointcloud"
@@ -34,11 +35,12 @@ func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 	})
 
 	wg.Wait()
+	cache := pointcloud.NewWithPrealloc(size)
 	return &dmPointCloudAdapter{
 		dm:     newDm,
 		size:   size,
 		p:      p,
-		cache:  pointcloud.NewWithPrealloc(size),
+		cache:  cache,
 		cached: false,
 	}
 }
@@ -84,8 +86,7 @@ func (dm *dmPointCloudAdapter) MetaData() pointcloud.MetaData {
 }
 
 func (dm *dmPointCloudAdapter) Set(p r3.Vector, d pointcloud.Data) error {
-	dm.genCache()
-	return dm.cache.Set(p, d)
+	return errors.New("dmPointCloudAdapter Does not support Set")
 }
 
 func (dm *dmPointCloudAdapter) At(x, y, z float64) (pointcloud.Data, bool) {
@@ -94,6 +95,10 @@ func (dm *dmPointCloudAdapter) At(x, y, z float64) (pointcloud.Data, bool) {
 }
 
 func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Vector, d pointcloud.Data) bool) {
+	if dm.cached {
+		dm.cache.Iterate(numBatches, myBatch, fn)
+		return
+	}
 	for y := 0; y < dm.dm.height; y++ {
 		if numBatches > 0 && y%numBatches != myBatch {
 			continue
