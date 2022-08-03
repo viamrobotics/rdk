@@ -37,8 +37,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 
 // NewClientFromConn constructs a new Client from the connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	slam := newSvcClientFromConn(conn, logger)
-	return &reconfigurableSlam{actual: slam}
+	return newSvcClientFromConn(conn, logger)
 }
 
 // GetPosition creates a request, calls the slam service GetPosition, and parses the response into the desired PoseInFrame.

@@ -41,8 +41,7 @@ type client struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Gantry {
 	sc := newSvcClientFromConn(conn, logger)
-	gantry := clientFromSvcClient(sc, name)
-	return &reconfigurableGantry{actual: gantry}
+	return clientFromSvcClient(sc, name)
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) Gantry {
