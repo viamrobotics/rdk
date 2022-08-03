@@ -7,9 +7,14 @@ package pointcloud
 
 import (
 	"math"
+	"sync"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/utils"
+	"gonum.org/v1/gonum/mat"
 )
+
+const numThreadsPointCloud = 8
 
 // MetaData is data about what's stored in the point cloud.
 type MetaData struct {
@@ -118,4 +123,75 @@ func CloudCentroid(pc PointCloud) r3.Vector {
 		Y: pc.MetaData().totalY / float64(pc.Size()),
 		Z: pc.MetaData().totalZ / float64(pc.Size()),
 	}
+}
+
+type CloudMatrixCols int
+
+const (
+	// CloudMatrixColX is the x column in the cloud matrix.
+	CloudMatrixColX CloudMatrixCols = 0
+	// CloudMatrixColY is the y column in the cloud matrix.
+	CloudMatrixColY CloudMatrixCols = 1
+	// CloudMatrixColZ is the z column in the cloud matrix.
+	CloudMatrixColZ CloudMatrixCols = 2
+	// CloudMatrixColR is the r column in the cloud matrix.
+	CloudMatrixColR CloudMatrixCols = 3
+	// CloudMatrixColG is the g column in the cloud matrix.
+	CloudMatrixColG CloudMatrixCols = 4
+	// CloudMatrixColB is the b column in the cloud matrix.
+	CloudMatrixColB CloudMatrixCols = 5
+	// CloudMatrixColValue is the value column in the cloud matrix.
+	CloudMatrixColV CloudMatrixCols = 6
+)
+
+func CloudMatrix(pc PointCloud) *mat.Dense {
+	header := []CloudMatrixCols{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ}
+	pointSize := 3 // x, y, z
+	if pc.MetaData().HasColor {
+		pointSize += 3 // color
+		header = append(header, CloudMatrixColR, CloudMatrixColG, CloudMatrixColB)
+	}
+	if pc.MetaData().HasValue {
+		pointSize += 1 // value
+		header = append(header, CloudMatrixColV)
+	}
+	matrix := mat.NewDense(pc.Size(), pointSize, nil)
+
+	var wg sync.WaitGroup
+	wg.Add(numThreadsPointCloud)
+	for thread := 0; thread < numThreadsPointCloud; thread++ {
+		f := func(thread int) {
+			defer wg.Done()
+			offset := 0
+			batchSize := (pc.Size() + numThreadsPointCloud - 1) / numThreadsPointCloud
+			pc.Iterate(numThreadsPointCloud, thread, func(p r3.Vector, d Data) bool {
+				row := thread*batchSize + offset
+				offset++
+				colIndex := 0
+				matrix.Set(row, colIndex, p.X)
+				colIndex++
+				matrix.Set(row, colIndex, p.Y)
+				colIndex++
+				matrix.Set(row, colIndex, p.Z)
+				colIndex++
+				if pc.MetaData().HasColor {
+					r, g, b := d.RGB255()
+					matrix.Set(row, colIndex, float64(r))
+					colIndex++
+					matrix.Set(row, colIndex, float64(g))
+					colIndex++
+					matrix.Set(row, colIndex, float64(b))
+					colIndex++
+				}
+				if pc.MetaData().HasValue {
+					matrix.Set(row, colIndex, float64(d.Value()))
+					colIndex++
+				}
+				return true
+			})
+		}
+		threadCopy := thread
+		utils.PanicCapturingGo(func() { f(threadCopy) })
+	}
+	return matrix
 }
