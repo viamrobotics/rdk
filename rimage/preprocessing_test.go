@@ -14,27 +14,28 @@ type smoothTestHelper struct{}
 func (h *smoothTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	t.Helper()
 	var err error
-	ii := ConvertToImageWithDepth(img)
+	dm, err := ConvertImageToDepthMap(img)
+	test.That(t, err, test.ShouldBeNil)
 
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, MaxDepth), "depth")
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, MaxDepth), "depth")
 
 	// use Opening smoothing
 	// kernel size 3, 1 iteration
-	openedDM, err := OpeningMorph(ii.Depth, 3, 1)
+	openedDM, err := OpeningMorph(dm, 3, 1)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(openedDM.ToPrettyPicture(0, MaxDepth), "depth-opened")
 
 	// use Closing smoothing
 	// size 3, 1 iteration
-	closedDM1, err := ClosingMorph(ii.Depth, 3, 1)
+	closedDM1, err := ClosingMorph(dm, 3, 1)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(closedDM1.ToPrettyPicture(0, MaxDepth), "depth-closed-3-1")
 	// size 3, 3 iterations
-	closedDM2, err := ClosingMorph(ii.Depth, 3, 3)
+	closedDM2, err := ClosingMorph(dm, 3, 3)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(closedDM2.ToPrettyPicture(0, MaxDepth), "depth-closed-3-3")
 	// size 5, 1 iteration
-	closedDM3, err := ClosingMorph(ii.Depth, 5, 1)
+	closedDM3, err := ClosingMorph(dm, 5, 1)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(closedDM3.ToPrettyPicture(0, MaxDepth), "depth-closed-5-1")
 
@@ -56,7 +57,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	cannyColor := NewCannyDericheEdgeDetector()
 	cannyDepth := NewCannyDericheEdgeDetectorWithParameters(0.85, 0.33, false)
 
-	ii := ConvertToImageWithDepth(img)
+	ii := convertToImageWithDepth(img)
 	depthImg := ii.Depth
 
 	pCtx.GotDebugImage(depthImg.ToPrettyPicture(0, MaxDepth), "depth-ii")
@@ -91,7 +92,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	pCtx.GotDebugImage(drawAverageHoleDepth(closedDM), "hole-depths")
 
 	// filled
-	morphed := MakeImageWithDepth(ii.Color, closedDM, ii.IsAligned())
+	morphed := makeImageWithDepth(ii.Color, closedDM, ii.IsAligned())
 	morphed.Depth, err = FillDepthMap(morphed.Depth, morphed.Color)
 	test.That(t, err, test.ShouldBeNil)
 	closedDM = morphed.Depth
@@ -140,7 +141,7 @@ type preprocessTestHelper struct{}
 func (h *preprocessTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	t.Helper()
 	var err error
-	ii := ConvertToImageWithDepth(img)
+	ii := convertToImageWithDepth(img)
 	depthImg := ii.Depth
 
 	pCtx.GotDebugImage(depthImg.ToPrettyPicture(0, MaxDepth), "depth-raw")

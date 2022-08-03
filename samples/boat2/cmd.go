@@ -60,10 +60,10 @@ type boat struct {
 
 func (b *boat) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return multierr.Combine(
-		b.starboard.Stop(ctx),
-		b.port.Stop(ctx),
-		b.thrust.Stop(ctx),
-		b.squirt.Stop(ctx),
+		b.starboard.Stop(ctx, extra),
+		b.port.Stop(ctx, extra),
+		b.thrust.Stop(ctx, extra),
+		b.squirt.Stop(ctx, extra),
 	)
 }
 
@@ -86,7 +86,7 @@ func (b *boat) steerColumn(ctx context.Context, dir float64) error {
 
 	b.lastDir = dir
 
-	return b.steering.GoTo(ctx, rpm, dir)
+	return b.steering.GoTo(ctx, rpm, dir, nil)
 }
 
 func (b *boat) SteerAndMoveHelp(ctx context.Context,
@@ -104,9 +104,9 @@ func (b *boat) SteerAndMoveHelp(ctx context.Context,
 		logger.Infof("SteerAndMoveHelp %0.2f %0.2f %0.2f\n", thrustPowerPct, portPowerPct, starboardPowerPct)
 	}
 	return multierr.Combine(
-		b.thrust.SetPower(ctx, thrustPowerPct),
-		b.port.SetPower(ctx, portPowerPct),
-		b.starboard.SetPower(ctx, starboardPowerPct),
+		b.thrust.SetPower(ctx, thrustPowerPct, nil),
+		b.port.SetPower(ctx, portPowerPct, nil),
+		b.starboard.SetPower(ctx, starboardPowerPct, nil),
 	)
 }
 
@@ -145,17 +145,17 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, pctMaxRPM float64) error {
 
 	if dir > 0 {
 		return multierr.Combine(
-			b.thrust.Stop(ctx),
-			b.port.SetPower(ctx, dir),
-			b.starboard.SetPower(ctx, dir),
+			b.thrust.Stop(ctx, nil),
+			b.port.SetPower(ctx, dir, nil),
+			b.starboard.SetPower(ctx, dir, nil),
 		)
 	}
 
 	dir *= -1
 	return multierr.Combine(
-		b.thrust.Stop(ctx),
-		b.port.SetPower(ctx, dir),
-		b.starboard.SetPower(ctx, dir),
+		b.thrust.Stop(ctx, nil),
+		b.port.SetPower(ctx, dir, nil),
+		b.starboard.SetPower(ctx, dir, nil),
 	)
 }
 
@@ -218,7 +218,7 @@ func newBoat(ctx context.Context, deps registry.Dependencies, logger golog.Logge
 			return nil, err
 		}
 
-		bwdLimit, err := b.steering.GetPosition(ctx)
+		bwdLimit, err := b.steering.GetPosition(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -228,7 +228,7 @@ func newBoat(ctx context.Context, deps registry.Dependencies, logger golog.Logge
 			return nil, err
 		}
 
-		fwdLimit, err := b.steering.GetPosition(ctx)
+		fwdLimit, err := b.steering.GetPosition(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -242,7 +242,7 @@ func newBoat(ctx context.Context, deps registry.Dependencies, logger golog.Logge
 			return nil, fmt.Errorf("steeringRange only %v", b.steeringRange)
 		}
 
-		err = multierr.Combine(b.thrust.Stop(ctx), b.steering.GoTo(ctx, 50, b.middle))
+		err = multierr.Combine(b.thrust.Stop(ctx, nil), b.steering.GoTo(ctx, 50, b.middle, nil))
 		if err != nil {
 			return nil, err
 		}
@@ -346,7 +346,7 @@ func (b *boat) GetWidth(ctx context.Context) (int, error) {
 func (b *boat) IsMoving(ctx context.Context) (bool, error) {
 	motors := []motor.Motor{b.starboard, b.port, b.thrust}
 	for _, m := range motors {
-		isMoving, err := m.IsPowered(ctx)
+		isMoving, err := m.IsPowered(ctx, nil)
 		if isMoving {
 			return isMoving, nil
 		}
@@ -430,9 +430,9 @@ func runRC2(ctx context.Context, myBoat *boat) {
 		case input.AbsoluteZ:
 			// only squirt if you actually press it
 			if event.Value > .75 && navModeNum != OFFMODE {
-				myBoat.squirt.SetPower(ctx, event.Value)
+				myBoat.squirt.SetPower(ctx, event.Value, nil)
 			} else {
-				myBoat.squirt.SetPower(ctx, 0)
+				myBoat.squirt.SetPower(ctx, 0, nil)
 			}
 
 		case input.ButtonStart:
