@@ -2,12 +2,12 @@ package armremotecontrol
 
 import (
 	"context"
+	"strconv"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
+	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	fakearm "go.viam.com/rdk/component/arm/fake"
@@ -17,9 +17,41 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
+func buildCfg(dof int) *ServiceConfig {
+	cfg := &ServiceConfig{
+		ArmName: "",
+		InputControllerName: "",
+		JointStep: 10.0,
+		MMStep: 0.1,
+		DegreeStep: 5.0,
+		ControllerSensitivity: 5.0,
+		ControllerModes: []ControllerMode{
+			{
+				ModeName: jointMode,
+				ControlMapping: map[string]input.Control{},
+			},
+			{
+				ModeName: endpointMode,
+				ControlMapping: map[string]input.Control{
+					"x":     input.AbsoluteX,
+					"y":     input.AbsoluteY,
+					"z":     input.AbsoluteHat0X,
+					"roll":  input.AbsoluteHat0Y,
+					"pitch": input.AbsoluteRY,
+					"yaw":   input.AbsoluteRX,
+				},
+			},
+		},
+	}
+	for i := 0; i < dof; i++ {
+		idx := strconv.Itoa(i)
+		cfg.ControllerModes[0].ControlMapping[idx] = input.AbsoluteX
+	}
+	return cfg
+}
 func TestArmRemoteControl(t *testing.T) {
 	ctx := context.Background()
 
@@ -33,7 +65,7 @@ func TestArmRemoteControl(t *testing.T) {
 		case arm.Subtype:
 			return &fakearm.Arm{}, nil
 		}
-		return nil, rutils.NewResourceNotFoundError(name)
+		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
 
 	fakeController.RegisterControlCallbackFunc = func(
@@ -45,36 +77,7 @@ func TestArmRemoteControl(t *testing.T) {
 		return nil
 	}
 
-	cfg := &Config{
-		ArmName:               "",
-		InputControllerName:   "",
-		DefaultJointStep:      10.0,
-		DefaultPoseStep:       0.10,
-		ControllerSensitivity: 5.0,
-		ControllerModes: []controllerMode{
-			{
-				ModeName: "joint",
-				Mappings: map[input.Control]armPart{
-					input.AbsoluteX:     jointOne,
-					input.AbsoluteY:     jointTwo,
-					input.AbsoluteRY:    jointThree,
-					input.AbsoluteRX:    jointFour,
-					input.AbsoluteHat0X: jointFive,
-					input.AbsoluteHat0Y: jointSix,
-				},
-			}, {
-				ModeName: "endpoint",
-				Mappings: map[input.Control]armPart{
-					input.AbsoluteX:     "ox",
-					input.AbsoluteY:     "z",
-					input.AbsoluteHat0X: "oz",
-					input.AbsoluteHat0Y: "oy",
-					input.AbsoluteRY:    "x",
-					input.AbsoluteRX:    "y",
-				},
-			},
-		},
-	}
+	cfg := buildCfg(6)
 
 	// New arm_remote_control check
 	tmpSvc, err := New(ctx, fakeRobot,
@@ -93,7 +96,7 @@ func TestArmRemoteControl(t *testing.T) {
 		if name.Subtype == arm.Subtype {
 			return &fakearm.Arm{}, nil
 		}
-		return nil, rutils.NewResourceNotFoundError(name)
+		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
 
 	_, err = New(ctx, fakeRobot,
@@ -110,7 +113,7 @@ func TestArmRemoteControl(t *testing.T) {
 		if name.Subtype == input.Subtype {
 			return fakeController, nil
 		}
-		return nil, rutils.NewResourceNotFoundError(name)
+		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
 
 	_, err = New(ctx, fakeRobot,
@@ -127,27 +130,6 @@ func TestArmRemoteControl(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Controller event supported
-	t.Run("controller events supported", func(t *testing.T) {
-		i := svc.controllerInputs()
-		test.That(t, i[0], test.ShouldEqual, input.AbsoluteX)
-		test.That(t, i[1], test.ShouldEqual, input.AbsoluteY)
-		test.That(t, i[2], test.ShouldEqual, input.AbsoluteZ)
-		test.That(t, i[3], test.ShouldEqual, input.AbsoluteRX)
-		test.That(t, i[4], test.ShouldEqual, input.AbsoluteRY)
-		test.That(t, i[5], test.ShouldEqual, input.AbsoluteRZ)
-		test.That(t, i[6], test.ShouldEqual, input.AbsoluteHat0X)
-		test.That(t, i[7], test.ShouldEqual, input.AbsoluteHat0Y)
-		test.That(t, i[8], test.ShouldEqual, input.ButtonSouth)
-		test.That(t, i[9], test.ShouldEqual, input.ButtonEast)
-		test.That(t, i[10], test.ShouldEqual, input.ButtonWest)
-		test.That(t, i[11], test.ShouldEqual, input.ButtonNorth)
-		test.That(t, i[12], test.ShouldEqual, input.ButtonLT)
-		test.That(t, i[13], test.ShouldEqual, input.ButtonRT)
-		test.That(t, i[14], test.ShouldEqual, input.ButtonSelect)
-		test.That(t, i[15], test.ShouldEqual, input.ButtonStart)
-		test.That(t, i[16], test.ShouldEqual, input.ButtonMenu)
-	})
-
 	err = svc.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -171,7 +153,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	_, err = WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&armRemoteService{}, nil))
+	test.That(t, err, test.ShouldBeError, rdkutils.NewUnexpectedTypeError(&armRemoteService{}, nil))
 
 	reconfSvc2, err := WrapWithReconfigurable(reconfSvc)
 	test.That(t, err, test.ShouldBeNil)
@@ -205,12 +187,12 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, name1, test.ShouldEqual, name2)
 
 	err = reconfSvc.Reconfigure(context.Background(), nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&reconfigurableArmRemoteControl{}, nil))
+	test.That(t, err, test.ShouldBeError, rdkutils.NewUnexpectedTypeError(&reconfigurableArmRemoteControl{}, nil))
 }
 
 func returnMock(name string) armRemoteService {
 	return armRemoteService{
-		config: &Config{ArmName: name},
+		config: &ServiceConfig{ArmName: name},
 	}
 }
 
@@ -220,98 +202,11 @@ func stateShouldBeZero(state *controllerState) bool {
 			return false
 		}
 	}
-
-	for _, v := range state.endpoints {
-		if v > 0.0 {
-			return false
-		}
-	}
-
-	for _, v := range state.joints {
-		if v > 0.0 {
-			return false
-		}
-	}
 	return true
 }
 
 func TestState(t *testing.T) {
-	cfg := &Config{
-		ArmName:               "",
-		InputControllerName:   "",
-		DefaultJointStep:      10.0,
-		DefaultPoseStep:       0.10,
-		ControllerSensitivity: 5.0,
-		ControllerModes: []controllerMode{
-			{
-				ModeName: "joint",
-				Mappings: map[input.Control]armPart{
-					input.AbsoluteX:     jointOne,
-					input.AbsoluteY:     jointTwo,
-					input.AbsoluteRY:    jointThree,
-					input.AbsoluteRX:    jointFour,
-					input.AbsoluteHat0X: jointFive,
-					input.AbsoluteHat0Y: jointSix,
-				},
-			}, {
-				ModeName: "endpoint",
-				Mappings: map[input.Control]armPart{
-					input.AbsoluteX:     "ox",
-					input.AbsoluteY:     "z",
-					input.AbsoluteHat0X: "oz",
-					input.AbsoluteHat0Y: "oy",
-					input.AbsoluteRY:    "x",
-					input.AbsoluteRX:    "y",
-				},
-			},
-		},
-	}
-
-	// setup state
 	state := &controllerState{}
 	state.init()
-
 	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
-	test.That(t, state.curModeIdx, test.ShouldEqual, 0)
-	// button pressed
-	state.set(input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonNorth, Value: 1}, *cfg)
-	test.That(t, state.buttons[input.ButtonNorth], test.ShouldBeTrue)
-	test.That(t, state.event, test.ShouldEqual, buttonPressed)
-	state.reset()
-	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
-	test.That(t, state.event, test.ShouldEqual, noop)
-	// joint test valid value
-	state.set(input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 1.0}, *cfg)
-	test.That(t, state.event, test.ShouldEqual, jointEvent)
-	test.That(t, state.isInvalid(cfg.ControllerSensitivity), test.ShouldBeFalse)
-	test.That(t, state.joints[jointOne], test.ShouldEqual, 1.0)
-	state.reset()
-	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
-	test.That(t, state.event, test.ShouldEqual, noop)
-	// joint test invalid value
-	state.set(input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.9}, *cfg)
-	test.That(t, state.event, test.ShouldEqual, jointEvent)
-	test.That(t, state.isInvalid(cfg.ControllerSensitivity), test.ShouldBeTrue)
-	test.That(t, state.joints[jointOne], test.ShouldEqual, 0.9)
-	state.reset()
-	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
-	test.That(t, state.event, test.ShouldEqual, noop)
-	// switch mode (emulating commands as these are not finalized)
-	state.curModeIdx = 1
-	// end point Valid Value
-	state.set(input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 1.0}, *cfg)
-	test.That(t, state.event, test.ShouldEqual, endPointEvent)
-	test.That(t, state.isInvalid(cfg.ControllerSensitivity), test.ShouldBeFalse)
-	test.That(t, state.endpoints[ox], test.ShouldEqual, 1.0)
-	state.reset()
-	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
-	test.That(t, state.event, test.ShouldEqual, noop)
-	// end point test invalid value
-	state.set(input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.9}, *cfg)
-	test.That(t, state.event, test.ShouldEqual, endPointEvent)
-	test.That(t, state.isInvalid(cfg.ControllerSensitivity), test.ShouldBeTrue)
-	test.That(t, state.endpoints[ox], test.ShouldEqual, 0.9)
-	state.reset()
-	test.That(t, stateShouldBeZero(state), test.ShouldBeTrue)
-	test.That(t, state.event, test.ShouldEqual, noop)
 }
