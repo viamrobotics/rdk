@@ -1,5 +1,5 @@
 // Package gps contains a gRPC based GPS service subtypeServer.
-package gps
+package movementsensor
 
 import (
 	"context"

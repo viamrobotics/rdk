@@ -1,4 +1,4 @@
-package gps
+package movementsensor
 
 import (
 	"context"
