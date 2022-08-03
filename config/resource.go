@@ -122,6 +122,10 @@ func (config *Component) Validate(path string) ([]string, error) {
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
+	if strings.Contains(config.Name, ":") {
+		return nil, errors.Errorf("resevered character : used in resource name:%q", config.Name)
+	}
+
 	for key, value := range config.Attributes {
 		fieldPath := fmt.Sprintf("%s.%s", path, key)
 		switch v := value.(type) {
@@ -314,6 +318,9 @@ func (config *Service) Validate(path string) error {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
+	}
+	if strings.Contains(config.Name, ":") {
+		return errors.Errorf("resevered character : used in resource name:%q", config.Name)
 	}
 	for key, value := range config.Attributes {
 		v, ok := value.(validator)
