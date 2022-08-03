@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/gps/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -39,6 +40,19 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: readLocation.String(),
+	}, newReadLocationCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: readAltitude.String(),
+	}, newReadAltitudeCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: readSpeed.String(),
+	}, newReadSpeedCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "gps".
