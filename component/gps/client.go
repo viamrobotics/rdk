@@ -43,8 +43,7 @@ type client struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) GPS {
 	sc := newSvcClientFromConn(conn, logger)
-	gps := clientFromSvcClient(sc, name)
-	return &reconfigurableGPS{actual: gps}
+	return clientFromSvcClient(sc, name)
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) GPS {

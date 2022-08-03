@@ -38,8 +38,7 @@ type client struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Sensor {
 	sc := newSvcClientFromConn(conn, logger)
-	sensor := clientFromSvcClient(sc, name)
-	return &reconfigurableSensor{actual: sensor}
+	return clientFromSvcClient(sc, name)
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) Sensor {

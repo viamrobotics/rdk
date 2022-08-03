@@ -39,8 +39,7 @@ type client struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Generic {
 	sc := newSvcClientFromConn(conn, logger)
-	gen := clientFromSvcClient(sc, name)
-	return &reconfigurableGeneric{actual: gen}
+	return clientFromSvcClient(sc, name)
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) Generic {

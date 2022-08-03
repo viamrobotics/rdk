@@ -44,8 +44,7 @@ type client struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) IMU {
 	sc := newSvcClientFromConn(conn, logger)
-	imu := clientFromSvcClient(sc, name)
-	return &reconfigurableIMU{actual: imu}
+	return clientFromSvcClient(sc, name)
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) IMU {

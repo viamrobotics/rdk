@@ -50,7 +50,6 @@ type RobotClient struct {
 	dialOptions     []rpc.DialOption
 	children        map[resource.Name]interface{}
 	checkedChildren map[resource.Name]bool
-	newChildren     []interface{}
 
 	mu                  *sync.RWMutex
 	resourceNames       []resource.Name
@@ -385,8 +384,11 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 	// pass in conn
 	nameR := name.ShortName()
 	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
+	if c.Reconfigurable == nil {
+		return resourceClient, nil
+	}
+	return c.Reconfigurable(resourceClient)
 
-	return resourceClient, nil
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {

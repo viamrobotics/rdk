@@ -80,7 +80,7 @@ func TestReconfigurableClient(t *testing.T) {
 	test.That(t, <-ch, test.ShouldEqual, 4)
 	test.That(t, <-ch1, test.ShouldBeNil)
 	close(ch)
-
+	close(ch1)
 }
 
 func checkRobot(t *testing.T, c *client.RobotClient, a arm.Arm, ch chan int, ch1 chan error) {

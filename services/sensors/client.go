@@ -33,8 +33,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	sensors := newSvcClientFromConn(conn, logger)
-	return &reconfigurableSensors{actual: sensors}
+	return newSvcClientFromConn(conn, logger)
 }
 
 func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {

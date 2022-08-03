@@ -30,8 +30,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	datamanager := newSvcClientFromConn(conn, logger)
-	return &reconfigurableDataManager{actual: datamanager}
+	return newSvcClientFromConn(conn, logger)
 }
 
 func (c *client) Sync(ctx context.Context) error {
