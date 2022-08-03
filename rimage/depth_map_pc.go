@@ -11,6 +11,8 @@ import (
 	"go.viam.com/rdk/pointcloud"
 )
 
+const numThreadsDmPointCloudAdapter = 8 // TODO This should probably become a parameter at some point
+
 func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -20,17 +22,38 @@ func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 		newDm = dm.Clone()
 	})
 
-	size := 0
+	var size int
+	sizeChan := make(chan int, numThreadsDmPointCloudAdapter)
 	utils.PanicCapturingGo(func() {
 		defer wg.Done()
-		for x := 0; x < dm.Width(); x++ {
-			for y := 0; y < dm.Height(); y++ {
-				z := dm.GetDepth(x, y)
-				if z == 0 {
-					continue
+		var sizeWg sync.WaitGroup
+		sizeWg.Add(numThreadsDmPointCloudAdapter)
+		batchSize := dm.width * dm.height / numThreadsDmPointCloudAdapter
+		for loop := 0; loop < numThreadsDmPointCloudAdapter; loop++ {
+			f := func(loop int) {
+				defer sizeWg.Done()
+				sizeBuf := 0
+				for i := 0; i < batchSize; i++ {
+					x := loop*batchSize + i
+					if x >= dm.width*dm.height {
+						break
+					}
+					depth := dm.GetDepth(x%dm.width, x/dm.width)
+					if depth == 0 {
+						continue
+					}
+					sizeBuf++
 				}
-				size++
+				sizeChan <- sizeBuf
 			}
+			loopCopy := loop
+			utils.PanicCapturingGo(func() { f(loopCopy) })
+		}
+
+		sizeWg.Wait()
+		size = 0
+		for i := 0; i < numThreadsDmPointCloudAdapter; i++ {
+			size += <-sizeChan
 		}
 	})
 
@@ -63,13 +86,12 @@ func (dm *dmPointCloudAdapter) genCache() {
 		return
 	}
 	var wg sync.WaitGroup
-	const numLoops = 8
-	wg.Add(numLoops)
-	for loop := 0; loop < numLoops; loop++ {
+	wg.Add(numThreadsDmPointCloudAdapter)
+	for loop := 0; loop < numThreadsDmPointCloudAdapter; loop++ {
 		f := func(loop int) {
 			defer wg.Done()
 			// dm.Iterate automatically caches results
-			dm.Iterate(numLoops, loop, func(p r3.Vector, d pointcloud.Data) bool {
+			dm.Iterate(numThreadsDmPointCloudAdapter, loop, func(p r3.Vector, d pointcloud.Data) bool {
 				return true
 			})
 		}
