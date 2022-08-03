@@ -144,7 +144,7 @@ const (
 	CloudMatrixColV CloudMatrixCols = 6
 )
 
-func CloudMatrix(pc PointCloud) *mat.Dense {
+func CloudMatrix(pc PointCloud) (*mat.Dense, []CloudMatrixCols) {
 	header := []CloudMatrixCols{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ}
 	pointSize := 3 // x, y, z
 	if pc.MetaData().HasColor {
@@ -155,43 +155,35 @@ func CloudMatrix(pc PointCloud) *mat.Dense {
 		pointSize += 1 // value
 		header = append(header, CloudMatrixColV)
 	}
-	matrix := mat.NewDense(pc.Size(), pointSize, nil)
 
 	var wg sync.WaitGroup
 	wg.Add(numThreadsPointCloud)
+	matChan := make(chan []float64, numThreadsPointCloud)
 	for thread := 0; thread < numThreadsPointCloud; thread++ {
 		f := func(thread int) {
 			defer wg.Done()
-			offset := 0
 			batchSize := (pc.Size() + numThreadsPointCloud - 1) / numThreadsPointCloud
+			buf := make([]float64, 0, pointSize*batchSize)
 			pc.Iterate(numThreadsPointCloud, thread, func(p r3.Vector, d Data) bool {
-				row := thread*batchSize + offset
-				offset++
-				colIndex := 0
-				matrix.Set(row, colIndex, p.X)
-				colIndex++
-				matrix.Set(row, colIndex, p.Y)
-				colIndex++
-				matrix.Set(row, colIndex, p.Z)
-				colIndex++
+				buf = append(buf, p.X, p.Y, p.Z)
 				if pc.MetaData().HasColor {
 					r, g, b := d.RGB255()
-					matrix.Set(row, colIndex, float64(r))
-					colIndex++
-					matrix.Set(row, colIndex, float64(g))
-					colIndex++
-					matrix.Set(row, colIndex, float64(b))
-					colIndex++
+					buf = append(buf, float64(r), float64(g), float64(b))
 				}
 				if pc.MetaData().HasValue {
-					matrix.Set(row, colIndex, float64(d.Value()))
-					colIndex++
+					buf = append(buf, float64(d.Value()))
 				}
 				return true
 			})
+			matChan <- buf
 		}
 		threadCopy := thread
 		utils.PanicCapturingGo(func() { f(threadCopy) })
 	}
-	return matrix
+	wg.Wait()
+	matData := make([]float64, 0, pc.Size()*pointSize)
+	for i := 0; i < numThreadsPointCloud; i++ {
+		matData = append(matData, <-matChan...)
+	}
+	return mat.NewDense(pc.Size(), pointSize, matData), header
 }
