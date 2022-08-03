@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - arch: [x64, qemu-host, special]
+          - arch: [x64, qemu-host, special2]
             image: ghcr.io/viamrobotics/canon:amd64-cache
             platform: linux/amd64
             build_lint: 'make build lint'
