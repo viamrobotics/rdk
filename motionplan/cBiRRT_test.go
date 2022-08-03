@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"math/rand"
-	"sort"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -65,20 +64,14 @@ func TestSimpleLinearMotion(t *testing.T) {
 	seedMap[near1] = nil
 	target := &configuration{interp}
 
-	keys := make([]float64, 0, len(solutions))
-	for k := range solutions {
-		keys = append(keys, k)
-	}
-	sort.Float64s(keys)
-
 	goalMap := make(map[*configuration]*configuration)
 
-	if len(keys) < nSolutions {
-		nSolutions = len(keys)
+	if len(solutions) < nSolutions {
+		nSolutions = len(solutions)
 	}
 
-	for _, k := range keys[:nSolutions] {
-		goalMap[&configuration{solutions[k]}] = nil
+	for _, solution := range solutions[:nSolutions] {
+		goalMap[&configuration{solution}] = nil
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
@@ -113,32 +106,4 @@ func TestSimpleLinearMotion(t *testing.T) {
 	unsmoothLen := len(inputSteps)
 	finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
-}
-
-func TestNearestNeighbor(t *testing.T) {
-	nm := &neighborManager{nCPU: 2}
-	rrtMap := map[*configuration]*configuration{}
-
-	j := &configuration{[]referenceframe.Input{{0.0}}}
-	for i := 1.0; i < 110.0; i++ {
-		iSol := &configuration{[]referenceframe.Input{{i}}}
-		rrtMap[iSol] = j
-		j = iSol
-	}
-	ctx := context.Background()
-
-	seed := &configuration{[]referenceframe.Input{{23.1}}}
-	// test serial NN
-	nn := nm.nearestNeighbor(ctx, seed, rrtMap)
-	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 23.0)
-
-	for i := 120.0; i < 1100.0; i++ {
-		iSol := &configuration{[]referenceframe.Input{{i}}}
-		rrtMap[iSol] = j
-		j = iSol
-	}
-	seed = &configuration{[]referenceframe.Input{{723.6}}}
-	// test parallel NN
-	nn = nm.nearestNeighbor(ctx, seed, rrtMap)
-	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 724.0)
 }
