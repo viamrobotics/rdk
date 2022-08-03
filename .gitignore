@@ -66,3 +66,6 @@ bin/
 
 # exclude files from `ag` search
 .ignore
+
+# license finder
+lf_logs/
