@@ -28,7 +28,8 @@ func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 		defer wg.Done()
 		var sizeWg sync.WaitGroup
 		sizeWg.Add(numThreadsDmPointCloudAdapter)
-		batchSize := dm.width * dm.height / numThreadsDmPointCloudAdapter
+		// Round up to avoid missing points
+		batchSize := ((dm.width * dm.height) + numThreadsDmPointCloudAdapter - 1) / numThreadsDmPointCloudAdapter
 		for loop := 0; loop < numThreadsDmPointCloudAdapter; loop++ {
 			f := func(loop int) {
 				defer sizeWg.Done()
