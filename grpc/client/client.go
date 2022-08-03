@@ -199,12 +199,12 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 				}
 				reconfigurableNewClient, ok := newClient.(resource.Reconfigurable)
 				if !ok {
-					fmt.Println("reconfigurableNewClient not reconfigurable")
+					rc.logger.Errorw("new client is not reconfigurable")
 					continue
 				}
 				reconfigurableClient, ok := client.(resource.Reconfigurable)
 				if !ok {
-					fmt.Println("reconfigurableClient not reconfigurable")
+					rc.logger.Errorw("original client is not reconfigurable")
 					continue
 				}
 				err = reconfigurableClient.Reconfigure(ctx, reconfigurableNewClient)

@@ -1,0 +1,10 @@
+{
+    "network": {
+      "bind_address": "localhost:8081"
+    },
+    "components":[{
+        "model": "fake",
+        "name": "arm1",
+        "type": "arm"
+    }]
+  }
