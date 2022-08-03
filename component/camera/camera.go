@@ -162,6 +162,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Camera(&reconfigurableCamera{})
 	_ = resource.Reconfigurable(&reconfigurableCamera{})
+	_ = viamutils.ContextCloser(&reconfigurableCamera{})
 )
 
 // FromDependencies is a helper for getting the named camera from a collection of
@@ -250,4 +251,37 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 	}
 	c.actual = actual.actual
 	return nil
+}
+
+// SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.
+func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.ImageSource) (image.Image, *rimage.DepthMap) {
+	wg := sync.WaitGroup{}
+	var col image.Image
+	var dm *rimage.DepthMap
+	// do a parallel request for the color and depth image
+	// get color image
+	wg.Add(1)
+	viamutils.PanicCapturingGo(func() {
+		defer wg.Done()
+		var err error
+		col, _, err = color.Next(ctx)
+		if err != nil {
+			panic(err)
+		}
+	})
+	// get depth image
+	wg.Add(1)
+	viamutils.PanicCapturingGo(func() {
+		defer wg.Done()
+		d, _, err := depth.Next(ctx)
+		if err != nil {
+			panic(err)
+		}
+		dm, err = rimage.ConvertImageToDepthMap(d)
+		if err != nil {
+			panic(err)
+		}
+	})
+	wg.Wait()
+	return col, dm
 }

@@ -25,6 +25,14 @@ service VisionService {
       post: "/viam/api/v1/service/vision/add_detector"
     };
   }
+
+  // GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
+  rpc GetDetectionsFromCamera(GetDetectionsFromCameraRequest) returns (GetDetectionsFromCameraResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/camera_detections"
+    };
+  }
+
   // GetDetections will return a list of detections in the next image given a camera and a detector
   rpc GetDetections(GetDetectionsRequest) returns (GetDetectionsResponse) {
     option (google.api.http) = {
@@ -72,13 +80,31 @@ message AddDetectorRequest {
 message AddDetectorResponse {}
 
 message GetDetectionsRequest {
+  // the image, encoded as bytes
+  bytes image = 1;
+  // the width of the image
+  int64 width = 2;
+  // the height of the image
+  int64 height = 3;
+  // the actual MIME type of image
+  string mime_type = 4;
+  // name of the registered detector to use
+  string detector_name = 5;
+}
+
+message GetDetectionsResponse {
+  // the bounding boxes and labels
+  repeated Detection detections = 1;
+}
+
+message GetDetectionsFromCameraRequest {
   // name of camera source to use as input
   string camera_name = 1;
   // name of the registered detector to use
   string detector_name = 2;
 }
 
-message GetDetectionsResponse {
+message GetDetectionsFromCameraResponse {
   // the bounding boxes and labels
   repeated Detection detections = 1;
 }
