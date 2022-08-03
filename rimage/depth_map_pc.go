@@ -61,20 +61,28 @@ func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 	wg.Wait()
 	cache := pointcloud.NewWithPrealloc(size)
 	return &dmPointCloudAdapter{
-		dm:     newDm,
-		size:   size,
-		p:      p,
-		cache:  cache,
-		cached: false,
+		dm:        newDm,
+		size:      size,
+		p:         p,
+		cache:     cache,
+		cached:    false,
+		cacheLock: &sync.Mutex{},
 	}
 }
 
 type dmPointCloudAdapter struct {
-	dm     *DepthMap
-	p      Projector
-	size   int
-	cache  pointcloud.PointCloud
-	cached bool
+	dm        *DepthMap
+	p         Projector
+	size      int
+	cache     pointcloud.PointCloud
+	cached    bool
+	cacheLock *sync.Mutex
+}
+
+func (dm *dmPointCloudAdapter) safeCacheSet(pt r3.Vector, d pointcloud.Data) error {
+	dm.cacheLock.Lock()
+	defer dm.cacheLock.Unlock()
+	return dm.cache.Set(pt, d)
 }
 
 func (dm *dmPointCloudAdapter) Size() int {
@@ -136,7 +144,7 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Ve
 				panic(err)
 			}
 			if !dm.cached {
-				err = dm.cache.Set(vec, nil)
+				err = dm.safeCacheSet(vec, nil)
 				if err != nil {
 					panic(err)
 				}
