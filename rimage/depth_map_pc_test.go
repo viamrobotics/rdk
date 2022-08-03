@@ -5,15 +5,16 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 )
 
-// Intrinsics for the Intel 515 used to capture rimage/board2.dat.gz
+// Intrinsics for the Intel 515 used to capture rimage/board2.dat.gz.
 func genIntrinsics() *transform.PinholeCameraIntrinsics {
 	return &transform.PinholeCameraIntrinsics{
 		Width:  1024,
@@ -41,25 +42,25 @@ func TestDMPointCloudAdapter(t *testing.T) {
 	test.That(t, adapter.Size(), test.ShouldEqual, 812049)
 
 	// Test Uncached Iterate
-	var x_total_uncached, y_total_uncached, z_total_uncached float64
+	var xTotalUncached, yTotalUncached, zTotalUncached float64
 	adapter.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		x_total_uncached += p.X
-		y_total_uncached += p.Y
-		z_total_uncached += p.Z
+		xTotalUncached += p.X
+		yTotalUncached += p.Y
+		zTotalUncached += p.Z
 		return true
 	})
 
 	// Test Cached Iterate
-	var x_total_cached, y_total_cached, z_total_cached float64
+	var xTotalCached, yTotalCached, zToatlCached float64
 	adapter.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		x_total_cached += p.X
-		y_total_cached += p.Y
-		z_total_cached += p.Z
+		xTotalCached += p.X
+		yTotalCached += p.Y
+		zToatlCached += p.Z
 		return true
 	})
-	test.That(t, x_total_cached, test.ShouldAlmostEqual, x_total_uncached)
-	test.That(t, y_total_cached, test.ShouldAlmostEqual, y_total_uncached)
-	test.That(t, z_total_cached, test.ShouldAlmostEqual, z_total_uncached)
+	test.That(t, xTotalCached, test.ShouldAlmostEqual, xTotalUncached)
+	test.That(t, yTotalCached, test.ShouldAlmostEqual, yTotalUncached)
+	test.That(t, zToatlCached, test.ShouldAlmostEqual, zTotalUncached)
 }
 
 func TestDMPointCloudAdapterRace(t *testing.T) {
