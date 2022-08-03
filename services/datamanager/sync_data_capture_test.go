@@ -13,6 +13,7 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -321,9 +322,22 @@ func TestPartialUpload(t *testing.T) {
 	}
 }
 
-type mockDataSyncServiceServer struct{}
+type mockDataSyncService_UploadServer struct {
+	grpc.ServerStream
+}
 
-func (m mockDataSyncServiceServer) Upload(v1.DataSyncService_UploadServer) error {
+func (m *mockDataSyncService_UploadServer) Send(*v1.UploadResponse) error {
+	return nil
+}
+func (m *mockDataSyncService_UploadServer) Recv() (*v1.UploadRequest, error) {
+	return &v1.UploadRequest{}, nil
+}
+
+type mockDataSyncServiceServer struct {
+	v1.UnimplementedDataSyncServiceServer
+}
+
+func (m mockDataSyncServiceServer) Upload(stream mockDataSyncService_UploadServer) error {
 	return nil
 }
 
@@ -339,4 +353,5 @@ func TestDataCaptureUpload(t *testing.T) {
 		mockDataSyncServiceServer{},
 		v1.RegisterDataSyncServiceHandlerFromEndpoint,
 	)
+
 }
