@@ -292,6 +292,7 @@ func triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64
 		speed = math.Min(1, speed)
 	case input.AbsoluteX:
 		angle = event.Value
+	default:
 	}
 
 	return speed, angle
@@ -307,6 +308,7 @@ func buttonControlEvent(event input.Event, buttons map[input.Control]bool) (floa
 		buttons[event.Control] = true
 	case input.ButtonRelease:
 		buttons[event.Control] = false
+	default:
 	}
 
 	if buttons[input.ButtonNorth] == buttons[input.ButtonSouth] {
@@ -349,6 +351,7 @@ func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64
 		y = -1.0 * event.Value
 	case input.AbsoluteX:
 		x = -1.0 * event.Value
+	default:
 	}
 
 	return scaleThrottle(y), scaleThrottle(x)
@@ -366,6 +369,7 @@ func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vec
 		linear.X = scaleThrottle(event.Value)
 	case input.AbsoluteRY:
 		linear.Y = scaleThrottle(-1.0 * event.Value)
+	default:
 	}
 
 	return linear, angular
