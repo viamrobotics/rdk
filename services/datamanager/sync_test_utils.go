@@ -31,9 +31,13 @@ var (
 // capacity for the metadata message to precede other messages. This simulates partial uploads (cases where client is
 // shut down during upload).
 type mockClient struct {
-	sent        []*v1.UploadRequest
-	cancelIndex int
-	lock        sync.Mutex
+	sent             []*v1.UploadRequest
+	cancelIndex      int
+	sentSinceLastAck int
+	sendAckInterval  int
+	sendAck          bool
+	sendEOF          bool
+	lock             sync.Mutex
 	grpc.ClientStream
 }
 
@@ -46,6 +50,7 @@ func (m *mockClient) Send(req *v1.UploadRequest) error {
 	}
 	m.lock.Unlock()
 	return errors.New("cancel sending of upload request")
+
 }
 
 func (m *mockClient) Recv() (*v1.UploadResponse, error) {
