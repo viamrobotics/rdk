@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"gonum.org/v1/gonum/mat"
 )
 
 func TestPointCloudBasic(t *testing.T) {
@@ -104,4 +105,21 @@ func TestPointCloudCentroid(t *testing.T) {
 	test.That(t, pc.Set(point, data), test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldResemble, 3)
 	test.That(t, CloudCentroid(pc), test.ShouldResemble, r3.Vector{20, 200, 2000})
+}
+
+func TestPointCloudMatrix(t *testing.T) {
+	pc := New()
+
+	p := NewVector(0, 0, 0)
+	d := NewValueData(5)
+
+	test.That(t, pc.Set(p, d), test.ShouldBeNil)
+	p = NewVector(1, 2, 3)
+	d = NewValueData(4)
+	test.That(t, pc.Set(p, d), test.ShouldBeNil)
+
+	refMatrix := mat.NewDense(2, 4, []float64{0, 0, 0, 5, 1, 2, 3, 4})
+	m, h := CloudMatrix(pc)
+	test.That(t, h, test.ShouldResemble, []CloudMatrixCols{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ, CloudMatrixColV})
+	test.That(t, m, test.ShouldResemble, refMatrix)
 }
