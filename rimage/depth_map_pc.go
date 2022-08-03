@@ -3,29 +3,43 @@ package rimage
 import (
 	"errors"
 	"image"
+	"sync"
 
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/utils"
 )
 
 func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
-	pc := &dmPointCloudAdapter{
-		dm: dm.Clone(),
-		p:  p,
-	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var newDm *DepthMap
+	utils.PanicCapturingGo(func() {
+		defer wg.Done()
+		newDm = dm.Clone()
+	})
 
-	for x := 0; x < dm.Width(); x++ {
-		for y := 0; y < dm.Height(); y++ {
-			z := dm.GetDepth(x, y)
-			if z == 0 {
-				continue
+	size := 0
+	utils.PanicCapturingGo(func() {
+		defer wg.Done()
+		for x := 0; x < dm.Width(); x++ {
+			for y := 0; y < dm.Height(); y++ {
+				z := dm.GetDepth(x, y)
+				if z == 0 {
+					continue
+				}
+				size++
 			}
-			pc.size++
 		}
-	}
+	})
 
-	return pc
+	wg.Wait()
+	return &dmPointCloudAdapter{
+		dm:   newDm,
+		size: size,
+		p:    p,
+	}
 }
 
 type dmPointCloudAdapter struct {
