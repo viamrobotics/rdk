@@ -61,6 +61,8 @@ type GPS interface {
 	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
 	ReadAltitude(ctx context.Context) (float64, error)    // The current altitude in meters
 	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in mm per sec
+
+	sensor.Sensor
 	generic.Generic
 }
 
@@ -240,15 +242,10 @@ func (r *reconfigurableGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	return r.actual.ReadSpeed(ctx)
 }
 
-// GetReadings will use the default GPS GetReadings if not provided.
 func (r *reconfigurableGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-
-	if sensor, ok := r.actual.(sensor.Sensor); ok {
-		return sensor.GetReadings(ctx)
-	}
-	return GetReadings(ctx, r.actual)
+	return r.actual.GetReadings(ctx)
 }
 
 func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {

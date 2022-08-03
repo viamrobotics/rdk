@@ -30,7 +30,8 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return &GPS{Name: config.Name}, nil
+			var g gps.LocalGPS = &GPS{Name: config.Name}
+			return g, nil
 		}})
 	registry.RegisterComponent(
 		base.Subtype,
@@ -103,6 +104,13 @@ func (g *GPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.valid, nil
+}
+
+// GetReadings returns the set readings.
+func (g *GPS) GetReadings(ctx context.Context) ([]interface{}, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return gps.GetReadings(ctx, g)
 }
 
 // Do runs an arbitrary command.
