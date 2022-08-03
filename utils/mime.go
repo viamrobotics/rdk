@@ -4,7 +4,7 @@ const (
 	// MimeTypeViamBest is a hint that we should send whatever format is best for the type of image.
 	MimeTypeViamBest = "image/viambest"
 
-	// MimeTypeRawIWD is a row rimage.ImageWithDepth.
+	// MimeTypeRawIWD is a row rimage.imageWithDepth.
 	MimeTypeRawIWD = "image/raw-iwd"
 
 	// MimeTypeRawRGBA is for go's internal image.RGBA.
