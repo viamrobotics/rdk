@@ -28,6 +28,8 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/modulesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/utils"
@@ -36,8 +38,9 @@ import (
 type internalServiceName string
 
 const (
-	webName         internalServiceName = "web"
-	framesystemName internalServiceName = "framesystem"
+	webName          internalServiceName = "web"
+	framesystemName  internalServiceName = "framesystem"
+	modulesystemName internalServiceName = "modulesystem"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
@@ -453,6 +456,7 @@ func newWithResources(
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger, rOpts.webOptions...)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
+	r.internalServices[modulesystemName] = modulesystem.New(ctx, r, logger)
 
 	r.config = &config.Config{}
 
