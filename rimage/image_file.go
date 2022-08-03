@@ -1,8 +1,12 @@
 package rimage
 
 import (
+	"bufio"
+	"bytes"
+	"context"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/jpeg"
 	"image/png"
 	"os"
@@ -11,8 +15,12 @@ import (
 
 	"github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
+	"github.com/xfmoulet/qoi"
+	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+
+	ut "go.viam.com/rdk/utils"
 )
 
 // readImageFromFile extracts the RGB, Z16, or "both" data from an image file.
@@ -21,7 +29,8 @@ import (
 func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	switch {
 	case strings.HasSuffix(path, ".both.gz"):
-		return ReadBothFromFile(path, aligned)
+		img, _, err := ReadBothFromFile(path)
+		return img, err
 	case strings.HasSuffix(path, ".dat.gz"):
 		return ParseDepthMap(path)
 	default:
@@ -40,6 +49,18 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	}
 }
 
+// Temporary function to create an imageWithDepth from both for rimage package. Will be removed soon.
+func newImageWithDepthFromFile(fn string, aligned bool) (image.Image, error) {
+	if strings.HasSuffix(fn, ".both.gz") {
+		img, dm, err := ReadBothFromFile(fn)
+		if err != nil {
+			return nil, err
+		}
+		return &imageWithDepth{img, dm, aligned}, nil
+	}
+	return readImageFromFile(fn, aligned)
+}
+
 // NewImageFromFile returns an image read in from the given file.
 func NewImageFromFile(fn string) (*Image, error) {
 	img, err := readImageFromFile(fn, false) // extracting rgb, alignment doesn't matter
@@ -52,16 +73,17 @@ func NewImageFromFile(fn string) (*Image, error) {
 
 // NewDepthMapFromFile extract the depth map from a Z16 image file or a .both.gz image file.
 func NewDepthMapFromFile(fn string) (*DepthMap, error) {
-	img, err := readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
+	var img image.Image
+	var err error
+	if strings.HasSuffix(fn, ".both.gz") { // temporary fix since .both will be removed
+		_, img, err = ReadBothFromFile(fn)
+	} else {
+		img, err = readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
+	}
 	if err != nil {
 		return nil, err
 	}
-	dm, err := ConvertImageToDepthMap(img)
-	if err != nil {
-		return nil, err
-	}
-
-	return dm, nil
+	return ConvertImageToDepthMap(img)
 }
 
 // WriteImageToFile writes the given image to a file at the supplied path.
@@ -94,7 +116,7 @@ func ConvertImage(img image.Image) *Image {
 		return ii
 	}
 
-	iwd, ok := img.(*ImageWithDepth)
+	iwd, ok := img.(*imageWithDepth)
 	if ok {
 		return iwd.Color
 	}
@@ -125,7 +147,7 @@ func CloneImage(img image.Image) *Image {
 	if ok {
 		return ii.Clone()
 	}
-	iwd, ok := img.(*ImageWithDepth)
+	iwd, ok := img.(*imageWithDepth)
 	if ok {
 		return iwd.Clone().Color
 	}
@@ -154,6 +176,76 @@ func SaveImage(pic image.Image, loc string) error {
 		return errors.Wrapf(err, "the 'image' will not encode")
 	}
 	return nil
+}
+
+// DecodeImage takes an image buffer and decodes it, using the mimeType
+// and the dimensions, to return the image.
+func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, height int) (image.Image, error) {
+	_, span := trace.StartSpan(ctx, "rimage::DecodeImage::"+mimeType)
+	defer span.End()
+
+	switch mimeType {
+	case ut.MimeTypeRawRGBA:
+		img := image.NewNRGBA(image.Rect(0, 0, width, height))
+		img.Pix = imgBytes
+		return img, nil
+	case ut.MimeTypeRawDepth:
+		depth, err := ReadDepthMap(bufio.NewReader(bytes.NewReader(imgBytes)))
+		return depth, err
+	case ut.MimeTypeJPEG:
+		img, err := jpeg.Decode(bytes.NewReader(imgBytes))
+		return img, err
+	case ut.MimeTypePNG:
+		img, err := png.Decode(bytes.NewReader(imgBytes))
+		return img, err
+	case ut.MimeTypeQOI:
+		img, err := qoi.Decode(bytes.NewReader(imgBytes))
+		return img, err
+	default:
+		return nil, errors.Errorf("do not how to decode MimeType %s", mimeType)
+	}
+}
+
+// EncodeImage takes an image and mimeType as input and encodes it into a
+// slice of bytes (buffer) and returns the bytes.
+func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte, error) {
+	_, span := trace.StartSpan(ctx, "rimage::EncodeImage::"+mimeType)
+	defer span.End()
+
+	var buf bytes.Buffer
+	bounds := img.Bounds()
+	switch mimeType {
+	case ut.MimeTypeRawRGBA:
+		imgCopy := image.NewRGBA(bounds)
+		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
+		buf.Write(imgCopy.Pix)
+	case ut.MimeTypeRawDepth:
+		// TODO(DATA-237) remove this data type
+		dm, ok := img.(*DepthMap)
+		if !ok {
+			return nil, ut.NewUnexpectedTypeError(dm, img)
+		}
+		_, err := dm.WriteTo(&buf)
+		if err != nil {
+			return nil, err
+		}
+	case ut.MimeTypePNG:
+		if err := png.Encode(&buf, img); err != nil {
+			return nil, err
+		}
+	case ut.MimeTypeJPEG:
+		if err := jpeg.Encode(&buf, img, nil); err != nil {
+			return nil, err
+		}
+	case ut.MimeTypeQOI:
+		if err := qoi.Encode(&buf, img); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.Errorf("do not know how to encode %q", mimeType)
+	}
+
+	return buf.Bytes(), nil
 }
 
 func fastConvertNRGBA(dst *Image, src *image.NRGBA) {

@@ -335,7 +335,12 @@ func newWithResources(
 	cfg *config.Config,
 	resources map[resource.Name]interface{},
 	logger golog.Logger,
+	opts ...Option,
 ) (robot.LocalRobot, error) {
+	var rOpts options
+	for _, opt := range opts {
+		opt.apply(&rOpts)
+	}
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
 		manager: newResourceManager(
@@ -428,7 +433,7 @@ func newWithResources(
 	}, r.activeBackgroundWorkers.Done)
 
 	r.internalServices = make(map[internalServiceName]interface{})
-	r.internalServices[webName] = web.New(ctx, r, logger)
+	r.internalServices[webName] = web.New(ctx, r, logger, rOpts.webOptions...)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 
 	r.config = &config.Config{}
@@ -448,8 +453,8 @@ func newWithResources(
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
-	return newWithResources(ctx, cfg, nil, logger)
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
+	return newWithResources(ctx, cfg, nil, logger, opts...)
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
@@ -587,28 +592,33 @@ func (r *localRobot) TransformPose(
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger) (robot.LocalRobot, error) {
+func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
 	if err != nil {
 		logger.Fatal("cannot read config")
 		return nil, err
 	}
-	return RobotFromConfig(ctx, cfg, logger)
+	return RobotFromConfig(ctx, cfg, logger, opts...)
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
 	tlsConfig := config.NewTLSConfig(cfg)
 	processedCfg, err := config.ProcessConfig(cfg, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
-	return New(ctx, processedCfg, logger)
+	return New(ctx, processedCfg, logger, opts...)
 }
 
 // RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
 // to support more streamlined reconfiguration functionality.
-func RobotFromResources(ctx context.Context, resources map[resource.Name]interface{}, logger golog.Logger) (robot.LocalRobot, error) {
+func RobotFromResources(
+	ctx context.Context,
+	resources map[resource.Name]interface{},
+	logger golog.Logger,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	return newWithResources(ctx, &config.Config{}, resources, logger)
 }
 
