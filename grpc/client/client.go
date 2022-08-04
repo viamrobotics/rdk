@@ -160,6 +160,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	}
 	conn, err := grpc.Dial(ctx, rc.address, rc.logger, rc.dialOptions...)
 	if err != nil {
+		fmt.Println("failed to dial")
 		return err
 	}
 
@@ -228,7 +229,9 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 
 	fmt.Println("connected is now true")
 	// now that connected is true, we should call resourceByName and do something to reconnect
+	//fmt.Println(<-rc.changeChan)
 	if rc.changeChan != nil {
+		fmt.Println("make channel true")
 		rc.changeChan <- true
 	}
 	if rc.notifyParent != nil {

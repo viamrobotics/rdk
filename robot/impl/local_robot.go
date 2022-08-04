@@ -206,6 +206,7 @@ func (r *localRobot) Logger() golog.Logger {
 
 // StartWeb starts the web server, will return an error if server is already up.
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
+	fmt.Println("start web was called")
 	webSvc, err := r.webService()
 	if err != nil {
 		return err
