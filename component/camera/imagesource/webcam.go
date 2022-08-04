@@ -88,15 +88,15 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		props, err := getProperties(d)
 		if len(props) == 0 {
-			rlog.Logger.Warnw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
+			rlog.Logger.Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		} else if err != nil {
-			rlog.Logger.Warnw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
+			rlog.Logger.Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
 			continue
 		}
 
 		if d.Status() == driver.StateRunning {
-			rlog.Logger.Warnw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
+			rlog.Logger.Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		}
 
