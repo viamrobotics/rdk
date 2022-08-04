@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/gps/v1"

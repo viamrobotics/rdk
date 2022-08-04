@@ -9,7 +9,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 )
 
