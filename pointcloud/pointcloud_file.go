@@ -482,19 +482,23 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (pc).(PointCloud), nil
+	return pc, nil
 }
 
 // ReadPCDToKDTree reads a PCD file into a KD Tree pointcloud.
 func ReadPCDToKDTree(inRaw io.Reader) (*KDTree, error) {
-	kd, err := readPCDHelper(inRaw, KDTreeType)
+	cloud, err := readPCDHelper(inRaw, KDTreeType)
 	if err != nil {
 		return nil, err
 	}
-	return (kd).(*KDTree), nil
+	kd, ok := (cloud).(*KDTree)
+	if !ok {
+		return nil, fmt.Errorf("pointcloud %v is not a KD Tree", cloud)
+	}
+	return kd, nil
 }
 
-func readPCDHelper(inRaw io.Reader, pctype PCType) (interface{}, error) {
+func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 	header := pcdHeader{}
 	in := bufio.NewReader(inRaw)
 	var line string
@@ -538,7 +542,7 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (interface{}, error) {
 	}
 }
 
-func readPCDAscii(in *bufio.Reader, header pcdHeader, pc PointCloud) (interface{}, error) {
+func readPCDAscii(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud, error) {
 	for i := 0; i < int(header.points); i++ {
 		line, err := in.ReadString('\n')
 		if err != nil {
@@ -568,7 +572,7 @@ func readPCDAscii(in *bufio.Reader, header pcdHeader, pc PointCloud) (interface{
 	return pc, nil
 }
 
-func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (interface{}, error) {
+func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud, error) {
 	var err error
 	for i := 0; i < int(header.points); i++ {
 		pointBuf := make([]float64, 3)
