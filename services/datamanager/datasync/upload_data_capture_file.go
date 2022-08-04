@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"go.viam.com/rdk/services/datamanager/datacapture"
-
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient,
