@@ -11,11 +11,11 @@ import (
 // Encoder keeps track of a motor position.
 type Encoder interface {
 	// GetPosition returns the current position in terms of ticks
-	GetPosition(ctx context.Context) (int64, error)
+	GetPosition(ctx context.Context, extra map[string]interface{}) (int64, error)
 
 	// ResetZeroPosition sets the current position of the motor (adjusted by a given offset)
 	// to be its new zero position
-	ResetZeroPosition(ctx context.Context, offset int64) error
+	ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error
 
 	// Start starts a background thread to run the encoder, if there is none needed this is a no-op
 	Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup, onStart func())
@@ -147,13 +147,13 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 }
 
 // GetPosition returns the current position.
-func (e *HallEncoder) GetPosition(ctx context.Context) (int64, error) {
+func (e *HallEncoder) GetPosition(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
 // ResetZeroPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *HallEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
+func (e *HallEncoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
@@ -226,13 +226,13 @@ func (e *SingleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers
 }
 
 // GetPosition returns the current position.
-func (e *SingleEncoder) GetPosition(ctx context.Context) (int64, error) {
+func (e *SingleEncoder) GetPosition(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
 // ResetZeroPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *SingleEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
+func (e *SingleEncoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }

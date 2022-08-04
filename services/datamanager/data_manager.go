@@ -211,7 +211,10 @@ type componentMethodMetadata struct {
 
 // Get time.Duration from hz.
 func getDurationFromHz(captureFrequencyHz float32) time.Duration {
-	return time.Second / time.Duration(captureFrequencyHz)
+	if captureFrequencyHz == 0 {
+		return time.Duration(0)
+	}
+	return time.Duration((float32(time.Second) / captureFrequencyHz))
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
