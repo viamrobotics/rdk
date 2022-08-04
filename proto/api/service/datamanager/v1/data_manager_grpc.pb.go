@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DataManagerServiceClient interface {
-	// Sync performs a datasync of the non-synced files for the specified service name,
+	// Sync performs a sync of the non-synced files for the specified service name,
 	Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (*SyncResponse, error)
 }
 
@@ -47,7 +47,7 @@ func (c *dataManagerServiceClient) Sync(ctx context.Context, in *SyncRequest, op
 // All implementations must embed UnimplementedDataManagerServiceServer
 // for forward compatibility
 type DataManagerServiceServer interface {
-	// Sync performs a datasync of the non-synced files for the specified service name,
+	// Sync performs a sync of the non-synced files for the specified service name,
 	Sync(context.Context, *SyncRequest) (*SyncResponse, error)
 	mustEmbedUnimplementedDataManagerServiceServer()
 }
