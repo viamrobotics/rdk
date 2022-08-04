@@ -145,7 +145,7 @@ func (m *gpioStepper) Validate() error {
 }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
-func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64) error {
+func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) <= .0001 {
 		m.stop()
 		return nil
@@ -220,7 +220,7 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
-func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -249,7 +249,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm float64, revolution
 	rpm = math.Abs(rpm) * float64(d)
 
 	if math.Abs(rpm) < 0.1 {
-		return m.Stop(ctx)
+		return m.Stop(ctx, nil)
 	}
 
 	m.lock.Lock()
@@ -271,14 +271,14 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm float64, revolution
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
-func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
-	curPos, err := m.GetPosition(ctx)
+func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+	curPos, err := m.GetPosition(ctx, extra)
 	if err != nil {
 		return err
 	}
 	moveDistance := positionRevolutions - curPos
 
-	return m.GoFor(ctx, math.Abs(rpm), moveDistance)
+	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
 
 // GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
@@ -289,11 +289,11 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	if err := m.GoFor(ctx, rpm, 0); err != nil {
+	if err := m.GoFor(ctx, rpm, 0, nil); err != nil {
 		return err
 	}
 	defer func() {
-		if err := m.Stop(ctx); err != nil {
+		if err := m.Stop(ctx, nil); err != nil {
 			m.logger.Errorw("failed to turn off motor", "error", err)
 		}
 	}()
@@ -308,7 +308,7 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
-func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.stepPosition = int64(offset * float64(m.stepsPerRotation))
@@ -318,14 +318,14 @@ func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64) err
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *gpioStepper) GetPosition(ctx context.Context) (float64, error) {
+func (m *gpioStepper) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil
 }
 
 // GetFeatures returns the status of whether the motor supports certain optional features.
-func (m *gpioStepper) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+func (m *gpioStepper) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
@@ -339,7 +339,7 @@ func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *gpioStepper) Stop(ctx context.Context) error {
+func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stop()
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -354,7 +354,7 @@ func (m *gpioStepper) stop() {
 }
 
 // IsPowered returns whether or not the motor is currently on.
-func (m *gpioStepper) IsPowered(ctx context.Context) (bool, error) {
+func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	return m.IsMoving(ctx)
 }
 
