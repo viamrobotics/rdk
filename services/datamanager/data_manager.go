@@ -71,6 +71,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableDataManager{})
 	_ = resource.Reconfigurable(&reconfigurableDataManager{})
+	_ = goutils.ContextCloser(&reconfigurableDataManager{})
 )
 
 // SubtypeName is the name of the type of service.
@@ -188,8 +189,8 @@ func (svc *dataManagerService) closeCollectors() {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			currCollector.Collector.Close()
-			wg.Done()
 		}()
 		delete(svc.collectors, md)
 	}
@@ -210,7 +211,10 @@ type componentMethodMetadata struct {
 
 // Get time.Duration from hz.
 func getDurationFromHz(captureFrequencyHz float32) time.Duration {
-	return time.Second / time.Duration(captureFrequencyHz)
+	if captureFrequencyHz == 0 {
+		return time.Duration(0)
+	}
+	return time.Duration((float32(time.Second) / captureFrequencyHz))
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -317,11 +321,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
-	go func() {
-		if err := collector.Collect(); err != nil {
-			svc.logger.Error(err.Error())
-		}
-	}()
+	collector.Collect()
 
 	return &componentMetadata, nil
 }
