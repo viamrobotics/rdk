@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
@@ -216,98 +215,53 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, r, test.ShouldEqual, -60.0)
 	})
 
-	t.Run("setPowerMath", func(t *testing.T) {
-		l, r := base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{})
-		test.That(t, l, test.ShouldEqual, 1)
-		test.That(t, r, test.ShouldEqual, 1)
-
-		l, r = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{})
-		test.That(t, l, test.ShouldEqual, -1)
-		test.That(t, r, test.ShouldEqual, -1)
-
-		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: 1})
-		test.That(t, l, test.ShouldEqual, -1)
-		test.That(t, r, test.ShouldEqual, 1)
-
-		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: -1})
-		test.That(t, l, test.ShouldEqual, 1)
-		test.That(t, r, test.ShouldEqual, -1)
-
-		l, r = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 1})
-		test.That(t, l, test.ShouldAlmostEqual, 0, .001)
-		test.That(t, r, test.ShouldEqual, 1)
-	})
-
-	t.Run("angular turning", func(t *testing.T) {
-		// -----------------------------------------------------
-		//
-		// IMPORTED FROM: web/frontend/src/rc/control_helpers.js
-		//
-		// This is what we are passing in from app from the WASD
-		// controls.
-		//
-		// -----------------------------------------------------
-		//
-		// if (keysPressed.forward) {
-		//     linear = 1;
-		// } else if (keysPressed.backward) {
-		//     linear = -1;
-		// }
-		//
-		// if (keysPressed.right) {
-		//     angular = -1;
-		// } else if (keysPressed.left) {
-		//     angular = 1;
-		// }
-		//
-		// -----------------------------------------------------
-
+	t.Run("differentialDrive", func(t *testing.T) {
 		var fwdL, fwdR, revL, revR float64
 
 		// Go straight (↑)
-		t.Logf("\nGo straight (↑)")
-		fwdL, fwdR = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 0})
+		t.Logf("Go straight (↑)")
+		fwdL, fwdR = base.differentialDrive(1, 0)
 		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
 		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(fwdR))
 
 		// Go forward-left (↰)
-		t.Logf("\nGo forward-left (↰)")
-		fwdL, fwdR = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 1})
+		t.Logf("Go forward-left (↰)")
+		fwdL, fwdR = base.differentialDrive(1, 1)
 		test.That(t, fwdL, test.ShouldBeGreaterThanOrEqualTo, 0)
 		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldBeLessThan, math.Abs(fwdR))
 
 		// Go reverse-left (↲)
-		t.Logf("\nGo reverse-left (↲)")
-		revL, revR = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{Z: 1})
+		t.Logf("Go reverse-left (↲)")
+		revL, revR = base.differentialDrive(-1, 1)
 		test.That(t, revL, test.ShouldBeLessThanOrEqualTo, 0)
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeLessThan, math.Abs(revR))
 
 		// Go forward-right (↱)
-		t.Logf("\nGo forward-right (↱)")
-		fwdL, fwdR = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: -1})
+		t.Logf("Go forward-right (↱)")
+		fwdL, fwdR = base.differentialDrive(1, -1)
 		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
 		test.That(t, fwdR, test.ShouldBeGreaterThanOrEqualTo, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldBeGreaterThan, math.Abs(revL))
 
 		// Go reverse-right (↳)
-		t.Logf("\nGo reverse-right (↳)")
-		revL, revR = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{Z: -1})
+		t.Logf("Go reverse-right (↳)")
+		revL, revR = base.differentialDrive(-1, -1)
 		test.That(t, revL, test.ShouldBeLessThan, 0)
 		test.That(t, revR, test.ShouldBeLessThanOrEqualTo, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
 
 		// Test spin left (↺)
-		t.Logf("\nTest spin left (↺)")
-		spinL, spinR := base.setPowerMath(r3.Vector{Y: 0}, r3.Vector{Z: 1})
+		t.Logf("Test spin left (↺)")
+		spinL, spinR := base.differentialDrive(0, 1)
 		test.That(t, spinL, test.ShouldBeLessThanOrEqualTo, 0)
 		test.That(t, spinR, test.ShouldBeGreaterThan, 0)
 
 		// Test spin right (↻)
-		t.Logf("\nTest spin right (↻)")
-		spinL, spinR = base.setPowerMath(r3.Vector{Y: 0}, r3.Vector{Z: -1})
+		t.Logf("Test spin right (↻)")
+		spinL, spinR = base.differentialDrive(0, -1)
 		test.That(t, spinL, test.ShouldBeGreaterThan, 0)
 		test.That(t, spinR, test.ShouldBeLessThanOrEqualTo, 0)
 	})
