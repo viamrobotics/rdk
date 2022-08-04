@@ -460,6 +460,10 @@ func (m *mockLocal) ReadValid(ctx context.Context) (bool, error) {
 	return valid, nil
 }
 
+func (m *mockLocal) GetReadings(ctx context.Context) ([]interface{}, error) {
+	return gps.GetReadings(ctx, m)
+}
+
 func (m *mockLocal) Close() { m.reconfCount++ }
 
 func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
