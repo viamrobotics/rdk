@@ -63,6 +63,7 @@ type Sensor interface {
 var (
 	_ = Sensor(&reconfigurableSensor{})
 	_ = resource.Reconfigurable(&reconfigurableSensor{})
+	_ = viamutils.ContextCloser(&reconfigurableSensor{})
 )
 
 // FromRobot is a helper for getting the named Sensor from the given Robot.
