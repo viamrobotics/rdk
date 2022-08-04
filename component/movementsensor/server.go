@@ -69,4 +69,55 @@ func (s *subtypeServer) GetLinearVelocity(
 	}, nil
 }
 
+func (s *subtypeServer) GetAngularVelocity(
+	ctx context.Context,
+	req *pb.GetAngularVelocityRequest,
+) (*pb.GetAngularVelocityResponse, error) {
+	msDevice, err := s.getMovementSensor(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	vel, err := msDevice.GetAngularVelocity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetAngularVelocityResponse{
+		AngularVelocity: protoutils.ConvertVectorR3ToProto(vel),
+	}, nil
+}
+
+func (s *subtypeServer) GetCompassHeading(
+	ctx context.Context,
+	req *pb.GetCompassHeadingRequest,
+) (*pb.GetCompassHeadingResponse, error) {
+	msDevice, err := s.getMovementSensor(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	vel, err := msDevice.GetCompassHeading(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetCompassHeadingResponse{
+		Value: vel,
+	}, nil
+}
+
+func (s *subtypeServer) GetOrientation(
+	ctx context.Context,
+	req *pb.GetOrientationRequest,
+) (*pb.GetOrientationResponse, error) {
+	msDevice, err := s.getMovementSensor(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	vel, err := msDevice.GetOrientation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetOrientationResponse{
+		Orientation: protoutils.ConvertVectorR3ToProto(vel),
+	}, nil
+}
+
 

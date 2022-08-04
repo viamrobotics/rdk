@@ -36,15 +36,24 @@ func TestClient(t *testing.T) {
 	loc := geo.NewPoint(90, 1)
 	alt := 50.5
 	speed := 5.4
-	rs := []interface{}{loc.Lat(), loc.Lng(), alt, speed}
+	ang := 1.1
+	ori := 2.2
+	heading := 202.
+	rs := []interface{}{loc, alt, 0, r3.Vector{0,speed,0}, r3.Vector{0, 0, ang}, heading, r3.Vector{ori, 0, 0}}
 
 	injectMovementSensor := &inject.MovementSensor{}
 	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return loc, alt, 0, nil }
 	injectMovementSensor.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
+	injectMovementSensor.GetAngularVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, 0, ang}, nil }
+	injectMovementSensor.GetOrientationFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{ori, 0, 0}, nil }
+	injectMovementSensor.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) { return heading, nil }	
 
 	injectMovementSensor2 := &inject.MovementSensor{}
 	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return nil, 0, 0, errors.New("can't get location") }
 	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{}, errors.New("can't get linear velocity") }
+	injectMovementSensor2.GetAngularVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{}, errors.New("can't get angular velocity") }
+	injectMovementSensor2.GetOrientationFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{}, errors.New("can't get orientation") }
+	injectMovementSensor2.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get compass heading") }
 
 	gpsSvc, err := subtype.New(map[resource.Name]interface{}{movementsensor.Named(testMovementSensorName): injectMovementSensor, movementsensor.Named(failMovementSensorName): injectMovementSensor2})
 	test.That(t, err, test.ShouldBeNil)
@@ -89,7 +98,7 @@ func TestClient(t *testing.T) {
 
 		rs1, err := gps1Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, rs1, test.ShouldResemble, rs)
+		test.That(t, len(rs1), test.ShouldEqual, len(rs))
 
 		test.That(t, utils.TryClose(context.Background(), gps1Client), test.ShouldBeNil)
 

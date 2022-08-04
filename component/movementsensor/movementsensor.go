@@ -67,7 +67,6 @@ type MovementSensor interface {
 	GetAngularVelocity(ctx context.Context) (r3.Vector, error)
 	GetCompassHeading(ctx context.Context) (float64, error)
 	GetOrientation(ctx context.Context)  (r3.Vector, error)
-
 	
 	generic.Generic
 	sensor.Sensor
