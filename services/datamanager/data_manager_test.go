@@ -310,7 +310,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	dmCfg.AdditionalSyncPaths = []string{td}
 
 	// Initialize the data manager and update it with our config. The call to Update(ctx, conf) should create the
-	// arbitrary datasync paths directory it in the file system.
+	// arbitrary sync paths directory it in the file system.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
@@ -346,7 +346,7 @@ func populateAdditionalSyncPaths() ([]string, int, error) {
 			// Make the dirs that will contain two file.
 			for i := 0; i < 2; i++ {
 				// Generate data that will be in a temp file.
-				fileData := []byte("This is file data. It will be stored in a directory included in the user's specified additional datasync paths. Hopefully it is uploaded from the robot to the cloud!")
+				fileData := []byte("This is file data. It will be stored in a directory included in the user's specified additional sync paths. Hopefully it is uploaded from the robot to the cloud!")
 
 				// Create arbitrary file that will be in the temp dir generated above.
 				tf, err := ioutil.TempFile(td, "arbitrary_file_")
@@ -447,7 +447,7 @@ func TestScheduledSync(t *testing.T) {
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
-	// Use config with 250ms datasync interval.
+	// Use config with 250ms sync interval.
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
@@ -480,7 +480,7 @@ func TestScheduledSync(t *testing.T) {
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms (more than two iterations of syncing)
-	// for the additional_sync_paths files to datasync AND for TWO data capture files to datasync.
+	// for the additional_sync_paths files to sync AND for TWO data capture files to sync.
 	time.Sleep(time.Millisecond * 600)
 	_ = dmsvc.Close(context.TODO())
 
@@ -636,7 +636,7 @@ func TestSyncDisabled(t *testing.T) {
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
 	time.Sleep(time.Millisecond * 150)
 
-	// Simulate disabling datasync.
+	// Simulate disabling sync.
 	dmCfg.ScheduledSyncDisabled = true
 	dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -644,12 +644,12 @@ func TestSyncDisabled(t *testing.T) {
 	// Validate nothing has been synced yet.
 	test.That(t, len(uploaded), test.ShouldEqual, 0)
 
-	// Re-enable datasync.
+	// Re-enable sync.
 	dmCfg.ScheduledSyncDisabled = false
 	dmsvc.Update(context.Background(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms and ensure three files were uploaded:
-	// one from file immediately uploaded when datasync was re-enabled and two after.
+	// one from file immediately uploaded when sync was re-enabled and two after.
 	time.Sleep(time.Millisecond * 600)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
