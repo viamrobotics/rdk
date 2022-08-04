@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/protoutils"
 )
 
 type subtypeServer struct {
@@ -48,6 +49,23 @@ func (s *subtypeServer) GetPosition(
 		Coordinate: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
 		AltitudeMm: float32(altitide),
 		AccuracyMm: float32(accuracy),
+	}, nil
+}
+
+func (s *subtypeServer) GetLinearVelocity(
+	ctx context.Context,
+	req *pb.GetLinearVelocityRequest,
+) (*pb.GetLinearVelocityResponse, error) {
+	msDevice, err := s.getMovementSensor(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	vel, err := msDevice.GetLinearVelocity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetLinearVelocityResponse{
+		LinearVelocity: protoutils.ConvertVectorR3ToProto(vel),
 	}, nil
 }
 
