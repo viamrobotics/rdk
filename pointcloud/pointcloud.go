@@ -145,6 +145,9 @@ const (
 )
 
 func CloudMatrix(pc PointCloud) (*mat.Dense, []CloudMatrixCols) {
+	if pc.Size() == 0 {
+		return nil, nil
+	}
 	header := []CloudMatrixCols{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ}
 	pointSize := 3 // x, y, z
 	if pc.MetaData().HasColor {

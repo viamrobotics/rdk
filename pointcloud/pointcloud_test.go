@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"image/color"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -110,16 +111,52 @@ func TestPointCloudCentroid(t *testing.T) {
 func TestPointCloudMatrix(t *testing.T) {
 	pc := New()
 
-	p := NewVector(0, 0, 0)
-	d := NewValueData(5)
+	// Empty Cloud
+	m, h := CloudMatrix(pc)
+	test.That(t, h, test.ShouldBeNil)
+	test.That(t, m, test.ShouldBeNil)
 
-	test.That(t, pc.Set(p, d), test.ShouldBeNil)
+	// Bare Points
+	p := NewVector(1, 2, 3)
+	test.That(t, pc.Set(p, nil), test.ShouldBeNil)
+	m, h = CloudMatrix(pc)
+	test.That(t, h, test.ShouldResemble, []CloudMatrixCols{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ})
+	test.That(t, m, test.ShouldResemble, mat.NewDense(1, 3, []float64{1, 2, 3}))
+
+	// Points with Value (Multiple Points)
+	pc = New()
 	p = NewVector(1, 2, 3)
-	d = NewValueData(4)
+	d := NewValueData(4)
+	test.That(t, pc.Set(p, d), test.ShouldBeNil)
+	p = NewVector(0, 0, 0)
+	d = NewValueData(5)
+
 	test.That(t, pc.Set(p, d), test.ShouldBeNil)
 
 	refMatrix := mat.NewDense(2, 4, []float64{0, 0, 0, 5, 1, 2, 3, 4})
-	m, h := CloudMatrix(pc)
+	refMatrix2 := mat.NewDense(2, 4, []float64{1, 2, 3, 4, 0, 0, 0, 5})
+	m, h = CloudMatrix(pc)
 	test.That(t, h, test.ShouldResemble, []CloudMatrixCols{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ, CloudMatrixColV})
-	test.That(t, m, test.ShouldResemble, refMatrix)
+	test.That(t, m, test.ShouldBeIn, refMatrix, refMatrix2) // This is not a great test format, but it works.
+
+	// Test with Color
+	pc = New()
+	p = NewVector(1, 2, 3)
+	d = NewColoredData(color.NRGBA{123, 45, 67, 255})
+	test.That(t, pc.Set(p, d), test.ShouldBeNil)
+
+	mc, hc := CloudMatrix(pc)
+	test.That(t, hc, test.ShouldResemble, []CloudMatrixCols{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ, CloudMatrixColR, CloudMatrixColG, CloudMatrixColB})
+	test.That(t, mc, test.ShouldResemble, mat.NewDense(1, 6, []float64{1, 2, 3, 123, 45, 67}))
+
+	// Test with Color and Value
+	pc = New()
+	p = NewVector(1, 2, 3)
+	d = NewColoredData(color.NRGBA{123, 45, 67, 255})
+	d.SetValue(5)
+	test.That(t, pc.Set(p, d), test.ShouldBeNil)
+
+	mcv, hcv := CloudMatrix(pc)
+	test.That(t, hcv, test.ShouldResemble, []CloudMatrixCols{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ, CloudMatrixColR, CloudMatrixColG, CloudMatrixColB, CloudMatrixColV})
+	test.That(t, mcv, test.ShouldResemble, mat.NewDense(1, 7, []float64{1, 2, 3, 123, 45, 67, 5}))
 }
