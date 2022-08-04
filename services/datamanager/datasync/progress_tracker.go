@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var viamProgressDotDir = filepath.Join(os.Getenv("HOME"), "progress", ".viam")
+var viamProgressDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "progress")
 
 type progressTracker struct {
 	lock        *sync.Mutex
