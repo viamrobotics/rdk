@@ -28,58 +28,34 @@ func (m method) String() string {
 
 // TODO: add tests for this file.
 
-func newReadLocationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-	gps, err := assertGPS(resource)
-	if err != nil {
-		return nil, err
-	}
-
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gps.ReadLocation(ctx)
-		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, readLocation.String(), err)
-		}
-		return v, nil
-	})
-	return data.NewCollector(cFunc, params)
-}
-
-func newReadAltitudeCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-	gps, err := assertGPS(resource)
-	if err != nil {
-		return nil, err
-	}
-
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gps.ReadAltitude(ctx)
-		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, readAltitude.String(), err)
-		}
-		return v, nil
-	})
-	return data.NewCollector(cFunc, params)
-}
-
-func newReadSpeedCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-	gps, err := assertGPS(resource)
-	if err != nil {
-		return nil, err
-	}
-
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gps.ReadSpeed(ctx)
-		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, readSpeed.String(), err)
-		}
-		return v, nil
-	})
-	return data.NewCollector(cFunc, params)
-}
-
-func assertGPS(resource interface{}) (GPS, error) {
-	gps, ok := resource.(GPS)
+func assertMovementSensor(resource interface{}) (MovementSensor, error) {
+	ms, ok := resource.(MovementSensor)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)
 	}
-	return gps, nil
+	return ms, nil
+}
+
+type lowLevelCollector func(ctx context.Context, ms MovementSensor) (interface{}, error)
+
+func registerCollector(name string, f lowLevelCollector) {
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: name,
+	}, func (resource interface{}, params data.CollectorParams) (data.Collector, error) {
+		ms, err := assertMovementSensor(resource)
+		if err != nil {
+			return nil, err
+		}
+		
+		cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+			v, err := f(ctx, ms)
+			if err != nil {
+				return nil, data.FailedToReadErr(params.ComponentName, name, err)
+			}
+			return v, nil
+		})
+		return data.NewCollector(cFunc, params)
+	},
+	)
 }

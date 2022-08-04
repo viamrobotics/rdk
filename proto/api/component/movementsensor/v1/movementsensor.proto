@@ -87,11 +87,7 @@ message GetPositionRequest {
 }
 
 message GetPositionResponse {
-  // X, Y, Z absolute positions in the world.
-  // X is a positive or negative float. In the case //where X reports Latitude, it is limited to values //between  90 and -90.
-  // Y is a positive or negative float. In the case //where Y reports Longitude, it is limited to values //between 180 and -180
-  // Z is a positive or negative float. In the case    //where Z reports altitude, negative numbers are //below sea level and positive numbers are above sea //level. For hardware that does not report altitude, //the last value always will be 0
-  common.v1.Vector3 coordinates = 1;
-
-  float accuracy_mm = 2;
+  common.v1.GeoPoint coordinate = 1;
+  float altitude_mm = 2;
+  float accuracy_mm = 3;
 }

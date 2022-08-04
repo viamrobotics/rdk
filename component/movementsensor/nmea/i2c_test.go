@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )

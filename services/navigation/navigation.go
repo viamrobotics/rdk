@@ -17,7 +17,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/navigation/v1"
 	"go.viam.com/rdk/registry"

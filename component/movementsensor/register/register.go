@@ -3,8 +3,8 @@ package register
 
 import (
 	// for GPSs.
-	_ "go.viam.com/rdk/component/gps/fake"
-	_ "go.viam.com/rdk/component/gps/merge"
-	_ "go.viam.com/rdk/component/gps/nmea"
-	_ "go.viam.com/rdk/component/gps/rtk"
+	_ "go.viam.com/rdk/component/movementsensor/fake"
+	_ "go.viam.com/rdk/component/movementsensor/merge"
+	_ "go.viam.com/rdk/component/movementsensor/nmea"
+	_ "go.viam.com/rdk/component/movementsensor/rtk"
 )
