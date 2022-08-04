@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/golang/geo/r3"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pkg/errors"
@@ -226,4 +227,12 @@ func marshalSlice(data interface{}) ([]interface{}, error) {
 		newList = append(newList, data)
 	}
 	return newList, nil
+}
+
+// ConvertVectorProtoToR3
+func ConvertVectorProtoToR3(v *commonpb.Vector3) r3.Vector {
+	if v == nil {
+		return r3.Vector{}
+	}
+	return r3.Vector{X: v.X, Y: v.Y, Z: v.Z}
 }

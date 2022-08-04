@@ -1,4 +1,3 @@
-// Package gps contains a gRPC based GPS service subtypeServer.
 package movementsensor
 
 import (
@@ -7,81 +6,49 @@ import (
 	"github.com/pkg/errors"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/gps/v1"
+	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
 	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the GPSService from gps.proto.
 type subtypeServer struct {
-	pb.UnimplementedGPSServiceServer
+	pb.UnimplementedMovementSensorServiceServer
 	s subtype.Service
 }
 
-// NewServer constructs an gps gRPC service subtypeServer.
-func NewServer(s subtype.Service) pb.GPSServiceServer {
+// NewServer constructs an MovementSensor gRPC service subtypeServer.
+func NewServer(s subtype.Service) pb.MovementSensorServiceServer {
 	return &subtypeServer{s: s}
 }
 
-// getGPS returns the gps specified, nil if not.
-func (s *subtypeServer) getGPS(name string) (GPS, error) {
+func (s *subtypeServer) getMovementSensor(name string) (MovementSensor, error) {
 	resource := s.s.Resource(name)
 	if resource == nil {
-		return nil, errors.Errorf("no GPS with name (%s)", name)
+		return nil, errors.Errorf("no MovementSensor with name (%s)", name)
 	}
-	gps, ok := resource.(GPS)
+	ms, ok := resource.(MovementSensor)
 	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a GPS", name)
+		return nil, errors.Errorf("resource with name (%s) is not a MovementSensor", name)
 	}
-	return gps, nil
+	return ms, nil
 }
 
-// ReadLocation returns the most recent location from the given GPS.
-func (s *subtypeServer) ReadLocation(
+func (s *subtypeServer) GetPosition(
 	ctx context.Context,
-	req *pb.ReadLocationRequest,
-) (*pb.ReadLocationResponse, error) {
-	gpsDevice, err := s.getGPS(req.Name)
+	req *pb.GetPositionRequest,
+) (*pb.GetPositionResponse, error) {
+	msDevice, err := s.getMovementSensor(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	loc, err := gpsDevice.ReadLocation(ctx)
+	loc, altitide, accuracy, err := msDevice.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ReadLocationResponse{
+	return &pb.GetPositionResponse{
 		Coordinate: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
+		AltitudeMm: float32(altitide),
+		AccuracyMm: float32(accuracy),
 	}, nil
 }
 
-// ReadAltitude returns the most recent location from the given GPS.
-func (s *subtypeServer) ReadAltitude(
-	ctx context.Context,
-	req *pb.ReadAltitudeRequest,
-) (*pb.ReadAltitudeResponse, error) {
-	gpsDevice, err := s.getGPS(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	alt, err := gpsDevice.ReadAltitude(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.ReadAltitudeResponse{
-		AltitudeMeters: alt,
-	}, nil
-}
 
-// ReadSpeed returns the most recent location from the given GPS.
-func (s *subtypeServer) ReadSpeed(ctx context.Context, req *pb.ReadSpeedRequest) (*pb.ReadSpeedResponse, error) {
-	gpsDevice, err := s.getGPS(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	speed, err := gpsDevice.ReadSpeed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.ReadSpeedResponse{
-		SpeedMmPerSec: speed,
-	}, nil
-}

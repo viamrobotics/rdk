@@ -1,29 +1,29 @@
-// Package gps contains a gRPC based gps client.
 package movementsensor
 
 import (
 	"context"
-	"math"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils/rpc"
-
+	"github.com/golang/geo/r3"
+	
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
-	pb "go.viam.com/rdk/proto/api/component/gps/v1"
+	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
+	"go.viam.com/rdk/protoutils"
 )
 
 // serviceClient is a client satisfies the gps.proto contract.
 type serviceClient struct {
 	conn   rpc.ClientConn
-	client pb.GPSServiceClient
+	client pb.MovementSensorServiceClient
 	logger golog.Logger
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewGPSServiceClient(conn)
+	client := pb.NewMovementSensorServiceClient(conn)
 	sc := &serviceClient{
 		conn:   conn,
 		client: client,
@@ -34,50 +34,70 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 
 var _ = sensor.Sensor(&client{})
 
-// client is a GPS client.
+// client is a MovementSensor client.
 type client struct {
 	*serviceClient
 	name string
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) GPS {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) MovementSensor {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }
 
-func clientFromSvcClient(sc *serviceClient, name string) GPS {
+func clientFromSvcClient(sc *serviceClient, name string) MovementSensor {
 	return &client{sc, name}
 }
 
-func (c *client) ReadLocation(ctx context.Context) (*geo.Point, error) {
-	resp, err := c.client.ReadLocation(ctx, &pb.ReadLocationRequest{
+func (c *client) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
-	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude), nil
+	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude), float64(resp.AltitudeMm), float64(resp.AccuracyMm), nil
 }
 
-func (c *client) ReadAltitude(ctx context.Context) (float64, error) {
-	resp, err := c.client.ReadAltitude(ctx, &pb.ReadAltitudeRequest{
+func (c *client) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+	resp, err := c.client.GetLinearVelocity(ctx, &pb.GetLinearVelocityRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return math.NaN(), err
+		return r3.Vector{}, err
 	}
-	return resp.AltitudeMeters, nil
+	return protoutils.ConvertVectorProtoToR3(resp.LinearVelocity), nil
 }
 
-func (c *client) ReadSpeed(ctx context.Context) (float64, error) {
-	resp, err := c.client.ReadSpeed(ctx, &pb.ReadSpeedRequest{
+func (c *client) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+	resp, err := c.client.GetAngularVelocity(ctx, &pb.GetAngularVelocityRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return math.NaN(), err
+		return r3.Vector{}, err
 	}
-	return resp.SpeedMmPerSec, nil
+	return protoutils.ConvertVectorProtoToR3(resp.AngularVelocity), nil
+}
+
+func (c *client) GetOrientation(ctx context.Context) (r3.Vector, error) {
+	resp, err := c.client.GetOrientation(ctx, &pb.GetOrientationRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	return protoutils.ConvertVectorProtoToR3(resp.Orientation), nil
+}
+
+func (c *client) GetCompassHeading(ctx context.Context) (float64, error) {
+	resp, err := c.client.GetCompassHeading(ctx, &pb.GetCompassHeadingRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return resp.Value, nil
 }
 
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {

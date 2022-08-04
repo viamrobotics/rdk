@@ -1,4 +1,4 @@
-// Package gps defines the interfaces of a MovementSensor 
+// Package movementsensor defines the interfaces of a MovementSensor 
 package movementsensor
 
 import (
@@ -66,7 +66,7 @@ type MovementSensor interface {
 	GetAngularVelocity(ctx context.Context) (r3.Vector, error)
 	GetCompassHeading(ctx context.Context) (float64, error)
 	GetOrientation(ctx context.Context)  (r3.Vector, error)
-	GetPosition(ctx context.Context) (geo.Point, float64, float64, error) // (lat, long), altitide, accuracy
+	GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) // (lat, long), altitide, accuracy
 	
 	generic.Generic
 	sensor.Sensor
@@ -139,7 +139,7 @@ func (r *reconfigurableMovementSensor) Do(ctx context.Context, cmd map[string]in
 	return r.actual.Do(ctx, cmd)
 }
 
-func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (geo.Point, float64, float64, error) {
+func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetPosition(ctx)

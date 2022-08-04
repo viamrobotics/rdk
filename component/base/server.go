@@ -4,12 +4,11 @@ package base
 import (
 	"context"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -93,7 +92,7 @@ func (s *subtypeServer) SetPower(
 		return nil, err
 	}
 
-	err = base.SetPower(ctx, convertVector(req.GetLinear()), convertVector(req.GetAngular()), req.Extra.AsMap())
+	err = base.SetPower(ctx, protoutils.ConvertVectorProtoToR3(req.GetLinear()), protoutils.ConvertVectorProtoToR3(req.GetAngular()), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -110,18 +109,11 @@ func (s *subtypeServer) SetVelocity(
 		return nil, err
 	}
 
-	err = base.SetVelocity(ctx, convertVector(req.GetLinear()), convertVector(req.GetAngular()), req.Extra.AsMap())
+	err = base.SetVelocity(ctx, protoutils.ConvertVectorProtoToR3(req.GetLinear()), protoutils.ConvertVectorProtoToR3(req.GetAngular()), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
 	return &pb.SetVelocityResponse{}, nil
-}
-
-func convertVector(v *commonpb.Vector3) r3.Vector {
-	if v == nil {
-		return r3.Vector{}
-	}
-	return r3.Vector{X: v.X, Y: v.Y, Z: v.Z}
 }
 
 // Stop stops a robot's base.
