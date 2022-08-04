@@ -108,6 +108,10 @@ func NewKDTreeWithPrealloc(size int) *KDTree {
 
 // ToKDTree creates a KDTree from an input PointCloud.
 func ToKDTree(pc PointCloud) *KDTree {
+	kd, ok := pc.(*KDTree)
+	if ok {
+		return kd
+	}
 	t := NewKDTreeWithPrealloc(pc.Size())
 
 	if pc != nil {
