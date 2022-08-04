@@ -129,8 +129,8 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 }
 
 // differentialDrive takes up and left direction inputs from a first person perspective
-// and converts them to left and right motor powers. negative up means down and negative
-// left means right.
+// on a 2D plane and converts them to left and right motor powers. negative up means down
+// and negative left means right.
 func (base *wheeledBase) differentialDrive(up, left float64) (float64, float64) {
 	if up < 0 {
 		// Mirror the forward turning arc if we go in reverse
