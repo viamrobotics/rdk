@@ -2,7 +2,6 @@ package datamanager
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -11,57 +10,8 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 )
-
-type mockDataSyncService_UploadServer struct {
-	messagesSent               int
-	sendAckEveryNMessages      int
-	cancelStreamAfterNMessages int
-	shouldSendEOF              bool
-	shouldSendACK              bool
-	shouldSendCancelCtx        bool
-	grpc.ServerStream
-}
-
-func (m *mockDataSyncService_UploadServer) Send(ur *v1.UploadResponse) error {
-	m.messagesSent++
-	if m.messagesSent == m.sendAckEveryNMessages {
-		m.messagesSent = 0
-		m.shouldSendACK = true
-	} else {
-		if m.messagesSent == m.cancelStreamAfterNMessages {
-			m.shouldSendCancelCtx = true
-		}
-	}
-	return m.ServerStream.SendMsg(ur)
-
-}
-func (m *mockDataSyncService_UploadServer) Recv() (*v1.UploadRequest, error) {
-	ur := new(v1.UploadRequest)
-	if err := m.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return ur, nil
-}
-
-func uploadReqToUploadResp(m *mockDataSyncService_UploadServer, req *v1.UploadRequest) (*v1.UploadResponse, error) {
-	if m.shouldSendACK {
-		m.shouldSendACK = false
-		return &v1.UploadResponse{RequestsWritten: int32(m.messagesSent)}, nil
-	}
-	if m.shouldSendEOF {
-		m.shouldSendEOF = false
-		return nil, io.EOF
-	}
-	if m.shouldSendCancelCtx {
-		m.shouldSendCancelCtx = false
-		return nil, context.Canceled
-	}
-	return &v1.UploadResponse{}, nil
-}
 
 type mockDataSyncServiceServer struct {
 	messagesSent               int
@@ -74,33 +24,36 @@ type mockDataSyncServiceServer struct {
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
-	mockServer := &mockDataSyncService_UploadServer{
-		messagesSent:               m.messagesSent,
-		sendAckEveryNMessages:      m.sendAckEveryNMessages,
-		cancelStreamAfterNMessages: m.cancelStreamAfterNMessages,
-		shouldSendEOF:              m.shouldSendEOF,
-		shouldSendACK:              m.shouldSendACK,
-		shouldSendCancelCtx:        m.shouldSendCancelCtx,
-	}
 	for {
-		req, err := stream.Recv()
+		_, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return err
 		}
-		res, err := uploadReqToUploadResp(mockServer, req)
-		if err != nil {
-			return err
+		var retUploadResponse *v1.UploadResponse
+		var retErr error
+		if m.shouldSendACK {
+			m.shouldSendACK = false
+			retUploadResponse, retErr = &v1.UploadResponse{RequestsWritten: int32(m.messagesSent)}, nil
 		}
-		stream.Send(res)
+		if m.shouldSendEOF {
+			m.shouldSendEOF = false
+			retUploadResponse, retErr = nil, io.EOF
+		}
+		if m.shouldSendCancelCtx {
+			m.shouldSendCancelCtx = false
+			retUploadResponse, retErr = nil, context.Canceled
+		}
+		if retErr != nil {
+			return retErr
+		}
+		stream.Send(retUploadResponse)
+		m.messagesSent++
 	}
 	return nil
 }
-
-//nolint: unused
-func (m mockDataSyncServiceServer) mustEmbedUnimplementedDataSyncServiceServer() {}
 
 type mockServerBehavior struct {
 	sendAckEveryNMessages      int
@@ -165,15 +118,11 @@ func TestDataCaptureUpload(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}()
 
-			// Dial connection.
-			port, err := utils.TryReserveRandomPort()
-			test.That(t, err, test.ShouldBeNil)
-			rawAddress := fmt.Sprintf("localhost:%d", port)
-			test.That(t, err, test.ShouldBeNil)
 			conn, err := rpc.DialDirectGRPC(
 				context.Background(),
-				rawAddress,
+				rpcServer.InternalAddr().String(),
 				logger,
+				rpc.WithInsecure(),
 			)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -211,9 +160,15 @@ func TestDataCaptureUpload(t *testing.T) {
 					"sensorUpload/fileUpload testing: %v", tc.name, err)
 			}
 
-			// Validate that the client responds properly to whatever is sent by the mocked server.
+			// Create the DataSyncService_UploadClient to send a stream of requests to the server and will receive a
+			// stream of responses from the server.
 			client := v1.NewDataSyncServiceClient(conn)
-			_, err = client.Upload(context.Background())
+			uploadClient, err := client.Upload(context.Background())
+
+			// Create and initialize the syncer to begin upload process.
+			sut := newTestSyncerRealClient(t, uploadClient, nil)
+			sut.Sync([]string{tf.Name()})
+
 			test.That(t, err, test.ShouldBeNil)
 
 		})
