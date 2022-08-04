@@ -6,7 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+	"go.viam.com/rdk/services/datamanager/datacapture"
+
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 )
@@ -40,7 +41,7 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if errors.Is(err, EmptyReadingErr(filepath.Base(f.Name()))) {
+		if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
 			continue
 		}
 		// If there is any other error, return it.
@@ -111,9 +112,8 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 	case <-ctx.Done():
 		return nil, context.Canceled
 	default:
-
 		// Get the next sensor data reading from file, check for an error.
-		next, err := readNextSensorData(f)
+		next, err := datacapture.ReadNextSensorData(f)
 		if err != nil {
 			return nil, err
 		}
@@ -124,21 +124,4 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 			},
 		}, nil
 	}
-}
-
-// readNextSensorData reads sensorData sequentially from a data capture file. It assumes the file offset is already
-// pointing at the beginning of series of SensorData in the file. This is accomplished by first calling
-// ReadDataCaptureMetadata.
-func readNextSensorData(f *os.File) (*v1.SensorData, error) {
-	r := &v1.SensorData{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, err
-	}
-
-	// Ensure we construct and return a SensorData value for tabular data when the tabular data's fields and
-	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
-	if r.GetBinary() == nil && r.GetStruct() == nil {
-		return r, EmptyReadingErr(filepath.Base(f.Name()))
-	}
-	return r, nil
 }
