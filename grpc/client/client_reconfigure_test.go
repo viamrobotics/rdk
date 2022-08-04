@@ -2,13 +2,14 @@ package client_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/resource"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
@@ -36,7 +37,9 @@ func TestReconfigurableClient(t *testing.T) {
 	robot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
-	defer robot.Close(ctx)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+	}()
 
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -51,45 +54,42 @@ func TestReconfigurableClient(t *testing.T) {
 		client.WithReconnectEvery(dur),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	defer robotClient.Close(ctx1)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), robotClient), test.ShouldBeNil)
+	}()
 
+	fmt.Println(robotClient.ResourceNames())
+	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 4)
 	res, err := arm.FromRobot(robotClient, "arm1")
 	test.That(t, err, test.ShouldBeNil)
-	// these should now still be found
-	ch := make(chan int)
-	ch1 := make(chan error)
-	go checkRobot(t, robotClient, res, ch, ch1)
-
-	test.That(t, <-ch, test.ShouldEqual, 4)
-	test.That(t, <-ch1, test.ShouldBeNil)
+	_, err = res.GetEndPosition(context.Background(), map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
-	robot.Close(ctx)
-	// reconnect the robot
+	// err = robot.StopWeb()
+	test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, <-robotClient.Changed(), test.ShouldBeTrue)
+	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 0)
+	_, err = robotClient.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError)
 
-	// start robot
+	// reconnect the robot
 	robot, err = robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
-	defer robot.Close(ctx)
 
-	err = robot.StartWeb(ctx, options)
+	ctx2 := context.Background()
+	err = robot.StartWeb(ctx2, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	time.Sleep(time.Second * 20)
-	test.That(t, <-ch, test.ShouldEqual, 4)
-	test.That(t, <-ch1, test.ShouldBeNil)
-	close(ch)
-	close(ch1)
-}
+	// check if the original arm can still be called
+	test.That(t, <-robotClient.Changed(), test.ShouldBeTrue)
+	test.That(t, robotClient.Connected(), test.ShouldBeTrue)
+	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 4)
+	_, err = robotClient.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = res.GetEndPosition(context.Background(), map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
 
-func checkRobot(t *testing.T, c *client.RobotClient, a arm.Arm, ch chan int, ch1 chan error) {
-	var names []resource.Name
-	for {
-		names = c.ResourceNames()
-		ch <- len(names)
-		_, err := a.GetEndPosition(context.Background(), map[string]interface{}{})
-		ch1 <- err
-		time.Sleep(time.Second)
-	}
 }
