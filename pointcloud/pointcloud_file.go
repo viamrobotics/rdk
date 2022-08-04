@@ -478,11 +478,7 @@ const (
 
 // ReadPCD reads a PCD file into a pointcloud.
 func ReadPCD(inRaw io.Reader) (PointCloud, error) {
-	pc, err := readPCDHelper(inRaw, BasicType)
-	if err != nil {
-		return nil, err
-	}
-	return pc, nil
+	return readPCDHelper(inRaw, BasicType)
 }
 
 // ReadPCDToKDTree reads a PCD file into a KD Tree pointcloud.
