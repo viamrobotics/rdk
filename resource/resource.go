@@ -53,11 +53,11 @@ func (t Type) Validate() error {
 	if t.ResourceType == "" {
 		return errors.New("type field for resource missing or invalid")
 	}
-	if strings.Contains(string(t.Namespace), ":") {
-		return errors.Errorf("resevered character : used in namespace name:%q", t.Namespace)
+	if err := ContainsReservedCharacter(string(t.Namespace)); err != nil {
+		return err
 	}
-	if strings.Contains(string(t.ResourceType), ":") {
-		return errors.Errorf("resevered character : used in resourcetype name:%q", t.ResourceType)
+	if err := ContainsReservedCharacter(string(t.ResourceType)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -93,8 +93,8 @@ func (s Subtype) Validate() error {
 	if s.ResourceSubtype == "" {
 		return errors.New("subtype field for resource missing or invalid")
 	}
-	if strings.Contains(string(s.ResourceSubtype), ":") {
-		return errors.Errorf("resevered character : used in resource subtype name:%q", s.ResourceSubtype)
+	if err := ContainsReservedCharacter(string(s.ResourceSubtype)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -201,8 +201,8 @@ func (n Name) Validate() error {
 	if err := n.Subtype.Validate(); err != nil {
 		return err
 	}
-	if strings.Contains(n.Name, ":") {
-		return errors.Errorf("resevered character : used in resource name:%q", n.Name)
+	if err := ContainsReservedCharacter(n.Name); err != nil {
+		return err
 	}
 	return nil
 }
@@ -221,6 +221,19 @@ func (n Name) String() string {
 		}
 	}
 	return name
+}
+
+// NewReservedCharacterUsedError is used when a reserved character is wrongly used in a name.
+func NewReservedCharacterUsedError(val string) error {
+	return errors.Errorf("reserved character : used in name:%q", val)
+}
+
+// ContainsReservedCharacter returns error if string contains a reserved character.
+func ContainsReservedCharacter(val string) error {
+	if strings.Contains(val, ":") {
+		return NewReservedCharacterUsedError(val)
+	}
+	return nil
 }
 
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.
