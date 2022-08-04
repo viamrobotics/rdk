@@ -347,9 +347,11 @@ func (m *Motor) Stop(ctx context.Context) error {
 
 	m.Logger.Debug("Motor Stopped")
 	m.setPowerPct(0.0)
-	err := m.Encoder.SetSpeed(ctx, 0.0)
-	if err != nil {
-		return err
+	if m.Encoder != nil {
+		err := m.Encoder.SetSpeed(ctx, 0.0)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
