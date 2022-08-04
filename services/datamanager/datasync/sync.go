@@ -24,11 +24,6 @@ var (
 	uploadChunkSize = 32768
 )
 
-// EmptyReadingErr defines the error for when a SensorData contains no data.
-func EmptyReadingErr(fileName string) error {
-	return errors.Errorf("%s contains SensorData containing no data", fileName)
-}
-
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
 	Sync(paths []string)

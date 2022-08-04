@@ -17,6 +17,11 @@ import (
 // FileExt defines the file extension for Viam data capture files.
 const FileExt = ".capture"
 
+// EmptyReadingErr defines the error for when a SensorData contains no data.
+func EmptyReadingErr(fileName string) error {
+	return errors.Errorf("%s contains SensorData containing no data", fileName)
+}
+
 // CreateDataCaptureFile creates a timestamped file within the given capture directory.
 func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.File, error) {
 	// First create directories and the file in it.
@@ -72,6 +77,23 @@ func ReadDataCaptureMetadata(f *os.File) (*v1.DataCaptureMetadata, error) {
 // IsDataCaptureFile returns whether or not f is a data capture file.
 func IsDataCaptureFile(f *os.File) bool {
 	return filepath.Ext(f.Name()) == FileExt
+}
+
+// ReadNextSensorData reads sensorData sequentially from a data capture file. It assumes the file offset is already
+// pointing at the beginning of series of SensorData in the file. This is accomplished by first calling
+// ReadDataCaptureMetadata.
+func ReadNextSensorData(f *os.File) (*v1.SensorData, error) {
+	r := &v1.SensorData{}
+	if _, err := pbutil.ReadDelimited(f, r); err != nil {
+		return nil, err
+	}
+
+	// Ensure we construct and return a SensorData value for tabular data when the tabular data's fields and
+	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
+	if r.GetBinary() == nil && r.GetStruct() == nil {
+		return r, EmptyReadingErr(filepath.Base(f.Name()))
+	}
+	return r, nil
 }
 
 // Create a filename based on the current time.
