@@ -94,7 +94,7 @@ func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) 
 	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
 		go func(m motor.Motor) {
-			errPath <- m.GoTo(ctx, speed*60/a.mmPerRev, position/a.mmPerRev)
+			errPath <- m.GoTo(ctx, speed*60/a.mmPerRev, position/a.mmPerRev, nil)
 		}(m)
 	}
 	for range a.m {
@@ -109,7 +109,7 @@ func (a *LinearAxis) GoFor(ctx context.Context, speed float64, position float64)
 	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
 		go func(m motor.Motor) {
-			errPath <- m.GoFor(ctx, speed*60/a.mmPerRev, position/a.mmPerRev)
+			errPath <- m.GoFor(ctx, speed*60/a.mmPerRev, position/a.mmPerRev, nil)
 		}(m)
 	}
 	for range a.m {
@@ -138,7 +138,7 @@ func (a *LinearAxis) Home(ctx context.Context) error {
 func (a *LinearAxis) Stop(ctx context.Context) error {
 	var errs error
 	for _, m := range a.m {
-		multierr.AppendInto(&errs, m.Stop(ctx))
+		multierr.AppendInto(&errs, m.Stop(ctx, nil))
 	}
 	return errs
 }
@@ -147,14 +147,14 @@ func (a *LinearAxis) Stop(ctx context.Context) error {
 func (a *LinearAxis) ResetZeroPosition(ctx context.Context, offset float64) error {
 	var errs error
 	for _, m := range a.m {
-		multierr.AppendInto(&errs, m.ResetZeroPosition(ctx, offset))
+		multierr.AppendInto(&errs, m.ResetZeroPosition(ctx, offset, nil))
 	}
 	return errs
 }
 
 // GetPosition returns the position of the first motor in the axis.
 func (a *LinearAxis) GetPosition(ctx context.Context) (float64, error) {
-	pos, err := a.m[0].GetPosition(ctx)
+	pos, err := a.m[0].GetPosition(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -165,7 +165,7 @@ func (a *LinearAxis) GetPosition(ctx context.Context) (float64, error) {
 func (a *LinearAxis) IsPowered(ctx context.Context) (bool, error) {
 	var errs error
 	for _, m := range a.m {
-		on, err := m.IsPowered(ctx)
+		on, err := m.IsPowered(ctx, nil)
 		multierr.AppendInto(&errs, err)
 		if on {
 			return true, errs
@@ -266,7 +266,7 @@ func (b *ResetBox) Stop(ctx context.Context) error {
 		b.gate.Stop(ctx),
 		b.squeeze.Stop(ctx),
 		b.squeeze.Stop(ctx),
-		b.hammer.Stop(ctx),
+		b.hammer.Stop(ctx, nil),
 	)
 }
 
@@ -391,8 +391,8 @@ func (b *ResetBox) home(ctx context.Context) error {
 		errPath <- b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
 	}()
 	go func() {
-		errPath <- b.hammer.GoTo(ctx, hammerSpeed, hammerOffset)
-		errPath <- b.hammer.ResetZeroPosition(ctx, 0)
+		errPath <- b.hammer.GoTo(ctx, hammerSpeed, hammerOffset, nil)
+		errPath <- b.hammer.ResetZeroPosition(ctx, 0, nil)
 	}()
 
 	errs = multierr.Combine(
@@ -412,10 +412,10 @@ func (b *ResetBox) home(ctx context.Context) error {
 
 func (b *ResetBox) vibrate(ctx context.Context, level float64) {
 	if level < 0.2 {
-		b.vibrator.Stop(ctx)
+		b.vibrator.Stop(ctx, nil)
 		b.vibeState = false
 	} else {
-		b.vibrator.SetPower(ctx, level)
+		b.vibrator.SetPower(ctx, level, nil)
 		b.vibeState = true
 	}
 }
@@ -437,21 +437,21 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 	}
 
 	// Go mostly up
-	b.tipper.SetPower(ctx, 1.0)
+	b.tipper.SetPower(ctx, 1.0, nil)
 	if !utils.SelectContextOrWait(ctx, 11*time.Second) {
-		b.tipper.Stop(ctx)
+		b.tipper.Stop(ctx, nil)
 		return ctx.Err()
 	}
 
 	// All off
-	b.tipper.Stop(ctx)
+	b.tipper.Stop(ctx, nil)
 
 	b.tableUp = true
 	return nil
 }
 
 func (b *ResetBox) tipTableDown(ctx context.Context) error {
-	if err := b.tipper.SetPower(ctx, -1.0); err != nil {
+	if err := b.tipper.SetPower(ctx, -1.0, nil); err != nil {
 		return err
 	}
 	if !utils.SelectContextOrWait(ctx, 10*time.Second) {
@@ -463,11 +463,11 @@ func (b *ResetBox) tipTableDown(ctx context.Context) error {
 
 	// Extra time for safety (actuator automatically stops on retract)
 	if !utils.SelectContextOrWait(ctx, 4*time.Second) {
-		b.tipper.Stop(ctx)
+		b.tipper.Stop(ctx, nil)
 		return ctx.Err()
 	}
 	// All Off
-	return b.tipper.Stop(ctx)
+	return b.tipper.Stop(ctx, nil)
 }
 
 func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
@@ -476,7 +476,7 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	}
 
 	for i := 0.0; i < float64(count); i++ {
-		err := b.hammer.GoTo(ctx, hammerSpeed, i+0.2)
+		err := b.hammer.GoTo(ctx, hammerSpeed, i+0.2, nil)
 		if err != nil {
 			return err
 		}
@@ -486,13 +486,13 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	}
 
 	// Raise Hammer
-	err := b.hammer.GoTo(ctx, hammerSpeed, float64(count))
+	err := b.hammer.GoTo(ctx, hammerSpeed, float64(count), nil)
 	if err != nil {
 		return err
 	}
 
 	// As we go in one direction indefinitely, this is an easy fix for register overflow
-	err = b.hammer.ResetZeroPosition(ctx, 0)
+	err = b.hammer.ResetZeroPosition(ctx, 0, nil)
 	if err != nil {
 		return err
 	}
