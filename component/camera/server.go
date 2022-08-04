@@ -4,14 +4,8 @@ package camera
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"image"
-	"image/draw"
-	"image/jpeg"
-	"image/png"
 
 	"github.com/pkg/errors"
-	"github.com/xfmoulet/qoi"
 	"go.opencensus.io/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
@@ -71,13 +65,7 @@ func (s *subtypeServer) GetFrame(
 	}()
 	// choose the best/fastest representation
 	if req.MimeType == "" || req.MimeType == utils.MimeTypeViamBest {
-		switch img.(type) {
-		case *rimage.ImageWithDepth:
-			// TODO(DATA-237) remove this data type
-			req.MimeType = utils.MimeTypeRawIWD
-		default:
-			req.MimeType = utils.MimeTypeRawRGBA
-		}
+		req.MimeType = utils.MimeTypeRawRGBA
 	}
 
 	bounds := img.Bounds()
@@ -86,70 +74,11 @@ func (s *subtypeServer) GetFrame(
 		WidthPx:  int64(bounds.Dx()),
 		HeightPx: int64(bounds.Dy()),
 	}
-
-	_, span3 := trace.StartSpan(ctx, "camera::server::GetFrame::Encode::"+req.MimeType)
-	defer span3.End()
-	var buf bytes.Buffer
-	switch req.MimeType {
-	case utils.MimeTypeRawRGBA:
-		resp.MimeType = utils.MimeTypeRawRGBA
-		imgCopy := image.NewRGBA(bounds)
-		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
-		buf.Write(imgCopy.Pix)
-	case utils.MimeTypeRawIWD:
-		// TODO(DATA-237) remove this data type
-		resp.MimeType = utils.MimeTypeRawIWD
-		iwd, ok := img.(*rimage.ImageWithDepth)
-		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", utils.MimeTypeRawIWD, iwd)
-		}
-		err := iwd.RawBytesWrite(&buf)
-		if err != nil {
-			return nil, fmt.Errorf("error writing %s: %w", utils.MimeTypeRawIWD, err)
-		}
-	case utils.MimeTypeRawDepth:
-		// TODO(DATA-237) remove this data type
-		resp.MimeType = utils.MimeTypeRawDepth
-		dm, ok := img.(*rimage.DepthMap)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(dm, img)
-		}
-		_, err := dm.WriteTo(&buf)
-		if err != nil {
-			return nil, err
-		}
-	case utils.MimeTypeBoth:
-		// TODO(DATA-237) remove this data type
-		resp.MimeType = utils.MimeTypeBoth
-		iwd, ok := img.(*rimage.ImageWithDepth)
-		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", utils.MimeTypeBoth, iwd)
-		}
-		if iwd.Color == nil || iwd.Depth == nil {
-			return nil, errors.Errorf("for %s need depth and color info", utils.MimeTypeBoth)
-		}
-		if err := rimage.EncodeBoth(iwd, &buf); err != nil {
-			return nil, err
-		}
-	case utils.MimeTypePNG:
-		resp.MimeType = utils.MimeTypePNG
-		if err := png.Encode(&buf, img); err != nil {
-			return nil, err
-		}
-	case utils.MimeTypeJPEG:
-		resp.MimeType = utils.MimeTypeJPEG
-		if err := jpeg.Encode(&buf, img, nil); err != nil {
-			return nil, err
-		}
-	case utils.MimeTypeQOI:
-		resp.MimeType = utils.MimeTypeQOI
-		if err := qoi.Encode(&buf, img); err != nil {
-			return nil, err
-		}
-	default:
-		return nil, errors.Errorf("do not know how to encode %q", req.MimeType)
+	outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
+	if err != nil {
+		return nil, err
 	}
-	resp.Image = buf.Bytes()
+	resp.Image = outBytes
 	return &resp, nil
 }
 

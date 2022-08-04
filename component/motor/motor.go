@@ -114,6 +114,7 @@ var (
 	_ = LocalMotor(&reconfigurableLocalMotor{})
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
 	_ = resource.Reconfigurable(&reconfigurableLocalMotor{})
+	_ = viamutils.ContextCloser(&reconfigurableLocalMotor{})
 )
 
 // FromDependencies is a helper for getting the named motor from a collection of
