@@ -119,13 +119,13 @@ func (config *Component) Validate(path string) ([]string, error) {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
-	if err := ContainsReservedCharacter(string(config.Namespace)); err != nil {
+	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
 		return nil, err
 	}
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if err := ContainsReservedCharacter(config.Name); err != nil {
+	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return nil, err
 	}
 	for key, value := range config.Attributes {
@@ -218,19 +218,6 @@ func ParseComponentFlag(flag string) (Component, error) {
 		return Component{}, errors.New("component type is required")
 	}
 	return cmp, nil
-}
-
-// NewReservedCharacterUsedError is used when a reserved character is wrongly used in a name.
-func NewReservedCharacterUsedError(val string) error {
-	return errors.Errorf("reserved character : used in name:%q", val)
-}
-
-// ContainsReservedCharacter returns error if string contains a reserved character.
-func ContainsReservedCharacter(val string) error {
-	if strings.Contains(val, ":") {
-		return NewReservedCharacterUsedError(val)
-	}
-	return nil
 }
 
 // A ServiceType defines a type of service.
@@ -334,10 +321,10 @@ func (config *Service) Validate(path string) error {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
-	if err := ContainsReservedCharacter(string(config.Namespace)); err != nil {
+	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
 		return err
 	}
-	if err := ContainsReservedCharacter(config.Name); err != nil {
+	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return err
 	}
 	for key, value := range config.Attributes {
