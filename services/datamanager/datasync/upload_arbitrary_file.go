@@ -1,4 +1,4 @@
-package datamanager
+package datasync
 
 import (
 	"context"
@@ -31,7 +31,7 @@ func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncServi
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
+		if errors.Is(err, EmptyReadingErr(filepath.Base(f.Name()))) {
 			continue
 		}
 		// If there is any other error, return it.
@@ -51,7 +51,7 @@ func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncServi
 	// Close stream and receive response.
 	if _, err := client.CloseAndRecv(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-			"sync service backend")
+			"datasync service backend")
 	}
 
 	return nil
