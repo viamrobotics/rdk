@@ -65,6 +65,14 @@ func (m *mockClient) Context() context.Context {
 	return context.TODO()
 }
 
+func newTestSyncerRealClient(t *testing.T, client v1.DataSyncService_UploadClient, uploadFunc uploadFunc) *syncer {
+	l := golog.NewTestLogger(t)
+	ret, err := newSyncer(l, uploadFunc, partID)
+	test.That(t, err, test.ShouldBeNil)
+	ret.client = client
+	return ret
+}
+
 // Builds syncer used in partial upload tests.
 //nolint:thelper
 func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc uploadFunc) *syncer {
