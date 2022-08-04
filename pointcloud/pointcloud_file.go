@@ -466,8 +466,35 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 	return nil
 }
 
+// PCType is the type of point cloud to read the PCD file into.
+type PCType int
+
+const (
+	// BasicType is a selector for a pointcloud backed by a BasicPointCloud.
+	BasicType PCType = 0
+	// KDTreeType is a selector for a pointcloud backed by a KD Tree.
+	KDTreeType PCType = 1
+)
+
 // ReadPCD reads a PCD file into a pointcloud.
 func ReadPCD(inRaw io.Reader) (PointCloud, error) {
+	pc, err := readPCDHelper(inRaw, BasicType)
+	if err != nil {
+		return nil, err
+	}
+	return (pc).(PointCloud), nil
+}
+
+// ReadPCDToKDTree reads a PCD file into a KD Tree pointcloud.
+func ReadPCDToKDTree(inRaw io.Reader) (*KDTree, error) {
+	kd, err := readPCDHelper(inRaw, KDTreeType)
+	if err != nil {
+		return nil, err
+	}
+	return (kd).(*KDTree), nil
+}
+
+func readPCDHelper(inRaw io.Reader, pctype PCType) (interface{}, error) {
 	header := pcdHeader{}
 	in := bufio.NewReader(inRaw)
 	var line string
@@ -489,11 +516,20 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 		}
 		headerLineCount++
 	}
+	var pc PointCloud
+	switch pctype {
+	case BasicType:
+		pc = NewWithPrealloc(int(header.points))
+	case KDTreeType:
+		pc = NewKDTreeWithPrealloc(int(header.points))
+	default:
+		return nil, fmt.Errorf("unsupported point cloud type %d", pctype)
+	}
 	switch header.data {
 	case PCDAscii:
-		return readPCDAscii(in, header)
+		return readPCDAscii(in, header, pc)
 	case PCDBinary:
-		return readPCDBinary(in, header)
+		return readPCDBinary(in, header, pc)
 	case PCDCompressed:
 		// return readPCDCompressed(in, header)
 		return nil, errors.New("compressed pcd not yet supported")
@@ -502,8 +538,7 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 	}
 }
 
-func readPCDAscii(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
-	pc := NewWithPrealloc(int(header.points))
+func readPCDAscii(in *bufio.Reader, header pcdHeader, pc PointCloud) (interface{}, error) {
 	for i := 0; i < int(header.points); i++ {
 		line, err := in.ReadString('\n')
 		if err != nil {
@@ -533,9 +568,8 @@ func readPCDAscii(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
 	return pc, nil
 }
 
-func readPCDBinary(in *bufio.Reader, header pcdHeader) (PointCloud, error) {
+func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (interface{}, error) {
 	var err error
-	pc := NewWithPrealloc(int(header.points))
 	for i := 0; i < int(header.points); i++ {
 		pointBuf := make([]float64, 3)
 		colorData := NewBasicData()

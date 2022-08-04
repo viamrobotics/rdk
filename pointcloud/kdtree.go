@@ -92,13 +92,23 @@ type KDTree struct {
 	meta   MetaData
 }
 
-// NewKDTree creates a KDTree from an input PointCloud.
-func NewKDTree(pc PointCloud) *KDTree {
-	t := &KDTree{
+// NewKDTree creates a new KDTree.
+func NewKDTree() *KDTree {
+	return NewKDTreeWithPrealloc(0)
+}
+
+// NewKDTreeWithPrealloc creates a new KDTree with preallocated storage.
+func NewKDTreeWithPrealloc(size int) *KDTree {
+	return &KDTree{
 		tree:   kdtree.New(kdValues{}, false),
-		points: &matrixStorage{points: make([]PointAndData, 0, pc.Size()), indexMap: make(map[r3.Vector]uint, pc.Size())},
+		points: &matrixStorage{points: make([]PointAndData, 0, size), indexMap: make(map[r3.Vector]uint, size)},
 		meta:   NewMetaData(),
 	}
+}
+
+// ToKDTree creates a KDTree from an input PointCloud.
+func ToKDTree(pc PointCloud) *KDTree {
+	t := NewKDTreeWithPrealloc(pc.Size())
 
 	if pc != nil {
 		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
