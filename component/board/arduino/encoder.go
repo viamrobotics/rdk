@@ -66,31 +66,31 @@ func NewEncoder(ctx context.Context, deps registry.Dependencies, config config.C
 	return e, nil
 }
 
-// Encoder keeps track of an arduino motor position
+// Encoder keeps track of an arduino motor position.
 type Encoder struct {
-	board    	*arduinoBoard
-	A, B 	string
-	name 	string
+	board            *arduinoBoard
+	A, B             string
+	name             string
 	ticksPerRotation int64
 
 	generic.Unimplemented
 }
 
-// EncoderPins defines the format the pin config should be in for Encoder
+// EncoderPins defines the format the pin config should be in for Encoder.
 type EncoderPins struct {
 	A, B string
 }
 
-// EncoderConfig describes the config of an arduino Encoder
+// EncoderConfig describes the config of an arduino Encoder.
 type EncoderConfig struct {
 	Pins      interface{} `json:"pins"`
 	BoardName string      `json:"board"`
-	MotorName string 	  `json:"motor_name"`
+	MotorName string      `json:"motor_name"`
 
 	TicksPerRotation int `json:"ticks_per_rotation,omitempty"`
 }
 
-// Position returns the current position in terms of ticks.
+// GetTicksCount returns number of ticks since last zeroing
 func (e *Encoder) GetTicksCount(ctx context.Context) (int64, error) {
 	res, err := e.board.runCommand("motor-position " + e.name)
 	if err != nil {
@@ -105,11 +105,13 @@ func (e *Encoder) GetTicksCount(ctx context.Context) (int64, error) {
 	return ticks, nil
 }
 
+// ResetZeroPosition resets the counted ticks to 0
 func (e *Encoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	_, err := e.board.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
 }
 
+// TicksPerRotation returns the number of ticks needed for a full rotation
 func (e *Encoder) TicksPerRotation(ctx context.Context) (int64, error) {
-	return int64(e.ticksPerRotation), nil
+	return e.ticksPerRotation, nil
 }

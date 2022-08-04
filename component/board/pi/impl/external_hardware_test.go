@@ -15,7 +15,6 @@ import (
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/motor"
-
 	// for gpio motor.
 	_ "go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/component/servo"
@@ -154,7 +153,7 @@ func TestPiHardware(t *testing.T) {
 				A: "hall-a",
 				B: "hall-b",
 			},
-			BoardName: "test",
+			BoardName:        "test",
 			TicksPerRotation: 200,
 		},
 	}, logger)
@@ -170,8 +169,8 @@ func TestPiHardware(t *testing.T) {
 				B:   "40", // bcom 21
 				PWM: "7",  // bcom 4
 			},
-			BoardName:        "test",
-			Encoder: "encoder1",
+			BoardName: "test",
+			Encoder:   "encoder1",
 		},
 		DependsOn: motorDeps,
 	}, logger)

@@ -5,14 +5,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/utils"
 )
 
 func init() {
@@ -49,14 +49,10 @@ type SingleEncoder struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// SinglePin defines the format the pin config should be in for SingleEncoder
+// SinglePin defines the format the pin config should be in for SingleEncoder.
 type SinglePin struct {
 	I string
 }
-
-const (
-	directionAwareName = "direction_aware"
-)
 
 // AttachDirectionalAwareness to pre-created encoder.
 func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
@@ -64,7 +60,12 @@ func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
 }
 
 // NewSingleEncoder creates a new SingleEncoder.
-func NewSingleEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*SingleEncoder, error) {
+func NewSingleEncoder(
+		ctx context.Context, 
+		deps registry.Dependencies, 
+		config config.Component, 
+		logger golog.Logger,
+	) (*SingleEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &SingleEncoder{logger: logger, cancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
 	if cfg, ok := config.ConvertedAttributes.(*Config); ok {
@@ -93,7 +94,7 @@ func NewSingleEncoder(ctx context.Context, deps registry.Dependencies, config co
 }
 
 // Start starts the SingleEncoder background thread.
-// Note: unsure about whether we still need onStart
+// Note: unsure about whether we still need onStart.
 func (e *SingleEncoder) Start(ctx context.Context, onStart func()) {
 	encoderChannel := make(chan bool)
 	e.I.AddCallback(encoderChannel)
@@ -133,7 +134,7 @@ func (e *SingleEncoder) ResetZeroPosition(ctx context.Context, offset int64) err
 	return nil
 }
 
-// TicksPerRotation returns the number of ticks needed for a full rotation
+// TicksPerRotation returns the number of ticks needed for a full rotation.
 func (e *SingleEncoder) TicksPerRotation(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.ticksPerRotation), nil
 }

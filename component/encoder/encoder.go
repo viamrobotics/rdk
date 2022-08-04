@@ -1,3 +1,4 @@
+// package encoder implements the encoder component
 package encoder
 
 import (

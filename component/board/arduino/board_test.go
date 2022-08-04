@@ -11,8 +11,8 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/encoder"
+	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 )
 
@@ -48,11 +48,11 @@ func TestArduinoPWM(t *testing.T) {
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
-								A:            "3",
-								B:            "2",
+								A: "3",
+								B: "2",
 							},
 							TicksPerRotation: 2000,
-							MotorName: "m1",
+							MotorName:        "m1",
 						},
 					},
 				},
@@ -82,11 +82,11 @@ func TestArduinoPWM(t *testing.T) {
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
-								A:            "3",
-								B:            "2",
+								A: "3",
+								B: "2",
 							},
 							TicksPerRotation: 2000,
-							MotorName: "m1",
+							MotorName:        "m1",
 						},
 					},
 				},
@@ -115,11 +115,11 @@ func TestArduinoPWM(t *testing.T) {
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
-								A:            "3",
-								B:            "2",
+								A: "3",
+								B: "2",
 							},
 							TicksPerRotation: 2000,
-							MotorName: "m1",
+							MotorName:        "m1",
 						},
 					},
 				},
@@ -150,11 +150,11 @@ func TestArduinoPWM(t *testing.T) {
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
-								A:            "3",
-								B:            "2",
+								A: "3",
+								B: "2",
 							},
 							TicksPerRotation: 2000,
-							MotorName: "m1",
+							MotorName:        "m1",
 						},
 					},
 				},
@@ -235,11 +235,11 @@ func TestArduinoMotorABPWM(t *testing.T) {
 				Type:  encoder.SubtypeName,
 				ConvertedAttributes: &EncoderConfig{
 					Pins: EncoderPins{
-						A:            "20",
-						B:            "21",
+						A: "20",
+						B: "21",
 					},
 					TicksPerRotation: 980,
-					MotorName: "m1",
+					MotorName:        "m1",
 				},
 			},
 		},
@@ -257,12 +257,12 @@ func TestArduinoMotorABPWM(t *testing.T) {
 	ePins := ecfg.Pins.(*EncoderPins)
 
 	m, err := configureMotorForBoard(
-				context.Background(), 
-				b, 
-				cfg.Components[0], 
-				cfg.Components[0].ConvertedAttributes.(*motor.Config),
-				&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
-			)
+		context.Background(),
+		b,
+		cfg.Components[0],
+		cfg.Components[0].ConvertedAttributes.(*motor.Config),
+		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	arduinoMotorTests(ctx, t, m)
@@ -294,11 +294,11 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 				Type:  encoder.SubtypeName,
 				ConvertedAttributes: &EncoderConfig{
 					Pins: EncoderPins{
-						A:            "3",
-						B:            "2",
+						A: "3",
+						B: "2",
 					},
 					TicksPerRotation: 2000,
-					MotorName: "m1",
+					MotorName:        "m1",
 				},
 			},
 		},
@@ -316,9 +316,9 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 	ePins := ecfg.Pins.(*EncoderPins)
 
 	m, err := configureMotorForBoard(
-		context.Background(), 
-		b, 
-		cfg.Components[0], 
+		context.Background(),
+		b,
+		cfg.Components[0],
 		cfg.Components[0].ConvertedAttributes.(*motor.Config),
 		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
 	)
@@ -353,11 +353,11 @@ func TestArduinoMotorAB(t *testing.T) {
 				Type:  encoder.SubtypeName,
 				ConvertedAttributes: &EncoderConfig{
 					Pins: EncoderPins{
-						A:            "3",
-						B:            "2",
+						A: "3",
+						B: "2",
 					},
 					TicksPerRotation: 2000,
-					MotorName: "m1",
+					MotorName:        "m1",
 				},
 			},
 		},
@@ -375,9 +375,9 @@ func TestArduinoMotorAB(t *testing.T) {
 	ePins := ecfg.Pins.(*EncoderPins)
 
 	m, err := configureMotorForBoard(
-		context.Background(), 
-		b, 
-		cfg.Components[0], 
+		context.Background(),
+		b,
+		cfg.Components[0],
 		cfg.Components[0].ConvertedAttributes.(*motor.Config),
 		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
 	)
