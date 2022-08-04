@@ -5,14 +5,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/utils"
 )
 
 func init() {
@@ -45,7 +45,7 @@ type HallEncoder struct {
 	generic.Unimplemented
 }
 
-// HallPins defines the format the pin config should be in for HallEncoder
+// HallPins defines the format the pin config should be in for HallEncoder.
 type HallPins struct {
 	A, B string
 }
@@ -85,7 +85,7 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 }
 
 // Start starts the HallEncoder background thread.
-// Note: unsure about whether we still need onStart
+// Note: unsure about whether we still need onStart.
 func (e *HallEncoder) Start(ctx context.Context, onStart func()) {
 	/**
 	  a rotary encoder looks like
@@ -195,19 +195,19 @@ func (e *HallEncoder) Start(ctx context.Context, onStart func()) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// GetTicksCount returns number of ticks since last zeroing
+// GetTicksCount returns number of ticks since last zeroing.
 func (e *HallEncoder) GetTicksCount(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
-// ResetZeroPosition resets the counted ticks to 0
+// ResetZeroPosition resets the counted ticks to 0.
 func (e *HallEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	atomic.StoreInt64(&e.position, offset)
 	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 
-// TicksPerRotation returns the number of ticks needed for a full rotation
+// TicksPerRotation returns the number of ticks needed for a full rotation.
 func (e *HallEncoder) TicksPerRotation(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.ticksPerRotation), nil
 }

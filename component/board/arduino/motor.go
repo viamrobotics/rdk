@@ -39,7 +39,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			
+
 			actualBoard, ok := utils.UnwrapProxy(b).(*arduinoBoard)
 			if !ok {
 				return nil, errors.New("expected board to be an arduino board")
@@ -49,6 +49,9 @@ func init() {
 				return nil, errors.New("arduino motor expected non-empty string for encoder")
 			}
 			e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
+			if err != nil {
+				return nil, err
+			}
 
 			actualEncoder, ok := utils.UnwrapProxy(e).(*Encoder)
 			if !ok {
@@ -69,7 +72,7 @@ func configureMotorForBoard(
 	b *arduinoBoard,
 	config config.Component,
 	motorConfig *motor.Config,
-	e 	*Encoder,
+	e *Encoder,
 ) (motor.LocalMotor, error) {
 	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
