@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -134,7 +133,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			}()
 
 			// Create temp file to be used as examples of reading data from the files into buffers and finally to have
-			// that data be uploaded to the cloud
+			// that data be uploaded to the cloud.
 			tf, err := createTmpDataCaptureFile()
 			if err != nil {
 				t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v",
@@ -165,14 +164,12 @@ func TestDataCaptureUpload(t *testing.T) {
 			// stream of responses from the server.
 			client := v1.NewDataSyncServiceClient(conn)
 			uploadClient, err := client.Upload(context.Background())
+			test.That(t, err, test.ShouldBeNil)
 
 			// Create and initialize the syncer to begin upload process.
 			sut := newTestSyncerRealClient(t, uploadClient, nil)
 			sut.Sync([]string{tf.Name()})
-			time.Sleep(100 * time.Millisecond)
 			sut.Close()
-
-			test.That(t, err, test.ShouldBeNil)
 
 		})
 	}
