@@ -128,51 +128,42 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	return nil
 }
 
-func (base *wheeledBase) differentialDrive(x, y float64) (float64, float64) {
-	if x < 0 {
+func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
+	up := linear.Y
+	left := angular.Z
+
+	return base.differentialDrive(up, left)
+}
+
+// differentialDrive takes up and left direction inputs and converts them to left and
+// right motor powers. negative up means down and negative left means right.
+func (base *wheeledBase) differentialDrive(up, left float64) (float64, float64) {
+	if up < 0 {
 		// Mirror the forward turning arc if we go in reverse
-		left, right := base.differentialDrive(-x, y)
-		return -left, -right
+		leftMotor, rightMotor := base.differentialDrive(-up, left)
+		return -leftMotor, -rightMotor
 	}
 
 	// convert to polar coordinates
-	r := math.Hypot(x, y)
-	t := math.Atan2(y, x)
-
-	fmt.Printf("vectors to polar:\tx(lin.Y): %.0f, y(ang.Z): %.0f -> r: %.3f, t: %.3f\n", x, y, r, t)
+	r := math.Hypot(up, left)
+	t := math.Atan2(left, up)
 
 	// rotate by 45 degrees
 	t += math.Pi / 4
 
-	fmt.Printf("rotate 45 degrees:\tr: %.3f, t: %.3f\n", r, t)
-
 	// convert to cartesian
-	left := r * math.Cos(t)
-	right := r * math.Sin(t)
-
-	fmt.Printf("back to cartesian:\tleft: %.3f, right: %.3f\n", left, right)
+	leftMotor := r * math.Cos(t)
+	rightMotor := r * math.Sin(t)
 
 	// rescale the new coords
-	left *= math.Sqrt(2)
-	right *= math.Sqrt(2)
-
-	fmt.Printf("scale by sqrt:\t\tleft: %.3f, right: %.3f\n", left, right)
+	leftMotor *= math.Sqrt(2)
+	rightMotor *= math.Sqrt(2)
 
 	// clamp to -1/+1
-	left = math.Max(-1, math.Min(left, 1))
-	right = math.Max(-1, math.Min(right, 1))
+	leftMotor = math.Max(-1, math.Min(leftMotor, 1))
+	rightMotor = math.Max(-1, math.Min(rightMotor, 1))
 
-	fmt.Printf("clamp to -1/+1:\t\tleft: %.3f, right: %.3f\n", left, right)
-
-	return left, right
-}
-
-// TODO: rename function to something like `toDifferentialDrive`
-func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
-	x := linear.Y
-	y := angular.Z
-
-	return base.differentialDrive(x, y)
+	return leftMotor, rightMotor
 }
 
 func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
