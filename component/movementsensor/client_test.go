@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/gps/v1"
+	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -37,22 +37,18 @@ func TestClient(t *testing.T) {
 	speed := 5.4
 	rs := []interface{}{loc.Lat(), loc.Lng(), alt, speed}
 
-	injectGPS := &inject.GPS{}
-	injectGPS.ReadLocationFunc = func(ctx context.Context) (*geo.Point, error) { return loc, nil }
-	injectGPS.ReadAltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
-	injectGPS.ReadSpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
+	injectMovementSensor := &inject.MovementSensor{}
+	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return loc, 0, 0, nil }
 
-	injectGPS2 := &inject.GPS{}
-	injectGPS2.ReadLocationFunc = func(ctx context.Context) (*geo.Point, error) { return nil, errors.New("can't get location") }
-	injectGPS2.ReadAltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
-	injectGPS2.ReadSpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
+	injectMovementSensor2 := &inject.MovementSensor{}
+	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return nil, 0, 0, errors.New("can't get location") }
 
-	gpsSvc, err := subtype.New(map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS, gps.Named(failGPSName): injectGPS2})
+	gpsSvc, err := subtype.New(map[resource.Name]interface{}{movementsensor.Named(testMovementSensorName): injectMovementSensor, movementsensor.Named(failMovementSensorName): injectMovementSensor2})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(gps.Subtype)
+	resourceSubtype := registry.ResourceSubtypeLookup(movementsensor.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc)
 
-	injectGPS.DoFunc = generic.EchoFunc
+	injectMovementSensor.DoFunc = generic.EchoFunc
 	generic.RegisterService(rpcServer, gpsSvc)
 
 	go rpcServer.Serve(listener1)
@@ -67,11 +63,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	t.Run("GPS client 1", func(t *testing.T) {
+	t.Run("MovementSensor client 1", func(t *testing.T) {
 		// working
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gps1Client := gps.NewClientFromConn(context.Background(), conn, testGPSName, logger)
+		gps1Client := movementsensor.NewClientFromConn(context.Background(), conn, testMovementSensorName, logger)
 
 		// Do
 		resp, err := gps1Client.Do(context.Background(), generic.TestCommand)
@@ -79,19 +75,16 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		loc1, err := gps1Client.ReadLocation(context.Background())
+		loc1, alt1, _, err := gps1Client.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, loc1, test.ShouldResemble, loc)
-
-		alt1, err := gps1Client.ReadAltitude(context.Background())
-		test.That(t, err, test.ShouldBeNil)
 		test.That(t, alt1, test.ShouldAlmostEqual, alt)
 
-		speed1, err := gps1Client.ReadSpeed(context.Background())
+		vel1, err := gps1Client.GetLinearVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, speed1, test.ShouldAlmostEqual, speed)
+		test.That(t, vel1.Y, test.ShouldAlmostEqual, speed)
 
-		rs1, err := gps1Client.(sensor.Sensor).GetReadings(context.Background())
+		rs1, err := gps1Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -100,24 +93,24 @@ func TestClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	t.Run("GPS client 2", func(t *testing.T) {
+	t.Run("MovementSensor client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, failGPSName, logger)
-		gps2Client, ok := client.(gps.GPS)
+		client := resourceSubtype.RPCClient(context.Background(), conn, failMovementSensorName, logger)
+		gps2Client, ok := client.(movementsensor.MovementSensor)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, err = gps2Client.ReadLocation(context.Background())
+		_, _, _, err = gps2Client.GetPosition(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
-		_, err = gps2Client.ReadAltitude(context.Background())
+		_, err = gps2Client.GetLinearVelocity(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get altitude")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get linear velocity")
 
-		_, err = gps2Client.ReadSpeed(context.Background())
+		_, err = gps2Client.GetAngularVelocity(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get speed")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get angular velocity")
 
 		_, err = gps2Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -133,11 +126,11 @@ func TestClientDialerOption(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
-	injectGPS := &inject.GPS{}
+	injectMovementSensor := &inject.MovementSensor{}
 
-	gpsSvc, err := subtype.New(map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS})
+	gpsSvc, err := subtype.New(map[resource.Name]interface{}{movementsensor.Named(testMovementSensorName): injectMovementSensor})
 	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterGPSServiceServer(gServer, gps.NewServer(gpsSvc))
+	pb.RegisterMovementSensorServiceServer(gServer, movementsensor.NewServer(gpsSvc))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -146,11 +139,11 @@ func TestClientDialerOption(t *testing.T) {
 	ctx := rpc.ContextWithDialer(context.Background(), td)
 	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client1 := gps.NewClientFromConn(ctx, conn1, testGPSName, logger)
+	client1 := movementsensor.NewClientFromConn(ctx, conn1, testMovementSensorName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2 := gps.NewClientFromConn(ctx, conn2, testGPSName, logger)
+	client2 := movementsensor.NewClientFromConn(ctx, conn2, testMovementSensorName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)

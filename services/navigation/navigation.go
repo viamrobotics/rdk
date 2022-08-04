@@ -136,7 +136,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if err != nil {
 		return nil, err
 	}
-	gpsDevice, err := gps.FromRobot(r, svcConfig.MovementSensorName)
+	movementSensor, err := movementsensor.FromRobot(r, svcConfig.MovementSensorName)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		r:          r,
 		store:      store,
 		base:       base1,
-		gpsDevice:  gpsDevice,
+		movementSensor:  movementSensor,
 		logger:     logger,
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
@@ -175,7 +175,7 @@ type navService struct {
 	mode  Mode
 
 	base      base.Base
-	gpsDevice gps.MovementSensor
+	movementSensor movementsensor.MovementSensor
 
 	logger                  golog.Logger
 	cancelCtx               context.Context
@@ -224,7 +224,7 @@ func (svc *navService) startWaypoint() error {
 				return
 			}
 
-			currentLoc, err := svc.gpsDevice.ReadLocation(svc.cancelCtx)
+			currentLoc, _, _, err := svc.movementSensor.GetPosition(svc.cancelCtx)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
@@ -299,10 +299,11 @@ func (svc *navService) waypointDirectionAndDistanceToGo(ctx context.Context, cur
 }
 
 func (svc *navService) GetLocation(ctx context.Context) (*geo.Point, error) {
-	if svc.gpsDevice == nil {
+	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
-	return svc.gpsDevice.ReadLocation(ctx)
+	loc, _, _, err := svc.movementSensor.GetPosition(ctx)
+	return loc, err
 }
 
 func (svc *navService) GetWaypoints(ctx context.Context) ([]Waypoint, error) {

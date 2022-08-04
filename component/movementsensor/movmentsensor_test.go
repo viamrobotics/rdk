@@ -18,37 +18,37 @@ import (
 )
 
 const (
-	testGPSName    = "gps1"
-	testGPSName2   = "gps2"
-	failGPSName    = "gps3"
-	fakeGPSName    = "gps4"
-	missingGPSName = "gps5"
+	testMovementSensorName    = "gps1"
+	testMovementSensorName2   = "gps2"
+	failMovementSensorName    = "gps3"
+	fakeMovementSensorName    = "gps4"
+	missingMovementSensorName = "gps5"
 )
 
 func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
 
 	deps := make(registry.Dependencies)
-	deps[gps.Named(testGPSName)] = &mockLocal{Name: testGPSName}
-	deps[gps.Named(fakeGPSName)] = "not an gps"
+	deps[movementsensor.Named(testMovementSensorName)] = &mock{Name: testMovementSensorName}
+	deps[movementsensor.Named(fakeMovementSensorName)] = "not an gps"
 	return deps
 }
 
 func setupInjectRobot() *inject.Robot {
-	gps1 := &mockLocal{Name: testGPSName}
+	gps1 := &mock{Name: testMovementSensorName}
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
-		case gps.Named(testGPSName):
+		case movementsensor.Named(testMovementSensorName):
 			return gps1, nil
-		case gps.Named(fakeGPSName):
+		case movementsensor.Named(fakeMovementSensorName):
 			return "not a gps", nil
 		default:
 			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{gps.Named(testGPSName), arm.Named("arm1")}
+		return []resource.Name{movementsensor.Named(testMovementSensorName), arm.Named("arm1")}
 	}
 	return r
 }
@@ -56,7 +56,7 @@ func setupInjectRobot() *inject.Robot {
 func TestGenericDo(t *testing.T) {
 	r := setupInjectRobot()
 
-	g, err := gps.FromRobot(r, testGPSName)
+	g, err := movementsensor.FromRobot(r, testMovementSensorName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g, test.ShouldNotBeNil)
 
@@ -69,51 +69,51 @@ func TestGenericDo(t *testing.T) {
 func TestFromDependencies(t *testing.T) {
 	deps := setupDependencies(t)
 
-	s, err := gps.FromDependencies(deps, testGPSName)
+	s, err := movementsensor.FromDependencies(deps, testMovementSensorName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, err := s.ReadLocation(context.Background())
+	result, _, _, err := s.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 
-	s, err = gps.FromDependencies(deps, fakeGPSName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeGPSName, "GPS", "string"))
+	s, err = movementsensor.FromDependencies(deps, fakeMovementSensorName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeMovementSensorName, "MovementSensor", "string"))
 	test.That(t, s, test.ShouldBeNil)
 
-	s, err = gps.FromDependencies(deps, missingGPSName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingGPSName))
+	s, err = movementsensor.FromDependencies(deps, missingMovementSensorName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingMovementSensorName))
 	test.That(t, s, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	s, err := gps.FromRobot(r, testGPSName)
+	s, err := movementsensor.FromRobot(r, testMovementSensorName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, err := s.ReadLocation(context.Background())
+	result, _, _, err := s.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 
-	s, err = gps.FromRobot(r, fakeGPSName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("GPS", "string"))
+	s, err = movementsensor.FromRobot(r, fakeMovementSensorName)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MovementSensor", "string"))
 	test.That(t, s, test.ShouldBeNil)
 
-	s, err = gps.FromRobot(r, missingGPSName)
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(gps.Named(missingGPSName)))
+	s, err = movementsensor.FromRobot(r, missingMovementSensorName)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(movementsensor.Named(missingMovementSensorName)))
 	test.That(t, s, test.ShouldBeNil)
 }
 
 func TestNamesFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	names := gps.NamesFromRobot(r)
-	test.That(t, names, test.ShouldResemble, []string{testGPSName})
+	names := movementsensor.NamesFromRobot(r)
+	test.That(t, names, test.ShouldResemble, []string{testMovementSensorName})
 }
 
-func TestGPSName(t *testing.T) {
+func TestMovementSensorName(t *testing.T) {
 	for _, tc := range []struct {
 		TestName string
 		Name     string
@@ -125,214 +125,137 @@ func TestGPSName(t *testing.T) {
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: gps.SubtypeName,
+					ResourceSubtype: movementsensor.SubtypeName,
 				},
 				Name: "",
 			},
 		},
 		{
 			"all fields included",
-			testGPSName,
+			testMovementSensorName,
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: gps.SubtypeName,
+					ResourceSubtype: movementsensor.SubtypeName,
 				},
-				Name: testGPSName,
+				Name: testMovementSensorName,
 			},
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed := gps.Named(tc.Name)
+			observed := movementsensor.Named(tc.Name)
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualGPS1 gps.GPS = &mock{Name: testGPSName}
-	reconfGPS1, err := gps.WrapWithReconfigurable(actualGPS1)
+	var actualMovementSensor1 movementsensor.MovementSensor = &mock{Name: testMovementSensorName}
+	reconfMovementSensor1, err := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = gps.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("GPS", nil))
+	_, err = movementsensor.WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MovementSensor", nil))
 
-	reconfGPS2, err := gps.WrapWithReconfigurable(reconfGPS1)
+	reconfMovementSensor2, err := movementsensor.WrapWithReconfigurable(reconfMovementSensor1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfGPS2, test.ShouldEqual, reconfGPS1)
-
-	var actualGPS2 gps.LocalGPS = &mockLocal{Name: testGPSName}
-	reconfGPS3, err := gps.WrapWithReconfigurable(actualGPS2)
-	test.That(t, err, test.ShouldBeNil)
-
-	reconfGPS4, err := gps.WrapWithReconfigurable(reconfGPS3)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfGPS4, test.ShouldResemble, reconfGPS3)
-
-	_, ok := reconfGPS4.(gps.LocalGPS)
-	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, reconfMovementSensor2, test.ShouldEqual, reconfMovementSensor1)
 }
 
-func TestReconfigurableGPS(t *testing.T) {
-	actualGPS1 := &mockLocal{Name: testGPSName}
-	reconfGPS1, err := gps.WrapWithReconfigurable(actualGPS1)
+func TestReconfigurableMovementSensor(t *testing.T) {
+	actualMovementSensor1 := &mock{Name: testMovementSensorName}
+	reconfMovementSensor1, err := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 	test.That(t, err, test.ShouldBeNil)
 
-	actualGPS2 := &mockLocal{Name: testGPSName2}
-	reconfGPS2, err := gps.WrapWithReconfigurable(actualGPS2)
+	actualMovementSensor2 := &mock{Name: testMovementSensorName2}
+	reconfMovementSensor2, err := movementsensor.WrapWithReconfigurable(actualMovementSensor2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualGPS1.reconfCount, test.ShouldEqual, 0)
+	test.That(t, actualMovementSensor1.reconfCount, test.ShouldEqual, 0)
 
-	err = reconfGPS1.Reconfigure(context.Background(), reconfGPS2)
+	err = reconfMovementSensor1.Reconfigure(context.Background(), reconfMovementSensor2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfGPS1, test.ShouldResemble, reconfGPS2)
-	test.That(t, actualGPS1.reconfCount, test.ShouldEqual, 2)
+	test.That(t, reconfMovementSensor1, test.ShouldResemble, reconfMovementSensor2)
+	test.That(t, actualMovementSensor1.reconfCount, test.ShouldEqual, 2)
 
-	test.That(t, actualGPS1.locCount, test.ShouldEqual, 0)
-	test.That(t, actualGPS2.locCount, test.ShouldEqual, 0)
-	result, err := reconfGPS1.(gps.GPS).ReadLocation(context.Background())
+	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
+	test.That(t, actualMovementSensor2.positionCount, test.ShouldEqual, 0)
+	result, _, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
-	test.That(t, actualGPS1.locCount, test.ShouldEqual, 0)
-	test.That(t, actualGPS2.locCount, test.ShouldEqual, 1)
+	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
+	test.That(t, actualMovementSensor2.positionCount, test.ShouldEqual, 1)
 
-	err = reconfGPS1.Reconfigure(context.Background(), nil)
+	err = reconfMovementSensor1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGPS1, nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfMovementSensor1, nil))
 
-	actualGPS3 := &mock{Name: failGPSName}
-	reconfGPS3, err := gps.WrapWithReconfigurable(actualGPS3)
+	actualMovementSensor3 := &mock{Name: failMovementSensorName}
+	reconfMovementSensor3, err := movementsensor.WrapWithReconfigurable(actualMovementSensor3)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfGPS3, test.ShouldNotBeNil)
+	test.That(t, reconfMovementSensor3, test.ShouldNotBeNil)
 
-	err = reconfGPS1.Reconfigure(context.Background(), reconfGPS3)
+	err = reconfMovementSensor1.Reconfigure(context.Background(), reconfMovementSensor3)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGPS1, reconfGPS3))
-	test.That(t, actualGPS3.reconfCount, test.ShouldEqual, 0)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfMovementSensor1, reconfMovementSensor3))
+	test.That(t, actualMovementSensor3.reconfCount, test.ShouldEqual, 0)
 
-	err = reconfGPS3.Reconfigure(context.Background(), reconfGPS1)
+	err = reconfMovementSensor3.Reconfigure(context.Background(), reconfMovementSensor1)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGPS3, reconfGPS1))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfMovementSensor3, reconfMovementSensor1))
 
-	actualGPS4 := &mock{Name: testGPSName2}
-	reconfGPS4, err := gps.WrapWithReconfigurable(actualGPS4)
+	actualMovementSensor4 := &mock{Name: testMovementSensorName2}
+	reconfMovementSensor4, err := movementsensor.WrapWithReconfigurable(actualMovementSensor4)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfGPS4, test.ShouldNotBeNil)
+	test.That(t, reconfMovementSensor4, test.ShouldNotBeNil)
 
-	err = reconfGPS3.Reconfigure(context.Background(), reconfGPS4)
+	err = reconfMovementSensor3.Reconfigure(context.Background(), reconfMovementSensor4)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfGPS3, test.ShouldResemble, reconfGPS4)
+	test.That(t, reconfMovementSensor3, test.ShouldResemble, reconfMovementSensor4)
 }
 
-func TestReadLocation(t *testing.T) {
-	actualGPS1 := &mockLocal{Name: testGPSName}
-	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
+func TestGetPosition(t *testing.T) {
+	actualMovementSensor1 := &mock{Name: testMovementSensorName}
+	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
-	test.That(t, actualGPS1.locCount, test.ShouldEqual, 0)
-	loc1, err := reconfGPS1.(gps.LocalGPS).ReadLocation(context.Background())
+	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
+	loc1, _, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(90, 1))
-	test.That(t, actualGPS1.locCount, test.ShouldEqual, 1)
+	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 1)
 }
 
-func TestReadAltitude(t *testing.T) {
-	actualGPS1 := &mockLocal{Name: testGPSName}
-	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
+func TestGetLinearVelocity(t *testing.T) {
+	actualMovementSensor1 := &mock{Name: testMovementSensorName}
+	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
-	test.That(t, actualGPS1.altCount, test.ShouldEqual, 0)
-	alt1, err := reconfGPS1.(gps.LocalGPS).ReadAltitude(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, alt1, test.ShouldAlmostEqual, alt)
-	test.That(t, actualGPS1.altCount, test.ShouldEqual, 1)
-}
-
-func TestReadSpeed(t *testing.T) {
-	actualGPS1 := &mockLocal{Name: testGPSName}
-	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
-
-	test.That(t, actualGPS1.speedCount, test.ShouldEqual, 0)
-	speed1, err := reconfGPS1.(gps.LocalGPS).ReadSpeed(context.Background())
+	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 0)
+	speed1, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetLinearVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1, test.ShouldAlmostEqual, speed)
-	test.That(t, actualGPS1.speedCount, test.ShouldEqual, 1)
-}
-
-func TestReadSatellites(t *testing.T) {
-	actualGPS1 := &mockLocal{Name: testGPSName}
-	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
-
-	test.That(t, actualGPS1.satCount, test.ShouldEqual, 0)
-	actualSats1, totalSats1, err := reconfGPS1.(gps.LocalGPS).ReadSatellites(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualSats1, test.ShouldEqual, activeSats)
-	test.That(t, totalSats1, test.ShouldEqual, totalSats)
-	test.That(t, actualGPS1.satCount, test.ShouldEqual, 1)
-}
-
-func TestReadAccuracy(t *testing.T) {
-	actualGPS1 := &mockLocal{Name: testGPSName}
-	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
-
-	test.That(t, actualGPS1.accCount, test.ShouldEqual, 0)
-	hAcc1, vAcc1, err := reconfGPS1.(gps.LocalGPS).ReadAccuracy(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, hAcc1, test.ShouldAlmostEqual, hAcc)
-	test.That(t, vAcc1, test.ShouldAlmostEqual, vAcc)
-	test.That(t, actualGPS1.accCount, test.ShouldEqual, 1)
-}
-
-func TestReadValid(t *testing.T) {
-	actualGPS1 := &mockLocal{Name: testGPSName}
-	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
-
-	test.That(t, actualGPS1.validCount, test.ShouldEqual, 0)
-	valid1, err := reconfGPS1.(gps.LocalGPS).ReadValid(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, valid1, test.ShouldEqual, valid)
-	test.That(t, actualGPS1.validCount, test.ShouldEqual, 1)
+	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 1)
 }
 
 func TestGetReadings(t *testing.T) {
-	actualGPS1 := &mockLocal{Name: testGPSName}
-	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
+	actualMovementSensor1 := &mock{Name: testMovementSensorName}
+	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
-	readings1, err := gps.GetReadings(context.Background(), actualGPS1)
+	readings1, err := movementsensor.GetReadings(context.Background(), actualMovementSensor1)
 	allReadings := []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
-	result, err := reconfGPS1.(sensor.Sensor).GetReadings(context.Background())
+	result, err := reconfMovementSensor1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
-
-	actualGPS2 := &mockLocalWithSensor{}
-	reconfGPS2, _ := gps.WrapWithReconfigurable(actualGPS2)
-
-	test.That(t, actualGPS2.readingsCount, test.ShouldEqual, 0)
-	result, err = reconfGPS2.(sensor.Sensor).GetReadings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, readings)
-	test.That(t, actualGPS2.readingsCount, test.ShouldEqual, 1)
-
-	actualGPS3 := &mockWithSensor{}
-	reconfGPS3, _ := gps.WrapWithReconfigurable(actualGPS3)
-
-	test.That(t, actualGPS3.readingsCount, test.ShouldEqual, 0)
-	result, err = reconfGPS3.(sensor.Sensor).GetReadings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, readings)
-	test.That(t, actualGPS3.readingsCount, test.ShouldEqual, 1)
 }
 
-
-
 func TestClose(t *testing.T) {
-	actualGPS1 := &mockLocal{Name: testGPSName}
-	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
+	actualMovementSensor1 := &mock{Name: testMovementSensorName}
+	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
-	test.That(t, actualGPS1.reconfCount, test.ShouldEqual, 0)
-	test.That(t, utils.TryClose(context.Background(), reconfGPS1), test.ShouldBeNil)
-	test.That(t, actualGPS1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, actualMovementSensor1.reconfCount, test.ShouldEqual, 0)
+	test.That(t, utils.TryClose(context.Background(), reconfMovementSensor1), test.ShouldBeNil)
+	test.That(t, actualMovementSensor1.reconfCount, test.ShouldEqual, 1)
 }
 
 var (
@@ -349,83 +272,12 @@ var (
 )
 
 type mock struct {
-	gps.GPS
+	movementsensor.MovementSensor
 	Name        string
 	reconfCount int
+	positionCount int
+	velocityCount int
 }
 
 func (m *mock) Close() { m.reconfCount++ }
 
-type mockLocal struct {
-	gps.LocalGPS
-	Name        string
-	locCount    int
-	altCount    int
-	speedCount  int
-	satCount    int
-	accCount    int
-	validCount  int
-	reconfCount int
-}
-
-// ReadLocation always returns the set values.
-func (m *mockLocal) ReadLocation(ctx context.Context) (*geo.Point, error) {
-	m.locCount++
-	return loc, nil
-}
-
-// ReadAltitude returns the set value.
-func (m *mockLocal) ReadAltitude(ctx context.Context) (float64, error) {
-	m.altCount++
-	return alt, nil
-}
-
-// ReadSpeed returns the set value.
-func (m *mockLocal) ReadSpeed(ctx context.Context) (float64, error) {
-	m.speedCount++
-	return speed, nil
-}
-
-// ReadSatellites returns the set values.
-func (m *mockLocal) ReadSatellites(ctx context.Context) (int, int, error) {
-	m.satCount++
-	return activeSats, totalSats, nil
-}
-
-// ReadAccuracy returns the set values.
-func (m *mockLocal) ReadAccuracy(ctx context.Context) (float64, float64, error) {
-	m.accCount++
-	return hAcc, vAcc, nil
-}
-
-// ReadValid returns the set value.
-func (m *mockLocal) ReadValid(ctx context.Context) (bool, error) {
-	m.validCount++
-	return valid, nil
-}
-
-func (m *mockLocal) Close() { m.reconfCount++ }
-
-func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
-}
-
-type mockWithSensor struct {
-	mock
-	readingsCount int
-}
-
-func (m *mockWithSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
-	m.readingsCount++
-	return readings, nil
-}
-
-type mockLocalWithSensor struct {
-	mockLocal
-	readingsCount int
-}
-
-func (m *mockLocalWithSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
-	m.readingsCount++
-	return readings, nil
-}
