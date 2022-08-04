@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -175,7 +176,7 @@ func TestReconfigurableMovementSensor(t *testing.T) {
 	err = reconfMovementSensor1.Reconfigure(context.Background(), reconfMovementSensor2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfMovementSensor1, test.ShouldResemble, reconfMovementSensor2)
-	test.That(t, actualMovementSensor1.reconfCount, test.ShouldEqual, 2)
+	test.That(t, actualMovementSensor1.reconfCount, test.ShouldEqual, 1)
 
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
 	test.That(t, actualMovementSensor2.positionCount, test.ShouldEqual, 0)
@@ -193,24 +194,6 @@ func TestReconfigurableMovementSensor(t *testing.T) {
 	reconfMovementSensor3, err := movementsensor.WrapWithReconfigurable(actualMovementSensor3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfMovementSensor3, test.ShouldNotBeNil)
-
-	err = reconfMovementSensor1.Reconfigure(context.Background(), reconfMovementSensor3)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfMovementSensor1, reconfMovementSensor3))
-	test.That(t, actualMovementSensor3.reconfCount, test.ShouldEqual, 0)
-
-	err = reconfMovementSensor3.Reconfigure(context.Background(), reconfMovementSensor1)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfMovementSensor3, reconfMovementSensor1))
-
-	actualMovementSensor4 := &mock{Name: testMovementSensorName2}
-	reconfMovementSensor4, err := movementsensor.WrapWithReconfigurable(actualMovementSensor4)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfMovementSensor4, test.ShouldNotBeNil)
-
-	err = reconfMovementSensor3.Reconfigure(context.Background(), reconfMovementSensor4)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfMovementSensor3, test.ShouldResemble, reconfMovementSensor4)
 }
 
 func TestGetPosition(t *testing.T) {
@@ -231,7 +214,7 @@ func TestGetLinearVelocity(t *testing.T) {
 	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 0)
 	speed1, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetLinearVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, speed1, test.ShouldAlmostEqual, speed)
+	test.That(t, speed1, test.ShouldResemble, speed)
 	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 1)
 }
 
@@ -240,7 +223,7 @@ func TestGetReadings(t *testing.T) {
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
 	readings1, err := movementsensor.GetReadings(context.Background(), actualMovementSensor1)
-	allReadings := []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid}
+	allReadings := []interface{}{loc, alt, acc, speed, ang, compass, orie}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
@@ -261,14 +244,11 @@ func TestClose(t *testing.T) {
 var (
 	loc        = geo.NewPoint(90, 1)
 	alt        = 50.5
-	speed      = 5.4
-	activeSats = 1
-	totalSats  = 2
-	hAcc       = 0.7
-	vAcc       = 0.8
-	valid      = true
-
-	readings = []interface{}{5.6, 6.4}
+	acc        = 1.1
+	speed      = r3.Vector{5.4, 1.1, 2.2}
+	ang      =   r3.Vector{5.5, 1.2, 2.3}
+	orie      =   r3.Vector{5.6, 1.3, 2.4}
+	compass = 123.
 )
 
 type mock struct {
@@ -277,6 +257,36 @@ type mock struct {
 	reconfCount int
 	positionCount int
 	velocityCount int
+}
+
+func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
+
+func (m *mock) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+	m.positionCount++
+	return loc, alt, acc, nil
+}
+
+func (m *mock) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+	m.velocityCount++
+	return speed, nil
+}
+
+func (m *mock) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+	return ang, nil
+}
+
+func (m *mock) GetOrientation(ctx context.Context) (r3.Vector, error) {
+	return orie, nil
+}
+
+func (m *mock) GetCompassHeading(ctx context.Context) (float64, error) {
+	return compass, nil
+}
+
+func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
+	return movementsensor.GetReadings(ctx, m)
 }
 
 func (m *mock) Close() { m.reconfCount++ }

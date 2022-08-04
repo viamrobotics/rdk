@@ -101,6 +101,7 @@ func (c *client) GetCompassHeading(ctx context.Context) (float64, error) {
 }
 
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
+	// TODO(erh): should this go over the network?
 	return GetReadings(ctx, c)
 }
 
