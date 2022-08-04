@@ -62,11 +62,12 @@ func Named(name string) resource.Name {
 
 // A MovementSensor represents a MovementSensor that can report lat/long measurements.
 type MovementSensor interface {
+	GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) // (lat, long), altitide, accuracy
 	GetLinearVelocity(ctx context.Context) (r3.Vector, error)
 	GetAngularVelocity(ctx context.Context) (r3.Vector, error)
 	GetCompassHeading(ctx context.Context) (float64, error)
 	GetOrientation(ctx context.Context)  (r3.Vector, error)
-	GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) // (lat, long), altitide, accuracy
+
 	
 	generic.Generic
 	sensor.Sensor
@@ -113,7 +114,37 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // GetReadings is a helper for getting all readings from a MovementSensor.
 func GetReadings(ctx context.Context, g MovementSensor) ([]interface{}, error) {
-	panic(1)
+	pos, altitide, accuracy, err := g.GetPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings := []interface{}{pos, altitide, accuracy}
+
+	vel, err := g.GetLinearVelocity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings = append(readings, vel)
+
+	vel, err = g.GetAngularVelocity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings = append(readings, vel)
+
+	compass, err := g.GetCompassHeading(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings = append(readings, compass)
+
+	ori, err := g.GetOrientation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings = append(readings, ori)
+
+	return readings, nil
 }
 
 type reconfigurableMovementSensor struct {

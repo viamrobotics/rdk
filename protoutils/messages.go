@@ -236,3 +236,8 @@ func ConvertVectorProtoToR3(v *commonpb.Vector3) r3.Vector {
 	}
 	return r3.Vector{X: v.X, Y: v.Y, Z: v.Z}
 }
+
+// ConvertVectorR3ToProto
+func ConvertVectorR3ToProto(v r3.Vector) *commonpb.Vector3 {
+	return &commonpb.Vector3{X: v.X, Y: v.Y, Z: v.Z}
+}
