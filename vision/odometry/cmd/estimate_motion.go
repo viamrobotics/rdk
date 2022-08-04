@@ -38,8 +38,8 @@ func main() {
 		writeImageWithTemplate(w, &im2, "Image2")
 	})
 	http.Handle("/", http.FileServer(http.Dir(".")))
-	logger.Info("Listening on 8080...")
-	logger.Info("Images can be visualized at http://localhost:8080/orb/")
+	//logger.Info("Listening on 8080...")
+	//logger.Info("Images can be visualized at http://localhost:8080/orb/")
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
@@ -64,8 +64,8 @@ func RunMotionEstimation(imagePath1, imagePath2, configPath string) (image.Image
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	logger.Info(motion.Rotation)
-	logger.Info(motion.Translation)
+	//logger.Info(motion.Rotation)
+	//logger.Info(motion.Translation)
 	return im1, im2, motion, nil
 }
 
