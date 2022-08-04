@@ -128,15 +128,9 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	return nil
 }
 
-func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
-	up := linear.Y
-	left := angular.Z
-
-	return base.differentialDrive(up, left)
-}
-
-// differentialDrive takes up and left direction inputs and converts them to left and
-// right motor powers. negative up means down and negative left means right.
+// differentialDrive takes up and left direction inputs from a first person perspective
+// and converts them to left and right motor powers. negative up means down and negative
+// left means right.
 func (base *wheeledBase) differentialDrive(up, left float64) (float64, float64) {
 	if up < 0 {
 		// Mirror the forward turning arc if we go in reverse
@@ -175,7 +169,7 @@ func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vec
 func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 
-	lPower, rPower := base.setPowerMath(linear, angular)
+	lPower, rPower := base.differentialDrive(linear.Y, angular.Z)
 
 	// Send motor commands
 	// TODO[RSDK-328] Fix these when motor extra params are ready
