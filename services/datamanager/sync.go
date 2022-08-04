@@ -2,6 +2,9 @@ package datamanager
 
 import (
 	"context"
+	"go.viam.com/rdk/config"
+	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils/rpc"
 	"os"
 	"path/filepath"
 	"sync"
@@ -48,9 +51,10 @@ type uploadFunc func(ctx context.Context, client v1.DataSyncService_UploadClient
 
 // TODO DATA-206: instantiate a client
 // newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
-func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) (*syncer, error) {
+func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string, client v1.DataSyncService_UploadClient) (*syncer, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
+		client: client,
 		logger: logger,
 		progressTracker: progressTracker{
 			lock:        &sync.Mutex{},
@@ -113,6 +117,40 @@ func (s *syncer) Sync(paths []string) {
 	for _, p := range paths {
 		s.upload(s.cancelCtx, p)
 	}
+}
+
+// TODO: implement
+func newSyncClient(ctx context.Context, cfg *config.Config, logger golog.Logger, conn rpc.ClientConn) (v1.DataSyncService_UploadClient, error) {
+	grpcClient := v1.NewDataSyncServiceClient(conn)
+	sc := &client{
+		conn:   conn,
+		client: grpcClient,
+		logger: logger,
+	}
+	return sc
+}
+
+func createSyncClientConnection(ctx context.Context, cfg *config.Config, logger golog.Logger) (rpc.ClientConn, error) {
+	tlsConfig := config.NewTLSConfig(cfg).Config
+	cloudConfig := cfg.Cloud
+	rpcOpts := []rpc.DialOption{
+		rpc.WithTLSConfig(tlsConfig),
+		rpc.WithEntityCredentials(
+			cloudConfig.ID,
+			rpc.Credentials{
+				Type:    rdkutils.CredentialsTypeRobotLocationSecret,
+				Payload: cloudConfig.LocationSecret,
+			}),
+	}
+	appURL := "app.viam.com:443" // TODO: Find way to not hardcode this. Maybe look in grpc/dial.go?
+
+	conn, err := rpc.DialDirectGRPC(
+		ctx,
+		appURL,
+		logger,
+		rpcOpts...,
+	)
+	return conn, err
 }
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
