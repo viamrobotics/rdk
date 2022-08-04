@@ -109,7 +109,7 @@ var Name = resource.NameFromSubtype(Subtype, "")
 type Config struct {
 	Store    StoreConfig `json:"store"`
 	BaseName string      `json:"base"`
-	GPSName  string      `json:"gps"`
+	MovementSensorName  string      `json:"movement_sensor"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -120,8 +120,8 @@ func (config *Config) Validate(path string) error {
 	if config.BaseName == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "base")
 	}
-	if config.GPSName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "gps")
+	if config.MovementSensorName == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 	return nil
 }
@@ -136,7 +136,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if err != nil {
 		return nil, err
 	}
-	gpsDevice, err := gps.FromRobot(r, svcConfig.GPSName)
+	gpsDevice, err := gps.FromRobot(r, svcConfig.MovementSensorName)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ type navService struct {
 	mode  Mode
 
 	base      base.Base
-	gpsDevice gps.GPS
+	gpsDevice gps.MovementSensor
 
 	logger                  golog.Logger
 	cancelCtx               context.Context
