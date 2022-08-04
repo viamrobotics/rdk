@@ -151,7 +151,7 @@ func newOneAxis(ctx context.Context, deps registry.Dependencies, config config.C
 	if err != nil {
 		return nil, err
 	}
-	features, err := _motor.GetFeatures(ctx)
+	features, err := _motor.GetFeatures(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 
 	// Go backwards so limit stops are not hit.
 	x := g.rotationalToLinear(0.8 * g.lengthMm)
-	err = g.motor.GoTo(ctx, g.rpm, x)
+	err = g.motor.GoTo(ctx, g.rpm, x, nil)
 	if err != nil {
 		return err
 	}
@@ -286,7 +286,7 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	revPerLength := g.lengthMm / g.mmPerRevolution
 
-	positionA, err := g.motor.GetPosition(ctx)
+	positionA, err := g.motor.GetPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -308,7 +308,7 @@ func (g *oneAxis) rotationalToLinear(positions float64) float64 {
 
 func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
-		return g.motor.Stop(ctx)
+		return g.motor.Stop(ctx, nil)
 	})
 
 	d := -1.0
@@ -316,7 +316,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		d *= -1
 	}
 
-	err := g.motor.GoFor(ctx, d*g.rpm, 0)
+	err := g.motor.GoFor(ctx, d*g.rpm, 0, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -328,7 +328,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 			return 0, err
 		}
 		if hit {
-			err = g.motor.Stop(ctx)
+			err = g.motor.Stop(ctx, nil)
 			if err != nil {
 				return 0, err
 			}
@@ -345,7 +345,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		}
 	}
 
-	return g.motor.GetPosition(ctx)
+	return g.motor.GetPosition(ctx, nil)
 }
 
 func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
@@ -364,7 +364,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 
 // GetPosition returns the position in millimeters.
 func (g *oneAxis) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	pos, err := g.motor.GetPosition(ctx)
+	pos, err := g.motor.GetPosition(ctx, extra)
 	if err != nil {
 		return []float64{}, err
 	}
@@ -410,9 +410,9 @@ func (g *oneAxis) MoveToPosition(
 	if hit {
 		if x < g.positionLimits[0] {
 			dir := float64(1)
-			return g.motor.GoFor(ctx, dir*g.rpm, 2)
+			return g.motor.GoFor(ctx, dir*g.rpm, 2, extra)
 		}
-		return g.motor.Stop(ctx)
+		return g.motor.Stop(ctx, extra)
 	}
 
 	// Hits forward limit switch, goes in backwards direction for two revolutions
@@ -423,12 +423,12 @@ func (g *oneAxis) MoveToPosition(
 	if hit {
 		if x > g.positionLimits[1] {
 			dir := float64(-1)
-			return g.motor.GoFor(ctx, dir*g.rpm, 2)
+			return g.motor.GoFor(ctx, dir*g.rpm, 2, extra)
 		}
-		return g.motor.Stop(ctx)
+		return g.motor.Stop(ctx, extra)
 	}
 
-	err = g.motor.GoTo(ctx, g.rpm, x)
+	err = g.motor.GoTo(ctx, g.rpm, x, extra)
 	if err != nil {
 		return err
 	}
@@ -439,7 +439,7 @@ func (g *oneAxis) MoveToPosition(
 func (g *oneAxis) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
-	return g.motor.Stop(ctx)
+	return g.motor.Stop(ctx, extra)
 }
 
 // IsMoving returns whether the gantry is moving.
