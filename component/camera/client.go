@@ -2,17 +2,12 @@
 package camera
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"image"
-	"image/jpeg"
-	"image/png"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
-	"github.com/xfmoulet/qoi"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
@@ -68,32 +63,11 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	_, span2 := trace.StartSpan(ctx, "camera::client::Next::Decode::"+resp.MimeType)
-	defer span2.End()
-	switch resp.MimeType {
-	case utils.MimeTypeRawRGBA:
-		img := image.NewNRGBA(image.Rect(0, 0, int(resp.WidthPx), int(resp.HeightPx)))
-		img.Pix = resp.Image
-		return img, func() {}, nil
-	case utils.MimeTypeRawIWD:
-		// TODO(DATA-237) - remove
-		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.WidthPx), int(resp.HeightPx), resp.Image)
-		return img, func() {}, err
-	case utils.MimeTypeRawDepth:
-		depth, err := rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(resp.Image)))
-		return depth, func() {}, err
-	case utils.MimeTypeJPEG:
-		img, err := jpeg.Decode(bytes.NewReader(resp.Image))
-		return img, func() {}, err
-	case utils.MimeTypePNG:
-		img, err := png.Decode(bytes.NewReader(resp.Image))
-		return img, func() {}, err
-	case utils.MimeTypeQOI:
-		img, err := qoi.Decode(bytes.NewReader(resp.Image))
-		return img, func() {}, err
-	default:
-		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
+	img, err := rimage.DecodeImage(ctx, resp.Image, resp.MimeType, int(resp.WidthPx), int(resp.HeightPx))
+	if err != nil {
+		return nil, nil, err
 	}
+	return img, func() {}, nil
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {

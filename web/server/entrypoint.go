@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -413,7 +414,12 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		})
 	}
 
-	myRobot, err := robotimpl.New(ctx, processedConfig, logger)
+	myRobot, err := robotimpl.New(
+		ctx,
+		processedConfig,
+		logger,
+		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+	)
 	if err != nil {
 		return err
 	}
