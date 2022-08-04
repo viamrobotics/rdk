@@ -15,6 +15,7 @@ import (
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -403,7 +404,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(
+		ctx,
+		cfg,
+		logger,
+		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+	)
 	if err != nil {
 		return err
 	}
