@@ -3,6 +3,7 @@ package datamanager
 
 import (
 	"context"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -323,24 +324,26 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) error {
+func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64, client v1.DataSyncService_UploadClient) error {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
+		svc.syncer = nil
 	}
 
+	// TODO: should this be in the if above?
 	svc.cancelSyncBackgroundRoutine()
-
-	syncer, err := newSyncer(svc.logger, svc.uploadFunc, svc.partID)
-	if err != nil {
-		return errors.Wrap(err, "failed to initialize new syncer")
-	}
-	svc.syncer = syncer
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
+		syncer, err := newSyncer(svc.logger, svc.uploadFunc, svc.partID, client)
+		if err != nil {
+			return errors.Wrap(err, "failed to initialize new syncer")
+		}
+		svc.syncer = syncer
+
 		// Sync existing files in captureDir.
 		var previouslyCaptured []string
 		//nolint
@@ -478,7 +481,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
-		if err := svc.initOrUpdateSyncer(ctx, 0); err != nil {
+		if err := svc.initOrUpdateSyncer(ctx, 0, nil); err != nil {
 			return err
 		}
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
@@ -488,6 +491,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+		syncClient := newSyncClient(ctx, cfg)
 		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins); err != nil {
 			return err
 		}
