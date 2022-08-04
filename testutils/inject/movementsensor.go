@@ -5,13 +5,16 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/component/movementsensor"
 )
 
 // MovementSensor is an injected MovementSensor
-type GPS struct {
+type MovementSensor struct {
 	movementsensor.MovementSensor
+	GetPositionFunc    func(ctx context.Context) (*geo.Point, float64, float64, error)
+	GetLinearVelocityFunc    func(ctx context.Context) (r3.Vector, error)
 	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc          func(ctx context.Context) error
 }
@@ -30,4 +33,18 @@ func (i *MovementSensor) Do(ctx context.Context, cmd map[string]interface{}) (ma
 		return i.MovementSensor.Do(ctx, cmd)
 	}
 	return i.DoFunc(ctx, cmd)
+}
+
+func (i *MovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+	if i.GetPositionFunc == nil {
+		return i.MovementSensor.GetPosition(ctx)
+	}
+	return i.GetPositionFunc(ctx)
+}
+
+func (i *MovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+	if i.GetPositionFunc == nil {
+		return i.MovementSensor.GetLinearVelocity(ctx)
+	}
+	return i.GetLinearVelocityFunc(ctx)
 }
