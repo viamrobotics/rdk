@@ -44,11 +44,11 @@ func TestServerSync(t *testing.T) {
 					SyncFunc: func(
 						ctx context.Context,
 					) error {
-						return errors.New("fake sync error")
+						return errors.New("fake datasync error")
 					},
 				},
 			},
-			expectedError: errors.New("fake sync error"),
+			expectedError: errors.New("fake datasync error"),
 		},
 		"returns response": {
 			resourceMap: map[resource.Name]interface{}{

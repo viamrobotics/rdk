@@ -3,7 +3,6 @@ package datamanager
 
 import (
 	"context"
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -23,6 +22,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -138,11 +139,11 @@ type dataManagerService struct {
 	captureDisabled           bool
 	syncDisabled              bool
 	collectors                map[componentMethodMetadata]collectorAndConfig
-	syncer                    syncManager
+	syncer                    datasync.Manager
 	syncIntervalMins          float64
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
-	uploadFunc                uploadFunc
+	uploadFunc                datasync.UploadFunc
 	updateCollectorsCancelFn  func()
 	additionalSyncPaths       []string
 	partID                    string
@@ -231,7 +232,8 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		MethodMetadata: metadata,
 	}
 	// Build metadata.
-	syncMetadata := buildSyncMetadata(attributes)
+	syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+		attributes.Method, attributes.AdditionalParams)
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
@@ -240,7 +242,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := createDataCaptureFile(svc.captureDir, syncMetadata)
+				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -284,7 +286,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := createDataCaptureFile(svc.captureDir, syncMetadata)
+	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +326,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64, client v1.DataSyncService_UploadClient) error {
+func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) error {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -333,17 +335,16 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 		svc.syncer = nil
 	}
 
-	// TODO: should this be in the if above?
 	svc.cancelSyncBackgroundRoutine()
+
+	syncer, err := datasync.NewSyncer(svc.logger, svc.uploadFunc, svc.partID)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize new syncer")
+	}
+	svc.syncer = syncer
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
-		syncer, err := newSyncer(svc.logger, svc.uploadFunc, svc.partID, client)
-		if err != nil {
-			return errors.Wrap(err, "failed to initialize new syncer")
-		}
-		svc.syncer = syncer
-
 		// Sync existing files in captureDir.
 		var previouslyCaptured []string
 		//nolint
@@ -383,10 +384,11 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
-		// Build metadata.
-		syncMetadata := buildSyncMetadata(collector.Attributes)
+		attributes := collector.Attributes
+		syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+			attributes.Method, attributes.AdditionalParams)
 
-		nextTarget, err := createDataCaptureFile(svc.captureDir, syncMetadata)
+		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
 		if err != nil {
 			svc.logger.Errorw("failed to create new data capture file", "error", err)
 		}
@@ -481,7 +483,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
-		if err := svc.initOrUpdateSyncer(ctx, 0, nil); err != nil {
+		if err := svc.initOrUpdateSyncer(ctx, 0); err != nil {
 			return err
 		}
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
@@ -491,7 +493,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
-		syncClient := newSyncClient(ctx, cfg)
 		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins); err != nil {
 			return err
 		}

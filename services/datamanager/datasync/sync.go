@@ -1,10 +1,8 @@
-package datamanager
+// Package datasync contains interfaces for syncing data from robots to the app.viam.com cloud.
+package datasync
 
 import (
 	"context"
-	"go.viam.com/rdk/config"
-	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils/rpc"
 	"os"
 	"path/filepath"
 	"sync"
@@ -14,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	goutils "go.viam.com/utils"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 var (
@@ -24,12 +24,13 @@ var (
 	uploadChunkSize = 32768
 )
 
-func emptyReadingErr(fileName string) error {
+// EmptyReadingErr defines the error for when a SensorData contains no data.
+func EmptyReadingErr(fileName string) error {
 	return errors.Errorf("%s contains SensorData containing no data", fileName)
 }
 
-// syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
-type syncManager interface {
+// Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
+type Manager interface {
 	Sync(paths []string)
 	Close()
 }
@@ -40,26 +41,26 @@ type syncer struct {
 	client            v1.DataSyncService_UploadClient
 	logger            golog.Logger
 	progressTracker   progressTracker
-	uploadFunc        uploadFunc
+	uploadFunc        UploadFunc
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
 }
 
-type uploadFunc func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
+// UploadFunc defines a function for uploading a file to the Viam data sync service backend.
+type UploadFunc func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
 	partID string) error
 
-// TODO DATA-206: instantiate a client
-// newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
-func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string, client v1.DataSyncService_UploadClient) (*syncer, error) {
+// NewSyncer returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
+// TODO DATA-206: instantiate a client.
+func NewSyncer(logger golog.Logger, uploadFunc UploadFunc, partID string) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		client: client,
 		logger: logger,
 		progressTracker: progressTracker{
 			lock:        &sync.Mutex{},
 			m:           make(map[string]struct{}),
-			progressDir: filepath.Join(viamCaptureDotDir, ".progress/"),
+			progressDir: viamProgressDotDir,
 		},
 		backgroundWorkers: sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
@@ -119,40 +120,6 @@ func (s *syncer) Sync(paths []string) {
 	}
 }
 
-// TODO: implement
-func newSyncClient(ctx context.Context, cfg *config.Config, logger golog.Logger, conn rpc.ClientConn) (v1.DataSyncService_UploadClient, error) {
-	grpcClient := v1.NewDataSyncServiceClient(conn)
-	sc := &client{
-		conn:   conn,
-		client: grpcClient,
-		logger: logger,
-	}
-	return sc
-}
-
-func createSyncClientConnection(ctx context.Context, cfg *config.Config, logger golog.Logger) (rpc.ClientConn, error) {
-	tlsConfig := config.NewTLSConfig(cfg).Config
-	cloudConfig := cfg.Cloud
-	rpcOpts := []rpc.DialOption{
-		rpc.WithTLSConfig(tlsConfig),
-		rpc.WithEntityCredentials(
-			cloudConfig.ID,
-			rpc.Credentials{
-				Type:    rdkutils.CredentialsTypeRobotLocationSecret,
-				Payload: cloudConfig.LocationSecret,
-			}),
-	}
-	appURL := "app.viam.com:443" // TODO: Find way to not hardcode this. Maybe look in grpc/dial.go?
-
-	conn, err := rpc.DialDirectGRPC(
-		ctx,
-		appURL,
-		logger,
-		rpcOpts...,
-	)
-	return conn, err
-}
-
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.
 func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) error {
@@ -206,8 +173,8 @@ func getNextWait(lastWait time.Duration) time.Duration {
 
 func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	var md *v1.UploadMetadata
-	if isDataCaptureFile(f) {
-		captureMD, err := readDataCaptureMetadata(f)
+	if datacapture.IsDataCaptureFile(f) {
+		captureMD, err := datacapture.ReadDataCaptureMetadata(f)
 		if err != nil {
 			return nil, err
 		}
