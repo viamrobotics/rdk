@@ -1,4 +1,4 @@
-interface Resource {
+export interface Resource {
   name: string
   type: string
   subtype: string
@@ -6,8 +6,8 @@ interface Resource {
 }
 
 export const normalizeRemoteName = (name: string) => {
-  return name.replace(":", "-");
-}
+  return name.replace(':', '-');
+};
 
 const sortByName = (a: Resource, b: Resource) => {
   if (a.name < b.name) {
@@ -49,7 +49,7 @@ export const filterResources = (resources: Resource[], namespace: string, type: 
     .sort(sortByName);
 };
 
-export const filterRdkComponentsWithStatus = (resources: Resource[], status: any, subtype: string) => {
+export const filterRdkComponentsWithStatus = (resources: Resource[], status: never, subtype: string) => {
   return resources
     .filter((resource) =>
       resource.namespace === 'rdk' &&
@@ -58,3 +58,10 @@ export const filterRdkComponentsWithStatus = (resources: Resource[], status: any
       status[resourceNameToString(resource)]
     ).sort(sortByName);
 };
+
+export const filterResourcesWithNames = (resources: Resource[]) => {
+  return resources
+    .filter((resource) => Boolean(resource.name)
+    ).sort(sortByName);
+};
+
