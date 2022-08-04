@@ -76,7 +76,7 @@ func TestClient(t *testing.T) {
 		client2, ok := client.(datamanager.Service)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		passedErr := errors.New("fake datasync error")
+		passedErr := errors.New("fake sync error")
 		injectMS.SyncFunc = func(
 			ctx context.Context,
 		) error {

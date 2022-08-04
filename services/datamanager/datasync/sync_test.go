@@ -469,7 +469,7 @@ func TestPartialUpload(t *testing.T) {
 			}
 			sut.Close()
 
-			// Reset mock client to be empty (simulates a full reboot of client). Then datasync using mock client.
+			// Reset mock client to be empty (simulates a full reboot of client). Then sync using mock client.
 			mc = initMockClient(len(tc.expDataAfterCanceled))
 			sut = newTestSyncer(t, mc, nil)
 			sut.Sync([]string{tf.Name()})

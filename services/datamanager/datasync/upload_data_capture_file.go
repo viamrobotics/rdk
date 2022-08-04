@@ -65,7 +65,7 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 	// Close stream and receive response.
 	if _, err := client.CloseAndRecv(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-			"datasync service backend")
+			"sync service backend")
 	}
 
 	return nil
