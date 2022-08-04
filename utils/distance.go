@@ -75,15 +75,15 @@ func DescriptorsHammingDistance(descs1, descs2 []descriptors.Descriptor) ([][]in
 }
 
 func DescHammingDistance(desc1, desc2 descriptors.Descriptor) (int, error) {
-	if len(desc1.Bits) != len(desc2.Bits) {
+	if len(desc1) != len(desc2) {
 		return 0, errors.New("descriptors must have same length")
 	}
 	var x uint64
 	var y uint64
 	var dist int
-	for i := 0; i < len(desc1.Bits); i++ {
-		x = desc1.Bits[i]
-		y = desc2.Bits[i]
+	for i := 0; i < len(desc1); i++ {
+		x = desc1[i]
+		y = desc2[i]
 		// ^= is bitwise XOR
 		x ^= y
 		for x > 0 {
@@ -101,6 +101,39 @@ func GetArgMinDistancesPerRow(distances *mat.Dense) []int {
 	for i := 0; i < nRows; i++ {
 		row := mat.Row(nil, i, distances)
 		indices[i] = floats.MinIdx(row)
+	}
+	return indices
+}
+
+func Transpose(slice [][]int) [][]int {
+	xl := len(slice[0])
+	yl := len(slice)
+	result := make([][]int, xl)
+	for i := range result {
+		result[i] = make([]int, yl)
+	}
+	for i := 0; i < xl; i++ {
+		for j := 0; j < yl; j++ {
+			result[i][j] = slice[j][i]
+		}
+	}
+	return result
+}
+
+// GetArgMinDistancesPerRowInt returns in a slice of int the index of the point with minimum distance for each row.
+func GetArgMinDistancesPerRowInt(distances [][]int) []int {
+	nRows := len(distances)
+	indices := make([]int, nRows)
+	for j := 0; j < nRows; j++ {
+		m := 0
+		mIndex := 0
+		for i, e := range distances[j] {
+			if i == 0 || e < m {
+				m = e
+				mIndex = i
+			}
+		}
+		indices[j] = mIndex
 	}
 	return indices
 }

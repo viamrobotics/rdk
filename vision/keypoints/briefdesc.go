@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/keypoints/descriptors"
 )
 
 // SamplingType stores 0 if a sampling of image points for BRIEF is uniform, 1 if gaussian.
@@ -64,7 +65,7 @@ func sampleIntegers(patchSize int, n int, sampling SamplingType) []int {
 }
 
 // ComputeBRIEFDescriptors computes BRIEF descriptors on image img at keypoints kps.
-func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConfig) (Descriptors, error) {
+func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConfig) (descriptors.Descriptors, error) {
 	// blur image
 	kernel := rimage.GetGaussian5()
 	normalized := kernel.Normalize()
@@ -79,7 +80,8 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 	ys1 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), 3*cfg.N/4)
 
 	// compute descriptors
-	descriptors := make(Descriptors, len(kps.Points))
+
+	descs := make([]descriptors.Descriptor, len(kps.Points))
 	padded, err := rimage.PaddingGray(blurred, image.Point{17, 17}, image.Point{8, 8}, rimage.BorderConstant)
 	if err != nil {
 		return nil, err
@@ -87,7 +89,7 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 	for k, kp := range kps.Points {
 		paddedKp := image.Point{kp.X + 8, kp.Y + 8}
 		// Divide by 64 since we store a descriptor as a uint64 array.
-		descriptor := make(Descriptor, cfg.N/64)
+		descriptor := make([]uint64, cfg.N/64)
 		cosTheta := 1.0
 		sinTheta := 0.0
 		// if use orientation and keypoints are oriented, compute rotation matrix
@@ -106,12 +108,14 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 			outy1 := int(math.Round(sinTheta*x1 + cosTheta*y1))
 			// fill BRIEF descriptor
 			if padded.At(paddedKp.X+outx0, paddedKp.Y+outy0).(color.Gray).Y < padded.At(paddedKp.X+outx1, paddedKp.Y+outy1).(color.Gray).Y {
-				descriptorNum := int64(i / 64)
+				// Casting to an int truncates the float, which is what we want.
+				descriptorIndex := int64(i / 64)
 				numPos := i % 64
-				descriptor[descriptorNum] |= (1 << numPos)
+				// This flips the bit at numPos to 1.
+				descriptor[descriptorIndex] |= (1 << numPos)
 			}
 		}
-		descriptors[k] = descriptor
+		descs[k] = descriptor
 	}
-	return descriptors, nil
+	return descs, nil
 }
