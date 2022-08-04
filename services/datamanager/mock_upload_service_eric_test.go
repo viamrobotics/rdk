@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -168,6 +169,8 @@ func TestDataCaptureUpload(t *testing.T) {
 			// Create and initialize the syncer to begin upload process.
 			sut := newTestSyncerRealClient(t, uploadClient, nil)
 			sut.Sync([]string{tf.Name()})
+			time.Sleep(100 * time.Millisecond)
+			sut.Close()
 
 			test.That(t, err, test.ShouldBeNil)
 
