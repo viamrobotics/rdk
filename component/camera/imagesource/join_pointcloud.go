@@ -290,7 +290,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 		return nil, err
 	}
 
-	finalPointCloud := pointcloud.NewKDTree(targetPointCloud)
+	finalPointCloud := pointcloud.ToKDTree(targetPointCloud)
 	for i := range jpcs.sourceCameras {
 		if i == targetIndex {
 			continue
