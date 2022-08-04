@@ -93,7 +93,7 @@ func TestComponentValidate(t *testing.T) {
 		}
 		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "resevered character : used")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
 
 	t.Run("reserved character in namespace", func(t *testing.T) {
@@ -104,7 +104,7 @@ func TestComponentValidate(t *testing.T) {
 		}
 		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "resevered character : used")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
 }
 
@@ -363,7 +363,7 @@ func TestServiceValidate(t *testing.T) {
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "resevered character : used")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
 
 	t.Run("reserved character in namespace", func(t *testing.T) {
@@ -374,7 +374,7 @@ func TestServiceValidate(t *testing.T) {
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "resevered character : used")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
 }
 

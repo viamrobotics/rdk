@@ -38,14 +38,14 @@ func TestResourceType(t *testing.T) {
 			"rd:k",
 			resource.ResourceTypeComponent,
 			resource.Type{Namespace: "rd:k", ResourceType: resource.ResourceTypeComponent},
-			"resevered character : used",
+			"reserved character : used",
 		},
 		{
 			"reserved charater in namespace",
 			resource.ResourceNamespaceRDK,
 			"compon:ent",
 			resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: "compon:ent"},
-			"resevered character : used",
+			"reserved character : used",
 		},
 		{
 			"all fields included",
@@ -129,7 +129,7 @@ func TestResourceSubtype(t *testing.T) {
 				},
 				ResourceSubtype: "sub:type",
 			},
-			"resevered character : used",
+			"reserved character : used",
 		},
 		{
 			"all fields included",

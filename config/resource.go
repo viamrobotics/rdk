@@ -119,15 +119,14 @@ func (config *Component) Validate(path string) ([]string, error) {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
-	if strings.Contains(string(config.Namespace), ":") {
-		return nil, errors.Errorf("resevered character : used in namespace name:%q", config.Namespace)
+	if err := ContainsReservedCharacter(string(config.Namespace)); err != nil {
+		return nil, err
 	}
-
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if strings.Contains(config.Name, ":") {
-		return nil, errors.Errorf("resevered character : used in resource name:%q", config.Name)
+	if err := ContainsReservedCharacter(config.Name); err != nil {
+		return nil, err
 	}
 	for key, value := range config.Attributes {
 		fieldPath := fmt.Sprintf("%s.%s", path, key)
@@ -219,6 +218,19 @@ func ParseComponentFlag(flag string) (Component, error) {
 		return Component{}, errors.New("component type is required")
 	}
 	return cmp, nil
+}
+
+// NewReservedCharacterUsedError is used when a reserved character is wrongly used in a name.
+func NewReservedCharacterUsedError(val string) error {
+	return errors.Errorf("reserved character : used in name:%q", val)
+}
+
+// ContainsReservedCharacter returns error if string contains a reserved character.
+func ContainsReservedCharacter(val string) error {
+	if strings.Contains(val, ":") {
+		return NewReservedCharacterUsedError(val)
+	}
+	return nil
 }
 
 // A ServiceType defines a type of service.
@@ -322,12 +334,11 @@ func (config *Service) Validate(path string) error {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
-	if strings.Contains(string(config.Namespace), ":") {
-		return errors.Errorf("resevered character : used in namespace name:%q", config.Namespace)
+	if err := ContainsReservedCharacter(string(config.Namespace)); err != nil {
+		return err
 	}
-
-	if strings.Contains(config.Name, ":") {
-		return errors.Errorf("resevered character : used in resource name:%q", config.Name)
+	if err := ContainsReservedCharacter(config.Name); err != nil {
+		return err
 	}
 	for key, value := range config.Attributes {
 		v, ok := value.(validator)
