@@ -90,7 +90,7 @@ func newMultiAxis(
 	}
 
 	var err error
-	mAx.lengthsMm, err = mAx.GetLengths(ctx)
+	mAx.lengthsMm, err = mAx.GetLengths(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,12 @@ func newMultiAxis(
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error {
+func (g *multiAxis) MoveToPosition(
+	ctx context.Context,
+	positions []float64,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -109,12 +114,12 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, wor
 
 	idx := 0
 	for _, subAx := range g.subAxes {
-		subAxNum, err := subAx.GetLengths(ctx)
+		subAxNum, err := subAx.GetLengths(ctx, extra)
 		if err != nil {
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1], worldState)
+		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1], worldState, extra)
 		if err != nil {
 			return err
 		}
@@ -133,12 +138,12 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 
 	idx := 0
 	for _, subAx := range g.subAxes {
-		subAxNum, err := subAx.GetLengths(ctx)
+		subAxNum, err := subAx.GetLengths(ctx, nil)
 		if err != nil {
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), &commonpb.WorldState{})
+		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), &commonpb.WorldState{}, nil)
 		if err != nil {
 			return err
 		}
@@ -148,10 +153,10 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 }
 
 // GetPosition returns the position in millimeters.
-func (g *multiAxis) GetPosition(ctx context.Context) ([]float64, error) {
+func (g *multiAxis) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	positions := []float64{}
 	for _, subAx := range g.subAxes {
-		pos, err := subAx.GetPosition(ctx)
+		pos, err := subAx.GetPosition(ctx, extra)
 		if err != nil {
 			return nil, err
 		}
@@ -161,10 +166,10 @@ func (g *multiAxis) GetPosition(ctx context.Context) ([]float64, error) {
 }
 
 // GetLengths returns the physical lengths of all axes of a multi-axis Gantry.
-func (g *multiAxis) GetLengths(ctx context.Context) ([]float64, error) {
+func (g *multiAxis) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	lengths := []float64{}
 	for _, subAx := range g.subAxes {
-		lng, err := subAx.GetLengths(ctx)
+		lng, err := subAx.GetLengths(ctx, extra)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +179,7 @@ func (g *multiAxis) GetLengths(ctx context.Context) ([]float64, error) {
 }
 
 // Stop stops the subaxes of the gantry simultaneously.
-func (g *multiAxis) Stop(ctx context.Context) error {
+func (g *multiAxis) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	wg := sync.WaitGroup{}
@@ -182,7 +187,7 @@ func (g *multiAxis) Stop(ctx context.Context) error {
 		currG := subAx
 		wg.Add(1)
 		utils.ManagedGo(func() {
-			if err := currG.Stop(ctx); err != nil {
+			if err := currG.Stop(ctx, extra); err != nil {
 				g.logger.Errorw("failed to stop subaxis", "error", err)
 			}
 		}, wg.Done)
@@ -202,7 +207,7 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	}
 	inputs := []float64{}
 	for _, subAx := range g.subAxes {
-		in, err := subAx.GetPosition(ctx)
+		in, err := subAx.GetPosition(ctx, nil)
 		if err != nil {
 			return nil, err
 		}

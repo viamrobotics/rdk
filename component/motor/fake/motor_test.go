@@ -53,11 +53,11 @@ func TestMotorInit(t *testing.T) {
 		MaxRPM:            60,
 	}
 
-	pos, err := m.GetPosition(ctx)
+	pos, err := m.GetPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldEqual, 0)
 
-	featureMap, err := m.GetFeatures(ctx)
+	featureMap, err := m.GetFeatures(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, featureMap[motor.PositionReporting], test.ShouldBeTrue)
 }
@@ -75,7 +75,7 @@ func TestGoFor(t *testing.T) {
 	}
 
 	m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
-	err := m.GoFor(ctx, 60, 1)
+	err := m.GoFor(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -92,7 +92,7 @@ func TestGoTo(t *testing.T) {
 	}
 
 	m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
-	err := m.GoTo(ctx, 60, 1)
+	err := m.GoTo(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -124,10 +124,10 @@ func TestResetZeroPosition(t *testing.T) {
 		MaxRPM:            60,
 	}
 
-	err := m.ResetZeroPosition(ctx, 0)
+	err := m.ResetZeroPosition(ctx, 0, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	pos, err := m.GetPosition(ctx)
+	pos, err := m.GetPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldEqual, 0)
 }
@@ -144,7 +144,7 @@ func TestPower(t *testing.T) {
 		MaxRPM:            60,
 	}
 
-	err := m.SetPower(ctx, 1.0)
+	err := m.SetPower(ctx, 1.0, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	powerPct := m.PowerPct()
@@ -153,7 +153,7 @@ func TestPower(t *testing.T) {
 	dir := m.Direction()
 	test.That(t, dir, test.ShouldEqual, 1)
 
-	isPowered, err := m.IsPowered(ctx)
+	isPowered, err := m.IsPowered(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, isPowered, test.ShouldEqual, true)
 
@@ -161,7 +161,7 @@ func TestPower(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, isMoving, test.ShouldEqual, true)
 
-	err = m.Stop(ctx)
+	err = m.Stop(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	powerPct = m.PowerPct()

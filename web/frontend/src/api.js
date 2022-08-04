@@ -16,15 +16,18 @@ import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors
 import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service.esm';
 import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
+import { normalizeRemoteName } from './lib/resource';
 
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
 import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
+import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
 import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
+import motorApi from './gen/proto/api/component/motor/v1/motor_pb.esm';
 
 /**
  * Every window variable on this page is being currently used by the blockly page in App.
@@ -38,16 +41,16 @@ window.gripperApi = gripperApi;
 window.sensorsApi = sensorsApi;
 window.servoApi = servoApi;
 window.streamApi = streamApi;
+window.motorApi = motorApi;
+/**
+ * This window variable is used by the config page to access the discovery service.
+ * As with variables above, once we switch to using import / export we should
+ * remove / clean up these window variables.
+ */
+window.robotApi = robotApi;
 
 let savedAuthEntity;
 let savedCreds;
-
-const {
-  webrtcEnabled,
-  webrtcHost,
-  webrtcAdditionalICEServers,
-  webrtcSignalingAddress,
-} = window;
 
 const rtcConfig = {
   iceServers: [
@@ -57,8 +60,8 @@ const rtcConfig = {
   ],
 };
 
-if (webrtcAdditionalICEServers) {
-  rtcConfig.iceServers = [...rtcConfig.iceServers, ...webrtcAdditionalICEServers];
+if (window.webrtcAdditionalICEServers) {
+  rtcConfig.iceServers = [...rtcConfig.iceServers, ...window.webrtcAdditionalICEServers];
 }
 
 const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
@@ -74,11 +77,11 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   savedAuthEntity = authEntity;
   savedCreds = creds;
   
-  if (webrtcEnabled) {
+  if (window.webrtcEnabled) {
     opts.webrtcOptions.signalingAuthEntity = opts.authEntity;
     opts.webrtcOptions.signalingCredentials = opts.credentials;
 
-    const webRTCConn = await dialWebRTC(webrtcSignalingAddress || impliedURL, webrtcHost, opts);
+    const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress || impliedURL, window.webrtcHost, opts);
     transportFactory = webRTCConn.transportFactory;
 
     webRTCConn.peerConnection.ontrack = (event) => {
@@ -87,7 +90,8 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
       video.autoplay = true;
       video.controls = false;
       video.playsInline = true;
-      const streamName = event.streams[0].id;
+      let streamName = event.streams[0].id;
+      streamName = normalizeRemoteName(streamName);
       const streamContainer = document.querySelector(`#stream-${streamName}`);
       if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
         streamContainer.querySelectorAll('video')[0].remove();
@@ -112,24 +116,28 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
     transportFactory = await dialDirect(impliedURL, opts);
   }
 
-  window.streamService = new StreamServiceClient(webrtcHost, { transport: transportFactory });
-  window.robotService = new RobotServiceClient(webrtcHost, { transport: transportFactory });
+  if (!window.webrtcHost) {
+    throw new Error('window.webrtcHost is not set! Cannot connect to RDK services.');
+  }
+
+  window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
   // TODO(RSDK-144): these should be created as needed
-  window.armService = new ArmServiceClient(webrtcHost, { transport: transportFactory });
-  window.baseService = new BaseServiceClient(webrtcHost, { transport: transportFactory });
-  window.boardService = new BoardServiceClient(webrtcHost, { transport: transportFactory });
-  window.cameraService = new CameraServiceClient(webrtcHost, { transport: transportFactory });
-  window.gantryService = new GantryServiceClient(webrtcHost, { transport: transportFactory });
-  window.gripperService = new GripperServiceClient(webrtcHost, { transport: transportFactory });
-  window.imuService = new IMUServiceClient(webrtcHost, { transport: transportFactory });
-  window.inputControllerService = new InputControllerServiceClient(webrtcHost, { transport: transportFactory });
-  window.motorService = new MotorServiceClient(webrtcHost, { transport: transportFactory });
-  window.navigationService = new NavigationServiceClient(webrtcHost, { transport: transportFactory });
-  window.motionService = new MotionServiceClient(webrtcHost, { transport: transportFactory });
-  window.visionService = new VisionServiceClient(webrtcHost, { transport: transportFactory });
-  window.sensorsService = new SensorsServiceClient(webrtcHost, { transport: transportFactory });
-  window.servoService = new ServoServiceClient(webrtcHost, { transport: transportFactory });
-  window.slamService = new SLAMServiceClient(webrtcHost, { transport: transportFactory });
+  window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.imuService = new IMUServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.navigationService = new NavigationServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.motionService = new MotionServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.visionService = new VisionServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.slamService = new SLAMServiceClient(window.webrtcHost, { transport: transportFactory });
 };
 
 window.connect = connect;

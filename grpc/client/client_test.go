@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"image"
 	"image/jpeg"
 	"math"
@@ -19,6 +18,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	gotestutils "go.viam.com/utils/testutils"
 	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -318,10 +318,10 @@ func TestStatusClient(t *testing.T) {
 
 	motor1, err := motor.FromRobot(client, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	err = motor1.SetPower(context.Background(), 0)
+	err = motor1.SetPower(context.Background(), 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoFor(context.Background(), 0, 0)
+	err = motor1.GoFor(context.Background(), 0, 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
@@ -716,12 +716,7 @@ func TestClientDisconnect(t *testing.T) {
 func TestClientReconnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr := fmt.Sprintf("localhost:%d", port)
-
-	listener, err := net.Listen("tcp", addr)
-	test.That(t, err, test.ShouldBeNil)
+	var listener net.Listener = gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
@@ -754,7 +749,9 @@ func TestClientReconnect(t *testing.T) {
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
 
-	listener, err = net.Listen("tcp", addr)
+	// Note: There's a slight chance this test can fail if someone else
+	// claims the port we just released by closing the server.
+	listener, err = net.Listen("tcp", listener.Addr().String())
 	test.That(t, err, test.ShouldBeNil)
 	go gServer2.Serve(listener)
 	defer gServer2.Stop()
