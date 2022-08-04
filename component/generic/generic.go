@@ -85,6 +85,7 @@ func (e *Echo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]i
 var (
 	_ = Generic(&reconfigurableGeneric{})
 	_ = resource.Reconfigurable(&reconfigurableGeneric{})
+	_ = viamutils.ContextCloser(&reconfigurableGeneric{})
 )
 
 // FromRobot is a helper for getting the named Generic from the given Robot.

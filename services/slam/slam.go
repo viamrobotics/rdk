@@ -7,6 +7,7 @@ import (
 	"context"
 	"image"
 	"image/jpeg"
+	"image/png"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,7 +19,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -51,7 +51,8 @@ const (
 	dialMaxTimeoutSec             = 5
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
-	slamTimeFormat = "2006-01-02T15_04_05.0000"
+	slamTimeFormat        = "2006-01-02T15_04_05.0000"
+	opTimeoutErrorMessage = "bad scan: OpTimeout"
 )
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
@@ -106,14 +107,16 @@ var Name = resource.NameFromSubtype(Subtype, "")
 // runtimeConfigValidation ensures that required config parameters are valid at runtime. If any of the required config parameters are
 // not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
 // are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
-func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
+// Returns the slam mode.
+func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, error) {
 	slamLib, ok := SLAMLibraries[svcConfig.Algorithm]
 	if !ok {
-		return errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
+		return "", errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
 	}
 
-	if _, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]; !ok {
-		return errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
+	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
+	if !ok {
+		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
 			svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
 	}
 
@@ -122,7 +125,18 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 		if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
 			logger.Warnf("%v directory does not exist", directoryPath)
 			if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
-				return errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
+				return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
+			}
+		}
+	}
+	if slamMode == rgbd {
+		for _, directoryName := range [2]string{"rgb", "depth"} {
+			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
+			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
+				logger.Warnf("%v directory does not exist", directoryPath)
+				if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
+					return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
+				}
 			}
 		}
 	}
@@ -134,45 +148,46 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) error {
 		re := regexp.MustCompile(pattern)
 		res := re.MatchString(svcConfig.InputFilePattern)
 		if !res {
-			return errors.Errorf("input_file_pattern (%v) does not match the regex pattern %v", svcConfig.InputFilePattern, pattern)
+			return "", errors.Errorf("input_file_pattern (%v) does not match the regex pattern %v", svcConfig.InputFilePattern, pattern)
 		}
 
 		re = regexp.MustCompile(`(\d+)`)
 		res2 := re.FindAllString(svcConfig.InputFilePattern, 3)
 		startFileIndex, err := strconv.Atoi(res2[0])
 		if err != nil {
-			return err
+			return "", err
 		}
 		endFileIndex, err := strconv.Atoi(res2[1])
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		interval, err := strconv.Atoi(res2[2])
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		if interval == 0 {
-			return errors.New("the file input pattern's interval must be greater than zero")
+			return "", errors.New("the file input pattern's interval must be greater than zero")
 		}
 
 		if startFileIndex > endFileIndex {
-			return errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
+			return "", errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
 		}
 	}
 
-	return nil
+	return slamMode, nil
 }
 
-// runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and cam given.
-func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *slamService) error {
-	if cam == nil {
+// runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
+// cameras given.
+func runtimeServiceValidation(ctx context.Context, cams []camera.Camera, slamSvc *slamService) error {
+	if len(cams) == 0 {
 		return nil
 	}
 
 	var err error
-	var path string
+	paths := make([]string, 0, 1)
 	startTime := time.Now()
 
 	// TODO 05/05/2022: This will be removed once GRPC data transfer is available as the responsibility for
@@ -182,9 +197,13 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 	for {
 		switch slamSvc.slamLib.AlgoType {
 		case sparse:
-			path, err = slamSvc.getAndSaveDataSparse(ctx, cam)
+			var currPaths []string
+			currPaths, err = slamSvc.getAndSaveDataSparse(ctx, cams)
+			paths = append(paths, currPaths...)
 		case dense:
-			path, err = slamSvc.getAndSaveDataDense(ctx, cam)
+			var path string
+			path, err = slamSvc.getAndSaveDataDense(ctx, cams)
+			paths = append(paths, path)
 		default:
 			return errors.Errorf("invalid slam algorithm %q", slamSvc.slamLib.AlgoName)
 		}
@@ -204,13 +223,15 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 
 	// For ORBSLAM, generate a new yaml file based off the camera configuration and presence of maps
 	if strings.Contains(slamSvc.slamLib.AlgoName, "orbslamv3") {
-		if err = slamSvc.orbGenYAML(ctx, cam); err != nil {
+		if err = slamSvc.orbGenYAML(ctx, cams[0]); err != nil {
 			return errors.Wrap(err, "error generating .yaml config")
 		}
 	}
 
-	if err := os.RemoveAll(path); err != nil {
-		return errors.Wrap(err, "error removing generated file during validation")
+	for _, path := range paths {
+		if err := os.RemoveAll(path); err != nil {
+			return errors.Wrap(err, "error removing generated file during validation")
+		}
 	}
 
 	return nil
@@ -231,6 +252,7 @@ type AttrConfig struct {
 var (
 	_ = Service(&reconfigurableSlam{})
 	_ = resource.Reconfigurable(&reconfigurableSlam{})
+	_ = goutils.ContextCloser(&reconfigurableSlam{})
 )
 
 // Service describes the functions that are available to the service.
@@ -261,25 +283,31 @@ type slamService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// configureCamera will check the config to see if a camera is desired and if so, grab the camera from
-// the robot as well as get the intrinsic associated with it.
-func configureCamera(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, camera.Camera, error) {
-	var cam camera.Camera
-	var cameraName string
-	var err error
+// configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
+// the robot. We assume there are at most two cameras and that we only require intrinsics from the first one.
+// Returns the name of the first camera.
+func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, []camera.Camera, error) {
 	if len(svcConfig.Sensors) > 0 {
 		logger.Debug("Running in live mode")
-		cameraName = svcConfig.Sensors[0]
-		cam, err = camera.FromRobot(r, cameraName)
+		cams := make([]camera.Camera, 0, len(svcConfig.Sensors))
+
+		// The first camera is expected to be RGB or LIDAR.
+		cameraName := svcConfig.Sensors[0]
+		cam, err := camera.FromRobot(r, cameraName)
 		if err != nil {
-			return "", nil, errors.Wrap(err, "error getting camera for slam service")
+			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
 		}
 
 		proj, err := cam.GetProperties(ctx)
 		if err != nil {
-			// LiDAR do not have intrinsic parameters and only send point clouds,
-			// so no error should occur here, just inform the user
-			logger.Debug("No camera features found, user possibly using LiDAR")
+			if len(svcConfig.Sensors) == 1 {
+				// LiDAR do not have intrinsic parameters and only send point clouds,
+				// so no error should occur here, just inform the user
+				logger.Debug("No camera features found, user possibly using LiDAR")
+			} else {
+				return "", nil, errors.Wrap(err,
+					"Unable to get camera features for first camera, make sure the color camera is listed first")
+			}
 		} else {
 			intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 			if !ok {
@@ -290,12 +318,23 @@ func configureCamera(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, 
 				return "", nil, err
 			}
 		}
-	} else {
-		logger.Debug("Running in non-live mode")
-		cameraName = ""
-		cam = nil
+		cams = append(cams, cam)
+
+		// If there is a second camera, it is expected to be depth.
+		if len(svcConfig.Sensors) > 1 {
+			depthCameraName := svcConfig.Sensors[1]
+			logger.Debugf("Two cameras found for slam service, assuming %v is for color and %v is for depth",
+				cameraName, depthCameraName)
+			depthCam, err := camera.FromRobot(r, depthCameraName)
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", depthCameraName)
+			}
+			cams = append(cams, depthCam)
+		}
+
+		return cameraName, cams, nil
 	}
-	return cameraName, cam, nil
+	return "", nil, nil
 }
 
 // setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
@@ -396,12 +435,13 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	cameraName, cam, err := configureCamera(ctx, svcConfig, r, logger)
+	cameraName, cams, err := configureCameras(ctx, svcConfig, r, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
-	if err := runtimeConfigValidation(svcConfig, logger); err != nil {
+	slamMode, err := runtimeConfigValidation(svcConfig, logger)
+	if err != nil {
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
 
@@ -415,10 +455,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	} else {
 		port = svcConfig.Port
 	}
-
-	slamLib := SLAMLibraries[svcConfig.Algorithm]
-	slamModeName := strings.ToLower(svcConfig.ConfigParams["mode"])
-	slamMode := slamLib.SlamMode[slamModeName]
 
 	var dataRate int
 	if svcConfig.DataRateMs == 0 {
@@ -461,11 +497,11 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		}
 	}()
 
-	if err := runtimeServiceValidation(cancelCtx, cam, slamSvc); err != nil {
+	if err := runtimeServiceValidation(cancelCtx, cams, slamSvc); err != nil {
 		return nil, errors.Wrap(err, "runtime slam service error")
 	}
 
-	slamSvc.StartDataProcess(cancelCtx, cam)
+	slamSvc.StartDataProcess(cancelCtx, cams)
 
 	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
 		return nil, errors.Wrap(err, "error with slam service slam process")
@@ -499,12 +535,18 @@ func (slamSvc *slamService) Close() error {
 
 // TODO 05/10/2022: Remove from SLAM service once GRPC data transfer is available.
 // startDataProcess is the background control loop for sending data from camera to the data directory for processing.
-func (slamSvc *slamService) StartDataProcess(cancelCtx context.Context, cam camera.Camera) {
-	if cam == nil {
+func (slamSvc *slamService) StartDataProcess(cancelCtx context.Context, cams []camera.Camera) {
+	if len(cams) == 0 {
 		return
 	}
 
 	slamSvc.activeBackgroundWorkers.Add(1)
+	if err := cancelCtx.Err(); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
+		}
+		return
+	}
 	goutils.PanicCapturingGo(func() {
 		ticker := time.NewTicker(time.Millisecond * time.Duration(slamSvc.dataRateMs))
 		defer ticker.Stop()
@@ -524,11 +566,11 @@ func (slamSvc *slamService) StartDataProcess(cancelCtx context.Context, cam came
 			case <-ticker.C:
 				switch slamSvc.slamLib.AlgoType {
 				case dense:
-					if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cam); err != nil {
+					if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
 						slamSvc.logger.Warn(err)
 					}
 				case sparse:
-					if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cam); err != nil {
+					if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams); err != nil {
 						slamSvc.logger.Warn(err)
 					}
 				default:
@@ -589,73 +631,147 @@ func (slamSvc *slamService) StopSLAMProcess() error {
 
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
-func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cam camera.Camera) (string, error) {
+func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cams []camera.Camera) ([]string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::getAndSaveDataSparse")
 	defer span.End()
 
-	img, _, err := cam.Next(ctx)
-	if err != nil {
-		if err.Error() == "bad scan: OpTimeout" {
-			slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
-			return "", nil
+	switch slamSvc.slamMode {
+	case mono:
+		if len(cams) != 1 {
+			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(cams))
 		}
-		return "", err
-	}
-
-	var fileType string
-	switch slamSvc.slamMode {
-	case mono:
-		fileType = ".jpeg"
-	case rgbd:
-		// TODO 05/12/2022: Soon wil be deprecated into pointcloud files or rgb and monochromatic depth file. We will want picture pair.
-		fileType = ".both"
-	case dim2d, dim3d:
-		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
-	}
-
-	filename := createTimestampFilename(slamSvc.cameraName, slamSvc.dataDirectory, fileType)
-	//nolint:gosec
-	f, err := os.Create(filename)
-	if err != nil {
-		return filename, err
-	}
-
-	w := bufio.NewWriter(f)
-
-	switch slamSvc.slamMode {
-	case mono:
+		img, _, err := cams[0].Next(ctx)
+		if err != nil {
+			if err.Error() == opTimeoutErrorMessage {
+				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
+				return nil, nil
+			}
+			return nil, err
+		}
+		filenames := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".jpeg", false)
+		filename := filenames[0]
+		//nolint:gosec
+		f, err := os.Create(filename)
+		if err != nil {
+			return []string{filename}, err
+		}
+		w := bufio.NewWriter(f)
 		if err := jpeg.Encode(w, img, nil); err != nil {
-			return filename, err
+			return []string{filename}, err
 		}
+		if err := w.Flush(); err != nil {
+			return []string{filename}, err
+		}
+		return []string{filename}, f.Close()
 	case rgbd:
-		// TODO 05/10/2022: the file type saving may change here based on John N.'s recommendation (whether to use poitntcloud or two images).
-		// Both file types soon will be deprecated.
-		// https://docs.google.com/document/d/1Fa8DY-a2dPhoGNLaUlsEgQ28kbgVexaacBtJrkwnwQQ/edit#heading=h.rhjz058xy3j5
-		iwd, ok := img.(*rimage.ImageWithDepth)
-		if !ok {
-			return filename, errors.Errorf("want %s but don't have %T", utils.MimeTypeBoth, iwd)
+		if len(cams) != 2 {
+			return nil, errors.Errorf("expected 2 cameras for rgbd slam, found %v", len(cams))
 		}
-		if err := rimage.EncodeBoth(iwd, w); err != nil {
-			return filename, err
+
+		images, err := slamSvc.getSimultaneousColorAndDepth(ctx, cams)
+		if err != nil {
+			if err.Error() == opTimeoutErrorMessage {
+				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
+				return nil, nil
+			}
+			return nil, err
 		}
+		filenames := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", true)
+		for i, filename := range filenames {
+			//nolint:gosec
+			f, err := os.Create(filename)
+			if err != nil {
+				return filenames, err
+			}
+			w := bufio.NewWriter(f)
+			if err := png.Encode(w, images[i]); err != nil {
+				return filenames, err
+			}
+			if err := w.Flush(); err != nil {
+				return filenames, err
+			}
+			if err := f.Close(); err != nil {
+				return filenames, err
+			}
+		}
+		return filenames, nil
 	case dim2d, dim3d:
-		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
+		return nil, errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
+	default:
+		return nil, errors.Errorf("invalid slamMode %v specified", slamSvc.slamMode)
 	}
-	if err = w.Flush(); err != nil {
-		return filename, err
+}
+
+// Gets the color image and depth image from the cameras as close to simultaneously as possible.
+// Assume the first camera is for color and the second is for depth.
+func (slamSvc *slamService) getSimultaneousColorAndDepth(ctx context.Context, cams []camera.Camera) ([2]image.Image, error) {
+	var wg sync.WaitGroup
+	var images [2]image.Image
+	var errs [2]error
+
+	// Get color image.
+	slamSvc.activeBackgroundWorkers.Add(1)
+	wg.Add(1)
+	if err := ctx.Err(); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
+		}
+		return images, err
 	}
-	return filename, f.Close()
+	goutils.PanicCapturingGo(func() {
+		defer slamSvc.activeBackgroundWorkers.Done()
+		defer wg.Done()
+		images[0], _, errs[0] = cams[0].Next(ctx)
+	})
+
+	// Get depth image.
+	slamSvc.activeBackgroundWorkers.Add(1)
+	wg.Add(1)
+	if err := ctx.Err(); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
+		}
+		return images, err
+	}
+	goutils.PanicCapturingGo(func() {
+		defer slamSvc.activeBackgroundWorkers.Done()
+		defer wg.Done()
+		var depthImage image.Image
+		depthImage, _, errs[1] = cams[1].Next(ctx)
+		if errs[1] != nil {
+			return
+		}
+		var depthMap *rimage.DepthMap
+		depthMap, errs[1] = rimage.ConvertImageToDepthMap(depthImage)
+		if errs[1] != nil {
+			return
+		}
+		images[1] = depthMap.ToGray16Picture()
+	})
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return images, err
+		}
+	}
+
+	return images, nil
 }
 
 // getAndSaveDataDense implements the data extraction for dense algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
-func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context, cam camera.Camera) (string, error) {
+func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context, cams []camera.Camera) (string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::getAndSaveDataDense")
 	defer span.End()
 
-	pointcloud, err := cam.NextPointCloud(ctx)
+	if len(cams) != 1 {
+		return "", errors.Errorf("expected 1 camera for this slam algorithm, found %v", len(cams))
+	}
+
+	pointcloud, err := cams[0].NextPointCloud(ctx)
 	if err != nil {
-		if err.Error() == "bad scan: OpTimeout" {
+		if err.Error() == opTimeoutErrorMessage {
 			slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
 			return "", nil
 		}
@@ -669,7 +785,8 @@ func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context, cam camera.
 	case rgbd, mono:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
-	filename := createTimestampFilename(slamSvc.cameraName, slamSvc.dataDirectory, fileType)
+	filenames := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, fileType, false)
+	filename := filenames[0]
 	//nolint:gosec
 	f, err := os.Create(filename)
 	if err != nil {
@@ -709,7 +826,7 @@ func (svc *reconfigurableSlam) GetMap(ctx context.Context,
 	return svc.actual.GetMap(ctx, name, mimeType, cp, include)
 }
 
-func (svc *reconfigurableSlam) Close(ctx context.Context, id primitive.ObjectID) error {
+func (svc *reconfigurableSlam) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
@@ -745,12 +862,18 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 }
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
-func createTimestampFilename(cameraName, dataDirectory, fileType string) string {
+// For RGBD cameras, two filenames are created with the same timestamp in different directories.
+func createTimestampFilenames(cameraName, dataDirectory, fileType string, rgbd bool) []string {
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
-	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
 
-	return filename
+	if rgbd {
+		colorFilename := filepath.Join(dataDirectory, "data", "rgb", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
+		depthFilename := filepath.Join(dataDirectory, "data", "depth", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
+		return []string{colorFilename, depthFilename}
+	}
+	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
+	return []string{filename}
 }
 
 // Converts a dictionary to a string for so that it can be loaded into an arg for the slam process.

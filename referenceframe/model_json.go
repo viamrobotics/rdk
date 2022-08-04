@@ -120,13 +120,17 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 
 			// Link part of DH param
 			linkID := dh.ID
-			linkQuat := spatial.NewPoseFromDH(dh.A, dh.D, dh.Alpha)
-
-			transforms[linkID], err = NewStaticFrame(linkID, linkQuat)
+			pose := spatial.NewPoseFromDH(dh.A, dh.D, dh.Alpha)
+			parentMap[linkID] = jointID
+			geometryCreator, err := dh.Geometry.ParseConfig()
+			if err == nil {
+				transforms[dh.ID], err = NewStaticFrameWithGeometry(dh.ID, pose, geometryCreator)
+			} else {
+				transforms[dh.ID], err = NewStaticFrame(dh.ID, pose)
+			}
 			if err != nil {
 				return nil, err
 			}
-			parentMap[linkID] = jointID
 		}
 
 	case "frames":

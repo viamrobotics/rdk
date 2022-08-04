@@ -59,6 +59,8 @@ func init() {
 		}
 		return &conf, nil
 	}, &Config{})
+
+	resource.AddDefaultService(Name)
 }
 
 // Service defines what a Data Manager Service should expose to the users.
@@ -69,6 +71,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableDataManager{})
 	_ = resource.Reconfigurable(&reconfigurableDataManager{})
+	_ = goutils.ContextCloser(&reconfigurableDataManager{})
 )
 
 // SubtypeName is the name of the type of service.
@@ -138,7 +141,7 @@ type dataManagerService struct {
 	syncIntervalMins          float64
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
-	uploadFunc                uploadFn
+	uploadFunc                uploadFunc
 	updateCollectorsCancelFn  func()
 	additionalSyncPaths       []string
 	partID                    string
@@ -186,8 +189,8 @@ func (svc *dataManagerService) closeCollectors() {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			currCollector.Collector.Close()
-			wg.Done()
 		}()
 		delete(svc.collectors, md)
 	}
@@ -208,7 +211,10 @@ type componentMethodMetadata struct {
 
 // Get time.Duration from hz.
 func getDurationFromHz(captureFrequencyHz float32) time.Duration {
-	return time.Second / time.Duration(captureFrequencyHz)
+	if captureFrequencyHz == 0 {
+		return time.Duration(0)
+	}
+	return time.Duration((float32(time.Second) / captureFrequencyHz))
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -315,16 +321,12 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
-	go func() {
-		if err := collector.Collect(); err != nil {
-			svc.logger.Error(err.Error())
-		}
-	}()
+	collector.Collect()
 
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) {
+func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) error {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -334,7 +336,11 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 
 	svc.cancelSyncBackgroundRoutine()
 
-	svc.syncer = newSyncer(svc.logger, svc.uploadFunc, svc.partID)
+	syncer, err := newSyncer(svc.logger, svc.uploadFunc, svc.partID)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize new syncer")
+	}
+	svc.syncer = syncer
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
@@ -359,6 +365,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 		// Kick off background routine to periodically sync files.
 		svc.startSyncBackgroundRoutine(intervalMins)
 	}
+	return nil
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
@@ -474,15 +481,19 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
-		svc.initOrUpdateSyncer(ctx, 0)
+		if err := svc.initOrUpdateSyncer(ctx, 0); err != nil {
+			return err
+		}
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
 		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
 		// If the sync config has changed, update the syncer.
 		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
-		svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins)
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins); err != nil {
+			return err
+		}
 	}
 
 	// Initialize or add a collector based on changes to the component configurations.

@@ -3,6 +3,7 @@ syntax = "proto3";
 package proto.api.component.motor.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 
 option go_package = "go.viam.com/rdk/proto/api/component/motor/v1";
 option java_package = "com.viam.rdk.proto.api.component.motor.v1";
@@ -83,6 +84,8 @@ message SetPowerRequest {
   string name = 1;
   // Percentage of motor's power, between -1 and 1
   double power_pct = 2;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message SetPowerResponse {}
@@ -94,6 +97,8 @@ message GoForRequest {
   double rpm = 2;
   // Number of revolutions relative to motor's start position
   double revolutions = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GoForResponse {}
@@ -105,6 +110,8 @@ message GoToRequest {
   double rpm = 2;
   // Number of revolutions relative to motor's home home/zero
   double position_revolutions = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GoToResponse {}
@@ -114,6 +121,8 @@ message ResetZeroPositionRequest {
   string name = 1;
   // Motor position
   double offset = 2;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message ResetZeroPositionResponse {}
@@ -121,6 +130,8 @@ message ResetZeroPositionResponse {}
 message GetPositionRequest {
   // Name of a motor
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GetPositionResponse {
@@ -131,6 +142,8 @@ message GetPositionResponse {
 message StopRequest {
   // Name of a motor
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message StopResponse {}
@@ -138,6 +151,8 @@ message StopResponse {}
 message IsPoweredRequest {
   // Name of a motor
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message IsPoweredResponse {
@@ -148,6 +163,8 @@ message IsPoweredResponse {
 message GetFeaturesRequest {
   // Name of a motor
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GetFeaturesResponse {

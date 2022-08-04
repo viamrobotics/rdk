@@ -117,6 +117,7 @@ var (
 	_ = LocalArm(&reconfigurableLocalArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableLocalArm{})
+	_ = viamutils.ContextCloser(&reconfigurableLocalArm{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")

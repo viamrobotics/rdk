@@ -86,7 +86,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(context.Background())
+			isOn, err := m.IsPowered(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -100,7 +100,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(context.Background())
+			isOn, err := m.IsPowered(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -110,9 +110,9 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.allMotors[0].SetPower(ctx, 1)
+		err = base.allMotors[0].SetPower(ctx, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
-		isOn, err := base.allMotors[0].IsPowered(ctx)
+		isOn, err := base.allMotors[0].IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeTrue)
 
@@ -120,7 +120,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -129,7 +129,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -149,7 +149,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -185,7 +185,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}

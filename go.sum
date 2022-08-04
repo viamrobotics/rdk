@@ -1463,8 +1463,8 @@ go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb h1:qXL9ae27upOyWn//rVGF
 go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
 go.viam.com/test v1.1.0 h1:KXf8crEwt0bHn5iMsjmXg0vPio/yzKGrfd20sWhe/t4=
 go.viam.com/test v1.1.0/go.mod h1:iULewngKZCHSB2QJa1xGSR6+0ICZIHbEfTUGqw0blLs=
-go.viam.com/utils v0.0.4-0.20220726002514-278ec24e34f7 h1:RJtYpmHp+yDbGRcELN2qF6GbWGIHSXCDsW7PK0/+gOw=
-go.viam.com/utils v0.0.4-0.20220726002514-278ec24e34f7/go.mod h1:qECJzClMXgpGZdwTyEAnAPF7sac+LWPHpN0dBKOiiJo=
+go.viam.com/utils v0.0.4-0.20220802163225-838cedfa4d1a h1:nb189lsb+uQVUdw/p5ukC0jPNgrMZJ1ymwcKV9LeEjk=
+go.viam.com/utils v0.0.4-0.20220802163225-838cedfa4d1a/go.mod h1:qECJzClMXgpGZdwTyEAnAPF7sac+LWPHpN0dBKOiiJo=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=
 goji.io v2.0.2+incompatible h1:uIssv/elbKRLznFUy3Xj4+2Mz/qKhek/9aZQDUMae7c=

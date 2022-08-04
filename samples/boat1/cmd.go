@@ -15,6 +15,7 @@ import (
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -59,8 +60,8 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 	_, err := rdkutils.RunInParallel(
 		ctx,
 		[]rdkutils.SimpleFunc{
-			func(ctx context.Context) error { return b.starboard.GoFor(ctx, speed, rotations) },
-			func(ctx context.Context) error { return b.port.GoFor(ctx, speed, rotations) },
+			func(ctx context.Context) error { return b.starboard.GoFor(ctx, speed, rotations, nil) },
+			func(ctx context.Context) error { return b.port.GoFor(ctx, speed, rotations, nil) },
 		},
 	)
 	return err
@@ -79,7 +80,7 @@ func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector, extra ma
 }
 
 func (b *boat) Stop(ctx context.Context, extra map[string]interface{}) error {
-	return multierr.Combine(b.starboard.Stop(ctx), b.port.Stop(ctx))
+	return multierr.Combine(b.starboard.Stop(ctx, extra), b.port.Stop(ctx, extra))
 }
 
 func (b *boat) Close(ctx context.Context) error {
@@ -184,8 +185,8 @@ func (b *boat) StartRC(ctx context.Context) {
 				err = b.Stop(ctx, nil)
 			} else {
 				err = multierr.Combine(
-					b.starboard.GoFor(ctx, starboard, 0),
-					b.port.GoFor(ctx, port, 0),
+					b.starboard.GoFor(ctx, starboard, 0, nil),
+					b.port.GoFor(ctx, port, 0, nil),
 				)
 			}
 
@@ -403,7 +404,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(
+		ctx,
+		cfg,
+		logger,
+		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+	)
 	if err != nil {
 		return err
 	}
