@@ -32,7 +32,10 @@ const (
 	ResourceTypeService   = TypeName("service")
 )
 
-var resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+var (
+	reservedCharSet   = [...]string{":"}
+	resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+)
 
 // Type represents a known component/service type of a robot.
 type Type struct {
@@ -230,8 +233,10 @@ func NewReservedCharacterUsedError(val string) error {
 
 // ContainsReservedCharacter returns error if string contains a reserved character.
 func ContainsReservedCharacter(val string) error {
-	if strings.Contains(val, ":") {
-		return NewReservedCharacterUsedError(val)
+	for _, char := range reservedCharSet {
+		if strings.Contains(val, char) {
+			return NewReservedCharacterUsedError(val)
+		}
 	}
 	return nil
 }
