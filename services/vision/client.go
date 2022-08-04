@@ -98,7 +98,7 @@ func (c *client) GetDetections(ctx context.Context, img image.Image, detectorNam
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetections")
 	defer span.End()
-	mimeType := utils.MimeTypeJPEG
+	mimeType := utils.MimeTypePNG
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
 		return nil, err
