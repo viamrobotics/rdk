@@ -125,37 +125,41 @@ func CloudCentroid(pc PointCloud) r3.Vector {
 	}
 }
 
-type CloudMatrixCols int
+// CloudMatrixCol is a type that represents the columns of a CloudMatrix.
+type CloudMatrixCol int
 
 const (
 	// CloudMatrixColX is the x column in the cloud matrix.
-	CloudMatrixColX CloudMatrixCols = 0
+	CloudMatrixColX CloudMatrixCol = 0
 	// CloudMatrixColY is the y column in the cloud matrix.
-	CloudMatrixColY CloudMatrixCols = 1
+	CloudMatrixColY CloudMatrixCol = 1
 	// CloudMatrixColZ is the z column in the cloud matrix.
-	CloudMatrixColZ CloudMatrixCols = 2
+	CloudMatrixColZ CloudMatrixCol = 2
 	// CloudMatrixColR is the r column in the cloud matrix.
-	CloudMatrixColR CloudMatrixCols = 3
+	CloudMatrixColR CloudMatrixCol = 3
 	// CloudMatrixColG is the g column in the cloud matrix.
-	CloudMatrixColG CloudMatrixCols = 4
+	CloudMatrixColG CloudMatrixCol = 4
 	// CloudMatrixColB is the b column in the cloud matrix.
-	CloudMatrixColB CloudMatrixCols = 5
-	// CloudMatrixColValue is the value column in the cloud matrix.
-	CloudMatrixColV CloudMatrixCols = 6
+	CloudMatrixColB CloudMatrixCol = 5
+	// CloudMatrixColV is the value column in the cloud matrix.
+	CloudMatrixColV CloudMatrixCol = 6
 )
 
-func CloudMatrix(pc PointCloud) (*mat.Dense, []CloudMatrixCols) {
+// CloudMatrix Returns a Matrix representation of a Cloud along with a Header list.
+// The Header list is a list of CloudMatrixCols that correspond to the columns in the matrix.
+// CloudMatrix is not guaranteed to return points in the same order as the cloud.
+func CloudMatrix(pc PointCloud) (*mat.Dense, []CloudMatrixCol) {
 	if pc.Size() == 0 {
 		return nil, nil
 	}
-	header := []CloudMatrixCols{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ}
+	header := []CloudMatrixCol{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ}
 	pointSize := 3 // x, y, z
 	if pc.MetaData().HasColor {
 		pointSize += 3 // color
 		header = append(header, CloudMatrixColR, CloudMatrixColG, CloudMatrixColB)
 	}
 	if pc.MetaData().HasValue {
-		pointSize += 1 // value
+		pointSize++ // value
 		header = append(header, CloudMatrixColV)
 	}
 
