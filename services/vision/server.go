@@ -131,7 +131,7 @@ func (server *subtypeServer) GetDetectionsFromCamera(
 ) (*pb.GetDetectionsFromCameraResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetectionsFromCamera")
 	defer span.End()
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}

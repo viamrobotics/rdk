@@ -42,8 +42,7 @@ var (
 )
 
 const (
-	testDataManagerServiceName  = "DataManager1"
-	testDataManagerServiceName2 = "DataManager2"
+	testDataManagerServiceName = "DataManager1"
 )
 
 // readDir filters out folders from a slice of FileInfos.

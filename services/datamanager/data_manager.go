@@ -60,7 +60,7 @@ func init() {
 		return &conf, nil
 	}, &Config{})
 
-	resource.AddDefaultService(Name)
+	resource.AddDefaultService(Named("builtin"))
 }
 
 // Service defines what a Data Manager Service should expose to the users.
@@ -79,7 +79,7 @@ const SubtypeName = resource.SubtypeName("data_manager")
 
 const dataManagerName = "data_manager"
 
-// Returns name of first data_manager service found
+// FindDataManagerName Returns name of first data_manager service found.
 func FindDataManagerName(r robot.Robot) string {
 	for _, val := range robot.NamesBySubtype(r, Subtype) {
 		return val

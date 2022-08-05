@@ -79,6 +79,7 @@ func (c *client) GetDetectionsFromCamera(ctx context.Context, cameraName, detect
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetectionsFromCamera")
 	defer span.End()
 	resp, err := c.client.GetDetectionsFromCamera(ctx, &pb.GetDetectionsFromCameraRequest{
+		Name:         c.name,
 		CameraName:   cameraName,
 		DetectorName: detectorName,
 	})

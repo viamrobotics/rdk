@@ -103,6 +103,7 @@ message GetDetectionsResponse {
 }
 
 message GetDetectionsFromCameraRequest {
+  string name = 1;
   // name of camera source to use as input
   string camera_name = 2;
   // name of the registered detector to use

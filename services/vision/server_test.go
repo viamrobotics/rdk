@@ -167,6 +167,7 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// success
 	addDetResp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+		Name:               visName,
 		DetectorName:       "test",
 		DetectorModelType:  "tflite",
 		DetectorParameters: params,
@@ -178,6 +179,7 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	resp2, err := server.GetDetections(context.Background(), &pb.GetDetectionsRequest{
+		Name:         visName,
 		Image:        imgBytes,
 		Width:        int64(img.Width()),
 		Height:       int64(img.Height()),

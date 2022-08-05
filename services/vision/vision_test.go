@@ -13,10 +13,6 @@ import (
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
-const (
-	testVisionServiceName = "vision1"
-)
-
 func TestCloseService(t *testing.T) {
 	ctx := context.Background()
 	srv := createService(ctx, t, "data/empty.json")
