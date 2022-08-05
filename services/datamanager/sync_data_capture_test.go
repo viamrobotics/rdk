@@ -606,5 +606,4 @@ func TestDataCaptureUpload(t *testing.T) {
 
 		})
 	}
-
 }
