@@ -744,10 +744,10 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 }
 
 func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerConstructor {
-	return func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
+		return datasync.NewManager(logger, nil, cfg.Cloud.ID, client, conn)
 	}
 }

@@ -144,18 +144,11 @@ type dataManagerService struct {
 	partID                    string
 	waitAfterLastModifiedSecs int
 
-	// These are configuration variables used for configuring syncer and for checking if the config has changed
-	// on subsequent updates.
 	additionalSyncPaths []string
 	syncDisabled        bool
 	syncIntervalMins    float64
-	// These two are direct pass through variables to syncer.
-	uploadFunc        datasync.UploadFunc
-	syncer            datasync.Manager
-	syncerConstructor datasync.ManagerConstructor
-
-	// Idea: replace above 3 with SyncerConstructor? And internal export SetSyncerConstructor
-	//
+	syncer              datasync.Manager
+	syncerConstructor   datasync.ManagerConstructor
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
@@ -350,7 +343,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
-		syncer, err := svc.syncerConstructor(svc.logger, svc.uploadFunc, cfg)
+		syncer, err := svc.syncerConstructor(svc.logger, cfg)
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize new syncer")
 		}
