@@ -144,6 +144,13 @@ func (base *wheeledBase) differentialDrive(forward, left float64) (float64, floa
 
 	// rotate by 45 degrees
 	t += math.Pi / 4
+	if t == 0 {
+		// HACK: Fixes a weird ATAN2 corner case. Ensures that when motor that is on the
+		// same side as the turn has the same power when going left and right. Without
+		// this, the right motor has ZERO power when going forward/backward turning
+		// right, when it should have at least some very small value.
+		t += 1.224647e-16 / 2
+	}
 
 	// convert to cartesian
 	leftMotor := r * math.Cos(t)

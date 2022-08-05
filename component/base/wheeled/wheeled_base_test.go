@@ -244,6 +244,10 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeLessThan, math.Abs(revR))
 
+		// Ensure motor powers are mirrored going left.
+		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(revL))
+		test.That(t, math.Abs(fwdR), test.ShouldEqual, math.Abs(revR))
+
 		// Go forward-right (↱)
 		t.Logf("Go forward-right (↱)")
 		fwdL, fwdR = base.differentialDrive(1, -1)
@@ -257,6 +261,10 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, revL, test.ShouldBeLessThan, 0)
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
+
+		// Ensure motor powers are mirrored going right.
+		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(revL))
+		test.That(t, math.Abs(fwdR), test.ShouldEqual, math.Abs(revR))
 
 		// Test spin left (↺)
 		t.Logf("Test spin left (↺)")
