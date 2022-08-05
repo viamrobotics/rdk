@@ -133,6 +133,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.progressTracker.unmark(path)
 			if err := s.progressTracker.deleteProgressFile(filepath.Join(s.progressTracker.progressDir,
 				filepath.Base(path))); err != nil {
+				// TODO: this is erroring on every run because it says the progress file doesn't exist
 				s.logger.Errorw("error while removing progress file from disk", "error", err)
 			}
 		}
@@ -222,6 +223,8 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	return md, nil
 }
 
+// TODO: data manager test isn't actually using real uploadFile... which is where the progress stuff
+//       (except deletion... which should probably also happen here) happens
 func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, path string, partID string) error {
 	//nolint:gosec
 	f, err := os.Open(path)

@@ -327,7 +327,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	failureCount := 0
 	successCount := 0
 	callTimes := make(map[int]time.Time)
-	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient, path string, partID string) error {
 		callTimes[failureCount+successCount] = time.Now()
 		if failureCount >= 3 {
 			successCount++

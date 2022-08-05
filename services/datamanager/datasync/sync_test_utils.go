@@ -57,6 +57,14 @@ func (m *mockClient) Context() context.Context {
 	return context.TODO()
 }
 
+type mockSyncClient struct {
+	mc v1.DataSyncService_UploadClient
+}
+
+func (m mockSyncClient) Upload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_UploadClient, error) {
+	return m.mc, nil
+}
+
 // Builds syncer used in partial upload tests.
 //nolint:thelper
 func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc UploadFunc) *syncer {
@@ -64,8 +72,7 @@ func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc UploadFunc) *syncer 
 	manager, err := NewManager(l, uploadFunc, partID, nil)
 	test.That(t, err, test.ShouldBeNil)
 	syncer := manager.(*syncer)
-	// TODO: actually assign
-	syncer.client = nil
+	syncer.client = mockSyncClient{mc: mc}
 	return syncer
 }
 

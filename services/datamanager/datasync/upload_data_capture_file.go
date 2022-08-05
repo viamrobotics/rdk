@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -84,6 +85,7 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 	// create an upload progress file.
 	progressFilePath := filepath.Join(pt.progressDir, filepath.Base(dcFileName))
 	progressIndex, err := pt.getProgressFileIndex(progressFilePath)
+	fmt.Println(progressIndex)
 	if err != nil {
 		return err
 	}
