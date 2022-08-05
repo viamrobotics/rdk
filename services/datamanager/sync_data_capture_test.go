@@ -413,10 +413,11 @@ type mockServerBehavior struct {
 }
 
 type dataCaptureUploadTestcase struct {
-	name    string
-	toSend  []*v1.SensorData
-	expData []*v1.SensorData
-	msb     *mockServerBehavior
+	name                string
+	toSend              []*v1.SensorData
+	expData             []*v1.SensorData
+	expDataAfterResumed []*v1.SensorData
+	msb                 *mockServerBehavior
 }
 
 func TestDataCaptureUpload(t *testing.T) {
@@ -472,7 +473,21 @@ func TestDataCaptureUpload(t *testing.T) {
 			expData: createBinarySensorData([][]byte{msgBin1, msgBin2, msgBin3}),
 			msb: &mockServerBehavior{
 				sendAckEveryNMessages: 0,
-				// Here we cancel after 4 messages because we need to account for metadata message.
+				// Here we cancel after 4 (not 3) messages because we need to account for metadata message.
+				cancelStreamAfterNMessages: 4,
+				shouldSendEOF:              false,
+				shouldSendAck:              false,
+				shouldSendCancelCtx:        false,
+			},
+		},
+		{
+			name:                "Stream that cancels and is then resumed to completion should...(TODO maxhorowitz)",
+			toSend:              createBinarySensorData([][]byte{msgBin1, msgBin2, msgBin3, msgBin4, msgBin5, msgBin6}),
+			expData:             createBinarySensorData([][]byte{msgBin1, msgBin2, msgBin3}),
+			expDataAfterResumed: createBinarySensorData([][]byte{msgBin4, msgBin5, msgBin6}),
+			msb: &mockServerBehavior{
+				sendAckEveryNMessages: 0,
+				// Here we cancel after 4 (not 3) messages because we need to account for metadata message.
 				cancelStreamAfterNMessages: 4,
 				shouldSendEOF:              false,
 				shouldSendAck:              false,
@@ -512,6 +527,7 @@ func TestDataCaptureUpload(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}()
 
+			// Set up gRPC connection.
 			conn, err := rpc.DialDirectGRPC(
 				context.Background(),
 				rpcServer.InternalAddr().String(),
@@ -519,12 +535,6 @@ func TestDataCaptureUpload(t *testing.T) {
 				rpc.WithInsecure(),
 			)
 			test.That(t, err, test.ShouldBeNil)
-
-			// Defer closing the connection.
-			defer func() {
-				err := conn.Close()
-				test.That(t, err, test.ShouldBeNil)
-			}()
 
 			// Create temp file to be used as examples of reading data from the files into buffers and finally to have
 			// that data be uploaded to the cloud.
@@ -565,6 +575,34 @@ func TestDataCaptureUpload(t *testing.T) {
 			sut.Sync([]string{tf.Name()})
 			time.Sleep(time.Second)
 			sut.Close()
+
+			// Close the connection
+			err = conn.Close()
+			test.That(t, err, test.ShouldBeNil)
+
+			// If test case is checking ability to resume a cancelled upload, reconnect server and client.
+			if len(tc.expDataAfterResumed) > 0 {
+				conn, err := rpc.DialDirectGRPC(
+					context.Background(),
+					rpcServer.InternalAddr().String(),
+					logger,
+					rpc.WithInsecure(),
+				)
+				test.That(t, err, test.ShouldBeNil)
+
+				client := v1.NewDataSyncServiceClient(conn)
+				uploadClient, err := client.Upload(context.Background())
+				test.That(t, err, test.ShouldBeNil)
+
+				sut := newTestSyncerRealClient(t, uploadClient, nil)
+				sut.Sync([]string{tf.Name()})
+				time.Sleep(time.Second)
+				sut.Close()
+
+				err = conn.Close()
+				test.That(t, err, test.ShouldBeNil)
+
+			}
 
 		})
 	}
