@@ -64,11 +64,11 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 		if err != nil {
 			return nil, err
 		}
-		defer func() {
-			if err := os.RemoveAll(tempDir); err != nil {
-				logger.Errorf("Error when closing %s: %v", tempDir, err)
-			}
-		}()
+		// defer func() {
+		// 	if err := os.RemoveAll(tempDir); err != nil {
+		// 		logger.Errorf("Error when closing %s: %v", tempDir, err)
+		// 	}
+		// }()
 	}
 	// Convert both images to gray
 	im1 := rimage.MakeGray(img1)

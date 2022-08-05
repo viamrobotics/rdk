@@ -64,8 +64,8 @@ func RunMotionEstimation(imagePath1, imagePath2, configPath string) (image.Image
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	//logger.Info(motion.Rotation)
-	//logger.Info(motion.Translation)
+	logger.Info(motion.Rotation)
+	logger.Info(motion.Translation)
 	return im1, im2, motion, nil
 }
 
