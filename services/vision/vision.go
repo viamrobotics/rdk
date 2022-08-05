@@ -55,7 +55,7 @@ func init() {
 		&Attributes{},
 	)
 
-	resource.AddDefaultService(Name)
+	resource.AddDefaultService(Named("builtin"))
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
@@ -106,7 +106,7 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	return svc, nil
 }
 
-// Returns name of first vision service found
+// FindVisionName Returns name of first vision service found.
 func FindVisionName(r robot.Robot) string {
 	for _, val := range robot.NamesBySubtype(r, Subtype) {
 		return val

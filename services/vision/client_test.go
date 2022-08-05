@@ -141,7 +141,7 @@ func TestClient(t *testing.T) {
 	t.Run("get detections from img", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
 		img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 		modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")

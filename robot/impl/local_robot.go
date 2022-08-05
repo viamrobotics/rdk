@@ -376,7 +376,7 @@ func newWithResources(
 	}
 	// See if default service already exists in the config
 	m := make(map[resource.Subtype]bool)
-	for _, name := range defaultSvc {
+	for _, name := range resource.DefaultServices {
 		m[name.Subtype] = false
 	}
 	// Mark default service subtypes in the map as true
@@ -384,9 +384,16 @@ func newWithResources(
 		if _, ok := m[val.ResourceName().Subtype]; ok {
 			m[val.ResourceName().Subtype] = true
 
+			for _, name := range resource.DefaultServices {
+				if name.Subtype == val.ResourceName().Subtype {
+					name.Name = val.Name
+				}
+			}
+		}
+	}
 	// default services added if they are not already defined in the config
 	for _, name := range resource.DefaultServices {
-		if m[name.Subtype] == false {
+		if !m[name.Subtype] {
 			cfg := config.Service{
 				Namespace: name.Namespace,
 				Type:      config.ServiceType(name.ResourceSubtype),

@@ -43,7 +43,7 @@ func init() {
 		},
 	})
 
-	resource.AddDefaultService(Name)
+	resource.AddDefaultService(Named("builtin"))
 }
 
 // A Readings ties both the sensor name and its reading together.
@@ -80,7 +80,7 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// Returns name of first vision service found. There should only be one
+// FindSensorsName Returns name of first vision service found. There should only be one.
 func FindSensorsName(r robot.Robot) string {
 	for _, val := range robot.NamesBySubtype(r, Subtype) {
 		return val
