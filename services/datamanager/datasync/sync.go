@@ -3,7 +3,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"go.viam.com/rdk/config"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils/rpc"
@@ -113,7 +112,6 @@ func (s *syncer) upload(ctx context.Context, path string) {
 	if s.progressTracker.inProgress(path) {
 		return
 	}
-	fmt.Printf("trying to upload %s\n", path)
 
 	s.progressTracker.mark(path)
 	s.backgroundWorkers.Add(1)
@@ -128,7 +126,6 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger.Error(uploadErr)
 			return
 		}
-		fmt.Println("done exponential retrying")
 
 		// Delete the file and indicate that the upload is done.
 		if err := os.Remove(path); err != nil {

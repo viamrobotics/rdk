@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -17,18 +16,14 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	md *v1.UploadMetadata, f *os.File,
 ) error {
 	stream, err := client.Upload(ctx)
-	fmt.Println("uploading " + f.Name())
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 	err = initDataCaptureUpload(ctx, f, pt, f.Name())
 	if errors.Is(err, io.EOF) {
-		fmt.Println("error initing data capture upload " + err.Error())
 		return nil
 	}
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -39,10 +34,8 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		},
 	}
 	if err := stream.Send(req); err != nil {
-		fmt.Println(err)
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
-	fmt.Println("sent metadata")
 
 	// Loop until there is no more content to be read from file.
 	for {
@@ -78,7 +71,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return err
 	}
 
-	fmt.Println("done uploading data capture file")
 	return nil
 }
 
@@ -95,9 +87,7 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 		return err
 	}
 	if progressIndex == 0 {
-		fmt.Println("trying to create progress file")
 		if err := pt.createProgressFile(progressFilePath); err != nil {
-			fmt.Println("error creating progress file " + err.Error())
 			return err
 		}
 		return nil
@@ -105,7 +95,6 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 
 	// Sets the next file pointer to the next sensordata message that needs to be uploaded.
 	for i := 0; i < progressIndex; i++ {
-		fmt.Println("iterating to progressIndex")
 		if _, err := getNextSensorUploadRequest(ctx, f); err != nil {
 			return err
 		}
@@ -117,7 +106,6 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 		return err
 	}
 	if currentOffset == finfo.Size() {
-		fmt.Println(currentOffset)
 		return io.EOF
 	}
 	return nil
