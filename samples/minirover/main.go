@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -128,13 +129,13 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 						return
 					}
 					defer release()
-					pc := rimage.ConvertToImageWithDepth(img)
-					if pc.Depth == nil {
+					pc, err := rimage.ConvertImageToDepthMap(img)
+					if err != nil {
 						logger.Warn("no depth data")
 						depthErr = true
 						return
 					}
-					err = pc.WriteTo(artifact.MustNewPath(fmt.Sprintf("samples/minirover/rover-centering-%d.both.gz", time.Now().Unix())))
+					err = pc.WriteToFile(artifact.MustNewPath(fmt.Sprintf("samples/minirover/rover-centering-%d.dat.gz", time.Now().Unix())))
 					if err != nil {
 						logger.Debugf("error writing %s", err)
 					}
@@ -220,7 +221,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfig(
+		ctx,
+		cfg,
+		logger,
+		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+	)
 	if err != nil {
 		return err
 	}

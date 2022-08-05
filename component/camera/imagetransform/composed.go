@@ -6,13 +6,14 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
@@ -26,7 +27,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*transformConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -35,9 +36,9 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_to_pretty",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
+			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &camera.AttrConfig{})
+		}, &transformConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -48,7 +49,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*transformConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -57,61 +58,80 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "overlay",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
+			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &camera.AttrConfig{})
+		}, &transformConfig{})
 }
 
 type overlaySource struct {
-	source gostream.ImageSource
+	src  camera.Camera
+	proj rimage.Projector // keep a local copy for faster use
 }
 
 func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) {
-	i, closer, err := os.source.Next(ctx)
+	if os.proj == nil {
+		return nil, nil, transform.ErrNoIntrinsics
+	}
+	pc, err := os.src.NextPointCloud(ctx)
 	if err != nil {
-		return i, closer, err
+		return nil, nil, err
 	}
-	defer closer()
-	ii := rimage.ConvertToImageWithDepth(i)
-	if ii.Depth == nil {
-		return nil, nil, errors.New("no depth")
+	col, dm, err := os.proj.PointCloudToRGBD(pc)
+	if err != nil {
+		return nil, nil, err
 	}
-	return ii.Overlay(), func() {}, nil
+	return rimage.Overlay(col, dm), func() {}, nil
 }
 
-func newOverlay(ctx context.Context, deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+func (os *overlaySource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	return os.src.NextPointCloud(ctx)
+}
+
+func newOverlay(ctx context.Context, deps registry.Dependencies, attrs *transformConfig) (camera.Camera, error) {
 	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
-	imgSrc := &overlaySource{source}
-	proj, _ := camera.GetProjector(ctx, attrs, source)
+	proj, _ := camera.GetProjector(ctx, nil, source)
+	imgSrc := &overlaySource{source, proj}
 	return camera.New(imgSrc, proj)
 }
 
 type depthToPretty struct {
-	source gostream.ImageSource
+	source camera.Camera
+	proj   rimage.Projector // keep a local copy for faster use
 }
 
 func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error) {
-	i, closer, err := dtp.source.Next(ctx)
+	i, release, err := dtp.source.Next(ctx)
 	if err != nil {
-		return i, closer, err
+		return nil, nil, err
 	}
-	defer closer()
-	ii := rimage.ConvertToImageWithDepth(i)
-	if ii.Depth == nil {
-		return nil, nil, errors.New("no depth")
+	dm, err := rimage.ConvertImageToDepthMap(i)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "source camera does not make depth maps")
 	}
-	return rimage.MakeImageWithDepth(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), ii.Depth, true), func() {}, nil
+	return dm.ToPrettyPicture(0, rimage.MaxDepth), release, nil
 }
 
-func newDepthToPretty(ctx context.Context, deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+func (dtp *depthToPretty) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if dtp.proj == nil {
+		return nil, transform.ErrNoIntrinsics
+	}
+	// get the original depth map and colorful output
+	col, dm := camera.SimultaneousColorDepthNext(ctx, dtp, dtp.source)
+	if col == nil || dm == nil {
+		return nil, errors.New("requested color or depth image from camera is nil")
+	}
+	return dtp.proj.RGBDToPointCloud(rimage.ConvertImage(col), dm)
+}
+
+func newDepthToPretty(ctx context.Context, deps registry.Dependencies, attrs *transformConfig) (camera.Camera, error) {
 	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
-	imgSrc := &depthToPretty{source}
-	proj, _ := camera.GetProjector(ctx, attrs, source)
+	proj, _ := camera.GetProjector(ctx, nil, source)
+	imgSrc := &depthToPretty{source, proj}
 	return camera.New(imgSrc, proj)
 }

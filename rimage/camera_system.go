@@ -16,7 +16,7 @@ type Aligner interface {
 	AlignColorAndDepthImage(*Image, *DepthMap) (*Image, *DepthMap, error)
 }
 
-// Projector can transform a scene between a 2D ImageWithDepth and a 3D pointcloud.
+// Projector can transform a scene between a 2D Image and DepthMap and a 3D pointcloud.
 type Projector interface {
 	// Project a 2D RGBD image to 3D pointcloud. Can add an optional crop to the image before projection.
 	RGBDToPointCloud(*Image, *DepthMap, ...image.Rectangle) (pointcloud.PointCloud, error)
